@@ -1,5 +1,10 @@
 // Comprehensive Prisma schema for XDrive Logistics
+// Version: 1.0.0
+// Last Updated: December 2025
 // This schema defines all models and fields expected by the application
+//
+// Note: Default country values are set to 'UK'. For international deployments,
+// consider making this configurable via environment variables or application settings.
 
 generator client {
   provider = "prisma-client-js"

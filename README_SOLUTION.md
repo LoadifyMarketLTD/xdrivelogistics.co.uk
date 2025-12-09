@@ -283,7 +283,12 @@ See `MISSING_DATABASE_COLUMNS.md` for complete details on:
 npx prisma db push
 ```
 
-**⚠️ Warning**: This syncs without creating migrations. Use only for development.
+**⚠️ Important Warning**: 
+- This syncs schema WITHOUT creating migration files
+- Use ONLY in development/testing environments
+- DO NOT use in production - you will lose migration history
+- Potential data loss if schema changes are destructive
+- For production, always use `prisma migrate dev` or `prisma migrate deploy`
 
 ---
 

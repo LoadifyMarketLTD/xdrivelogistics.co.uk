@@ -2,14 +2,22 @@
 -- This script creates all tables and columns required by the Prisma schema
 -- Run this script in your Neon PostgreSQL database
 
+-- ⚠️⚠️⚠️ CRITICAL WARNING ⚠️⚠️⚠️
+-- DO NOT uncomment the DROP TYPE statements below unless you fully understand the consequences
+-- Dropping enum types will CASCADE and delete all data in columns using those types
+-- Only use DROP TYPE during initial development when the database is empty
+-- For production, use ALTER TYPE to add new values to existing enums
+
 -- WARNING: Review this script before running it in production
 -- It creates new tables and may modify existing ones
+-- ALWAYS backup your database before running this script
 
 -- ============================================================================
 -- STEP 1: Create ENUM Types
 -- ============================================================================
 
--- Drop existing enums if they exist (use with caution)
+-- Drop existing enums if they exist (⚠️ DESTRUCTIVE - USE WITH EXTREME CAUTION ⚠️)
+-- Only uncomment these if you are CERTAIN you want to delete all related data
 -- DROP TYPE IF EXISTS "UserRole" CASCADE;
 -- DROP TYPE IF EXISTS "DriverStatus" CASCADE;
 -- DROP TYPE IF EXISTS "DocumentType" CASCADE;
@@ -272,7 +280,7 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'jobs' AND column_name = 'pickupCountry'
+        WHERE table_schema = 'public' AND table_name = 'jobs' AND column_name = 'pickupCountry'
     ) THEN
         ALTER TABLE "jobs" ADD COLUMN "pickupCountry" TEXT NOT NULL DEFAULT 'UK';
     END IF;
@@ -283,7 +291,7 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'driver_profiles' AND column_name = 'isVerified'
+        WHERE table_schema = 'public' AND table_name = 'driver_profiles' AND column_name = 'isVerified'
     ) THEN
         ALTER TABLE "driver_profiles" ADD COLUMN "isVerified" BOOLEAN NOT NULL DEFAULT false;
     END IF;
@@ -292,19 +300,19 @@ END $$;
 -- Add other potentially missing columns for jobs table
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'jobs' AND column_name = 'deliveryCountry') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'jobs' AND column_name = 'deliveryCountry') THEN
         ALTER TABLE "jobs" ADD COLUMN "deliveryCountry" TEXT NOT NULL DEFAULT 'UK';
     END IF;
     
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'jobs' AND column_name = 'packageType') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'jobs' AND column_name = 'packageType') THEN
         ALTER TABLE "jobs" ADD COLUMN "packageType" "PackageType" NOT NULL DEFAULT 'PARCEL';
     END IF;
     
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'jobs' AND column_name = 'status') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'jobs' AND column_name = 'status') THEN
         ALTER TABLE "jobs" ADD COLUMN "status" "JobStatus" NOT NULL DEFAULT 'PENDING';
     END IF;
     
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'jobs' AND column_name = 'priority') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'jobs' AND column_name = 'priority') THEN
         ALTER TABLE "jobs" ADD COLUMN "priority" "JobPriority" NOT NULL DEFAULT 'NORMAL';
     END IF;
 END $$;
