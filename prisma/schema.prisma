@@ -1,6 +1,5 @@
-// Minimal Prisma schema for XDrive Logistics
-// This schema only enables prisma generate to run successfully.
-// Actual models will be introspected later from the Neon database.
+// Comprehensive Prisma schema for XDrive Logistics
+// This schema defines all models and fields expected by the application
 
 generator client {
   provider = "prisma-client-js"
@@ -9,4 +8,440 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// User and Authentication Models
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  password      String
+  role          UserRole       @default(SHIPPER)
+  phone         String?
+  emailVerified Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  // Relations
+  shippedJobs   Job[]          @relation("ShipperJobs")
+  driverProfile DriverProfile?
+  vehicles      Vehicle[]
+  addresses     Address[]
+  payments      Payment[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  DRIVER
+  SHIPPER
+  OPERATOR
+}
+
+// Driver Profile Model
+model DriverProfile {
+  id                 String              @id @default(cuid())
+  userId             String              @unique
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Driver Details
+  licenseNumber      String              @unique
+  licenseExpiry      DateTime
+  licenseType        String
+  isVerified         Boolean             @default(false)
+  verifiedAt         DateTime?
+  
+  // Profile Information
+  rating             Float               @default(0)
+  totalJobs          Int                 @default(0)
+  yearsExperience    Int?
+  dateOfBirth        DateTime?
+  
+  // Insurance & Documents
+  insuranceNumber    String?
+  insuranceExpiry    DateTime?
+  insuranceProvider  String?
+  
+  // Availability
+  isAvailable        Boolean             @default(true)
+  availabilityStatus DriverStatus        @default(OFFLINE)
+  
+  // Location
+  currentLatitude    Float?
+  currentLongitude   Float?
+  lastLocationUpdate DateTime?
+  
+  // Settings
+  preferredRadius    Int?                // in km
+  preferredVehicle   String?
+  
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  
+  // Relations
+  assignedJobs       Job[]               @relation("AssignedDriver")
+  vehicles           Vehicle[]
+  driverDocuments    DriverDocument[]
+
+  @@map("driver_profiles")
+}
+
+enum DriverStatus {
+  ONLINE
+  OFFLINE
+  BUSY
+  ON_BREAK
+}
+
+// Driver Documents Model
+model DriverDocument {
+  id              String        @id @default(cuid())
+  driverProfileId String
+  driverProfile   DriverProfile @relation(fields: [driverProfileId], references: [id], onDelete: Cascade)
+  
+  documentType    DocumentType
+  documentUrl     String
+  documentNumber  String?
+  expiryDate      DateTime?
+  isVerified      Boolean       @default(false)
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("driver_documents")
+}
+
+enum DocumentType {
+  LICENSE
+  INSURANCE
+  ID_CARD
+  VEHICLE_REGISTRATION
+  MOT_CERTIFICATE
+  BACKGROUND_CHECK
+  OTHER
+}
+
+// Vehicle Model
+model Vehicle {
+  id                String        @id @default(cuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  driverProfileId   String?
+  driverProfile     DriverProfile? @relation(fields: [driverProfileId], references: [id])
+  
+  // Vehicle Details
+  make              String
+  model             String
+  year              Int
+  color             String?
+  licensePlate      String        @unique
+  vin               String?       @unique
+  
+  // Specifications
+  vehicleType       VehicleType
+  capacity          Float?        // in cubic meters
+  maxWeight         Float?        // in kg
+  fuelType          FuelType?
+  
+  // Status
+  isActive          Boolean       @default(true)
+  isAvailable       Boolean       @default(true)
+  currentLocation   String?
+  
+  // Documents
+  registrationDate  DateTime?
+  insuranceExpiry   DateTime?
+  motExpiry         DateTime?
+  
+  // Tracking
+  currentLatitude   Float?
+  currentLongitude  Float?
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  // Relations
+  jobs              Job[]
+
+  @@map("vehicles")
+}
+
+enum VehicleType {
+  VAN
+  TRUCK
+  LORRY
+  CARGO_VAN
+  BOX_TRUCK
+  FLATBED
+  REFRIGERATED
+  MOTORCYCLE
+  BICYCLE
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  ELECTRIC
+  HYBRID
+  LPG
+}
+
+// Job Model
+model Job {
+  id                  String        @id @default(cuid())
+  shipperId           String
+  shipper             User          @relation("ShipperJobs", fields: [shipperId], references: [id])
+  driverId            String?
+  driver              DriverProfile? @relation("AssignedDriver", fields: [driverId], references: [id])
+  vehicleId           String?
+  vehicle             Vehicle?      @relation(fields: [vehicleId], references: [id])
+  
+  // Job Details
+  jobNumber           String        @unique @default(cuid())
+  title               String
+  description         String?
+  
+  // Pickup Information
+  pickupAddress       String
+  pickupCity          String
+  pickupPostcode      String
+  pickupCountry       String        @default("UK")
+  pickupLatitude      Float?
+  pickupLongitude     Float?
+  pickupContactName   String?
+  pickupContactPhone  String?
+  pickupDate          DateTime
+  pickupTimeSlot      String?
+  
+  // Delivery Information
+  deliveryAddress     String
+  deliveryCity        String
+  deliveryPostcode    String
+  deliveryCountry     String        @default("UK")
+  deliveryLatitude    Float?
+  deliveryLongitude   Float?
+  deliveryContactName String?
+  deliveryContactPhone String?
+  deliveryDate        DateTime?
+  deliveryTimeSlot    String?
+  
+  // Package Information
+  packageType         PackageType   @default(PARCEL)
+  weight              Float?        // in kg
+  dimensions          String?       // LxWxH in cm
+  quantity            Int           @default(1)
+  value               Float?
+  requiresSignature   Boolean       @default(false)
+  fragile             Boolean       @default(false)
+  specialInstructions String?
+  
+  // Pricing
+  estimatedPrice      Float?
+  finalPrice          Float?
+  currency            String        @default("GBP")
+  
+  // Status & Tracking
+  status              JobStatus     @default(PENDING)
+  priority            JobPriority   @default(NORMAL)
+  estimatedDistance   Float?        // in km
+  estimatedDuration   Int?          // in minutes
+  actualDistance      Float?
+  actualDuration      Int?
+  
+  // Timestamps
+  assignedAt          DateTime?
+  startedAt           DateTime?
+  pickedUpAt          DateTime?
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  cancellationReason  String?
+  
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  
+  // Relations
+  trackingUpdates     TrackingUpdate[]
+  payments            Payment[]
+  reviews             Review[]
+
+  @@map("jobs")
+  @@index([shipperId])
+  @@index([driverId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum JobStatus {
+  PENDING
+  ASSIGNED
+  ACCEPTED
+  IN_PROGRESS
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum JobPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum PackageType {
+  PARCEL
+  DOCUMENT
+  FURNITURE
+  ELECTRONICS
+  FOOD
+  FRAGILE
+  BULK
+  PALLETIZED
+  OTHER
+}
+
+// Tracking Updates Model
+model TrackingUpdate {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  status      JobStatus
+  location    String?
+  latitude    Float?
+  longitude   Float?
+  notes       String?
+  
+  createdAt   DateTime @default(now())
+
+  @@map("tracking_updates")
+  @@index([jobId])
+}
+
+// Address Model
+model Address {
+  id           String       @id @default(cuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  label        String?      // e.g., "Home", "Office"
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  postcode     String
+  country      String       @default("UK")
+  latitude     Float?
+  longitude    Float?
+  
+  isDefault    Boolean      @default(false)
+  
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("addresses")
+}
+
+// Payment Model
+model Payment {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId           String?
+  job             Job?          @relation(fields: [jobId], references: [id])
+  
+  amount          Float
+  currency        String        @default("GBP")
+  
+  paymentMethod   PaymentMethod
+  paymentStatus   PaymentStatus @default(PENDING)
+  
+  stripePaymentId String?       @unique
+  stripeInvoiceId String?
+  
+  paidAt          DateTime?
+  refundedAt      DateTime?
+  refundAmount    Float?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payments")
+  @@index([userId])
+  @@index([jobId])
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  CASH
+  PAYPAL
+  STRIPE
+  WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+// Review Model
+model Review {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  rating      Int      // 1-5
+  comment     String?
+  reviewType  ReviewType
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("reviews")
+  @@index([jobId])
+}
+
+enum ReviewType {
+  DRIVER_TO_SHIPPER
+  SHIPPER_TO_DRIVER
+}
+
+// Notification Model
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  
+  createdAt DateTime         @default(now())
+
+  @@map("notifications")
+  @@index([userId])
+  @@index([isRead])
+}
+
+enum NotificationType {
+  JOB_ASSIGNED
+  JOB_ACCEPTED
+  JOB_COMPLETED
+  JOB_CANCELLED
+  PAYMENT_RECEIVED
+  PAYMENT_FAILED
+  DOCUMENT_EXPIRING
+  SYSTEM
 }
