@@ -1,14 +1,18 @@
 import Markdown from 'markdown-to-jsx'
 
 /**
- * Named export used by context-alert and other components that pass content prop.
- * Accepts either `content` prop (string) or children.
+ * Server-renderable Markdown component.
+ * - Provides a named export `Markdown` used by pages: import { Markdown } from 'components/markdown'
+ * - Provides a default export for other consumers.
  */
-export function MarkdownComp({ content, children }) {
+export function MarkdownComp({ content, children, className }) {
   const body = content ?? children
   if (!body) return null
-  return <div className="markdown"><Markdown>{body}</Markdown></div>
+  return <div className={['markdown', className].filter(Boolean).join(' ')}><Markdown>{body}</Markdown></div>
 }
 
-// Keep default export for any consumers expecting default import
+// Named export required by demo pages
+export const Markdown = MarkdownComp
+
+// Default export for backwards compatibility
 export default MarkdownComp
