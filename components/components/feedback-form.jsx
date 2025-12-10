@@ -1,12 +1,16 @@
+'use client'
 import { useState } from 'react'
 
-export default function FeedbackForm({ onFeedbackSent }) {
+export function FeedbackForm({ onFeedbackSent }) {
   const [text, setText] = useState('')
   const [status, setStatus] = useState('')
 
   const submit = (e) => {
     e.preventDefault()
-    // Placeholder behaviour: client-only confirmation
+    if (!text.trim()) {
+      setStatus('Please enter your feedback before sending.')
+      return
+    }
     setStatus('Thank you — feedback submitted.')
     if (typeof onFeedbackSent === 'function') onFeedbackSent(text)
     setText('')
