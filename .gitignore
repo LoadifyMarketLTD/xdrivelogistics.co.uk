@@ -38,3 +38,13 @@ yarn-error.log*
 
 # Local Netlify folder
 .netlify
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# Accidental output files (prevent database query results, etc.)
+*.shipperId
+*.userId
+*.driverId
+*.jobId
