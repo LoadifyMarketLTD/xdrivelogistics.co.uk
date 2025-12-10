@@ -1,18 +1,25 @@
-import Markdown from 'markdown-to-jsx'
+import MarkdownToJsx from 'markdown-to-jsx'
 
 /**
  * Server-renderable Markdown component.
- * - Provides a named export `Markdown` used by pages: import { Markdown } from 'components/markdown'
- * - Provides a default export for other consumers.
+ * Accepts either content prop or children.
+ * Exports a named Markdown and a default export.
  */
-export function MarkdownComp({ content, children, className }) {
+export function Markdown({ content, children, className }) {
   const body = content ?? children
   if (!body) return null
-  return <div className={['markdown', className].filter(Boolean).join(' ')}><Markdown>{body}</Markdown></div>
+
+  return (
+    <div className={['markdown', className].filter(Boolean).join(' ')}>
+      <MarkdownToJsx
+        options={{
+          forceWrapper: true,
+        }}
+      >
+        {body}
+      </MarkdownToJsx>
+    </div>
+  )
 }
 
-// Named export required by demo pages
-export const Markdown = MarkdownComp
-
-// Default export for backwards compatibility
-export default MarkdownComp
+export default Markdown
