@@ -1,5 +1,7 @@
-:root {
-  --brand: #0A2239;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ :root {
   --brand-accent: #D4AF37;
   --bg: #020617;
   --text: #e5e7eb;
@@ -200,3 +202,4 @@ textarea {
     gap: 6px;
   }
 }
+   --brand: #0A2239;
