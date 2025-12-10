@@ -6,6 +6,7 @@ export default function FeedbackForm({ onFeedbackSent }) {
 
   const submit = (e) => {
     e.preventDefault()
+    // Placeholder behaviour: client-only confirmation
     setStatus('Thank you — feedback submitted.')
     if (typeof onFeedbackSent === 'function') onFeedbackSent(text)
     setText('')
