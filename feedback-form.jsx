@@ -1,35 +1,48 @@
 import { useState } from 'react'
 
 export function FeedbackForm() {
+  const [name, setName] = useState('')
   const [message, setMessage] = useState('')
-  const [status, setStatus] = useState('')
+  const [submitted, setSubmitted] = useState(false)
 
   const onSubmit = (e) => {
     e.preventDefault()
-    if (!message.trim()) {
-      setStatus('Please enter your feedback before sending.')
-      return
-    }
-    setStatus('Thank you for your feedback!')
-    setMessage('')
+    setSubmitted(true)
+  }
+
+  if (submitted) {
+    return <p>Thank you for your feedback, {name || 'driver'}!</p>
   }
 
   return (
-    <form onSubmit={onSubmit} className="feedback-form">
-      <label style={{ display: 'block', fontSize: 14, marginBottom: 6 }}>
-        Feedback
-      </label>
-      <textarea
-        rows={4}
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Tell us what went well or what we can improve."
-        style={{ width: '100%', marginBottom: 8 }}
-      />
-      <button type="submit" className="cta">
-        Send feedback
-      </button>
-      {status && <p style={{ marginTop: 8 }}>{status}</p>}
+    <form onSubmit={onSubmit}>
+      <div style={{ marginBottom: 8 }}>
+        <label>
+          Name
+          <input
+            style={{ display: 'block', width: '100%' }}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Optional"
+          />
+        </label>
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <label>
+          Feedback
+          <textarea
+            style={{ display: 'block', width: '100%' }}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Tell us what you think about XDrive Logistics"
+            rows={4}
+            required
+          />
+        </label>
+      </div>
+      <button type="submit" className="cta">Send feedback</button>
     </form>
   )
 }
+
+export default FeedbackForm

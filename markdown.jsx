@@ -1,15 +1,10 @@
-import dynamic from 'next/dynamic'
-import React from 'react'
+// Simple Markdown-like wrapper to satisfy imports from starter pages.
+// It does NOT parse markdown; it just renders children inside styled content.
 
-const ReactMarkdown = dynamic(() => import('markdown-to-jsx'), { ssr: false })
-
-export function MarkdownComp({ children }) {
-  return (
-    <div className="markdown-content">
-      <ReactMarkdown>{children}</ReactMarkdown>
-    </div>
-  )
+export function Markdown({ children }) {
+  return <div className="markdown">{children}</div>
 }
 
-// Backwards-compatible named export "Markdown" expected by old starter pages
-export const Markdown = MarkdownComp
+export default function MarkdownComp(props) {
+  return <Markdown {...props} />
+}
