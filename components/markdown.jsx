@@ -2,8 +2,8 @@ import MarkdownToJsx from 'markdown-to-jsx'
 
 /**
  * Server-renderable Markdown component.
- * Accepts either content prop or children.
- * Exports a named Markdown and a default export.
+ * Accepts either `content` prop or children.
+ * Exports a named `Markdown` and a default export.
  */
 export function Markdown({ content, children, className }) {
   const body = content ?? children
