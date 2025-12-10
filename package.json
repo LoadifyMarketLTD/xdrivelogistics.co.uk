@@ -27,4 +27,7 @@
     "postcss": "^8.4.36",
     "tailwindcss": "^4.1.15"
   }
+}"engines": {
+  "node": "20.11.1",
+  "npm": "10.2.3"
 }
