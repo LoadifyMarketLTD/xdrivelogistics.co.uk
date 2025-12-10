@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactCompiler: true,
-  
+  // enable React Strict Mode if you want runtime checks in development
+  reactStrictMode: true,
+
   redirects() {
     return [
       {
@@ -26,7 +27,7 @@ const nextConfig = {
       },
     ];
   },
-  
+
   rewrites() {
     return [
       {
@@ -39,6 +40,11 @@ const nextConfig = {
       },
     ];
   },
+
+  // Example: enable SWC styled-components transform if needed
+  // compiler: {
+  //   styledComponents: true,
+  // },
 };
 
 export default nextConfig;
