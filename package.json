@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start"
   },
-  "dependencies": {
+  "devDependencies": {
+  ...
+}
     "next": "^16.0.8",
     "react": "19.2.1",
     "react-dom": "19.2.1",
