@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 
-export function FeedbackForm({ onFeedbackSent }) {
+export default function FeedbackForm({ onFeedbackSent }) {
   const [text, setText] = useState('')
   const [status, setStatus] = useState('')
 
