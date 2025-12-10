@@ -1,5 +1,5 @@
 import FeedbackForm from '@/components/forms/FeedbackForm';
-import { Markdown } from 'components/markdown';
+import { Markdown } from '@/components/markdown';
 
 export const metadata = {
     title: 'Classics'
