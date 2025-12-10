@@ -8,14 +8,17 @@
     "build": "next build",
     "start": "next start"
   },
-  "devDependencies": {
-  ...
-}
+  "dependencies": {
     "next": "^16.0.8",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "@supabase/supabase-js": "^2.46.0",
     "markdown-to-jsx": "^7.7.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.5.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0"
   },
   "engines": {
     "node": ">=20",
