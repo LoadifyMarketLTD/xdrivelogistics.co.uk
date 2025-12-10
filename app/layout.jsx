@@ -1,10 +1,10 @@
-import '../styles/globals.css'
-import { Header } from '../components/header'
-import { Footer } from '../components/footer'
+import './globals.css'
+import Header from '../components/header'
+import Footer from '../components/footer'
 
 export const metadata = {
   title: 'XDrive Logistics — Danny Courier LTD',
-  description: 'Courier and logistics services across the UK — XDrive Logistics'
+  description: 'Professional UK courier and logistics services',
 }
 
 export default function RootLayout({ children }) {
@@ -12,9 +12,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <Header />
-        <main className="container">
-          {children}
-        </main>
+        <main>{children}</main>
         <Footer />
       </body>
     </html>
