@@ -1,5 +1,5 @@
 {
-  "name": "next-netlify-platform-starter",
+  "name": "xdrivelogistics",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -28,7 +28,7 @@
     "tailwindcss": "^4.1.15"
   },
   "engines": {
-    "node": "20.11.1",
-    "npm": "10.2.3"
+    "node": ">=20",
+    "npm": ">=10"
   }
 }
