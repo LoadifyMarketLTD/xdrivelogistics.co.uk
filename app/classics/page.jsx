@@ -1,4 +1,4 @@
-import { FeedbackForm } from 'components/feedback-form';
+import FeedbackForm from '@/components/forms/FeedbackForm';
 import { Markdown } from 'components/markdown';
 
 export const metadata = {
