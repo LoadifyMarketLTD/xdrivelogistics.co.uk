@@ -1,16 +1,13 @@
-import Link from 'next/link';
-
 export default function Footer() {
-    return (
-        <footer className="pt-16 pb-12 sm:pt-24 sm:pb-16">
-            <p className="text-sm">
-                <Link
-                    href="https://docs.netlify.com/frameworks/next-js/overview/"
-                    className="decoration-dashed text-primary underline-offset-8"
-                >
-                    Next.js on Netlify
-                </Link>
-            </p>
-        </footer>
-    );
+  return (
+    <footer className="site-footer">
+      <div className="company-info">
+        <strong>Danny Courier LTD</strong><br />
+        101 Cornelian Street, Blackburn, BB1 9QL, UK
+      </div>
+      <div className="legal">
+        <small>© {new Date().getFullYear()} XDrive Logistics. All rights reserved.</small>
+      </div>
+    </footer>
+  )
 }
