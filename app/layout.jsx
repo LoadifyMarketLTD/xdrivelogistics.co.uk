@@ -4,7 +4,7 @@ import Footer from '../components/footer'
 
 export const metadata = {
   title: 'XDrive Logistics — Danny Courier LTD',
-  description: 'Courier and logistics services across the UK — professional courier and logistics solutions.'
+  description: 'Courier and logistics services across the UK — XDrive Logistics',
 }
 
 export default function RootLayout({ children }) {
