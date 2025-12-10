@@ -7,7 +7,7 @@ const navItems = [
     { linkText: 'Contact', href: '/contact' }
 ];
 
-export function Header() {
+export default function Header() {
     return (
         <nav className="flex flex-wrap items-center gap-4 pt-6 pb-12 sm:pt-12 md:pb-24">
             <Link href="/" className="text-2xl font-bold">XDrive Logistics</Link>
