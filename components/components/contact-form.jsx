@@ -8,6 +8,7 @@ export default function ContactForm() {
 
   const onSubmit = (e) => {
     e.preventDefault()
+    // Minimal front-end placeholder: open mail client if backend not configured
     const mailto = `mailto:info@xdrivelogistics.co.uk?subject=${encodeURIComponent(
       'Website enquiry from ' + name
     )}&body=${encodeURIComponent(message + '\n\nFrom: ' + name + ' <' + email + '>')}`
