@@ -51,7 +51,7 @@ export default function DriverJobsPage() {
         {jobs.map((job) => (
           <Link
             key={job.id}
-            href={/driver/jobs/${job.id}}
+            href={`/driver/jobs/${job.id}`}
             className="block rounded-2xl bg-white shadow-sm border border-slate-200 px-4 py-3"
           >
             <p className="text-xs text-slate-500 mb-1">{job.date}</p>
