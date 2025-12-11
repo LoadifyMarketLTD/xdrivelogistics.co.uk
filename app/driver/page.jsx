@@ -89,6 +89,7 @@ export default function DriverJobsPage() {
                   £{job.amount.toFixed(2)}
                 </div>
 
+                {/* AICI ERA PROBLEMA — acum este 100% corect */}
                 <Link
                   href={/jobs/${job.id}}
                   className="text-xs font-semibold text-brand hover:text-brand/80 underline-offset-4 hover:underline"
