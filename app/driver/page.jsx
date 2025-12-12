@@ -40,7 +40,7 @@ export default function DriverPage() {
               <td className="py-2 px-4">{job.status}</td>
               <td className="py-2 px-4">
                 <a
-                  href={/jobs/${job.id}}
+                  href={`/jobs/${job.id}`}
                   className="text-blue-600 font-semibold"
                 >
                   View
