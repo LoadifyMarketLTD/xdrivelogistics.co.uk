@@ -306,21 +306,7 @@ body {
     max-width: 100%;
   }
   
-  .hero-title {
-    font-size: 2rem;
-  }
-  
   .signin-title {
     font-size: 1.5rem;
-  }
-  
-  .thumbnails {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .thumbnail {
-    width: 200px;
-    height: 133px;
   }
 }
