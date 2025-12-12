@@ -37,6 +37,11 @@ export default function RegisterPage() {
     }
 
     try {
+      // Check if supabase is configured
+      if (!supabaseClient) {
+        throw new Error('Authentication service is not configured');
+      }
+
       // Sign up with Supabase Auth
       const { data, error: signUpError } = await supabaseClient.auth.signUp({
         email,

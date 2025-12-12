@@ -19,6 +19,12 @@ export default function ShipmentsPage() {
   const fetchShipments = async () => {
     try {
       setLoading(true);
+
+      // Check if supabase is configured
+      if (!supabaseClient) {
+        throw new Error('Database service is not configured');
+      }
+
       let query = supabaseClient
         .from('shipments')
         .select('*')

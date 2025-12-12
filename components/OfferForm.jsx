@@ -16,6 +16,13 @@ export default function OfferForm({ shipmentId, onSuccess }) {
     setError(null)
 
     try {
+      // Check if supabase is configured
+      if (!supabaseClient) {
+        setError('Authentication service is not configured')
+        setLoading(false)
+        return
+      }
+
       // Get current user session
       const { data: { session } } = await supabaseClient.auth.getSession()
       
