@@ -48,6 +48,16 @@ export default function RegisterPage() {
 
       // If sign up successful, create profile
       if (data.user) {
+        const { error: profileError } = await supabaseClient
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: email,
+            role: role,
+          });
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
         // Insert profile with role - retries up to 3 times
         let profileCreated = false;
         let retries = 3;
@@ -101,6 +111,19 @@ export default function RegisterPage() {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-4 p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
+            Registration successful! Redirecting to login...
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-sm">
@@ -129,7 +152,6 @@ export default function RegisterPage() {
               >
                 Driver
               </button>
-
               <button
                 type="button"
                 onClick={() => setRole('shipper')}
@@ -145,8 +167,8 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <div className="space-y-1.5 text-sm">
-            <label className="block text-slate-300">Email</label>
+          <div className="space-y-1.5">
+            <label className="block text-sm text-slate-300">Email</label>
             <input
               className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
               type="email"
@@ -157,8 +179,8 @@ export default function RegisterPage() {
             />
           </div>
 
-          <div className="space-y-1.5 text-sm">
-            <label className="block text-slate-300">Password</label>
+          <div className="space-y-1.5">
+            <label className="block text-sm text-slate-300">Password</label>
             <input
               className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
               type="password"
@@ -166,11 +188,12 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
             />
           </div>
 
-          <div className="space-y-1.5 text-sm">
-            <label className="block text-slate-300">Confirm Password</label>
+          <div className="space-y-1.5">
+            <label className="block text-sm text-slate-300">Confirm Password</label>
             <input
               className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
               type="password"
@@ -188,14 +211,14 @@ export default function RegisterPage() {
           >
             {loading ? 'Creating account...' : 'Create account'}
           </button>
-
-          <div className="text-center text-sm text-slate-400 mt-4">
-            Already have an account?{' '}
-            <Link href="/login" className="text-emerald-400 hover:text-emerald-300">
-              Log in here
-            </Link>
-          </div>
         </form>
+
+        <p className="mt-6 text-center text-sm text-slate-400">
+          Already have an account?{' '}
+          <Link href="/login" className="text-emerald-500 hover:text-emerald-400">
+            Log in here
+          </Link>
+        </p>
       </div>
     </div>
   );

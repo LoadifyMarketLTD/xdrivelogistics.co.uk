@@ -1,6 +1,7 @@
 // Minimal Prisma schema for XDrive Logistics
 // This schema only enables prisma generate to run successfully.
-// Actual models will be introspected later from the Neon database.
+// Note: This application uses Supabase, not Prisma, for database operations.
+// This file exists only to satisfy the Netlify build process.
 
 generator client {
   provider = "prisma-client-js"
@@ -9,4 +10,9 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// Dummy model to allow prisma generate to succeed
+model DummyModel {
+  id Int @id @default(autoincrement())
 }

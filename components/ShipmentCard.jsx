@@ -57,10 +57,11 @@ export default function ShipmentCard({ shipment }) {
 
       <Link
         href={`/shipments/${shipment.id}`}
-        className="mt-3 block w-full text-center bg-slate-700 hover:bg-slate-600 text-slate-50 py-2 rounded text-sm font-medium transition"
+        className="mt-3 block w-full text-center bg-emerald-500 hover:bg-emerald-400 text-slate-950 py-2 rounded text-sm font-semibold transition"
       >
         View Details
       </Link>
     </div>
+  );
   )
 }
