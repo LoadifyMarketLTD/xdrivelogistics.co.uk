@@ -162,7 +162,7 @@ body {
     padding: 0;
     margin: -1px;
     overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
     white-space: nowrap;
     border-width: 0;
 }
@@ -299,7 +299,7 @@ body {
 }
 
 /* Medium Screens */
-@media (max-width: 1024px) and (min-width: 769px) {
+@media (max-width: 1024px) and (min-width: 768px) {
     .container {
         grid-template-columns: 1fr 380px;
     }
