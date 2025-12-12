@@ -1,3 +1,27 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { supabaseClient } from '../lib/supabaseClient'
+
+export default function Header() {
+  const [user, setUser] = useState(null)
+
+  useEffect(() => {
+    // Check if user is logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession()
+      setUser(session?.user || null)
+    }
+    
+    checkUser()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user || null)
+      }
+    )
 "use client";
 
 import Link from 'next/link'
@@ -20,6 +44,8 @@ export default function Header() {
     return () => subscription.unsubscribe()
   }, [])
 
+  const handleLogout = async () => {
+    await supabaseClient.auth.signOut()
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
@@ -66,6 +92,15 @@ export default function Header() {
               >
                 Dashboard
               </Link>
+              <Link
+                href="/shipments"
+                className="text-slate-200 hover:text-[#D4AF37] transition-colors"
+              >
+                Shipments
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="text-slate-200 hover:text-red-400 transition-colors"
               <button
                 onClick={handleLogout}
                 className="text-slate-200 hover:text-[#D4AF37] transition-colors"
@@ -74,6 +109,26 @@ export default function Header() {
               </button>
             </>
           ) : (
+            <>
+              <Link
+                href="/loads"
+                className="text-slate-200 hover:text-[#D4AF37] transition-colors"
+              >
+                Loads
+              </Link>
+              <Link
+                href="/login"
+                className="text-slate-200 hover:text-[#D4AF37] transition-colors"
+              >
+                Login
+              </Link>
+              <Link
+                href="/register"
+                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-md font-medium transition-colors"
+              >
+                Register
+              </Link>
+            </>
             <Link
               href="/login"
               className="text-slate-200 hover:text-[#D4AF37] transition-colors"
