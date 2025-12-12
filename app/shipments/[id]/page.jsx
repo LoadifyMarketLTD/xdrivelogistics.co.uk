@@ -359,5 +359,6 @@ export default function ShipmentDetailPage({ params }) {
         </div>
       </main>
     </div>
+    </div>
   );
 }
