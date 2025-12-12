@@ -50,19 +50,8 @@ export default function RegisterPage() {
 
       if (signUpError) throw signUpError;
 
-      // If sign up successful, create profile
+      // If sign up successful, create profile with retries
       if (data.user) {
-        const { error: profileError } = await supabaseClient
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            email: email,
-            role: role,
-          });
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-        // Insert profile with role - retries up to 3 times
         let profileCreated = false;
         let retries = 3;
         
@@ -95,8 +84,6 @@ export default function RegisterPage() {
       }, 2000);
     } catch (error) {
       setError(error.message);
-    } catch (err) {
-      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -130,19 +117,6 @@ export default function RegisterPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded text-emerald-400 text-sm">
-              Registration successful! Redirecting to login...
-            </div>
-          )}
-
           <div className="space-y-2">
             <label className="block text-sm text-slate-300">Account Type</label>
             <div className="inline-flex w-full items-center rounded-lg bg-slate-900 p-1 text-xs ring-1 ring-slate-800">
