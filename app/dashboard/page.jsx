@@ -1,8 +1,4 @@
-// app/driver/dashboard/page.jsx
-export const metadata = {
-  title: "Driver Dashboard | XDrive Logistics",
-  description: "Driver dashboard – active jobs, profile and history",
-};
+"use client";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -56,66 +52,19 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
-export default function DriverDashboardPage() {
-  return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Driver Dashboard
-        </h1>
-        <p className="text-sm text-gray-500">
-          Welcome back, Daniel Preda
-        </p>
-      </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT COLUMN */}
-        <div className="space-y-6">
-          {/* Driver Card */}
-          <div className="bg-white rounded-xl shadow p-6 text-center">
-            <img
-              src="/driver.jpg"
-              alt="Driver"
-              className="mx-auto h-24 w-24 rounded-full object-cover"
-            />
-            <h2 className="mt-4 text-lg font-semibold">
-              Daniel Preda
-            </h2>
-            <p className="text-sm text-gray-500">Driver</p>
-
-            <button className="mt-4 w-full rounded-lg bg-blue-600 py-2 text-white hover:bg-blue-700">
-              Go Offline
-            </button>
-          </div>
-
-          {/* Active Job Card */}
-          <div className="bg-white rounded-xl shadow p-6">
-            <h3 className="font-semibold mb-3">Active Job</h3>
-            <div className="text-sm space-y-2">
-              <p><strong>#29345</strong></p>
-              <p>Pickup: Glasgow</p>
-              <p>Delivery: Newcastle</p>
-              <p className="text-gray-500">
-                15/12/2023 • 14:00 – 18:30
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Driver Info */}
-          <div className="bg-white rounded-xl shadow p-6">
-            <h3 className="font-semibold mb-4">Driver Info</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-gray-500">Email</p>
-                <p>danie@example.com</p>
-              </div>
-
+  const fetchShipments = async (userId, role) => {
+    try {
+      let query = supabaseClient.from('shipments').select('*');
+      
+      if (role === 'driver') {
+        query = query.eq('driver_id', userId);
+      } else if (role === 'client') {
+        query = query.eq('client_id', userId);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
       if (error) throw error;
       setShipments(data || []);
     } catch (err) {
@@ -128,20 +77,17 @@ export default function DriverDashboardPage() {
     await supabaseClient.auth.signOut();
     router.push('/login');
   };
-              <div>
-                <p className="text-gray-500">Phone</p>
-                <p>+44 7123 45789</p>
-              </div>
 
-              <div>
-                <p className="text-gray-500">Vehicle</p>
-                <p>Mercedes Sprinter LWB</p>
-              </div>
-
-              <div>
-                <p className="text-gray-500">Registration</p>
-                <p>SF19 WZC</p>
-              </div>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto"></div>
+          <p className="mt-4 text-slate-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
@@ -170,69 +116,51 @@ export default function DriverDashboardPage() {
             </button>
           </div>
         </div>
-              <div>
-                <p className="text-gray-500">Rating</p>
-                <p>★★★★★</p>
-              </div>
 
-              <div>
-                <p className="text-gray-500">Verification</p>
-                <p>ID + Full Insurance</p>
-              </div>
-            </div>
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-4 rounded-md bg-red-500/10 border border-red-500/20 text-red-400">
+            {error}
+          </div>
+        )}
+
+        {/* Dashboard Content */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Stats Cards */}
+          <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
+            <h3 className="text-sm font-medium text-slate-400 mb-2">Total Shipments</h3>
+            <p className="text-3xl font-bold">{shipments.length}</p>
           </div>
 
-          {/* Active Jobs Table */}
-          <div className="bg-white rounded-xl shadow p-6">
-            <h3 className="font-semibold mb-4">Active Jobs</h3>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-gray-500">
-                    <th className="pb-2">Job</th>
-                    <th className="pb-2">Pickup</th>
-                    <th className="pb-2">Delivery</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  <tr>
-                    <td className="py-2">#29345</td>
-                    <td>Glasgow</td>
-                    <td>Newcastle</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2">#29304</td>
-                    <td>Liverpool</td>
-                    <td>Glasgow</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2">#29287</td>
-                    <td>Manchester</td>
-                    <td>Edinburgh</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2">#29256</td>
-                    <td>Birmingham</td>
-                    <td>Derby</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2">#29236</td>
-                    <td>York</td>
-                    <td>Inverness</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Job History */}
-          <div className="bg-white rounded-xl shadow p-6">
-            <h3 className="font-semibold mb-4">Job History</h3>
-            <p className="text-sm text-gray-500">
-              Completed jobs will appear here.
+          <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
+            <h3 className="text-sm font-medium text-slate-400 mb-2">Active</h3>
+            <p className="text-3xl font-bold">
+              {shipments.filter(s => s.status === 'in_transit' || s.status === 'pending').length}
             </p>
           </div>
+
+          <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
+            <h3 className="text-sm font-medium text-slate-400 mb-2">Completed</h3>
+            <p className="text-3xl font-bold">
+              {shipments.filter(s => s.status === 'delivered').length}
+            </p>
+          </div>
+        </div>
+
+        {/* Recent Shipments */}
+        <div className="mt-8">
+          <h2 className="text-xl font-bold mb-4">Recent Shipments</h2>
+          {shipments.length === 0 ? (
+            <div className="bg-slate-900 rounded-lg p-8 border border-slate-800 text-center">
+              <p className="text-slate-400">No shipments found</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {shipments.slice(0, 6).map((shipment) => (
+                <ShipmentCard key={shipment.id} shipment={shipment} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -29,12 +29,6 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (error) {
       setError(error.message);
-      // Redirect to dashboard after successful login
-      router.push('/dashboard');
-    } catch (error) {
-      setError(error.message);
-    } catch (err) {
-      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -73,48 +67,7 @@ export default function LoginPage() {
               required
             />
           </div>
-          {error && (
-            <div className="mb-4 p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-              {error}
-            </div>
-          )}
 
-          {/* LOGIN FORM */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5 text-xs">
-              <label className="block text-slate-300">Email</label>
-              <input
-                className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
-                type="email"
-                placeholder="driver@xdrive.co.uk"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-1.5 text-xs">
-              <label className="block text-slate-300">Password</label>
-              <input
-                className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-2 w-full rounded-md bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Logging in...' : 'Log in'}
-            </button>
-          </form>
-
-        </div>
           <div className="space-y-1.5">
             <label className="block text-sm text-slate-300">Password</label>
             <input
