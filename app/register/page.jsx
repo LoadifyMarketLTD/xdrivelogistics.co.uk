@@ -5,28 +5,35 @@ import { useRouter } from 'next/navigation';
 import supabase from '@/lib/supabaseClient';
 import Link from 'next/link';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('driver');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Sign up with Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            role: role, // Store role in user metadata
+          },
+        },
       });
 
       if (error) throw error;
 
-      // Redirect to dashboard on success
-      router.push('/dashboard');
+      // Redirect to login or dashboard
+      router.push('/login');
     } catch (error) {
       setError(error.message);
     } finally {
@@ -93,15 +100,15 @@ export default function LoginPage() {
         </main>
       </div>
 
-      {/* RIGHT LOGIN PANEL */}
+      {/* RIGHT REGISTER PANEL */}
       <div className="w-full lg:max-w-md bg-slate-950 flex flex-col justify-center px-6 py-10 sm:px-10">
         <div className="mx-auto w-full max-w-sm">
           
           <h1 className="text-xl font-semibold tracking-tight text-slate-50 mb-2">
-            Log in to your account
+            Create your account
           </h1>
           <p className="text-xs text-slate-400 mb-6">
-            Enter your details to access loads, routes, profit dashboard and invoices.
+            Join XDrive Logistics as a driver or shipper.
           </p>
 
           {error && (
@@ -110,14 +117,14 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* LOGIN FORM */}
-          <form onSubmit={handleLogin} className="space-y-4">
+          {/* REGISTER FORM */}
+          <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-1.5 text-xs">
               <label className="block text-slate-300">Email</label>
               <input
                 className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
                 type="email"
-                placeholder="driver@xdrive.co.uk"
+                placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -133,7 +140,22 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={6}
               />
+              <p className="text-xs text-slate-500">Minimum 6 characters</p>
+            </div>
+
+            <div className="space-y-1.5 text-xs">
+              <label className="block text-slate-300">Account Type</label>
+              <select
+                className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                required
+              >
+                <option value="driver">Driver</option>
+                <option value="shipper">Shipper / Operator</option>
+              </select>
             </div>
 
             <button
@@ -141,14 +163,14 @@ export default function LoginPage() {
               disabled={loading}
               className="mt-2 w-full rounded-md bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
             >
-              {loading ? 'Logging in...' : 'Log in'}
+              {loading ? 'Creating account...' : 'Create account'}
             </button>
           </form>
 
           <p className="mt-6 text-center text-xs text-slate-400">
-            Don't have an account?{' '}
-            <Link href="/register" className="text-emerald-500 hover:text-emerald-400">
-              Register here
+            Already have an account?{' '}
+            <Link href="/login" className="text-emerald-500 hover:text-emerald-400">
+              Log in here
             </Link>
           </p>
 
