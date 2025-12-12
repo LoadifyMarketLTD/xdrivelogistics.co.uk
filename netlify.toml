@@ -3,7 +3,7 @@
 # If using Netlify, ensure Node.js 20+ is configured (or set via package.json engines/.nvmrc)
 
 [build]
-  command = "npm run build"
+  command = "npx prisma@5 generate --schema=./prisma/schema.prisma && npm run build"
   # Netlify auto-detects the publish directory for Next.js
 
 [build.environment]
