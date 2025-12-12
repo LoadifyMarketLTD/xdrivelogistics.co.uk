@@ -1,208 +1,406 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import supabaseClient from '../../../lib/supabaseClient'
-import OfferForm from '../../../components/OfferForm'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabaseClient } from '../../../lib/supabaseClient';
+import { formatDate, formatStatus, getStatusClasses } from '../../../lib/utils';
+import OfferForm from '../../../components/OfferForm';
 
 export default function ShipmentDetailPage({ params }) {
-  const router = useRouter()
-  const [shipment, setShipment] = useState(null)
-  const [offers, setOffers] = useState([])
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import supabase from '@/lib/supabaseClient';
+import OfferForm from '@/components/OfferForm';
+import Link from 'next/link';
+
+export default function ShipmentDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const [shipment, setShipment] = useState(null);
+  const [offers, setOffers] = useState([]);
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   useEffect(() => {
-    checkUser()
-    fetchShipmentDetails()
-  }, [params.id])
+    fetchData();
+  }, [params.id]);
 
-  const checkUser = async () => {
+  const fetchData = async () => {
     try {
-      if (!supabaseClient) return
+      setLoading(true);
 
-      const { data: { user } } = await supabaseClient.auth.getUser()
-      setUser(user)
-    } catch (err) {
-      console.error('Error checking user:', err)
-    }
-  }
+      // Get current user
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        setUser(session.user);
 
-  const fetchShipmentDetails = async () => {
-    try {
-      const response = await fetch(`/api/shipments/${params.id}`)
-      const data = await response.json()
+        // Get user profile
+        const { data: profileData } = await supabaseClient
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        setProfile(profileData);
+      }
 
-      if (response.ok) {
-        setShipment(data.shipment)
-        setOffers(data.offers || [])
+      // Fetch shipment details
+      const { data: shipmentData, error: shipmentError } = await supabaseClient
+        .from('shipments')
+        .select('*')
+        .eq('id', params.id)
+        .single();
+
+      if (shipmentError) throw shipmentError;
+      setShipment(shipmentData);
+
+      // Fetch offers for this shipment
+      const { data: offersData, error: offersError } = await supabaseClient
+        .from('offers')
+        .select('*, profiles(email)')
+        .eq('shipment_id', params.id)
+        .order('created_at', { ascending: false });
+
+      if (offersError) {
+        console.error('Error fetching offers:', offersError);
       } else {
-        throw new Error(data.error || 'Failed to fetch shipment')
+        setOffers(offersData || []);
       }
     } catch (err) {
-      setError(err.message)
+      console.error('Error fetching data:', err);
+      setError(err.message);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkUser();
+    loadShipment();
+    loadOffers();
+  }, [params.id]);
+
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+  };
+
+  const loadShipment = async () => {
+    try {
+      const response = await fetch(`/api/shipments/${params.id}`);
+      const data = await response.json();
+      setShipment(data.shipment);
+    } catch (error) {
+      console.error('Error loading shipment:', error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  const handleOfferSuccess = (newOffer) => {
+    setOffers([newOffer, ...offers]);
+    setSuccessMessage('Offer submitted successfully!');
+    // Clear success message after 5 seconds
+    setTimeout(() => setSuccessMessage(null), 5000);
+  const loadOffers = async () => {
+    try {
+      const response = await fetch(`/api/offers?shipmentId=${params.id}`);
+      const data = await response.json();
+      setOffers(data.offers || []);
+    } catch (error) {
+      console.error('Error loading offers:', error);
+    }
+  };
 
   const handleOfferSubmitted = () => {
-    // Refresh the shipment details to show the new offer
-    fetchShipmentDetails()
-  }
+    loadOffers();
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-lg">Loading...</div>
-        </div>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-slate-400">Loading...</div>
       </div>
-    )
+    );
   }
 
   if (error || !shipment) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center py-12">
-            <p className="text-red-400 text-lg mb-4">{error || 'Shipment not found'}</p>
-            <a
-              href="/shipments"
-              className="text-emerald-400 hover:text-emerald-300 underline"
-            >
-              Back to shipments
-            </a>
-          </div>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error || 'Shipment not found'}</p>
+          <Link
+            href="/shipments"
+            className="text-emerald-400 hover:text-emerald-300"
+          >
+            Back to Shipments
+          </Link>
         </div>
+  if (!shipment) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-slate-400">Shipment not found</div>
       </div>
-    )
+    );
   }
-
-  const isDriver = user?.user_metadata?.role === 'driver'
-  const canMakeOffer = isDriver && shipment.status === 'open'
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Back button */}
-        <button
-          onClick={() => router.back()}
-          className="mb-6 text-sm text-slate-400 hover:text-slate-200"
-        >
-          ← Back
-        </button>
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-6">
+          <Link
+            href="/shipments"
+            className="text-emerald-400 hover:text-emerald-300 text-sm mb-4 inline-block"
+          >
+            ← Back to Shipments
+          </Link>
+          <h1 className="text-3xl font-bold">Shipment Details</h1>
+        </div>
 
-        {/* Shipment details */}
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 mb-8">
+        {/* Shipment Info Card */}
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 mb-6">
           <div className="flex justify-between items-start mb-4">
-            <h1 className="text-2xl font-bold">{shipment.title}</h1>
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              shipment.status === 'open' 
-                ? 'bg-emerald-500/20 text-emerald-400' 
-                : 'bg-slate-700 text-slate-300'
-            }`}>
-              {shipment.status}
+            <div>
+              <h2 className="text-2xl font-semibold text-slate-50">
+                {shipment.pickup_location} → {shipment.delivery_location}
+              </h2>
+            </div>
+            <span className={`px-3 py-1 rounded text-sm font-medium ${getStatusClasses(shipment.status)}`}>
+              {formatStatus(shipment.status)}
             </span>
           </div>
 
-          {shipment.description && (
-            <p className="text-slate-300 mb-4">{shipment.description}</p>
-          )}
-
-          <div className="grid md:grid-cols-2 gap-4 text-sm">
+          <div className="grid md:grid-cols-2 gap-4 mb-4">
             <div>
-              <span className="text-slate-400">Origin:</span>
-              <div className="font-medium">{shipment.origin}</div>
+              <h3 className="text-xs font-semibold uppercase text-slate-400 mb-2">
+                Pickup Date
+              </h3>
+              <p className="text-slate-50">{formatDate(shipment.pickup_date)}</p>
             </div>
-            <div>
-              <span className="text-slate-400">Destination:</span>
-              <div className="font-medium">{shipment.destination}</div>
-            </div>
-            {shipment.price_estimate && (
+            {shipment.delivery_date && (
               <div>
-                <span className="text-slate-400">Price Estimate:</span>
-                <div className="font-medium">£{parseFloat(shipment.price_estimate).toFixed(2)}</div>
+                <h3 className="text-xs font-semibold uppercase text-slate-400 mb-2">
+                  Delivery Date
+                </h3>
+                <p className="text-slate-50">{formatDate(shipment.delivery_date)}</p>
               </div>
             )}
-            <div>
-              <span className="text-slate-400">Posted:</span>
-              <div className="font-medium">
-                {new Date(shipment.created_at).toLocaleDateString()}
-              </div>
+          </div>
+
+          {shipment.description && (
+            <div className="mb-4">
+              <h3 className="text-xs font-semibold uppercase text-slate-400 mb-2">
+                Description
+              </h3>
+              <p className="text-slate-300">{shipment.description}</p>
             </div>
+          )}
+
+          <div className="grid md:grid-cols-3 gap-4">
+            {shipment.weight && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase text-slate-400 mb-1">
+                  Weight
+                </h3>
+                <p className="text-slate-50">{shipment.weight} kg</p>
+              </div>
+            )}
+            {shipment.dimensions && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase text-slate-400 mb-1">
+                  Dimensions
+                </h3>
+                <p className="text-slate-50">{shipment.dimensions}</p>
+              </div>
+            )}
+            {shipment.price && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase text-slate-400 mb-1">
+                  Budget
+                </h3>
+                <p className="text-xl font-semibold text-emerald-400">
+                  £{shipment.price}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Offers section */}
-        <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4">
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400">
+            {successMessage}
+          </div>
+        )}
+
+        {/* Offer Form - Only show for logged-in drivers on pending shipments */}
+        {user && profile?.role === 'driver' && shipment.status === 'pending' && (
+          <div className="mb-6">
+            <OfferForm shipmentId={shipment.id} onSuccess={handleOfferSuccess} />
+          </div>
+        )}
+
+        {/* Offers List */}
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">
             Offers ({offers.length})
           </h2>
-
+          
           {offers.length === 0 ? (
-            <div className="bg-slate-900 border border-slate-800 rounded-lg p-8 text-center text-slate-400">
-              No offers yet
-            </div>
+            <p className="text-slate-400 text-center py-8">
+              No offers yet for this shipment
+            </p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {offers.map((offer) => (
                 <div
                   key={offer.id}
-                  className="bg-slate-900 border border-slate-800 rounded-lg p-4"
+                  className="border border-slate-700 rounded-lg p-4 bg-slate-800"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <div className="font-semibold text-emerald-400">
-                      £{parseFloat(offer.price).toFixed(2)}
+                    <div>
+                      <p className="text-sm text-slate-400">
+                        From: {offer.profiles?.email || 'Unknown driver'}
+                      </p>
                     </div>
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      offer.status === 'pending'
-                        ? 'bg-yellow-500/20 text-yellow-400'
-                        : offer.status === 'accepted'
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-slate-700 text-slate-300'
-                    }`}>
-                      {offer.status}
-                    </span>
+                    <div className="text-xl font-semibold text-emerald-400">
+                      £{offer.price}
+                    </div>
                   </div>
+                  {offer.estimated_delivery_date && (
+                    <p className="text-sm text-slate-300 mb-2">
+                      Estimated delivery: {formatDate(offer.estimated_delivery_date)}
+                    </p>
+                  )}
                   {offer.notes && (
                     <p className="text-sm text-slate-300">{offer.notes}</p>
                   )}
-                  <div className="text-xs text-slate-500 mt-2">
-                    {new Date(offer.created_at).toLocaleString()}
-                  </div>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Submitted: {formatDate(offer.created_at)}
+                  </p>
                 </div>
               ))}
             </div>
           )}
         </div>
-
-        {/* Offer form for drivers */}
-        {canMakeOffer && (
-          <div>
-            <h2 className="text-xl font-bold mb-4">Submit Your Offer</h2>
-            <OfferForm
-              shipmentId={params.id}
-              onOfferSubmitted={handleOfferSubmitted}
-            />
-          </div>
-        )}
-
-        {!user && shipment.status === 'open' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 text-center">
-            <p className="text-slate-300 mb-4">
-              Want to make an offer on this shipment?
-            </p>
-            <a
-              href="/login"
-              className="inline-block px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold rounded-md"
-            >
-              Log in as Driver
-            </a>
-          </div>
-        )}
       </div>
+  const userRole = user?.user_metadata?.role;
+  const isDriver = userRole === 'driver';
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-50">
+      {/* Header */}
+      <header className="border-b border-slate-800 bg-slate-900/50">
+        <div className="container mx-auto px-4 py-4">
+          <Link
+            href="/shipments"
+            className="text-sm text-slate-400 hover:text-slate-50"
+          >
+            ← Back to Shipments
+          </Link>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Shipment Details */}
+          <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-6 mb-6">
+            <div className="flex justify-between items-start mb-4">
+              <h1 className="text-2xl font-semibold">
+                {shipment.pickup_location} → {shipment.delivery_location}
+              </h1>
+              <span className="px-3 py-1 bg-slate-800 rounded-full text-xs capitalize">
+                {shipment.status}
+              </span>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6 text-sm">
+              <div>
+                <h3 className="text-slate-400 mb-2">Pickup Details</h3>
+                <p className="mb-1">{shipment.pickup_location}</p>
+                <p className="text-slate-400">
+                  Date: {new Date(shipment.pickup_date).toLocaleString()}
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-slate-400 mb-2">Delivery Details</h3>
+                <p className="mb-1">{shipment.delivery_location}</p>
+              </div>
+
+              <div>
+                <h3 className="text-slate-400 mb-2">Cargo Information</h3>
+                <p className="capitalize">Type: {shipment.cargo_type}</p>
+                <p>Weight: {shipment.weight}kg</p>
+              </div>
+
+              <div>
+                <h3 className="text-slate-400 mb-2">Created</h3>
+                <p>{new Date(shipment.created_at).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Offers Section */}
+          <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">Offers ({offers.length})</h2>
+            
+            {offers.length === 0 ? (
+              <p className="text-slate-400 text-sm">No offers yet</p>
+            ) : (
+              <div className="space-y-3">
+                {offers.map((offer) => (
+                  <div
+                    key={offer.id}
+                    className="bg-slate-900 border border-slate-800 rounded-lg p-4"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="font-semibold">£{offer.price}</div>
+                      <span className="px-2 py-1 bg-slate-800 rounded text-xs capitalize">
+                        {offer.status}
+                      </span>
+                    </div>
+                    {offer.notes && (
+                      <p className="text-sm text-slate-400">{offer.notes}</p>
+                    )}
+                    <p className="text-xs text-slate-500 mt-2">
+                      {new Date(offer.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Offer Form for Drivers */}
+          {user && isDriver && (
+            <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-6">
+              <h2 className="text-xl font-semibold mb-4">Submit Your Offer</h2>
+              <OfferForm
+                shipmentId={params.id}
+                driverId={user.id}
+                onOfferSubmitted={handleOfferSubmitted}
+              />
+            </div>
+          )}
+
+          {!user && (
+            <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-6 text-center">
+              <p className="text-slate-400 mb-4">
+                Please log in to submit an offer
+              </p>
+              <Link
+                href="/login"
+                className="inline-block px-6 py-2 bg-emerald-500 text-slate-950 font-semibold rounded-md hover:bg-emerald-400"
+              >
+                Log In
+              </Link>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
-  )
+  );
 }

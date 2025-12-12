@@ -2,7 +2,31 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import supabaseClient from '../lib/supabaseClient'
+import { supabaseClient } from '../lib/supabaseClient'
+
+export default function Header() {
+  const [user, setUser] = useState(null)
+
+  useEffect(() => {
+    // Check if user is logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession()
+      setUser(session?.user || null)
+    }
+    
+    checkUser()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user || null)
+      }
+    )
+"use client";
+
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import supabase from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 
 export default function Header() {
@@ -11,30 +35,24 @@ export default function Header() {
 
   useEffect(() => {
     checkUser()
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null)
+    })
 
-    // Listen for auth state changes
-    const { data: { subscription } } = supabaseClient?.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null)
-      }
-    ) || { data: { subscription: null } }
-
-    return () => {
-      subscription?.unsubscribe()
-    }
+    return () => subscription.unsubscribe()
   }, [])
 
+  const handleLogout = async () => {
+    await supabaseClient.auth.signOut()
   const checkUser = async () => {
-    if (!supabaseClient) return
-    
-    const { data: { user } } = await supabaseClient.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
   }
 
   const handleLogout = async () => {
-    if (!supabaseClient) return
-    
-    await supabaseClient.auth.signOut()
+    await supabase.auth.signOut()
     setUser(null)
     router.push('/')
   }
@@ -74,6 +92,15 @@ export default function Header() {
               >
                 Dashboard
               </Link>
+              <Link
+                href="/shipments"
+                className="text-slate-200 hover:text-[#D4AF37] transition-colors"
+              >
+                Shipments
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="text-slate-200 hover:text-red-400 transition-colors"
               <button
                 onClick={handleLogout}
                 className="text-slate-200 hover:text-[#D4AF37] transition-colors"
@@ -84,6 +111,12 @@ export default function Header() {
           ) : (
             <>
               <Link
+                href="/loads"
+                className="text-slate-200 hover:text-[#D4AF37] transition-colors"
+              >
+                Loads
+              </Link>
+              <Link
                 href="/login"
                 className="text-slate-200 hover:text-[#D4AF37] transition-colors"
               >
@@ -91,11 +124,17 @@ export default function Header() {
               </Link>
               <Link
                 href="/register"
-                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold rounded transition-colors"
+                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-md font-medium transition-colors"
               >
                 Register
               </Link>
             </>
+            <Link
+              href="/login"
+              className="text-slate-200 hover:text-[#D4AF37] transition-colors"
+            >
+              Login
+            </Link>
           )}
         </nav>
       </div>

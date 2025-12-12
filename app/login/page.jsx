@@ -1,42 +1,60 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import supabaseClient from '../../lib/supabaseClient'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabaseClient } from '../../lib/supabaseClient';
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [accountType, setAccountType] = useState('driver')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const router = useRouter();
+  const [accountType, setAccountType] = useState('driver');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
     try {
-      if (!supabaseClient) {
-        throw new Error('Supabase client not initialized')
-      }
-
       const { data, error } = await supabaseClient.auth.signInWithPassword({
+import supabase from '@/lib/supabaseClient';
+import Link from 'next/link';
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
-      })
+      });
 
-      if (error) throw error
+      if (error) throw error;
 
       // Redirect to dashboard after successful login
-      router.push('/dashboard')
+      router.push('/dashboard');
     } catch (err) {
-      setError(err.message || 'Failed to log in')
+      setError(err.message);
+      // Redirect to dashboard on success
+      router.push('/dashboard');
+    } catch (error) {
+      setError(error.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 flex">
@@ -108,35 +126,21 @@ export default function LoginPage() {
             Enter your details to access loads, routes, profit dashboard and invoices.
           </p>
 
-          {/* Driver / Operator selector */}
-          <div className="mb-5 inline-flex items-center rounded-full bg-slate-900 p-1 text-[11px] ring-1 ring-slate-800">
-            <button
-              onClick={() => setAccountType('driver')}
-              className={
-                'px-3 py-1.5 rounded-full transition ' +
-                (accountType === 'driver'
-                  ? 'bg-emerald-500 text-slate-950 font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200')
-              }
-            >
-              Driver
-            </button>
-
-            <button
-              onClick={() => setAccountType('operator')}
-              className={
-                'px-3 py-1.5 rounded-full transition ' +
-                (accountType === 'operator'
-                  ? 'bg-emerald-500 text-slate-950 font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200')
-              }
-            >
-              Operator / Shipper
-            </button>
-          </div>
+          {error && (
+            <div className="mb-4 p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+              {error}
+            </div>
+          )}
 
           {/* LOGIN FORM */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-xs">
+                {error}
+              </div>
+            )}
+
+          <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5 text-xs">
               <label className="block text-slate-300">Email</label>
               <input
@@ -170,17 +174,25 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
+              className="mt-2 w-full rounded-md bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
               className="mt-2 w-full rounded-md bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
             >
               {loading ? 'Logging in...' : 'Log in'}
             </button>
+
+            <div className="text-center text-xs text-slate-400 mt-4">
+              Don't have an account?{' '}
+              <Link href="/register" className="text-emerald-400 hover:text-emerald-300">
+                Register here
+              </Link>
+            </div>
           </form>
 
-          <p className="mt-4 text-xs text-slate-400 text-center">
+          <p className="mt-6 text-center text-xs text-slate-400">
             Don't have an account?{' '}
-            <a href="/register" className="text-emerald-400 hover:text-emerald-300">
-              Sign up
-            </a>
+            <Link href="/register" className="text-emerald-500 hover:text-emerald-400">
+              Register here
+            </Link>
           </p>
 
         </div>

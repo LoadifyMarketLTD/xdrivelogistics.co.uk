@@ -1,27 +1,106 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabase } from '../../../lib/supabaseClient'
+import { createServerSupabaseClient } from '../../../lib/supabaseClient'
+import { verifyAuth } from '../../../lib/auth'
 
-/**
- * GET /api/shipments
- * Returns a list of shipments with optional filtering
- * Query params: status, limit
- */
+// POST /api/shipments - Create a new shipment
+export async function POST(request) {
+  try {
+    // Verify authentication
+    const { user, error: authError } = await verifyAuth(request)
+    if (authError || !user) {
+      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+    }
+
+    const supabase = createServerSupabaseClient()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 })
+    }
+
+    const body = await request.json()
+    const {
+      pickup_location,
+      delivery_location,
+      pickup_date,
+      delivery_date,
+      weight,
+      dimensions,
+      description,
+      price,
+    } = body
+
+    // Validate required fields
+    if (!pickup_location || !delivery_location || !pickup_date) {
+      return NextResponse.json(
+        { error: 'Missing required fields: pickup_location, delivery_location, pickup_date' },
+        { status: 400 }
+      )
+    }
+
+    // Create shipment in database
+    const { data, error } = await supabase
+      .from('shipments')
+      .insert({
+        user_id: user.id,
+        pickup_location,
+        delivery_location,
+        pickup_date,
+        delivery_date,
+        weight,
+        dimensions,
+        description,
+        price,
+        status: 'pending',
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error creating shipment:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(data, { status: 201 })
+  } catch (error) {
+    console.error('Error in POST /api/shipments:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// GET /api/shipments - List shipments with optional filters
 export async function GET(request) {
   try {
+    const supabase = createServerSupabaseClient()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 })
+    }
+
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const userId = searchParams.get('userId')
 
-    const supabase = createServerSupabase()
+import { createServerSupabaseClient } from '@/lib/supabaseClient'
+
+// GET /api/shipments - List shipments
+export async function GET(request) {
+  try {
+    const supabase = createServerSupabaseClient()
+    const { searchParams } = new URL(request.url)
+    
+    // Optional filters
+    const status = searchParams.get('status')
+    const userId = searchParams.get('userId')
     
     let query = supabase
       .from('shipments')
-      .select('id, title, description, origin, destination, price_estimate, status, created_at, created_by')
+      .select('*')
       .order('created_at', { ascending: false })
-      .limit(limit)
 
+    // Apply filters
     if (status) {
       query = query.eq('status', status)
+    }
+    if (userId) {
+      query = query.eq('user_id', userId)
     }
 
     const { data, error } = await query
@@ -31,72 +110,77 @@ export async function GET(request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    return NextResponse.json(data || [])
+  } catch (error) {
+    console.error('Error in GET /api/shipments:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    
+    if (status) {
+      query = query.eq('status', status)
+    }
+    
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
+    
+    const { data, error } = await query
+    
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+    
     return NextResponse.json({ shipments: data })
   } catch (error) {
-    console.error('Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
-/**
- * POST /api/shipments
- * Creates a new shipment (requires authentication)
- * Body: { title, description, origin, destination, price_estimate }
- */
+// POST /api/shipments - Create a new shipment
 export async function POST(request) {
   try {
-    // Get authorization header
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const token = authHeader.substring(7)
-    const supabase = createServerSupabase()
-
-    // Verify the token and get user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
-    }
-
-    // Parse and validate request body
+    const supabase = createServerSupabaseClient()
     const body = await request.json()
-    const { title, description, origin, destination, price_estimate } = body
-
-    if (!title || !origin || !destination) {
+    
+    // Validate required fields
+    const { 
+      pickup_location, 
+      delivery_location, 
+      pickup_date,
+      cargo_type,
+      weight,
+      user_id 
+    } = body
+    
+    if (!pickup_location || !delivery_location || !pickup_date || !user_id) {
       return NextResponse.json(
-        { error: 'Missing required fields: title, origin, destination' },
+        { error: 'Missing required fields' }, 
         { status: 400 }
       )
     }
-
-    // Insert shipment
+    
+    // Create shipment
     const { data, error } = await supabase
       .from('shipments')
       .insert([
         {
-          title,
-          description: description || null,
-          origin,
-          destination,
-          price_estimate: price_estimate ? parseFloat(price_estimate) : null,
-          created_by: user.id,
-          status: 'open'
-        }
+          user_id,
+          pickup_location,
+          delivery_location,
+          pickup_date,
+          cargo_type: cargo_type || 'general',
+          weight: weight || 0,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        },
       ])
       .select()
-      .single()
-
+    
     if (error) {
-      console.error('Error creating shipment:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
-
-    return NextResponse.json({ shipment: data }, { status: 201 })
+    
+    return NextResponse.json({ shipment: data[0] }, { status: 201 })
   } catch (error) {
-    console.error('Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

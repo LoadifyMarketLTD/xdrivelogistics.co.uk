@@ -1,48 +1,49 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabase } from '../../../../lib/supabaseClient'
+import { createServerSupabaseClient } from '../../../../lib/supabaseClient'
 
-/**
- * GET /api/shipments/[id]
- * Returns shipment details including associated offers
- */
+// GET /api/shipments/[id] - Get shipment details by ID
 export async function GET(request, { params }) {
   try {
-    const { id } = params
-    const supabase = createServerSupabase()
+    const supabase = createServerSupabaseClient()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 })
+    }
 
-    // Fetch shipment with offers
-    const { data: shipment, error: shipmentError } = await supabase
+    const { id } = params
+
+import { createServerSupabaseClient } from '@/lib/supabaseClient'
+
+// GET /api/shipments/[id] - Get shipment details
+export async function GET(request, { params }) {
+  try {
+    const supabase = createServerSupabaseClient()
+    const { id } = params
+    
+    const { data, error } = await supabase
       .from('shipments')
       .select('*')
       .eq('id', id)
       .single()
 
-    if (shipmentError) {
-      if (shipmentError.code === 'PGRST116') {
+    if (error) {
+      if (error.code === 'PGRST116') {
         return NextResponse.json({ error: 'Shipment not found' }, { status: 404 })
       }
-      console.error('Error fetching shipment:', shipmentError)
-      return NextResponse.json({ error: shipmentError.message }, { status: 500 })
+      console.error('Error fetching shipment:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Fetch associated offers
-    const { data: offers, error: offersError } = await supabase
-      .from('offers')
-      .select('*')
-      .eq('shipment_id', id)
-      .order('created_at', { ascending: false })
-
-    if (offersError) {
-      console.error('Error fetching offers:', offersError)
-      // Continue without offers rather than failing
-    }
-
-    return NextResponse.json({
-      shipment,
-      offers: offers || []
-    })
+    return NextResponse.json(data)
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error('Error in GET /api/shipments/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 404 })
+    }
+    
+    return NextResponse.json({ shipment: data })
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

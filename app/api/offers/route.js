@@ -1,78 +1,38 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabase } from '../../../lib/supabaseClient'
+import { createServerSupabaseClient } from '../../../lib/supabaseClient'
+import { verifyAuth, getUserProfile } from '../../../lib/auth'
 
-/**
- * GET /api/offers
- * Returns a list of offers with optional shipmentId filter
- * Query params: shipmentId
- */
-export async function GET(request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const shipmentId = searchParams.get('shipmentId')
-
-    const supabase = createServerSupabase()
-    
-    let query = supabase
-      .from('offers')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (shipmentId) {
-      query = query.eq('shipment_id', shipmentId)
-    }
-
-    const { data, error } = await query
-
-    if (error) {
-      console.error('Error fetching offers:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ offers: data })
-  } catch (error) {
-    console.error('Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-/**
- * POST /api/offers
- * Creates a new offer (requires authentication and driver role)
- * Body: { shipment_id, price, notes }
- */
+// POST /api/offers - Create a new offer for a shipment
 export async function POST(request) {
   try {
-    // Get authorization header
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const token = authHeader.substring(7)
-    const supabase = createServerSupabase()
-
-    // Verify the token and get user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
+    // Verify authentication
+    const { user, error: authError } = await verifyAuth(request)
     if (authError || !user) {
-      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user has driver role (stored in user_metadata or a separate table)
-    // For MVP, we'll check user_metadata.role
-    const role = user.user_metadata?.role
-    if (role !== 'driver') {
+    // Check if user is a driver
+    const { profile, error: profileError } = await getUserProfile(user.id)
+    if (profileError || !profile) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+    }
+
+    if (profile.role !== 'driver') {
       return NextResponse.json(
         { error: 'Only drivers can create offers' },
         { status: 403 }
       )
     }
 
-    // Parse and validate request body
-    const body = await request.json()
-    const { shipment_id, price, notes } = body
+    const supabase = createServerSupabaseClient()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 })
+    }
 
+    const body = await request.json()
+    const { shipment_id, price, notes, estimated_delivery_date } = body
+
+    // Validate required fields
     if (!shipment_id || !price) {
       return NextResponse.json(
         { error: 'Missing required fields: shipment_id, price' },
@@ -91,25 +51,24 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Shipment not found' }, { status: 404 })
     }
 
-    if (shipment.status !== 'open') {
+    if (shipment.status !== 'pending') {
       return NextResponse.json(
-        { error: 'Shipment is not open for offers' },
+        { error: 'Cannot create offer for non-pending shipment' },
         { status: 400 }
       )
     }
 
-    // Insert offer
+    // Create offer in database
     const { data, error } = await supabase
       .from('offers')
-      .insert([
-        {
-          shipment_id,
-          driver_id: user.id,
-          price: parseFloat(price),
-          notes: notes || null,
-          status: 'pending'
-        }
-      ])
+      .insert({
+        shipment_id,
+        driver_id: user.id,
+        price,
+        notes,
+        estimated_delivery_date,
+        status: 'pending',
+      })
       .select()
       .single()
 
@@ -118,9 +77,122 @@ export async function POST(request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ offer: data }, { status: 201 })
+    return NextResponse.json(data, { status: 201 })
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error('Error in POST /api/offers:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// GET /api/offers - List offers with optional filters
+export async function GET(request) {
+  try {
+    const supabase = createServerSupabaseClient()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const shipmentId = searchParams.get('shipmentId')
+    const driverId = searchParams.get('driverId')
+    const status = searchParams.get('status')
+
+    let query = supabase
+      .from('offers')
+      .select('*, shipments(*)')
+      .order('created_at', { ascending: false })
+
+    // Apply filters
+    if (shipmentId) {
+      query = query.eq('shipment_id', shipmentId)
+    }
+    if (driverId) {
+      query = query.eq('driver_id', driverId)
+    }
+    if (status) {
+      query = query.eq('status', status)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('Error fetching offers:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(data || [])
+  } catch (error) {
+    console.error('Error in GET /api/offers:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+import { createServerSupabaseClient } from '@/lib/supabaseClient'
+
+// GET /api/offers - List offers for a shipment
+export async function GET(request) {
+  try {
+    const supabase = createServerSupabaseClient()
+    const { searchParams } = new URL(request.url)
+    const shipmentId = searchParams.get('shipmentId')
+    
+    if (!shipmentId) {
+      return NextResponse.json(
+        { error: 'shipmentId parameter is required' }, 
+        { status: 400 }
+      )
+    }
+    
+    const { data, error } = await supabase
+      .from('offers')
+      .select('*')
+      .eq('shipment_id', shipmentId)
+      .order('created_at', { ascending: false })
+    
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+    
+    return NextResponse.json({ offers: data })
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// POST /api/offers - Create a new offer
+export async function POST(request) {
+  try {
+    const supabase = createServerSupabaseClient()
+    const body = await request.json()
+    
+    // Validate required fields
+    const { shipment_id, driver_id, price, notes } = body
+    
+    if (!shipment_id || !driver_id || !price) {
+      return NextResponse.json(
+        { error: 'Missing required fields: shipment_id, driver_id, price' }, 
+        { status: 400 }
+      )
+    }
+    
+    // Create offer
+    const { data, error } = await supabase
+      .from('offers')
+      .insert([
+        {
+          shipment_id,
+          driver_id,
+          price: parseFloat(price),
+          notes: notes || '',
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+    
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+    
+    return NextResponse.json({ offer: data[0] }, { status: 201 })
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
