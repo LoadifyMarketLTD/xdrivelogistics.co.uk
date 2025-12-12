@@ -28,7 +28,9 @@ export default function Header() {
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
   const handleLogout = async () => {
