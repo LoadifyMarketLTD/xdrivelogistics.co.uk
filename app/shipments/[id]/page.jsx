@@ -8,14 +8,6 @@ import { formatDate, formatStatus, getStatusClasses } from '../../../lib/utils';
 import OfferForm from '../../../components/OfferForm';
 
 export default function ShipmentDetailPage({ params }) {
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import supabase from '@/lib/supabaseClient';
-import OfferForm from '@/components/OfferForm';
-import Link from 'next/link';
-
-export default function ShipmentDetailPage() {
-  const params = useParams();
   const router = useRouter();
   const [shipment, setShipment] = useState(null);
   const [offers, setOffers] = useState([]);
@@ -136,10 +128,6 @@ export default function ShipmentDetailPage() {
             Back to Shipments
           </Link>
         </div>
-  if (!shipment) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="text-slate-400">Shipment not found</div>
       </div>
     );
   }

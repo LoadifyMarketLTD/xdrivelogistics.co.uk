@@ -8,8 +8,6 @@ import { supabaseClient } from '../../lib/supabaseClient';
 // Constants
 const PROFILE_CREATION_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
-import supabase from '@/lib/supabaseClient';
-import Link from 'next/link';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -41,18 +39,6 @@ export default function RegisterPage() {
     try {
       // Sign up with Supabase Auth
       const { data, error: signUpError } = await supabaseClient.auth.signUp({
-  const [role, setRole] = useState('driver');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      // Sign up with Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -97,17 +83,6 @@ export default function RegisterPage() {
       setTimeout(() => {
         router.push('/login');
       }, 2000);
-    } catch (err) {
-      setError(err.message);
-            role: role, // Store role in user metadata
-          },
-        },
-      });
-
-      if (error) throw error;
-
-      // Redirect to login or dashboard
-      router.push('/login');
     } catch (error) {
       setError(error.message);
     } finally {
@@ -296,62 +271,6 @@ export default function RegisterPage() {
             </Link>
           </div>
         </form>
-          {/* REGISTER FORM */}
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="space-y-1.5 text-xs">
-              <label className="block text-slate-300">Email</label>
-              <input
-                className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-1.5 text-xs">
-              <label className="block text-slate-300">Password</label>
-              <input
-                className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-              <p className="text-xs text-slate-500">Minimum 6 characters</p>
-            </div>
-
-            <div className="space-y-1.5 text-xs">
-              <label className="block text-slate-300">Account Type</label>
-              <select
-                className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                required
-              >
-                <option value="driver">Driver</option>
-                <option value="shipper">Shipper / Operator</option>
-              </select>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-2 w-full rounded-md bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
-            >
-              {loading ? 'Creating account...' : 'Create account'}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-xs text-slate-400">
-            Already have an account?{' '}
-            <Link href="/login" className="text-emerald-500 hover:text-emerald-400">
-              Log in here
-            </Link>
-          </p>
 
         </div>
       </div>
