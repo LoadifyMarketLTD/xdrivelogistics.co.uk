@@ -20,6 +20,11 @@ export default function DashboardPage() {
 
   const checkUser = async () => {
     try {
+      // Check if supabase is configured
+      if (!supabaseClient) {
+        throw new Error('Database service is not configured');
+      }
+
       const { data: { session } } = await supabaseClient.auth.getSession();
       
       if (!session) {
@@ -74,7 +79,9 @@ export default function DashboardPage() {
   };
 
   const handleLogout = async () => {
-    await supabaseClient.auth.signOut();
+    if (supabaseClient) {
+      await supabaseClient.auth.signOut();
+    }
     router.push('/login');
   };
 

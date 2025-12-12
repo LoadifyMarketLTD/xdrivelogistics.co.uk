@@ -18,6 +18,11 @@ export default function LoginPage() {
     setError(null);
 
     try {
+      // Check if supabase is configured
+      if (!supabaseClient) {
+        throw new Error('Authentication service is not configured');
+      }
+
       const { data, error } = await supabaseClient.auth.signInWithPassword({
         email,
         password,

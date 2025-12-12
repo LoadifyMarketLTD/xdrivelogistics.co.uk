@@ -8,6 +8,11 @@ export default function Header() {
   const [user, setUser] = useState(null)
 
   useEffect(() => {
+    // Skip auth check if supabaseClient is not configured
+    if (!supabaseClient) {
+      return
+    }
+
     // Check if user is logged in
     const checkUser = async () => {
       const { data: { session } } = await supabaseClient.auth.getSession()
@@ -23,11 +28,15 @@ export default function Header() {
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription?.unsubscribe()
+    }
   }, [])
 
   const handleLogout = async () => {
-    await supabaseClient.auth.signOut()
+    if (supabaseClient) {
+      await supabaseClient.auth.signOut()
+    }
     setUser(null)
   }
 
