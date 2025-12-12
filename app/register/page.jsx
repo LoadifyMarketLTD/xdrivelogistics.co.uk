@@ -4,9 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import supabaseClient from '../../lib/supabaseClient'
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter()
-  const [accountType, setAccountType] = useState('driver')
+  const [role, setRole] = useState('driver')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -22,17 +22,22 @@ export default function LoginPage() {
         throw new Error('Supabase client not initialized')
       }
 
-      const { data, error } = await supabaseClient.auth.signInWithPassword({
+      const { data, error } = await supabaseClient.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            role, // Store role in user metadata
+          },
+        },
       })
 
       if (error) throw error
 
-      // Redirect to dashboard after successful login
+      // Redirect to dashboard after successful registration
       router.push('/dashboard')
     } catch (err) {
-      setError(err.message || 'Failed to log in')
+      setError(err.message || 'Failed to register')
     } finally {
       setLoading(false)
     }
@@ -40,11 +45,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 flex">
-
-      {/* 70% LEFT PANEL - VIDEO / HERO SECTION */}
+      {/* LEFT PANEL - INFO SECTION */}
       <div className="hidden lg:flex flex-1 flex-col justify-between border-r border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-
-        {/* HEADER */}
         <header className="px-10 pt-8 flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl border border-slate-700 bg-slate-900 flex items-center justify-center text-xs font-semibold tracking-wide">
             XDL
@@ -57,64 +59,66 @@ export default function LoginPage() {
           </div>
         </header>
 
-        {/* MAIN HERO */}
         <main className="px-10 pb-16">
-
-          {/* VIDEO / SLIDESHOW placeholder */}
           <div className="relative mb-8 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70">
             <div className="aspect-[16/9] w-full bg-gradient-to-tr from-indigo-500/40 via-emerald-400/20 to-sky-500/40" />
           </div>
 
-          {/* 3 COLUMN INFO */}
           <div className="grid gap-6 text-sm text-slate-200 md:grid-cols-3">
             <div className="space-y-2">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">For drivers</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+                For drivers
+              </h2>
               <ul className="space-y-1.5 text-xs text-slate-200">
-                <li>• Search loads by radius</li>
-                <li>• Profit per mile calculator</li>
-                <li>• Save favourite routes</li>
+                <li>• Browse available shipments</li>
+                <li>• Submit competitive offers</li>
+                <li>• Track your earnings</li>
               </ul>
             </div>
 
             <div className="space-y-2">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">For operators</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+                For shippers
+              </h2>
               <ul className="space-y-1.5 text-xs text-slate-200">
-                <li>• Assign loads instantly</li>
-                <li>• Multi-vehicle planner</li>
-                <li>• POD & invoices</li>
+                <li>• Post shipment requests</li>
+                <li>• Compare driver offers</li>
+                <li>• Manage deliveries</li>
               </ul>
             </div>
 
             <div className="space-y-2">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Live insights</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+                Join today
+              </h2>
               <ul className="space-y-1.5 text-xs text-slate-200">
-                <li>• Heatmap zones</li>
-                <li>• Busy postcodes</li>
-                <li>• Daily revenue snapshot</li>
+                <li>• Free to sign up</li>
+                <li>• Instant access</li>
+                <li>• Secure platform</li>
               </ul>
             </div>
           </div>
         </main>
       </div>
 
-      {/* RIGHT LOGIN PANEL */}
+      {/* RIGHT REGISTER PANEL */}
       <div className="w-full lg:max-w-md bg-slate-950 flex flex-col justify-center px-6 py-10 sm:px-10">
         <div className="mx-auto w-full max-w-sm">
-          
           <h1 className="text-xl font-semibold tracking-tight text-slate-50 mb-2">
-            Log in to your account
+            Create your account
           </h1>
           <p className="text-xs text-slate-400 mb-6">
-            Enter your details to access loads, routes, profit dashboard and invoices.
+            Sign up to start shipping or driving with XDrive Logistics.
           </p>
 
-          {/* Driver / Operator selector */}
+          {/* Role selector */}
           <div className="mb-5 inline-flex items-center rounded-full bg-slate-900 p-1 text-[11px] ring-1 ring-slate-800">
             <button
-              onClick={() => setAccountType('driver')}
+              type="button"
+              onClick={() => setRole('driver')}
               className={
                 'px-3 py-1.5 rounded-full transition ' +
-                (accountType === 'driver'
+                (role === 'driver'
                   ? 'bg-emerald-500 text-slate-950 font-semibold shadow-sm'
                   : 'text-slate-400 hover:text-slate-200')
               }
@@ -123,26 +127,27 @@ export default function LoginPage() {
             </button>
 
             <button
-              onClick={() => setAccountType('operator')}
+              type="button"
+              onClick={() => setRole('shipper')}
               className={
                 'px-3 py-1.5 rounded-full transition ' +
-                (accountType === 'operator'
+                (role === 'shipper'
                   ? 'bg-emerald-500 text-slate-950 font-semibold shadow-sm'
                   : 'text-slate-400 hover:text-slate-200')
               }
             >
-              Operator / Shipper
+              Shipper
             </button>
           </div>
 
-          {/* LOGIN FORM */}
+          {/* REGISTER FORM */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5 text-xs">
               <label className="block text-slate-300">Email</label>
               <input
                 className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
                 type="email"
-                placeholder="driver@xdrive.co.uk"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -158,6 +163,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={6}
               />
             </div>
 
@@ -172,19 +178,18 @@ export default function LoginPage() {
               disabled={loading}
               className="mt-2 w-full rounded-md bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
             >
-              {loading ? 'Logging in...' : 'Log in'}
+              {loading ? 'Creating account...' : 'Sign up'}
             </button>
           </form>
 
           <p className="mt-4 text-xs text-slate-400 text-center">
-            Don't have an account?{' '}
-            <a href="/register" className="text-emerald-400 hover:text-emerald-300">
-              Sign up
+            Already have an account?{' '}
+            <a href="/login" className="text-emerald-400 hover:text-emerald-300">
+              Log in
             </a>
           </p>
-
         </div>
       </div>
     </div>
-  );
+  )
 }

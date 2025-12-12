@@ -1,12 +1,15 @@
+# Note: This project is optimized for Vercel deployment with Next.js App Router
+# For Netlify deployment, ensure Node 20+ is configured
+
 [build]
   command = "npm run build"
-  publish = ".next"
+  # Do not specify publish directory - let Netlify auto-detect for Next.js
+
+[build.environment]
+  NODE_VERSION = "20.12.2"
 
 [functions]
   node_bundler = "esbuild"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-
-[[plugins]]
-  package = "@netlify/plugin-lighthouse"
