@@ -1,0 +1,10 @@
+<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="thumb3Gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4d60a0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#5d70c0;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#thumb3Gradient)"/>
+  <text x="200" y="150" font-family="Arial, sans-serif" font-size="24" fill="#f8f5ee" text-anchor="middle" dominant-baseline="middle">Thumbnail 3</text>
+</svg>
