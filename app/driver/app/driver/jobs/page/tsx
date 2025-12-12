@@ -1,0 +1,77 @@
+import Link from "next/link";
+
+const jobs = [
+  {
+    id: "14890",
+    date: "January 15, 2024",
+    from: "Liverpool",
+    to: "London",
+    price: "£250.00",
+    tag: "DELYS",
+  },
+  {
+    id: "14889",
+    date: "January 14, 2024",
+    from: "Glasgow",
+    to: "Manchester",
+    price: "£275.00",
+    tag: "DELIVS",
+  },
+  {
+    id: "14862",
+    date: "January 13, 2024",
+    from: "Oxford",
+    to: "Birmingham",
+    price: "£200.00",
+    tag: "RATING",
+  },
+];
+
+export default function DriverJobsPage() {
+  return (
+    <main className="min-h-screen bg-slate-900 text-white">
+      <div className="max-w-md mx-auto px-4 py-6">
+        <header className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-semibold">Jobs</h1>
+          <button className="px-4 py-1 rounded-full bg-sky-500 text-sm font-medium">
+            Active (3)
+          </button>
+        </header>
+
+        <section className="space-y-4">
+          {jobs.map((job) => (
+            <Link
+              key={job.id}
+              href={/driver/jobs/${job.id}}
+              className="block rounded-2xl bg-white text-slate-900 px-4 py-3 shadow-md"
+            >
+              <p className="text-xs text-slate-500 mb-1">{job.date}</p>
+
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-col items-center">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 mb-1" />
+                  <span className="w-px flex-1 bg-slate-300" />
+                  <span className="w-2 h-2 rounded-full bg-orange-500 mt-1" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-base leading-tight">
+                    {job.from}
+                  </p>
+                  <p className="font-semibold text-base leading-tight">
+                    {job.to}
+                  </p>
+                </div>
+                <span className="text-lg font-semibold">{job.price}</span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span>{job.tag}</span>
+                <span className="text-sky-500 font-medium">{">"}</span>
+              </div>
+            </Link>
+          ))}
+        </section>
+      </div>
+    </main>
+  );
+}
