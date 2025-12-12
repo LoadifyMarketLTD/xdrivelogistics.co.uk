@@ -71,7 +71,7 @@ export default function ShipmentDetailPage({ params }) {
   const handleCreateOffer = async (offerData) => {
     // Implementation for creating offers
     // This function could submit the offer via API
-    console.log('Creating offer:', offerData);
+    // TODO: Implement offer creation logic
   };
 
   const handleOfferSuccess = (newOffer) => {
