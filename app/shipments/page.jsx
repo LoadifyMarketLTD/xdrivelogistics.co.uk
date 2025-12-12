@@ -60,7 +60,7 @@ export default function ShipmentsPage() {
 
         {/* Filters */}
         <div className="mb-6">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {['all', 'pending', 'accepted', 'in_transit', 'completed'].map((status) => (
               <button
                 key={status}
@@ -71,7 +71,7 @@ export default function ShipmentsPage() {
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                {status === 'all' ? 'All' : status.replace('_', ' ')}
+                {status === 'all' ? 'All' : status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
               </button>
             ))}
           </div>
