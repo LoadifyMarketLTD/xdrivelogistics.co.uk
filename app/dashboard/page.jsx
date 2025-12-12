@@ -5,10 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabaseClient } from '../../lib/supabaseClient';
 import ShipmentCard from '../../components/ShipmentCard';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import supabase from '@/lib/supabaseClient';
-import Link from 'next/link';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -17,8 +13,6 @@ export default function DashboardPage() {
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [shipments, setShipments] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     checkUser();
@@ -82,13 +76,6 @@ export default function DashboardPage() {
     } catch (err) {
       console.error('Error fetching shipments:', err);
       setError(err.message);
-  const loadShipments = async (userId) => {
-    try {
-      const response = await fetch(`/api/shipments?userId=${userId}`);
-      const data = await response.json();
-      setShipments(data.shipments || []);
-    } catch (error) {
-      console.error('Error loading shipments:', error);
     }
   };
 

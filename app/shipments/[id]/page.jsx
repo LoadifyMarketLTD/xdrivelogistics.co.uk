@@ -64,48 +64,17 @@ export default function ShipmentDetailPage({ params }) {
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err.message);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    checkUser();
-    loadShipment();
-    loadOffers();
-  }, [params.id]);
-
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-  };
-
-  const loadShipment = async () => {
-    try {
-      const response = await fetch(`/api/shipments/${params.id}`);
-      const data = await response.json();
-      setShipment(data.shipment);
-    } catch (error) {
-      console.error('Error loading shipment:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOfferSuccess = (newOffer) => {
-    setOffers([newOffer, ...offers]);
-    setSuccessMessage('Offer submitted successfully!');
-    // Clear success message after 5 seconds
-    setTimeout(() => setSuccessMessage(null), 5000);
-  const loadOffers = async () => {
-    try {
-      const response = await fetch(`/api/offers?shipmentId=${params.id}`);
-      const data = await response.json();
-      setOffers(data.offers || []);
-    } catch (error) {
-      console.error('Error loading offers:', error);
-    }
-  };
+  useEffect(() => {
+    fetchData();
+  }, [params.id]);
 
-  const handleOfferSubmitted = () => {
-    loadOffers();
+  const handleCreateOffer = async (offerData) => {
+    // Implementation for creating offers
   };
 
   if (loading) {
