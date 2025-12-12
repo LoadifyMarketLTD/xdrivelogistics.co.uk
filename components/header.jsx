@@ -22,39 +22,12 @@ export default function Header() {
         setUser(session?.user || null)
       }
     )
-"use client";
-
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import supabase from '@/lib/supabaseClient'
-import { useRouter } from 'next/navigation'
-
-export default function Header() {
-  const router = useRouter()
-  const [user, setUser] = useState(null)
-
-  useEffect(() => {
-    checkUser()
-    
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null)
-    })
 
     return () => subscription.unsubscribe()
   }, [])
 
   const handleLogout = async () => {
     await supabaseClient.auth.signOut()
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    setUser(user)
-  }
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    router.push('/')
   }
 
   return (
@@ -78,12 +51,6 @@ export default function Header() {
           >
             Home
           </Link>
-          <Link
-            href="/shipments"
-            className="text-slate-200 hover:text-[#D4AF37] transition-colors"
-          >
-            Shipments
-          </Link>
           {user ? (
             <>
               <Link
@@ -101,9 +68,6 @@ export default function Header() {
               <button
                 onClick={handleLogout}
                 className="text-slate-200 hover:text-red-400 transition-colors"
-              <button
-                onClick={handleLogout}
-                className="text-slate-200 hover:text-[#D4AF37] transition-colors"
               >
                 Logout
               </button>
@@ -129,12 +93,6 @@ export default function Header() {
                 Register
               </Link>
             </>
-            <Link
-              href="/login"
-              className="text-slate-200 hover:text-[#D4AF37] transition-colors"
-            >
-              Login
-            </Link>
           )}
         </nav>
       </div>

@@ -10,14 +10,6 @@ export async function GET(request, { params }) {
     }
 
     const { id } = params
-
-import { createServerSupabaseClient } from '@/lib/supabaseClient'
-
-// GET /api/shipments/[id] - Get shipment details
-export async function GET(request, { params }) {
-  try {
-    const supabase = createServerSupabaseClient()
-    const { id } = params
     
     const { data, error } = await supabase
       .from('shipments')
@@ -37,13 +29,5 @@ export async function GET(request, { params }) {
   } catch (error) {
     console.error('Error in GET /api/shipments/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 404 })
-    }
-    
-    return NextResponse.json({ shipment: data })
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
