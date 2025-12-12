@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabaseClient } from '../../../lib/supabaseClient';
-import { formatDate, formatStatus, getStatusClasses } from '../../../lib/utils';
 import OfferForm from '../../../components/OfferForm';
 
 export default function ShipmentDetailPage({ params }) {
@@ -76,6 +75,15 @@ export default function ShipmentDetailPage({ params }) {
     setTimeout(() => setSuccessMessage(null), 5000);
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -122,8 +130,18 @@ export default function ShipmentDetailPage({ params }) {
                 {shipment.pickup_location} → {shipment.delivery_location}
               </h2>
             </div>
-            <span className={`px-3 py-1 rounded text-sm font-medium ${getStatusClasses(shipment.status)}`}>
-              {formatStatus(shipment.status)}
+            <span
+              className={`px-3 py-1 rounded text-sm font-medium ${
+                shipment.status === 'pending'
+                  ? 'bg-yellow-500/20 text-yellow-400'
+                  : shipment.status === 'accepted'
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : shipment.status === 'completed'
+                  ? 'bg-blue-500/20 text-blue-400'
+                  : 'bg-slate-500/20 text-slate-400'
+              }`}
+            >
+              {shipment.status}
             </span>
           </div>
 

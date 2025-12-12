@@ -1,9 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { formatDate, formatStatus, getStatusClasses } from '../lib/utils'
 
 export default function ShipmentCard({ shipment }) {
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A'
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
+
   return (
     <div className="border border-slate-800 rounded-lg p-4 bg-slate-900 hover:bg-slate-800 transition">
       <div className="flex justify-between items-start mb-3">
@@ -15,8 +23,18 @@ export default function ShipmentCard({ shipment }) {
             Pickup: {formatDate(shipment.pickup_date)}
           </p>
         </div>
-        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusClasses(shipment.status)}`}>
-          {formatStatus(shipment.status)}
+        <span
+          className={`px-2 py-1 rounded text-xs font-medium ${
+            shipment.status === 'pending'
+              ? 'bg-yellow-500/20 text-yellow-400'
+              : shipment.status === 'accepted'
+              ? 'bg-emerald-500/20 text-emerald-400'
+              : shipment.status === 'completed'
+              ? 'bg-blue-500/20 text-blue-400'
+              : 'bg-slate-500/20 text-slate-400'
+          }`}
+        >
+          {shipment.status}
         </span>
       </div>
 
@@ -45,4 +63,5 @@ export default function ShipmentCard({ shipment }) {
       </Link>
     </div>
   );
+  )
 }
