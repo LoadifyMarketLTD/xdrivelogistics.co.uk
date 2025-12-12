@@ -22,7 +22,7 @@ export default function ShipmentsPage() {
       let query = supabaseClient
         .from('shipments')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false});
 
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);

@@ -60,12 +60,6 @@ export default function Header() {
               >
                 Dashboard
               </Link>
-              <Link
-                href="/shipments"
-                className="text-slate-200 hover:text-[#D4AF37] transition-colors"
-              >
-                Shipments
-              </Link>
               <button
                 onClick={handleLogout}
                 className="text-slate-200 hover:text-red-400 transition-colors"
@@ -75,12 +69,6 @@ export default function Header() {
             </>
           ) : (
             <>
-              <Link
-                href="/loads"
-                className="text-slate-200 hover:text-[#D4AF37] transition-colors"
-              >
-                Loads
-              </Link>
               <Link
                 href="/login"
                 className="text-slate-200 hover:text-[#D4AF37] transition-colors"
