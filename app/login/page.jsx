@@ -1,10 +1,39 @@
-// app/login/LoginForm.jsx
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabaseClient } from '../../lib/supabaseClient';
 
-export default function LoginForm() {
+export default function LoginPage() {
+  const router = useRouter();
   const [accountType, setAccountType] = useState('driver');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      // Redirect to dashboard after successful login
+      router.push('/dashboard');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 flex">
@@ -104,13 +133,21 @@ export default function LoginForm() {
           </div>
 
           {/* LOGIN FORM */}
-          <form className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-xs">
+                {error}
+              </div>
+            )}
+
             <div className="space-y-1.5 text-xs">
-              <label className="block text-slate-300">Email / Username</label>
+              <label className="block text-slate-300">Email</label>
               <input
                 className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
-                type="text"
+                type="email"
                 placeholder="driver@xdrive.co.uk"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
@@ -121,16 +158,26 @@ export default function LoginForm() {
                 className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
                 type="password"
                 placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
 
             <button
               type="submit"
-              className="mt-2 w-full rounded-md bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400"
+              disabled={loading}
+              className="mt-2 w-full rounded-md bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Log in
+              {loading ? 'Logging in...' : 'Log in'}
             </button>
+
+            <div className="text-center text-xs text-slate-400 mt-4">
+              Don't have an account?{' '}
+              <Link href="/register" className="text-emerald-400 hover:text-emerald-300">
+                Register here
+              </Link>
+            </div>
           </form>
 
         </div>

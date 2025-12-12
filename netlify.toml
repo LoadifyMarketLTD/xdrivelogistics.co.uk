@@ -1,6 +1,9 @@
 [build]
   command = "npm run build"
-  publish = ".next"
+  # Note: Do not specify publish directory for Next.js - Netlify auto-detects
+
+[build.environment]
+  NODE_VERSION = "20.12.2"
 
 [functions]
   node_bundler = "esbuild"
@@ -8,5 +11,7 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-[[plugins]]
-  package = "@netlify/plugin-lighthouse"
+# Deployment Note:
+# For best experience with Next.js 16 App Router and API routes,
+# we recommend deploying to Vercel (https://vercel.com)
+# which has native Next.js support and serverless functions.
