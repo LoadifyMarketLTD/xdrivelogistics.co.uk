@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="XDrive Logistics - Sign in to access jobs and reports">
+  <title>XDrive Logistics - Sign In</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Hero Section (Left Column) -->
+    <section class="hero" role="banner" aria-label="Hero section">
+      <img 
+        src="image/hero.jpg" 
+        alt="XDrive Logistics hero background" 
+        class="hero-background"
+      >
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <img 
+          src="image/logo.png" 
+          alt="XDrive Logistics logo" 
+          class="hero-logo"
+        >
+        <h1 class="hero-title">Welcome to XDrive</h1>
+        <p class="hero-subtitle">Sign in to access jobs and reports.</p>
+        
+        <div class="thumbnails" role="list" aria-label="Feature highlights">
+          <img 
+            src="image/thumb1.jpg" 
+            alt="Fast delivery service" 
+            class="thumbnail"
+            role="listitem"
+          >
+          <img 
+            src="image/thumb2.jpg" 
+            alt="Secure package tracking" 
+            class="thumbnail"
+            role="listitem"
+          >
+          <img 
+            src="image/thumb3.jpg" 
+            alt="Premium logistics service" 
+            class="thumbnail"
+            role="listitem"
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- Sign-in Panel (Right Column) -->
+    <section class="signin-panel" role="main" aria-label="Sign in form">
+      <div class="signin-content">
+        <img 
+          src="image/logo.png" 
+          alt="XDrive Logistics logo" 
+          class="signin-logo"
+        >
+        <h2 class="signin-title">Sign in</h2>
+        <p class="signin-subtitle">Enter your credentials to access your account</p>
+
+        <form class="signin-form" method="POST" action="#" aria-label="Sign in form">
+          <div class="form-group">
+            <label for="email" class="visually-hidden">Email address</label>
+            <input 
+              type="email" 
+              id="email" 
+              name="email" 
+              class="form-input" 
+              placeholder="Email address"
+              required
+              aria-required="true"
+              autocomplete="email"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="password" class="visually-hidden">Password</label>
+            <input 
+              type="password" 
+              id="password" 
+              name="password" 
+              class="form-input" 
+              placeholder="Password"
+              required
+              aria-required="true"
+              autocomplete="current-password"
+            >
+          </div>
+
+          <div class="form-footer">
+            <div class="checkbox-group">
+              <input 
+                type="checkbox" 
+                id="remember" 
+                name="remember" 
+                class="checkbox-input"
+                aria-label="Keep me logged in"
+              >
+              <label for="remember" class="checkbox-label">Keep me logged in</label>
+            </div>
+            <a href="#" class="forgot-link">Forgot password?</a>
+          </div>
+
+          <button type="submit" class="btn-primary" aria-label="Sign in to XDrive">
+            Sign in to XDrive
+          </button>
+        </form>
+
+        <div class="signin-footer">
+          Don't have an account? <a href="#" class="request-link">Request access</a>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
