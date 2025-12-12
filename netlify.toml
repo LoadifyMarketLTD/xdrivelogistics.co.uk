@@ -4,7 +4,8 @@
 
 [build]
   command = "npx prisma@5 generate --schema=./prisma/schema.prisma && npm run build"
-  # Netlify auto-detects the publish directory for Next.js
+  # Do NOT set publish directory - @netlify/plugin-nextjs manages this automatically
+  # publish = "" is explicitly unset to let the Next.js plugin handle deployment
 
 [build.environment]
   NODE_VERSION = "20.12.2"
