@@ -1,6 +1,5 @@
 // Minimal Prisma schema for XDrive Logistics
 // This schema only enables prisma generate to run successfully.
-// Actual models will be introspected later from the Neon database.
 
 generator client {
   provider = "prisma-client-js"
@@ -8,5 +7,4 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
