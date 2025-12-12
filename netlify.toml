@@ -8,7 +8,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  # Note: Do not specify publish directory for Next.js - Netlify auto-detects
+   command = "npm run build"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20.12.2"
