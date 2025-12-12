@@ -29,7 +29,7 @@ export default function Header() {
     )
 
     return () => {
-      subscription.unsubscribe()
+      subscription?.unsubscribe()
     }
   }, [])
 
