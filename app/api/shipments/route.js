@@ -1,27 +1,19 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '../../../lib/supabaseClient'
+import { verifyAuth } from '../../../lib/auth'
 
 // POST /api/shipments - Create a new shipment
 export async function POST(request) {
   try {
+    // Verify authentication
+    const { user, error: authError } = await verifyAuth(request)
+    if (authError || !user) {
+      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+    }
+
     const supabase = createServerSupabaseClient()
     if (!supabase) {
       return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 })
-    }
-
-    // Get authenticated user from request headers or session
-    const authHeader = request.headers.get('authorization')
-    let userId = null
-
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-      if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      userId = user.id
-    } else {
-      return NextResponse.json({ error: 'Authorization header required' }, { status: 401 })
     }
 
     const body = await request.json()
@@ -48,7 +40,7 @@ export async function POST(request) {
     const { data, error } = await supabase
       .from('shipments')
       .insert({
-        user_id: userId,
+        user_id: user.id,
         pickup_location,
         delivery_location,
         pickup_date,

@@ -48,18 +48,30 @@ export default function RegisterPage() {
 
       // If sign up successful, create profile
       if (data.user) {
-        // Insert profile with role
-        const { error: profileError } = await supabaseClient
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            email: email,
-            role: role,
-          });
+        // Insert profile with role - retries up to 3 times
+        let profileCreated = false;
+        let retries = 3;
+        
+        while (!profileCreated && retries > 0) {
+          const { error: profileError } = await supabaseClient
+            .from('profiles')
+            .insert({
+              id: data.user.id,
+              email: email,
+              role: role,
+            });
 
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          // Not throwing error as user is created, profile can be added later
+          if (!profileError) {
+            profileCreated = true;
+          } else {
+            console.error('Profile creation error:', profileError);
+            retries--;
+            if (retries === 0) {
+              throw new Error('Failed to create user profile after multiple attempts. Please contact support with your email.');
+            }
+            // Wait a bit before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
         }
       }
 

@@ -14,6 +14,7 @@ export default function ShipmentDetailPage({ params }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -69,7 +70,9 @@ export default function ShipmentDetailPage({ params }) {
 
   const handleOfferSuccess = (newOffer) => {
     setOffers([newOffer, ...offers]);
-    alert('Offer submitted successfully!');
+    setSuccessMessage('Offer submitted successfully!');
+    // Clear success message after 5 seconds
+    setTimeout(() => setSuccessMessage(null), 5000);
   };
 
   const formatDate = (dateString) => {
@@ -197,6 +200,13 @@ export default function ShipmentDetailPage({ params }) {
             )}
           </div>
         </div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400">
+            {successMessage}
+          </div>
+        )}
 
         {/* Offer Form - Only show for logged-in drivers on pending shipments */}
         {user && profile?.role === 'driver' && shipment.status === 'pending' && (

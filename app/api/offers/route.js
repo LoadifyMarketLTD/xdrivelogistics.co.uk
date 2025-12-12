@@ -1,41 +1,32 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '../../../lib/supabaseClient'
+import { verifyAuth, getUserProfile } from '../../../lib/auth'
 
 // POST /api/offers - Create a new offer for a shipment
 export async function POST(request) {
   try {
+    // Verify authentication
+    const { user, error: authError } = await verifyAuth(request)
+    if (authError || !user) {
+      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check if user is a driver
+    const { profile, error: profileError } = await getUserProfile(user.id)
+    if (profileError || !profile) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+    }
+
+    if (profile.role !== 'driver') {
+      return NextResponse.json(
+        { error: 'Only drivers can create offers' },
+        { status: 403 }
+      )
+    }
+
     const supabase = createServerSupabaseClient()
     if (!supabase) {
       return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 })
-    }
-
-    // Get authenticated user from request headers
-    const authHeader = request.headers.get('authorization')
-    let userId = null
-
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-      if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      userId = user.id
-
-      // Check if user is a driver
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', userId)
-        .single()
-
-      if (!profile || profile.role !== 'driver') {
-        return NextResponse.json(
-          { error: 'Only drivers can create offers' },
-          { status: 403 }
-        )
-      }
-    } else {
-      return NextResponse.json({ error: 'Authorization header required' }, { status: 401 })
     }
 
     const body = await request.json()
@@ -72,7 +63,7 @@ export async function POST(request) {
       .from('offers')
       .insert({
         shipment_id,
-        driver_id: userId,
+        driver_id: user.id,
         price,
         notes,
         estimated_delivery_date,
