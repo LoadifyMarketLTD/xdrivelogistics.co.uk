@@ -1,9 +1,13 @@
 # XDrive Logistics - Netlify Configuration
-# Note: We recommend deploying to Vercel for better Next.js 16 support
-# If using Netlify, ensure Node.js 20+ is configured
+# Note: We recommend deploying to Vercel for best Next.js 16 support.
+# If using Netlify, ensure Node.js 20+ is configured (or set via package.json engines/.nvmrc)
 
 [build]
   command = "npm run build"
+  # Netlify auto-detects the publish directory for Next.js
+
+[build.environment]
+  NODE_VERSION = "20"
   # Note: Do not specify publish directory for Next.js - Netlify auto-detects
 
 [build.environment]
@@ -16,6 +20,4 @@
   package = "@netlify/plugin-nextjs"
 
 # Deployment Note:
-# For best experience with Next.js 16 App Router and API routes,
-# we recommend deploying to Vercel (https://vercel.com)
-# which has native Next.js support and serverless functions.
+# For Next.js 16 App Router and some API routes, Vercel offers more native support.
