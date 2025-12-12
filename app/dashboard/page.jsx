@@ -50,6 +50,7 @@ export default function DashboardPage() {
       await fetchShipments(session.user.id, profileData?.role);
     } catch (error) {
       console.error('Error:', error);
+      setError(error.message);
       router.push('/login');
     } finally {
       setLoading(false);

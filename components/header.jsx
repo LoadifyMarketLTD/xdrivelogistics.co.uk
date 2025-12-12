@@ -28,6 +28,7 @@ export default function Header() {
 
   const handleLogout = async () => {
     await supabaseClient.auth.signOut()
+    setUser(null)
   }
 
   return (

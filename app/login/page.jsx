@@ -31,6 +31,8 @@ export default function LoginPage() {
       setError(error.message);
       // Redirect to dashboard after successful login
       router.push('/dashboard');
+    } catch (error) {
+      setError(error.message);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -112,6 +114,7 @@ export default function LoginPage() {
             </button>
           </form>
 
+        </div>
           <div className="space-y-1.5">
             <label className="block text-sm text-slate-300">Password</label>
             <input

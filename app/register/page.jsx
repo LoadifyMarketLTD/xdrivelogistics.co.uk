@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabaseClient } from '../../lib/supabaseClient';
 
+// Constants
+const PROFILE_CREATION_RETRIES = 3;
+const RETRY_DELAY_MS = 1000;
+
 export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -89,6 +93,8 @@ export default function RegisterPage() {
       setTimeout(() => {
         router.push('/login');
       }, 2000);
+    } catch (error) {
+      setError(error.message);
     } catch (err) {
       setError(err.message);
     } finally {
