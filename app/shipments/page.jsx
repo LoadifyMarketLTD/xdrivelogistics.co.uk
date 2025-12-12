@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabaseClient } from '../../lib/supabaseClient';
 import ShipmentCard from '../../components/ShipmentCard';
+import { formatStatus } from '../../lib/utils';
 
 export default function ShipmentsPage() {
   const [shipments, setShipments] = useState([]);
@@ -71,7 +72,7 @@ export default function ShipmentsPage() {
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                {status === 'all' ? 'All' : status.replace('_', ' ')}
+                {status === 'all' ? 'All' : formatStatus(status)}
               </button>
             ))}
           </div>
