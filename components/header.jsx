@@ -52,12 +52,6 @@ export default function Header() {
           >
             Home
           </Link>
-          <Link
-            href="/shipments"
-            className="text-slate-200 hover:text-[#D4AF37] transition-colors"
-          >
-            Shipments
-          </Link>
           {user ? (
             <>
               <Link

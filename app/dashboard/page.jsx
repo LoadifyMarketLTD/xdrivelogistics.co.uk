@@ -1,4 +1,8 @@
-"use client";
+// app/driver/dashboard/page.jsx
+export const metadata = {
+  title: "Driver Dashboard | XDrive Logistics",
+  description: "Driver dashboard – active jobs, profile and history",
+};
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -52,24 +56,65 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+export default function DriverDashboardPage() {
+  return (
+    <div className="min-h-screen bg-gray-100 p-6">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">
+          Driver Dashboard
+        </h1>
+        <p className="text-sm text-gray-500">
+          Welcome back, Daniel Preda
+        </p>
+      </div>
 
-  const fetchShipments = async (userId, role) => {
-    try {
-      let query = supabaseClient
-        .from('shipments')
-        .select('*')
-        .order('created_at', { ascending: false });
+      {/* Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT COLUMN */}
+        <div className="space-y-6">
+          {/* Driver Card */}
+          <div className="bg-white rounded-xl shadow p-6 text-center">
+            <img
+              src="/driver.jpg"
+              alt="Driver"
+              className="mx-auto h-24 w-24 rounded-full object-cover"
+            />
+            <h2 className="mt-4 text-lg font-semibold">
+              Daniel Preda
+            </h2>
+            <p className="text-sm text-gray-500">Driver</p>
 
-      // If shipper, show their own shipments
-      if (role === 'shipper') {
-        query = query.eq('user_id', userId);
-      }
-      // If driver, show all pending shipments
-      else if (role === 'driver') {
-        query = query.eq('status', 'pending');
-      }
+            <button className="mt-4 w-full rounded-lg bg-blue-600 py-2 text-white hover:bg-blue-700">
+              Go Offline
+            </button>
+          </div>
 
-      const { data, error } = await query;
+          {/* Active Job Card */}
+          <div className="bg-white rounded-xl shadow p-6">
+            <h3 className="font-semibold mb-3">Active Job</h3>
+            <div className="text-sm space-y-2">
+              <p><strong>#29345</strong></p>
+              <p>Pickup: Glasgow</p>
+              <p>Delivery: Newcastle</p>
+              <p className="text-gray-500">
+                15/12/2023 • 14:00 – 18:30
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Driver Info */}
+          <div className="bg-white rounded-xl shadow p-6">
+            <h3 className="font-semibold mb-4">Driver Info</h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-500">Email</p>
+                <p>danie@example.com</p>
+              </div>
 
       if (error) throw error;
       setShipments(data || []);
@@ -83,14 +128,20 @@ export default function DashboardPage() {
     await supabaseClient.auth.signOut();
     router.push('/login');
   };
+              <div>
+                <p className="text-gray-500">Phone</p>
+                <p>+44 7123 45789</p>
+              </div>
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="text-slate-400">Loading...</div>
-      </div>
-    );
-  }
+              <div>
+                <p className="text-gray-500">Vehicle</p>
+                <p>Mercedes Sprinter LWB</p>
+              </div>
+
+              <div>
+                <p className="text-gray-500">Registration</p>
+                <p>SF19 WZC</p>
+              </div>
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
@@ -119,67 +170,69 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
+              <div>
+                <p className="text-gray-500">Rating</p>
+                <p>★★★★★</p>
+              </div>
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">
-            {error}
+              <div>
+                <p className="text-gray-500">Verification</p>
+                <p>ID + Full Insurance</p>
+              </div>
+            </div>
           </div>
-        )}
 
-        {/* Action Cards */}
-        <div className="grid md:grid-cols-2 gap-4 mb-8">
-          {profile?.role === 'shipper' && (
-            <Link
-              href="/shipments/new"
-              className="p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 transition"
-            >
-              <h3 className="text-lg font-semibold text-emerald-400 mb-2">
-                Create New Shipment
-              </h3>
-              <p className="text-sm text-slate-300">
-                Post a new delivery request and receive offers from drivers
-              </p>
-            </Link>
-          )}
-          
-          <Link
-            href="/shipments"
-            className="p-6 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition"
-          >
-            <h3 className="text-lg font-semibold text-slate-50 mb-2">
-              Browse All Shipments
-            </h3>
-            <p className="text-sm text-slate-300">
-              View available shipments and delivery opportunities
+          {/* Active Jobs Table */}
+          <div className="bg-white rounded-xl shadow p-6">
+            <h3 className="font-semibold mb-4">Active Jobs</h3>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-gray-500">
+                    <th className="pb-2">Job</th>
+                    <th className="pb-2">Pickup</th>
+                    <th className="pb-2">Delivery</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  <tr>
+                    <td className="py-2">#29345</td>
+                    <td>Glasgow</td>
+                    <td>Newcastle</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2">#29304</td>
+                    <td>Liverpool</td>
+                    <td>Glasgow</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2">#29287</td>
+                    <td>Manchester</td>
+                    <td>Edinburgh</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2">#29256</td>
+                    <td>Birmingham</td>
+                    <td>Derby</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2">#29236</td>
+                    <td>York</td>
+                    <td>Inverness</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Job History */}
+          <div className="bg-white rounded-xl shadow p-6">
+            <h3 className="font-semibold mb-4">Job History</h3>
+            <p className="text-sm text-gray-500">
+              Completed jobs will appear here.
             </p>
-          </Link>
-        </div>
-
-        {/* Shipments List */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4">
-            {profile?.role === 'shipper' ? 'Your Shipments' : 'Available Shipments'}
-          </h2>
-          
-          {shipments.length === 0 ? (
-            <div className="text-center py-12 bg-slate-900 border border-slate-800 rounded-lg">
-              <p className="text-slate-400">No shipments found</p>
-              {profile?.role === 'shipper' && (
-                <Link
-                  href="/shipments/new"
-                  className="inline-block mt-4 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-md text-sm font-medium"
-                >
-                  Create Your First Shipment
-                </Link>
-              )}
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {shipments.map((shipment) => (
-                <ShipmentCard key={shipment.id} shipment={shipment} />
-              ))}
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

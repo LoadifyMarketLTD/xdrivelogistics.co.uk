@@ -52,9 +52,9 @@ export default function RegisterPage() {
 
       // If sign up successful, create profile
       if (data.user) {
-        // Insert profile with role - retries up to PROFILE_CREATION_RETRIES times
+        // Insert profile with role - retries up to 3 times
         let profileCreated = false;
-        let retries = PROFILE_CREATION_RETRIES;
+        let retries = 3;
         
         while (!profileCreated && retries > 0) {
           const { error: profileError } = await supabaseClient
@@ -73,8 +73,8 @@ export default function RegisterPage() {
             if (retries === 0) {
               throw new Error('Failed to create user profile after multiple attempts. Please contact support with your email.');
             }
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            // Wait a bit before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
       }
@@ -85,6 +85,8 @@ export default function RegisterPage() {
       }, 2000);
     } catch (error) {
       setError(error.message);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }

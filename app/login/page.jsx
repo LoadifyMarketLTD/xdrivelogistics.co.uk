@@ -7,7 +7,6 @@ import { supabaseClient } from '../../lib/supabaseClient';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [accountType, setAccountType] = useState('driver');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,6 +29,8 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (error) {
       setError(error.message);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -144,13 +145,6 @@ export default function LoginPage() {
             >
               {loading ? 'Logging in...' : 'Log in'}
             </button>
-
-            <div className="text-center text-xs text-slate-400 mt-4">
-              Don't have an account?{' '}
-              <Link href="/register" className="text-emerald-400 hover:text-emerald-300">
-                Register here
-              </Link>
-            </div>
           </form>
 
         </div>

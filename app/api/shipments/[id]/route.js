@@ -11,6 +11,7 @@ export async function GET(request, { params }) {
 
     const { id } = params
 
+    
     const { data, error } = await supabase
       .from('shipments')
       .select('*')

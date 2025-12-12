@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabaseClient } from '../../lib/supabaseClient';
 import ShipmentCard from '../../components/ShipmentCard';
+import { formatStatus } from '../../lib/utils';
 
 export default function ShipmentsPage() {
   const [shipments, setShipments] = useState([]);
@@ -60,7 +61,7 @@ export default function ShipmentsPage() {
 
         {/* Filters */}
         <div className="mb-6">
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2">
             {['all', 'pending', 'accepted', 'in_transit', 'completed'].map((status) => (
               <button
                 key={status}
@@ -71,7 +72,7 @@ export default function ShipmentsPage() {
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                {status === 'all' ? 'All' : status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                {status === 'all' ? 'All' : formatStatus(status)}
               </button>
             ))}
           </div>
