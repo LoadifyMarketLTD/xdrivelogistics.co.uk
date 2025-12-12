@@ -68,6 +68,12 @@ export default function ShipmentDetailPage({ params }) {
     }
   };
 
+  useEffect(() => {
+    fetchData();
+  }, [params.id]);
+
+  const handleCreateOffer = async (offerData) => {
+    // Implementation for creating offers
   const handleOfferSuccess = (newOffer) => {
     setOffers([newOffer, ...offers]);
     setSuccessMessage('Offer submitted successfully!');
@@ -259,6 +265,7 @@ export default function ShipmentDetailPage({ params }) {
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }

@@ -4,6 +4,58 @@ export const metadata = {
   description: "Driver dashboard – active jobs, profile and history",
 };
 
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabaseClient } from '../../lib/supabaseClient';
+import ShipmentCard from '../../components/ShipmentCard';
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [shipments, setShipments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    checkUser();
+  }, []);
+
+  const checkUser = async () => {
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      setUser(session.user);
+
+      // Get user profile
+      const { data: profileData, error: profileError } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      } else {
+        setProfile(profileData);
+      }
+
+      // Fetch shipments based on role
+      await fetchShipments(session.user.id, profileData?.role);
+    } catch (error) {
+      console.error('Error:', error);
+      setError(error.message);
+      router.push('/login');
+    } finally {
+      setLoading(false);
+    }
+  };
 export default function DriverDashboardPage() {
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -64,6 +116,18 @@ export default function DriverDashboardPage() {
                 <p>danie@example.com</p>
               </div>
 
+      if (error) throw error;
+      setShipments(data || []);
+    } catch (err) {
+      console.error('Error fetching shipments:', err);
+      setError(err.message);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabaseClient.auth.signOut();
+    router.push('/login');
+  };
               <div>
                 <p className="text-gray-500">Phone</p>
                 <p>+44 7123 45789</p>
@@ -79,6 +143,33 @@ export default function DriverDashboardPage() {
                 <p>SF19 WZC</p>
               </div>
 
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-50">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-slate-400 mt-1">
+              Welcome back, {user?.email}
+              {profile?.role && ` (${profile.role})`}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Link
+              href="/shipments"
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-md text-sm font-medium transition"
+            >
+              All Shipments
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-md text-sm font-medium transition"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
               <div>
                 <p className="text-gray-500">Rating</p>
                 <p>★★★★★</p>
