@@ -1,54 +1,222 @@
 # XDrive Logistics - Courier Exchange MVP
 
-A modern courier exchange platform built with Next.js 16 and Supabase, enabling shippers to post delivery requests and drivers to make offers.
+A modern courier exchange platform with:
+- Next.js 16 frontend (optional)
+- Node.js/Express backend API
+- PostgreSQL database
+- Static HTML demo pages for testing
+- Docker Compose for local development
 
 ## Features
 
-- 🔐 Authentication (Login/Register with email/password)
-- 📦 Shipment Management (Create, list, and view shipments)
-- 💰 Offer System (Drivers can make offers on shipments)
-- 👥 Role-based Access (Shipper vs Driver views)
-- 🎨 Modern UI with Tailwind CSS
+- 🔐 Authentication (Register, Login with email verification)
+- 📦 Bookings Management (CRUD operations for loads/deliveries)
+- 💰 Financial Reports (Gross margin, subcontract spend)
+- 📊 Dashboard with real-time statistics
+- 🚚 Multi-role support (Driver, Shipper)
+- 🎨 Modern premium UI with dark theme
+- 🐳 Docker Compose for easy local setup
+
+## Quick Start with Docker Compose (Recommended)
+
+The easiest way to run the full stack locally:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk.git
+cd xdrivelogistics.co.uk
+
+# 2. Start all services (PostgreSQL + Backend API)
+docker compose up --build
+
+# 3. Wait for services to start (database will auto-initialize with schema and seed data)
+# Backend API will be available at http://localhost:3001
+# PostgreSQL will be available at localhost:5432
+
+# 4. Serve the frontend static files
+# Option A: Using Python
+cd public && python3 -m http.server 8000
+
+# Option B: Using Node.js
+cd public && npx http-server -p 8000
+
+# 5. Open your browser
+# Navigate to http://localhost:8000/dashboard.html
+# Or register: http://localhost:8000/register-inline.html
+# Or login: http://localhost:8000/desktop-signin-final.html
+```
+
+### Demo Credentials
+
+The seed data includes these demo accounts (password: `password123`):
+
+- **Shipper**: `shipper@xdrivelogistics.co.uk`
+- **Driver**: `driver@xdrivelogistics.co.uk` or `ion@xdrivelogistics.co.uk`
 
 ## Prerequisites
 
-- Node.js 20 or higher
+- Docker and Docker Compose (for the easiest setup)
+- OR Node.js 20+ and PostgreSQL 12+ (for manual setup)
 - npm 10 or higher
-- A Supabase account (free tier works fine)
 
-## Local Development Setup
+## Manual Setup (Without Docker)
 
-### 1. Install Dependencies
+### 1. Set Up PostgreSQL Database
 
 ```bash
+# Create database
+createdb xdrive
+
+# Run schema
+psql -d xdrive -f db/schema.sql
+
+# Load seed data
+psql -d xdrive -f db/seeds.sql
+```
+
+### 2. Configure Backend
+
+```bash
+cd server
+
+# Install dependencies
 npm install
+
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your settings
+# Minimum required:
+# DATABASE_URL=postgresql://username:password@localhost:5432/xdrive
+# PORT=3001
+
+# Start the backend
+npm start
 ```
 
-### 2. Set Up Supabase
-
-1. Create a new project at [https://app.supabase.com](https://app.supabase.com)
-2. Get your project URL and anon key from Project Settings > API
-3. Get your service role key from Project Settings > API (keep this secret!)
-
-### 3. Configure Environment Variables
-
-Copy the example environment file:
+### 3. Serve Frontend Files
 
 ```bash
-cp .env.example .env.local
+# In a new terminal, from the project root
+cd public
+python3 -m http.server 8000
+
+# Or use Node.js http-server
+npx http-server -p 8000
 ```
 
-Edit `.env.local` and fill in your Supabase credentials:
+### 4. Test the Application
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+Visit http://localhost:8000/dashboard.html
+
+## Environment Variables
+
+### Backend Configuration (`server/.env`)
+
+```bash
+# Server
+PORT=3001
+NODE_ENV=development
+
+# Database
+DATABASE_URL=postgresql://xdrive:xdrive@localhost:5432/xdrive
+
+# SMTP (Optional - leave empty to log emails to console)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+EMAIL_FROM="XDrive Logistics <no-reply@xdrivelogistics.co.uk>"
+
+# Security
+BCRYPT_ROUNDS=10
+VERIFY_TOKEN_EXPIRES_MIN=60
+
+# CORS
+CORS_ORIGIN=http://localhost:8000
 ```
 
-### 4. Create Database Tables
+**Note**: If SMTP credentials are not configured, verification emails will be logged to the console instead of being sent.
 
-Run the following SQL in your Supabase SQL Editor:
+## API Endpoints
+
+### Authentication
+
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login with email/password
+- `GET /api/auth/verify-email?token=xxx` - Verify email address
+
+### Bookings
+
+- `GET /api/bookings` - Get all bookings (supports ?status=, ?limit=, ?offset=)
+- `GET /api/bookings/:id` - Get single booking
+- `POST /api/bookings` - Create booking
+- `PUT /api/bookings/:id` - Update booking
+- `DELETE /api/bookings/:id` - Delete booking
+
+### Reports
+
+- `GET /api/reports/gross-margin?from=YYYY-MM-DD&to=YYYY-MM-DD` - Get gross margin report
+- `GET /api/reports/dashboard-stats` - Get dashboard statistics
+- `GET /api/reports/monthly-totals?year=YYYY&month=MM` - Get monthly totals
+
+### Invoices
+
+- `GET /api/invoices` - Get all invoices
+- `GET /api/invoices/:id` - Get single invoice
+- `POST /api/invoices` - Create invoice
+- `PUT /api/invoices/:id` - Update invoice
+
+### Health Check
+
+- `GET /health` - API health status
+
+## Testing with curl
+
+```bash
+# Register a new user
+curl -X POST http://localhost:3001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account_type": "driver",
+    "email": "test@example.com",
+    "password": "password123"
+  }'
+
+# Login
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "shipper@xdrivelogistics.co.uk",
+    "password": "password123"
+  }'
+
+# Get bookings
+curl http://localhost:3001/api/bookings
+
+# Get gross margin report
+curl "http://localhost:3001/api/reports/gross-margin?from=2025-12-01&to=2025-12-31"
+
+# Get dashboard stats
+curl http://localhost:3001/api/reports/dashboard-stats
+```
+
+## Database Schema
+
+The application uses the following tables:
+
+- **users** - User accounts (drivers and shippers)
+- **bookings** - Load/delivery records with pricing
+- **invoices** - Invoice records linked to bookings
+- **feedback** - User ratings and feedback
+- **watchlist** - Compliance tracking for suppliers
+
+See `db/schema.sql` for complete schema definition.
+
+## Supabase Integration (Optional - Legacy)
+
+The project originally used Supabase. To use Supabase instead of the local PostgreSQL setup:
 
 ```sql
 -- Enable UUID extension
