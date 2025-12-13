@@ -4,8 +4,11 @@
  */
 import nodemailer from 'nodemailer';
 
-// Check if SMTP is configured
-const isSmtpConfigured = process.env.SMTP_HOST && process.env.SMTP_USER;
+// Check if SMTP is fully configured
+const isSmtpConfigured = 
+  process.env.SMTP_HOST && 
+  process.env.SMTP_USER && 
+  process.env.SMTP_PASS;
 
 let transporter;
 

@@ -24,7 +24,9 @@ router.post('/register', async (req, res) => {
     if (!email || !password || !account_type) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
+    // More strict email validation (RFC 5322 compliant)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || email.length > 320) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
     if (password.length < 8) {

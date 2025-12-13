@@ -2,11 +2,13 @@
 -- Demo data for testing and development
 
 -- Insert demo users
+-- NOTE: These are DEMO accounts for development/testing ONLY
+-- In production, use environment-specific seed data or create accounts via API
+-- Password for all demo accounts: password123 (hash is intentionally predictable for testing)
 INSERT INTO users (account_type, email, password_hash, status, created_at) VALUES
   ('shipper', 'shipper@xdrive.test', '$2b$10$XqGkz8Z9J1q0J9J9J9J9Ju7X8J9J9J9J9J9J9J9J9J9J9J9J9J9J9', 'active', NOW()),
   ('driver', 'driver@xdrive.test', '$2b$10$XqGkz8Z9J1q0J9J9J9J9Ju7X8J9J9J9J9J9J9J9J9J9J9J9J9J9J9', 'active', NOW()),
   ('driver', 'john.driver@xdrive.test', '$2b$10$XqGkz8Z9J1q0J9J9J9J9Ju7X8J9J9J9J9J9J9J9J9J9J9J9J9J9J9', 'active', NOW());
--- Password for all demo accounts: password123
 
 -- Insert sample bookings based on user's data
 INSERT INTO bookings (load_id, from_location, to_location, vehicle_type, pickup_date, delivery_date, price, subcontract_cost, status, completed_by, created_at) VALUES

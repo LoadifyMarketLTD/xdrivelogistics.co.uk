@@ -67,7 +67,13 @@ app.get('/health', async (req, res) => {
 });
 
 // API routes
-app.use('/api', authLimiter, authRoutes);
+// Apply rate limiter only to auth routes
+app.use('/api/register', authLimiter);
+app.use('/api/login', authLimiter);
+app.use('/api/verify-email', authLimiter);
+
+// Mount auth routes
+app.use('/api', authRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/invoices', invoicesRoutes);
 app.use('/api/reports', reportsRoutes);

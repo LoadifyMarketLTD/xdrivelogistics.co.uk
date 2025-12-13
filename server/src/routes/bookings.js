@@ -19,7 +19,11 @@ router.get('/', async (req, res) => {
   try {
     const { status, from_date, to_date, limit = 100 } = req.query;
 
-    let query = 'SELECT * FROM bookings WHERE 1=1';
+    // Explicitly select columns to avoid exposing sensitive data
+    let query = `SELECT id, load_id, from_location, to_location, vehicle_type, 
+                        pickup_date, delivery_date, price, subcontract_cost, 
+                        status, completed_by, created_at, updated_at 
+                 FROM bookings WHERE 1=1`;
     const params = [];
     let paramCount = 1;
 
@@ -64,7 +68,13 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
+    const result = await pool.query(
+      `SELECT id, load_id, from_location, to_location, vehicle_type, 
+              pickup_date, delivery_date, price, subcontract_cost, 
+              status, completed_by, created_at, updated_at 
+       FROM bookings WHERE id = $1`,
+      [id]
+    );
 
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Booking not found' });
