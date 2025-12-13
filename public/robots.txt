@@ -1,0 +1,6 @@
+# XDrive Logistics - Robots.txt
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://xdrivelogistics.co.uk/sitemap.xml

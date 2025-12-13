@@ -1,0 +1,4 @@
+Contact: security@xdrivelogistics.co.uk
+Expires: 2025-12-31T23:59:59.000Z
+Preferred-Languages: en
+Canonical: https://xdrivelogistics.co.uk/.well-known/security.txt
