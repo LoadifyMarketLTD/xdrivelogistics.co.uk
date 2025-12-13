@@ -94,9 +94,18 @@ router.post('/', async (req, res) => {
       completed_by,
     } = req.body;
 
-    // Basic validation
-    if (!load_id || !from_address || !to_address || !vehicle_type) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    // Validation - be specific about missing fields
+    const missingFields = [];
+    if (!load_id) missingFields.push('load_id');
+    if (!from_address) missingFields.push('from_address');
+    if (!to_address) missingFields.push('to_address');
+    if (!vehicle_type) missingFields.push('vehicle_type');
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        missing: missingFields
+      });
     }
 
     const insertQuery = `

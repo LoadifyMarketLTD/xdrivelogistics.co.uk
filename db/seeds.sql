@@ -1,11 +1,12 @@
 -- XDrive Logistics Seed Data
 -- Demo data for testing and development
 
--- Insert demo users (passwords are all 'password123')
+-- Insert demo users
+-- All passwords are 'password123' (bcrypt hashed with 10 rounds)
 INSERT INTO users (account_type, email, password_hash, company_name, phone, status, created_at) VALUES
-  ('shipper', 'shipper@demo.com', '$2b$10$rGHVFJGKJHGKJHGKJHGKJ.abcdefghijklmnopqrstuvwxyz123456', 'Demo Shipper Ltd', '+44 7700 900123', 'active', NOW()),
-  ('driver', 'driver@demo.com', '$2b$10$rGHVFJGKJHGKJHGKJHGKJ.abcdefghijklmnopqrstuvwxyz123456', 'Demo Driver Co', '+44 7700 900456', 'active', NOW()),
-  ('shipper', 'test@xdrive.com', '$2b$10$rGHVFJGKJHGKJHGKJHGKJ.abcdefghijklmnopqrstuvwxyz123456', 'XDrive Test', '+44 7700 900789', 'active', NOW())
+  ('shipper', 'shipper@demo.com', '$2b$10$EWdIN1rtYCHbZuXRbpCNRu7SR.YSRc0qcMeSjZg60KrnkIMxhMXFy', 'Demo Shipper Ltd', '+44 7700 900123', 'active', NOW()),
+  ('driver', 'driver@demo.com', '$2b$10$EWdIN1rtYCHbZuXRbpCNRu7SR.YSRc0qcMeSjZg60KrnkIMxhMXFy', 'Demo Driver Co', '+44 7700 900456', 'active', NOW()),
+  ('shipper', 'test@xdrive.com', '$2b$10$EWdIN1rtYCHbZuXRbpCNRu7SR.YSRc0qcMeSjZg60KrnkIMxhMXFy', 'XDrive Test', '+44 7700 900789', 'active', NOW())
 ON CONFLICT (email) DO NOTHING;
 
 -- Insert demo bookings with realistic data

@@ -34,7 +34,7 @@ services:
       DATABASE_URL: postgresql://xdrive:xdrive@postgres:5432/xdrive_db
       JWT_SECRET: dev-jwt-secret-change-in-production
       JWT_EXPIRES_IN: 7d
-      CORS_ORIGIN: "*"
+      CORS_ORIGIN: "http://localhost:3000"
       APP_BASE_URL: http://localhost:3000
       BCRYPT_ROUNDS: 10
       VERIFY_TOKEN_EXPIRES_MIN: 60
