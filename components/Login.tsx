@@ -22,13 +22,16 @@ export default function Login({ onSubmit }: LoginProps) {
       if (onSubmit) {
         await onSubmit({ identifier, password, remember });
       } else {
-        // Demo simulation
-        console.log('Login attempt:', { identifier, password, remember });
+        // Demo simulation - replace with actual notification system in production
+        console.log('Login attempt (demo mode)');
         await new Promise(resolve => setTimeout(resolve, 1000));
+        // TODO: Replace alert with proper toast/notification component
         alert('Demo mode: Login would be processed here');
       }
     } catch (error) {
       console.error('Login error:', error);
+      // TODO: Replace alert with proper error notification component
+      alert('An error occurred during login. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

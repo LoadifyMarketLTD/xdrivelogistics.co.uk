@@ -19,7 +19,8 @@ import Login from '../components/Login';
 export default function LoginPage() {
   const handleSubmit = async (data: { identifier: string; password: string; remember: boolean }) => {
     // Integration point for authentication
-    console.log('Login submitted:', data);
+    // Note: Do not log sensitive data in production
+    console.log('Login submitted'); // Redacted for security
     
     // Example: Integrate with your auth API
     // try {
@@ -41,10 +42,12 @@ export default function LoginPage() {
     //     }
     //   } else {
     //     const error = await response.json();
+    //     // Use proper notification component in production
     //     alert(error.message || 'Login failed');
     //   }
     // } catch (err) {
     //   console.error('Login error:', err);
+    //   // Use proper notification component in production
     //   alert('Network error. Please try again.');
     // }
   };

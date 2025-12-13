@@ -6,7 +6,8 @@ export default function LoginNewPage() {
   const handleSubmit = async (data: { identifier: string; password: string; remember: boolean }) => {
     // This is where you would integrate with your authentication system
     // For example, calling an API endpoint or Supabase
-    console.log('Login submitted:', data);
+    // Note: Do not log sensitive data in production
+    console.log('Login submitted'); // Redacted for security
     
     // Example integration with existing authentication:
     // const response = await fetch('/api/auth/login', {
