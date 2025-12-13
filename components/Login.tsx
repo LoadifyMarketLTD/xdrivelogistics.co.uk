@@ -5,9 +5,10 @@ import styles from './login.module.css';
 
 interface LoginProps {
   onSubmit?: (data: { identifier: string; password: string; remember: boolean }) => void | Promise<void>;
+  error?: string | null;
 }
 
-export default function Login({ onSubmit }: LoginProps) {
+export default function Login({ onSubmit, error }: LoginProps) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
@@ -25,13 +26,10 @@ export default function Login({ onSubmit }: LoginProps) {
         // Demo simulation - replace with actual notification system in production
         console.log('Login attempt (demo mode)');
         await new Promise(resolve => setTimeout(resolve, 1000));
-        // TODO: Replace alert with proper toast/notification component
-        alert('Demo mode: Login would be processed here');
       }
     } catch (error) {
       console.error('Login error:', error);
-      // TODO: Replace alert with proper error notification component
-      alert('An error occurred during login. Please try again.');
+      // Error is handled by parent component
     } finally {
       setIsSubmitting(false);
     }
@@ -85,6 +83,12 @@ export default function Login({ onSubmit }: LoginProps) {
           </div>
 
           <form className={styles.form} onSubmit={handleSubmit} autoComplete="on" noValidate>
+            {error && (
+              <div className={styles.error}>
+                {error}
+              </div>
+            )}
+            
             <label className={styles.field}>
               <span className={styles.srOnly}>Email / Username</span>
               <input
