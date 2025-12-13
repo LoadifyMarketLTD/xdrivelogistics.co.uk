@@ -88,6 +88,7 @@
       <p>Join XDrive Logistics as a driver or shipper. Create your account to access loads, post jobs and manage your fleet.</p>
 
       <div class="note">
+        <strong>Important:</strong> Authentication service is not configured on this demo. Submitting the form will validate input locally but no account is created.
         <strong>Welcome!</strong> Create your account to access the XDrive Logistics platform. You'll receive a verification email after registration.
       </div>
     </div>
@@ -95,6 +96,8 @@
     <div class="card" role="form" aria-labelledby="create-title">
       <h2 id="create-title">Create your account</h2>
       <div class="muted">Join XDrive Logistics as a driver or shipper</div>
+
+      <div class="alert" id="auth-alert"><strong>Authentication service is not configured</strong><div class="small">This demo page validates locally only.</div></div>
 
       <form id="register-form" novalidate>
         <div class="radio-row" role="radiogroup" aria-label="Account Type">
@@ -113,6 +116,8 @@
 
         <button type="submit" class="btn-primary" id="create-btn">Create account</button>
 
+        <div class="success" id="ok">Form valid — authentication not configured, no account created.</div>
+        <div class="error" id="err">Error: please fix the highlighted fields.</div>
         <div class="success" id="ok" style="display:none;"></div>
         <div class="error" id="err" style="display:none;"></div>
 
@@ -122,6 +127,84 @@
   </div>
 
   <script>
+    (function(){
+      const form = document.getElementById('register-form');
+      const ok = document.getElementById('ok');
+      const err = document.getElementById('err');
+      const authAlert = document.getElementById('auth-alert');
+      const createBtn = document.getElementById('create-btn');
+
+      // Hide auth warning since we now have real backend
+      if (authAlert) {
+        authAlert.style.display = 'none';
+      }
+
+      form.addEventListener('submit', async function(e){
+        e.preventDefault();
+        ok.style.display = 'none';
+        err.style.display = 'none';
+
+        const email = form.email.value.trim();
+        const pass = form.password.value;
+        const conf = form.confirm.value;
+        const type = form.type.value;
+
+        // simple local validation
+        const emailValid = /\S+@\S+\.\S+/.test(email);
+        const pwValid = pass.length >= 8;
+        const match = pass === conf;
+
+        // highlight minimal errors
+        if(!emailValid || !pwValid || !match){
+          err.textContent = 'Error: ';
+          if(!emailValid) err.textContent += 'Invalid email. ';
+          if(!pwValid) err.textContent += 'Password must be at least 8 characters. ';
+          if(!match) err.textContent += 'Passwords do not match.';
+          err.style.display = 'block';
+          return;
+        }
+
+        // Disable button during request
+        createBtn.disabled = true;
+        createBtn.textContent = 'Creating account...';
+
+        try {
+          const response = await fetch('http://localhost:3001/api/register', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              account_type: type,
+              email: email,
+              password: pass,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            ok.textContent = 'Account created successfully! Please check your email to verify your account.';
+            ok.style.display = 'block';
+            
+            // Clear form
+            form.password.value = '';
+            form.confirm.value = '';
+            form.email.value = '';
+            
+            // Redirect to login after 3 seconds
+            setTimeout(() => {
+              window.location.href = 'desktop-signin-final.html';
+            }, 3000);
+          } else {
+            err.textContent = data.error || 'Registration failed';
+            err.style.display = 'block';
+            createBtn.disabled = false;
+            createBtn.textContent = 'Create account';
+          }
+        } catch (error) {
+          console.error('Registration error:', error);
+          err.textContent = 'Network error. Please check if the backend server is running on http://localhost:3001';
     const API_BASE = 'http://localhost:3001/api';
     
     const form = document.getElementById('register-form');
@@ -189,6 +272,8 @@
           createBtn.disabled = false;
           createBtn.textContent = 'Create account';
         }
+      });
+    })();
       } catch (error) {
         console.error('Registration error:', error);
         err.textContent = 'Network error. Please check if the server is running.';

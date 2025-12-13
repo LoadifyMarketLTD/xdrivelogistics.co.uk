@@ -269,6 +269,7 @@
         <h2 id="signin-title" class="title">Sign in</h2>
         <p class="subtitle">Login to view jobs, vehicles &amp; earnings</p>
 
+        <form class="login-form" action="#" method="post" novalidate>
         <form class="login-form" id="loginForm" novalidate>
           <div id="alertBox" style="display:none;background:#2b2733;border-left:4px solid #c96;padding:10px 12px;border-radius:8px;color:#ffd;margin-bottom:14px;"></div>
           
@@ -292,6 +293,8 @@
   </main>
 
   <script>
+    // Login form handler
+    document.querySelector('.login-form').addEventListener('submit', async (e) => {
     const API_BASE = 'http://localhost:3001/api';
     
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -299,6 +302,19 @@
       
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
+      const button = e.target.querySelector('button[type="submit"]');
+      
+      // Disable button during request
+      button.disabled = true;
+      button.textContent = 'Signing in...';
+      
+      try {
+        const response = await fetch('http://localhost:3001/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
       const alertBox = document.getElementById('alertBox');
       const submitBtn = e.target.querySelector('button[type="submit"]');
       
@@ -317,6 +333,23 @@
         const data = await response.json();
         
         if (response.ok) {
+          // Store token
+          localStorage.setItem('xdrive_token', data.token);
+          localStorage.setItem('xdrive_user', JSON.stringify(data.user));
+          
+          // Redirect to dashboard
+          alert('Login successful! Redirecting to dashboard...');
+          window.location.href = 'dashboard.html';
+        } else {
+          alert(data.error || 'Login failed');
+          button.disabled = false;
+          button.textContent = 'Sign in to XDrive';
+        }
+      } catch (err) {
+        console.error('Login error:', err);
+        alert('Network error. Please check if the backend server is running on http://localhost:3001');
+        button.disabled = false;
+        button.textContent = 'Sign in to XDrive';
           // Save token to localStorage
           localStorage.setItem('xdrive_token', data.token);
           localStorage.setItem('xdrive_user', JSON.stringify(data.user));

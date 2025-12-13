@@ -1,4 +1,10 @@
 /**
+ * Bookings routes
+ * - GET /api/bookings - List all bookings
+ * - GET /api/bookings/:id - Get single booking
+ * - POST /api/bookings - Create booking
+ * - PUT /api/bookings/:id - Update booking
+ * - DELETE /api/bookings/:id - Delete booking
  * Bookings routes: CRUD operations for bookings/loads
  */
 const express = require('express');
@@ -16,6 +22,29 @@ router.get('/', async (req, res) => {
 
     let query = 'SELECT * FROM bookings WHERE 1=1';
     const params = [];
+    let paramIndex = 1;
+
+    if (status) {
+      query += ` AND status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+
+    if (from_date) {
+      query += ` AND pickup_date >= $${paramIndex}`;
+      params.push(from_date);
+      paramIndex++;
+    }
+
+    if (to_date) {
+      query += ` AND pickup_date <= $${paramIndex}`;
+      params.push(to_date);
+      paramIndex++;
+    }
+
+    query += ' ORDER BY pickup_date DESC, created_at DESC';
+    query += ` LIMIT $${paramIndex}`;
+    params.push(Math.min(Number(limit), 500));
     let paramCount = 1;
 
     if (status) {
@@ -46,6 +75,7 @@ router.get('/', async (req, res) => {
       count: result.rowCount,
     });
   } catch (err) {
+    console.error('List bookings error:', err);
     console.error('Error fetching bookings:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
@@ -53,12 +83,14 @@ router.get('/', async (req, res) => {
 
 /**
  * GET /api/bookings/:id
+ * Get single booking by ID
  * Get a single booking by ID
  */
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
+    const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
     const result = await pool.query(
       'SELECT * FROM bookings WHERE id = $1',
       [id]
@@ -68,6 +100,9 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
+    return res.json({ booking: result.rows[0] });
+  } catch (err) {
+    console.error('Get booking error:', err);
     return res.json(result.rows[0]);
   } catch (err) {
     console.error('Error fetching booking:', err);
@@ -77,6 +112,7 @@ router.get('/:id', async (req, res) => {
 
 /**
  * POST /api/bookings
+ * Create new booking
  * Create a new booking
  */
 router.post('/', async (req, res) => {
@@ -88,6 +124,15 @@ router.post('/', async (req, res) => {
       vehicle_type,
       pickup_date,
       delivery_date,
+      status,
+      price,
+      subcontract_cost,
+      completed_by,
+    } = req.body;
+
+    // Basic validation
+    if (!from_address || !to_address || !vehicle_type) {
+      return res.status(400).json({ error: 'Missing required fields' });
       price,
       subcontract_cost,
       status,
@@ -111,6 +156,10 @@ router.post('/', async (req, res) => {
     const insertQuery = `
       INSERT INTO bookings (
         load_id, from_address, to_address, vehicle_type,
+        pickup_date, delivery_date, status, price, subcontract_cost,
+        completed_by, created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
         pickup_date, delivery_date, price, subcontract_cost,
         status, completed_by, created_at
       )
@@ -119,12 +168,16 @@ router.post('/', async (req, res) => {
     `;
 
     const result = await pool.query(insertQuery, [
+      load_id || null,
       load_id,
       from_address,
       to_address,
       vehicle_type,
       pickup_date || null,
       delivery_date || null,
+      status || 'pending',
+      price || 0,
+      subcontract_cost || 0,
       price || null,
       subcontract_cost || null,
       status || 'pending',
@@ -136,6 +189,7 @@ router.post('/', async (req, res) => {
       booking: result.rows[0],
     });
   } catch (err) {
+    console.error('Create booking error:', err);
     console.error('Error creating booking:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
@@ -143,17 +197,22 @@ router.post('/', async (req, res) => {
 
 /**
  * PUT /api/bookings/:id
+ * Update existing booking
  * Update a booking
  */
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const {
+      load_id,
       from_address,
       to_address,
       vehicle_type,
       pickup_date,
       delivery_date,
+      status,
+      price,
+      subcontract_cost,
       price,
       subcontract_cost,
       status,
@@ -168,6 +227,19 @@ router.put('/:id', async (req, res) => {
 
     const updateQuery = `
       UPDATE bookings
+      SET
+        load_id = COALESCE($1, load_id),
+        from_address = COALESCE($2, from_address),
+        to_address = COALESCE($3, to_address),
+        vehicle_type = COALESCE($4, vehicle_type),
+        pickup_date = COALESCE($5, pickup_date),
+        delivery_date = COALESCE($6, delivery_date),
+        status = COALESCE($7, status),
+        price = COALESCE($8, price),
+        subcontract_cost = COALESCE($9, subcontract_cost),
+        completed_by = COALESCE($10, completed_by),
+        updated_at = NOW()
+      WHERE id = $11
       SET 
         from_address = COALESCE($1, from_address),
         to_address = COALESCE($2, to_address),
@@ -184,11 +256,15 @@ router.put('/:id', async (req, res) => {
     `;
 
     const result = await pool.query(updateQuery, [
+      load_id,
       from_address,
       to_address,
       vehicle_type,
       pickup_date,
       delivery_date,
+      status,
+      price,
+      subcontract_cost,
       price,
       subcontract_cost,
       status,
@@ -201,6 +277,7 @@ router.put('/:id', async (req, res) => {
       booking: result.rows[0],
     });
   } catch (err) {
+    console.error('Update booking error:', err);
     console.error('Error updating booking:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
@@ -208,6 +285,7 @@ router.put('/:id', async (req, res) => {
 
 /**
  * DELETE /api/bookings/:id
+ * Delete booking (soft delete by setting status to 'cancelled')
  * Delete a booking
  */
 router.delete('/:id', async (req, res) => {
@@ -215,6 +293,8 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
     const result = await pool.query(
+      'UPDATE bookings SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
+      ['cancelled', id]
       'DELETE FROM bookings WHERE id = $1 RETURNING id',
       [id]
     );
@@ -223,6 +303,9 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
+    return res.json({ message: 'Booking cancelled successfully' });
+  } catch (err) {
+    console.error('Delete booking error:', err);
     return res.json({
       message: 'Booking deleted successfully',
       id: result.rows[0].id,

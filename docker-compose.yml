@@ -3,6 +3,12 @@ version: '3.8'
 services:
   # PostgreSQL Database
   postgres:
+    image: postgres:14-alpine
+    container_name: xdrive-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: xdrive
     image: postgres:15-alpine
     container_name: xdrive_postgres
     environment:
@@ -15,6 +21,10 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
       test: ["CMD-SHELL", "pg_isready -U xdrive"]
       interval: 10s
       timeout: 5s
@@ -27,6 +37,17 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+    container_name: xdrive-backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/xdrive
+      PORT: 3001
+      NODE_ENV: development
+      CORS_ORIGIN: http://localhost:3000
+      # WARNING: Development secret only! Use strong random secret in production
+      # Generate with: openssl rand -hex 32
+      JWT_SECRET: dev-secret-change-in-production
+      BCRYPT_ROUNDS: 10
+      APP_BASE_URL: http://localhost:3000
     container_name: xdrive_backend
     environment:
       NODE_ENV: development
