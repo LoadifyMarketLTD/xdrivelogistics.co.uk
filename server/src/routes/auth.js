@@ -13,8 +13,13 @@ const { sendVerificationEmail } = require('../mailer');
 
 const router = express.Router();
 
-// JWT secret (use strong secret in production)
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
+// JWT secret (MUST be provided in production)
+const JWT_SECRET = process.env.JWT_SECRET || (() => {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET environment variable is required in production');
+  }
+  return 'dev-secret-only-for-local-testing';
+})();
 
 /**
  * POST /api/register
@@ -180,6 +185,11 @@ router.get('/verify-email', async (req, res) => {
 
     if (!token) {
       return res.status(400).json({ error: 'Token required' });
+    }
+
+    // Validate token format (should be hex string of appropriate length)
+    if (!/^[a-f0-9]{64}$/.test(token)) {
+      return res.status(400).json({ error: 'Invalid token format' });
     }
 
     // Find user with token

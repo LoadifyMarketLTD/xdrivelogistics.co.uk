@@ -95,6 +95,10 @@ router.get('/gross-margin', async (req, res) => {
   }
 });
 
+// Default date range constants
+const DEFAULT_FROM_DATE = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]; // Jan 1st of current year
+const DEFAULT_TO_DATE = new Date().toISOString().split('T')[0]; // Today
+
 /**
  * GET /api/reports/daily-summary
  * Get daily booking and revenue summary
@@ -116,7 +120,7 @@ router.get('/daily-summary', async (req, res) => {
       ORDER BY date DESC
     `;
 
-    const result = await pool.query(query, [from || '2000-01-01', to || '2099-12-31']);
+    const result = await pool.query(query, [from || DEFAULT_FROM_DATE, to || DEFAULT_TO_DATE]);
 
     return res.json({
       daily_summary: result.rows.map(row => ({
