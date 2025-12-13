@@ -23,13 +23,13 @@ export default function RegisterPage() {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('Parolele nu se potrivesc');
       setLoading(false);
       return;
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError('Parola trebuie să aibă cel puțin 8 caractere');
       setLoading(false);
       return;
     }
@@ -51,7 +51,7 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Registration failed. Please try again.');
+        throw new Error(data.error || 'Înregistrarea a eșuat. Te rugăm să încerci din nou.');
       }
 
       setSuccess(true);
@@ -60,7 +60,7 @@ export default function RegisterPage() {
       }, 2000);
     } catch (error) {
       if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
-        setError('Could not connect to backend server. Please ensure the API is running at ' + API_URL);
+        setError('Nu s-a putut conecta la serverul backend. Asigurați-vă că API-ul rulează la ' + API_URL);
       } else {
         setError(error.message);
       }
@@ -99,7 +99,7 @@ export default function RegisterPage() {
 
         {success && (
           <div className="mb-4 p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
-            Registration successful! Redirecting to login...
+            Înregistrare reușită! Redirecționare către login...
           </div>
         )}
 
@@ -138,7 +138,7 @@ export default function RegisterPage() {
             <input
               className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
               type="email"
-              placeholder="dannyelbill@gmail.com"
+              placeholder="email@exemplu.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -180,9 +180,9 @@ export default function RegisterPage() {
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-400">
-          Already have an account?{' '}
+          Ai deja un cont?{' '}
           <Link href="/login" className="text-emerald-500 hover:text-emerald-400">
-            Log in here
+            Conectează-te aici
           </Link>
         </p>
       </div>
