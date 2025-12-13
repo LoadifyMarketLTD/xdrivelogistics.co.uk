@@ -31,9 +31,15 @@ yarn-error.log*
 !.env.example
 !.env.prod.example
 !server/.env.example
+server/.env
+server/.env.local
+server/.env.production
 
 # vercel
 .vercel
+
+# server node_modules
+server/node_modules
 
 # stackbit
 .cache
@@ -51,3 +57,5 @@ prisma/*.db-journal
 *.userId
 *.driverId
 *.jobId
+server/node_modules/
+server/package-lock.json

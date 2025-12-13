@@ -1,5 +1,9 @@
 /**
  * Invoices routes
+ * - GET /api/invoices - List invoices
+ * - GET /api/invoices/:id - Get single invoice
+ * - POST /api/invoices - Create invoice
+ * - PUT /api/invoices/:id - Update invoice
  */
 const express = require('express');
 const pool = require('../db');
@@ -9,10 +13,37 @@ const router = express.Router();
 /**
  * GET /api/invoices
  * List all invoices
+ * Get all invoices
  */
 router.get('/', async (req, res) => {
   try {
     const { status, limit = 50, offset = 0 } = req.query;
+
+    let query = 'SELECT * FROM invoices';
+    const params = [];
+
+    if (status) {
+      query += ' WHERE status = $1';
+      params.push(status);
+    }
+
+    query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(Number(limit), Number(offset));
+
+    const result = await pool.query(query, params);
+
+    res.json({
+      invoices: result.rows,
+      total: result.rowCount,
+    });
+  } catch (error) {
+    console.error('Get invoices error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+ * List all invoices
+ */
+router.get('/', async (req, res) => {
+  try {
+    const { status, booking_id, limit = 100 } = req.query;
 
     let query = 'SELECT * FROM invoices WHERE 1=1';
     const params = [];
@@ -26,6 +57,29 @@ router.get('/', async (req, res) => {
 
     query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
+    if (booking_id) {
+      query += ` AND booking_id = $${paramIndex}`;
+      params.push(booking_id);
+      paramIndex++;
+    }
+
+    query += ' ORDER BY created_at DESC';
+    query += ` LIMIT $${paramIndex}`;
+    params.push(Math.min(Number(limit), 500));
+    const { status, limit = 100 } = req.query;
+
+    let query = 'SELECT * FROM invoices WHERE 1=1';
+    const params = [];
+    let paramCount = 1;
+
+    if (status) {
+      query += ` AND status = $${paramCount}`;
+      params.push(status);
+      paramCount++;
+    }
+
+    query += ` ORDER BY created_at DESC LIMIT $${paramCount}`;
+    params.push(Number(limit));
 
     const result = await pool.query(query, params);
 
@@ -35,6 +89,9 @@ router.get('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching invoices:', error);
+  } catch (err) {
+    console.error('List invoices error:', err);
+    console.error('Error fetching invoices:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -42,12 +99,19 @@ router.get('/', async (req, res) => {
 /**
  * GET /api/invoices/:id
  * Get single invoice
+ * Get a single invoice by ID
+ * Get single invoice by ID
+ * Get a single invoice
  */
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
     const result = await pool.query('SELECT * FROM invoices WHERE id = $1', [id]);
+    const result = await pool.query(
+      'SELECT * FROM invoices WHERE id = $1',
+      [id]
+    );
 
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Invoice not found' });
@@ -56,6 +120,16 @@ router.get('/:id', async (req, res) => {
     return res.json(result.rows[0]);
   } catch (error) {
     console.error('Error fetching invoice:', error);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Get invoice error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+    return res.json({ invoice: result.rows[0] });
+  } catch (err) {
+    console.error('Get invoice error:', err);
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error fetching invoice:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -66,12 +140,35 @@ router.get('/:id', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
+ * Create a new invoice
+ */
+router.post('/', async (req, res) => {
+  try {
+    const { booking_id, amount, status, due_date, notes } = req.body;
+
+    if (!booking_id || !amount) {
+      return res.status(400).json({ error: 'Booking ID and amount are required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO invoices (booking_id, amount, status, due_date, notes, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+       RETURNING *`,
+      [booking_id, amount, status || 'pending', due_date, notes]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Create invoice error:', error);
+    res.status(500).json({ error: 'Internal server error' });
     const {
       booking_id,
       invoice_number,
       amount,
       due_date,
       status = 'pending',
+      status,
+      due_date,
       notes,
     } = req.body;
 
@@ -89,6 +186,49 @@ router.post('/', async (req, res) => {
     return res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating invoice:', error);
+      return res.status(400).json({ error: 'booking_id and amount required' });
+    }
+
+    const insertQuery = `
+      INSERT INTO invoices (
+        booking_id, invoice_number, amount, status, due_date, notes,
+        created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+      due_date,
+      status,
+    } = req.body;
+
+    if (!booking_id || !amount) {
+      return res.status(400).json({ error: 'Missing required fields: booking_id, amount' });
+    }
+
+    const insertQuery = `
+      INSERT INTO invoices (booking_id, invoice_number, amount, due_date, status, created_at)
+      VALUES ($1, $2, $3, $4, $5, NOW())
+      RETURNING *
+    `;
+
+    const result = await pool.query(insertQuery, [
+      booking_id,
+      invoice_number || `INV-${Date.now()}`,
+      amount,
+      status || 'pending',
+      due_date || null,
+      notes || null,
+      invoice_number || null,
+      amount,
+      due_date || null,
+      status || 'pending',
+    ]);
+
+    return res.status(201).json({
+      message: 'Invoice created successfully',
+      invoice: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Create invoice error:', err);
+    console.error('Error creating invoice:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -96,11 +236,14 @@ router.post('/', async (req, res) => {
 /**
  * PUT /api/invoices/:id
  * Update invoice
+ * Update existing invoice
+ * Update an invoice
  */
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { amount, due_date, status, notes } = req.body;
+    const { amount, status, due_date, paid_date, notes } = req.body;
 
     const result = await pool.query(
       `UPDATE invoices SET
@@ -112,6 +255,54 @@ router.put('/:id', async (req, res) => {
       WHERE id = $5
       RETURNING *`,
       [amount, due_date, status, notes, id]
+        status = COALESCE($2, status),
+        due_date = COALESCE($3, due_date),
+        paid_date = COALESCE($4, paid_date),
+        notes = COALESCE($5, notes),
+        updated_at = NOW()
+      WHERE id = $6
+      RETURNING *`,
+      [amount, status, due_date, paid_date, notes, id]
+    const { amount, status, due_date, notes, paid_date } = req.body;
+
+    const existing = await pool.query('SELECT id FROM invoices WHERE id = $1', [id]);
+    if (existing.rowCount === 0) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    const updateQuery = `
+      UPDATE invoices
+      SET
+        amount = COALESCE($1, amount),
+        status = COALESCE($2, status),
+        due_date = COALESCE($3, due_date),
+        notes = COALESCE($4, notes),
+        paid_date = COALESCE($5, paid_date),
+        updated_at = NOW()
+      WHERE id = $6
+      RETURNING *
+    `;
+
+    const result = await pool.query(updateQuery, [
+      amount,
+      status,
+      due_date,
+      notes,
+      paid_date,
+      id,
+    ]);
+
+    const { status, amount, due_date } = req.body;
+
+    const result = await pool.query(
+      `UPDATE invoices
+       SET status = COALESCE($1, status),
+           amount = COALESCE($2, amount),
+           due_date = COALESCE($3, due_date),
+           updated_at = NOW()
+       WHERE id = $4
+       RETURNING *`,
+      [status, amount, due_date, id]
     );
 
     if (result.rowCount === 0) {
@@ -121,6 +312,17 @@ router.put('/:id', async (req, res) => {
     return res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating invoice:', error);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Update invoice error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+    return res.json({
+      message: 'Invoice updated successfully',
+      invoice: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Update invoice error:', err);
+    console.error('Error updating invoice:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

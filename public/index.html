@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>XDrive Logistics - Demo</title>
+  <style>
+    :root{
+      --bg:#051421; --panel:#0b1b24; --muted:#97a6ad; --gold:#D6A551;
+      --font: system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{
+      font-family:var(--font); background:linear-gradient(180deg,#04121a,#071b27); color:#eef5f9;
+      display:flex; align-items:center; justify-content:center; padding:28px; min-height:100vh;
+    }
+    .container{
+      width:680px; max-width:98%; padding:40px; border-radius:16px;
+      background:linear-gradient(180deg, rgba(10,18,24,0.80), rgba(6,14,18,0.85));
+      border:1px solid rgba(255,255,255,0.03); box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    }
+    h1{ margin:0 0 10px; font-size:36px; color:#fff; }
+    .subtitle{ color:var(--muted); margin-bottom:30px; line-height:1.5; }
+    .links{ list-style:none; padding:0; margin:30px 0; }
+    .links li{ margin-bottom:16px; }
+    .links a{
+      display:block; padding:16px 20px; border-radius:12px; text-decoration:none;
+      background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04);
+      color:var(--gold); font-weight:600; transition:all 0.2s;
+    }
+    .links a:hover{ background:rgba(214,165,81,0.08); border-color:rgba(214,165,81,0.14); }
+    .info{
+      background:rgba(255,255,255,0.02); padding:20px; border-radius:10px;
+      border-left:4px solid var(--gold); margin-top:30px; font-size:14px;
+    }
+    .info h3{ margin:0 0 10px; color:var(--gold); font-size:16px; }
+    code{ background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:4px; font-size:13px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>XDrive Logistics</h1>
+    <p class="subtitle">Full Integration MVP - Demo Pages</p>
+
+    <ul class="links">
+      <li><a href="register-inline.html">→ Register New Account</a></li>
+      <li><a href="desktop-signin-final.html">→ Sign In</a></li>
+      <li><a href="dashboard.html">→ Dashboard (requires login)</a></li>
+    </ul>
+
+    <div class="info">
+      <h3>Demo Credentials</h3>
+      <p>Use these credentials to test the login functionality:</p>
+      <ul style="margin:10px 0; padding-left:20px;">
+        <li>Email: <code>shipper@xdrivelogistics.co.uk</code> / Password: <code>password123</code></li>
+        <li>Email: <code>driver@xdrivelogistics.co.uk</code> / Password: <code>password123</code></li>
+        <li>Email: <code>ion@xdrivelogistics.co.uk</code> / Password: <code>password123</code></li>
+      </ul>
+    </div>
+
+    <div class="info">
+      <h3>API Endpoints</h3>
+      <p>Backend API is running at <code>http://localhost:3001</code></p>
+      <p>Try: <code>curl http://localhost:3001/health</code></p>
+    </div>
+  </div>
+</body>
+</html>
