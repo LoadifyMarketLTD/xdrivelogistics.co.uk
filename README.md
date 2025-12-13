@@ -20,59 +20,73 @@ A comprehensive courier exchange platform with backend API, PostgreSQL database,
 - npm 8 or higher
 - PostgreSQL 14+ (if running without Docker)
 
-## Quick Start with Docker (Recommended)
+## Quick Start (Local Development)
 
-### 1. Clone the Repository
+### 1. Install Prerequisites
+
+- PostgreSQL 14+
+- Node.js 18+
+- npm 8+
+
+###2. Clone the Repository
 
 ```bash
 git clone https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk.git
 cd xdrivelogistics.co.uk
 ```
 
-### 2. Start Services with Docker Compose
+### 3. Set Up PostgreSQL Database
 
 ```bash
-docker-compose up --build
+# Create database
+createdb xdrive
+
+# Run schema
+psql -d xdrive -f db/schema.sql
+
+# Load seed data
+psql -d xdrive -f db/seeds.sql
 ```
 
-This will:
-- Start PostgreSQL database on port 5432
-- Create database schema automatically
-- Start backend API on port 3001
-- Install all dependencies
-
-### 3. Seed the Database
-
-In a new terminal:
-
-```bash
-# Wait for postgres to be ready (check logs for "database system is ready")
-# Then seed the database
-docker exec -i xdrive-postgres psql -U postgres -d xdrive < db/seeds.sql
-```
-
-Or using npm script:
+### 4. Install Backend Dependencies
 
 ```bash
 cd server
-npm run seed
+npm install
 ```
 
-### 4. Access the Application
+### 5. Configure Environment
+
+```bash
+# Copy example env file
+cp .env.example .env
+
+# Edit .env and set:
+#  DATABASE_URL=postgresql://postgres:password@localhost:5432/xdrive
+#  (update with your actual postgres credentials)
+```
+
+### 6. Start Backend Server
+
+```bash
+npm start
+# Server will run on http://localhost:3001
+```
+
+### 7. Access the Application
 
 - **Frontend**: Open `public/desktop-signin-final.html` in your browser
 - **Backend API**: http://localhost:3001
 - **Health Check**: http://localhost:3001/health
-- **Database**: localhost:5432 (postgres/postgres)
 
 ### Demo Credentials
 
 ```
-Email: demo@demo.com
+Email: driver@demo.com  
 Password: password123
 ```
 
-Note: Email verification is disabled for demo users. For new registrations, check console logs for verification links.
+Note: Email verification is logged to console. For new registrations, check server logs for verification links.
 
 ## API Documentation
 
@@ -448,9 +462,23 @@ See `server/.env.example` for full template:
 - [ ] Set up log rotation and retention
 - [ ] Configure database connection pooling limits
 
+## Docker Support
+
+A `docker-compose.yml` file is provided for containerized deployment. However, there's a known issue with npm package installation in Alpine/Slim containers in the current build environment where npm crashes during installation. 
+
+For production deployment, consider:
+- Using a CI/CD pipeline with proper build caching
+- Pre-building the node_modules and copying into the container
+- Using managed container services that handle dependency installation
+- Running PostgreSQL in Docker and the Node.js app natively
+
+The Docker configuration is provided as a reference and works in most environments but may need adjustment based on your infrastructure.
+
 ## Known Limitations
 
+- Docker npm installation has issues in current environment (use local development instead)
 - Email verification links are logged to console if SMTP not configured
+- Demo seed data uses placeholder password hashes (create users via /api/register for testing login)
 - No frontend authentication state management (uses localStorage)
 - No refresh token implementation
 - Limited error handling on frontend
