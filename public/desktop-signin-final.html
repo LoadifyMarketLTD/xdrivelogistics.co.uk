@@ -1,4 +1,5 @@
 <!doctype html>
+<html lang="ro">
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -269,6 +270,7 @@
         <h2 id="signin-title" class="title">Sign in</h2>
         <p class="subtitle">Login to view jobs, vehicles &amp; earnings</p>
 
+        <form class="login-form" action="#" method="post" novalidate>
         <form class="login-form" id="login-form" novalidate>
           <div id="login-message" style="display:none;padding:12px;border-radius:8px;margin-bottom:12px;"></div>
           
@@ -283,6 +285,7 @@
             <a class="forgot" href="#">Forgot password?</a>
           </div>
 
+          <button type="submit" class="btn-primary">Sign in to XDrive</button>
           <button type="submit" class="btn-primary" id="login-btn">Sign in to XDrive</button>
         </form>
 
@@ -292,6 +295,50 @@
   </main>
 
   <script>
+    // Handle login form submission
+    const form = document.querySelector('.login-form');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const submitBtn = form.querySelector('button[type="submit"]');
+      
+      // Disable button during request
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in...';
+      
+      try {
+        const response = await fetch('http://localhost:3001/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          // Store token and user info
+          localStorage.setItem('authToken', data.token);
+          localStorage.setItem('userEmail', data.user.email);
+          localStorage.setItem('accountType', data.user.account_type);
+          
+          // Redirect to dashboard
+          window.location.href = 'dashboard.html';
+        } else {
+          alert(data.error || 'Login failed. Please try again.');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Sign in to XDrive';
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        alert('Network error. Please check if the server is running.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign in to XDrive';
+      }
+    });
     (function(){
       const form = document.getElementById('login-form');
       const loginBtn = document.getElementById('login-btn');

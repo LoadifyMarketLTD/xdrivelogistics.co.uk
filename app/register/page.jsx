@@ -6,6 +6,7 @@ import Link from 'next/link';
 
 // Backend API URL - configurable via environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { register } from '../../lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -53,6 +54,13 @@ export default function RegisterPage() {
       if (!response.ok) {
         throw new Error(data.error || 'Înregistrarea a eșuat. Te rugăm să încerci din nou.');
       }
+
+      // Register with Express backend API
+      await register({
+        account_type: role,
+        email,
+        password,
+      });
 
       setSuccess(true);
       setTimeout(() => {

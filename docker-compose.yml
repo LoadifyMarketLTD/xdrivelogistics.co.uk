@@ -40,6 +40,8 @@ services:
       CORS_ORIGIN: "*"
       BCRYPT_ROUNDS: 10
       VERIFY_TOKEN_EXPIRES_MIN: 60
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      EMAIL_FROM: "XDrive Logistics <noreply@xdrivelogistics.co.uk>"
     ports:
       - "3001:3001"
     volumes:

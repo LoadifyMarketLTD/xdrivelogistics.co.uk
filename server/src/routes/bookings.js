@@ -1,4 +1,5 @@
 /**
+ * Bookings CRUD routes
  * Bookings routes
  * - GET /api/bookings - List all bookings
  * - GET /api/bookings/:id - Get single booking
@@ -14,9 +15,11 @@ const router = express.Router();
 
 /**
  * GET /api/bookings
- * Get all bookings (with optional filters)
+ * List all bookings (with optional filtering)
  */
 router.get('/', async (req, res) => {
+  try {
+    const { status, from_date, to_date, limit = 100, offset = 0 } = req.query;
   try {
     const { status, limit = 50, offset = 0 } = req.query;
 
@@ -59,17 +62,21 @@ router.get('/', async (req, res) => {
     }
 
     if (from_date) {
+      query += ` AND pickup_window_start >= $${paramIndex}`;
       query += ` AND pickup_date >= $${paramIndex}`;
       params.push(from_date);
       paramIndex++;
     }
 
     if (to_date) {
+      query += ` AND pickup_window_end <= $${paramIndex}`;
       query += ` AND pickup_date <= $${paramIndex}`;
       params.push(to_date);
       paramIndex++;
     }
 
+    query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
     query += ' ORDER BY pickup_date DESC, created_at DESC';
     query += ` LIMIT $${paramIndex}`;
     params.push(Math.min(Number(limit), 500));
@@ -102,6 +109,8 @@ router.get('/', async (req, res) => {
       bookings: result.rows,
       count: result.rowCount,
     });
+  } catch (error) {
+    console.error('Error fetching bookings:', error);
   } catch (err) {
     console.error('List bookings error:', err);
     console.error('Error fetching bookings:', err);
@@ -128,6 +137,9 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
+    return res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching booking:', error);
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Get booking error:', error);
@@ -151,6 +163,22 @@ router.post('/', async (req, res) => {
   try {
     const {
       load_id,
+      from_address,
+      to_address,
+      vehicle_type,
+      pickup_window_start,
+      pickup_window_end,
+      delivery_instruction,
+      subcontractor,
+      price,
+      subcontract_cost,
+      status = 'Pending',
+      completed_by,
+    } = req.body;
+
+    // Basic validation
+    if (!from_address || !to_address || !vehicle_type) {
+      return res.status(400).json({ error: 'Missing required fields' });
       customer_name,
       from_address,
       to_address,
@@ -177,6 +205,31 @@ router.post('/', async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO bookings (
+        load_id, from_address, to_address, vehicle_type,
+        pickup_window_start, pickup_window_end, delivery_instruction,
+        subcontractor, price, subcontract_cost, status, completed_by,
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+      RETURNING *`,
+      [
+        load_id,
+        from_address,
+        to_address,
+        vehicle_type,
+        pickup_window_start,
+        pickup_window_end,
+        delivery_instruction,
+        subcontractor,
+        price,
+        subcontract_cost,
+        status,
+        completed_by,
+      ]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating booking:', error);
         load_id, customer_name, from_address, to_address, vehicle_type,
         pickup_time, delivery_time, status, price, subcontract_cost,
         completed_by, your_ref, notes, created_at, updated_at
@@ -272,6 +325,7 @@ router.post('/', async (req, res) => {
 
 /**
  * PUT /api/bookings/:id
+ * Update booking
  * Update existing booking
  * Update a booking
  */

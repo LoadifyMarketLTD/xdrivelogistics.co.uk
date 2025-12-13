@@ -12,6 +12,7 @@ const router = express.Router();
 
 /**
  * GET /api/invoices
+ * List all invoices
  * Get all invoices
  */
 router.get('/', async (req, res) => {
@@ -54,6 +55,8 @@ router.get('/', async (req, res) => {
       paramIndex++;
     }
 
+    query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
     if (booking_id) {
       query += ` AND booking_id = $${paramIndex}`;
       params.push(booking_id);
@@ -84,6 +87,8 @@ router.get('/', async (req, res) => {
       invoices: result.rows,
       count: result.rowCount,
     });
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
   } catch (err) {
     console.error('List invoices error:', err);
     console.error('Error fetching invoices:', err);
@@ -93,6 +98,7 @@ router.get('/', async (req, res) => {
 
 /**
  * GET /api/invoices/:id
+ * Get single invoice
  * Get a single invoice by ID
  * Get single invoice by ID
  * Get a single invoice
@@ -111,6 +117,9 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
+    return res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching invoice:', error);
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Get invoice error:', error);
@@ -128,6 +137,9 @@ router.get('/:id', async (req, res) => {
 /**
  * POST /api/invoices
  * Create new invoice
+ */
+router.post('/', async (req, res) => {
+  try {
  * Create a new invoice
  */
 router.post('/', async (req, res) => {
@@ -153,12 +165,27 @@ router.post('/', async (req, res) => {
       booking_id,
       invoice_number,
       amount,
+      due_date,
+      status = 'pending',
       status,
       due_date,
       notes,
     } = req.body;
 
     if (!booking_id || !amount) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO invoices (booking_id, invoice_number, amount, due_date, status, notes, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+       RETURNING *`,
+      [booking_id, invoice_number, amount, due_date, status, notes]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating invoice:', error);
       return res.status(400).json({ error: 'booking_id and amount required' });
     }
 
@@ -208,17 +235,26 @@ router.post('/', async (req, res) => {
 
 /**
  * PUT /api/invoices/:id
+ * Update invoice
  * Update existing invoice
  * Update an invoice
  */
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const { amount, due_date, status, notes } = req.body;
     const { amount, status, due_date, paid_date, notes } = req.body;
 
     const result = await pool.query(
       `UPDATE invoices SET
         amount = COALESCE($1, amount),
+        due_date = COALESCE($2, due_date),
+        status = COALESCE($3, status),
+        notes = COALESCE($4, notes),
+        updated_at = NOW()
+      WHERE id = $5
+      RETURNING *`,
+      [amount, due_date, status, notes, id]
         status = COALESCE($2, status),
         due_date = COALESCE($3, due_date),
         paid_date = COALESCE($4, paid_date),
@@ -273,6 +309,9 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
+    return res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating invoice:', error);
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Update invoice error:', error);
