@@ -14,6 +14,8 @@ export function middleware(request) {
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
   // Content Security Policy
+  // Note: 'unsafe-inline' and 'unsafe-eval' are required for Next.js functionality
+  // including React hydration, HMR, and dynamic imports
   const cspHeader = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",

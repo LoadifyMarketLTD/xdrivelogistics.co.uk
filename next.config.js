@@ -44,6 +44,9 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
+            // Note: 'unsafe-inline' and 'unsafe-eval' are required for Next.js functionality
+            // including React hydration, HMR, and dynamic imports. For production with stricter
+            // CSP, consider using nonces via next/script components.
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",

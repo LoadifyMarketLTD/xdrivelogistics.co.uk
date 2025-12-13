@@ -19,9 +19,10 @@ export const metadata = {
       'max-snippet': -1,
     },
   },
-  verification: {
-    google: 'google-site-verification-code-here',
-  },
+  // Google Search Console verification code should be added here when available
+  // verification: {
+  //   google: 'your-google-verification-code',
+  // },
 }
 
 export default function RootLayout({ children }) {
