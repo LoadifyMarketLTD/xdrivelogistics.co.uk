@@ -2,12 +2,13 @@
  * Bookings routes
  * - GET /api/bookings - List all bookings
  * - GET /api/bookings/:id - Get single booking
- * - POST /api/bookings - Create new booking
+ * - POST /api/bookings - Create booking
  * - PUT /api/bookings/:id - Update booking
  * - DELETE /api/bookings/:id - Delete booking
+ * Bookings routes: CRUD operations for bookings/loads
  */
-import express from 'express';
-import pool from '../db.js';
+const express = require('express');
+const pool = require('../db');
 
 const router = express.Router();
 
@@ -19,12 +20,31 @@ router.get('/', async (req, res) => {
   try {
     const { status, from_date, to_date, limit = 100 } = req.query;
 
-    // Explicitly select columns to avoid exposing sensitive data
-    let query = `SELECT id, load_id, from_location, to_location, vehicle_type, 
-                        pickup_date, delivery_date, price, subcontract_cost, 
-                        status, completed_by, created_at, updated_at 
-                 FROM bookings WHERE 1=1`;
+    let query = 'SELECT * FROM bookings WHERE 1=1';
     const params = [];
+    let paramIndex = 1;
+
+    if (status) {
+      query += ` AND status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+
+    if (from_date) {
+      query += ` AND pickup_date >= $${paramIndex}`;
+      params.push(from_date);
+      paramIndex++;
+    }
+
+    if (to_date) {
+      query += ` AND pickup_date <= $${paramIndex}`;
+      params.push(to_date);
+      paramIndex++;
+    }
+
+    query += ' ORDER BY pickup_date DESC, created_at DESC';
+    query += ` LIMIT $${paramIndex}`;
+    params.push(Math.min(Number(limit), 500));
     let paramCount = 1;
 
     if (status) {
@@ -40,13 +60,13 @@ router.get('/', async (req, res) => {
     }
 
     if (to_date) {
-      query += ` AND delivery_date <= $${paramCount}`;
+      query += ` AND pickup_date <= $${paramCount}`;
       params.push(to_date);
       paramCount++;
     }
 
     query += ` ORDER BY created_at DESC LIMIT $${paramCount}`;
-    params.push(limit);
+    params.push(Number(limit));
 
     const result = await pool.query(query, params);
 
@@ -55,7 +75,8 @@ router.get('/', async (req, res) => {
       count: result.rowCount,
     });
   } catch (err) {
-    console.error('Get bookings error:', err);
+    console.error('List bookings error:', err);
+    console.error('Error fetching bookings:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -63,16 +84,15 @@ router.get('/', async (req, res) => {
 /**
  * GET /api/bookings/:id
  * Get single booking by ID
+ * Get a single booking by ID
  */
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
+    const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [id]);
     const result = await pool.query(
-      `SELECT id, load_id, from_location, to_location, vehicle_type, 
-              pickup_date, delivery_date, price, subcontract_cost, 
-              status, completed_by, created_at, updated_at 
-       FROM bookings WHERE id = $1`,
+      'SELECT * FROM bookings WHERE id = $1',
       [id]
     );
 
@@ -80,9 +100,12 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    return res.json(result.rows[0]);
+    return res.json({ booking: result.rows[0] });
   } catch (err) {
     console.error('Get booking error:', err);
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error fetching booking:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -90,51 +113,84 @@ router.get('/:id', async (req, res) => {
 /**
  * POST /api/bookings
  * Create new booking
+ * Create a new booking
  */
 router.post('/', async (req, res) => {
   try {
     const {
       load_id,
-      from_location,
-      to_location,
+      from_address,
+      to_address,
       vehicle_type,
       pickup_date,
       delivery_date,
+      status,
       price,
       subcontract_cost,
-      status = 'pending',
       completed_by,
     } = req.body;
 
-    // Validation
-    if (!from_location || !to_location || !pickup_date) {
+    // Basic validation
+    if (!from_address || !to_address || !vehicle_type) {
       return res.status(400).json({ error: 'Missing required fields' });
+      price,
+      subcontract_cost,
+      status,
+      completed_by,
+    } = req.body;
+
+    // Validation - be specific about missing fields
+    const missingFields = [];
+    if (!load_id) missingFields.push('load_id');
+    if (!from_address) missingFields.push('from_address');
+    if (!to_address) missingFields.push('to_address');
+    if (!vehicle_type) missingFields.push('vehicle_type');
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        missing: missingFields
+      });
     }
 
-    const result = await pool.query(
-      `INSERT INTO bookings (
-        load_id, from_location, to_location, vehicle_type,
+    const insertQuery = `
+      INSERT INTO bookings (
+        load_id, from_address, to_address, vehicle_type,
+        pickup_date, delivery_date, status, price, subcontract_cost,
+        completed_by, created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
         pickup_date, delivery_date, price, subcontract_cost,
         status, completed_by, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
-      RETURNING *`,
-      [
-        load_id,
-        from_location,
-        to_location,
-        vehicle_type,
-        pickup_date,
-        delivery_date,
-        price,
-        subcontract_cost,
-        status,
-        completed_by,
-      ]
-    );
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+      RETURNING *
+    `;
 
-    return res.status(201).json(result.rows[0]);
+    const result = await pool.query(insertQuery, [
+      load_id || null,
+      load_id,
+      from_address,
+      to_address,
+      vehicle_type,
+      pickup_date || null,
+      delivery_date || null,
+      status || 'pending',
+      price || 0,
+      subcontract_cost || 0,
+      price || null,
+      subcontract_cost || null,
+      status || 'pending',
+      completed_by || null,
+    ]);
+
+    return res.status(201).json({
+      message: 'Booking created successfully',
+      booking: result.rows[0],
+    });
   } catch (err) {
     console.error('Create booking error:', err);
+    console.error('Error creating booking:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -142,16 +198,21 @@ router.post('/', async (req, res) => {
 /**
  * PUT /api/bookings/:id
  * Update existing booking
+ * Update a booking
  */
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      from_location,
-      to_location,
+      load_id,
+      from_address,
+      to_address,
       vehicle_type,
       pickup_date,
       delivery_date,
+      status,
+      price,
+      subcontract_cost,
       price,
       subcontract_cost,
       status,
@@ -164,84 +225,95 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    // Build dynamic update query
-    const updates = [];
-    const params = [];
-    let paramCount = 1;
+    const updateQuery = `
+      UPDATE bookings
+      SET
+        load_id = COALESCE($1, load_id),
+        from_address = COALESCE($2, from_address),
+        to_address = COALESCE($3, to_address),
+        vehicle_type = COALESCE($4, vehicle_type),
+        pickup_date = COALESCE($5, pickup_date),
+        delivery_date = COALESCE($6, delivery_date),
+        status = COALESCE($7, status),
+        price = COALESCE($8, price),
+        subcontract_cost = COALESCE($9, subcontract_cost),
+        completed_by = COALESCE($10, completed_by),
+        updated_at = NOW()
+      WHERE id = $11
+      SET 
+        from_address = COALESCE($1, from_address),
+        to_address = COALESCE($2, to_address),
+        vehicle_type = COALESCE($3, vehicle_type),
+        pickup_date = COALESCE($4, pickup_date),
+        delivery_date = COALESCE($5, delivery_date),
+        price = COALESCE($6, price),
+        subcontract_cost = COALESCE($7, subcontract_cost),
+        status = COALESCE($8, status),
+        completed_by = COALESCE($9, completed_by),
+        updated_at = NOW()
+      WHERE id = $10
+      RETURNING *
+    `;
 
-    if (from_location !== undefined) {
-      updates.push(`from_location = $${paramCount++}`);
-      params.push(from_location);
-    }
-    if (to_location !== undefined) {
-      updates.push(`to_location = $${paramCount++}`);
-      params.push(to_location);
-    }
-    if (vehicle_type !== undefined) {
-      updates.push(`vehicle_type = $${paramCount++}`);
-      params.push(vehicle_type);
-    }
-    if (pickup_date !== undefined) {
-      updates.push(`pickup_date = $${paramCount++}`);
-      params.push(pickup_date);
-    }
-    if (delivery_date !== undefined) {
-      updates.push(`delivery_date = $${paramCount++}`);
-      params.push(delivery_date);
-    }
-    if (price !== undefined) {
-      updates.push(`price = $${paramCount++}`);
-      params.push(price);
-    }
-    if (subcontract_cost !== undefined) {
-      updates.push(`subcontract_cost = $${paramCount++}`);
-      params.push(subcontract_cost);
-    }
-    if (status !== undefined) {
-      updates.push(`status = $${paramCount++}`);
-      params.push(status);
-    }
-    if (completed_by !== undefined) {
-      updates.push(`completed_by = $${paramCount++}`);
-      params.push(completed_by);
-    }
+    const result = await pool.query(updateQuery, [
+      load_id,
+      from_address,
+      to_address,
+      vehicle_type,
+      pickup_date,
+      delivery_date,
+      status,
+      price,
+      subcontract_cost,
+      price,
+      subcontract_cost,
+      status,
+      completed_by,
+      id,
+    ]);
 
-    if (updates.length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
-    }
-
-    updates.push(`updated_at = NOW()`);
-    params.push(id);
-
-    const query = `UPDATE bookings SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`;
-    const result = await pool.query(query, params);
-
-    return res.json(result.rows[0]);
+    return res.json({
+      message: 'Booking updated successfully',
+      booking: result.rows[0],
+    });
   } catch (err) {
     console.error('Update booking error:', err);
+    console.error('Error updating booking:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 /**
  * DELETE /api/bookings/:id
- * Delete booking
+ * Delete booking (soft delete by setting status to 'cancelled')
+ * Delete a booking
  */
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query('DELETE FROM bookings WHERE id = $1 RETURNING id', [id]);
+    const result = await pool.query(
+      'UPDATE bookings SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
+      ['cancelled', id]
+      'DELETE FROM bookings WHERE id = $1 RETURNING id',
+      [id]
+    );
 
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    return res.json({ message: 'Booking deleted successfully' });
+    return res.json({ message: 'Booking cancelled successfully' });
   } catch (err) {
     console.error('Delete booking error:', err);
+    return res.json({
+      message: 'Booking deleted successfully',
+      id: result.rows[0].id,
+    });
+  } catch (err) {
+    console.error('Error deleting booking:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-export default router;
+module.exports = router;

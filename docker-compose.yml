@@ -8,6 +8,17 @@ services:
     environment:
       POSTGRES_USER: xdrive
       POSTGRES_PASSWORD: xdrive123
+    image: postgres:14-alpine
+    container_name: xdrive-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: xdrive
+    image: postgres:15-alpine
+    container_name: xdrive_postgres
+    environment:
+      POSTGRES_USER: xdrive
+      POSTGRES_PASSWORD: xdrive
       POSTGRES_DB: xdrive_db
     ports:
       - "5432:5432"
@@ -17,11 +28,18 @@ services:
       - ./db/seeds.sql:/docker-entrypoint-initdb.d/02-seeds.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U xdrive -d xdrive_db"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U xdrive"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - xdrive-network
+      - xdrive_network
 
   # Backend API Server
   backend:
@@ -47,6 +65,26 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@xdrivelogistics.co.uk}
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/xdrive
+      PORT: 3001
+      NODE_ENV: development
+      CORS_ORIGIN: http://localhost:3000
+      # WARNING: Development secret only! Use strong random secret in production
+      # Generate with: openssl rand -hex 32
+      JWT_SECRET: dev-secret-change-in-production
+      BCRYPT_ROUNDS: 10
+      APP_BASE_URL: http://localhost:3000
+    container_name: xdrive_backend
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://xdrive:xdrive@postgres:5432/xdrive_db
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: "http://localhost:3000"
+      APP_BASE_URL: http://localhost:3000
+      BCRYPT_ROUNDS: 10
+      VERIFY_TOKEN_EXPIRES_MIN: 60
     ports:
       - "3001:3001"
     depends_on:

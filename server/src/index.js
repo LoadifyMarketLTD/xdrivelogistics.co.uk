@@ -145,36 +145,55 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// Start server
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 XDrive Logistics API server running on port ${PORT}`);
+  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  console.error('Server error:', err);
+  res.status(err.status || 500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined,
   });
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`
-╔═══════════════════════════════════════╗
-║   XDrive Logistics API Server         ║
-╚═══════════════════════════════════════╝
-  
-  🚀 Server running on port ${PORT}
-  📊 Environment: ${process.env.NODE_ENV || 'development'}
-  🌐 API URL: http://localhost:${PORT}
-  📝 Health check: http://localhost:${PORT}/health
-  
-  Ready to accept requests...
+╔════════════════════════════════════════╗
+║  XDrive Logistics API Server          ║
+║  Port: ${PORT}                           ║
+║  Environment: ${process.env.NODE_ENV || 'development'}              ║
+╚════════════════════════════════════════╝
   `);
+  console.log(`API available at: http://localhost:${PORT}/api`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('SIGTERM received, closing server...');
-  pool.end(() => {
-    console.log('Database pool closed');
-    process.exit(0);
-  });
+  await pool.end();
+  process.exit(0);
 });
 
-export default app;
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, closing server...');
+  await pool.end();
+  process.exit(0);
+});

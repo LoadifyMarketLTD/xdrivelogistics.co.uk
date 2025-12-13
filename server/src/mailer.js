@@ -1,19 +1,23 @@
 /**
  * Email service using nodemailer
- * Falls back to console logging when SMTP is not configured (dev mode)
+ * Logs verification links to console if SMTP not configured
  */
-import nodemailer from 'nodemailer';
+const nodemailer = require('nodemailer');
 
-// Check if SMTP is fully configured
-const isSmtpConfigured = 
-  process.env.SMTP_HOST && 
-  process.env.SMTP_USER && 
-  process.env.SMTP_PASS;
-
+// Create transporter with SMTP config or ethereal for testing
 let transporter;
 
-if (isSmtpConfigured) {
-  // Real SMTP transport
+if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+ * Nodemailer transport with fallback to console logging
+ * If SMTP is not configured, logs verification links instead of failing
+ */
+const nodemailer = require('nodemailer');
+
+let transporter = null;
+let useConsoleLog = false;
+
+// Check if SMTP is configured
+if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
@@ -23,65 +27,72 @@ if (isSmtpConfigured) {
       pass: process.env.SMTP_PASS,
     },
   });
-  console.log('✓ Email service configured with SMTP');
 } else {
-  // Development mode - log emails to console
-  transporter = nodemailer.createTransport({
-    streamTransport: true,
-    newline: 'unix',
-    buffer: true,
-  });
-  console.log('⚠ Email service in LOG mode (SMTP not configured)');
+  // Fallback: log only mode
+  transporter = {
+    sendMail: async (mailOptions) => {
+      console.log('📧 Email would be sent:');
+      console.log('   To:', mailOptions.to);
+      console.log('   Subject:', mailOptions.subject);
+      console.log('   Body:', mailOptions.text || mailOptions.html);
+      return { messageId: 'logged-only' };
+    },
+  };
+  console.log('⚠️  SMTP not configured - emails will be logged to console');
 }
 
 /**
  * Send verification email
- * @param {string} email - Recipient email
- * @param {string} token - Verification token
  */
-export async function sendVerificationEmail(email, token) {
-  const verifyUrl = `${process.env.APP_BASE_URL}/verify-email?token=${encodeURIComponent(token)}`;
+async function sendVerificationEmail(email, token) {
+  const verifyUrl = `${process.env.APP_BASE_URL || 'http://localhost:3000'}/verify-email.html?token=${encodeURIComponent(token)}`;
   
-  const mailOptions = {
+  const info = await transporter.sendMail({
+  console.log('✓ SMTP configured');
+} else {
+  useConsoleLog = true;
+  console.log('⚠ SMTP not configured - emails will be logged to console');
+}
+
+/**
+ * Send verification email or log to console
+ */
+async function sendVerificationEmail(email, token) {
+  const verifyUrl = `${process.env.APP_BASE_URL || 'http://localhost:3000'}/verify-email?token=${encodeURIComponent(token)}`;
+  
+  const emailContent = {
     from: process.env.EMAIL_FROM || 'noreply@xdrivelogistics.co.uk',
     to: email,
     subject: 'Verify your XDrive account',
-    text: `Please verify your account by visiting: ${verifyUrl}`,
+    text: `Please verify your account: ${verifyUrl}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #0f172a;">Verify Your XDrive Account</h2>
-        <p>Thank you for registering with XDrive Logistics.</p>
-        <p>Please click the link below to verify your email address:</p>
-        <p style="margin: 20px 0;">
-          <a href="${verifyUrl}" style="background: #d9a85c; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-            Verify Email
-          </a>
-        </p>
-        <p style="color: #666; font-size: 14px;">Or copy and paste this link in your browser:</p>
-        <p style="color: #666; font-size: 12px; word-break: break-all;">${verifyUrl}</p>
-        <p style="color: #999; font-size: 12px; margin-top: 30px;">This link will expire in 60 minutes.</p>
+        <h2>Welcome to XDrive Logistics!</h2>
+        <p>Please verify your email address by clicking the link below:</p>
+        <p><a href="${verifyUrl}" style="background-color: #D6A551; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Verify Email</a></p>
+        <p>Or copy this link: ${verifyUrl}</p>
+        <p>This link will expire in 1 hour.</p>
       </div>
     `,
+  });
+  
+  return info;
+    html: `<p>Please verify your account by clicking the link below:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
   };
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    
-    if (!isSmtpConfigured) {
-      // Log mode - display the verification link
-      console.log('\n═══════════════════════════════════════');
-      console.log('📧 EMAIL VERIFICATION (DEV MODE)');
-      console.log('═══════════════════════════════════════');
-      console.log(`To: ${email}`);
-      console.log(`Verification Link: ${verifyUrl}`);
-      console.log('═══════════════════════════════════════\n');
-    }
-    
-    return info;
-  } catch (error) {
-    console.error('Failed to send email:', error);
-    throw error;
+  if (useConsoleLog) {
+    console.log('\n=== EMAIL (VERIFICATION) ===');
+    console.log(`To: ${email}`);
+    console.log(`Subject: ${emailContent.subject}`);
+    console.log(`Link: ${verifyUrl}`);
+    console.log('===========================\n');
+    return { messageId: 'console-log', accepted: [email] };
+  } else {
+    return await transporter.sendMail(emailContent);
   }
 }
 
-export default transporter;
+module.exports = {
+  sendVerificationEmail,
+  transporter,
+};

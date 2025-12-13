@@ -1,16 +1,49 @@
 /**
  * Authentication routes
  * - POST /api/register - Register new user
- * - POST /api/login - Login user
- * - GET /api/verify-email - Verify email with token
+ * - POST /api/login - Login existing user
+ * - GET /api/verify-email - Verify email token
  */
-import express from 'express';
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
-import pool from '../db.js';
-import { sendVerificationEmail } from '../mailer.js';
+const express = require('express');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+ * Authentication routes: register, login, verify-email
+ */
+const express = require('express');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const pool = require('../db');
+const { sendVerificationEmail } = require('../mailer');
 
 const router = express.Router();
+
+// JWT secret (MUST be provided in production)
+const JWT_SECRET = process.env.JWT_SECRET || (() => {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET environment variable is required in production');
+  }
+  return 'dev-secret-only-for-local-testing';
+})();
+
+/**
+ * POST /api/register
+ * Register a new user account
+ */
+router.post('/register', async (req, res) => {
+  try {
+    const { account_type, email, password, company_name, full_name } = req.body;
+
+    // Validation
+    if (!email || !password || !account_type) {
+      return res.status(400).json({ error: 'Missing required fields' });
+// JWT secret should always be set in production - no weak fallback
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET environment variable is required in production');
+}
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-f8e2a9c4b6d1e7a3-change-in-production';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 /**
  * POST /api/register
@@ -18,25 +51,24 @@ const router = express.Router();
  */
 router.post('/register', async (req, res) => {
   try {
-    const { account_type, email, password } = req.body;
+    const { account_type, email, password, company_name, phone } = req.body;
 
     // Validation
     if (!email || !password || !account_type) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: 'Missing required fields: email, password, account_type' });
     }
-    // More strict email validation (RFC 5322 compliant)
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email) || email.length > 320) {
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
     if (password.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
     if (!['driver', 'shipper'].includes(account_type)) {
-      return res.status(400).json({ error: 'Invalid account_type. Must be "driver" or "shipper"' });
+      return res.status(400).json({ error: 'Invalid account_type (must be driver or shipper)' });
+      return res.status(400).json({ error: 'account_type must be "driver" or "shipper"' });
     }
 
-    // Check if user already exists
+    // Check if user exists
     const existingUser = await pool.query(
       'SELECT id FROM users WHERE email = $1',
       [email.toLowerCase()]
@@ -49,36 +81,72 @@ router.post('/register', async (req, res) => {
     const saltRounds = Number(process.env.BCRYPT_ROUNDS || 10);
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Create verification token
+    // Generate verification token
     const verifyToken = crypto.randomBytes(32).toString('hex');
-    const tokenExpires = new Date(
-      Date.now() + Number(process.env.VERIFY_TOKEN_EXPIRES_MIN || 60) * 60 * 1000
+    const tokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Insert user
+    const insertQuery = `
+      INSERT INTO users (
+        account_type, email, password_hash, full_name, company_name,
+        status, verify_token, verify_token_expires, created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, NOW(), NOW())
+      RETURNING id, email, account_type, full_name, company_name, status
+    `;
+    
+    const verifyTokenExpires = new Date(
+      Date.now() + (Number(process.env.VERIFY_TOKEN_EXPIRES_MIN || 60) * 60 * 1000)
     );
 
     // Insert user
-    const result = await pool.query(
-      `INSERT INTO users (account_type, email, password_hash, status, verify_token, verify_token_expires, created_at)
-       VALUES ($1, $2, $3, 'pending', $4, $5, NOW())
-       RETURNING id, email, account_type, status`,
-      [account_type, email.toLowerCase(), passwordHash, verifyToken, tokenExpires]
-    );
+    const insertQuery = `
+      INSERT INTO users (account_type, email, password_hash, company_name, phone, status, verify_token, verify_token_expires, created_at)
+      VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, NOW())
+      RETURNING id, email, account_type, status, created_at
+    `;
+    const result = await pool.query(insertQuery, [
+      account_type,
+      email.toLowerCase(),
+      passwordHash,
+      full_name || null,
+      company_name || null,
+      verifyToken,
+      tokenExpires,
+      company_name || null,
+      phone || null,
+      verifyToken,
+      verifyTokenExpires,
+    ]);
 
     const user = result.rows[0];
 
+    // Send verification email (non-blocking)
     // Send verification email (best effort)
     try {
       await sendVerificationEmail(email, verifyToken);
     } catch (err) {
       console.error('Failed to send verification email:', err);
-      // Continue - user is created, they can request a new verification email
+      // Continue anyway - user can request resend
     }
 
     return res.status(201).json({
-      message: 'Account created successfully. Please check your email to verify your account.',
-      userId: user.id,
+      message: 'Account created successfully. Please check your email to verify.',
+      // Don't fail registration if email fails
+    }
+
+    return res.status(201).json({
+      message: 'Account created successfully. Please check your email for verification.',
+      user: {
+        id: user.id,
+        email: user.email,
+        account_type: user.account_type,
+        status: user.status,
+      },
     });
   } catch (err) {
     console.error('Register error:', err);
+    console.error('Registration error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -86,54 +154,84 @@ router.post('/register', async (req, res) => {
 /**
  * POST /api/login
  * Login with email and password
+ * Login with email and password, returns JWT
  */
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password required' });
+      return res.status(400).json({ error: 'Email and password are required' });
     }
 
     // Find user
     const result = await pool.query(
-      'SELECT id, email, password_hash, account_type, status FROM users WHERE email = $1',
+      'SELECT id, email, password_hash, account_type, full_name, company_name, status FROM users WHERE email = $1',
+      'SELECT id, email, password_hash, account_type, status, company_name FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
 
     if (result.rowCount === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const user = result.rows[0];
 
     // Check password
-    const isValid = await bcrypt.compare(password, user.password_hash);
-    if (!isValid) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Check if email is verified
+    // Check if verified
     if (user.status === 'pending') {
-      return res.status(403).json({ error: 'Please verify your email before logging in' });
+      return res.status(403).json({ 
+        error: 'Email not verified. Please check your email.',
+        code: 'EMAIL_NOT_VERIFIED'
+      });
     }
 
     if (user.status === 'disabled') {
-      return res.status(403).json({ error: 'Account is disabled. Please contact support.' });
+      return res.status(403).json({ error: 'Account disabled' });
     }
 
-    // Update last login
-    await pool.query('UPDATE users SET updated_at = NOW() WHERE id = $1', [user.id]);
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
 
-    // Return user info (in production, generate JWT token here)
+    // Check if account is active
+    if (user.status !== 'active') {
+      return res.status(403).json({ 
+        error: 'Account not verified', 
+        status: user.status,
+        message: 'Please verify your email before logging in'
+      });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        accountType: user.account_type,
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
     return res.json({
       message: 'Login successful',
+      token,
       user: {
         id: user.id,
         email: user.email,
-        accountType: user.account_type,
-        status: user.status,
+        account_type: user.account_type,
+        full_name: user.full_name,
+        company_name: user.company_name,
       },
     });
   } catch (err) {
@@ -145,13 +243,20 @@ router.post('/login', async (req, res) => {
 /**
  * GET /api/verify-email?token=xxx
  * Verify email with token
+ * Verify email address with token
  */
 router.get('/verify-email', async (req, res) => {
   try {
     const { token } = req.query;
 
     if (!token) {
-      return res.status(400).json({ error: 'Verification token required' });
+      return res.status(400).json({ error: 'Token required' });
+    }
+
+    // Validate token format (should be hex string of appropriate length)
+    if (!/^[a-f0-9]{64}$/.test(token)) {
+      return res.status(400).json({ error: 'Invalid token format' });
+      return res.status(400).json({ error: 'Verification token is required' });
     }
 
     // Find user with token
@@ -161,29 +266,42 @@ router.get('/verify-email', async (req, res) => {
     );
 
     if (result.rowCount === 0) {
+      return res.status(400).json({ error: 'Invalid or expired token' });
       return res.status(400).json({ error: 'Invalid or expired verification token' });
     }
 
     const user = result.rows[0];
 
+    // Check expiry
+    if (new Date(user.verify_token_expires) < new Date()) {
+      return res.status(400).json({ error: 'Token expired' });
+    }
+
+    // Update user status
     // Check if token expired
     if (new Date(user.verify_token_expires) < new Date()) {
       return res.status(400).json({ error: 'Verification token has expired' });
     }
 
-    // Activate user
+    // Update user status to active
     await pool.query(
-      'UPDATE users SET status = $1, verify_token = NULL, verify_token_expires = NULL WHERE id = $2',
+      'UPDATE users SET status = $1, verify_token = NULL, verify_token_expires = NULL, updated_at = NOW() WHERE id = $2',
       ['active', user.id]
     );
 
     return res.json({
-      message: 'Email verified successfully. You can now log in.',
+      message: 'Email verified successfully. You can now login.',
+      email: user.email,
     });
   } catch (err) {
     console.error('Verify email error:', err);
+      message: 'Email verified successfully. You can now log in.',
+      email: user.email,
+    });
+  } catch (err) {
+    console.error('Email verification error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-export default router;
+module.exports = router;
