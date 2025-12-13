@@ -1,0 +1,372 @@
+/* XDrive Sign-In Page - Dark Premium Aesthetic */
+
+/* CSS Variables for Brand Colors */
+:root {
+    --color-navy-deep: #0f172a;
+    --color-navy-medium: #1e293b;
+    --color-navy-light: #334155;
+    --color-gold-accent: #d9a85c;
+    --color-gold-hover: #e4b66e;
+    --color-cream-text: #f8f5ee;
+    --color-teal-subtext: #94a3b8;
+    --color-border: #334155;
+    --color-input-bg: #1e293b;
+    --color-error: #ef4444;
+    
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 0.75rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    --spacing-2xl: 3rem;
+    
+    --border-radius: 0.5rem;
+    --transition-speed: 0.3s;
+}
+
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+    background-color: var(--color-navy-deep);
+    color: var(--color-cream-text);
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Visually Hidden Labels (Accessibility) */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* Main Container - Split Layout */
+.container {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    min-height: 100vh;
+}
+
+/* Hero Section - Left Column */
+.hero-section {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--color-navy-medium);
+}
+
+.hero-image-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.hero-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(15, 23, 42, 0.95) 0%,
+        rgba(30, 41, 59, 0.85) 50%,
+        rgba(15, 23, 42, 0.95) 100%
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-2xl);
+}
+
+.hero-content {
+    max-width: 600px;
+    text-align: center;
+}
+
+.hero-logo {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto var(--spacing-xl);
+    display: block;
+}
+
+.hero-title {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-cream-text);
+    letter-spacing: -0.02em;
+}
+
+.hero-subtitle {
+    font-size: 1.25rem;
+    color: var(--color-teal-subtext);
+    margin-bottom: var(--spacing-2xl);
+}
+
+/* Thumbnails */
+.thumbnails {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-2xl);
+}
+
+.thumbnail {
+    aspect-ratio: 4 / 3;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    border: 2px solid var(--color-border);
+    transition: transform var(--transition-speed), border-color var(--transition-speed);
+}
+
+.thumbnail:hover {
+    transform: translateY(-4px);
+    border-color: var(--color-gold-accent);
+}
+
+.thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Sign-In Panel - Right Column */
+.signin-panel {
+    background-color: var(--color-navy-deep);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xl);
+    border-left: 1px solid var(--color-border);
+}
+
+.signin-content {
+    width: 100%;
+    max-width: 360px;
+}
+
+.signin-logo {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto var(--spacing-xl);
+    display: block;
+}
+
+.signin-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-cream-text);
+    text-align: center;
+}
+
+.signin-subtitle {
+    font-size: 0.875rem;
+    color: var(--color-teal-subtext);
+    text-align: center;
+    margin-bottom: var(--spacing-xl);
+}
+
+/* Form Styles */
+.signin-form {
+    width: 100%;
+}
+
+.form-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+.form-group input[type="email"],
+.form-group input[type="password"] {
+    width: 100%;
+    padding: var(--spacing-md);
+    background-color: var(--color-input-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    color: var(--color-cream-text);
+    font-size: 1rem;
+    transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+}
+
+.form-group input[type="email"]::placeholder,
+.form-group input[type="password"]::placeholder {
+    color: var(--color-teal-subtext);
+}
+
+.form-group input[type="email"]:focus,
+.form-group input[type="password"]:focus {
+    outline: none;
+    border-color: var(--color-gold-accent);
+    box-shadow: 0 0 0 3px rgba(217, 168, 92, 0.1);
+}
+
+/* Form Options (Remember me & Forgot password) */
+.form-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    font-size: 0.875rem;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-gold-accent);
+    cursor: pointer;
+}
+
+.checkbox-group label {
+    color: var(--color-teal-subtext);
+    cursor: pointer;
+    user-select: none;
+}
+
+.forgot-link {
+    color: var(--color-gold-accent);
+    text-decoration: none;
+    transition: color var(--transition-speed);
+}
+
+.forgot-link:hover {
+    color: var(--color-gold-hover);
+    text-decoration: underline;
+}
+
+/* Sign-In Button */
+.signin-button {
+    width: 100%;
+    padding: var(--spacing-md);
+    background-color: var(--color-gold-accent);
+    color: var(--color-navy-deep);
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--transition-speed), transform var(--transition-speed);
+}
+
+.signin-button:hover {
+    background-color: var(--color-gold-hover);
+    transform: translateY(-2px);
+}
+
+.signin-button:active {
+    transform: translateY(0);
+}
+
+.signin-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(217, 168, 92, 0.3);
+}
+
+/* Sign-In Footer */
+.signin-footer {
+    margin-top: var(--spacing-xl);
+    text-align: center;
+    font-size: 0.875rem;
+}
+
+.signin-footer p {
+    color: var(--color-teal-subtext);
+}
+
+.request-link {
+    color: var(--color-gold-accent);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color var(--transition-speed);
+}
+
+.request-link:hover {
+    color: var(--color-gold-hover);
+    text-decoration: underline;
+}
+
+/* Responsive Breakpoints */
+
+/* Tablet and below (hide hero, single column) */
+@media (max-width: 1024px) {
+    .container {
+        grid-template-columns: 1fr;
+    }
+    
+    .hero-section {
+        display: none;
+    }
+    
+    .signin-panel {
+        border-left: none;
+        padding: var(--spacing-2xl) var(--spacing-md);
+    }
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+    .signin-content {
+        max-width: 100%;
+    }
+    
+    .signin-title {
+        font-size: 1.75rem;
+    }
+    
+    .signin-logo {
+        width: 64px;
+        height: 64px;
+    }
+    
+    .form-options {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-sm);
+    }
+}
+
+/* Small mobile */
+@media (max-width: 380px) {
+    .signin-panel {
+        padding-top: var(--spacing-xl);
+        padding-bottom: var(--spacing-xl);
+        padding-left: var(--spacing-sm);
+        padding-right: var(--spacing-sm);
+    }
+    
+    .form-group input[type="email"],
+    .form-group input[type="password"] {
+        padding: var(--spacing-sm);
+    }
+    
+    .signin-button {
+        padding: var(--spacing-sm);
+    }
+}
