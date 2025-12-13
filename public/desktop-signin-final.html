@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="ro">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -270,6 +271,9 @@
         <p class="subtitle">Login to view jobs, vehicles &amp; earnings</p>
 
         <form class="login-form" action="#" method="post" novalidate>
+        <form class="login-form" id="login-form" novalidate>
+          <div id="login-message" style="display:none;padding:12px;border-radius:8px;margin-bottom:12px;"></div>
+          
           <label class="sr" for="email">Email / Username</label>
           <input id="email" name="email" class="input" type="email" placeholder="Email / Username" required>
 
@@ -282,11 +286,120 @@
           </div>
 
           <button type="submit" class="btn-primary">Sign in to XDrive</button>
+          <button type="submit" class="btn-primary" id="login-btn">Sign in to XDrive</button>
         </form>
 
-        <p class="foot">No account yet? <a href="#" style="color:var(--gold);text-decoration:none;font-weight:600">Request access</a></p>
+        <p class="foot">No account yet? <a href="register-inline.html" style="color:var(--gold);text-decoration:none;font-weight:600">Request access</a></p>
       </div>
     </aside>
   </main>
+
+  <script>
+    // Handle login form submission
+    const form = document.querySelector('.login-form');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const submitBtn = form.querySelector('button[type="submit"]');
+      
+      // Disable button during request
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in...';
+      
+      try {
+        const response = await fetch('http://localhost:3001/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          // Store token and user info
+          localStorage.setItem('authToken', data.token);
+          localStorage.setItem('userEmail', data.user.email);
+          localStorage.setItem('accountType', data.user.account_type);
+          
+          // Redirect to dashboard
+          window.location.href = 'dashboard.html';
+        } else {
+          alert(data.error || 'Login failed. Please try again.');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Sign in to XDrive';
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        alert('Network error. Please check if the server is running.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign in to XDrive';
+      }
+    });
+    (function(){
+      const form = document.getElementById('login-form');
+      const loginBtn = document.getElementById('login-btn');
+      const messageDiv = document.getElementById('login-message');
+      
+      const API_URL = 'http://localhost:3001';
+
+      function showMessage(text, isError = false) {
+        messageDiv.textContent = text;
+        messageDiv.style.display = 'block';
+        messageDiv.style.background = isError ? '#3a201f' : '#0b3a2f';
+        messageDiv.style.color = isError ? '#ffd6d6' : '#c8f0df';
+      }
+
+      form.addEventListener('submit', async function(e){
+        e.preventDefault();
+        messageDiv.style.display = 'none';
+
+        const email = form.email.value.trim();
+        const password = form.password.value;
+
+        if (!email || !password) {
+          showMessage('Please enter both email and password', true);
+          return;
+        }
+
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Signing in...';
+
+        try {
+          const response = await fetch(`${API_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            showMessage('Login successful! Redirecting to dashboard...');
+            // Store user info in sessionStorage
+            sessionStorage.setItem('user', JSON.stringify(data.user));
+            // Redirect to dashboard after 1 second
+            setTimeout(() => {
+              window.location.href = 'dashboard.html';
+            }, 1000);
+          } else {
+            showMessage(data.error || 'Login failed', true);
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Sign in to XDrive';
+          }
+        } catch (error) {
+          console.error('Login error:', error);
+          showMessage('Could not connect to backend server. Please ensure the API is running at ' + API_URL, true);
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Sign in to XDrive';
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

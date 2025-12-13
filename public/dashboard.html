@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard — XDrive Logistics</title>
+  <link rel="stylesheet" href="styles-dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app-wrap">
+    <!-- include sidebar (dacă ai partial) -->
+    <aside class="site-sidebar">
+      <!-- minim: brand + nav -->
+      <div class="sidebar-brand">
+        <img src="image/logo.svg" alt="XDrive" class="logo">
+</head>
+<body>
+  <div class="app-wrap">
+    <!-- Sidebar navigation -->
+    <aside class="site-sidebar">
+      <div class="sidebar-brand">
+        <strong style="font-size:20px;color:#D6A551;">XDrive</strong>
+      </div>
+
+      <nav class="nav">
+        <ul>
+          <li class="active"><a href="/dashboard">Dashboard</a></li>
+          <li><a href="/directory">Directory</a></li>
+          <li><a href="/availability">Live Availability</a></li>
+          <li><a href="/fleet">My Fleet</a></li>
+          <li><a href="/return-journeys">Return Journeys</a></li>
+          <li><a href="/loads">Loads</a></li>
+          <li><a href="/quotes">Quotes</a></li>
+          <li><a href="/diary">Diary</a></li>
+          <li><a href="/freight-vision">Freight Vision</a></li>
+          <li><a href="/drivers-vehicles">Drivers & Vehicles</a></li>
+          <li><a href="/reports">Reports & Statistics</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="page-header">
+        <h1>Dashboard</h1>
+        <div class="header-actions">
+          <label class="small">Select Dates</label>
+          <select id="date-range">
+            <option value="today">Today</option>
+            <option value="2025-12-01">01/12/2025</option>
+            <option value="custom">Custom...</option>
+          </select>
+        </div>
+      </header>
+
+      <section class="metrics">
+        <div class="metric">
+          <div class="m-number" id="total-bookings">-</div>
+          <div class="m-label">Total Bookings</div>
+        </div>
+        <div class="metric">
+          <div class="m-number" id="total-revenue">£-</div>
+          <div class="m-label">Total Revenue</div>
+        </div>
+        <div class="metric">
+          <div class="m-number" id="gross-margin-pct">-%</div>
+          <div class="m-label">Gross Margin %</div>
+        </div>
+        <div class="metric">
+          <div class="m-number" id="avg-margin">£-</div>
+          <div class="m-label">Avg Margin</div>
+          <div class="m-number" id="total-jobs">--</div>
+          <div class="m-label">Total Jobs</div>
+        </div>
+        <div class="metric">
+          <div class="m-number">8</div>
+          <div class="m-label">Vehicles</div>
+        </div>
+        <div class="metric">
+          <div class="m-number" id="total-customers">--</div>
+          <div class="m-label">Customers</div>
+        </div>
+        <div class="metric">
+          <div class="m-number" id="total-users">--</div>
+          <div class="m-label">Users</div>
+        </div>
+      </section>
+
+      <section class="reports-grid">
+        <article class="card report gross-margin">
+          <header><h3>Gross Margin / Sub-contract Spend</h3></header>
+          <div class="report-body">
+            <div class="report-controls">
+              <label>From: <input type="date" id="from-date"></label>
+              <label>To: <input type="date" id="to-date"></label>
+            </div>
+
+            <div class="report-kpi">
+              <div class="kpi">
+                <div class="kpi-title">Gross Margin</div>
+                <div class="kpi-value" id="kpi-gross-margin">£-</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-title">Sub-contract Spend</div>
+                <div class="kpi-value" id="kpi-subcontract">£-</div>
+                <div class="kpi-value" id="gross-margin">£--</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-title">Sub-contract Spend</div>
+                <div class="kpi-value" id="subcontract-spend">£--</div>
+              </div>
+            </div>
+
+            <div class="report-help">
+              <strong>How is this calculated?</strong>
+              <p>The total cost you have agreed to pay sub-contractors (excluding your own drivers) will appear here.</p>
+            </div>
+
+            <div class="report-chart" style="background: #0b1b24; padding: 20px; border-radius: 8px;">
+              <canvas id="marginChart" style="max-height: 200px;"></canvas>
+            <div class="report-chart" aria-hidden="true">
+              <!-- placeholder for chart (inject chart lib here) -->
+              <svg viewBox="0 0 300 90" class="placeholder-chart"><rect width="100%" height="100%" fill="#0b1b24"/><text x="10" y="50" fill="#9fb7c0">Chart placeholder</text></svg>
+            </div>
+          </div>
+        </article>
+
+        <article class="card report accounts-payable">
+          <header><h3>Accounts Payable</h3></header>
+          <div class="report-body">
+            <ul class="ap-list">
+              <li>Latest Invoices Received: <strong>12</strong></li>
+              <li>Invoices due for Payment: <strong>4</strong></li>
+              <li>Invoices Awaiting Payment: <strong>3</strong></li>
+              <li>Latest Invoices Received: <strong id="invoices-total">--</strong></li>
+              <li>Invoices due for Payment: <strong id="invoices-due">--</strong></li>
+              <li>Invoices Awaiting Payment: <strong id="invoices-awaiting">--</strong></li>
+            </ul>
+
+            <div class="monthly-totals">
+              <h4>Monthly Totals</h4>
+              <div class="small-metrics">
+                <div>Bookings Received: <strong>142</strong></div>
+                <div>Bookings Sub-contracted: <strong>46</strong></div>
+                <div>Loads Allocated: <strong>130</strong></div>
+                <div>Return Journeys: <strong>18</strong></div>
+                <div>Bookings Received: <strong id="monthly-bookings">--</strong></div>
+                <div>Bookings Sub-contracted: <strong id="monthly-subcontracted">--</strong></div>
+                <div>Loads Allocated: <strong id="monthly-allocated">--</strong></div>
+                <div>Return Journeys: <strong id="monthly-returns">--</strong></div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="activity">
+        <div class="activity-left card">
+          <header><h3>Activity — Latest Bookings</h3></header>
+          <div class="bookings-list" id="bookings-container">
+            <!-- Bookings will be loaded dynamically -->
+            <p style="color: #9fb7c0; padding: 20px;">Loading bookings...</p>
+            <p style="padding:20px;color:#9fb7c0;">Loading bookings...</p>
+          </div>
+        </div>
+
+        <aside class="activity-right card">
+          <header><h3>Feedback (Last 90 Days)</h3></header>
+          <div class="feedback">
+            <div class="feedback-row">
+              <div class="label">Received</div>
+              <div class="value">0</div>
+            </div>
+            <div class="rating-grid">
+              <div>Payment Performance — Definitely: 0</div>
+              <div>Maybe: 0</div>
+              <div>Not Use: 0</div>
+              <div>Delivery Performance — Definitely: 0</div>
+              <div>Maybe: 0</div>
+              <div>Not Use: 0</div>
+            </div>
+          </div>
+
+          <hr>
+
+          <div class="watchlist">
+            <h4>Compliance - Manage Your Suppliers</h4>
+            <button id="add-watch" class="btn-primary small">Add Member to My Watchlist</button>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3001/api';
+    let marginChart = null;
+
+    // Check if user is logged in
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      alert('Please log in to access the dashboard');
+      window.location.href = 'desktop-signin-final.html';
+    }
+
+    // Fetch and display gross margin data
+    async function loadGrossMargin() {
+      try {
+        const fromDate = document.getElementById('from-date').value;
+        const toDate = document.getElementById('to-date').value;
+        
+        let url = `${API_BASE}/reports/gross-margin`;
+        const params = new URLSearchParams();
+        if (fromDate) params.append('from', fromDate);
+        if (toDate) params.append('to', toDate);
+        if (params.toString()) url += '?' + params.toString();
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (response.ok) {
+          const summary = data.summary;
+          
+          // Update top metrics
+          document.getElementById('total-bookings').textContent = summary.total_bookings;
+          document.getElementById('total-revenue').textContent = '£' + summary.total_revenue.toLocaleString('en-GB', {minimumFractionDigits: 2});
+          document.getElementById('gross-margin-pct').textContent = summary.gross_margin_percentage + '%';
+          document.getElementById('avg-margin').textContent = '£' + summary.avg_gross_margin.toLocaleString('en-GB', {minimumFractionDigits: 2});
+          
+          // Update KPI cards
+          document.getElementById('kpi-gross-margin').textContent = '£' + summary.gross_margin_total.toLocaleString('en-GB', {minimumFractionDigits: 2});
+          document.getElementById('kpi-subcontract').textContent = '£' + summary.total_subcontract_cost.toLocaleString('en-GB', {minimumFractionDigits: 2});
+          
+          // Update chart
+          updateMarginChart(summary);
+        }
+      } catch (error) {
+        console.error('Error loading gross margin:', error);
+      }
+    }
+
+    // Update the margin chart
+    function updateMarginChart(summary) {
+      const ctx = document.getElementById('marginChart');
+      
+      if (marginChart) {
+        marginChart.destroy();
+      }
+
+      marginChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Gross Margin', 'Sub-contract Cost'],
+          datasets: [{
+            data: [summary.gross_margin_total, summary.total_subcontract_cost],
+            backgroundColor: ['#D6A551', '#6fe6ff'],
+            borderColor: ['#D6A551', '#6fe6ff'],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                color: '#eef5f9',
+                font: {
+                  size: 12
+                }
+              }
+            },
+            title: {
+              display: true,
+              text: 'Revenue Breakdown',
+              color: '#eef5f9',
+              font: {
+                size: 14
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Fetch and display latest bookings
+    async function loadBookings() {
+      try {
+        const response = await fetch(`${API_BASE}/bookings?limit=5`);
+        const data = await response.json();
+
+        if (response.ok && data.bookings) {
+          const container = document.getElementById('bookings-container');
+          
+          if (data.bookings.length === 0) {
+            container.innerHTML = '<p style="color: #9fb7c0; padding: 20px;">No bookings found.</p>';
+    const API_URL = 'http://localhost:3001';
+
+    // Format currency
+    function formatCurrency(amount) {
+      return '£' + parseFloat(amount).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Format date/time
+    function formatDateTime(dateStr) {
+      if (!dateStr) return 'N/A';
+      const date = new Date(dateStr);
+      const time = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const day = date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      return `${time} ${day}`;
+    }
+
+    // Load dashboard stats
+    async function loadDashboardStats() {
+      try {
+        const response = await fetch(`${API_URL}/api/reports/dashboard-stats`);
+        if (response.ok) {
+          const data = await response.json();
+          document.getElementById('total-jobs').textContent = data.total_jobs || 0;
+          document.getElementById('total-customers').textContent = data.total_customers || 0;
+          document.getElementById('total-users').textContent = data.total_users || 0;
+          document.getElementById('invoices-total').textContent = (data.invoices_due || 0) + (data.invoices_awaiting || 0);
+          document.getElementById('invoices-due').textContent = data.invoices_due || 0;
+          document.getElementById('invoices-awaiting').textContent = data.invoices_awaiting || 0;
+        }
+      } catch (error) {
+        console.error('Failed to load dashboard stats:', error);
+      }
+    }
+
+    // Load gross margin report
+    async function loadGrossMargin(from, to) {
+      try {
+        let url = `${API_URL}/api/reports/gross-margin`;
+        const params = [];
+        if (from) params.push(`from=${from}`);
+        if (to) params.push(`to=${to}`);
+        if (params.length) url += '?' + params.join('&');
+
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          document.getElementById('gross-margin').textContent = formatCurrency(data.gross_margin);
+          document.getElementById('subcontract-spend').textContent = formatCurrency(data.subcontract_spend);
+        }
+      } catch (error) {
+        console.error('Failed to load gross margin:', error);
+      }
+    }
+
+    // Load monthly totals
+    async function loadMonthlyTotals() {
+      try {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        
+        const response = await fetch(`${API_URL}/api/reports/monthly-totals?year=${year}&month=${month}`);
+        if (response.ok) {
+          const data = await response.json();
+          document.getElementById('monthly-bookings').textContent = data.bookings_received || 0;
+          document.getElementById('monthly-subcontracted').textContent = data.bookings_subcontracted || 0;
+          document.getElementById('monthly-allocated').textContent = data.loads_allocated || 0;
+          document.getElementById('monthly-returns').textContent = data.return_journeys || 0;
+        }
+      } catch (error) {
+        console.error('Failed to load monthly totals:', error);
+      }
+    }
+
+    // Load bookings
+    async function loadBookings() {
+      try {
+        const response = await fetch(`${API_URL}/api/bookings?limit=5`);
+        if (response.ok) {
+          const data = await response.json();
+          const container = document.getElementById('bookings-container');
+          
+          if (data.bookings.length === 0) {
+            container.innerHTML = '<p style="padding:20px;color:#9fb7c0;">No bookings found.</p>';
+            return;
+          }
+
+          container.innerHTML = data.bookings.map(booking => `
+            <article class="booking" style="border: 1px solid rgba(255,255,255,0.05); padding: 16px; margin-bottom: 12px; border-radius: 8px; background: rgba(11,27,36,0.3);">
+              <div class="booking-meta" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <div class="ref" style="color: #D6A551; font-weight: 600;">Load ID: ${booking.load_id || 'N/A'}</div>
+                <div class="status" style="color: #6fe6ff;">${booking.status}</div>
+              </div>
+              <div class="booking-content" style="color: #9fb7c0;">
+                <div class="locations" style="margin-bottom: 8px;">
+                  <div class="from"><strong style="color: #eef5f9;">From:</strong> ${booking.from_address}</div>
+                  <div class="to"><strong style="color: #eef5f9;">To:</strong> ${booking.to_address}</div>
+                </div>
+                <div class="booking-details" style="font-size: 13px; margin-bottom: 8px;">
+                  Veh: ${booking.vehicle_type} · Price: £${booking.price ? booking.price.toLocaleString('en-GB', {minimumFractionDigits: 2}) : 'N/A'}
+                  ${booking.subcontractor ? ' · Sub: ' + booking.subcontractor : ''}
+                </div>
+                ${booking.completed_by ? `<div class="booking-footer" style="font-size: 12px; color: #6fe6ff;">Completed by ${booking.completed_by}</div>` : ''}
+              </div>
+            </article>
+          `).join('');
+          
+          container.innerHTML += '<button class="btn-link" style="color: #D6A551; background: none; border: none; padding: 12px; cursor: pointer; text-decoration: underline;" onclick="alert(\'View all bookings feature coming soon!\')">View All...</button>';
+        }
+      } catch (error) {
+        console.error('Error loading bookings:', error);
+        document.getElementById('bookings-container').innerHTML = '<p style="color: #ff6b6b; padding: 20px;">Error loading bookings. Please check if the server is running.</p>';
+            <article class="booking">
+              <div class="booking-meta">
+                <div class="ref">Load ID: ${booking.load_id || booking.id}</div>
+                <div class="status">${booking.status || 'pending'}</div>
+              </div>
+              <div class="booking-content">
+                <div class="locations">
+                  <div class="from"><strong>From:</strong> ${booking.from_address}</div>
+                  <div class="to"><strong>To:</strong> ${booking.to_address}</div>
+                </div>
+                <div class="booking-details">
+                  ${booking.vehicle_type ? 'Veh: ' + booking.vehicle_type : ''} 
+                  ${booking.pickup_time ? '· Pickup: ' + formatDateTime(booking.pickup_time) : ''}
+                  ${booking.your_ref ? '· Your Ref: ' + booking.your_ref : ''}
+                </div>
+                ${booking.completed_by ? `<div class="booking-footer">Completed by ${booking.completed_by} — ${formatDateTime(booking.delivery_time || booking.updated_at)}</div>` : ''}
+              </div>
+            </article>
+          `).join('') + '<button class="btn-link" id="view-all">View All...</button>';
+        }
+      } catch (error) {
+        console.error('Failed to load bookings:', error);
+        document.getElementById('bookings-container').innerHTML = '<p style="padding:20px;color:#ff6b6b;">Failed to load bookings. Please ensure the API is running.</p>';
+      }
+    }
+
+    // Date range change handlers
+    document.getElementById('from-date').addEventListener('change', loadGrossMargin);
+    document.getElementById('to-date').addEventListener('change', loadGrossMargin);
+
+    // Initial load
+    loadGrossMargin();
+    loadBookings();
+
+    // Add logout functionality
+    const userEmail = localStorage.getItem('userEmail');
+    if (userEmail) {
+      document.querySelector('.page-header h1').innerHTML = `Dashboard <span style="font-size: 14px; color: #9fb7c0; font-weight: normal; margin-left: 16px;">${userEmail}</span>`;
+    }
+    document.getElementById('from-date').addEventListener('change', function() {
+      const from = this.value;
+      const to = document.getElementById('to-date').value;
+      loadGrossMargin(from, to);
+    });
+
+    document.getElementById('to-date').addEventListener('change', function() {
+      const from = document.getElementById('from-date').value;
+      const to = this.value;
+      loadGrossMargin(from, to);
+    });
+
+    // Load all data on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      loadDashboardStats();
+      loadGrossMargin();
+      loadMonthlyTotals();
+      loadBookings();
+    });
+  </script>
+</body>
+</html>

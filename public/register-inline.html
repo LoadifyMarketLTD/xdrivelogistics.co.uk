@@ -97,6 +97,7 @@
       <div class="muted">Join XDrive Logistics as a driver or shipper</div>
 
       <div class="alert" id="auth-alert"><strong>Authentication service is not configured</strong><div class="small">This demo page validates locally only.</div></div>
+      <div class="alert" id="auth-alert" style="display:none;"><strong>Authentication service is not configured</strong><div class="small">This demo page validates locally only.</div></div>
 
       <form id="register-form" novalidate>
         <div class="radio-row" role="radiogroup" aria-label="Account Type">
@@ -132,11 +133,16 @@
 
       // show auth warning (already visible) but keep accessible
       authAlert.setAttribute('role','alert');
+      const createBtn = document.getElementById('create-btn');
 
-      form.addEventListener('submit', function(e){
+      // API endpoint (change to your backend URL)
+      const API_URL = 'http://localhost:3001';
+
+      form.addEventListener('submit', async function(e){
         e.preventDefault();
         ok.style.display = 'none';
         err.style.display = 'none';
+        authAlert.style.display = 'none';
 
         const email = form.email.value.trim();
         const pass = form.password.value;
@@ -144,6 +150,7 @@
         const type = form.type.value;
 
         // simple local validation
+        // Client-side validation
         const emailValid = /\S+@\S+\.\S+/.test(email);
         const pwValid = pass.length >= 8;
         const match = pass === conf;
@@ -158,13 +165,76 @@
           return;
         }
 
-        // Since auth is not configured, show explanatory success
-        ok.textContent = 'Form validated for ' + (type === 'driver' ? 'Driver' : 'Shipper') + ' (' + email + '). Authentication service is not configured, so account was not created.';
-        ok.style.display = 'block';
+        // Submit to backend API
+        try {
+          const btn = form.querySelector('button[type="submit"]');
+          btn.disabled = true;
+          btn.textContent = 'Creating account...';
 
-        // Clear sensitive fields (demo)
-        form.password.value = '';
-        form.confirm.value = '';
+          const response = await fetch('http://localhost:3001/api/auth/register', {
+        // Disable button during request
+        createBtn.disabled = true;
+        createBtn.textContent = 'Creating account...';
+
+        try {
+          const response = await fetch(`${API_URL}/api/auth/register`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              account_type: type,
+              email: email,
+              password: pass,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            ok.textContent = data.message || 'Account created successfully! Please check your email to verify your account.';
+            ok.style.display = 'block';
+            err.style.display = 'none';
+            
+            // Clear form
+            form.reset();
+            
+            // Redirect to login after 3 seconds
+            setTimeout(() => {
+              window.location.href = 'desktop-signin-final.html';
+            }, 3000);
+          } else {
+            err.textContent = data.error || 'Registration failed. Please try again.';
+            err.style.display = 'block';
+            ok.style.display = 'none';
+          }
+
+          btn.disabled = false;
+          btn.textContent = 'Create account';
+        } catch (error) {
+          console.error('Registration error:', error);
+          err.textContent = 'Network error. Please check if the server is running.';
+          err.style.display = 'block';
+          ok.style.display = 'none';
+          
+          const btn = form.querySelector('button[type="submit"]');
+          btn.disabled = false;
+          btn.textContent = 'Create account';
+            form.reset();
+          } else {
+            err.textContent = data.error || 'Registration failed. Please try again.';
+            err.style.display = 'block';
+          }
+        } catch (error) {
+          console.error('Registration error:', error);
+          // Fallback if API is not available
+          authAlert.style.display = 'block';
+          err.textContent = 'Could not connect to backend server. Please ensure the API is running at ' + API_URL;
+          err.style.display = 'block';
+        } finally {
+          createBtn.disabled = false;
+          createBtn.textContent = 'Create account';
+        }
       });
     })();
   </script>

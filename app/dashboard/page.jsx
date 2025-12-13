@@ -3,14 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabaseClient } from '../../lib/supabaseClient';
-import ShipmentCard from '../../components/ShipmentCard';
+import { getCurrentUser, isAuthenticated, logout, getBookings, getDashboardStats } from '../../lib/api';
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [shipments, setShipments] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -20,68 +19,36 @@ export default function DashboardPage() {
 
   const checkUser = async () => {
     try {
-      // Check if supabase is configured
-      if (!supabaseClient) {
-        throw new Error('Database service is not configured');
-      }
-
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      
-      if (!session) {
+      // Check if user is authenticated
+      if (!isAuthenticated()) {
         router.push('/login');
         return;
       }
 
-      setUser(session.user);
+      const currentUser = getCurrentUser();
+      setUser(currentUser);
 
-      // Get user profile
-      const { data: profileData, error: profileError } = await supabaseClient
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
+      // Fetch bookings from Express backend
+      const bookingsData = await getBookings({ limit: 10 });
+      setBookings(bookingsData || []);
 
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-      } else {
-        setProfile(profileData);
-      }
-
-      // Fetch shipments based on role
-      await fetchShipments(session.user.id, profileData?.role);
+      // Fetch dashboard stats
+      const statsData = await getDashboardStats();
+      setStats(statsData || {});
     } catch (error) {
       console.error('Error:', error);
       setError(error.message);
-      router.push('/login');
+      // If API call fails with auth error, redirect to login
+      if (error.message.includes('401') || error.message.includes('403')) {
+        router.push('/login');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchShipments = async (userId, role) => {
-    try {
-      let query = supabaseClient.from('shipments').select('*');
-      
-      if (role === 'driver') {
-        query = query.eq('driver_id', userId);
-      } else if (role === 'client') {
-        query = query.eq('client_id', userId);
-      }
-      
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      setShipments(data || []);
-    } catch (err) {
-      console.error('Error fetching shipments:', err);
-      setError(err.message);
-    }
-  };
-
-  const handleLogout = async () => {
-    if (supabaseClient) {
-      await supabaseClient.auth.signOut();
-    }
+  const handleLogout = () => {
+    logout();
     router.push('/login');
   };
 
@@ -105,16 +72,10 @@ export default function DashboardPage() {
             <h1 className="text-3xl font-bold">Dashboard</h1>
             <p className="text-slate-400 mt-1">
               Welcome back, {user?.email}
-              {profile?.role && ` (${profile.role})`}
+              {user?.account_type && ` (${user.account_type})`}
             </p>
           </div>
           <div className="flex gap-3">
-            <Link
-              href="/shipments"
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-md text-sm font-medium transition"
-            >
-              All Shipments
-            </Link>
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-md text-sm font-medium transition"
@@ -135,36 +96,63 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Stats Cards */}
           <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
-            <h3 className="text-sm font-medium text-slate-400 mb-2">Total Shipments</h3>
-            <p className="text-3xl font-bold">{shipments.length}</p>
+            <h3 className="text-sm font-medium text-slate-400 mb-2">Total Bookings</h3>
+            <p className="text-3xl font-bold">{stats?.total_bookings || bookings.length}</p>
           </div>
 
           <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
             <h3 className="text-sm font-medium text-slate-400 mb-2">Active</h3>
             <p className="text-3xl font-bold">
-              {shipments.filter(s => s.status === 'in_transit' || s.status === 'pending').length}
+              {bookings.filter(b => b.status === 'In Transit' || b.status === 'Pending').length}
             </p>
           </div>
 
           <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
             <h3 className="text-sm font-medium text-slate-400 mb-2">Completed</h3>
             <p className="text-3xl font-bold">
-              {shipments.filter(s => s.status === 'delivered').length}
+              {bookings.filter(b => b.status === 'Delivered').length}
             </p>
           </div>
         </div>
 
-        {/* Recent Shipments */}
+        {/* Recent Bookings */}
         <div className="mt-8">
-          <h2 className="text-xl font-bold mb-4">Recent Shipments</h2>
-          {shipments.length === 0 ? (
+          <h2 className="text-xl font-bold mb-4">Recent Bookings</h2>
+          {bookings.length === 0 ? (
             <div className="bg-slate-900 rounded-lg p-8 border border-slate-800 text-center">
-              <p className="text-slate-400">No shipments found</p>
+              <p className="text-slate-400">No bookings found</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {shipments.slice(0, 6).map((shipment) => (
-                <ShipmentCard key={shipment.id} shipment={shipment} />
+            <div className="space-y-4">
+              {bookings.slice(0, 6).map((booking) => (
+                <div key={booking.id} className="bg-slate-900 rounded-lg p-6 border border-slate-800">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="text-lg font-semibold">{booking.load_id}</h3>
+                      <p className="text-sm text-slate-400">{booking.vehicle_type}</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      booking.status === 'Delivered' ? 'bg-emerald-500/20 text-emerald-400' :
+                      booking.status === 'In Transit' ? 'bg-blue-500/20 text-blue-400' :
+                      'bg-slate-700 text-slate-300'
+                    }`}>
+                      {booking.status}
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <p className="text-slate-300">
+                      <span className="text-slate-500">From:</span> {booking.from_address}
+                    </p>
+                    <p className="text-slate-300">
+                      <span className="text-slate-500">To:</span> {booking.to_address}
+                    </p>
+                    {booking.price && (
+                      <p className="text-slate-300 mt-2">
+                        <span className="text-slate-500">Price:</span> £{parseFloat(booking.price).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           )}
