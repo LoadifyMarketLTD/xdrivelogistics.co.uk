@@ -2,11 +2,11 @@
 -- Demo data for testing and development
 
 -- Insert demo users (password for all: "password123")
--- bcrypt hash for "password123" with 10 rounds: $2b$10$rKxN0YSqZz.PVLqF5xmTx.dBKQYFw3YI0.PxZn4kqYvQ0M7l4iqA6
+-- bcrypt hash for "password123" with 10 rounds: $2b$10$wI5lBmm/zgbDkoOZh2mise8IXrbuNI.CYC3KPa1Dy4TVyFsqGVRYW
 INSERT INTO users (account_type, email, password_hash, status, created_at, updated_at) VALUES
-('shipper', 'shipper@xdrivelogistics.co.uk', '$2b$10$rKxN0YSqZz.PVLqF5xmTx.dBKQYFw3YI0.PxZn4kqYvQ0M7l4iqA6', 'active', NOW(), NOW()),
-('driver', 'driver@xdrivelogistics.co.uk', '$2b$10$rKxN0YSqZz.PVLqF5xmTx.dBKQYFw3YI0.PxZn4kqYvQ0M7l4iqA6', 'active', NOW(), NOW()),
-('driver', 'ion@xdrivelogistics.co.uk', '$2b$10$rKxN0YSqZz.PVLqF5xmTx.dBKQYFw3YI0.PxZn4kqYvQ0M7l4iqA6', 'active', NOW(), NOW())
+('shipper', 'shipper@xdrivelogistics.co.uk', '$2b$10$wI5lBmm/zgbDkoOZh2mise8IXrbuNI.CYC3KPa1Dy4TVyFsqGVRYW', 'active', NOW(), NOW()),
+('driver', 'driver@xdrivelogistics.co.uk', '$2b$10$wI5lBmm/zgbDkoOZh2mise8IXrbuNI.CYC3KPa1Dy4TVyFsqGVRYW', 'active', NOW(), NOW()),
+('driver', 'ion@xdrivelogistics.co.uk', '$2b$10$wI5lBmm/zgbDkoOZh2mise8IXrbuNI.CYC3KPa1Dy4TVyFsqGVRYW', 'active', NOW(), NOW())
 ON CONFLICT (email) DO NOTHING;
 
 -- Insert demo bookings based on user-provided data

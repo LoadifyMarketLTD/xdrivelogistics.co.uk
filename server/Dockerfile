@@ -1,5 +1,6 @@
 # Node.js backend Dockerfile
-FROM node:20-alpine
+# Use standard node image instead of alpine to avoid build issues
+FROM node:20
 
 # Set working directory
 WORKDIR /app
@@ -8,7 +9,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Copy application files
 COPY . .
