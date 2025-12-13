@@ -10,10 +10,6 @@ const rateLimit = require('express-rate-limit');
 
 // Import routes
 const authRoutes = require('./routes/auth');
-// const bookingsRoutes = require('./routes/bookings');
-// const invoicesRoutes = require('./routes/invoices');
-// const reportsRoutes = require('./routes/reports');
-// const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
 
@@ -52,10 +48,6 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authLimiter, authRoutes);
-// app.use('/api/bookings', apiLimiter, bookingsRoutes);
-// app.use('/api/invoices', apiLimiter, invoicesRoutes);
-// app.use('/api/reports', apiLimiter, reportsRoutes);
-// app.use('/api/feedback', apiLimiter, feedbackRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -86,9 +78,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  - POST http://localhost:${PORT}/api/auth/register`);
   console.log(`  - POST http://localhost:${PORT}/api/auth/login`);
   console.log(`  - GET  http://localhost:${PORT}/api/auth/verify-email`);
-  console.log(`  - GET  http://localhost:${PORT}/api/bookings`);
-  console.log(`  - GET  http://localhost:${PORT}/api/reports/gross-margin`);
-  console.log(`  - GET  http://localhost:${PORT}/api/reports/dashboard-stats`);
 });
 
 // Graceful shutdown
