@@ -1,4 +1,4 @@
-# XDrive Logistics - Courier Exchange MVP
+# XDrive Logistics - Full Integration MVP
 
 A modern courier exchange platform with:
 - Next.js 16 frontend (optional)
@@ -7,7 +7,7 @@ A modern courier exchange platform with:
 - Static HTML demo pages for testing
 - Docker Compose for local development
 
-## Features
+A complete courier exchange platform with Express.js backend, PostgreSQL database, and modern frontend.
 
 - 🔐 Authentication (Register, Login with email verification)
 - 📦 Bookings Management (CRUD operations for loads/deliveries)
@@ -53,7 +53,7 @@ The seed data includes these demo accounts (password: `password123`):
 - **Shipper**: `shipper@xdrivelogistics.co.uk`
 - **Driver**: `driver@xdrivelogistics.co.uk` or `ion@xdrivelogistics.co.uk`
 
-## Prerequisites
+**For the complete integration MVP with Docker Compose, see [README-INTEGRATION.md](./README-INTEGRATION.md)**
 
 - Docker and Docker Compose (for the easiest setup)
 - OR Node.js 20+ and PostgreSQL 12+ (for manual setup)
@@ -351,29 +351,157 @@ Then deploy via Netlify UI or CLI.
 ## Project Structure
 
 ```
-├── app/
-│   ├── api/              # API routes (shipments, offers)
-│   ├── dashboard/        # User dashboard
-│   ├── login/            # Login page
-│   ├── register/         # Registration page
-│   ├── shipments/        # Shipments listing and details
-│   ├── layout.jsx        # Root layout
-│   └── page.jsx          # Home page
-├── components/
-│   ├── header.jsx        # Auth-aware header
-│   ├── footer.jsx        # Footer
-│   ├── ShipmentCard.jsx  # Shipment card component
-│   └── OfferForm.jsx     # Offer creation form
-├── lib/
-│   └── supabaseClient.js # Supabase client configuration
-└── styles/
-    └── globals.css       # Global styles
+├── server/                    # Backend API
+│   ├── src/
+│   │   ├── routes/           # API route handlers
+│   │   │   ├── auth.js       # Authentication endpoints
+│   │   │   ├── bookings.js   # Booking CRUD
+│   │   │   ├── invoices.js   # Invoice management
+│   │   │   ├── reports.js    # Analytics & reports
+│   │   │   └── feedback.js   # User feedback
+│   │   ├── index.js          # Express app entry point
+│   │   ├── db.js             # PostgreSQL connection pool
+│   │   └── mailer.js         # Email service
+│   ├── package.json          # Backend dependencies
+│   ├── Dockerfile            # Backend container config
+│   └── .env.example          # Environment variables template
+├── db/
+│   ├── schema.sql            # Database schema
+│   └── seeds.sql             # Sample data
+├── public/                   # Frontend files
+│   ├── desktop-signin-final.html    # Login page
+│   ├── register-inline.html         # Registration page
+│   └── dashboard.html               # Dashboard with charts
+├── docker-compose.yml        # Docker orchestration
+└── README.md                 # This file
 ```
+
+## Testing the Application
+
+### 1. Test Registration
+
+1. Open `public/register-inline.html` in your browser
+2. Register a new account (choose driver or shipper)
+3. Check server logs for verification email link
+4. Copy the token from the URL and verify via API or click the link
+
+### 2. Test Login
+
+1. Open `public/desktop-signin-final.html`
+2. Login with demo credentials or your verified account
+3. You'll be redirected to the dashboard
+
+### 3. Test Dashboard
+
+1. The dashboard loads bookings and reports from the API
+2. Use the date range selector to filter data
+3. View Chart.js visualizations of gross margin
+
+### 4. Test API Endpoints
+
+Use the curl commands provided in the API Documentation section above.
+
+## Environment Variables
+
+### Backend (.env)
+
+See `server/.env.example` for full template:
+
+- `DATABASE_URL`: PostgreSQL connection string
+- `PORT`: API server port (default: 3001)
+- `JWT_SECRET`: Secret key for JWT tokens
+- `CORS_ORIGIN`: Allowed CORS origin
+- `SMTP_*`: Email configuration (optional)
+
+## Production Readiness Checklist
+
+⚠️ **Important**: This is an MVP. Before deploying to production:
+
+- [ ] Change `JWT_SECRET` to a strong random string
+- [ ] Configure real SMTP credentials for email
+- [ ] Set up HTTPS/SSL certificates
+- [ ] Configure proper CORS origins (not '*')
+- [ ] Increase bcrypt rounds for production
+- [ ] Set up database backups
+- [ ] Add request logging and monitoring
+- [ ] Implement proper error tracking (e.g., Sentry)
+- [ ] Add API authentication middleware
+- [ ] Set up rate limiting per user (not just IP)
+- [ ] Review and tighten database permissions
+- [ ] Add input sanitization for XSS prevention
+- [ ] Set up CI/CD pipeline
+- [ ] Configure proper environment variables
+- [ ] Add comprehensive API tests
+- [ ] Set up database migrations
+- [ ] Configure proper session management
+- [ ] Add API documentation (Swagger/OpenAPI)
+- [ ] Set up log rotation and retention
+- [ ] Configure database connection pooling limits
+
+## Docker Support
+
+A `docker-compose.yml` file is provided for containerized deployment. However, there's a known issue with npm package installation in Alpine/Slim containers in the current build environment where npm crashes during installation. 
+
+For production deployment, consider:
+- Using a CI/CD pipeline with proper build caching
+- Pre-building the node_modules and copying into the container
+- Using managed container services that handle dependency installation
+- Running PostgreSQL in Docker and the Node.js app natively
+
+The Docker configuration is provided as a reference and works in most environments but may need adjustment based on your infrastructure.
+
+## Known Limitations
+
+- Docker npm installation has issues in current environment (use local development instead)
+- Email verification links are logged to console if SMTP not configured
+- Demo seed data uses placeholder password hashes (create users via /api/register for testing login)
+- No frontend authentication state management (uses localStorage)
+- No refresh token implementation
+- Limited error handling on frontend
+- No pagination on frontend lists
+- Chart.js data is not cached
+- No WebSocket support for real-time updates
+
+## Troubleshooting
+
+### Backend won't start
+
+```bash
+# Check if postgres is running
+docker ps
+
+# Check logs
+docker logs xdrive-postgres
+docker logs xdrive-backend
+```
+
+### Database connection error
+
+```bash
+# Ensure postgres is healthy
+docker-compose ps
+
+# Restart services
+docker-compose restart
+```
+
+### Seed data fails
+
+```bash
+# Ensure schema is loaded first
+docker exec -i xdrive-postgres psql -U postgres -d xdrive < db/schema.sql
+docker exec -i xdrive-postgres psql -U postgres -d xdrive < db/seeds.sql
+```
+
+## Support
+
+For issues or questions, please open an issue on GitHub.
 
 ## License
 
 © 2024 XDrive Logistics - Danny Courier LTD
-This repository contains the source code for the XDrive Logistics courier exchange platform.
+
+Proprietary software. All rights reserved.
 
 ## Features
 

@@ -1,21 +1,22 @@
-# Node.js backend Dockerfile
-# Use standard node image instead of alpine to avoid build issues
-FROM node:20
+FROM node:20-alpine
 
-# Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install --omit=dev
+RUN npm ci --only=production
 
-# Copy application files
+# Copy source code
 COPY . .
 
 # Expose port
 EXPOSE 3001
 
-# Start the application
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
+  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Start server
 CMD ["npm", "start"]
