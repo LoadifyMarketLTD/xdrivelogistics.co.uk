@@ -1,101 +1,77 @@
 /**
  * XDrive Logistics Backend API
- * Main Express application entry point
+ * Express server with PostgreSQL integration
  */
-require('dotenv').config();
- * XDrive Logistics - Backend API Server
- * Express application with PostgreSQL database
- */
-require('dotenv').config();
-
-const express = require('express');
-const helmet = require('helmet');
-const cors = require('cors');
-const rateLimit = require('express-rate-limit');
+import 'dotenv/config';
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 
 // Import routes
-const authRoutes = require('./routes/auth');
-const bookingsRoutes = require('./routes/bookings');
-const invoicesRoutes = require('./routes/invoices');
-const reportsRoutes = require('./routes/reports');
-const feedbackRoutes = require('./routes/feedback');
+import authRoutes from './routes/auth.js';
+import bookingsRoutes from './routes/bookings.js';
+import invoicesRoutes from './routes/invoices.js';
+import reportsRoutes from './routes/reports.js';
+import feedbackRoutes from './routes/feedback.js';
+
+// Import database to test connection on startup
+import pool from './db.js';
 
 const app = express();
+const PORT = process.env.PORT || 3001;
 
 // Security middleware
 app.use(helmet());
 
 // CORS configuration
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN || '*',
-// Import database connection
-const pool = require('./db');
-
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-// Middleware
-app.use(helmet());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// CORS configuration - restrictive default, explicit config required for production
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-};
-app.use(cors(corsOptions));
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN || '*',
+    credentials: true,
+  })
+);
 
 // Body parser
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting for auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 requests per window
-  message: { error: 'Too many authentication attempts, please try again later' },
-});
-
-// General API rate limiter
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
-  message: { error: 'Too many requests, please try again later' },
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// API routes
-app.use('/api', apiLimiter); // Apply rate limit to all API routes
-app.use('/api/register', authLimiter); // Additional stricter limit for register
-app.use('/api/login', authLimiter); // Additional stricter limit for login
-// Rate limiting for auth endpoints
+// Rate limiting for auth endpoints (stricter)
 const authLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 10,
-  message: { error: 'Too many authentication requests, please try again later' },
+  message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Apply rate limiting to auth routes
-app.use('/api/register', authLimiter);
-app.use('/api/login', authLimiter);
+// General rate limiting for all API endpoints
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // More generous for general API usage
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Health check rate limiter (more permissive for monitoring systems)
+const healthLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 300, // Allow frequent health checks from monitoring tools
+  message: { error: 'Health check rate limit exceeded' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Health check endpoint
-app.get('/health', async (req, res) => {
+app.get('/health', healthLimiter, async (req, res) => {
   try {
     // Test database connection
     await pool.query('SELECT 1');
     res.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
       database: 'connected',
     });
   } catch (err) {
@@ -108,59 +84,63 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// API info endpoint
-app.get('/api', (req, res) => {
-  res.json({
-    name: 'XDrive Logistics API',
-    version: '1.0.0',
-    endpoints: {
-      auth: [
-        'POST /api/register',
-        'POST /api/login',
-        'GET /api/verify-email',
-      ],
-      bookings: [
-        'GET /api/bookings',
-        'GET /api/bookings/:id',
-        'POST /api/bookings',
-        'PUT /api/bookings/:id',
-        'DELETE /api/bookings/:id',
-      ],
-      invoices: [
-        'GET /api/invoices',
-        'GET /api/invoices/:id',
-        'POST /api/invoices',
-        'PUT /api/invoices/:id',
-      ],
-      reports: [
-        'GET /api/reports/gross-margin',
-        'GET /api/reports/bookings-by-status',
-        'GET /api/reports/revenue-by-month',
-      ],
-      feedback: [
-        'GET /api/feedback',
-        'GET /api/feedback/:id',
-        'POST /api/feedback',
-      ],
-    },
-  });
-});
+// API routes
+// Apply stricter rate limiter to auth routes
+app.use('/api/register', authLimiter);
+app.use('/api/login', authLimiter);
+app.use('/api/verify-email', authLimiter);
 
-// Mount routes
+// Apply general rate limiter to all API routes
+app.use('/api', apiLimiter);
+
+// Mount route handlers
 app.use('/api', authRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/invoices', invoicesRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/feedback', feedbackRoutes);
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'XDrive Logistics API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      auth: {
+        register: 'POST /api/register',
+        login: 'POST /api/login',
+        verifyEmail: 'GET /api/verify-email?token=xxx',
+      },
+      bookings: {
+        list: 'GET /api/bookings',
+        get: 'GET /api/bookings/:id',
+        create: 'POST /api/bookings',
+        update: 'PUT /api/bookings/:id',
+        delete: 'DELETE /api/bookings/:id',
+      },
+      invoices: {
+        list: 'GET /api/invoices',
+        get: 'GET /api/invoices/:id',
+        create: 'POST /api/invoices',
+        update: 'PUT /api/invoices/:id',
+      },
+      reports: {
+        grossMargin: 'GET /api/reports/gross-margin?from=YYYY-MM-DD&to=YYYY-MM-DD',
+        bookingsByStatus: 'GET /api/reports/bookings-by-status',
+      },
+      feedback: {
+        list: 'GET /api/feedback',
+        get: 'GET /api/feedback/:id',
+        create: 'POST /api/feedback',
+      },
+    },
+  });
+});
+
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
-  res.status(404).json({
-    error: 'Not found',
-    path: req.path,
-    message: 'The requested endpoint does not exist',
-  });
+  res.status(404).json({ error: 'Not found' });
 });
 
 // Error handler

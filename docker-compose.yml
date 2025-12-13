@@ -3,6 +3,11 @@ version: '3.8'
 services:
   # PostgreSQL Database
   postgres:
+    image: postgres:15-alpine
+    container_name: xdrive-postgres
+    environment:
+      POSTGRES_USER: xdrive
+      POSTGRES_PASSWORD: xdrive123
     image: postgres:14-alpine
     container_name: xdrive-postgres
     environment:
@@ -20,6 +25,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./db/seeds.sql:/docker-entrypoint-initdb.d/02-seeds.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xdrive -d xdrive_db"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -30,6 +38,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
+      - xdrive-network
       - xdrive_network
 
   # Backend API Server
@@ -39,6 +48,23 @@ services:
       dockerfile: Dockerfile
     container_name: xdrive-backend
     environment:
+      PORT: 3001
+      NODE_ENV: development
+      DATABASE_URL: postgresql://xdrive:xdrive123@postgres:5432/xdrive_db
+      CORS_ORIGIN: http://localhost:3000
+      APP_BASE_URL: http://localhost:3000
+      BCRYPT_ROUNDS: 10
+      VERIFY_TOKEN_EXPIRES_MIN: 60
+      # WARNING: For production, use Docker secrets or external secret manager
+      # This is for development only
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
+      # SMTP not configured - will use log mode
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@xdrivelogistics.co.uk}
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/xdrive
       PORT: 3001
       NODE_ENV: development
@@ -65,11 +91,10 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - ./server/src:/app/src
-      - ./server/package.json:/app/package.json
-    command: npm start
+      - ./server:/app
+      - /app/node_modules
     networks:
-      - xdrive_network
+      - xdrive-network
     restart: unless-stopped
 
 volumes:
@@ -77,5 +102,5 @@ volumes:
     driver: local
 
 networks:
-  xdrive_network:
+  xdrive-network:
     driver: bridge

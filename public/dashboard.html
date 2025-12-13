@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Dashboard — XDrive Logistics</title>
   <link rel="stylesheet" href="styles-dashboard.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="app-wrap">
@@ -48,34 +47,20 @@
 
       <section class="metrics">
         <div class="metric">
-          <div class="m-number" id="total-jobs">-</div>
-          <div class="m-label">Total Bookings</div>
-        </div>
-        <div class="metric">
-          <div class="m-number" id="total-revenue">-</div>
-          <div class="m-label">Total Revenue</div>
-        </div>
-        <div class="metric">
-          <div class="m-number" id="gross-margin">-</div>
-          <div class="m-label">Gross Margin</div>
-        </div>
-        <div class="metric">
-          <div class="m-number" id="margin-percent">-</div>
-          <div class="m-label">Margin %</div>
-          <div class="m-number" id="total-jobs">0</div>
+          <div class="m-number">27</div>
           <div class="m-label">Total Jobs</div>
         </div>
         <div class="metric">
-          <div class="m-number" id="delivered-jobs">0</div>
-          <div class="m-label">Delivered</div>
+          <div class="m-number">8</div>
+          <div class="m-label">Vehicles</div>
         </div>
         <div class="metric">
-          <div class="m-number" id="in-transit-jobs">0</div>
-          <div class="m-label">In Transit</div>
+          <div class="m-number">14</div>
+          <div class="m-label">Customers</div>
         </div>
         <div class="metric">
-          <div class="m-number" id="pending-jobs">0</div>
-          <div class="m-label">Pending</div>
+          <div class="m-number">3</div>
+          <div class="m-label">Users</div>
         </div>
       </section>
 
@@ -91,24 +76,11 @@
             <div class="report-kpi">
               <div class="kpi">
                 <div class="kpi-title">Gross Margin</div>
-                <div class="kpi-value" id="kpi-margin">£0</div>
+                <div class="kpi-value">£12,350</div>
               </div>
               <div class="kpi">
                 <div class="kpi-title">Sub-contract Spend</div>
-                <div class="kpi-value" id="kpi-subcontract">£0</div>
-                <div class="kpi-value" id="gross-margin">£0</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-title">Sub-contract Spend</div>
-                <div class="kpi-value" id="subcontract-spend">£0</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-title">Total Revenue</div>
-                <div class="kpi-value" id="total-revenue">£0</div>
-              </div>
-              <div class="kpi">
-                <div class="kpi-title">Margin %</div>
-                <div class="kpi-value" id="margin-percentage">0%</div>
+                <div class="kpi-value">£4,820</div>
               </div>
             </div>
 
@@ -117,10 +89,8 @@
               <p>The total cost you have agreed to pay sub-contractors (excluding your own drivers) will appear here.</p>
             </div>
 
-            <div class="report-chart" aria-hidden="true">
-              <canvas id="marginChart" style="max-height: 300px;"></canvas>
-              <!-- placeholder for chart (inject chart lib here) -->
-              <svg viewBox="0 0 300 90" class="placeholder-chart"><rect width="100%" height="100%" fill="#0b1b24"/><text x="10" y="50" fill="#9fb7c0">Chart placeholder</text></svg>
+            <div class="report-chart">
+              <canvas id="margin-chart" width="400" height="200"></canvas>
             </div>
           </div>
         </article>
@@ -151,13 +121,24 @@
         <div class="activity-left card">
           <header><h3>Activity — Latest Bookings</h3></header>
           <div class="bookings-list">
-            <div id="bookings-container">
-              <!-- Bookings will be loaded here dynamically -->
-              <p style="color: #9fb7c0; padding: 20px;">Loading bookings...</p>
-            </div>
-          <div class="bookings-list" id="bookings-container">
-            <!-- Bookings will be loaded dynamically -->
-            <p style="color:#9fb7c0;">Loading bookings...</p>
+            <!-- one booking item (repeat) -->
+            <article class="booking">
+              <div class="booking-meta">
+                <div class="ref">Load ID: 77576338</div>
+                <div class="status">Delivered</div>
+              </div>
+              <div class="booking-content">
+                <div class="locations">
+                  <div class="from"><strong>From:</strong> Nordfab Ducting Ltd, Limewood Approach, Seacroft, LS14 1NG</div>
+                  <div class="to"><strong>To:</strong> ASAP Cargo, Unit 3, ERGO PARK, CW10 0GT</div>
+                </div>
+                <div class="booking-details">Veh: LWB up to 4m · Pickup: 11:00 12/12/2025 · Deliver: ASAP · Your Ref: 26085</div>
+                <div class="booking-footer">Completed by Ion — 14:18 GMT 12/12/2025</div>
+              </div>
+            </article>
+
+            <!-- add more booking items as needed -->
+            <button class="btn-link" id="view-all">View All...</button>
           </div>
         </div>
 
@@ -189,269 +170,156 @@
     </main>
   </div>
 
+  <!-- Chart.js for data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  
   <script>
-    // API Configuration
-    const API_BASE = 'http://localhost:3001/api';
-    
-    // Initialize dashboard
-    document.addEventListener('DOMContentLoaded', async () => {
-      // Set default date range (current month)
-      const today = new Date();
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      const fromInput = document.getElementById('from-date');
-      const toInput = document.getElementById('to-date');
-      
-      fromInput.valueAsDate = firstDay;
-      toInput.valueAsDate = today;
-      
-      // Load initial data
-      await loadDashboardData();
-      
-      // Add event listeners for date changes
-      fromInput.addEventListener('change', loadDashboardData);
-      toInput.addEventListener('change', loadDashboardData);
-    });
-    
-    // Load all dashboard data
-    async function loadDashboardData() {
-      const fromDate = document.getElementById('from-date').value;
-      const toDate = document.getElementById('to-date').value;
-      
-      if (!fromDate || !toDate) return;
-      
-      try {
-        // Fetch gross margin report
-        const reportResponse = await fetch(`${API_BASE}/reports/gross-margin?from=${fromDate}&to=${toDate}`);
-        const reportData = await reportResponse.json();
-        
-        if (reportResponse.ok) {
-          updateMetrics(reportData.summary);
-          updateKPIs(reportData.summary);
-          updateChart(reportData);
-        } else {
-          console.error('Failed to load report:', reportData);
-        }
-        
-        // Fetch bookings
-        const bookingsResponse = await fetch(`${API_BASE}/bookings?from_date=${fromDate}&to_date=${toDate}&limit=10`);
-        const bookingsData = await bookingsResponse.json();
-        
-        if (bookingsResponse.ok) {
-          updateBookingsList(bookingsData.bookings);
-        } else {
-          console.error('Failed to load bookings:', bookingsData);
-        }
-      } catch (err) {
-        console.error('Error loading dashboard data:', err);
-        showError('Failed to load dashboard data. Please ensure backend is running on http://localhost:3001');
+    // Dashboard data fetching and rendering
+    document.addEventListener('DOMContentLoaded', async function() {
+      // Check if user is logged in
+      const user = JSON.parse(localStorage.getItem('xdrive_user') || 'null');
+      if (!user) {
+        console.warn('Not logged in, redirecting...');
+        // window.location.href = '/desktop-signin-final.html';
+        // return;
       }
-    }
-    
-    // Update metrics section
-    function updateMetrics(summary) {
-      document.getElementById('total-jobs').textContent = summary.total_bookings || 0;
-      document.getElementById('total-revenue').textContent = `£${(summary.total_revenue || 0).toLocaleString()}`;
-      document.getElementById('gross-margin').textContent = `£${(summary.gross_margin_total || 0).toLocaleString()}`;
-      document.getElementById('margin-percent').textContent = `${(summary.margin_percentage || 0).toFixed(1)}%`;
-    }
-    
-    // Update KPI values
-    function updateKPIs(summary) {
-      document.getElementById('kpi-margin').textContent = `£${(summary.gross_margin_total || 0).toLocaleString()}`;
-      document.getElementById('kpi-subcontract').textContent = `£${(summary.subcontract_spend || 0).toLocaleString()}`;
-    }
-    
-    // Update chart with Chart.js
-    let marginChart = null;
-    function updateChart(reportData) {
-      const canvas = document.getElementById('marginChart');
-      const ctx = canvas.getContext('2d');
-      
-      // Destroy existing chart
-      if (marginChart) {
-        marginChart.destroy();
+
+      // Fetch gross margin report
+      async function fetchGrossMargin(from, to) {
+        try {
+          let url = '/api/reports/gross-margin';
+          const params = new URLSearchParams();
+          if (from) params.append('from', from);
+          if (to) params.append('to', to);
+          if (params.toString()) url += '?' + params.toString();
+
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('Failed to fetch report');
+          
+          const data = await response.json();
+          return data;
+        } catch (error) {
+          console.error('Error fetching gross margin:', error);
+          return null;
+        }
       }
-      
-      const summary = reportData.summary;
-      
-      // Create chart
-      marginChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ['Revenue', 'Subcontract Cost', 'Gross Margin'],
-          datasets: [{
-            label: 'Amount (£)',
-            data: [
-              summary.total_revenue || 0,
-              summary.subcontract_spend || 0,
-              summary.gross_margin_total || 0
-            ],
-            backgroundColor: [
-              'rgba(111, 230, 255, 0.6)',
-              'rgba(255, 107, 107, 0.6)',
-              'rgba(214, 165, 81, 0.6)'
-            ],
-            borderColor: [
-              'rgba(111, 230, 255, 1)',
-              'rgba(255, 107, 107, 1)',
-              'rgba(214, 165, 81, 1)'
-            ],
-            borderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          plugins: {
-            legend: {
-              display: false
-            }
+
+      // Fetch bookings
+      async function fetchBookings() {
+        try {
+          const response = await fetch('/api/bookings?limit=50');
+          if (!response.ok) throw new Error('Failed to fetch bookings');
+          
+          const data = await response.json();
+          return data.bookings || [];
+        } catch (error) {
+          console.error('Error fetching bookings:', error);
+          return [];
+        }
+      }
+
+      // Update metrics
+      function updateMetrics(report, bookings) {
+        if (report && report.metrics) {
+          document.querySelector('.metric:nth-child(1) .m-number').textContent = report.metrics.totalBookings || 0;
+          document.querySelector('.kpi-value').textContent = '£' + (report.metrics.grossMarginTotal || 0).toFixed(2);
+          
+          const subcontractKpi = document.querySelectorAll('.kpi')[1];
+          if (subcontractKpi) {
+            subcontractKpi.querySelector('.kpi-value').textContent = '£' + (report.metrics.subcontractSpend || 0).toFixed(2);
+          }
+        }
+      }
+
+      // Create chart if canvas element exists
+      function createChart(bookings) {
+        const canvas = document.getElementById('margin-chart');
+        if (!canvas) return;
+
+        // Group bookings by status
+        const statusCounts = bookings.reduce((acc, booking) => {
+          acc[booking.status] = (acc[booking.status] || 0) + 1;
+          return acc;
+        }, {});
+
+        new Chart(canvas, {
+          type: 'bar',
+          data: {
+            labels: Object.keys(statusCounts),
+            datasets: [{
+              label: 'Bookings by Status',
+              data: Object.values(statusCounts),
+              backgroundColor: [
+                'rgba(217, 168, 92, 0.6)',
+                'rgba(111, 230, 255, 0.6)',
+                'rgba(255, 215, 130, 0.6)',
+                'rgba(153, 168, 173, 0.6)',
+              ],
+              borderColor: [
+                'rgba(217, 168, 92, 1)',
+                'rgba(111, 230, 255, 1)',
+                'rgba(255, 215, 130, 1)',
+                'rgba(153, 168, 173, 1)',
+              ],
+              borderWidth: 1
+            }]
           },
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: {
-                callback: function(value) {
-                  return '£' + value.toLocaleString();
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                display: false
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1
                 }
               }
             }
           }
-        }
-      });
-    }
-    
-    // Update bookings list
-    function updateBookingsList(bookings) {
-      const container = document.getElementById('bookings-container');
-      
-      if (!bookings || bookings.length === 0) {
-        container.innerHTML = '<p style="color: #9fb7c0; padding: 20px;">No bookings found for selected period.</p>';
-        return;
+        });
       }
+
+      // Load initial data
+      const [report, bookings] = await Promise.all([
+        fetchGrossMargin(),
+        fetchBookings()
+      ]);
+
+      updateMetrics(report, bookings);
+      createChart(bookings);
+
+      // Setup date range filters
+      const fromDateInput = document.getElementById('from-date');
+      const toDateInput = document.getElementById('to-date');
       
-      container.innerHTML = bookings.map(booking => `
-        <article class="booking">
-          <div class="booking-meta">
-            <div class="ref">Load ID: ${booking.load_id || booking.id}</div>
-            <div class="status">${booking.status}</div>
-          </div>
-          <div class="booking-content">
-            <div class="locations">
-              <div class="from"><strong>From:</strong> ${booking.from_address}</div>
-              <div class="to"><strong>To:</strong> ${booking.to_address}</div>
-            </div>
-            <div class="booking-details">
-              Vehicle: ${booking.vehicle_type} · 
-              Pickup: ${booking.pickup_date ? new Date(booking.pickup_date).toLocaleDateString() : 'TBD'} · 
-              Price: £${booking.price}
-            </div>
-            ${booking.completed_by ? `<div class="booking-footer">Completed by ${booking.completed_by}</div>` : ''}
-          </div>
-        </article>
-      `).join('');
-    }
-    
-    // Show error message
-    function showError(message) {
-      const container = document.getElementById('bookings-container');
-      container.innerHTML = `<p style="color: #ff6b6b; padding: 20px;">${message}</p>`;
-    }
-    const API_BASE = 'http://localhost:3001/api';
-    
-    // Format currency
-    function formatCurrency(amount) {
-      return '£' + parseFloat(amount).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    
-    // Format date
-    function formatDate(dateStr) {
-      if (!dateStr) return 'N/A';
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    }
-    
-    // Load gross margin report
-    async function loadGrossMargin() {
-      try {
-        const response = await fetch(`${API_BASE}/reports/gross-margin`);
-        const data = await response.json();
+      if (fromDateInput && toDateInput) {
+        // Set default dates (last 30 days)
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
         
-        if (response.ok) {
-          const metrics = data.metrics;
-          document.getElementById('gross-margin').textContent = formatCurrency(metrics.gross_margin_total);
-          document.getElementById('subcontract-spend').textContent = formatCurrency(metrics.subcontract_spend);
-          document.getElementById('total-revenue').textContent = formatCurrency(metrics.total_revenue);
-          document.getElementById('margin-percentage').textContent = metrics.gross_margin_percentage + '%';
-        }
-      } catch (err) {
-        console.error('Error loading gross margin:', err);
-      }
-    }
-    
-    // Load bookings
-    async function loadBookings() {
-      try {
-        const response = await fetch(`${API_BASE}/bookings?limit=10`);
-        const data = await response.json();
-        
-        if (response.ok && data.bookings) {
-          const container = document.getElementById('bookings-container');
-          
-          if (data.bookings.length === 0) {
-            container.innerHTML = '<p style="color:#9fb7c0;">No bookings found.</p>';
-            return;
+        toDateInput.value = today.toISOString().split('T')[0];
+        fromDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+
+        // Listen for date changes
+        const updateReport = async () => {
+          const from = fromDateInput.value;
+          const to = toDateInput.value;
+          const newReport = await fetchGrossMargin(from, to);
+          if (newReport) {
+            updateMetrics(newReport, bookings);
           }
-          
-          container.innerHTML = data.bookings.map(booking => `
-            <article class="booking">
-              <div class="booking-meta">
-                <div class="ref">Load ID: ${booking.load_id}</div>
-                <div class="status">${booking.status}</div>
-              </div>
-              <div class="booking-content">
-                <div class="locations">
-                  <div class="from"><strong>From:</strong> ${booking.from_address}</div>
-                  <div class="to"><strong>To:</strong> ${booking.to_address}</div>
-                </div>
-                <div class="booking-details">
-                  Veh: ${booking.vehicle_type} · 
-                  Pickup: ${formatDate(booking.pickup_date)} · 
-                  Deliver: ${formatDate(booking.delivery_date)} · 
-                  Price: ${booking.price ? formatCurrency(booking.price) : 'N/A'}
-                </div>
-                ${booking.completed_by ? `<div class="booking-footer">Completed by ${booking.completed_by}</div>` : ''}
-              </div>
-            </article>
-          `).join('');
-          
-          // Update metrics
-          updateMetrics(data.bookings);
-        }
-      } catch (err) {
-        console.error('Error loading bookings:', err);
-        document.getElementById('bookings-container').innerHTML = 
-          '<p style="color:#ff6b6b;">Error loading bookings. Is the server running?</p>';
+        };
+
+        fromDateInput.addEventListener('change', updateReport);
+        toDateInput.addEventListener('change', updateReport);
       }
-    }
-    
-    // Update dashboard metrics
-    function updateMetrics(bookings) {
-      const statusCounts = bookings.reduce((acc, booking) => {
-        acc[booking.status] = (acc[booking.status] || 0) + 1;
-        return acc;
-      }, {});
-      
-      document.getElementById('total-jobs').textContent = bookings.length;
-      document.getElementById('delivered-jobs').textContent = statusCounts['delivered'] || 0;
-      document.getElementById('in-transit-jobs').textContent = statusCounts['in_transit'] || 0;
-      document.getElementById('pending-jobs').textContent = statusCounts['pending'] || 0;
-    }
-    
-    // Load data on page load
-    document.addEventListener('DOMContentLoaded', () => {
-      loadGrossMargin();
-      loadBookings();
+
+      console.log('Dashboard loaded:', { report, bookings: bookings.length });
     });
   </script>
 </body>

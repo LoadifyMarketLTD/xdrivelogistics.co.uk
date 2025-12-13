@@ -1,116 +1,28 @@
 /**
  * Reports routes
- * - GET /api/reports/gross-margin - Calculate gross margin from bookings
- * Reports routes: gross margin and other analytics
+ * - GET /api/reports/gross-margin - Calculate gross margin and subcontract spend
  */
-const express = require('express');
-const pool = require('../db');
+import express from 'express';
+import pool from '../db.js';
 
 const router = express.Router();
 
 /**
  * GET /api/reports/gross-margin?from=YYYY-MM-DD&to=YYYY-MM-DD
- * Calculate gross margin and subcontract spend for date range
- * Calculate gross margin and subcontract spend from bookings
+ * Calculate gross margin total and subcontract spend from bookings
  */
 router.get('/gross-margin', async (req, res) => {
   try {
     const { from, to } = req.query;
 
-    if (!from || !to) {
-      return res.status(400).json({ 
-        error: 'from and to date parameters required (format: YYYY-MM-DD)' 
-      });
-    }
-
-    // Validate date format
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(from) || !dateRegex.test(to)) {
-      return res.status(400).json({ 
-        error: 'Invalid date format. Use YYYY-MM-DD' 
-      });
-    }
-
-    const query = `
+    let query = `
       SELECT 
         COUNT(*) as total_bookings,
         SUM(price) as total_revenue,
         SUM(subcontract_cost) as subcontract_spend,
-        SUM(price - subcontract_cost) as gross_margin_total,
-        AVG(price - subcontract_cost) as avg_margin_per_booking,
-        ROUND(
-          CASE 
-            WHEN SUM(price) > 0 
-            THEN (SUM(price - subcontract_cost) / SUM(price)) * 100 
-            ELSE 0 
-          END, 
-          2
-        ) as margin_percentage
-      FROM bookings
-      WHERE 
-        pickup_date >= $1 
-        AND pickup_date <= $2
-        AND status IN ('completed', 'delivered')
-    `;
-
-    const result = await pool.query(query, [from, to]);
-    const data = result.rows[0];
-
-    // Get booking breakdown by status
-    const statusQuery = `
-      SELECT 
-        status,
-        COUNT(*) as count,
-        SUM(price) as revenue,
-        SUM(subcontract_cost) as cost
-      FROM bookings
-      WHERE pickup_date >= $1 AND pickup_date <= $2
-      GROUP BY status
-      ORDER BY count DESC
-    `;
-
-    const statusResult = await pool.query(statusQuery, [from, to]);
-
-    return res.json({
-      period: {
-        from,
-        to,
-      },
-      summary: {
-        total_bookings: Number(data.total_bookings) || 0,
-        total_revenue: Number(data.total_revenue) || 0,
-        subcontract_spend: Number(data.subcontract_spend) || 0,
-        gross_margin_total: Number(data.gross_margin_total) || 0,
-        avg_margin_per_booking: Number(data.avg_margin_per_booking) || 0,
-        margin_percentage: Number(data.margin_percentage) || 0,
-      },
-      breakdown_by_status: statusResult.rows.map(row => ({
-        status: row.status,
-        count: Number(row.count),
-        revenue: Number(row.revenue) || 0,
-        cost: Number(row.cost) || 0,
-      })),
-    });
-  } catch (err) {
-    console.error('Gross margin report error:', err);
-    // Validate date parameters
-    if (from && isNaN(Date.parse(from))) {
-      return res.status(400).json({ error: 'Invalid "from" date format. Use YYYY-MM-DD' });
-    }
-    if (to && isNaN(Date.parse(to))) {
-      return res.status(400).json({ error: 'Invalid "to" date format. Use YYYY-MM-DD' });
-    }
-    if (from && to && new Date(from) > new Date(to)) {
-      return res.status(400).json({ error: '"from" date must be before or equal to "to" date' });
-    }
-
-    let query = `
-      SELECT 
-        COUNT(*) as booking_count,
-        SUM(price) as total_revenue,
-        SUM(subcontract_cost) as subcontract_spend,
-        SUM(price - COALESCE(subcontract_cost, 0)) as gross_margin_total
-      FROM bookings
+        SUM(price - COALESCE(subcontract_cost, 0)) as gross_margin_total,
+        AVG(price - COALESCE(subcontract_cost, 0)) as avg_margin_per_booking
+      FROM bookings 
       WHERE status = 'delivered'
     `;
 
@@ -124,7 +36,7 @@ router.get('/gross-margin', async (req, res) => {
     }
 
     if (to) {
-      query += ` AND pickup_date <= $${paramCount}`;
+      query += ` AND delivery_date <= $${paramCount}`;
       params.push(to);
       paramCount++;
     }
@@ -132,68 +44,26 @@ router.get('/gross-margin', async (req, res) => {
     const result = await pool.query(query, params);
     const data = result.rows[0];
 
-    // Calculate gross margin percentage
-    const revenue = parseFloat(data.total_revenue || 0);
-    const grossMargin = parseFloat(data.gross_margin_total || 0);
-    const grossMarginPercentage = revenue > 0 ? ((grossMargin / revenue) * 100).toFixed(2) : 0;
-
+    // Format the response
     return res.json({
       period: {
         from: from || 'all',
         to: to || 'all',
       },
       metrics: {
-        booking_count: parseInt(data.booking_count || 0),
-        total_revenue: parseFloat(data.total_revenue || 0),
-        subcontract_spend: parseFloat(data.subcontract_spend || 0),
-        gross_margin_total: grossMargin,
-        gross_margin_percentage: parseFloat(grossMarginPercentage),
+        totalBookings: parseInt(data.total_bookings) || 0,
+        totalRevenue: parseFloat(data.total_revenue) || 0,
+        subcontractSpend: parseFloat(data.subcontract_spend) || 0,
+        grossMarginTotal: parseFloat(data.gross_margin_total) || 0,
+        avgMarginPerBooking: parseFloat(data.avg_margin_per_booking) || 0,
       },
     });
   } catch (err) {
-    console.error('Error calculating gross margin:', err);
+    console.error('Gross margin report error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Default date range constants
-const DEFAULT_FROM_DATE = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]; // Jan 1st of current year
-const DEFAULT_TO_DATE = new Date().toISOString().split('T')[0]; // Today
-
-/**
- * GET /api/reports/daily-summary
- * Get daily booking and revenue summary
- */
-router.get('/daily-summary', async (req, res) => {
-  try {
-    const { from, to } = req.query;
-
-    const query = `
-      SELECT 
-        DATE(pickup_date) as date,
-        COUNT(*) as bookings,
-        SUM(price) as revenue,
-        SUM(subcontract_cost) as cost,
-        SUM(price - subcontract_cost) as margin
-      FROM bookings
-      WHERE pickup_date >= $1 AND pickup_date <= $2
-      GROUP BY DATE(pickup_date)
-      ORDER BY date DESC
-    `;
-
-    const result = await pool.query(query, [from || DEFAULT_FROM_DATE, to || DEFAULT_TO_DATE]);
-
-    return res.json({
-      daily_summary: result.rows.map(row => ({
-        date: row.date,
-        bookings: Number(row.bookings),
-        revenue: Number(row.revenue) || 0,
-        cost: Number(row.cost) || 0,
-        margin: Number(row.margin) || 0,
-      })),
-    });
-  } catch (err) {
-    console.error('Daily summary error:', err);
 /**
  * GET /api/reports/bookings-by-status
  * Get booking counts grouped by status
@@ -201,48 +71,19 @@ router.get('/daily-summary', async (req, res) => {
 router.get('/bookings-by-status', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT status, COUNT(*) as count
-      FROM bookings
-      GROUP BY status
+      SELECT status, COUNT(*) as count 
+      FROM bookings 
+      GROUP BY status 
       ORDER BY count DESC
     `);
 
     return res.json({
-      data: result.rows,
+      statusCounts: result.rows,
     });
   } catch (err) {
-    console.error('Error fetching bookings by status:', err);
+    console.error('Bookings by status report error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-/**
- * GET /api/reports/revenue-by-month
- * Get monthly revenue breakdown
- */
-router.get('/revenue-by-month', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        TO_CHAR(pickup_date, 'YYYY-MM') as month,
-        COUNT(*) as booking_count,
-        SUM(price) as total_revenue,
-        SUM(subcontract_cost) as subcontract_spend,
-        SUM(price - COALESCE(subcontract_cost, 0)) as gross_margin
-      FROM bookings
-      WHERE status = 'delivered' AND pickup_date IS NOT NULL
-      GROUP BY TO_CHAR(pickup_date, 'YYYY-MM')
-      ORDER BY month DESC
-      LIMIT 12
-    `);
-
-    return res.json({
-      data: result.rows,
-    });
-  } catch (err) {
-    console.error('Error fetching revenue by month:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-module.exports = router;
+export default router;

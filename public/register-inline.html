@@ -89,7 +89,6 @@
 
       <div class="note">
         <strong>Important:</strong> Authentication service is not configured on this demo. Submitting the form will validate input locally but no account is created.
-        <strong>Welcome!</strong> Create your account to access the XDrive Logistics platform. You'll receive a verification email after registration.
       </div>
     </div>
 
@@ -118,10 +117,8 @@
 
         <div class="success" id="ok">Form valid — authentication not configured, no account created.</div>
         <div class="error" id="err">Error: please fix the highlighted fields.</div>
-        <div class="success" id="ok" style="display:none;"></div>
-        <div class="error" id="err" style="display:none;"></div>
 
-        <div class="helper small">Already have an account? <a href="desktop-signin-final.html" style="color:var(--gold)">Login</a></div>
+        <div class="helper small">Already have an account? <a href="desktop-signin-inline.html" style="color:var(--gold)">Login</a></div>
       </form>
     </div>
   </div>
@@ -132,12 +129,9 @@
       const ok = document.getElementById('ok');
       const err = document.getElementById('err');
       const authAlert = document.getElementById('auth-alert');
-      const createBtn = document.getElementById('create-btn');
 
-      // Hide auth warning since we now have real backend
-      if (authAlert) {
-        authAlert.style.display = 'none';
-      }
+      // show auth warning (already visible) but keep accessible
+      authAlert.setAttribute('role','alert');
 
       form.addEventListener('submit', async function(e){
         e.preventDefault();
@@ -145,143 +139,41 @@
         err.style.display = 'none';
 
         const email = form.email.value.trim();
-        const pass = form.password.value;
-        const conf = form.confirm.value;
-        const type = form.type.value;
+        const password = form.password.value;
+        const confirm = form.confirm.value;
+        const account_type = form.type.value;
 
-        // simple local validation
-        const emailValid = /\S+@\S+\.\S+/.test(email);
-        const pwValid = pass.length >= 8;
-        const match = pass === conf;
-
-        // highlight minimal errors
-        if(!emailValid || !pwValid || !match){
-          err.textContent = 'Error: ';
-          if(!emailValid) err.textContent += 'Invalid email. ';
-          if(!pwValid) err.textContent += 'Password must be at least 8 characters. ';
-          if(!match) err.textContent += 'Passwords do not match.';
+        // client validation
+        if (!email || !password || password.length < 8 || password !== confirm) {
+          err.textContent = 'Please check your inputs (email, password length >=8 and matching).';
           err.style.display = 'block';
           return;
         }
 
-        // Disable button during request
-        createBtn.disabled = true;
-        createBtn.textContent = 'Creating account...';
-
         try {
-          const response = await fetch('http://localhost:3001/api/register', {
+          const resp = await fetch('/api/register', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              account_type: type,
-              email: email,
-              password: pass,
-            }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account_type, email, password })
           });
 
-          const data = await response.json();
-
-          if (response.ok) {
-            ok.textContent = 'Account created successfully! Please check your email to verify your account.';
-            ok.style.display = 'block';
-            
-            // Clear form
-            form.password.value = '';
-            form.confirm.value = '';
-            form.email.value = '';
-            
-            // Redirect to login after 3 seconds
-            setTimeout(() => {
-              window.location.href = 'desktop-signin-final.html';
-            }, 3000);
-          } else {
+          const data = await resp.json();
+          if (!resp.ok) {
             err.textContent = data.error || 'Registration failed';
             err.style.display = 'block';
-            createBtn.disabled = false;
-            createBtn.textContent = 'Create account';
+            return;
           }
-        } catch (error) {
-          console.error('Registration error:', error);
-          err.textContent = 'Network error. Please check if the backend server is running on http://localhost:3001';
-    const API_BASE = 'http://localhost:3001/api';
-    
-    const form = document.getElementById('register-form');
-    const ok = document.getElementById('ok');
-    const err = document.getElementById('err');
-    const createBtn = document.getElementById('create-btn');
 
-    form.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      ok.style.display = 'none';
-      err.style.display = 'none';
-
-      const email = form.email.value.trim();
-      const pass = form.password.value;
-      const conf = form.confirm.value;
-      const type = form.type.value;
-
-      // Client-side validation
-      const emailValid = /\S+@\S+\.\S+/.test(email);
-      const pwValid = pass.length >= 8;
-      const match = pass === conf;
-
-      if (!emailValid || !pwValid || !match) {
-        err.textContent = 'Error: ';
-        if (!emailValid) err.textContent += 'Invalid email. ';
-        if (!pwValid) err.textContent += 'Password must be at least 8 characters. ';
-        if (!match) err.textContent += 'Passwords do not match.';
-        err.style.display = 'block';
-        return;
-      }
-
-      // Disable button and show loading
-      createBtn.disabled = true;
-      createBtn.textContent = 'Creating account...';
-
-      try {
-        const response = await fetch(`${API_BASE}/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            account_type: type,
-            email: email,
-            password: pass
-          })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          // Show success message
-          ok.textContent = 'Account created successfully! Please check your email to verify your account.';
+          ok.textContent = data.message || 'Check your email to verify account.';
           ok.style.display = 'block';
-          
-          // Clear form
-          form.reset();
-          
-          // Redirect to login after 3 seconds
-          setTimeout(() => {
-            window.location.href = 'desktop-signin-final.html';
-          }, 3000);
-        } else {
-          // Show error message
-          err.textContent = data.error || 'Registration failed. Please try again.';
+          form.password.value = '';
+          form.confirm.value = '';
+        } catch (error) {
+          err.textContent = 'Network error. Try again later.';
           err.style.display = 'block';
-          createBtn.disabled = false;
-          createBtn.textContent = 'Create account';
         }
       });
     })();
-      } catch (error) {
-        console.error('Registration error:', error);
-        err.textContent = 'Network error. Please check if the server is running.';
-        err.style.display = 'block';
-        createBtn.disabled = false;
-        createBtn.textContent = 'Create account';
-      }
-    });
   </script>
 </body>
 </html>
