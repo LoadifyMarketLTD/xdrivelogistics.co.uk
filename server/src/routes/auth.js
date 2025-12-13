@@ -8,6 +8,12 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+ * Authentication routes: register, login, verify-email
+ */
+const express = require('express');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const pool = require('../db');
 const { sendVerificationEmail } = require('../mailer');
 
@@ -32,6 +38,24 @@ router.post('/register', async (req, res) => {
     // Validation
     if (!email || !password || !account_type) {
       return res.status(400).json({ error: 'Missing required fields' });
+// JWT secret should always be set in production - no weak fallback
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET environment variable is required in production');
+}
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-f8e2a9c4b6d1e7a3-change-in-production';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+
+/**
+ * POST /api/register
+ * Register a new user with email verification
+ */
+router.post('/register', async (req, res) => {
+  try {
+    const { account_type, email, password, company_name, phone } = req.body;
+
+    // Validation
+    if (!email || !password || !account_type) {
+      return res.status(400).json({ error: 'Missing required fields: email, password, account_type' });
     }
     if (!/^\S+@\S+\.\S+$/.test(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
@@ -41,6 +65,7 @@ router.post('/register', async (req, res) => {
     }
     if (!['driver', 'shipper'].includes(account_type)) {
       return res.status(400).json({ error: 'Invalid account_type (must be driver or shipper)' });
+      return res.status(400).json({ error: 'account_type must be "driver" or "shipper"' });
     }
 
     // Check if user exists
@@ -70,6 +95,16 @@ router.post('/register', async (req, res) => {
       RETURNING id, email, account_type, full_name, company_name, status
     `;
     
+    const verifyTokenExpires = new Date(
+      Date.now() + (Number(process.env.VERIFY_TOKEN_EXPIRES_MIN || 60) * 60 * 1000)
+    );
+
+    // Insert user
+    const insertQuery = `
+      INSERT INTO users (account_type, email, password_hash, company_name, phone, status, verify_token, verify_token_expires, created_at)
+      VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, NOW())
+      RETURNING id, email, account_type, status, created_at
+    `;
     const result = await pool.query(insertQuery, [
       account_type,
       email.toLowerCase(),
@@ -78,11 +113,16 @@ router.post('/register', async (req, res) => {
       company_name || null,
       verifyToken,
       tokenExpires,
+      company_name || null,
+      phone || null,
+      verifyToken,
+      verifyTokenExpires,
     ]);
 
     const user = result.rows[0];
 
     // Send verification email (non-blocking)
+    // Send verification email (best effort)
     try {
       await sendVerificationEmail(email, verifyToken);
     } catch (err) {
@@ -92,6 +132,11 @@ router.post('/register', async (req, res) => {
 
     return res.status(201).json({
       message: 'Account created successfully. Please check your email to verify.',
+      // Don't fail registration if email fails
+    }
+
+    return res.status(201).json({
+      message: 'Account created successfully. Please check your email for verification.',
       user: {
         id: user.id,
         email: user.email,
@@ -101,6 +146,7 @@ router.post('/register', async (req, res) => {
     });
   } catch (err) {
     console.error('Register error:', err);
+    console.error('Registration error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -108,6 +154,7 @@ router.post('/register', async (req, res) => {
 /**
  * POST /api/login
  * Login with email and password
+ * Login with email and password, returns JWT
  */
 router.post('/login', async (req, res) => {
   try {
@@ -115,16 +162,19 @@ router.post('/login', async (req, res) => {
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password required' });
+      return res.status(400).json({ error: 'Email and password are required' });
     }
 
     // Find user
     const result = await pool.query(
       'SELECT id, email, password_hash, account_type, full_name, company_name, status FROM users WHERE email = $1',
+      'SELECT id, email, password_hash, account_type, status, company_name FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
 
     if (result.rowCount === 0) {
       return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const user = result.rows[0];
@@ -147,6 +197,20 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: 'Account disabled' });
     }
 
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Check if account is active
+    if (user.status !== 'active') {
+      return res.status(403).json({ 
+        error: 'Account not verified', 
+        status: user.status,
+        message: 'Please verify your email before logging in'
+      });
+    }
+
     // Generate JWT
     const token = jwt.sign(
       {
@@ -156,6 +220,7 @@ router.post('/login', async (req, res) => {
       },
       JWT_SECRET,
       { expiresIn: '7d' }
+      { expiresIn: JWT_EXPIRES_IN }
     );
 
     return res.json({
@@ -178,6 +243,7 @@ router.post('/login', async (req, res) => {
 /**
  * GET /api/verify-email?token=xxx
  * Verify email with token
+ * Verify email address with token
  */
 router.get('/verify-email', async (req, res) => {
   try {
@@ -190,6 +256,7 @@ router.get('/verify-email', async (req, res) => {
     // Validate token format (should be hex string of appropriate length)
     if (!/^[a-f0-9]{64}$/.test(token)) {
       return res.status(400).json({ error: 'Invalid token format' });
+      return res.status(400).json({ error: 'Verification token is required' });
     }
 
     // Find user with token
@@ -200,6 +267,7 @@ router.get('/verify-email', async (req, res) => {
 
     if (result.rowCount === 0) {
       return res.status(400).json({ error: 'Invalid or expired token' });
+      return res.status(400).json({ error: 'Invalid or expired verification token' });
     }
 
     const user = result.rows[0];
@@ -210,6 +278,12 @@ router.get('/verify-email', async (req, res) => {
     }
 
     // Update user status
+    // Check if token expired
+    if (new Date(user.verify_token_expires) < new Date()) {
+      return res.status(400).json({ error: 'Verification token has expired' });
+    }
+
+    // Update user status to active
     await pool.query(
       'UPDATE users SET status = $1, verify_token = NULL, verify_token_expires = NULL, updated_at = NOW() WHERE id = $2',
       ['active', user.id]
@@ -221,6 +295,11 @@ router.get('/verify-email', async (req, res) => {
     });
   } catch (err) {
     console.error('Verify email error:', err);
+      message: 'Email verified successfully. You can now log in.',
+      email: user.email,
+    });
+  } catch (err) {
+    console.error('Email verification error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

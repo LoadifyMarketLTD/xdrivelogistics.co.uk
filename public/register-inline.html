@@ -89,6 +89,7 @@
 
       <div class="note">
         <strong>Important:</strong> Authentication service is not configured on this demo. Submitting the form will validate input locally but no account is created.
+        <strong>Welcome!</strong> Create your account to access the XDrive Logistics platform. You'll receive a verification email after registration.
       </div>
     </div>
 
@@ -117,6 +118,8 @@
 
         <div class="success" id="ok">Form valid — authentication not configured, no account created.</div>
         <div class="error" id="err">Error: please fix the highlighted fields.</div>
+        <div class="success" id="ok" style="display:none;"></div>
+        <div class="error" id="err" style="display:none;"></div>
 
         <div class="helper small">Already have an account? <a href="desktop-signin-final.html" style="color:var(--gold)">Login</a></div>
       </form>
@@ -202,12 +205,83 @@
         } catch (error) {
           console.error('Registration error:', error);
           err.textContent = 'Network error. Please check if the backend server is running on http://localhost:3001';
+    const API_BASE = 'http://localhost:3001/api';
+    
+    const form = document.getElementById('register-form');
+    const ok = document.getElementById('ok');
+    const err = document.getElementById('err');
+    const createBtn = document.getElementById('create-btn');
+
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      ok.style.display = 'none';
+      err.style.display = 'none';
+
+      const email = form.email.value.trim();
+      const pass = form.password.value;
+      const conf = form.confirm.value;
+      const type = form.type.value;
+
+      // Client-side validation
+      const emailValid = /\S+@\S+\.\S+/.test(email);
+      const pwValid = pass.length >= 8;
+      const match = pass === conf;
+
+      if (!emailValid || !pwValid || !match) {
+        err.textContent = 'Error: ';
+        if (!emailValid) err.textContent += 'Invalid email. ';
+        if (!pwValid) err.textContent += 'Password must be at least 8 characters. ';
+        if (!match) err.textContent += 'Passwords do not match.';
+        err.style.display = 'block';
+        return;
+      }
+
+      // Disable button and show loading
+      createBtn.disabled = true;
+      createBtn.textContent = 'Creating account...';
+
+      try {
+        const response = await fetch(`${API_BASE}/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            account_type: type,
+            email: email,
+            password: pass
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Show success message
+          ok.textContent = 'Account created successfully! Please check your email to verify your account.';
+          ok.style.display = 'block';
+          
+          // Clear form
+          form.reset();
+          
+          // Redirect to login after 3 seconds
+          setTimeout(() => {
+            window.location.href = 'desktop-signin-final.html';
+          }, 3000);
+        } else {
+          // Show error message
+          err.textContent = data.error || 'Registration failed. Please try again.';
           err.style.display = 'block';
           createBtn.disabled = false;
           createBtn.textContent = 'Create account';
         }
       });
     })();
+      } catch (error) {
+        console.error('Registration error:', error);
+        err.textContent = 'Network error. Please check if the server is running.';
+        err.style.display = 'block';
+        createBtn.disabled = false;
+        createBtn.textContent = 'Create account';
+      }
+    });
   </script>
 </body>
 </html>

@@ -9,6 +9,12 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: xdrive
+    image: postgres:15-alpine
+    container_name: xdrive_postgres
+    environment:
+      POSTGRES_USER: xdrive
+      POSTGRES_PASSWORD: xdrive
+      POSTGRES_DB: xdrive_db
     ports:
       - "5432:5432"
     volumes:
@@ -19,6 +25,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      test: ["CMD-SHELL", "pg_isready -U xdrive"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - xdrive_network
 
   # Backend API Server
   backend:
@@ -36,6 +48,17 @@ services:
       JWT_SECRET: dev-secret-change-in-production
       BCRYPT_ROUNDS: 10
       APP_BASE_URL: http://localhost:3000
+    container_name: xdrive_backend
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://xdrive:xdrive@postgres:5432/xdrive_db
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: "http://localhost:3000"
+      APP_BASE_URL: http://localhost:3000
+      BCRYPT_ROUNDS: 10
+      VERIFY_TOKEN_EXPIRES_MIN: 60
     ports:
       - "3001:3001"
     depends_on:
@@ -43,7 +66,16 @@ services:
         condition: service_healthy
     volumes:
       - ./server/src:/app/src
+      - ./server/package.json:/app/package.json
+    command: npm start
+    networks:
+      - xdrive_network
+    restart: unless-stopped
 
 volumes:
   postgres_data:
     driver: local
+
+networks:
+  xdrive_network:
+    driver: bridge

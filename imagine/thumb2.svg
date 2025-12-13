@@ -1,0 +1,6 @@
+<svg width="120" height="72" viewBox="0 0 120 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="72" fill="#0f172a"/>
+  <rect x="20" y="16" width="80" height="40" rx="4" fill="#d9a85c" opacity="0.2"/>
+  <path d="M35 36L60 36M60 36L60 26M60 36L60 46M60 36L85 36" stroke="#d9a85c" stroke-width="3" stroke-linecap="round"/>
+  <text x="60" y="62" text-anchor="middle" font-family="Arial" font-size="10" fill="#9ea8b0">Tracking</text>
+</svg>

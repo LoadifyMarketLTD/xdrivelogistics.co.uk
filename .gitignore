@@ -37,6 +37,9 @@ server/.env.production
 # vercel
 .vercel
 
+# server node_modules
+server/node_modules
+
 # stackbit
 .cache
 .stackbit/cache

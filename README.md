@@ -1,8 +1,45 @@
 # XDrive Logistics - Full Integration MVP
 
 A comprehensive courier exchange platform with backend API, PostgreSQL database, and modern frontend. This MVP includes user authentication, booking management, invoicing, reporting, and feedback systems.
+# XDrive Logistics - Full Stack Courier Exchange Platform
 
-## Features
+A complete courier exchange platform with Express.js backend, PostgreSQL database, and modern frontend.
+
+## 🚀 Quick Start - Full Integration MVP
+
+**For the complete integration MVP with Docker Compose, see [README-INTEGRATION.md](./README-INTEGRATION.md)**
+
+The integration MVP includes:
+- ✅ Express.js REST API with JWT authentication
+- ✅ PostgreSQL database with complete schema
+- ✅ Docker Compose setup (postgres + backend)
+- ✅ Email verification (with console fallback)
+- ✅ Bookings CRUD operations
+- ✅ Gross margin & revenue reports
+- ✅ Invoice management
+- ✅ Feedback system
+- ✅ 15 demo bookings with realistic data
+
+**Start the integration MVP:**
+
+```bash
+# Start services
+docker compose up --build
+
+# Seed database (in another terminal)
+docker exec -i xdrive_postgres psql -U xdrive -d xdrive_db < db/seeds.sql
+
+# Access API at http://localhost:3001/api
+# Access frontend at public/dashboard.html
+```
+
+---
+
+## Alternative Setup: Next.js + Supabase
+
+This repository also contains a Next.js application setup with Supabase.
+
+### Features
 
 - 🔐 **Authentication**: Email/password registration with email verification
 - 📦 **Booking Management**: Full CRUD operations for delivery bookings
@@ -13,7 +50,7 @@ A comprehensive courier exchange platform with backend API, PostgreSQL database,
 - 🗄️ **Database**: PostgreSQL with proper schema and seed data
 - 🐳 **Docker**: Complete containerized setup with docker-compose
 
-## Prerequisites
+### Prerequisites
 
 - Node.js 18 or higher
 - Docker and Docker Compose

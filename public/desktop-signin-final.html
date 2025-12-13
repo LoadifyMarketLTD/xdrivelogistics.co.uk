@@ -270,6 +270,9 @@
         <p class="subtitle">Login to view jobs, vehicles &amp; earnings</p>
 
         <form class="login-form" action="#" method="post" novalidate>
+        <form class="login-form" id="loginForm" novalidate>
+          <div id="alertBox" style="display:none;background:#2b2733;border-left:4px solid #c96;padding:10px 12px;border-radius:8px;color:#ffd;margin-bottom:14px;"></div>
+          
           <label class="sr" for="email">Email / Username</label>
           <input id="email" name="email" class="input" type="email" placeholder="Email / Username" required>
 
@@ -292,6 +295,9 @@
   <script>
     // Login form handler
     document.querySelector('.login-form').addEventListener('submit', async (e) => {
+    const API_BASE = 'http://localhost:3001/api';
+    
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
       const email = document.getElementById('email').value;
@@ -309,6 +315,19 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ email, password }),
+      const alertBox = document.getElementById('alertBox');
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      
+      // Disable button and show loading
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in...';
+      alertBox.style.display = 'none';
+      
+      try {
+        const response = await fetch(`${API_BASE}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
         });
         
         const data = await response.json();
@@ -331,6 +350,33 @@
         alert('Network error. Please check if the backend server is running on http://localhost:3001');
         button.disabled = false;
         button.textContent = 'Sign in to XDrive';
+          // Save token to localStorage
+          localStorage.setItem('xdrive_token', data.token);
+          localStorage.setItem('xdrive_user', JSON.stringify(data.user));
+          
+          // Show success and redirect
+          alertBox.style.borderLeftColor = '#0fbf76';
+          alertBox.textContent = 'Login successful! Redirecting...';
+          alertBox.style.display = 'block';
+          
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 1000);
+        } else {
+          // Show error
+          alertBox.style.borderLeftColor = '#c96';
+          alertBox.textContent = data.error || 'Login failed';
+          alertBox.style.display = 'block';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Sign in to XDrive';
+        }
+      } catch (err) {
+        console.error('Login error:', err);
+        alertBox.style.borderLeftColor = '#c96';
+        alertBox.textContent = 'Network error. Please check if the server is running.';
+        alertBox.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign in to XDrive';
       }
     });
   </script>

@@ -62,6 +62,20 @@
         <div class="metric">
           <div class="m-number" id="margin-percent">-</div>
           <div class="m-label">Margin %</div>
+          <div class="m-number" id="total-jobs">0</div>
+          <div class="m-label">Total Jobs</div>
+        </div>
+        <div class="metric">
+          <div class="m-number" id="delivered-jobs">0</div>
+          <div class="m-label">Delivered</div>
+        </div>
+        <div class="metric">
+          <div class="m-number" id="in-transit-jobs">0</div>
+          <div class="m-label">In Transit</div>
+        </div>
+        <div class="metric">
+          <div class="m-number" id="pending-jobs">0</div>
+          <div class="m-label">Pending</div>
         </div>
       </section>
 
@@ -82,6 +96,19 @@
               <div class="kpi">
                 <div class="kpi-title">Sub-contract Spend</div>
                 <div class="kpi-value" id="kpi-subcontract">£0</div>
+                <div class="kpi-value" id="gross-margin">£0</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-title">Sub-contract Spend</div>
+                <div class="kpi-value" id="subcontract-spend">£0</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-title">Total Revenue</div>
+                <div class="kpi-value" id="total-revenue">£0</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-title">Margin %</div>
+                <div class="kpi-value" id="margin-percentage">0%</div>
               </div>
             </div>
 
@@ -92,6 +119,8 @@
 
             <div class="report-chart" aria-hidden="true">
               <canvas id="marginChart" style="max-height: 300px;"></canvas>
+              <!-- placeholder for chart (inject chart lib here) -->
+              <svg viewBox="0 0 300 90" class="placeholder-chart"><rect width="100%" height="100%" fill="#0b1b24"/><text x="10" y="50" fill="#9fb7c0">Chart placeholder</text></svg>
             </div>
           </div>
         </article>
@@ -126,6 +155,9 @@
               <!-- Bookings will be loaded here dynamically -->
               <p style="color: #9fb7c0; padding: 20px;">Loading bookings...</p>
             </div>
+          <div class="bookings-list" id="bookings-container">
+            <!-- Bookings will be loaded dynamically -->
+            <p style="color:#9fb7c0;">Loading bookings...</p>
           </div>
         </div>
 
@@ -325,6 +357,102 @@
       const container = document.getElementById('bookings-container');
       container.innerHTML = `<p style="color: #ff6b6b; padding: 20px;">${message}</p>`;
     }
+    const API_BASE = 'http://localhost:3001/api';
+    
+    // Format currency
+    function formatCurrency(amount) {
+      return '£' + parseFloat(amount).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    
+    // Format date
+    function formatDate(dateStr) {
+      if (!dateStr) return 'N/A';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    
+    // Load gross margin report
+    async function loadGrossMargin() {
+      try {
+        const response = await fetch(`${API_BASE}/reports/gross-margin`);
+        const data = await response.json();
+        
+        if (response.ok) {
+          const metrics = data.metrics;
+          document.getElementById('gross-margin').textContent = formatCurrency(metrics.gross_margin_total);
+          document.getElementById('subcontract-spend').textContent = formatCurrency(metrics.subcontract_spend);
+          document.getElementById('total-revenue').textContent = formatCurrency(metrics.total_revenue);
+          document.getElementById('margin-percentage').textContent = metrics.gross_margin_percentage + '%';
+        }
+      } catch (err) {
+        console.error('Error loading gross margin:', err);
+      }
+    }
+    
+    // Load bookings
+    async function loadBookings() {
+      try {
+        const response = await fetch(`${API_BASE}/bookings?limit=10`);
+        const data = await response.json();
+        
+        if (response.ok && data.bookings) {
+          const container = document.getElementById('bookings-container');
+          
+          if (data.bookings.length === 0) {
+            container.innerHTML = '<p style="color:#9fb7c0;">No bookings found.</p>';
+            return;
+          }
+          
+          container.innerHTML = data.bookings.map(booking => `
+            <article class="booking">
+              <div class="booking-meta">
+                <div class="ref">Load ID: ${booking.load_id}</div>
+                <div class="status">${booking.status}</div>
+              </div>
+              <div class="booking-content">
+                <div class="locations">
+                  <div class="from"><strong>From:</strong> ${booking.from_address}</div>
+                  <div class="to"><strong>To:</strong> ${booking.to_address}</div>
+                </div>
+                <div class="booking-details">
+                  Veh: ${booking.vehicle_type} · 
+                  Pickup: ${formatDate(booking.pickup_date)} · 
+                  Deliver: ${formatDate(booking.delivery_date)} · 
+                  Price: ${booking.price ? formatCurrency(booking.price) : 'N/A'}
+                </div>
+                ${booking.completed_by ? `<div class="booking-footer">Completed by ${booking.completed_by}</div>` : ''}
+              </div>
+            </article>
+          `).join('');
+          
+          // Update metrics
+          updateMetrics(data.bookings);
+        }
+      } catch (err) {
+        console.error('Error loading bookings:', err);
+        document.getElementById('bookings-container').innerHTML = 
+          '<p style="color:#ff6b6b;">Error loading bookings. Is the server running?</p>';
+      }
+    }
+    
+    // Update dashboard metrics
+    function updateMetrics(bookings) {
+      const statusCounts = bookings.reduce((acc, booking) => {
+        acc[booking.status] = (acc[booking.status] || 0) + 1;
+        return acc;
+      }, {});
+      
+      document.getElementById('total-jobs').textContent = bookings.length;
+      document.getElementById('delivered-jobs').textContent = statusCounts['delivered'] || 0;
+      document.getElementById('in-transit-jobs').textContent = statusCounts['in_transit'] || 0;
+      document.getElementById('pending-jobs').textContent = statusCounts['pending'] || 0;
+    }
+    
+    // Load data on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadGrossMargin();
+      loadBookings();
+    });
   </script>
 </body>
 </html>
