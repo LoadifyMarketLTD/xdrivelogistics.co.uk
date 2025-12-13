@@ -3,15 +3,18 @@ import Login from '../components/Login';
 /**
  * Login page using the new Login component with CSS Module design
  * 
- * NOTE: This project currently uses App Router (/app directory).
- * This creates a route conflict since /app/login/page.jsx already exists.
+ * ⚠️ ROUTE CONFLICT WARNING ⚠️
+ * This file creates a route conflict with /app/login/page.jsx
  * 
- * To use this version:
- * 1. Remove or rename /app/login/page.jsx
- * 2. OR rename this file to create a different route (e.g., signin.tsx)
- * 3. OR use the App Router version at /app/login-new/page.tsx instead
+ * Next.js does not support having both App Router and Pages Router 
+ * routes at the same path. The build will fail if both exist.
  * 
- * See components/LOGIN_COMPONENT_README.md for complete documentation.
+ * SOLUTIONS:
+ * 1. Use /app/login-new instead (working immediately, no conflicts)
+ * 2. Remove /app/login/page.jsx to use this file at /login
+ * 3. Rename this file (e.g., signin.tsx) for a different route
+ * 
+ * See LOGIN_IMPLEMENTATION_README.md for complete documentation.
  */
 export default function LoginPage() {
   const handleSubmit = async (data: { identifier: string; password: string; remember: boolean }) => {

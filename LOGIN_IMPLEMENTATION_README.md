@@ -40,7 +40,9 @@ Next.js Pages Router page that imports and displays the Login component.
 Alternative App Router version that uses the same Login component (no conflicts).
 
 ### 5. **public/assets/hero.jpg**
-Placeholder hero background image with network visualization (SVG format with .jpg extension for development).
+Placeholder hero background image with network visualization.
+
+**⚠️ Note:** This is currently an SVG file with .jpg extension for development. For production, replace with an actual JPEG/PNG image (recommended: 1920x1080px or higher).
 
 ### 6. **components/LOGIN_COMPONENT_README.md**
 Comprehensive documentation with usage examples, customization guide, and integration patterns.
