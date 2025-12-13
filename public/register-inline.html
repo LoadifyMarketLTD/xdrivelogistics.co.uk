@@ -133,7 +133,7 @@
       // show auth warning (already visible) but keep accessible
       authAlert.setAttribute('role','alert');
 
-      form.addEventListener('submit', function(e){
+      form.addEventListener('submit', async function(e){
         e.preventDefault();
         ok.style.display = 'none';
         err.style.display = 'none';
