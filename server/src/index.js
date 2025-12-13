@@ -36,10 +36,19 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting for auth endpoints
+// Rate limiting for auth endpoints (stricter)
 const authLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 10,
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// General rate limiting for all API endpoints
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // More generous for general API usage
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -67,12 +76,15 @@ app.get('/health', async (req, res) => {
 });
 
 // API routes
-// Apply rate limiter only to auth routes
+// Apply stricter rate limiter to auth routes
 app.use('/api/register', authLimiter);
 app.use('/api/login', authLimiter);
 app.use('/api/verify-email', authLimiter);
 
-// Mount auth routes
+// Apply general rate limiter to all API routes
+app.use('/api', apiLimiter);
+
+// Mount route handlers
 app.use('/api', authRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/invoices', invoicesRoutes);
