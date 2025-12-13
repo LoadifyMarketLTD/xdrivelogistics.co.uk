@@ -2,7 +2,9 @@
 -- Demo data for testing and development
 
 -- Insert demo users
+-- ⚠️  WARNING: FOR DEVELOPMENT/TESTING ONLY - DO NOT USE IN PRODUCTION
 -- All passwords are 'password123' (bcrypt hashed with 10 rounds)
+-- These accounts should be deleted or passwords changed before production deployment
 INSERT INTO users (account_type, email, password_hash, company_name, phone, status, created_at) VALUES
   ('shipper', 'shipper@demo.com', '$2b$10$EWdIN1rtYCHbZuXRbpCNRu7SR.YSRc0qcMeSjZg60KrnkIMxhMXFy', 'Demo Shipper Ltd', '+44 7700 900123', 'active', NOW()),
   ('driver', 'driver@demo.com', '$2b$10$EWdIN1rtYCHbZuXRbpCNRu7SR.YSRc0qcMeSjZg60KrnkIMxhMXFy', 'Demo Driver Co', '+44 7700 900456', 'active', NOW()),

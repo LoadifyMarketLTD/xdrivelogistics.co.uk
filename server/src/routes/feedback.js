@@ -61,8 +61,10 @@ router.post('/', async (req, res) => {
   try {
     const { user_id, booking_id, rating, comment } = req.body;
 
-    if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    // Validate rating is an integer between 1 and 5
+    const ratingNum = Number(rating);
+    if (!rating || !Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+      return res.status(400).json({ error: 'Rating must be an integer between 1 and 5' });
     }
 
     const insertQuery = `
@@ -74,7 +76,7 @@ router.post('/', async (req, res) => {
     const result = await pool.query(insertQuery, [
       user_id || null,
       booking_id || null,
-      rating,
+      ratingNum,
       comment || null,
     ]);
 

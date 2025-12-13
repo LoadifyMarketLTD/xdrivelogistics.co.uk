@@ -14,6 +14,17 @@ router.get('/gross-margin', async (req, res) => {
   try {
     const { from, to } = req.query;
 
+    // Validate date parameters
+    if (from && isNaN(Date.parse(from))) {
+      return res.status(400).json({ error: 'Invalid "from" date format. Use YYYY-MM-DD' });
+    }
+    if (to && isNaN(Date.parse(to))) {
+      return res.status(400).json({ error: 'Invalid "to" date format. Use YYYY-MM-DD' });
+    }
+    if (from && to && new Date(from) > new Date(to)) {
+      return res.status(400).json({ error: '"from" date must be before or equal to "to" date' });
+    }
+
     let query = `
       SELECT 
         COUNT(*) as booking_count,
