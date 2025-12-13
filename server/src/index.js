@@ -10,10 +10,10 @@ const rateLimit = require('express-rate-limit');
 
 // Import routes
 const authRoutes = require('./routes/auth');
-const bookingsRoutes = require('./routes/bookings');
-const invoicesRoutes = require('./routes/invoices');
-const reportsRoutes = require('./routes/reports');
-const feedbackRoutes = require('./routes/feedback');
+// const bookingsRoutes = require('./routes/bookings');
+// const invoicesRoutes = require('./routes/invoices');
+// const reportsRoutes = require('./routes/reports');
+// const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
 
@@ -52,10 +52,10 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/bookings', apiLimiter, bookingsRoutes);
-app.use('/api/invoices', apiLimiter, invoicesRoutes);
-app.use('/api/reports', apiLimiter, reportsRoutes);
-app.use('/api/feedback', apiLimiter, feedbackRoutes);
+// app.use('/api/bookings', apiLimiter, bookingsRoutes);
+// app.use('/api/invoices', apiLimiter, invoicesRoutes);
+// app.use('/api/reports', apiLimiter, reportsRoutes);
+// app.use('/api/feedback', apiLimiter, feedbackRoutes);
 
 // 404 handler
 app.use((req, res) => {

@@ -20,9 +20,6 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const { status, from_date, to_date, limit = 100, offset = 0 } = req.query;
- * Get all bookings (with optional filters)
- */
-router.get('/', async (req, res) => {
   try {
     const { status, limit = 50, offset = 0 } = req.query;
 
