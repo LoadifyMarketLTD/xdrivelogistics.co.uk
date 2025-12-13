@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>XDrive — Sign in (desktop inline)</title>
+  <title>XDrive — Sign in (inline)</title>
   <style>
     :root{
       --bg:#051421;
@@ -17,7 +17,7 @@
       --radius-md:12px;
       --max-hero:1100px;
       --transition:.16s;
-      --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      --font-stack:system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
 
     /* Reset + base */
@@ -25,7 +25,7 @@
     html,body{height:100%}
     body{
       margin:0;
-      font-family:var(--font);
+      font-family:var(--font-stack);
       background:var(--bg);
       color:#eef5f9;
       -webkit-font-smoothing:antialiased;
@@ -38,6 +38,7 @@
       display:grid;
       grid-template-columns: 1fr var(--panel-w);
       min-height:100vh;
+      gap:0;
     }
 
     /* HERO (left) */
@@ -49,14 +50,13 @@
       min-height:100vh;
     }
 
-    /* decorative SVG hero background fills left */
+    /* decorative SVG hero background (inline) */
     .hero-svg{
       position:absolute;
       inset:0;
       width:100%;
       height:100%;
       display:block;
-      object-fit:cover;
       pointer-events:none;
       filter:contrast(0.95) brightness(0.55);
     }
@@ -86,7 +86,7 @@
     .dot.active{ background:var(--gold); box-shadow:0 6px 18px rgba(214,165,81,0.12); }
 
     .thumbs{ display:flex; gap:14px; margin-left:8px; }
-    .thumb{ width:160px; height:92px; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.03); box-shadow:0 10px 28px rgba(0,0,0,0.55); background:linear-gradient(180deg, rgba(0,12,18,0.2), rgba(0,8,12,0.36)); display:flex; align-items:center; justify-content:center; color:var(--muted); font-weight:600; }
+    .thumb{ width:160px; height:92px; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.03); box-shadow:0 10px 28px rgba(0,0,0,0.55); background:linear-gradient(180deg, rgba(0,12,18,0.2), rgba(0,8,12,0.36)); display:flex; align-items:center; justify-content:center; color:var(--muted); font-weight:600; font-size:14px; }
 
     /* RIGHT PANEL */
     .panel{
@@ -113,7 +113,6 @@
     }
 
     .panel-brand{ display:flex; gap:10px; align-items:center; margin-bottom:10px; }
-    /* inline logo scales */
     .logo-svg{ height:34px; width:auto; display:block; }
 
     .title{ margin:6px 0 6px; font-size:44px; color:#fff; font-weight:700; line-height:1.02; letter-spacing:0.2px; }
@@ -174,7 +173,7 @@
   <main class="split" role="main">
     <!-- LEFT: inline SVG hero -->
     <section class="hero" aria-hidden="true">
-      <!-- Decorative SVG approximating the night-map + network look (no external images) -->
+      <!-- Decorative inline SVG approximating the night-map + network look -->
       <svg class="hero-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
           <radialGradient id="g1" cx="30%" cy="30%" r="80%">
@@ -190,8 +189,8 @@
         <!-- background -->
         <rect width="100%" height="100%" fill="url(#g1)"/>
 
-        <!-- stylized UK silhouette-ish shape using dots & paths (abstract, decorative) -->
-        <g transform="translate(80,60)" fill="none" stroke="#0fb1c1" stroke-opacity="0.08" stroke-width="1">
+        <!-- abstract network lines -->
+        <g transform="translate(80,60)" fill="none" stroke="#6fe6ff" stroke-opacity="0.08" stroke-width="1">
           <path d="M180 90 C220 30, 320 20, 420 60 C470 80, 520 120, 560 200 C600 280, 640 360, 700 420" />
           <path d="M40 160 C80 120, 120 80, 180 90" />
           <path d="M120 300 C150 260, 220 240, 300 260" />
@@ -207,7 +206,7 @@
           <circle cx="700" cy="380" r="5.5" fill="#6fe6ff" opacity="0.9"/>
         </g>
 
-        <!-- faint star-like particles -->
+        <!-- faint particles -->
         <g opacity="0.12" fill="#ffd782">
           <circle cx="520" cy="340" r="2" />
           <circle cx="940" cy="180" r="2.2" />
@@ -222,7 +221,7 @@
       <div class="hero-overlay">
         <div class="hero-content">
           <p class="brand-line">XDrive Logistics — UK Courier Exchange Platform</p>
-          <h1 class="hero-title">Login to access loads, routes & driver dashboard</h1>
+          <h1 class="hero-title">Login to access loads, routes &amp; driver dashboard</h1>
 
           <div class="hero-footer">
             <ul class="dots" aria-hidden="true">
@@ -245,13 +244,12 @@
     <aside class="panel" role="region" aria-labelledby="signin-title">
       <div class="panel-card">
         <div class="panel-brand" aria-hidden="false">
-          <!-- Inline logo (vector) derived from model -->
+          <!-- Inline logo (vector) -->
           <svg class="logo-svg" viewBox="0 0 520 140" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="XDrive Logistics logo">
-            <rect width="100%" height="100%" fill="transparent"/>
-            <g transform="translate(8,8) scale(0.9)">
+            <g transform="translate(6,6) scale(0.9)">
               <polygon points="0,0 44,0 110,58 176,0 220,0 132,98 220,196 176,196 110,140 44,196 0,196 96,98" fill="#D6A551"/>
-              <text x="260" y="80" font-family="Inter, Arial, sans-serif" font-size="46" font-weight="700" fill="#F3E6CE">XDrive</text>
-              <text x="260" y="118" font-family="Inter, Arial, sans-serif" font-size="18" fill="#0F9AA0">Logistics</text>
+              <text x="260" y="80" font-family="Arial, sans-serif" font-size="46" font-weight="700" fill="#F3E6CE">XDrive</text>
+              <text x="260" y="118" font-family="Arial, sans-serif" font-size="18" fill="#0F9AA0">Logistics</text>
             </g>
           </svg>
         </div>
