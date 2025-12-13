@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>XDrive Logistics — Danny Courier LTD</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles-home.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <picture class="brand-logo">
+          <source srcset="image/logo.svg" type="image/svg+xml">
+          <img src="image/logo.png" alt="XDrive Logistics">
+        </picture>
+        <div class="brand-meta">
+          <div class="brand-title">XDrive</div>
+          <div class="brand-sub">Logistics · Danny Courier LTD</div>
+        </div>
+      </div>
+
+      <nav class="main-nav" aria-label="Main">
+        <a href="/" class="nav-link active">Home</a>
+        <a href="/login" class="nav-link">Login</a>
+        <a href="/register" class="nav-link">Register</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero container">
+      <div class="hero-left">
+        <h1 class="hero-title">XDrive Logistics</h1>
+        <p class="hero-sub">Reliable courier &amp; logistics solutions across the UK — Danny Courier LTD</p>
+        <div class="hero-ctas">
+          <a href="#contact" class="btn btn-primary">Get a Quote</a>
+          <a href="#services" class="btn btn-outline">Our Services</a>
+        </div>
+      </div>
+      <div class="hero-right">
+        <div class="card contact-quick">
+          <h3>Contact us</h3>
+          <p>Send us your job details and we’ll get back with a quote.</p>
+          <a href="#contact" class="btn btn-secondary">Send message</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="services" class="container services">
+      <h2>Our Services</h2>
+      <div class="service-grid">
+        <article class="service">
+          <h4>Same-day courier</h4>
+          <p>Fast, tracked delivery across the UK.</p>
+        </article>
+
+        <article class="service">
+          <h4>Nationwide logistics</h4>
+          <p>Scheduled routes and dedicated vehicles.</p>
+        </article>
+
+        <article class="service">
+          <h4>Dedicated fleet</h4>
+          <p>Luton vans, long wheel base, tail lift on request.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="container why-choose">
+      <h2>Why choose XDrive</h2>
+      <ul class="features">
+        <li>Experienced drivers and fully insured vehicles</li>
+        <li>Real-time communication and reliable ETAs</li>
+        <li>Flexible pricing for ad-hoc and contract work</li>
+      </ul>
+    </section>
+
+    <section id="contact" class="container contact">
+      <div class="contact-grid">
+        <div class="contact-form">
+          <h2>Contact us</h2>
+          <form action="#" method="post" novalidate>
+            <label class="sr" for="name">Name</label>
+            <input id="name" name="name" type="text" placeholder="Your name" required>
+
+            <label class="sr" for="email">Email</label>
+            <input id="email" name="email" type="email" placeholder="you@example.com" required>
+
+            <label class="sr" for="message">Message</label>
+            <textarea id="message" name="message" rows="5" placeholder="What do you need to move?" required></textarea>
+
+            <button class="btn btn-primary" type="submit">Send message</button>
+          </form>
+        </div>
+
+        <aside class="contact-info">
+          <h3>Danny Courier LTD</h3>
+          <address>
+            101 Cornelian Street<br>
+            Blackburn, BB1 9QL, UK
+          </address>
+
+          <p class="small">
+            Danny Courier LTD<br>
+            101 Cornelian Street, Blackburn, BB1 9QL, UK
+          </p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>© 2025 XDrive Logistics. All rights reserved.</div>
+      <div class="footer-links">
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Accessibility helper -->
+  <style>
+    .sr{ position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px,1px,1px,1px); white-space:nowrap; }
+  </style>
+</body>
+</html>
