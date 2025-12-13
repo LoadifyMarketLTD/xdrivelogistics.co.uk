@@ -1,9 +1,5 @@
 /**
  * XDrive Logistics Backend API
- * Express server with PostgreSQL
- */
-require('dotenv').config();
-
  * Main Express application entry point
  */
 require('dotenv').config();
@@ -14,10 +10,6 @@ const rateLimit = require('express-rate-limit');
 
 // Import routes
 const authRoutes = require('./routes/auth');
-const bookingsRoutes = require('./routes/bookings');
-const invoicesRoutes = require('./routes/invoices');
-const reportsRoutes = require('./routes/reports');
-const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
 
@@ -38,32 +30,6 @@ app.use(express.urlencoded({ extended: true }));
 // Rate limiting for auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 requests per window
-  message: { error: 'Too many requests, please try again later' },
-});
-
-// General rate limiter
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
-  message: { error: 'Too many requests, please try again later' },
-});
-
-// Apply general rate limiter to all API routes
-app.use('/api', generalLimiter);
-
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  credentials: true,
-}));
-
-// Body parser
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Rate limiting for auth endpoints (stricter)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // limit each IP to 10 requests per windowMs
   message: { error: 'Too many authentication attempts, please try again later' },
 });
@@ -82,17 +48,6 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/bookings', bookingsRoutes);
-app.use('/api/invoices', invoicesRoutes);
-app.use('/api/reports', reportsRoutes);
-app.use('/api/feedback', feedbackRoutes);
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
-app.use('/api/bookings', apiLimiter, bookingsRoutes);
-app.use('/api/invoices', apiLimiter, invoicesRoutes);
-app.use('/api/reports', apiLimiter, reportsRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -109,23 +64,6 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`🚀 XDrive Logistics API server running on port ${PORT}`);
-  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully...');
-  process.exit(0);
-});
-const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`
@@ -140,9 +78,17 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  - POST http://localhost:${PORT}/api/auth/register`);
   console.log(`  - POST http://localhost:${PORT}/api/auth/login`);
   console.log(`  - GET  http://localhost:${PORT}/api/auth/verify-email`);
-  console.log(`  - GET  http://localhost:${PORT}/api/bookings`);
-  console.log(`  - GET  http://localhost:${PORT}/api/reports/gross-margin`);
-  console.log(`  - GET  http://localhost:${PORT}/api/reports/dashboard-stats`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  process.exit(0);
 });
 
 module.exports = app;
