@@ -54,8 +54,17 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Health check rate limiter (more permissive for monitoring systems)
+const healthLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 300, // Allow frequent health checks from monitoring tools
+  message: { error: 'Health check rate limit exceeded' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Health check endpoint
-app.get('/health', async (req, res) => {
+app.get('/health', healthLimiter, async (req, res) => {
   try {
     // Test database connection
     await pool.query('SELECT 1');
