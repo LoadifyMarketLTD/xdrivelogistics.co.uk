@@ -158,13 +158,56 @@
           return;
         }
 
-        // Since auth is not configured, show explanatory success
-        ok.textContent = 'Form validated for ' + (type === 'driver' ? 'Driver' : 'Shipper') + ' (' + email + '). Authentication service is not configured, so account was not created.';
-        ok.style.display = 'block';
+        // Submit to backend API
+        try {
+          const btn = form.querySelector('button[type="submit"]');
+          btn.disabled = true;
+          btn.textContent = 'Creating account...';
 
-        // Clear sensitive fields (demo)
-        form.password.value = '';
-        form.confirm.value = '';
+          const response = await fetch('http://localhost:3001/api/auth/register', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              account_type: type,
+              email: email,
+              password: pass,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            ok.textContent = data.message || 'Account created successfully! Please check your email to verify your account.';
+            ok.style.display = 'block';
+            err.style.display = 'none';
+            
+            // Clear form
+            form.reset();
+            
+            // Redirect to login after 3 seconds
+            setTimeout(() => {
+              window.location.href = 'desktop-signin-final.html';
+            }, 3000);
+          } else {
+            err.textContent = data.error || 'Registration failed. Please try again.';
+            err.style.display = 'block';
+            ok.style.display = 'none';
+          }
+
+          btn.disabled = false;
+          btn.textContent = 'Create account';
+        } catch (error) {
+          console.error('Registration error:', error);
+          err.textContent = 'Network error. Please check if the server is running.';
+          err.style.display = 'block';
+          ok.style.display = 'none';
+          
+          const btn = form.querySelector('button[type="submit"]');
+          btn.disabled = false;
+          btn.textContent = 'Create account';
+        }
       });
     })();
   </script>

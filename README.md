@@ -1,372 +1,504 @@
-# XDrive Logistics - Courier Exchange MVP
+# XDrive Logistics - Full-Integration MVP
 
-A modern courier exchange platform built with Next.js 16 and Supabase, enabling shippers to post delivery requests and drivers to make offers.
+A modern courier exchange platform with Node.js/Express backend, PostgreSQL database, and interactive frontend. Enables shippers to post delivery requests, drivers to make offers, and provides comprehensive reporting and analytics.
 
 ## Features
 
-- 🔐 Authentication (Login/Register with email/password)
-- 📦 Shipment Management (Create, list, and view shipments)
-- 💰 Offer System (Drivers can make offers on shipments)
-- 👥 Role-based Access (Shipper vs Driver views)
-- 🎨 Modern UI with Tailwind CSS
-
-## Prerequisites
-
-- Node.js 20 or higher
-- npm 10 or higher
-- A Supabase account (free tier works fine)
-
-## Local Development Setup
-
-### 1. Install Dependencies
-
-```bash
-npm install
-```
-
-### 2. Set Up Supabase
-
-1. Create a new project at [https://app.supabase.com](https://app.supabase.com)
-2. Get your project URL and anon key from Project Settings > API
-3. Get your service role key from Project Settings > API (keep this secret!)
-
-### 3. Configure Environment Variables
-
-Copy the example environment file:
-
-```bash
-cp .env.example .env.local
-```
-
-Edit `.env.local` and fill in your Supabase credentials:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
-```
-
-### 4. Create Database Tables
-
-Run the following SQL in your Supabase SQL Editor:
-
-```sql
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Profiles table (stores user roles)
-CREATE TABLE profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('driver', 'shipper')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Shipments table
-CREATE TABLE shipments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  pickup_location TEXT NOT NULL,
-  delivery_location TEXT NOT NULL,
-  pickup_date DATE NOT NULL,
-  delivery_date DATE,
-  weight NUMERIC,
-  dimensions TEXT,
-  description TEXT,
-  price NUMERIC,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'in_transit', 'completed', 'cancelled')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Offers table
-CREATE TABLE offers (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
-  driver_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  price NUMERIC NOT NULL,
-  notes TEXT,
-  estimated_delivery_date DATE,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create indexes for better performance
-CREATE INDEX idx_shipments_user_id ON shipments(user_id);
-CREATE INDEX idx_shipments_status ON shipments(status);
-CREATE INDEX idx_offers_shipment_id ON offers(shipment_id);
-CREATE INDEX idx_offers_driver_id ON offers(driver_id);
-
--- Enable Row Level Security (RLS)
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE offers ENABLE ROW LEVEL SECURITY;
-
--- Profiles policies
-CREATE POLICY "Public profiles are viewable by everyone" ON profiles
-  FOR SELECT USING (true);
-
-CREATE POLICY "Users can insert their own profile" ON profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
-
-CREATE POLICY "Users can update own profile" ON profiles
-  FOR UPDATE USING (auth.uid() = id);
-
--- Shipments policies
-CREATE POLICY "Shipments are viewable by everyone" ON shipments
-  FOR SELECT USING (true);
-
-CREATE POLICY "Authenticated users can create shipments" ON shipments
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own shipments" ON shipments
-  FOR UPDATE USING (auth.uid() = user_id);
-
--- Offers policies
-CREATE POLICY "Offers are viewable by everyone" ON offers
-  FOR SELECT USING (true);
-
-CREATE POLICY "Authenticated users can create offers" ON offers
-  FOR INSERT WITH CHECK (auth.uid() = driver_id);
-
-CREATE POLICY "Drivers can update their own offers" ON offers
-  FOR UPDATE USING (auth.uid() = driver_id);
-```
-
-### 5. Run the Development Server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## Usage
-
-1. **Register** - Create an account as either a Driver or Shipper
-2. **Login** - Sign in with your credentials
-3. **Shippers**: Create shipments with pickup/delivery details and wait for driver offers
-4. **Drivers**: Browse available shipments and make offers with your price
-
-## Deployment
-
-### Vercel (Recommended)
-
-1. Push your code to GitHub
-2. Import your repository in [Vercel](https://vercel.com)
-3. Add your environment variables in Project Settings
-4. Deploy!
-
-### Netlify
-
-Update `netlify.toml` if needed:
-
-```toml
-[build]
-  command = "npm run build"
-  
-[build.environment]
-  NODE_VERSION = "20.12.2"
-```
-
-Then deploy via Netlify UI or CLI.
+- 🔐 **Authentication**: Register, login, email verification with JWT
+- 📦 **Bookings Management**: Full CRUD operations for delivery bookings
+- 💰 **Invoicing**: Track invoices linked to bookings
+- 📊 **Reports & Analytics**: Gross margin calculations, subcontract spend tracking
+- 💬 **Feedback System**: Customer ratings and comments
+- 🎯 **Watchlist**: Track favorite bookings and suppliers
+- 🎨 **Modern Dashboard**: Interactive charts with Chart.js
+- 🐳 **Docker Ready**: Full Docker Compose setup for development
 
 ## Tech Stack
 
-- **Framework**: Next.js 16 (App Router)
-- **Database & Auth**: Supabase
-- **Styling**: Tailwind CSS
-- **Deployment**: Vercel or Netlify
+- **Backend**: Node.js, Express, PostgreSQL
+- **Authentication**: bcrypt, JWT, email verification
+- **Email**: Nodemailer with SendGrid support
+- **Frontend**: HTML5, CSS3, JavaScript, Chart.js
+- **Database**: PostgreSQL 15
+- **DevOps**: Docker, Docker Compose
+
+## Prerequisites
+
+- Docker and Docker Compose (recommended)
+- OR Node.js 18+ and PostgreSQL 15+ (manual setup)
+
+## Quick Start with Docker (Recommended)
+
+### 1. Clone and Start Services
+
+```bash
+git clone https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk.git
+cd xdrivelogistics.co.uk
+
+# Start PostgreSQL and Backend API
+docker compose up --build
+```
+
+The services will start:
+- **PostgreSQL**: `localhost:5432`
+- **Backend API**: `http://localhost:3001`
+
+### 2. Seed the Database
+
+In a new terminal, run:
+
+```bash
+# Wait for postgres to be ready (about 10 seconds)
+sleep 10
+
+# Seed the database with sample data
+docker exec -i xdrive-postgres psql -U xdrive -d xdrive_db < db/seeds.sql
+```
+
+Or use the convenience script:
+
+```bash
+chmod +x docker/dev/seed.sh
+./docker/dev/seed.sh
+```
+
+### 3. Open the Frontend
+
+Serve the `public/` directory with any static file server:
+
+```bash
+# Using Python
+cd public
+python3 -m http.server 8000
+
+# Using Node.js http-server
+npx http-server public -p 8000
+
+# Using PHP
+cd public
+php -S localhost:8000
+```
+
+Then open:
+- **Login**: http://localhost:8000/desktop-signin-final.html
+- **Register**: http://localhost:8000/register-inline.html
+- **Dashboard**: http://localhost:8000/dashboard.html
+
+### 4. Test with Demo Credentials
+
+```
+Email: shipper@example.com
+Password: password123
+```
+
+---
+
+## Manual Setup (Without Docker)
+
+### 1. Install PostgreSQL 15+
+
+Install and start PostgreSQL on your system.
+
+### 2. Create Database
+
+```bash
+createdb xdrive_db
+psql xdrive_db < db/schema.sql
+psql xdrive_db < db/seeds.sql
+```
+
+### 3. Configure Backend Environment
+
+```bash
+cd server
+cp .env.example .env
+```
+
+Edit `server/.env` with your database credentials:
+
+```env
+DATABASE_URL=postgresql://localhost:5432/xdrive_db
+PORT=3001
+JWT_SECRET=your-secret-key-here
+# ... see server/.env.example for all options
+```
+
+### 4. Install Backend Dependencies and Start
+
+```bash
+cd server
+npm install
+npm start
+```
+
+### 5. Serve Frontend
+
+```bash
+cd public
+python3 -m http.server 8000
+```
+
+---
+
+## API Documentation
+
+### Authentication Endpoints
+
+#### POST /api/auth/register
+Create a new user account.
+
+```bash
+curl -X POST http://localhost:3001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account_type": "shipper",
+    "email": "test@example.com",
+    "password": "password123"
+  }'
+```
+
+**Response:**
+```json
+{
+  "message": "Account created successfully. Please check your email to verify your account.",
+  "user": {
+    "id": 1,
+    "email": "test@example.com",
+    "account_type": "shipper",
+    "status": "pending"
+  }
+}
+```
+
+#### POST /api/auth/login
+Authenticate and receive JWT token.
+
+```bash
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "shipper@example.com",
+    "password": "password123"
+  }'
+```
+
+**Response:**
+```json
+{
+  "message": "Login successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": 1,
+    "email": "shipper@example.com",
+    "account_type": "shipper"
+  }
+}
+```
+
+#### GET /api/auth/verify-email?token=xxx
+Verify email address.
+
+```bash
+curl "http://localhost:3001/api/auth/verify-email?token=your-verification-token"
+```
+
+### Bookings Endpoints
+
+#### GET /api/bookings
+List all bookings with optional filters.
+
+```bash
+# Get all bookings
+curl http://localhost:3001/api/bookings
+
+# Filter by status
+curl "http://localhost:3001/api/bookings?status=Delivered&limit=10"
+
+# Filter by date range
+curl "http://localhost:3001/api/bookings?from_date=2025-01-01&to_date=2025-01-31"
+```
+
+#### GET /api/bookings/:id
+Get a single booking.
+
+```bash
+curl http://localhost:3001/api/bookings/1
+```
+
+#### POST /api/bookings
+Create a new booking.
+
+```bash
+curl -X POST http://localhost:3001/api/bookings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "load_id": "LD-2025-999",
+    "from_address": "London, UK",
+    "to_address": "Manchester, UK",
+    "vehicle_type": "Large Van",
+    "pickup_window_start": "2025-02-01T09:00:00",
+    "pickup_window_end": "2025-02-01T11:00:00",
+    "delivery_instruction": "Call before delivery",
+    "price": 450.00,
+    "subcontract_cost": 320.00,
+    "status": "Pending"
+  }'
+```
+
+#### PUT /api/bookings/:id
+Update a booking.
+
+```bash
+curl -X PUT http://localhost:3001/api/bookings/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "In Transit",
+    "completed_by": "John Doe"
+  }'
+```
+
+### Reports Endpoints
+
+#### GET /api/reports/gross-margin
+Calculate gross margin and subcontract spend.
+
+```bash
+# All time
+curl http://localhost:3001/api/reports/gross-margin
+
+# Specific date range
+curl "http://localhost:3001/api/reports/gross-margin?from=2025-01-01&to=2025-01-31"
+```
+
+**Response:**
+```json
+{
+  "period": {
+    "from": "2025-01-01",
+    "to": "2025-01-31"
+  },
+  "summary": {
+    "total_bookings": 15,
+    "total_revenue": 5945.00,
+    "total_subcontract_cost": 3420.00,
+    "gross_margin_total": 2525.00,
+    "avg_gross_margin": 168.33,
+    "gross_margin_percentage": 42.46
+  }
+}
+```
+
+#### GET /api/reports/bookings-by-status
+Get booking counts by status.
+
+```bash
+curl http://localhost:3001/api/reports/bookings-by-status
+```
+
+### Invoices Endpoints
+
+#### GET /api/invoices
+List all invoices.
+
+```bash
+curl http://localhost:3001/api/invoices
+
+# Filter by status
+curl "http://localhost:3001/api/invoices?status=pending"
+```
+
+#### POST /api/invoices
+Create a new invoice.
+
+```bash
+curl -X POST http://localhost:3001/api/invoices \
+  -H "Content-Type: application/json" \
+  -d '{
+    "booking_id": 1,
+    "invoice_number": "INV-2025-100",
+    "amount": 450.00,
+    "due_date": "2025-02-28",
+    "status": "pending"
+  }'
+```
+
+### Feedback Endpoints
+
+#### GET /api/feedback
+List all feedback.
+
+```bash
+curl http://localhost:3001/api/feedback
+```
+
+#### POST /api/feedback
+Submit feedback.
+
+```bash
+curl -X POST http://localhost:3001/api/feedback \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": 1,
+    "booking_id": 1,
+    "rating": 5,
+    "comment": "Excellent service!"
+  }'
+```
+
+---
+
+## Database Management
+
+### Reset Database
+
+```bash
+./docker/dev/reset-db.sh
+```
+
+Or manually:
+
+```bash
+docker exec -i xdrive-postgres psql -U xdrive -d xdrive_db <<EOF
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+EOF
+
+docker exec -i xdrive-postgres psql -U xdrive -d xdrive_db < db/schema.sql
+docker exec -i xdrive-postgres psql -U xdrive -d xdrive_db < db/seeds.sql
+```
+
+### Access Database Console
+
+```bash
+docker exec -it xdrive-postgres psql -U xdrive -d xdrive_db
+```
+
+### Backup Database
+
+```bash
+docker exec xdrive-postgres pg_dump -U xdrive xdrive_db > backup.sql
+```
+
+---
+
+## Usage
+
+1. **Register** - Create an account as either a Driver or Shipper via the registration page
+2. **Login** - Sign in with your credentials
+3. **Dashboard** - View bookings, gross margin reports, and analytics
+4. **Manage Bookings** - Create, update, and track delivery bookings
+5. **Reports** - Analyze gross margin, subcontract spend, and revenue
 
 ## Project Structure
 
 ```
-├── app/
-│   ├── api/              # API routes (shipments, offers)
-│   ├── dashboard/        # User dashboard
-│   ├── login/            # Login page
-│   ├── register/         # Registration page
-│   ├── shipments/        # Shipments listing and details
-│   ├── layout.jsx        # Root layout
-│   └── page.jsx          # Home page
-├── components/
-│   ├── header.jsx        # Auth-aware header
-│   ├── footer.jsx        # Footer
-│   ├── ShipmentCard.jsx  # Shipment card component
-│   └── OfferForm.jsx     # Offer creation form
-├── lib/
-│   └── supabaseClient.js # Supabase client configuration
-└── styles/
-    └── globals.css       # Global styles
-```
-
-## License
-
-© 2024 XDrive Logistics - Danny Courier LTD
-This repository contains the source code for the XDrive Logistics courier exchange platform.
-
-## Features
-
-- 🔐 Supabase authentication (email/password)
-- 📦 Shipment management (create, list, view)
-- 💰 Driver offers system
-- 👤 Role-based access (Shipper/Driver)
-- 🎨 Modern UI with Tailwind CSS
-
-## Local Development Setup
-
-### Prerequisites
-
-- Node.js 20 or higher
-- npm 10 or higher
-- Supabase account ([sign up here](https://supabase.com))
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk.git
-   cd xdrivelogistics.co.uk
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-   
-   Copy `.env.example` to `.env.local`:
-   ```bash
-   cp .env.example .env.local
-   ```
-
-4. **Get your Supabase credentials**
-   
-   - Go to [https://app.supabase.com](https://app.supabase.com)
-   - Create a new project (or use existing)
-   - Go to Settings > API
-   - Copy the following values to your `.env.local`:
-     - `NEXT_PUBLIC_SUPABASE_URL` - Project URL
-     - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - anon/public key
-     - `SUPABASE_SERVICE_ROLE_KEY` - service_role key (keep this secret!)
-
-5. **Create database tables**
-
-   Go to your Supabase project > SQL Editor and run the following SQL:
-
-   ```sql
-   -- Users table (extended with Supabase Auth)
-   -- Supabase Auth handles the main users table, we just add metadata
-   
-   -- Shipments table
-   CREATE TABLE shipments (
-     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-     user_id UUID NOT NULL REFERENCES auth.users(id),
-     pickup_location TEXT NOT NULL,
-     delivery_location TEXT NOT NULL,
-     pickup_date TIMESTAMP NOT NULL,
-     cargo_type TEXT DEFAULT 'general',
-     weight DECIMAL DEFAULT 0,
-     status TEXT DEFAULT 'pending',
-     created_at TIMESTAMP DEFAULT NOW(),
-     updated_at TIMESTAMP DEFAULT NOW()
-   );
-
-   -- Offers table
-   CREATE TABLE offers (
-     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-     shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
-     driver_id UUID NOT NULL REFERENCES auth.users(id),
-     price DECIMAL NOT NULL,
-     notes TEXT,
-     status TEXT DEFAULT 'pending',
-     created_at TIMESTAMP DEFAULT NOW(),
-     updated_at TIMESTAMP DEFAULT NOW()
-   );
-
-   -- Enable Row Level Security
-   ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE offers ENABLE ROW LEVEL SECURITY;
-
-   -- Policies for shipments (everyone can read, authenticated users can create)
-   CREATE POLICY "Anyone can view shipments" ON shipments FOR SELECT USING (true);
-   CREATE POLICY "Authenticated users can create shipments" ON shipments FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-   -- Policies for offers (everyone can read, authenticated users can create)
-   CREATE POLICY "Anyone can view offers" ON offers FOR SELECT USING (true);
-   CREATE POLICY "Authenticated users can create offers" ON offers FOR INSERT WITH CHECK (auth.uid() = driver_id);
-
-   -- Indexes for performance
-   CREATE INDEX idx_shipments_user_id ON shipments(user_id);
-   CREATE INDEX idx_shipments_status ON shipments(status);
-   CREATE INDEX idx_offers_shipment_id ON offers(shipment_id);
-   CREATE INDEX idx_offers_driver_id ON offers(driver_id);
-   ```
-
-6. **Run the development server**
-   ```bash
-   npm run dev
-   ```
-
-7. **Open your browser**
-   
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## Project Structure
-
-```
-├── app/
-│   ├── api/
-│   │   ├── shipments/         # Shipment API endpoints
-│   │   └── offers/            # Offer API endpoints
-│   ├── login/                 # Login page
-│   ├── register/              # Registration page
-│   ├── dashboard/             # User dashboard
-│   ├── shipments/             # Shipments list & detail pages
-│   ├── layout.jsx             # Root layout
-│   └── page.jsx               # Home page
-├── components/
-│   ├── ShipmentCard.jsx       # Shipment card component
-│   ├── OfferForm.jsx          # Offer submission form
-│   └── header.jsx             # Navigation header
-├── lib/
-│   └── supabaseClient.js      # Supabase client setup
-└── .env.example               # Example environment variables
+xdrivelogistics.co.uk/
+├── server/                 # Backend API (Node.js + Express)
+│   ├── src/
+│   │   ├── routes/        # API route handlers
+│   │   │   ├── auth.js    # Authentication endpoints
+│   │   │   ├── bookings.js
+│   │   │   ├── invoices.js
+│   │   │   ├── reports.js
+│   │   │   └── feedback.js
+│   │   ├── index.js       # Express app entry point
+│   │   ├── db.js          # PostgreSQL pool helper
+│   │   └── mailer.js      # Email service (SendGrid)
+│   ├── package.json
+│   ├── Dockerfile
+│   └── .env.example       # Backend environment template
+│
+├── db/                    # Database files
+│   ├── schema.sql         # Database schema
+│   └── seeds.sql          # Sample data
+│
+├── public/                # Frontend static files
+│   ├── desktop-signin-final.html
+│   ├── register-inline.html
+│   ├── dashboard.html     # Interactive dashboard with Chart.js
+│   └── assets/
+│
+├── docker/                # Docker utilities
+│   └── dev/
+│       ├── seed.sh        # Seed database script
+│       └── reset-db.sh    # Reset database script
+│
+├── docker-compose.yml     # Docker services configuration
+├── .env.example           # Root environment template
+├── .env.prod.example      # Production environment template
+└── README.md
 ```
 
 ## Deployment
 
-### Recommended: Vercel
+### Production Deployment
 
-1. Push your code to GitHub
-2. Import your repository to [Vercel](https://vercel.com)
-3. Add environment variables in Vercel dashboard
-4. Deploy!
+1. **Backend**: Deploy to any Node.js hosting (Render, Railway, Heroku, DigitalOcean)
+   - Set environment variables from `.env.prod.example`
+   - Configure PostgreSQL database (Neon, Supabase, AWS RDS)
+   - Run migrations: `psql $DATABASE_URL < db/schema.sql`
+   - Seed data: `psql $DATABASE_URL < db/seeds.sql`
 
-### Alternative: Netlify
+2. **Frontend**: Deploy static files to CDN (Netlify, Vercel, Cloudflare Pages)
+   - Update API_BASE URL in frontend HTML files
+   - Configure CORS_ORIGIN in backend to match frontend domain
 
-1. Update `netlify.toml` if needed
-2. Connect your repository to Netlify
-3. Add environment variables in Netlify dashboard
-4. Deploy!
+### Environment Variables for Production
 
-**Note:** This project requires Node.js 20 or higher.
+See `.env.prod.example` for all required production environment variables.
 
-## Build Commands
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
+**Important:**
+- Generate strong JWT_SECRET: `openssl rand -base64 32`
+- Use SSL-enabled PostgreSQL (set `?sslmode=require`)
+- Configure SendGrid API key for email delivery
+- Never commit `.env` or `.env.prod` files
 
 ## Security Notes
 
-- Never commit `.env.local` to git
-- Keep `SUPABASE_SERVICE_ROLE_KEY` secret (server-side only)
-- Use environment variables for all sensitive data
-- Enable Row Level Security (RLS) in Supabase for production
+- **Never commit** `.env`, `.env.local`, or `.env.prod` files
+- Use **strong random secrets** for JWT_SECRET (generate with `openssl rand -base64 32`)
+- Enable **SSL/TLS** for PostgreSQL in production (`?sslmode=require`)
+- Configure **rate limiting** on auth endpoints (already implemented)
+- Use **SendGrid** or similar for production email delivery
+- Store secrets in **environment variables** or secret managers (AWS Secrets Manager, etc.)
+- Enable **CORS** only for trusted domains in production
+
+## Troubleshooting
+
+### Backend won't start
+- Check PostgreSQL is running: `docker ps`
+- Verify DATABASE_URL in server/.env
+- Check logs: `docker logs xdrive-backend`
+
+### Frontend can't connect to backend
+- Ensure backend is running on port 3001
+- Check browser console for CORS errors
+- Verify API_BASE URL in frontend JavaScript
+
+### Database connection errors
+- Wait 10-15 seconds after `docker compose up` for PostgreSQL to initialize
+- Check connection string format: `postgresql://user:pass@host:port/db`
+- Verify credentials match docker-compose.yml
+
+### Email verification not working
+- Check server logs for email sending attempts
+- If SMTP not configured, emails are logged to console (dev mode)
+- For production, configure SendGrid API key in SMTP_PASS
+
+## Contributing
+
+Please create a new branch for each feature and submit a pull request for review.
+
+## Build Commands
+
+### Backend
+- `npm start` - Start production server
+- `npm run dev` - Start with auto-reload
+- `npm run seed` - Seed database (requires DATABASE_URL)
+
+### Frontend
+- Serve `public/` directory with any static server
+- No build step required (vanilla HTML/CSS/JS)
 
 ## Contributing
 
