@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabaseClient } from '../../lib/supabaseClient';
+import { login } from '../../lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,17 +18,8 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      // Check if supabase is configured
-      if (!supabaseClient) {
-        throw new Error('Authentication service is not configured');
-      }
-
-      const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
+      // Login with Express backend API
+      await login(email, password);
 
       // Redirect to dashboard on success
       router.push('/dashboard');

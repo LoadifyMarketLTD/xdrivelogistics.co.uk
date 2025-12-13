@@ -3,11 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabaseClient } from '../../lib/supabaseClient';
-
-// Constants
-const PROFILE_CREATION_RETRIES = 3;
-const RETRY_DELAY_MS = 1000;
+import { register } from '../../lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -37,51 +33,12 @@ export default function RegisterPage() {
     }
 
     try {
-      // Check if supabase is configured
-      if (!supabaseClient) {
-        throw new Error('Authentication service is not configured');
-      }
-
-      // Sign up with Supabase Auth
-      const { data, error: signUpError } = await supabaseClient.auth.signUp({
+      // Register with Express backend API
+      await register({
+        account_type: role,
         email,
         password,
-        options: {
-          data: {
-            role: role,
-          },
-        },
       });
-
-      if (signUpError) throw signUpError;
-
-      // If sign up successful, create profile with retries
-      if (data.user) {
-        let profileCreated = false;
-        let retries = 3;
-        
-        while (!profileCreated && retries > 0) {
-          const { error: profileError } = await supabaseClient
-            .from('profiles')
-            .insert({
-              id: data.user.id,
-              email: email,
-              role: role,
-            });
-
-          if (!profileError) {
-            profileCreated = true;
-          } else {
-            console.error('Profile creation error:', profileError);
-            retries--;
-            if (retries === 0) {
-              throw new Error('Failed to create user profile after multiple attempts. Please contact support with your email.');
-            }
-            // Wait a bit before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-      }
 
       setSuccess(true);
       setTimeout(() => {
