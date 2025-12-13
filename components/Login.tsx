@@ -86,6 +86,7 @@ export default function Login({ onSubmit }: LoginProps) {
 
           <form className={styles.form} onSubmit={handleSubmit} autoComplete="on" noValidate>
             <label className={styles.field}>
+              <span className={styles.srOnly}>Email / Username</span>
               <input
                 className={styles.input}
                 value={identifier}
@@ -94,10 +95,12 @@ export default function Login({ onSubmit }: LoginProps) {
                 name="identifier"
                 placeholder="Email / Username"
                 required
+                autoComplete="username"
               />
             </label>
 
             <label className={styles.field}>
+              <span className={styles.srOnly}>Password</span>
               <div className={styles.passwordWrap}>
                 <input
                   id="password"
@@ -108,10 +111,11 @@ export default function Login({ onSubmit }: LoginProps) {
                   name="password"
                   placeholder="Password"
                   required
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
-                  aria-label="Toggle password visibility"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={togglePasswordVisibility}
                   className={styles.pwdToggle}
                 >
