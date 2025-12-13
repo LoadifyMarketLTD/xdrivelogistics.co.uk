@@ -1,0 +1,43 @@
+<!-- Placeholder - Replace with actual hero.jpg image -->
+<!-- This is a temporary SVG file with .jpg extension for development -->
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bgGrad" cx="30%" cy="30%" r="100%">
+      <stop offset="0" stop-color="#042235"/>
+      <stop offset="1" stop-color="#04121a"/>
+    </radialGradient>
+    <filter id="gblur">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <rect width="100%" height="100%" fill="url(#bgGrad)"/>
+  
+  <!-- abstract "UK map" style lines -->
+  <g transform="translate(200,160)" stroke="#6fe6ff" stroke-opacity="0.08" stroke-width="2" fill="none">
+    <path d="M160 100 C200 36, 320 20, 420 70 C470 100, 520 146, 560 210 C620 300, 660 380, 720 440"/>
+    <path d="M40 180 C80 140, 120 96, 160 100"/>
+    <path d="M120 340 C150 300, 220 280, 300 300"/>
+    <path d="M300 300 C360 320, 440 340, 520 380"/>
+    <path d="M560 210 C580 240, 600 270, 620 300"/>
+  </g>
+  
+  <!-- glowing nodes -->
+  <g transform="translate(200,160)" filter="url(#gblur)">
+    <circle cx="200" cy="120" r="5" fill="#6fe6ff" opacity="0.95"/>
+    <circle cx="250" cy="88" r="7" fill="#6fe6ff" opacity="0.95"/>
+    <circle cx="320" cy="110" r="6" fill="#6fe6ff" opacity="0.95"/>
+    <circle cx="480" cy="160" r="5" fill="#ffd782" opacity="0.95"/>
+    <circle cx="640" cy="270" r="6" fill="#ffd782" opacity="0.92"/>
+    <circle cx="700" cy="380" r="7" fill="#6fe6ff" opacity="0.9"/>
+    <circle cx="420" cy="70" r="4" fill="#6fe6ff" opacity="0.9"/>
+    <circle cx="560" cy="210" r="5" fill="#ffd782" opacity="0.93"/>
+  </g>
+  
+  <!-- vignette -->
+  <rect width="100%" height="100%" fill="black" opacity="0.12"/>
+</svg>
