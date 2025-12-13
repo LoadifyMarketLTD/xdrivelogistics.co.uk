@@ -1,54 +1,232 @@
-# XDrive Logistics - Courier Exchange MVP
+# XDrive Logistics - Full Integration MVP
 
-A modern courier exchange platform built with Next.js 16 and Supabase, enabling shippers to post delivery requests and drivers to make offers.
+A comprehensive courier exchange platform with backend API, PostgreSQL database, and modern frontend. This MVP includes user authentication, booking management, invoicing, reporting, and feedback systems.
 
 ## Features
 
-- 🔐 Authentication (Login/Register with email/password)
-- 📦 Shipment Management (Create, list, and view shipments)
-- 💰 Offer System (Drivers can make offers on shipments)
-- 👥 Role-based Access (Shipper vs Driver views)
-- 🎨 Modern UI with Tailwind CSS
+- 🔐 **Authentication**: Email/password registration with email verification
+- 📦 **Booking Management**: Full CRUD operations for delivery bookings
+- 💰 **Financial Reporting**: Gross margin and subcontract spend analytics
+- 📊 **Dashboard**: Real-time metrics with Chart.js visualizations
+- 📧 **Email Notifications**: Verification emails (configurable SMTP or console logging)
+- 🔒 **Security**: Bcrypt password hashing, JWT tokens, rate limiting, CORS
+- 🗄️ **Database**: PostgreSQL with proper schema and seed data
+- 🐳 **Docker**: Complete containerized setup with docker-compose
 
 ## Prerequisites
 
-- Node.js 20 or higher
-- npm 10 or higher
-- A Supabase account (free tier works fine)
+- Node.js 18 or higher
+- Docker and Docker Compose
+- npm 8 or higher
+- PostgreSQL 14+ (if running without Docker)
 
-## Local Development Setup
+## Quick Start with Docker (Recommended)
 
-### 1. Install Dependencies
-
-```bash
-npm install
-```
-
-### 2. Set Up Supabase
-
-1. Create a new project at [https://app.supabase.com](https://app.supabase.com)
-2. Get your project URL and anon key from Project Settings > API
-3. Get your service role key from Project Settings > API (keep this secret!)
-
-### 3. Configure Environment Variables
-
-Copy the example environment file:
+### 1. Clone the Repository
 
 ```bash
-cp .env.example .env.local
+git clone https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk.git
+cd xdrivelogistics.co.uk
 ```
 
-Edit `.env.local` and fill in your Supabase credentials:
+### 2. Start Services with Docker Compose
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+```bash
+docker-compose up --build
 ```
+
+This will:
+- Start PostgreSQL database on port 5432
+- Create database schema automatically
+- Start backend API on port 3001
+- Install all dependencies
+
+### 3. Seed the Database
+
+In a new terminal:
+
+```bash
+# Wait for postgres to be ready (check logs for "database system is ready")
+# Then seed the database
+docker exec -i xdrive-postgres psql -U postgres -d xdrive < db/seeds.sql
+```
+
+Or using npm script:
+
+```bash
+cd server
+npm run seed
+```
+
+### 4. Access the Application
+
+- **Frontend**: Open `public/desktop-signin-final.html` in your browser
+- **Backend API**: http://localhost:3001
+- **Health Check**: http://localhost:3001/health
+- **Database**: localhost:5432 (postgres/postgres)
+
+### Demo Credentials
+
+```
+Email: demo@demo.com
+Password: password123
+```
+
+Note: Email verification is disabled for demo users. For new registrations, check console logs for verification links.
+
+## API Documentation
+
+### Authentication Endpoints
+
+#### Register New User
+
+```bash
+curl -X POST http://localhost:3001/api/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account_type": "driver",
+    "email": "driver@example.com",
+    "password": "password123",
+    "full_name": "John Doe",
+    "company_name": "Fast Delivery Co"
+  }'
+```
+
+#### Login
+
+```bash
+curl -X POST http://localhost:3001/api/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "driver@demo.com",
+    "password": "password123"
+  }'
+```
+
+Response includes JWT token:
+```json
+{
+  "message": "Login successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": 1,
+    "email": "driver@demo.com",
+    "account_type": "driver"
+  }
+}
+```
+
+#### Verify Email
+
+```bash
+curl "http://localhost:3001/api/verify-email?token=YOUR_TOKEN_HERE"
+```
+
+### Bookings Endpoints
+
+#### List All Bookings
+
+```bash
+curl "http://localhost:3001/api/bookings?status=delivered&limit=10"
+```
+
+#### Get Single Booking
+
+```bash
+curl "http://localhost:3001/api/bookings/1"
+```
+
+#### Create Booking
+
+```bash
+curl -X POST http://localhost:3001/api/bookings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "load_id": "LOAD-123",
+    "from_address": "London, UK",
+    "to_address": "Manchester, UK",
+    "vehicle_type": "Van",
+    "pickup_date": "2024-12-15",
+    "delivery_date": "2024-12-15",
+    "status": "pending",
+    "price": 450.00,
+    "subcontract_cost": 320.00
+  }'
+```
+
+#### Update Booking
+
+```bash
+curl -X PUT http://localhost:3001/api/bookings/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "completed",
+    "completed_by": "John Driver"
+  }'
+```
+
+### Reports Endpoints
+
+#### Gross Margin Report
+
+```bash
+curl "http://localhost:3001/api/reports/gross-margin?from=2024-12-01&to=2024-12-31"
+```
+
+Response:
+```json
+{
+  "period": {
+    "from": "2024-12-01",
+    "to": "2024-12-31"
+  },
+  "summary": {
+    "total_bookings": 18,
+    "total_revenue": 7890.00,
+    "subcontract_spend": 5760.00,
+    "gross_margin_total": 2130.00,
+    "avg_margin_per_booking": 118.33,
+    "margin_percentage": 26.99
+  }
+}
+```
+
+### Invoices Endpoints
+
+```bash
+# List invoices
+curl "http://localhost:3001/api/invoices?status=pending"
+
+# Create invoice
+curl -X POST http://localhost:3001/api/invoices \
+  -H "Content-Type: application/json" \
+  -d '{
+    "booking_id": 1,
+    "invoice_number": "INV-2024-100",
+    "amount": 450.00,
+    "due_date": "2024-12-31"
+  }'
+```
+
+### Feedback Endpoints
+
+```bash
+# Submit feedback
+curl -X POST http://localhost:3001/api/feedback \
+  -H "Content-Type: application/json" \
+  -d '{
+    "booking_id": 1,
+    "rating": 5,
+    "comment": "Excellent service!",
+    "feedback_type": "booking"
+  }'
+```
+
+## Manual Setup (Without Docker)
 
 ### 4. Create Database Tables
 
-Run the following SQL in your Supabase SQL Editor:
+Run the schema SQL:
 
 ```sql
 -- Enable UUID extension
@@ -183,29 +361,143 @@ Then deploy via Netlify UI or CLI.
 ## Project Structure
 
 ```
-├── app/
-│   ├── api/              # API routes (shipments, offers)
-│   ├── dashboard/        # User dashboard
-│   ├── login/            # Login page
-│   ├── register/         # Registration page
-│   ├── shipments/        # Shipments listing and details
-│   ├── layout.jsx        # Root layout
-│   └── page.jsx          # Home page
-├── components/
-│   ├── header.jsx        # Auth-aware header
-│   ├── footer.jsx        # Footer
-│   ├── ShipmentCard.jsx  # Shipment card component
-│   └── OfferForm.jsx     # Offer creation form
-├── lib/
-│   └── supabaseClient.js # Supabase client configuration
-└── styles/
-    └── globals.css       # Global styles
+├── server/                    # Backend API
+│   ├── src/
+│   │   ├── routes/           # API route handlers
+│   │   │   ├── auth.js       # Authentication endpoints
+│   │   │   ├── bookings.js   # Booking CRUD
+│   │   │   ├── invoices.js   # Invoice management
+│   │   │   ├── reports.js    # Analytics & reports
+│   │   │   └── feedback.js   # User feedback
+│   │   ├── index.js          # Express app entry point
+│   │   ├── db.js             # PostgreSQL connection pool
+│   │   └── mailer.js         # Email service
+│   ├── package.json          # Backend dependencies
+│   ├── Dockerfile            # Backend container config
+│   └── .env.example          # Environment variables template
+├── db/
+│   ├── schema.sql            # Database schema
+│   └── seeds.sql             # Sample data
+├── public/                   # Frontend files
+│   ├── desktop-signin-final.html    # Login page
+│   ├── register-inline.html         # Registration page
+│   └── dashboard.html               # Dashboard with charts
+├── docker-compose.yml        # Docker orchestration
+└── README.md                 # This file
 ```
+
+## Testing the Application
+
+### 1. Test Registration
+
+1. Open `public/register-inline.html` in your browser
+2. Register a new account (choose driver or shipper)
+3. Check server logs for verification email link
+4. Copy the token from the URL and verify via API or click the link
+
+### 2. Test Login
+
+1. Open `public/desktop-signin-final.html`
+2. Login with demo credentials or your verified account
+3. You'll be redirected to the dashboard
+
+### 3. Test Dashboard
+
+1. The dashboard loads bookings and reports from the API
+2. Use the date range selector to filter data
+3. View Chart.js visualizations of gross margin
+
+### 4. Test API Endpoints
+
+Use the curl commands provided in the API Documentation section above.
+
+## Environment Variables
+
+### Backend (.env)
+
+See `server/.env.example` for full template:
+
+- `DATABASE_URL`: PostgreSQL connection string
+- `PORT`: API server port (default: 3001)
+- `JWT_SECRET`: Secret key for JWT tokens
+- `CORS_ORIGIN`: Allowed CORS origin
+- `SMTP_*`: Email configuration (optional)
+
+## Production Readiness Checklist
+
+⚠️ **Important**: This is an MVP. Before deploying to production:
+
+- [ ] Change `JWT_SECRET` to a strong random string
+- [ ] Configure real SMTP credentials for email
+- [ ] Set up HTTPS/SSL certificates
+- [ ] Configure proper CORS origins (not '*')
+- [ ] Increase bcrypt rounds for production
+- [ ] Set up database backups
+- [ ] Add request logging and monitoring
+- [ ] Implement proper error tracking (e.g., Sentry)
+- [ ] Add API authentication middleware
+- [ ] Set up rate limiting per user (not just IP)
+- [ ] Review and tighten database permissions
+- [ ] Add input sanitization for XSS prevention
+- [ ] Set up CI/CD pipeline
+- [ ] Configure proper environment variables
+- [ ] Add comprehensive API tests
+- [ ] Set up database migrations
+- [ ] Configure proper session management
+- [ ] Add API documentation (Swagger/OpenAPI)
+- [ ] Set up log rotation and retention
+- [ ] Configure database connection pooling limits
+
+## Known Limitations
+
+- Email verification links are logged to console if SMTP not configured
+- No frontend authentication state management (uses localStorage)
+- No refresh token implementation
+- Limited error handling on frontend
+- No pagination on frontend lists
+- Chart.js data is not cached
+- No WebSocket support for real-time updates
+
+## Troubleshooting
+
+### Backend won't start
+
+```bash
+# Check if postgres is running
+docker ps
+
+# Check logs
+docker logs xdrive-postgres
+docker logs xdrive-backend
+```
+
+### Database connection error
+
+```bash
+# Ensure postgres is healthy
+docker-compose ps
+
+# Restart services
+docker-compose restart
+```
+
+### Seed data fails
+
+```bash
+# Ensure schema is loaded first
+docker exec -i xdrive-postgres psql -U postgres -d xdrive < db/schema.sql
+docker exec -i xdrive-postgres psql -U postgres -d xdrive < db/seeds.sql
+```
+
+## Support
+
+For issues or questions, please open an issue on GitHub.
 
 ## License
 
 © 2024 XDrive Logistics - Danny Courier LTD
-This repository contains the source code for the XDrive Logistics courier exchange platform.
+
+Proprietary software. All rights reserved.
 
 ## Features
 

@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard — XDrive Logistics</title>
+  <link rel="stylesheet" href="styles-dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app-wrap">
+    <!-- include sidebar (dacă ai partial) -->
+    <aside class="site-sidebar">
+      <!-- minim: brand + nav -->
+      <div class="sidebar-brand">
+        <img src="image/logo.svg" alt="XDrive" class="logo">
+      </div>
+
+      <nav class="nav">
+        <ul>
+          <li class="active"><a href="/dashboard">Dashboard</a></li>
+          <li><a href="/directory">Directory</a></li>
+          <li><a href="/availability">Live Availability</a></li>
+          <li><a href="/fleet">My Fleet</a></li>
+          <li><a href="/return-journeys">Return Journeys</a></li>
+          <li><a href="/loads">Loads</a></li>
+          <li><a href="/quotes">Quotes</a></li>
+          <li><a href="/diary">Diary</a></li>
+          <li><a href="/freight-vision">Freight Vision</a></li>
+          <li><a href="/drivers-vehicles">Drivers & Vehicles</a></li>
+          <li><a href="/reports">Reports & Statistics</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="page-header">
+        <h1>Dashboard</h1>
+        <div class="header-actions">
+          <label class="small">Select Dates</label>
+          <select id="date-range">
+            <option value="today">Today</option>
+            <option value="2025-12-01">01/12/2025</option>
+            <option value="custom">Custom...</option>
+          </select>
+        </div>
+      </header>
+
+      <section class="metrics">
+        <div class="metric">
+          <div class="m-number" id="total-jobs">-</div>
+          <div class="m-label">Total Bookings</div>
+        </div>
+        <div class="metric">
+          <div class="m-number" id="total-revenue">-</div>
+          <div class="m-label">Total Revenue</div>
+        </div>
+        <div class="metric">
+          <div class="m-number" id="gross-margin">-</div>
+          <div class="m-label">Gross Margin</div>
+        </div>
+        <div class="metric">
+          <div class="m-number" id="margin-percent">-</div>
+          <div class="m-label">Margin %</div>
+        </div>
+      </section>
+
+      <section class="reports-grid">
+        <article class="card report gross-margin">
+          <header><h3>Gross Margin / Sub-contract Spend</h3></header>
+          <div class="report-body">
+            <div class="report-controls">
+              <label>From: <input type="date" id="from-date"></label>
+              <label>To: <input type="date" id="to-date"></label>
+            </div>
+
+            <div class="report-kpi">
+              <div class="kpi">
+                <div class="kpi-title">Gross Margin</div>
+                <div class="kpi-value" id="kpi-margin">£0</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-title">Sub-contract Spend</div>
+                <div class="kpi-value" id="kpi-subcontract">£0</div>
+              </div>
+            </div>
+
+            <div class="report-help">
+              <strong>How is this calculated?</strong>
+              <p>The total cost you have agreed to pay sub-contractors (excluding your own drivers) will appear here.</p>
+            </div>
+
+            <div class="report-chart" aria-hidden="true">
+              <canvas id="marginChart" style="max-height: 300px;"></canvas>
+            </div>
+          </div>
+        </article>
+
+        <article class="card report accounts-payable">
+          <header><h3>Accounts Payable</h3></header>
+          <div class="report-body">
+            <ul class="ap-list">
+              <li>Latest Invoices Received: <strong>12</strong></li>
+              <li>Invoices due for Payment: <strong>4</strong></li>
+              <li>Invoices Awaiting Payment: <strong>3</strong></li>
+            </ul>
+
+            <div class="monthly-totals">
+              <h4>Monthly Totals</h4>
+              <div class="small-metrics">
+                <div>Bookings Received: <strong>142</strong></div>
+                <div>Bookings Sub-contracted: <strong>46</strong></div>
+                <div>Loads Allocated: <strong>130</strong></div>
+                <div>Return Journeys: <strong>18</strong></div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="activity">
+        <div class="activity-left card">
+          <header><h3>Activity — Latest Bookings</h3></header>
+          <div class="bookings-list">
+            <div id="bookings-container">
+              <!-- Bookings will be loaded here dynamically -->
+              <p style="color: #9fb7c0; padding: 20px;">Loading bookings...</p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="activity-right card">
+          <header><h3>Feedback (Last 90 Days)</h3></header>
+          <div class="feedback">
+            <div class="feedback-row">
+              <div class="label">Received</div>
+              <div class="value">0</div>
+            </div>
+            <div class="rating-grid">
+              <div>Payment Performance — Definitely: 0</div>
+              <div>Maybe: 0</div>
+              <div>Not Use: 0</div>
+              <div>Delivery Performance — Definitely: 0</div>
+              <div>Maybe: 0</div>
+              <div>Not Use: 0</div>
+            </div>
+          </div>
+
+          <hr>
+
+          <div class="watchlist">
+            <h4>Compliance - Manage Your Suppliers</h4>
+            <button id="add-watch" class="btn-primary small">Add Member to My Watchlist</button>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // API Configuration
+    const API_BASE = 'http://localhost:3001/api';
+    
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Set default date range (current month)
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      const fromInput = document.getElementById('from-date');
+      const toInput = document.getElementById('to-date');
+      
+      fromInput.valueAsDate = firstDay;
+      toInput.valueAsDate = today;
+      
+      // Load initial data
+      await loadDashboardData();
+      
+      // Add event listeners for date changes
+      fromInput.addEventListener('change', loadDashboardData);
+      toInput.addEventListener('change', loadDashboardData);
+    });
+    
+    // Load all dashboard data
+    async function loadDashboardData() {
+      const fromDate = document.getElementById('from-date').value;
+      const toDate = document.getElementById('to-date').value;
+      
+      if (!fromDate || !toDate) return;
+      
+      try {
+        // Fetch gross margin report
+        const reportResponse = await fetch(`${API_BASE}/reports/gross-margin?from=${fromDate}&to=${toDate}`);
+        const reportData = await reportResponse.json();
+        
+        if (reportResponse.ok) {
+          updateMetrics(reportData.summary);
+          updateKPIs(reportData.summary);
+          updateChart(reportData);
+        } else {
+          console.error('Failed to load report:', reportData);
+        }
+        
+        // Fetch bookings
+        const bookingsResponse = await fetch(`${API_BASE}/bookings?from_date=${fromDate}&to_date=${toDate}&limit=10`);
+        const bookingsData = await bookingsResponse.json();
+        
+        if (bookingsResponse.ok) {
+          updateBookingsList(bookingsData.bookings);
+        } else {
+          console.error('Failed to load bookings:', bookingsData);
+        }
+      } catch (err) {
+        console.error('Error loading dashboard data:', err);
+        showError('Failed to load dashboard data. Please ensure backend is running on http://localhost:3001');
+      }
+    }
+    
+    // Update metrics section
+    function updateMetrics(summary) {
+      document.getElementById('total-jobs').textContent = summary.total_bookings || 0;
+      document.getElementById('total-revenue').textContent = `£${(summary.total_revenue || 0).toLocaleString()}`;
+      document.getElementById('gross-margin').textContent = `£${(summary.gross_margin_total || 0).toLocaleString()}`;
+      document.getElementById('margin-percent').textContent = `${(summary.margin_percentage || 0).toFixed(1)}%`;
+    }
+    
+    // Update KPI values
+    function updateKPIs(summary) {
+      document.getElementById('kpi-margin').textContent = `£${(summary.gross_margin_total || 0).toLocaleString()}`;
+      document.getElementById('kpi-subcontract').textContent = `£${(summary.subcontract_spend || 0).toLocaleString()}`;
+    }
+    
+    // Update chart with Chart.js
+    let marginChart = null;
+    function updateChart(reportData) {
+      const canvas = document.getElementById('marginChart');
+      const ctx = canvas.getContext('2d');
+      
+      // Destroy existing chart
+      if (marginChart) {
+        marginChart.destroy();
+      }
+      
+      const summary = reportData.summary;
+      
+      // Create chart
+      marginChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Revenue', 'Subcontract Cost', 'Gross Margin'],
+          datasets: [{
+            label: 'Amount (£)',
+            data: [
+              summary.total_revenue || 0,
+              summary.subcontract_spend || 0,
+              summary.gross_margin_total || 0
+            ],
+            backgroundColor: [
+              'rgba(111, 230, 255, 0.6)',
+              'rgba(255, 107, 107, 0.6)',
+              'rgba(214, 165, 81, 0.6)'
+            ],
+            borderColor: [
+              'rgba(111, 230, 255, 1)',
+              'rgba(255, 107, 107, 1)',
+              'rgba(214, 165, 81, 1)'
+            ],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return '£' + value.toLocaleString();
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // Update bookings list
+    function updateBookingsList(bookings) {
+      const container = document.getElementById('bookings-container');
+      
+      if (!bookings || bookings.length === 0) {
+        container.innerHTML = '<p style="color: #9fb7c0; padding: 20px;">No bookings found for selected period.</p>';
+        return;
+      }
+      
+      container.innerHTML = bookings.map(booking => `
+        <article class="booking">
+          <div class="booking-meta">
+            <div class="ref">Load ID: ${booking.load_id || booking.id}</div>
+            <div class="status">${booking.status}</div>
+          </div>
+          <div class="booking-content">
+            <div class="locations">
+              <div class="from"><strong>From:</strong> ${booking.from_address}</div>
+              <div class="to"><strong>To:</strong> ${booking.to_address}</div>
+            </div>
+            <div class="booking-details">
+              Vehicle: ${booking.vehicle_type} · 
+              Pickup: ${booking.pickup_date ? new Date(booking.pickup_date).toLocaleDateString() : 'TBD'} · 
+              Price: £${booking.price}
+            </div>
+            ${booking.completed_by ? `<div class="booking-footer">Completed by ${booking.completed_by}</div>` : ''}
+          </div>
+        </article>
+      `).join('');
+    }
+    
+    // Show error message
+    function showError(message) {
+      const container = document.getElementById('bookings-container');
+      container.innerHTML = `<p style="color: #ff6b6b; padding: 20px;">${message}</p>`;
+    }
+  </script>
+</body>
+</html>
