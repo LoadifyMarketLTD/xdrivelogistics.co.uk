@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard — XDrive Logistics</title>
+  <link rel="stylesheet" href="styles-dashboard.css">
+</head>
+<body>
+  <div class="app-wrap">
+    <!-- include sidebar (dacă ai partial) -->
+    <aside class="site-sidebar">
+      <!-- minim: brand + nav -->
+      <div class="sidebar-brand">
+        <img src="image/logo.svg" alt="XDrive" class="logo">
+      </div>
+
+      <nav class="nav">
+        <ul>
+          <li class="active"><a href="/dashboard">Dashboard</a></li>
+          <li><a href="/directory">Directory</a></li>
+          <li><a href="/availability">Live Availability</a></li>
+          <li><a href="/fleet">My Fleet</a></li>
+          <li><a href="/return-journeys">Return Journeys</a></li>
+          <li><a href="/loads">Loads</a></li>
+          <li><a href="/quotes">Quotes</a></li>
+          <li><a href="/diary">Diary</a></li>
+          <li><a href="/freight-vision">Freight Vision</a></li>
+          <li><a href="/drivers-vehicles">Drivers & Vehicles</a></li>
+          <li><a href="/reports">Reports & Statistics</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="page-header">
+        <h1>Dashboard</h1>
+        <div class="header-actions">
+          <label class="small">Select Dates</label>
+          <select id="date-range">
+            <option value="today">Today</option>
+            <option value="2025-12-01">01/12/2025</option>
+            <option value="custom">Custom...</option>
+          </select>
+        </div>
+      </header>
+
+      <section class="metrics">
+        <div class="metric">
+          <div class="m-number">27</div>
+          <div class="m-label">Total Jobs</div>
+        </div>
+        <div class="metric">
+          <div class="m-number">8</div>
+          <div class="m-label">Vehicles</div>
+        </div>
+        <div class="metric">
+          <div class="m-number">14</div>
+          <div class="m-label">Customers</div>
+        </div>
+        <div class="metric">
+          <div class="m-number">3</div>
+          <div class="m-label">Users</div>
+        </div>
+      </section>
+
+      <section class="reports-grid">
+        <article class="card report gross-margin">
+          <header><h3>Gross Margin / Sub-contract Spend</h3></header>
+          <div class="report-body">
+            <div class="report-controls">
+              <label>From: <input type="date" id="from-date"></label>
+              <label>To: <input type="date" id="to-date"></label>
+            </div>
+
+            <div class="report-kpi">
+              <div class="kpi">
+                <div class="kpi-title">Gross Margin</div>
+                <div class="kpi-value">£12,350</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-title">Sub-contract Spend</div>
+                <div class="kpi-value">£4,820</div>
+              </div>
+            </div>
+
+            <div class="report-help">
+              <strong>How is this calculated?</strong>
+              <p>The total cost you have agreed to pay sub-contractors (excluding your own drivers) will appear here.</p>
+            </div>
+
+            <div class="report-chart">
+              <canvas id="margin-chart" width="400" height="200"></canvas>
+            </div>
+          </div>
+        </article>
+
+        <article class="card report accounts-payable">
+          <header><h3>Accounts Payable</h3></header>
+          <div class="report-body">
+            <ul class="ap-list">
+              <li>Latest Invoices Received: <strong>12</strong></li>
+              <li>Invoices due for Payment: <strong>4</strong></li>
+              <li>Invoices Awaiting Payment: <strong>3</strong></li>
+            </ul>
+
+            <div class="monthly-totals">
+              <h4>Monthly Totals</h4>
+              <div class="small-metrics">
+                <div>Bookings Received: <strong>142</strong></div>
+                <div>Bookings Sub-contracted: <strong>46</strong></div>
+                <div>Loads Allocated: <strong>130</strong></div>
+                <div>Return Journeys: <strong>18</strong></div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="activity">
+        <div class="activity-left card">
+          <header><h3>Activity — Latest Bookings</h3></header>
+          <div class="bookings-list">
+            <!-- one booking item (repeat) -->
+            <article class="booking">
+              <div class="booking-meta">
+                <div class="ref">Load ID: 77576338</div>
+                <div class="status">Delivered</div>
+              </div>
+              <div class="booking-content">
+                <div class="locations">
+                  <div class="from"><strong>From:</strong> Nordfab Ducting Ltd, Limewood Approach, Seacroft, LS14 1NG</div>
+                  <div class="to"><strong>To:</strong> ASAP Cargo, Unit 3, ERGO PARK, CW10 0GT</div>
+                </div>
+                <div class="booking-details">Veh: LWB up to 4m · Pickup: 11:00 12/12/2025 · Deliver: ASAP · Your Ref: 26085</div>
+                <div class="booking-footer">Completed by Ion — 14:18 GMT 12/12/2025</div>
+              </div>
+            </article>
+
+            <!-- add more booking items as needed -->
+            <button class="btn-link" id="view-all">View All...</button>
+          </div>
+        </div>
+
+        <aside class="activity-right card">
+          <header><h3>Feedback (Last 90 Days)</h3></header>
+          <div class="feedback">
+            <div class="feedback-row">
+              <div class="label">Received</div>
+              <div class="value">0</div>
+            </div>
+            <div class="rating-grid">
+              <div>Payment Performance — Definitely: 0</div>
+              <div>Maybe: 0</div>
+              <div>Not Use: 0</div>
+              <div>Delivery Performance — Definitely: 0</div>
+              <div>Maybe: 0</div>
+              <div>Not Use: 0</div>
+            </div>
+          </div>
+
+          <hr>
+
+          <div class="watchlist">
+            <h4>Compliance - Manage Your Suppliers</h4>
+            <button id="add-watch" class="btn-primary small">Add Member to My Watchlist</button>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <!-- Chart.js for data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  
+  <script>
+    // Dashboard data fetching and rendering
+    document.addEventListener('DOMContentLoaded', async function() {
+      // Check if user is logged in
+      const user = JSON.parse(localStorage.getItem('xdrive_user') || 'null');
+      if (!user) {
+        console.warn('Not logged in, redirecting...');
+        // window.location.href = '/desktop-signin-final.html';
+        // return;
+      }
+
+      // Fetch gross margin report
+      async function fetchGrossMargin(from, to) {
+        try {
+          let url = '/api/reports/gross-margin';
+          const params = new URLSearchParams();
+          if (from) params.append('from', from);
+          if (to) params.append('to', to);
+          if (params.toString()) url += '?' + params.toString();
+
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('Failed to fetch report');
+          
+          const data = await response.json();
+          return data;
+        } catch (error) {
+          console.error('Error fetching gross margin:', error);
+          return null;
+        }
+      }
+
+      // Fetch bookings
+      async function fetchBookings() {
+        try {
+          const response = await fetch('/api/bookings?limit=50');
+          if (!response.ok) throw new Error('Failed to fetch bookings');
+          
+          const data = await response.json();
+          return data.bookings || [];
+        } catch (error) {
+          console.error('Error fetching bookings:', error);
+          return [];
+        }
+      }
+
+      // Update metrics
+      function updateMetrics(report, bookings) {
+        if (report && report.metrics) {
+          document.querySelector('.metric:nth-child(1) .m-number').textContent = report.metrics.totalBookings || 0;
+          document.querySelector('.kpi-value').textContent = '£' + (report.metrics.grossMarginTotal || 0).toFixed(2);
+          
+          const subcontractKpi = document.querySelectorAll('.kpi')[1];
+          if (subcontractKpi) {
+            subcontractKpi.querySelector('.kpi-value').textContent = '£' + (report.metrics.subcontractSpend || 0).toFixed(2);
+          }
+        }
+      }
+
+      // Create chart if canvas element exists
+      function createChart(bookings) {
+        const canvas = document.getElementById('margin-chart');
+        if (!canvas) return;
+
+        // Group bookings by status
+        const statusCounts = bookings.reduce((acc, booking) => {
+          acc[booking.status] = (acc[booking.status] || 0) + 1;
+          return acc;
+        }, {});
+
+        new Chart(canvas, {
+          type: 'bar',
+          data: {
+            labels: Object.keys(statusCounts),
+            datasets: [{
+              label: 'Bookings by Status',
+              data: Object.values(statusCounts),
+              backgroundColor: [
+                'rgba(217, 168, 92, 0.6)',
+                'rgba(111, 230, 255, 0.6)',
+                'rgba(255, 215, 130, 0.6)',
+                'rgba(153, 168, 173, 0.6)',
+              ],
+              borderColor: [
+                'rgba(217, 168, 92, 1)',
+                'rgba(111, 230, 255, 1)',
+                'rgba(255, 215, 130, 1)',
+                'rgba(153, 168, 173, 1)',
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                display: false
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // Load initial data
+      const [report, bookings] = await Promise.all([
+        fetchGrossMargin(),
+        fetchBookings()
+      ]);
+
+      updateMetrics(report, bookings);
+      createChart(bookings);
+
+      // Setup date range filters
+      const fromDateInput = document.getElementById('from-date');
+      const toDateInput = document.getElementById('to-date');
+      
+      if (fromDateInput && toDateInput) {
+        // Set default dates (last 30 days)
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        
+        toDateInput.value = today.toISOString().split('T')[0];
+        fromDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+
+        // Listen for date changes
+        const updateReport = async () => {
+          const from = fromDateInput.value;
+          const to = toDateInput.value;
+          const newReport = await fetchGrossMargin(from, to);
+          if (newReport) {
+            updateMetrics(newReport, bookings);
+          }
+        };
+
+        fromDateInput.addEventListener('change', updateReport);
+        toDateInput.addEventListener('change', updateReport);
+      }
+
+      console.log('Dashboard loaded:', { report, bookings: bookings.length });
+    });
+  </script>
+</body>
+</html>

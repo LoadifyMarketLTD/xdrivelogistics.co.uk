@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: xdrive-postgres
+    environment:
+      POSTGRES_USER: xdrive
+      POSTGRES_PASSWORD: xdrive123
+      POSTGRES_DB: xdrive_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./db/seeds.sql:/docker-entrypoint-initdb.d/02-seeds.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xdrive -d xdrive_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - xdrive-network
+
+  # Backend API Server
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: xdrive-backend
+    environment:
+      PORT: 3001
+      NODE_ENV: development
+      DATABASE_URL: postgresql://xdrive:xdrive123@postgres:5432/xdrive_db
+      CORS_ORIGIN: http://localhost:3000
+      APP_BASE_URL: http://localhost:3000
+      BCRYPT_ROUNDS: 10
+      VERIFY_TOKEN_EXPIRES_MIN: 60
+      JWT_SECRET: dev-secret-key-change-in-production
+      # SMTP not configured - will use log mode
+      SMTP_HOST: 
+      SMTP_PORT: 587
+      SMTP_SECURE: false
+      SMTP_USER: 
+      SMTP_PASS: 
+      EMAIL_FROM: noreply@xdrivelogistics.co.uk
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    networks:
+      - xdrive-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  xdrive-network:
+    driver: bridge
