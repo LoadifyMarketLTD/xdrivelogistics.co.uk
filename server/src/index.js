@@ -29,11 +29,18 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting for auth endpoints
+// Rate limiting for auth endpoints (stricter)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // limit each IP to 10 requests per windowMs
   message: { error: 'Too many authentication attempts, please try again later' },
+});
+
+// General API rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: { error: 'Too many requests, please try again later' },
 });
 
 // Health check endpoint
@@ -43,9 +50,9 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/bookings', bookingsRoutes);
-app.use('/api/invoices', invoicesRoutes);
-app.use('/api/reports', reportsRoutes);
+app.use('/api/bookings', apiLimiter, bookingsRoutes);
+app.use('/api/invoices', apiLimiter, invoicesRoutes);
+app.use('/api/reports', apiLimiter, reportsRoutes);
 
 // 404 handler
 app.use((req, res) => {
