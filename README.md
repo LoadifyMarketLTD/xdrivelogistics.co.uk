@@ -1,8 +1,42 @@
-# XDrive Logistics - Courier Exchange MVP
+# XDrive Logistics - Full Stack Courier Exchange Platform
 
-A modern courier exchange platform built with Next.js 16 and Supabase, enabling shippers to post delivery requests and drivers to make offers.
+A complete courier exchange platform with Express.js backend, PostgreSQL database, and modern frontend.
 
-## Features
+## 🚀 Quick Start - Full Integration MVP
+
+**For the complete integration MVP with Docker Compose, see [README-INTEGRATION.md](./README-INTEGRATION.md)**
+
+The integration MVP includes:
+- ✅ Express.js REST API with JWT authentication
+- ✅ PostgreSQL database with complete schema
+- ✅ Docker Compose setup (postgres + backend)
+- ✅ Email verification (with console fallback)
+- ✅ Bookings CRUD operations
+- ✅ Gross margin & revenue reports
+- ✅ Invoice management
+- ✅ Feedback system
+- ✅ 15 demo bookings with realistic data
+
+**Start the integration MVP:**
+
+```bash
+# Start services
+docker compose up --build
+
+# Seed database (in another terminal)
+docker exec -i xdrive_postgres psql -U xdrive -d xdrive_db < db/seeds.sql
+
+# Access API at http://localhost:3001/api
+# Access frontend at public/dashboard.html
+```
+
+---
+
+## Alternative Setup: Next.js + Supabase
+
+This repository also contains a Next.js application setup with Supabase.
+
+### Features
 
 - 🔐 Authentication (Login/Register with email/password)
 - 📦 Shipment Management (Create, list, and view shipments)
@@ -10,7 +44,7 @@ A modern courier exchange platform built with Next.js 16 and Supabase, enabling 
 - 👥 Role-based Access (Shipper vs Driver views)
 - 🎨 Modern UI with Tailwind CSS
 
-## Prerequisites
+### Prerequisites
 
 - Node.js 20 or higher
 - npm 10 or higher
