@@ -28,9 +28,15 @@ yarn-error.log*
 # local env files
 .env*
 !.env.example
+!.env.prod.example
+server/.env
+server/.env.local
 
 # vercel
 .vercel
+
+# server node_modules
+server/node_modules
 
 # stackbit
 .cache
