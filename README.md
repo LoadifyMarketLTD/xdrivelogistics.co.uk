@@ -1,78 +1,67 @@
 # XDrive Logistics - Full Integration MVP
 
-A comprehensive courier exchange platform with backend API, PostgreSQL database, and modern frontend. This MVP includes user authentication, booking management, invoicing, reporting, and feedback systems.
-# XDrive Logistics - Full Stack Courier Exchange Platform
+A modern courier exchange platform with:
+- Next.js 16 frontend (optional)
+- Node.js/Express backend API
+- PostgreSQL database
+- Static HTML demo pages for testing
+- Docker Compose for local development
 
 A complete courier exchange platform with Express.js backend, PostgreSQL database, and modern frontend.
 
-## 🚀 Quick Start - Full Integration MVP
+- 🔐 Authentication (Register, Login with email verification)
+- 📦 Bookings Management (CRUD operations for loads/deliveries)
+- 💰 Financial Reports (Gross margin, subcontract spend)
+- 📊 Dashboard with real-time statistics
+- 🚚 Multi-role support (Driver, Shipper)
+- 🎨 Modern premium UI with dark theme
+- 🐳 Docker Compose for easy local setup
+
+## Quick Start with Docker Compose (Recommended)
+
+The easiest way to run the full stack locally:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk.git
+cd xdrivelogistics.co.uk
+
+# 2. Start all services (PostgreSQL + Backend API)
+docker compose up --build
+
+# 3. Wait for services to start (database will auto-initialize with schema and seed data)
+# Backend API will be available at http://localhost:3001
+# PostgreSQL will be available at localhost:5432
+
+# 4. Serve the frontend static files
+# Option A: Using Python
+cd public && python3 -m http.server 8000
+
+# Option B: Using Node.js
+cd public && npx http-server -p 8000
+
+# 5. Open your browser
+# Navigate to http://localhost:8000/dashboard.html
+# Or register: http://localhost:8000/register-inline.html
+# Or login: http://localhost:8000/desktop-signin-final.html
+```
+
+### Demo Credentials
+
+The seed data includes these demo accounts (password: `password123`):
+
+- **Shipper**: `shipper@xdrivelogistics.co.uk`
+- **Driver**: `driver@xdrivelogistics.co.uk` or `ion@xdrivelogistics.co.uk`
 
 **For the complete integration MVP with Docker Compose, see [README-INTEGRATION.md](./README-INTEGRATION.md)**
 
-The integration MVP includes:
-- ✅ Express.js REST API with JWT authentication
-- ✅ PostgreSQL database with complete schema
-- ✅ Docker Compose setup (postgres + backend)
-- ✅ Email verification (with console fallback)
-- ✅ Bookings CRUD operations
-- ✅ Gross margin & revenue reports
-- ✅ Invoice management
-- ✅ Feedback system
-- ✅ 15 demo bookings with realistic data
+- Docker and Docker Compose (for the easiest setup)
+- OR Node.js 20+ and PostgreSQL 12+ (for manual setup)
+- npm 10 or higher
 
-**Start the integration MVP:**
+## Manual Setup (Without Docker)
 
-```bash
-# Start services
-docker compose up --build
-
-# Seed database (in another terminal)
-docker exec -i xdrive_postgres psql -U xdrive -d xdrive_db < db/seeds.sql
-
-# Access API at http://localhost:3001/api
-# Access frontend at public/dashboard.html
-```
-
----
-
-## Alternative Setup: Next.js + Supabase
-
-This repository also contains a Next.js application setup with Supabase.
-
-### Features
-
-- 🔐 **Authentication**: Email/password registration with email verification
-- 📦 **Booking Management**: Full CRUD operations for delivery bookings
-- 💰 **Financial Reporting**: Gross margin and subcontract spend analytics
-- 📊 **Dashboard**: Real-time metrics with Chart.js visualizations
-- 📧 **Email Notifications**: Verification emails (configurable SMTP or console logging)
-- 🔒 **Security**: Bcrypt password hashing, JWT tokens, rate limiting, CORS
-- 🗄️ **Database**: PostgreSQL with proper schema and seed data
-- 🐳 **Docker**: Complete containerized setup with docker-compose
-
-### Prerequisites
-
-- Node.js 18 or higher
-- Docker and Docker Compose
-- npm 8 or higher
-- PostgreSQL 14+ (if running without Docker)
-
-## Quick Start (Local Development)
-
-### 1. Install Prerequisites
-
-- PostgreSQL 14+
-- Node.js 18+
-- npm 8+
-
-###2. Clone the Repository
-
-```bash
-git clone https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk.git
-cd xdrivelogistics.co.uk
-```
-
-### 3. Set Up PostgreSQL Database
+### 1. Set Up PostgreSQL Database
 
 ```bash
 # Create database
@@ -85,199 +74,149 @@ psql -d xdrive -f db/schema.sql
 psql -d xdrive -f db/seeds.sql
 ```
 
-### 4. Install Backend Dependencies
+### 2. Configure Backend
 
 ```bash
 cd server
+
+# Install dependencies
 npm install
-```
 
-### 5. Configure Environment
-
-```bash
-# Copy example env file
+# Copy environment template
 cp .env.example .env
 
-# Edit .env and set:
-#  DATABASE_URL=postgresql://postgres:password@localhost:5432/xdrive
-#  (update with your actual postgres credentials)
-```
+# Edit .env with your settings
+# Minimum required:
+# DATABASE_URL=postgresql://username:password@localhost:5432/xdrive
+# PORT=3001
 
-### 6. Start Backend Server
-
-```bash
+# Start the backend
 npm start
-# Server will run on http://localhost:3001
 ```
 
-### 7. Access the Application
-
-- **Frontend**: Open `public/desktop-signin-final.html` in your browser
-- **Backend API**: http://localhost:3001
-- **Health Check**: http://localhost:3001/health
-
-### Demo Credentials
-
-```
-Email: driver@demo.com  
-Password: password123
-```
-
-Note: Email verification is logged to console. For new registrations, check server logs for verification links.
-
-## API Documentation
-
-### Authentication Endpoints
-
-#### Register New User
+### 3. Serve Frontend Files
 
 ```bash
-curl -X POST http://localhost:3001/api/register \
+# In a new terminal, from the project root
+cd public
+python3 -m http.server 8000
+
+# Or use Node.js http-server
+npx http-server -p 8000
+```
+
+### 4. Test the Application
+
+Visit http://localhost:8000/dashboard.html
+
+## Environment Variables
+
+### Backend Configuration (`server/.env`)
+
+```bash
+# Server
+PORT=3001
+NODE_ENV=development
+
+# Database
+DATABASE_URL=postgresql://xdrive:xdrive@localhost:5432/xdrive
+
+# SMTP (Optional - leave empty to log emails to console)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+EMAIL_FROM="XDrive Logistics <no-reply@xdrivelogistics.co.uk>"
+
+# Security
+BCRYPT_ROUNDS=10
+VERIFY_TOKEN_EXPIRES_MIN=60
+
+# CORS
+CORS_ORIGIN=http://localhost:8000
+```
+
+**Note**: If SMTP credentials are not configured, verification emails will be logged to the console instead of being sent.
+
+## API Endpoints
+
+### Authentication
+
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login with email/password
+- `GET /api/auth/verify-email?token=xxx` - Verify email address
+
+### Bookings
+
+- `GET /api/bookings` - Get all bookings (supports ?status=, ?limit=, ?offset=)
+- `GET /api/bookings/:id` - Get single booking
+- `POST /api/bookings` - Create booking
+- `PUT /api/bookings/:id` - Update booking
+- `DELETE /api/bookings/:id` - Delete booking
+
+### Reports
+
+- `GET /api/reports/gross-margin?from=YYYY-MM-DD&to=YYYY-MM-DD` - Get gross margin report
+- `GET /api/reports/dashboard-stats` - Get dashboard statistics
+- `GET /api/reports/monthly-totals?year=YYYY&month=MM` - Get monthly totals
+
+### Invoices
+
+- `GET /api/invoices` - Get all invoices
+- `GET /api/invoices/:id` - Get single invoice
+- `POST /api/invoices` - Create invoice
+- `PUT /api/invoices/:id` - Update invoice
+
+### Health Check
+
+- `GET /health` - API health status
+
+## Testing with curl
+
+```bash
+# Register a new user
+curl -X POST http://localhost:3001/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "account_type": "driver",
-    "email": "driver@example.com",
-    "password": "password123",
-    "full_name": "John Doe",
-    "company_name": "Fast Delivery Co"
-  }'
-```
-
-#### Login
-
-```bash
-curl -X POST http://localhost:3001/api/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "driver@demo.com",
+    "email": "test@example.com",
     "password": "password123"
   }'
-```
 
-Response includes JWT token:
-```json
-{
-  "message": "Login successful",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": 1,
-    "email": "driver@demo.com",
-    "account_type": "driver"
-  }
-}
-```
-
-#### Verify Email
-
-```bash
-curl "http://localhost:3001/api/verify-email?token=YOUR_TOKEN_HERE"
-```
-
-### Bookings Endpoints
-
-#### List All Bookings
-
-```bash
-curl "http://localhost:3001/api/bookings?status=delivered&limit=10"
-```
-
-#### Get Single Booking
-
-```bash
-curl "http://localhost:3001/api/bookings/1"
-```
-
-#### Create Booking
-
-```bash
-curl -X POST http://localhost:3001/api/bookings \
+# Login
+curl -X POST http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "load_id": "LOAD-123",
-    "from_address": "London, UK",
-    "to_address": "Manchester, UK",
-    "vehicle_type": "Van",
-    "pickup_date": "2024-12-15",
-    "delivery_date": "2024-12-15",
-    "status": "pending",
-    "price": 450.00,
-    "subcontract_cost": 320.00
+    "email": "shipper@xdrivelogistics.co.uk",
+    "password": "password123"
   }'
+
+# Get bookings
+curl http://localhost:3001/api/bookings
+
+# Get gross margin report
+curl "http://localhost:3001/api/reports/gross-margin?from=2025-12-01&to=2025-12-31"
+
+# Get dashboard stats
+curl http://localhost:3001/api/reports/dashboard-stats
 ```
 
-#### Update Booking
+## Database Schema
 
-```bash
-curl -X PUT http://localhost:3001/api/bookings/1 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "status": "completed",
-    "completed_by": "John Driver"
-  }'
-```
+The application uses the following tables:
 
-### Reports Endpoints
+- **users** - User accounts (drivers and shippers)
+- **bookings** - Load/delivery records with pricing
+- **invoices** - Invoice records linked to bookings
+- **feedback** - User ratings and feedback
+- **watchlist** - Compliance tracking for suppliers
 
-#### Gross Margin Report
+See `db/schema.sql` for complete schema definition.
 
-```bash
-curl "http://localhost:3001/api/reports/gross-margin?from=2024-12-01&to=2024-12-31"
-```
+## Supabase Integration (Optional - Legacy)
 
-Response:
-```json
-{
-  "period": {
-    "from": "2024-12-01",
-    "to": "2024-12-31"
-  },
-  "summary": {
-    "total_bookings": 18,
-    "total_revenue": 7890.00,
-    "subcontract_spend": 5760.00,
-    "gross_margin_total": 2130.00,
-    "avg_margin_per_booking": 118.33,
-    "margin_percentage": 26.99
-  }
-}
-```
-
-### Invoices Endpoints
-
-```bash
-# List invoices
-curl "http://localhost:3001/api/invoices?status=pending"
-
-# Create invoice
-curl -X POST http://localhost:3001/api/invoices \
-  -H "Content-Type: application/json" \
-  -d '{
-    "booking_id": 1,
-    "invoice_number": "INV-2024-100",
-    "amount": 450.00,
-    "due_date": "2024-12-31"
-  }'
-```
-
-### Feedback Endpoints
-
-```bash
-# Submit feedback
-curl -X POST http://localhost:3001/api/feedback \
-  -H "Content-Type: application/json" \
-  -d '{
-    "booking_id": 1,
-    "rating": 5,
-    "comment": "Excellent service!",
-    "feedback_type": "booking"
-  }'
-```
-
-## Manual Setup (Without Docker)
-
-### 4. Create Database Tables
-
-Run the schema SQL:
+The project originally used Supabase. To use Supabase instead of the local PostgreSQL setup:
 
 ```sql
 -- Enable UUID extension

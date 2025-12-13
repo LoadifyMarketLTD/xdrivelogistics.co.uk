@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ro">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -269,7 +269,9 @@
         <h2 id="signin-title" class="title">Sign in</h2>
         <p class="subtitle">Login to view jobs, vehicles &amp; earnings</p>
 
-        <form class="login-form" action="#" method="post" novalidate>
+        <form class="login-form" id="login-form" novalidate>
+          <div id="login-message" style="display:none;padding:12px;border-radius:8px;margin-bottom:12px;"></div>
+          
           <label class="sr" for="email">Email / Username</label>
           <input id="email" name="email" class="input" type="email" placeholder="Email / Username" required>
 
@@ -281,7 +283,7 @@
             <a class="forgot" href="#">Forgot password?</a>
           </div>
 
-          <button type="submit" class="btn-primary">Sign in to XDrive</button>
+          <button type="submit" class="btn-primary" id="login-btn">Sign in to XDrive</button>
         </form>
 
         <p class="foot">No account yet? <a href="register-inline.html" style="color:var(--gold);text-decoration:none;font-weight:600">Request access</a></p>
@@ -290,54 +292,67 @@
   </main>
 
   <script>
-    // Handle login form submission
-    document.addEventListener('DOMContentLoaded', function() {
-      const form = document.querySelector('.login-form');
+    (function(){
+      const form = document.getElementById('login-form');
+      const loginBtn = document.getElementById('login-btn');
+      const messageDiv = document.getElementById('login-message');
       
-      form.addEventListener('submit', async function(e) {
+      const API_URL = 'http://localhost:3001';
+
+      function showMessage(text, isError = false) {
+        messageDiv.textContent = text;
+        messageDiv.style.display = 'block';
+        messageDiv.style.background = isError ? '#3a201f' : '#0b3a2f';
+        messageDiv.style.color = isError ? '#ffd6d6' : '#c8f0df';
+      }
+
+      form.addEventListener('submit', async function(e){
         e.preventDefault();
-        
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        const btn = form.querySelector('.btn-primary');
-        
-        // Validation
+        messageDiv.style.display = 'none';
+
+        const email = form.email.value.trim();
+        const password = form.password.value;
+
         if (!email || !password) {
-          alert('Please enter email and password');
+          showMessage('Please enter both email and password', true);
           return;
         }
-        
-        // Disable button during submission
-        btn.disabled = true;
-        btn.textContent = 'Signing in...';
-        
+
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Signing in...';
+
         try {
-          const response = await fetch('/api/login', {
+          const response = await fetch(`${API_URL}/api/auth/login`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, password }),
           });
-          
+
           const data = await response.json();
-          
-          if (!response.ok) {
-            throw new Error(data.error || 'Login failed');
+
+          if (response.ok) {
+            showMessage('Login successful! Redirecting to dashboard...');
+            // Store user info in sessionStorage
+            sessionStorage.setItem('user', JSON.stringify(data.user));
+            // Redirect to dashboard after 1 second
+            setTimeout(() => {
+              window.location.href = 'dashboard.html';
+            }, 1000);
+          } else {
+            showMessage(data.error || 'Login failed', true);
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Sign in to XDrive';
           }
-          
-          // Success - store user info and redirect to dashboard
-          localStorage.setItem('xdrive_user', JSON.stringify(data.user));
-          alert('Login successful!');
-          window.location.href = '/dashboard.html';
-          
         } catch (error) {
-          alert(error.message || 'Network error. Please try again.');
-          btn.disabled = false;
-          btn.textContent = 'Sign in to XDrive';
+          console.error('Login error:', error);
+          showMessage('Could not connect to backend server. Please ensure the API is running at ' + API_URL, true);
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Sign in to XDrive';
         }
       });
-    });
+    })();
   </script>
 </body>
 </html>

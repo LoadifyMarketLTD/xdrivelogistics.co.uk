@@ -19,6 +19,13 @@ const { sendVerificationEmail } = require('../mailer');
 
 const router = express.Router();
 
+/**
+ * POST /api/auth/register
+ * Register a new user (driver or shipper)
+ */
+router.post('/register', async (req, res) => {
+  try {
+    const { account_type, email, password } = req.body;
 // JWT secret (MUST be provided in production)
 const JWT_SECRET = process.env.JWT_SECRET || (() => {
   if (process.env.NODE_ENV === 'production') {
@@ -64,6 +71,10 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
     if (!['driver', 'shipper'].includes(account_type)) {
+      return res.status(400).json({ error: 'Invalid account_type. Must be driver or shipper' });
+    }
+
+    // Check if email already exists
       return res.status(400).json({ error: 'Invalid account_type (must be driver or shipper)' });
       return res.status(400).json({ error: 'account_type must be "driver" or "shipper"' });
     }
@@ -73,6 +84,7 @@ router.post('/register', async (req, res) => {
       'SELECT id FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
+    
     if (existingUser.rowCount > 0) {
       return res.status(409).json({ error: 'Email already registered' });
     }
@@ -83,6 +95,29 @@ router.post('/register', async (req, res) => {
 
     // Generate verification token
     const verifyToken = crypto.randomBytes(32).toString('hex');
+    const tokenExpiresMin = Number(process.env.VERIFY_TOKEN_EXPIRES_MIN || 60);
+    const verifyTokenExpires = new Date(Date.now() + tokenExpiresMin * 60 * 1000);
+
+    // Insert user
+    const result = await pool.query(
+      `INSERT INTO users (account_type, email, password_hash, status, verify_token, verify_token_expires, created_at, updated_at)
+       VALUES ($1, $2, $3, 'pending', $4, $5, NOW(), NOW())
+       RETURNING id, email, account_type, status, created_at`,
+      [account_type, email.toLowerCase(), passwordHash, verifyToken, verifyTokenExpires]
+    );
+
+    const user = result.rows[0];
+
+    // Send verification email (best effort)
+    try {
+      await sendVerificationEmail(email, verifyToken);
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Continue - user is created, they can request resend
+    }
+
+    res.status(201).json({
+      message: 'Account created successfully. Please check your email to verify your account.',
     const tokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     // Insert user
@@ -142,6 +177,17 @@ router.post('/register', async (req, res) => {
         email: user.email,
         account_type: user.account_type,
         status: user.status,
+      }
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/login
+ * Login with email and password
       },
     });
   } catch (err) {
@@ -167,6 +213,7 @@ router.post('/login', async (req, res) => {
 
     // Find user
     const result = await pool.query(
+      'SELECT id, email, password_hash, account_type, status FROM users WHERE email = $1',
       'SELECT id, email, password_hash, account_type, full_name, company_name, status FROM users WHERE email = $1',
       'SELECT id, email, password_hash, account_type, status, company_name FROM users WHERE email = $1',
       [email.toLowerCase()]
@@ -180,6 +227,16 @@ router.post('/login', async (req, res) => {
     const user = result.rows[0];
 
     // Check password
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Check if account is verified
+    if (user.status === 'pending') {
+      return res.status(403).json({ 
+        error: 'Account not verified. Please check your email for the verification link.',
+        status: 'pending'
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -194,6 +251,12 @@ router.post('/login', async (req, res) => {
     }
 
     if (user.status === 'disabled') {
+      return res.status(403).json({ error: 'Account has been disabled' });
+    }
+
+    // Return user info (in production, generate JWT token here)
+    res.json({
+      message: 'Login successful',
       return res.status(403).json({ error: 'Account disabled' });
     }
 
@@ -230,6 +293,18 @@ router.post('/login', async (req, res) => {
         id: user.id,
         email: user.email,
         account_type: user.account_type,
+        status: user.status,
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/auth/verify-email?token=xxx
+ * Verify email with token
         full_name: user.full_name,
         company_name: user.company_name,
       },
@@ -250,6 +325,10 @@ router.get('/verify-email', async (req, res) => {
     const { token } = req.query;
 
     if (!token) {
+      return res.status(400).json({ error: 'Verification token is required' });
+    }
+
+    // Find user by token
       return res.status(400).json({ error: 'Token required' });
     }
 
@@ -266,6 +345,7 @@ router.get('/verify-email', async (req, res) => {
     );
 
     if (result.rowCount === 0) {
+      return res.status(400).json({ error: 'Invalid verification token' });
       return res.status(400).json({ error: 'Invalid or expired token' });
       return res.status(400).json({ error: 'Invalid or expired verification token' });
     }
@@ -283,6 +363,21 @@ router.get('/verify-email', async (req, res) => {
       return res.status(400).json({ error: 'Verification token has expired' });
     }
 
+    // Activate user
+    await pool.query(
+      `UPDATE users 
+       SET status = 'active', verify_token = NULL, verify_token_expires = NULL, updated_at = NOW()
+       WHERE id = $1`,
+      [user.id]
+    );
+
+    res.json({
+      message: 'Email verified successfully. You can now log in.',
+      email: user.email
+    });
+  } catch (error) {
+    console.error('Verification error:', error);
+    res.status(500).json({ error: 'Internal server error' });
     // Update user status to active
     await pool.query(
       'UPDATE users SET status = $1, verify_token = NULL, verify_token_expires = NULL, updated_at = NOW() WHERE id = $2',

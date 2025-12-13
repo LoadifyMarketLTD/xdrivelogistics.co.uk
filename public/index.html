@@ -1,97 +1,69 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="XDrive Logistics - Sign in to access jobs and reports">
-    <title>XDrive - Sign In</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>XDrive Logistics - Demo</title>
+  <style>
+    :root{
+      --bg:#051421; --panel:#0b1b24; --muted:#97a6ad; --gold:#D6A551;
+      --font: system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{
+      font-family:var(--font); background:linear-gradient(180deg,#04121a,#071b27); color:#eef5f9;
+      display:flex; align-items:center; justify-content:center; padding:28px; min-height:100vh;
+    }
+    .container{
+      width:680px; max-width:98%; padding:40px; border-radius:16px;
+      background:linear-gradient(180deg, rgba(10,18,24,0.80), rgba(6,14,18,0.85));
+      border:1px solid rgba(255,255,255,0.03); box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    }
+    h1{ margin:0 0 10px; font-size:36px; color:#fff; }
+    .subtitle{ color:var(--muted); margin-bottom:30px; line-height:1.5; }
+    .links{ list-style:none; padding:0; margin:30px 0; }
+    .links li{ margin-bottom:16px; }
+    .links a{
+      display:block; padding:16px 20px; border-radius:12px; text-decoration:none;
+      background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04);
+      color:var(--gold); font-weight:600; transition:all 0.2s;
+    }
+    .links a:hover{ background:rgba(214,165,81,0.08); border-color:rgba(214,165,81,0.14); }
+    .info{
+      background:rgba(255,255,255,0.02); padding:20px; border-radius:10px;
+      border-left:4px solid var(--gold); margin-top:30px; font-size:14px;
+    }
+    .info h3{ margin:0 0 10px; color:var(--gold); font-size:16px; }
+    code{ background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:4px; font-size:13px; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Left Column: Hero Section -->
-        <div class="hero-section" role="complementary" aria-label="Welcome hero section">
-            <div class="hero-image-wrapper">
-                <img src="image/hero.svg" alt="Night motorway" class="hero-image">
-                <div class="hero-overlay">
-                    <div class="hero-content">
-                        <img src="image/logo.svg" alt="XDrive Logistics" class="hero-logo">
-                        <h1 class="hero-title">Welcome to XDrive</h1>
-                        <p class="hero-subtitle">Sign in to access jobs and reports.</p>
-                        
-                        <div class="thumbnails">
-                            <div class="thumbnail">
-                                <img src="image/thumb1.svg" alt="Feature preview 1">
-                            </div>
-                            <div class="thumbnail">
-                                <img src="image/thumb2.svg" alt="Feature preview 2">
-                            </div>
-                            <div class="thumbnail">
-                                <img src="image/thumb3.svg" alt="Feature preview 3">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <div class="container">
+    <h1>XDrive Logistics</h1>
+    <p class="subtitle">Full Integration MVP - Demo Pages</p>
 
-        <!-- Right Column: Sign In Panel -->
-        <main class="signin-panel" role="main" aria-label="Sign in form">
-            <div class="signin-content">
-                <img src="image/logo.svg" alt="XDrive Logistics" class="signin-logo">
-                
-                <h2 class="signin-title">Sign in</h2>
-                <p class="signin-subtitle">Enter your credentials to access your account</p>
+    <ul class="links">
+      <li><a href="register-inline.html">→ Register New Account</a></li>
+      <li><a href="desktop-signin-final.html">→ Sign In</a></li>
+      <li><a href="dashboard.html">→ Dashboard (requires login)</a></li>
+    </ul>
 
-                <form class="signin-form" action="#" method="post">
-                    <div class="form-group">
-                        <label for="email" class="visually-hidden">Email address</label>
-                        <input 
-                            type="email" 
-                            id="email" 
-                            name="email" 
-                            placeholder="Email address" 
-                            required 
-                            aria-required="true"
-                            autocomplete="email"
-                        >
-                    </div>
-
-                    <div class="form-group">
-                        <label for="password" class="visually-hidden">Password</label>
-                        <input 
-                            type="password" 
-                            id="password" 
-                            name="password" 
-                            placeholder="Password" 
-                            required 
-                            aria-required="true"
-                            autocomplete="current-password"
-                        >
-                    </div>
-
-                    <div class="form-options">
-                        <div class="checkbox-group">
-                            <input 
-                                type="checkbox" 
-                                id="remember" 
-                                name="remember"
-                            >
-                            <label for="remember">Keep me logged in</label>
-                        </div>
-                        <a href="#" class="forgot-link">Forgot password?</a>
-                    </div>
-
-                    <button type="submit" class="signin-button">
-                        Sign in to XDrive
-                    </button>
-                </form>
-
-                <div class="signin-footer">
-                    <p>Don't have access? <a href="#" class="request-link">Request access</a></p>
-                </div>
-            </div>
-        </main>
+    <div class="info">
+      <h3>Demo Credentials</h3>
+      <p>Use these credentials to test the login functionality:</p>
+      <ul style="margin:10px 0; padding-left:20px;">
+        <li>Email: <code>shipper@xdrivelogistics.co.uk</code> / Password: <code>password123</code></li>
+        <li>Email: <code>driver@xdrivelogistics.co.uk</code> / Password: <code>password123</code></li>
+        <li>Email: <code>ion@xdrivelogistics.co.uk</code> / Password: <code>password123</code></li>
+      </ul>
     </div>
+
+    <div class="info">
+      <h3>API Endpoints</h3>
+      <p>Backend API is running at <code>http://localhost:3001</code></p>
+      <p>Try: <code>curl http://localhost:3001/health</code></p>
+    </div>
+  </div>
 </body>
 </html>

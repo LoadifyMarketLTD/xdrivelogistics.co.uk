@@ -56,3 +56,5 @@ prisma/*.db-journal
 *.userId
 *.driverId
 *.jobId
+server/node_modules/
+server/package-lock.json

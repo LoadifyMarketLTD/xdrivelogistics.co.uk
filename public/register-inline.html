@@ -96,7 +96,7 @@
       <h2 id="create-title">Create your account</h2>
       <div class="muted">Join XDrive Logistics as a driver or shipper</div>
 
-      <div class="alert" id="auth-alert"><strong>Authentication service is not configured</strong><div class="small">This demo page validates locally only.</div></div>
+      <div class="alert" id="auth-alert" style="display:none;"><strong>Authentication service is not configured</strong><div class="small">This demo page validates locally only.</div></div>
 
       <form id="register-form" novalidate>
         <div class="radio-row" role="radiogroup" aria-label="Account Type">
@@ -129,48 +129,72 @@
       const ok = document.getElementById('ok');
       const err = document.getElementById('err');
       const authAlert = document.getElementById('auth-alert');
+      const createBtn = document.getElementById('create-btn');
 
-      // show auth warning (already visible) but keep accessible
-      authAlert.setAttribute('role','alert');
+      // API endpoint (change to your backend URL)
+      const API_URL = 'http://localhost:3001';
 
       form.addEventListener('submit', async function(e){
         e.preventDefault();
         ok.style.display = 'none';
         err.style.display = 'none';
+        authAlert.style.display = 'none';
 
         const email = form.email.value.trim();
-        const password = form.password.value;
-        const confirm = form.confirm.value;
-        const account_type = form.type.value;
+        const pass = form.password.value;
+        const conf = form.confirm.value;
+        const type = form.type.value;
 
-        // client validation
-        if (!email || !password || password.length < 8 || password !== confirm) {
-          err.textContent = 'Please check your inputs (email, password length >=8 and matching).';
+        // Client-side validation
+        const emailValid = /\S+@\S+\.\S+/.test(email);
+        const pwValid = pass.length >= 8;
+        const match = pass === conf;
+
+        if(!emailValid || !pwValid || !match){
+          err.textContent = 'Error: ';
+          if(!emailValid) err.textContent += 'Invalid email. ';
+          if(!pwValid) err.textContent += 'Password must be at least 8 characters. ';
+          if(!match) err.textContent += 'Passwords do not match.';
           err.style.display = 'block';
           return;
         }
 
+        // Disable button during request
+        createBtn.disabled = true;
+        createBtn.textContent = 'Creating account...';
+
         try {
-          const resp = await fetch('/api/register', {
+          const response = await fetch(`${API_URL}/api/auth/register`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ account_type, email, password })
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              account_type: type,
+              email: email,
+              password: pass,
+            }),
           });
 
-          const data = await resp.json();
-          if (!resp.ok) {
-            err.textContent = data.error || 'Registration failed';
-            err.style.display = 'block';
-            return;
-          }
+          const data = await response.json();
 
-          ok.textContent = data.message || 'Check your email to verify account.';
-          ok.style.display = 'block';
-          form.password.value = '';
-          form.confirm.value = '';
+          if (response.ok) {
+            ok.textContent = data.message || 'Account created successfully! Please check your email to verify your account.';
+            ok.style.display = 'block';
+            form.reset();
+          } else {
+            err.textContent = data.error || 'Registration failed. Please try again.';
+            err.style.display = 'block';
+          }
         } catch (error) {
-          err.textContent = 'Network error. Try again later.';
+          console.error('Registration error:', error);
+          // Fallback if API is not available
+          authAlert.style.display = 'block';
+          err.textContent = 'Could not connect to backend server. Please ensure the API is running at ' + API_URL;
           err.style.display = 'block';
+        } finally {
+          createBtn.disabled = false;
+          createBtn.textContent = 'Create account';
         }
       });
     })();
