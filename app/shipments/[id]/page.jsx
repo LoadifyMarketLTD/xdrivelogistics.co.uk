@@ -24,6 +24,11 @@ export default function ShipmentDetailPage({ params }) {
     try {
       setLoading(true);
 
+      // Check if supabase is configured
+      if (!supabaseClient) {
+        throw new Error('Database service is not configured');
+      }
+
       // Get current user
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
