@@ -1,6 +1,13 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: xdrive-postgres
+    environment:
+      POSTGRES_USER: xdrive
+      POSTGRES_PASSWORD: xdrive_dev_password
+      POSTGRES_DB: xdrive_db
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
@@ -28,6 +35,24 @@ services:
       context: ./server
       dockerfile: Dockerfile
     container_name: xdrive-backend
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DATABASE_URL=postgresql://xdrive:xdrive_dev_password@postgres:5432/xdrive_db
+      - JWT_SECRET=dev-jwt-secret-change-in-production
+      - BCRYPT_ROUNDS=10
+      - VERIFY_TOKEN_EXPIRES_MIN=60
+      - APP_BASE_URL=http://localhost:3000
+      - CORS_ORIGIN=*
+      - EMAIL_FROM=XDrive Logistics <noreply@xdrivelogistics.co.uk>
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./server/src:/app/src
+    command: npm run dev
     restart: unless-stopped
     depends_on:
       postgres:

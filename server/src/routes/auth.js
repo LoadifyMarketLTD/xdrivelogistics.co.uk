@@ -1,4 +1,5 @@
 /**
+ * Authentication routes: register, login, verify-email
  * Authentication routes
  * - POST /api/register - Register new user
  * - POST /api/login - Login existing user
@@ -19,6 +20,16 @@ const { sendVerificationEmail } = require('../mailer');
 
 const router = express.Router();
 
+const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
+const JWT_EXPIRES_IN = '7d';
+
+/**
+ * POST /api/register
+ * Create new user account with email verification
+ */
+router.post('/register', async (req, res) => {
+  try {
+    const { account_type, email, password } = req.body;
 /**
  * POST /api/auth/register
  * Register a new user (driver or shipper)
@@ -71,6 +82,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
     if (!['driver', 'shipper'].includes(account_type)) {
+      return res.status(400).json({ error: 'Invalid account_type. Must be "driver" or "shipper"' });
       return res.status(400).json({ error: 'Invalid account_type. Must be driver or shipper' });
     }
 
@@ -90,11 +102,20 @@ router.post('/register', async (req, res) => {
     }
 
     // Hash password
+    const saltRounds = Number(process.env.BCRYPT_ROUNDS || 12);
     const saltRounds = Number(process.env.BCRYPT_ROUNDS || 10);
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Generate verification token
     const verifyToken = crypto.randomBytes(32).toString('hex');
+    const tokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Insert user
+    const result = await pool.query(
+      `INSERT INTO users (account_type, email, password_hash, status, verify_token, verify_token_expires, created_at)
+       VALUES ($1, $2, $3, 'pending', $4, $5, NOW())
+       RETURNING id, email, account_type, status, created_at`,
+      [account_type, email.toLowerCase(), passwordHash, verifyToken, tokenExpires]
     const tokenExpiresMin = Number(process.env.VERIFY_TOKEN_EXPIRES_MIN || 60);
     const verifyTokenExpires = new Date(Date.now() + tokenExpiresMin * 60 * 1000);
 
@@ -108,6 +129,16 @@ router.post('/register', async (req, res) => {
 
     const user = result.rows[0];
 
+    // Send verification email (best-effort)
+    try {
+      await sendVerificationEmail(email, verifyToken);
+    } catch (emailError) {
+      console.error('Email send failed, but user created:', emailError);
+      // Don't fail registration if email fails - user can resend later
+    }
+
+    return res.status(201).json({
+      message: 'Account created successfully. Please check your email to verify your account.',
     // Send verification email (best effort)
     try {
       await sendVerificationEmail(email, verifyToken);
@@ -177,6 +208,10 @@ router.post('/register', async (req, res) => {
         email: user.email,
         account_type: user.account_type,
         status: user.status,
+      },
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
       }
     });
   } catch (error) {
@@ -199,6 +234,7 @@ router.post('/register', async (req, res) => {
 
 /**
  * POST /api/login
+ * Authenticate user and return JWT
  * Login with email and password
  * Login with email and password, returns JWT
  */
@@ -227,6 +263,8 @@ router.post('/login', async (req, res) => {
     const user = result.rows[0];
 
     // Check password
+    const isValid = await bcrypt.compare(password, user.password_hash);
+    if (!isValid) {
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
     if (!passwordMatch) {
       return res.status(401).json({ error: 'Invalid email or password' });
@@ -244,6 +282,11 @@ router.post('/login', async (req, res) => {
 
     // Check if verified
     if (user.status === 'pending') {
+      return res.status(403).json({ error: 'Please verify your email before logging in' });
+    }
+
+    if (user.status !== 'active') {
+      return res.status(403).json({ error: 'Account is not active' });
       return res.status(403).json({ 
         error: 'Email not verified. Please check your email.',
         code: 'EMAIL_NOT_VERIFIED'
@@ -293,6 +336,10 @@ router.post('/login', async (req, res) => {
         id: user.id,
         email: user.email,
         account_type: user.account_type,
+      },
+    });
+  } catch (error) {
+    console.error('Login error:', error);
         status: user.status,
       }
     });
@@ -317,6 +364,7 @@ router.post('/login', async (req, res) => {
 
 /**
  * GET /api/verify-email?token=xxx
+ * Verify email address
  * Verify email with token
  * Verify email address with token
  */
@@ -325,6 +373,7 @@ router.get('/verify-email', async (req, res) => {
     const { token } = req.query;
 
     if (!token) {
+      return res.status(400).json({ error: 'Verification token required' });
       return res.status(400).json({ error: 'Verification token is required' });
     }
 
@@ -352,6 +401,9 @@ router.get('/verify-email', async (req, res) => {
 
     const user = result.rows[0];
 
+    // Check if token expired
+    if (new Date(user.verify_token_expires) < new Date()) {
+      return res.status(400).json({ error: 'Verification token expired' });
     // Check expiry
     if (new Date(user.verify_token_expires) < new Date()) {
       return res.status(400).json({ error: 'Token expired' });
@@ -385,6 +437,11 @@ router.get('/verify-email', async (req, res) => {
     );
 
     return res.json({
+      message: 'Email verified successfully! You can now log in.',
+      email: user.email,
+    });
+  } catch (error) {
+    console.error('Verification error:', error);
       message: 'Email verified successfully. You can now login.',
       email: user.email,
     });

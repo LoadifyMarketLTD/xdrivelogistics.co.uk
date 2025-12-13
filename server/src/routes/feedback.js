@@ -10,6 +10,15 @@ const router = express.Router();
 
 /**
  * GET /api/feedback
+ * List all feedback
+ */
+router.get('/', async (req, res) => {
+  try {
+    const { limit = 50, offset = 0 } = req.query;
+
+    const result = await pool.query(
+      'SELECT * FROM feedback ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+      [limit, offset]
  * List all feedback (optionally filtered by user_id or booking_id)
  */
 router.get('/', async (req, res) => {
@@ -52,6 +61,8 @@ router.get('/', async (req, res) => {
       feedback: result.rows,
       count: result.rowCount,
     });
+  } catch (error) {
+    console.error('Error fetching feedback:', error);
   } catch (err) {
     console.error('List feedback error:', err);
     console.error('Error fetching feedback:', err);
@@ -60,6 +71,8 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /api/feedback/:id
+ * Get single feedback
  * POST /api/feedback
  * Submit new feedback
  */
@@ -93,6 +106,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
+    const result = await pool.query('SELECT * FROM feedback WHERE id = $1', [id]);
     const result = await pool.query(
       'SELECT * FROM feedback WHERE id = $1',
       [id]
@@ -103,6 +117,8 @@ router.get('/:id', async (req, res) => {
     }
 
     return res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching feedback:', error);
   } catch (err) {
     console.error('Error fetching feedback:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -111,12 +127,31 @@ router.get('/:id', async (req, res) => {
 
 /**
  * POST /api/feedback
+ * Submit new feedback
  * Submit feedback
  */
 router.post('/', async (req, res) => {
   try {
     const { user_id, booking_id, rating, comment } = req.body;
 
+    if (!rating) {
+      return res.status(400).json({ error: 'Rating is required' });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO feedback (user_id, booking_id, rating, comment, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING *`,
+      [user_id, booking_id, rating, comment]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating feedback:', error);
     // Validate rating is an integer between 1 and 5
     const ratingNum = Number(rating);
     if (!rating || !Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
