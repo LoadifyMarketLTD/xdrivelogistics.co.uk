@@ -3,11 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabaseClient } from '../../lib/supabaseClient';
 
-// Constants
-const PROFILE_CREATION_RETRIES = 3;
-const RETRY_DELAY_MS = 1000;
+// Backend API URL - configurable via environment variable
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -30,57 +28,30 @@ export default function RegisterPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       setLoading(false);
       return;
     }
 
     try {
-      // Check if supabase is configured
-      if (!supabaseClient) {
-        throw new Error('Authentication service is not configured');
-      }
-
-      // Sign up with Supabase Auth
-      const { data, error: signUpError } = await supabaseClient.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            role: role,
-          },
+      // Register with backend API
+      const response = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          account_type: role,
+          email: email,
+          password: password,
+        }),
       });
 
-      if (signUpError) throw signUpError;
+      const data = await response.json();
 
-      // If sign up successful, create profile with retries
-      if (data.user) {
-        let profileCreated = false;
-        let retries = 3;
-        
-        while (!profileCreated && retries > 0) {
-          const { error: profileError } = await supabaseClient
-            .from('profiles')
-            .insert({
-              id: data.user.id,
-              email: email,
-              role: role,
-            });
-
-          if (!profileError) {
-            profileCreated = true;
-          } else {
-            console.error('Profile creation error:', profileError);
-            retries--;
-            if (retries === 0) {
-              throw new Error('Failed to create user profile after multiple attempts. Please contact support with your email.');
-            }
-            // Wait a bit before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed. Please try again.');
       }
 
       setSuccess(true);
@@ -88,7 +59,11 @@ export default function RegisterPage() {
         router.push('/login');
       }, 2000);
     } catch (error) {
-      setError(error.message);
+      if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+        setError('Could not connect to backend server. Please ensure the API is running at ' + API_URL);
+      } else {
+        setError(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -102,11 +77,18 @@ export default function RegisterPage() {
             XDL
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-50 mb-2">
-            Create your account
+            Creează-ți contul
           </h1>
           <p className="text-sm text-slate-400">
-            Join XDrive Logistics as a driver or shipper
+            Alătură-te XDrive Logistics ca șofer sau expeditor
           </p>
+        </div>
+
+        <div className="mb-4 p-3 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
+          <strong>Serviciul de autentificare nu este configurat</strong>
+          <div className="text-amber-400/80 mt-1">
+            Această pagină demonstrativă validează doar local.
+          </div>
         </div>
 
         {error && (
@@ -123,7 +105,6 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label className="block text-sm text-slate-300">Account Type</label>
             <div className="inline-flex w-full items-center rounded-lg bg-slate-900 p-1 text-xs ring-1 ring-slate-800">
               <button
                 type="button"
@@ -135,7 +116,7 @@ export default function RegisterPage() {
                     : 'text-slate-400 hover:text-slate-200')
                 }
               >
-                Driver
+                Șofer
               </button>
               <button
                 type="button"
@@ -147,17 +128,17 @@ export default function RegisterPage() {
                     : 'text-slate-400 hover:text-slate-200')
                 }
               >
-                Shipper
+                Expeditor
               </button>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm text-slate-300">Email</label>
+            <label className="block text-sm text-slate-300">E-mail</label>
             <input
               className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
               type="email"
-              placeholder="your@email.com"
+              placeholder="dannyelbill@gmail.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -165,24 +146,24 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm text-slate-300">Password</label>
+            <label className="block text-sm text-slate-300">Parolă</label>
             <input
               className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
               type="password"
-              placeholder="••••••••"
+              placeholder="••••••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={8}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm text-slate-300">Confirm Password</label>
+            <label className="block text-sm text-slate-300">Confirmați parola</label>
             <input
               className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
               type="password"
-              placeholder="••••••••"
+              placeholder="••••••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
@@ -194,7 +175,7 @@ export default function RegisterPage() {
             disabled={loading || success}
             className="w-full rounded-md bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Creating account...' : 'Create account'}
+            {loading ? 'Se creează contul...' : 'Creează cont'}
           </button>
         </form>
 
