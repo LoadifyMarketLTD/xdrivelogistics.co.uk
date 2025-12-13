@@ -39,6 +39,8 @@ cd xdrivelogistics.co.uk
 docker compose up --build
 ```
 
+> **Note**: First-time build may take 2-5 minutes as npm installs all dependencies. Subsequent starts will be faster.
+
 The services will start:
 - **PostgreSQL**: `localhost:5432`
 - **Backend API**: `http://localhost:3001`
