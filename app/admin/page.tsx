@@ -233,7 +233,7 @@ export default function AdminPage() {
                   gap: '1rem'
                 }}>
                   <button
-                    onClick={() => setActiveSection('invoices')}
+                    onClick={() => window.location.href = '/admin/invoices'}
                     style={{
                       padding: '1rem',
                       backgroundColor: '#eff6ff',
@@ -307,8 +307,57 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Other sections placeholder */}
-          {activeSection !== 'dashboard' && (
+          {/* Other sections */}
+          {activeSection === 'invoices' && (
+            <div style={{
+              backgroundColor: 'white',
+              padding: '3rem 2rem',
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '4rem',
+                marginBottom: '1rem'
+              }}>
+                💰
+              </div>
+              <h3 style={{
+                fontSize: '1.5rem',
+                color: '#1f2937',
+                marginBottom: '0.5rem'
+              }}>
+                Invoice Management
+              </h3>
+              <p style={{
+                color: '#6b7280',
+                fontSize: '1rem',
+                marginBottom: '1.5rem'
+              }}>
+                Manage all your invoices in the dedicated invoice section.
+              </p>
+              <button
+                onClick={() => window.location.href = '/admin/invoices'}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+              >
+                Go to Invoices
+              </button>
+            </div>
+          )}
+          
+          {activeSection !== 'dashboard' && activeSection !== 'invoices' && (
             <div style={{
               backgroundColor: 'white',
               padding: '3rem 2rem',
