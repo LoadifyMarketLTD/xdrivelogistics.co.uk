@@ -1,0 +1,6 @@
+# Redirect www subdomain to apex domain
+https://www.dannycourierltd.co.uk/* https://dannycourierltd.co.uk/:splat 301!
+
+# Redirect HTTP to HTTPS
+http://dannycourierltd.co.uk/* https://dannycourierltd.co.uk/:splat 301!
+http://www.dannycourierltd.co.uk/* https://dannycourierltd.co.uk/:splat 301!
