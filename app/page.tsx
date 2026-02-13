@@ -161,56 +161,139 @@ export default function Home() {
 
       {/* 2. HERO SECTION */}
       <section id="home" style={{
-        minHeight: '420px',
+        minHeight: '500px',
         display: 'flex',
         alignItems: 'center',
-        background: 'linear-gradient(135deg, rgba(10, 34, 57, 0.95) 0%, rgba(27, 99, 198, 0.85) 100%), url(/placeholder-van.jpg) center/cover',
+        background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%)',
         color: 'white',
-        position: 'relative'
+        position: 'relative',
+        padding: '80px 0'
       }}>
+        {/* Decorative elements */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.2) 0%, transparent 50%)',
+          pointerEvents: 'none'
+        }}></div>
+        
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ maxWidth: '800px' }}>
-            <h1 style={{ color: 'white', marginBottom: '12px', lineHeight: '1.1' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
+            {/* Badge */}
+            <div style={{
+              display: 'inline-block',
+              padding: '8px 20px',
+              backgroundColor: 'rgba(16, 185, 129, 0.15)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '50px',
+              fontSize: '14px',
+              fontWeight: 'var(--font-weight-semibold)',
+              marginBottom: '24px',
+              color: '#6ee7b7'
+            }}>
+              🚚 Available 24/7 Across UK & Europe
+            </div>
+            
+            <h1 style={{ 
+              color: 'white', 
+              marginBottom: '20px', 
+              lineHeight: '1.1',
+              fontSize: 'clamp(2rem, 5vw, 3.5rem)',
+              fontWeight: 'var(--font-weight-bold)',
+              textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+            }}>
               Reliable Same Day & Express Transport
             </h1>
+            
             <h2 style={{ 
-              fontSize: 'var(--font-size-h2)', 
+              fontSize: 'clamp(1.5rem, 3vw, 2rem)', 
               fontWeight: 'var(--font-weight-semibold)',
               color: 'rgba(255, 255, 255, 0.95)',
-              marginBottom: '16px'
+              marginBottom: '24px',
+              textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
             }}>
               Across the UK & Europe
             </h2>
+            
             <p style={{ 
-              fontSize: '18px', 
-              marginBottom: '32px',
-              color: 'rgba(255, 255, 255, 0.9)'
+              fontSize: 'clamp(16px, 2vw, 20px)', 
+              marginBottom: '40px',
+              color: 'rgba(255, 255, 255, 0.9)',
+              lineHeight: '1.6',
+              maxWidth: '700px',
+              margin: '0 auto 40px'
             }}>
-              Fast, Secure & On-Time Deliveries 24/7
+              Fast, Secure & On-Time Deliveries 24/7. Professional courier and logistics services you can trust.
             </p>
             
             {/* CTAs */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
-              <a href="#quote" className="btn btn-primary" style={{ height: '52px', fontSize: '16px' }}>
-                Get a Free Quote
+            <div style={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: '16px', 
+              marginBottom: '32px',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}>
+              <a href="#quote" className="btn btn-primary" style={{ 
+                height: '56px', 
+                fontSize: '17px',
+                padding: '0 32px',
+                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                fontWeight: 'var(--font-weight-bold)'
+              }}>
+                📦 Get a Free Quote
               </a>
               <a href="tel:07423272138" className="btn" style={{ 
-                height: '52px',
-                fontSize: '16px',
-                backgroundColor: 'transparent',
-                border: '2px solid white',
-                color: 'white'
+                height: '56px',
+                fontSize: '17px',
+                padding: '0 32px',
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                backdropFilter: 'blur(10px)',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
+                color: 'white',
+                fontWeight: 'var(--font-weight-semibold)'
               }}>
-                📞 Call Us: 07423 272 138
+                📞 Call: 07423 272 138
               </a>
             </div>
 
-            {/* Email */}
-            <p style={{ fontSize: '15px', color: 'rgba(255, 255, 255, 0.85)' }}>
-              Email: <a href="mailto:xdrivelogisticsltd@gmail.com" style={{ color: 'white', textDecoration: 'underline' }}>
-                xdrivelogisticsltd@gmail.com
-              </a>
-            </p>
+            {/* Contact Info */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '24px', 
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              alignItems: 'center',
+              fontSize: '15px', 
+              color: 'rgba(255, 255, 255, 0.85)' 
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>📧</span>
+                <a href="mailto:xdrivelogisticsltd@gmail.com" style={{ 
+                  color: 'white', 
+                  textDecoration: 'none',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.4)',
+                  paddingBottom: '2px'
+                }}>
+                  xdrivelogisticsltd@gmail.com
+                </a>
+              </div>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px',
+                padding: '8px 16px',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px'
+              }}>
+                <span>✓</span>
+                <span>Fully Insured & Licensed</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -218,13 +301,16 @@ export default function Home() {
       <style jsx>{`
         @media (min-width: 768px) {
           #home {
-            min-height: 460px !important;
+            min-height: 560px !important;
           }
         }
         @media (min-width: 1024px) {
           #home {
-            min-height: 480px !important;
+            min-height: 600px !important;
           }
+        }
+        .btn:hover {
+          transform: translateY(-2px);
         }
       `}</style>
 
