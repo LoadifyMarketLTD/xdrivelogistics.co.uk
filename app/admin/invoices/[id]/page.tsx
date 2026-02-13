@@ -30,7 +30,7 @@ export default function InvoiceDetailPage() {
     serviceDescription: '',
     amount: 0,
     paymentTerms: '14 days',
-    lateFee: COMPANY_CONFIG.invoice.lateFeeNote,
+    lateFee: COMPANY_CONFIG.payment.lateFeeNote,
   });
 
   const [showPreview, setShowPreview] = useState(false);
