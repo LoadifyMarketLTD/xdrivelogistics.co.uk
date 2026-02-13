@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { COMPANY_CONFIG } from '../config/company';
 
 export interface InvoiceData {
   id: string;
@@ -120,10 +121,10 @@ export default function InvoiceTemplate({ invoice, showPreview = false }: Invoic
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
               <h1 style={{ fontSize: '2rem', fontWeight: '700', margin: '0 0 0.5rem 0' }}>
-                Danny Courier Ltd
+                {COMPANY_CONFIG.name}
               </h1>
               <p style={{ margin: 0, opacity: 0.9, fontSize: '0.95rem' }}>
-                Professional Courier Services
+                {COMPANY_CONFIG.tagline}
               </p>
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -265,15 +266,15 @@ export default function InvoiceTemplate({ invoice, showPreview = false }: Invoic
             <div>
               <div style={{ ...labelStyle, fontSize: '0.875rem' }}>Bank Transfer</div>
               <div style={{ fontSize: '0.875rem', color: '#1f2937', lineHeight: '1.6' }}>
-                <div>Danny Courier Ltd</div>
-                <div>Sort Code: 04-00-04</div>
-                <div>Account: 12345678</div>
+                <div>{COMPANY_CONFIG.payment.bankTransfer.accountName}</div>
+                <div>Sort Code: {COMPANY_CONFIG.payment.bankTransfer.sortCode}</div>
+                <div>Account: {COMPANY_CONFIG.payment.bankTransfer.accountNumber}</div>
               </div>
             </div>
             <div>
               <div style={{ ...labelStyle, fontSize: '0.875rem' }}>PayPal</div>
               <div style={{ fontSize: '0.875rem', color: '#1f2937' }}>
-                xdrivelogisticsltd@gmail.com
+                {COMPANY_CONFIG.payment.paypal.email}
               </div>
             </div>
           </div>
@@ -285,7 +286,7 @@ export default function InvoiceTemplate({ invoice, showPreview = false }: Invoic
             Thank you for your business!
           </p>
           <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: '0.5rem 0 0 0' }}>
-            For any queries, please contact us at info@dannycourier.co.uk
+            For any queries, please contact us at {COMPANY_CONFIG.email}
           </p>
         </div>
       </div>

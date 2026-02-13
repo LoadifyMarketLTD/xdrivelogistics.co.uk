@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import InvoiceTemplate, { InvoiceData } from '../../../components/InvoiceTemplate';
+import { COMPANY_CONFIG } from '../../../config/company';
 
 export default function InvoiceDetailPage() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function InvoiceDetailPage() {
     serviceDescription: '',
     amount: 0,
     paymentTerms: '14 days',
-    lateFee: 'Late fee: £25 per full week overdue after due date',
+    lateFee: COMPANY_CONFIG.invoice.lateFeeNote,
   });
 
   const [showPreview, setShowPreview] = useState(false);
@@ -56,21 +57,28 @@ export default function InvoiceDetailPage() {
     }
   }, [formData.date, formData.paymentTerms]);
 
+  // Generate unique Job Reference using timestamp to prevent collisions
+  // Format: DC-YYMMDD-XXXX where XXXX is based on timestamp milliseconds
   const generateJobRef = () => {
     const now = new Date();
     const yy = now.getFullYear().toString().slice(-2);
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
-    const xxxx = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-    return `DC-${yy}${mm}${dd}-${xxxx}`;
+    // Use timestamp milliseconds for uniqueness instead of random
+    const xxxx = String(now.getTime() % 10000).padStart(4, '0');
+    return `${COMPANY_CONFIG.invoice.jobRefPrefix}-${yy}${mm}${dd}-${xxxx}`;
   };
 
+  // Generate unique Invoice Number using timestamp
+  // Format: INV-YYYYMM-XXX
+  // TODO: In production, use sequential counter from backend database
   const generateInvoiceNumber = () => {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-    return `INV-${year}${month}-${random}`;
+    // Use timestamp milliseconds for uniqueness instead of random
+    const uniqueId = String(now.getTime() % 1000).padStart(3, '0');
+    return `${COMPANY_CONFIG.invoice.invoicePrefix}-${year}${month}-${uniqueId}`;
   };
 
   const generateNewInvoiceData = () => {
@@ -143,8 +151,8 @@ export default function InvoiceDetailPage() {
       `Amount: £${formData.amount.toFixed(2)}\n` +
       `Due Date: ${new Date(formData.dueDate).toLocaleDateString('en-GB')}\n\n` +
       `Please make payment via:\n` +
-      `Bank Transfer: Sort Code 04-00-04, Account 12345678\n` +
-      `PayPal: xdrivelogisticsltd@gmail.com`
+      `Bank Transfer: Sort Code ${COMPANY_CONFIG.payment.bankTransfer.sortCode}, Account ${COMPANY_CONFIG.payment.bankTransfer.accountNumber}\n` +
+      `PayPal: ${COMPANY_CONFIG.payment.paypal.email}`
     );
     window.open(`https://wa.me/?text=${message}`, '_blank');
   };
