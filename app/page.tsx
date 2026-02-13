@@ -27,15 +27,17 @@ export default function Home() {
   };
 
   return (
-    <main>
-      {/* 1. NAVIGATION (STICKY) */}
+    <main style={{ backgroundColor: '#0a1628', minHeight: '100vh' }}>
+      {/* 1. NAVIGATION (STICKY) - DARK GLASS */}
       <nav style={{
         position: 'sticky',
         top: 0,
         zIndex: 1000,
-        backgroundColor: 'white',
-        borderBottom: '1px solid var(--color-border)',
-        height: '56px'
+        backgroundColor: 'rgba(10, 22, 40, 0.85)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
+        height: '56px',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
       }}>
         <div className="container" style={{
           display: 'flex',
@@ -46,8 +48,11 @@ export default function Home() {
           {/* Logo */}
           <div style={{ 
             fontSize: '18px', 
-            fontWeight: 'var(--font-weight-bold)',
-            color: 'var(--color-primary)'
+            fontWeight: 'bold',
+            background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
           }}>
             Danny Courier Ltd
           </div>
@@ -58,10 +63,10 @@ export default function Home() {
             gap: '32px',
             alignItems: 'center'
           }} className="desktop-nav">
-            <a href="#home" style={{ fontWeight: 'var(--font-weight-medium)' }}>Home</a>
-            <a href="#services" style={{ fontWeight: 'var(--font-weight-medium)' }}>Services</a>
-            <a href="#about" style={{ fontWeight: 'var(--font-weight-medium)' }}>About Us</a>
-            <a href="#contact" style={{ fontWeight: 'var(--font-weight-medium)' }}>Contact</a>
+            <a href="#home" style={{ fontWeight: '500', color: '#ffffff', transition: 'color 0.2s' }} className="nav-link">Home</a>
+            <a href="#services" style={{ fontWeight: '500', color: '#ffffff', transition: 'color 0.2s' }} className="nav-link">Services</a>
+            <a href="#about" style={{ fontWeight: '500', color: '#ffffff', transition: 'color 0.2s' }} className="nav-link">About Us</a>
+            <a href="#contact" style={{ fontWeight: '500', color: '#ffffff', transition: 'color 0.2s' }} className="nav-link">Contact</a>
           </div>
 
           {/* Right Side */}
@@ -73,14 +78,15 @@ export default function Home() {
                   key={lang}
                   onClick={() => setLanguage(lang)}
                   style={{
-                    background: language === lang ? 'var(--color-secondary)' : 'transparent',
-                    color: language === lang ? 'white' : 'var(--color-text-muted)',
-                    border: 'none',
+                    background: language === lang ? '#d4af37' : 'transparent',
+                    color: language === lang ? '#0a1628' : 'rgba(255, 255, 255, 0.6)',
+                    border: '1px solid rgba(212, 175, 55, 0.3)',
                     padding: '4px 8px',
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    fontWeight: 'var(--font-weight-medium)',
-                    fontSize: '13px'
+                    fontWeight: '600',
+                    fontSize: '13px',
+                    transition: 'all 0.2s'
                   }}
                 >
                   {lang}
@@ -89,11 +95,22 @@ export default function Home() {
             </div>
 
             {/* CTA Button - Desktop Only */}
-            <a href="#quote" className="btn btn-primary" style={{ 
+            <a href="#quote" style={{ 
               display: 'none',
               height: '40px',
               padding: '0 20px',
-              fontSize: '14px'
+              fontSize: '14px',
+              background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
+              color: '#0a1628',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textDecoration: 'none',
+              boxShadow: '0 4px 14px rgba(212, 175, 55, 0.4)'
             }} id="nav-cta">
               Get a Quote
             </a>
@@ -113,9 +130,9 @@ export default function Home() {
               className="mobile-menu-btn"
               aria-label="Toggle menu"
             >
-              <span style={{ width: '24px', height: '2px', backgroundColor: 'var(--color-primary)' }}></span>
-              <span style={{ width: '24px', height: '2px', backgroundColor: 'var(--color-primary)' }}></span>
-              <span style={{ width: '24px', height: '2px', backgroundColor: 'var(--color-primary)' }}></span>
+              <span style={{ width: '24px', height: '2px', backgroundColor: '#d4af37' }}></span>
+              <span style={{ width: '24px', height: '2px', backgroundColor: '#d4af37' }}></span>
+              <span style={{ width: '24px', height: '2px', backgroundColor: '#d4af37' }}></span>
             </button>
           </div>
         </div>
@@ -127,16 +144,27 @@ export default function Home() {
             top: '56px',
             left: 0,
             right: 0,
-            backgroundColor: 'white',
-            borderBottom: '1px solid var(--color-border)',
-            padding: '16px'
+            backgroundColor: 'rgba(10, 22, 40, 0.95)',
+            backdropFilter: 'blur(12px)',
+            borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
+            padding: '16px',
+            boxShadow: '0 8px 16px rgba(0, 0, 0, 0.4)'
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <a href="#home" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: 'var(--font-weight-medium)' }}>Home</a>
-              <a href="#services" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: 'var(--font-weight-medium)' }}>Services</a>
-              <a href="#about" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: 'var(--font-weight-medium)' }}>About Us</a>
-              <a href="#contact" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: 'var(--font-weight-medium)' }}>Contact</a>
-              <a href="#quote" className="btn btn-primary" style={{ marginTop: '8px' }}>Get a Quote</a>
+              <a href="#home" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: '500', color: '#ffffff' }}>Home</a>
+              <a href="#services" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: '500', color: '#ffffff' }}>Services</a>
+              <a href="#about" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: '500', color: '#ffffff' }}>About Us</a>
+              <a href="#contact" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: '500', color: '#ffffff' }}>Contact</a>
+              <a href="#quote" style={{ 
+                marginTop: '8px',
+                padding: '12px',
+                background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
+                color: '#0a1628',
+                fontWeight: '700',
+                borderRadius: '8px',
+                textAlign: 'center',
+                textDecoration: 'none'
+              }}>Get a Quote</a>
             </div>
           </div>
         )}
@@ -157,26 +185,33 @@ export default function Home() {
             display: none !important;
           }
         }
+        .nav-link:hover {
+          color: #d4af37 !important;
+        }
+        #nav-cta:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(212, 175, 55, 0.6) !important;
+        }
       `}</style>
 
-      {/* 2. HERO SECTION */}
+      {/* 2. HERO SECTION - CINEMATIC DARK */}
       <section id="home" style={{
         minHeight: '500px',
         display: 'flex',
         alignItems: 'center',
-        background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%)',
+        background: 'linear-gradient(180deg, #0a1628 0%, #050c16 50%, #000000 100%)',
         color: 'white',
         position: 'relative',
-        padding: '80px 0'
+        padding: '60px 0 80px'
       }}>
-        {/* Decorative elements */}
+        {/* Animated gradient overlay */}
         <div style={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.2) 0%, transparent 50%)',
+          background: 'radial-gradient(circle at 30% 40%, rgba(212, 175, 55, 0.08) 0%, transparent 50%), radial-gradient(circle at 70% 60%, rgba(0, 212, 255, 0.06) 0%, transparent 50%)',
           pointerEvents: 'none'
         }}></div>
         
@@ -186,43 +221,45 @@ export default function Home() {
             <div style={{
               display: 'inline-block',
               padding: '8px 20px',
-              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
+              backgroundColor: 'rgba(0, 212, 255, 0.1)',
+              border: '1px solid rgba(0, 212, 255, 0.3)',
               borderRadius: '50px',
               fontSize: '14px',
-              fontWeight: 'var(--font-weight-semibold)',
+              fontWeight: '600',
               marginBottom: '24px',
-              color: '#6ee7b7'
+              color: '#00d4ff'
             }}>
               🚚 Available 24/7 Across UK & Europe
             </div>
             
             <h1 style={{ 
-              color: 'white', 
+              color: '#ffffff', 
               marginBottom: '20px', 
               lineHeight: '1.1',
               fontSize: 'clamp(2rem, 5vw, 3.5rem)',
-              fontWeight: 'var(--font-weight-bold)',
-              textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+              fontWeight: '800',
+              textShadow: '0 4px 12px rgba(212, 175, 55, 0.3)'
             }}>
               Reliable Same Day & Express Transport
             </h1>
             
             <h2 style={{ 
               fontSize: 'clamp(1.5rem, 3vw, 2rem)', 
-              fontWeight: 'var(--font-weight-semibold)',
-              color: 'rgba(255, 255, 255, 0.95)',
-              marginBottom: '24px',
-              textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+              fontWeight: '600',
+              background: 'linear-gradient(135deg, #d4af37 0%, #00d4ff 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              marginBottom: '24px'
             }}>
               Across the UK & Europe
             </h2>
             
             <p style={{ 
-              fontSize: 'clamp(16px, 2vw, 20px)', 
+              fontSize: 'clamp(16px, 2vw, 18px)', 
               marginBottom: '40px',
-              color: 'rgba(255, 255, 255, 0.9)',
-              lineHeight: '1.6',
+              color: 'rgba(255, 255, 255, 0.8)',
+              lineHeight: '1.7',
               maxWidth: '700px',
               margin: '0 auto 40px'
             }}>
@@ -238,25 +275,40 @@ export default function Home() {
               justifyContent: 'center',
               alignItems: 'center'
             }}>
-              <a href="#quote" className="btn btn-primary" style={{ 
+              <a href="https://wa.me/447423272138?text=Hello%2C%20I%27d%20like%20to%20inquire%20about%20your%20courier%20services" target="_blank" rel="noopener noreferrer" style={{ 
                 height: '56px', 
                 fontSize: '17px',
                 padding: '0 32px',
-                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
-                fontWeight: 'var(--font-weight-bold)'
-              }}>
+                background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
+                color: '#0a1628',
+                border: 'none',
+                borderRadius: '12px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textDecoration: 'none',
+                boxShadow: '0 4px 20px rgba(212, 175, 55, 0.5)',
+                transition: 'all 0.3s'
+              }} className="gold-btn">
                 📦 Get a Free Quote
               </a>
-              <a href="tel:07423272138" className="btn" style={{ 
+              <a href="tel:07423272138" style={{ 
                 height: '56px',
                 fontSize: '17px',
                 padding: '0 32px',
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 backdropFilter: 'blur(10px)',
-                border: '2px solid rgba(255, 255, 255, 0.3)',
-                color: 'white',
-                fontWeight: 'var(--font-weight-semibold)'
-              }}>
+                border: '2px solid rgba(0, 212, 255, 0.4)',
+                color: '#00d4ff',
+                borderRadius: '12px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textDecoration: 'none',
+                transition: 'all 0.3s'
+              }} className="electric-btn">
                 📞 Call: 07423 272 138
               </a>
             </div>
@@ -268,16 +320,15 @@ export default function Home() {
               flexWrap: 'wrap',
               justifyContent: 'center',
               alignItems: 'center',
-              fontSize: '15px', 
-              color: 'rgba(255, 255, 255, 0.85)' 
+              fontSize: '14px', 
+              color: 'rgba(255, 255, 255, 0.7)' 
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>📧</span>
                 <a href="mailto:xdrivelogisticsltd@gmail.com" style={{ 
-                  color: 'white', 
+                  color: 'rgba(255, 255, 255, 0.8)', 
                   textDecoration: 'none',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.4)',
-                  paddingBottom: '2px'
+                  borderBottom: '1px solid rgba(212, 175, 55, 0.4)'
                 }}>
                   xdrivelogisticsltd@gmail.com
                 </a>
@@ -286,9 +337,11 @@ export default function Home() {
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '8px',
-                padding: '8px 16px',
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px'
+                padding: '6px 14px',
+                backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                border: '1px solid rgba(212, 175, 55, 0.2)',
+                borderRadius: '8px',
+                color: '#d4af37'
               }}>
                 <span>✓</span>
                 <span>Fully Insured & Licensed</span>
@@ -301,91 +354,164 @@ export default function Home() {
       <style jsx>{`
         @media (min-width: 768px) {
           #home {
-            min-height: 560px !important;
+            min-height: 520px !important;
           }
         }
         @media (min-width: 1024px) {
           #home {
-            min-height: 600px !important;
+            min-height: 560px !important;
           }
         }
-        .btn:hover {
+        .gold-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 24px rgba(212, 175, 55, 0.7) !important;
+        }
+        .electric-btn:hover {
+          background-color: rgba(0, 212, 255, 0.1) !important;
+          border-color: rgba(0, 212, 255, 0.6) !important;
           transform: translateY(-2px);
         }
       `}</style>
 
-      {/* 3. BENEFITS STRIP */}
+      {/* 3. SOCIAL MEDIA ICONS SECTION */}
       <section style={{ 
-        backgroundColor: '#f9fafb',
-        padding: 'var(--section-padding) 0',
-        borderTop: '1px solid var(--color-border)',
-        borderBottom: '1px solid var(--color-border)'
+        backgroundColor: '#050c16',
+        padding: '40px 0',
+        borderTop: '1px solid rgba(212, 175, 55, 0.1)',
+        borderBottom: '1px solid rgba(212, 175, 55, 0.1)'
       }}>
         <div className="container">
-          <div className="grid grid-3" style={{ textAlign: 'center', gap: '32px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <h3 style={{ 
+              color: '#d4af37', 
+              fontSize: '18px', 
+              fontWeight: '600',
+              letterSpacing: '1px',
+              textTransform: 'uppercase'
+            }}>Connect With Us</h3>
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            gap: '24px', 
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}>
+            {[
+              { icon: '📘', name: 'Facebook', href: '#' },
+              { icon: '📷', name: 'Instagram', href: '#' },
+              { icon: '🎵', name: 'TikTok', href: '#' },
+              { icon: '💼', name: 'LinkedIn', href: '#' }
+            ].map((social, idx) => (
+              <a 
+                key={idx}
+                href={social.href}
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  border: '2px solid #d4af37',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '28px',
+                  transition: 'all 0.3s',
+                  backgroundColor: 'rgba(10, 22, 40, 0.5)',
+                  boxShadow: '0 0 0 rgba(212, 175, 55, 0.5)',
+                  textDecoration: 'none'
+                }}
+                className="social-icon"
+                aria-label={social.name}
+              >
+                {social.icon}
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <style jsx>{`
+        .social-icon:hover {
+          transform: scale(1.1);
+          box-shadow: 0 0 24px rgba(212, 175, 55, 0.6) !important;
+          border-color: #f4d03f !important;
+        }
+      `}</style>
+
+      {/* 4. BENEFITS / SERVICES PREVIEW */}
+      <section style={{ 
+        backgroundColor: '#0a1628',
+        padding: '60px 0',
+        position: 'relative'
+      }}>
+        <div className="container">
+          <div className="grid grid-3" style={{ textAlign: 'center', gap: '24px' }}>
             <div style={{ 
               padding: '32px 24px',
-              backgroundColor: 'white',
-              borderRadius: 'var(--card-radius)',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-            }} className="benefit-card">
+              backgroundColor: 'rgba(10, 22, 40, 0.6)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(212, 175, 55, 0.2)',
+              borderRadius: '16px',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+              transition: 'all 0.3s'
+            }} className="benefit-card-dark">
               <div style={{ 
                 fontSize: '48px', 
-                marginBottom: '16px',
-                filter: 'grayscale(0%)'
+                marginBottom: '16px'
               }}>🕐</div>
               <h3 style={{ 
                 fontSize: '20px', 
                 marginBottom: '12px',
-                fontWeight: 'var(--font-weight-bold)',
-                color: 'var(--color-text)'
+                fontWeight: '700',
+                color: '#d4af37'
               }}>24/7 Service</h3>
-              <p className="text-muted" style={{ fontSize: '15px', marginBottom: 0, lineHeight: '1.6' }}>
+              <p style={{ fontSize: '15px', marginBottom: 0, lineHeight: '1.6', color: 'rgba(255, 255, 255, 0.8)' }}>
                 Round-the-clock availability for all your urgent transport needs
               </p>
             </div>
             <div style={{ 
               padding: '32px 24px',
-              backgroundColor: 'white',
-              borderRadius: 'var(--card-radius)',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-            }} className="benefit-card">
+              backgroundColor: 'rgba(10, 22, 40, 0.6)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(212, 175, 55, 0.2)',
+              borderRadius: '16px',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+              transition: 'all 0.3s'
+            }} className="benefit-card-dark">
               <div style={{ 
                 fontSize: '48px', 
-                marginBottom: '16px',
-                filter: 'grayscale(0%)'
+                marginBottom: '16px'
               }}>🌍</div>
               <h3 style={{ 
                 fontSize: '20px', 
                 marginBottom: '12px',
-                fontWeight: 'var(--font-weight-bold)',
-                color: 'var(--color-text)'
+                fontWeight: '700',
+                color: '#d4af37'
               }}>Nationwide & Europe</h3>
-              <p className="text-muted" style={{ fontSize: '15px', marginBottom: 0, lineHeight: '1.6' }}>
+              <p style={{ fontSize: '15px', marginBottom: 0, lineHeight: '1.6', color: 'rgba(255, 255, 255, 0.8)' }}>
                 Comprehensive UK and EU coverage with reliable delivery
               </p>
             </div>
             <div style={{ 
               padding: '32px 24px',
-              backgroundColor: 'white',
-              borderRadius: 'var(--card-radius)',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-            }} className="benefit-card">
+              backgroundColor: 'rgba(10, 22, 40, 0.6)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(212, 175, 55, 0.2)',
+              borderRadius: '16px',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+              transition: 'all 0.3s'
+            }} className="benefit-card-dark">
               <div style={{ 
                 fontSize: '48px', 
-                marginBottom: '16px',
-                filter: 'grayscale(0%)'
+                marginBottom: '16px'
               }}>🛡️</div>
               <h3 style={{ 
                 fontSize: '20px', 
                 marginBottom: '12px',
-                fontWeight: 'var(--font-weight-bold)',
-                color: 'var(--color-text)'
+                fontWeight: '700',
+                color: '#d4af37'
               }}>Fully Insured</h3>
-              <p className="text-muted" style={{ fontSize: '15px', marginBottom: 0, lineHeight: '1.6' }}>
+              <p style={{ fontSize: '15px', marginBottom: 0, lineHeight: '1.6', color: 'rgba(255, 255, 255, 0.8)' }}>
                 Your cargo is fully protected with comprehensive insurance
               </p>
             </div>
@@ -394,27 +520,30 @@ export default function Home() {
       </section>
 
       <style jsx>{`
-        .benefit-card:hover {
+        .benefit-card-dark:hover {
           transform: translateY(-4px);
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+          border-color: rgba(212, 175, 55, 0.5) !important;
+          box-shadow: 0 12px 32px rgba(212, 175, 55, 0.2) !important;
         }
       `}</style>
 
-      {/* 4. QUICK QUOTE SECTION */}
+      {/* 5. QUOTE FORM SECTION - GLASS DARK */}
       <section id="quote" style={{ 
-        backgroundColor: 'white',
-        padding: 'var(--section-padding) 0'
+        backgroundColor: '#050c16',
+        padding: '60px 0',
+        borderTop: '1px solid rgba(212, 175, 55, 0.1)'
       }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '48px' }}>
             <h2 style={{ 
               marginBottom: '16px',
               fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-              color: 'var(--color-text)'
-            }}>Get Your Quote Today</h2>
+              color: '#ffffff',
+              fontWeight: '800'
+            }}>Ready to Move Your Freight?</h2>
             <p style={{ 
               fontSize: '18px', 
-              color: 'var(--color-text-muted)',
+              color: 'rgba(255, 255, 255, 0.7)',
               maxWidth: '600px',
               margin: '0 auto'
             }}>
@@ -422,22 +551,26 @@ export default function Home() {
             </p>
           </div>
           
-          <div style={{ 
-            display: 'grid',
-            gap: '32px',
-            gridTemplateColumns: '1fr'
-          }} className="quote-grid">
-            {/* Quote Form */}
-            <div className="card" style={{ maxWidth: '740px', margin: '0 auto', width: '100%' }}>
-              <h3 style={{ marginBottom: '24px' }}>Get a Quick Quote</h3>
+          <div style={{ maxWidth: '740px', margin: '0 auto', width: '100%' }}>
+            {/* Quote Form - Dark Glass */}
+            <div style={{
+              padding: '32px',
+              backgroundColor: 'rgba(10, 22, 40, 0.7)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              borderRadius: '20px',
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)'
+            }}>
+              <h3 style={{ marginBottom: '24px', color: '#d4af37', fontSize: '22px', fontWeight: '700' }}>Get a Quick Quote</h3>
               
               {quoteSuccess && (
                 <div style={{
                   padding: '16px',
-                  backgroundColor: 'var(--color-cta)',
-                  color: 'white',
-                  borderRadius: 'var(--input-radius)',
-                  marginBottom: '16px',
+                  backgroundColor: 'rgba(212, 175, 55, 0.2)',
+                  border: '1px solid #d4af37',
+                  color: '#d4af37',
+                  borderRadius: '12px',
+                  marginBottom: '20px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px'
@@ -451,40 +584,80 @@ export default function Home() {
                 <div style={{ display: 'grid', gap: '16px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }} className="form-row">
                     <div>
-                      <label htmlFor="name" style={{ display: 'block', marginBottom: '8px', fontWeight: 'var(--font-weight-medium)' }}>
+                      <label htmlFor="name" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
                         Name *
                       </label>
-                      <input type="text" id="name" name="name" required placeholder="Your full name" />
+                      <input type="text" id="name" name="name" required placeholder="Your full name" style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(0, 212, 255, 0.3)',
+                        borderRadius: '8px',
+                        color: '#ffffff',
+                        fontSize: '15px'
+                      }} />
                     </div>
                     <div>
-                      <label htmlFor="email" style={{ display: 'block', marginBottom: '8px', fontWeight: 'var(--font-weight-medium)' }}>
+                      <label htmlFor="email" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
                         Email *
                       </label>
-                      <input type="email" id="email" name="email" required placeholder="your.email@example.com" />
+                      <input type="email" id="email" name="email" required placeholder="your.email@example.com" style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(0, 212, 255, 0.3)',
+                        borderRadius: '8px',
+                        color: '#ffffff',
+                        fontSize: '15px'
+                      }} />
                     </div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }} className="form-row">
                     <div>
-                      <label htmlFor="pickup" style={{ display: 'block', marginBottom: '8px', fontWeight: 'var(--font-weight-medium)' }}>
+                      <label htmlFor="pickup" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
                         Pickup Location *
                       </label>
-                      <input type="text" id="pickup" name="pickup" required placeholder="City, Postcode, or Address" />
+                      <input type="text" id="pickup" name="pickup" required placeholder="City, Postcode, or Address" style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(0, 212, 255, 0.3)',
+                        borderRadius: '8px',
+                        color: '#ffffff',
+                        fontSize: '15px'
+                      }} />
                     </div>
                     <div>
-                      <label htmlFor="delivery" style={{ display: 'block', marginBottom: '8px', fontWeight: 'var(--font-weight-medium)' }}>
+                      <label htmlFor="delivery" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
                         Delivery Location *
                       </label>
-                      <input type="text" id="delivery" name="delivery" required placeholder="City, Postcode, or Address" />
+                      <input type="text" id="delivery" name="delivery" required placeholder="City, Postcode, or Address" style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(0, 212, 255, 0.3)',
+                        borderRadius: '8px',
+                        color: '#ffffff',
+                        fontSize: '15px'
+                      }} />
                     </div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }} className="form-row">
                     <div>
-                      <label htmlFor="cargo" style={{ display: 'block', marginBottom: '8px', fontWeight: 'var(--font-weight-medium)' }}>
+                      <label htmlFor="cargo" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
                         Cargo Details *
                       </label>
-                      <select id="cargo" name="cargo" required>
+                      <select id="cargo" name="cargo" required style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(0, 212, 255, 0.3)',
+                        borderRadius: '8px',
+                        color: '#ffffff',
+                        fontSize: '15px'
+                      }}>
                         <option value="">Select cargo type</option>
                         <option value="documents">Documents / Small Parcel</option>
                         <option value="packages">Packages (up to 30kg)</option>
@@ -494,15 +667,23 @@ export default function Home() {
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="quantity" style={{ display: 'block', marginBottom: '8px', fontWeight: 'var(--font-weight-medium)' }}>
+                      <label htmlFor="quantity" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
                         Quantity
                       </label>
-                      <input type="number" id="quantity" name="quantity" min="1" defaultValue="1" placeholder="Number of items" />
+                      <input type="number" id="quantity" name="quantity" min="1" defaultValue="1" placeholder="Number of items" style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(0, 212, 255, 0.3)',
+                        borderRadius: '8px',
+                        color: '#ffffff',
+                        fontSize: '15px'
+                      }} />
                     </div>
                   </div>
 
                   <div>
-                    <label htmlFor="message" style={{ display: 'block', marginBottom: '8px', fontWeight: 'var(--font-weight-medium)' }}>
+                    <label htmlFor="message" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
                       Additional Details
                     </label>
                     <textarea 
@@ -510,36 +691,38 @@ export default function Home() {
                       name="message" 
                       placeholder="Any special requirements or additional information..."
                       rows={3}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(0, 212, 255, 0.3)',
+                        borderRadius: '8px',
+                        color: '#ffffff',
+                        fontSize: '15px',
+                        fontFamily: 'inherit'
+                      }}
                     ></textarea>
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
-                    <button type="submit" className="btn btn-primary" style={{ minWidth: '200px' }}>
+                    <button type="submit" style={{ 
+                      minWidth: '200px',
+                      padding: '14px 32px',
+                      background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
+                      color: '#0a1628',
+                      border: 'none',
+                      borderRadius: '10px',
+                      fontWeight: '700',
+                      fontSize: '16px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 20px rgba(212, 175, 55, 0.4)',
+                      transition: 'all 0.3s'
+                    }} className="submit-gold-btn">
                       Request a Quote
                     </button>
                   </div>
                 </div>
               </form>
-            </div>
-
-            {/* Image Card */}
-            <div className="card" style={{ 
-              backgroundColor: 'var(--color-primary)',
-              color: 'white',
-              minHeight: '300px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundImage: 'url(/placeholder-logistics.jpg)',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}>
-              <div style={{ textAlign: 'center', padding: '32px' }}>
-                <h3 style={{ color: 'white', marginBottom: '16px' }}>Fast Response Time</h3>
-                <p style={{ color: 'rgba(255, 255, 255, 0.9)', marginBottom: 0 }}>
-                  We typically respond to quote requests within 1 hour during business hours
-                </p>
-              </div>
             </div>
           </div>
 
@@ -552,25 +735,64 @@ export default function Home() {
             marginTop: '40px'
           }}>
             <a 
-              href="https://wa.me/447423272138" 
+              href="https://wa.me/447423272138?text=Hello%2C%20I%27d%20like%20to%20inquire%20about%20your%20courier%20services" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="btn btn-primary"
-              style={{ backgroundColor: '#25D366', display: 'flex', alignItems: 'center', gap: '8px' }}
+              style={{ 
+                padding: '14px 28px',
+                background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
+                color: '#0a1628',
+                border: 'none',
+                borderRadius: '10px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                textDecoration: 'none',
+                boxShadow: '0 4px 16px rgba(212, 175, 55, 0.4)',
+                transition: 'all 0.3s'
+              }}
+              className="gold-cta-btn"
             >
               <span style={{ fontSize: '20px' }}>💬</span> WhatsApp
             </a>
             <a 
               href="mailto:xdrivelogisticsltd@gmail.com"
-              className="btn btn-secondary"
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              style={{ 
+                padding: '14px 28px',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(10px)',
+                border: '2px solid rgba(0, 212, 255, 0.4)',
+                color: '#00d4ff',
+                borderRadius: '10px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                textDecoration: 'none',
+                transition: 'all 0.3s'
+              }}
+              className="electric-cta-btn"
             >
               <span style={{ fontSize: '20px' }}>📧</span> Email Us
             </a>
             <a 
               href="tel:07423272138"
-              className="btn btn-outline"
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              style={{ 
+                padding: '14px 28px',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(10px)',
+                border: '2px solid rgba(212, 175, 55, 0.4)',
+                color: '#d4af37',
+                borderRadius: '10px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                textDecoration: 'none',
+                transition: 'all 0.3s'
+              }}
+              className="gold-outline-btn"
             >
               <span style={{ fontSize: '20px' }}>📞</span> Call Now
             </a>
@@ -584,28 +806,49 @@ export default function Home() {
             grid-template-columns: 1fr 1fr !important;
           }
         }
-        @media (min-width: 1024px) {
-          .quote-grid {
-            grid-template-columns: 1.8fr 1fr !important;
-          }
+        input::placeholder, textarea::placeholder, select {
+          color: rgba(255, 255, 255, 0.4);
+        }
+        input:focus, textarea:focus, select:focus {
+          outline: none;
+          border-color: rgba(0, 212, 255, 0.6) !important;
+        }
+        .submit-gold-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 24px rgba(212, 175, 55, 0.6) !important;
+        }
+        .gold-cta-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 24px rgba(212, 175, 55, 0.6) !important;
+        }
+        .electric-cta-btn:hover {
+          background-color: rgba(0, 212, 255, 0.1) !important;
+          border-color: rgba(0, 212, 255, 0.6) !important;
+          transform: translateY(-2px);
+        }
+        .gold-outline-btn:hover {
+          background-color: rgba(212, 175, 55, 0.1) !important;
+          border-color: rgba(212, 175, 55, 0.6) !important;
+          transform: translateY(-2px);
         }
       `}</style>
 
-      {/* 5. SERVICES SECTION */}
+      {/* 6. SERVICES SECTION - COMPACT */}
       <section id="services" style={{ 
-        backgroundColor: '#f9fafb',
-        padding: 'var(--section-padding) 0'
+        backgroundColor: '#0a1628',
+        padding: '60px 0'
       }}>
         <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
             <h2 style={{ 
               marginBottom: '16px',
               fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-              color: 'var(--color-text)'
+              color: '#ffffff',
+              fontWeight: '800'
             }}>Our Services</h2>
             <p style={{ 
-              fontSize: '18px',
-              color: 'var(--color-text-muted)',
+              fontSize: '16px',
+              color: 'rgba(255, 255, 255, 0.7)',
               maxWidth: '600px',
               margin: '0 auto'
             }}>
@@ -613,7 +856,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-3">
+          <div className="grid grid-3" style={{ gap: '20px' }}>
             {[
               { icon: '⚡', title: 'Same Day Delivery', desc: 'Urgent deliveries within hours across the UK' },
               { icon: '📦', title: 'Express / Next Day', desc: 'Reliable overnight shipping nationwide' },
@@ -622,27 +865,31 @@ export default function Home() {
               { icon: '🚚', title: 'UK-EU Road Freight', desc: 'Cross-border transport solutions' },
               { icon: '🚐', title: 'Dedicated Van', desc: 'Exclusive van hire for your shipments' }
             ].map((service, index) => (
-              <div key={index} className="card" style={{
+              <div key={index} style={{
                 textAlign: 'center',
-                padding: '32px 24px',
-                backgroundColor: 'white',
-                transition: 'all 0.2s ease'
-              }}>
+                padding: '28px 20px',
+                backgroundColor: 'rgba(10, 22, 40, 0.5)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(212, 175, 55, 0.2)',
+                borderRadius: '16px',
+                transition: 'all 0.3s'
+              }} className="service-card-dark">
                 <div style={{ 
-                  fontSize: '56px', 
-                  marginBottom: '20px',
+                  fontSize: '48px', 
+                  marginBottom: '16px',
                   lineHeight: 1
                 }}>{service.icon}</div>
                 <h3 style={{ 
-                  marginBottom: '12px',
-                  fontSize: '20px',
-                  fontWeight: 'var(--font-weight-bold)',
-                  color: 'var(--color-text)'
+                  marginBottom: '10px',
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  color: '#d4af37'
                 }}>{service.title}</h3>
-                <p className="text-muted" style={{ 
-                  fontSize: '15px', 
+                <p style={{ 
+                  fontSize: '14px', 
                   marginBottom: 0,
-                  lineHeight: '1.6'
+                  lineHeight: '1.5',
+                  color: 'rgba(255, 255, 255, 0.7)'
                 }}>
                   {service.desc}
                 </p>
@@ -652,22 +899,111 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 6. ABOUT US SECTION */}
+      <style jsx>{`
+        .service-card-dark:hover {
+          border-color: rgba(212, 175, 55, 0.5) !important;
+          transform: translateY(-4px);
+          box-shadow: 0 8px 24px rgba(212, 175, 55, 0.2) !important;
+        }
+      `}</style>
+
+      {/* 7. INVOICE/PAYMENT SECTION */}
+      <section style={{ 
+        backgroundColor: '#050c16',
+        padding: '60px 0',
+        borderTop: '1px solid rgba(212, 175, 55, 0.1)'
+      }}>
+        <div className="container">
+          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <div style={{
+              padding: '40px 32px',
+              backgroundColor: 'rgba(10, 22, 40, 0.6)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              borderRadius: '20px',
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)',
+              textAlign: 'center'
+            }}>
+              <h3 style={{ 
+                color: '#d4af37', 
+                fontSize: '24px', 
+                fontWeight: '700',
+                marginBottom: '20px'
+              }}>Payment Options</h3>
+              
+              <p style={{ 
+                color: 'rgba(255, 255, 255, 0.8)', 
+                fontSize: '16px',
+                marginBottom: '28px',
+                lineHeight: '1.6'
+              }}>
+                We offer flexible payment terms for business accounts
+              </p>
+
+              <div style={{ 
+                display: 'flex', 
+                gap: '24px', 
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                marginBottom: '28px'
+              }}>
+                <div style={{
+                  flex: '1 1 250px',
+                  padding: '20px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(0, 212, 255, 0.2)',
+                  borderRadius: '12px'
+                }}>
+                  <div style={{ fontSize: '36px', marginBottom: '12px' }}>🏦</div>
+                  <h4 style={{ color: '#00d4ff', fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>Bank Transfer</h4>
+                  <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '14px', marginBottom: 0 }}>Secure direct payments</p>
+                </div>
+
+                <div style={{
+                  flex: '1 1 250px',
+                  padding: '20px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(0, 212, 255, 0.2)',
+                  borderRadius: '12px'
+                }}>
+                  <div style={{ fontSize: '36px', marginBottom: '12px' }}>💳</div>
+                  <h4 style={{ color: '#00d4ff', fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>PayPal</h4>
+                  <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '14px', marginBottom: 0 }}>Quick online payment</p>
+                </div>
+              </div>
+
+              <div style={{
+                padding: '16px',
+                backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                border: '1px solid rgba(212, 175, 55, 0.3)',
+                borderRadius: '10px'
+              }}>
+                <p style={{ color: '#d4af37', fontSize: '15px', fontWeight: '600', marginBottom: 0 }}>
+                  ✓ 14/30 Day Payment Terms Available for Business Accounts
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 8. ABOUT US - COMPACT */}
       <section id="about" style={{ 
-        backgroundColor: 'white',
-        padding: 'var(--section-padding) 0'
+        backgroundColor: '#0a1628',
+        padding: '60px 0'
       }}>
         <div className="container">
           <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
               <h2 style={{ 
                 marginBottom: '16px',
                 fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-                color: 'var(--color-text)'
+                color: '#ffffff',
+                fontWeight: '800'
               }}>About Danny Courier</h2>
               <p style={{ 
-                fontSize: '18px',
-                color: 'var(--color-text-muted)',
+                fontSize: '16px',
+                color: 'rgba(255, 255, 255, 0.7)',
                 lineHeight: '1.7',
                 maxWidth: '700px',
                 margin: '0 auto'
@@ -677,58 +1013,53 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="grid grid-2" style={{ gap: '32px' }}>
-              <div className="card" style={{ 
-                border: '2px solid var(--color-border)',
-                backgroundColor: 'white'
+            <div className="grid grid-2" style={{ gap: '24px' }}>
+              <div style={{ 
+                padding: '28px 24px',
+                border: '1px solid rgba(212, 175, 55, 0.3)',
+                borderRadius: '16px',
+                backgroundColor: 'rgba(10, 22, 40, 0.5)',
+                backdropFilter: 'blur(12px)'
               }}>
                 <h3 style={{ 
-                  marginBottom: '20px',
-                  fontSize: '22px',
-                  fontWeight: 'var(--font-weight-bold)',
-                  color: 'var(--color-text)'
+                  marginBottom: '16px',
+                  fontSize: '20px',
+                  fontWeight: '700',
+                  color: '#d4af37'
                 }}>Why Choose Us</h3>
-                <ul style={{ marginBottom: 0 }}>
-                  <li style={{ paddingTop: '12px', paddingBottom: '12px' }}>Experienced UK & EU coverage with local expertise</li>
-                  <li style={{ paddingTop: '12px', paddingBottom: '12px' }}>Comprehensive proof of delivery workflow</li>
-                  <li style={{ paddingTop: '12px', paddingBottom: '12px' }}>Transparent pricing and payment terms</li>
-                  <li style={{ paddingTop: '12px', paddingBottom: '12px' }}>Dedicated customer support team</li>
+                <ul style={{ marginBottom: 0, color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
+                  <li style={{ paddingTop: '10px', paddingBottom: '10px' }}>Experienced UK & EU coverage with local expertise</li>
+                  <li style={{ paddingTop: '10px', paddingBottom: '10px' }}>Comprehensive proof of delivery workflow</li>
+                  <li style={{ paddingTop: '10px', paddingBottom: '10px' }}>Transparent pricing and payment terms</li>
+                  <li style={{ paddingTop: '10px', paddingBottom: '10px' }}>Dedicated customer support team</li>
                 </ul>
               </div>
 
-              <div className="card" style={{ 
-                background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)',
-                color: 'white'
+              <div style={{ 
+                padding: '28px 24px',
+                background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(0, 212, 255, 0.1) 100%)',
+                border: '1px solid rgba(0, 212, 255, 0.3)',
+                borderRadius: '16px',
+                backdropFilter: 'blur(12px)'
               }}>
                 <h3 style={{ 
-                  color: 'white', 
-                  marginBottom: '20px',
-                  fontSize: '22px',
-                  fontWeight: 'var(--font-weight-bold)'
+                  color: '#00d4ff', 
+                  marginBottom: '16px',
+                  fontSize: '20px',
+                  fontWeight: '700'
                 }}>Our Commitment</h3>
                 <p style={{ 
-                  color: 'rgba(255, 255, 255, 0.95)', 
-                  marginBottom: '20px',
-                  lineHeight: '1.7'
+                  color: 'rgba(255, 255, 255, 0.8)', 
+                  marginBottom: '16px',
+                  lineHeight: '1.6',
+                  fontSize: '14px'
                 }}>
                   We are committed to providing reliable, professional transport services with a focus on:
                 </p>
-                <ul style={{ marginBottom: 0 }}>
-                  <li style={{ 
-                    color: 'rgba(255, 255, 255, 0.95)',
-                    paddingTop: '12px',
-                    paddingBottom: '12px'
-                  }}>On-time delivery performance</li>
-                  <li style={{ 
-                    color: 'rgba(255, 255, 255, 0.95)',
-                    paddingTop: '12px',
-                    paddingBottom: '12px'
-                  }}>Secure handling of goods</li>
-                  <li style={{ 
-                    color: 'rgba(255, 255, 255, 0.95)',
-                    paddingTop: '12px',
-                    paddingBottom: '12px'
-                  }}>Clear communication</li>
+                <ul style={{ marginBottom: 0, color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
+                  <li style={{ paddingTop: '8px', paddingBottom: '8px' }}>On-time delivery performance</li>
+                  <li style={{ paddingTop: '8px', paddingBottom: '8px' }}>Secure handling of goods</li>
+                  <li style={{ paddingTop: '8px', paddingBottom: '8px' }}>Clear communication</li>
                 </ul>
               </div>
             </div>
@@ -736,225 +1067,190 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 7. CONTACT SECTION */}
-      <section id="contact" style={{ 
-        backgroundColor: '#f9fafb',
-        padding: 'var(--section-padding) 0'
+      {/* 9. LEGAL LINKS & COOKIE NOTICE */}
+      <section style={{ 
+        backgroundColor: '#050c16',
+        padding: '40px 0',
+        borderTop: '1px solid rgba(212, 175, 55, 0.1)'
       }}>
         <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-            <h2 style={{ 
-              marginBottom: '16px',
-              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-              color: 'var(--color-text)'
-            }}>Get In Touch</h2>
-            <p style={{ 
-              fontSize: '18px',
-              color: 'var(--color-text-muted)',
-              maxWidth: '600px',
-              margin: '0 auto'
-            }}>
-              Have questions? We're here to help with all your transport needs
-            </p>
-          </div>
-
           <div style={{ 
-            display: 'grid',
-            gap: '32px',
-            gridTemplateColumns: '1fr'
-          }} className="contact-grid">
-            {/* Contact Details */}
-            <div className="card">
-              <h3 style={{ marginBottom: '24px' }}>Contact Information</h3>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div>
-                  <div style={{ fontWeight: 'var(--font-weight-semibold)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '20px' }}>📞</span> Phone
-                  </div>
-                  <a href="tel:07423272138" style={{ fontSize: '18px' }}>07423 272 138</a>
-                </div>
-
-                <div>
-                  <div style={{ fontWeight: 'var(--font-weight-semibold)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '20px' }}>📧</span> Email
-                  </div>
-                  <a href="mailto:xdrivelogisticsltd@gmail.com">xdrivelogisticsltd@gmail.com</a>
-                </div>
-
-                <div>
-                  <div style={{ fontWeight: 'var(--font-weight-semibold)', marginBottom: '12px' }}>
-                    Follow Us
-                  </div>
-                  <div style={{ display: 'flex', gap: '16px' }}>
-                    {/* TODO: Replace with actual Danny Courier social media URLs */}
-                    <a 
-                      href="#facebook" 
-                      onClick={(e) => e.preventDefault()}
-                      style={{ 
-                        fontSize: '32px',
-                        display: 'inline-block',
-                        transition: 'transform 0.2s',
-                        opacity: 0.5,
-                        cursor: 'not-allowed'
-                      }}
-                      aria-label="Facebook (Coming Soon)"
-                      title="Coming Soon"
-                    >
-                      📘
-                    </a>
-                    <a 
-                      href="#instagram" 
-                      onClick={(e) => e.preventDefault()}
-                      style={{ 
-                        fontSize: '32px',
-                        display: 'inline-block',
-                        transition: 'transform 0.2s',
-                        opacity: 0.5,
-                        cursor: 'not-allowed'
-                      }}
-                      aria-label="Instagram (Coming Soon)"
-                      title="Coming Soon"
-                    >
-                      📷
-                    </a>
-                    <a 
-                      href="#tiktok" 
-                      onClick={(e) => e.preventDefault()}
-                      style={{ 
-                        fontSize: '32px',
-                        display: 'inline-block',
-                        transition: 'transform 0.2s',
-                        opacity: 0.5,
-                        cursor: 'not-allowed'
-                      }}
-                      aria-label="TikTok (Coming Soon)"
-                      title="Coming Soon"
-                    >
-                      🎵
-                    </a>
-                  </div>
-                </div>
-              </div>
+            textAlign: 'center',
+            marginBottom: '24px'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              gap: '24px', 
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+              fontSize: '14px'
+            }}>
+              <a href="#" style={{ 
+                color: 'rgba(255, 255, 255, 0.7)', 
+                textDecoration: 'none',
+                borderBottom: '1px solid rgba(212, 175, 55, 0.3)',
+                paddingBottom: '2px',
+                transition: 'color 0.2s'
+              }} className="legal-link">Privacy Policy</a>
+              <a href="#" style={{ 
+                color: 'rgba(255, 255, 255, 0.7)', 
+                textDecoration: 'none',
+                borderBottom: '1px solid rgba(212, 175, 55, 0.3)',
+                paddingBottom: '2px',
+                transition: 'color 0.2s'
+              }} className="legal-link">Terms & Conditions</a>
+              <a href="#" style={{ 
+                color: 'rgba(255, 255, 255, 0.7)', 
+                textDecoration: 'none',
+                borderBottom: '1px solid rgba(212, 175, 55, 0.3)',
+                paddingBottom: '2px',
+                transition: 'color 0.2s'
+              }} className="legal-link">Payment Terms</a>
             </div>
-
-            {/* Contact Form */}
-            <div className="card">
-              <h3 style={{ marginBottom: '24px' }}>Send Us a Message</h3>
-              
-              {contactSuccess && (
-                <div style={{
-                  padding: '16px',
-                  backgroundColor: 'var(--color-cta)',
-                  color: 'white',
-                  borderRadius: 'var(--input-radius)',
-                  marginBottom: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  <span style={{ fontSize: '20px' }}>✓</span>
-                  <span>Message sent! We will get back to you soon.</span>
-                </div>
-              )}
-
-              <form onSubmit={handleContactSubmit}>
-                <div style={{ display: 'grid', gap: '16px' }}>
-                  <div>
-                    <label htmlFor="contact-name" style={{ display: 'block', marginBottom: '8px', fontWeight: 'var(--font-weight-medium)' }}>
-                      Name *
-                    </label>
-                    <input type="text" id="contact-name" name="name" required placeholder="Your name" />
-                  </div>
-
-                  <div>
-                    <label htmlFor="contact-email" style={{ display: 'block', marginBottom: '8px', fontWeight: 'var(--font-weight-medium)' }}>
-                      Email *
-                    </label>
-                    <input type="email" id="contact-email" name="email" required placeholder="your.email@example.com" />
-                  </div>
-
-                  <div>
-                    <label htmlFor="contact-phone" style={{ display: 'block', marginBottom: '8px', fontWeight: 'var(--font-weight-medium)' }}>
-                      Phone
-                    </label>
-                    <input type="tel" id="contact-phone" name="phone" placeholder="Your phone number" />
-                  </div>
-
-                  <div>
-                    <label htmlFor="contact-message" style={{ display: 'block', marginBottom: '8px', fontWeight: 'var(--font-weight-medium)' }}>
-                      Message *
-                    </label>
-                    <textarea 
-                      id="contact-message" 
-                      name="message" 
-                      required
-                      placeholder="How can we help you?"
-                      rows={4}
-                    ></textarea>
-                  </div>
-
-                  <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                    Send Message
-                  </button>
-                </div>
-              </form>
-            </div>
+          </div>
+          
+          <div style={{
+            maxWidth: '600px',
+            margin: '0 auto',
+            padding: '12px 20px',
+            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '8px',
+            textAlign: 'center'
+          }}>
+            <p style={{ 
+              fontSize: '12px', 
+              color: 'rgba(255, 255, 255, 0.5)', 
+              marginBottom: 0 
+            }}>
+              🍪 This website uses cookies to enhance your experience
+            </p>
           </div>
         </div>
       </section>
 
       <style jsx>{`
-        @media (min-width: 768px) {
-          .contact-grid {
-            grid-template-columns: 1fr 1fr !important;
-          }
+        .legal-link:hover {
+          color: #d4af37 !important;
+          border-color: #d4af37 !important;
         }
       `}</style>
 
-      {/* 8. FOOTER */}
+      {/* 10. FOOTER - DARK WITH GOLD ACCENTS */}
       <footer style={{ 
-        backgroundColor: 'var(--color-primary)',
+        backgroundColor: '#0a1628',
         color: 'white',
-        padding: '32px 0 24px'
+        padding: '48px 0 24px',
+        borderTop: '1px solid rgba(212, 175, 55, 0.2)'
       }}>
         <div className="container">
           <div style={{ 
             display: 'grid',
             gap: '32px',
             gridTemplateColumns: '1fr',
-            marginBottom: '24px'
+            marginBottom: '32px'
           }} className="footer-grid">
             <div>
-              <h3 style={{ color: 'white', fontSize: '20px', marginBottom: '12px' }}>
+              <h3 style={{ 
+                color: '#d4af37', 
+                fontSize: '22px', 
+                marginBottom: '16px',
+                fontWeight: '700'
+              }}>
                 Danny Courier Ltd
               </h3>
-              <p style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px', marginBottom: '16px' }}>
+              <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', marginBottom: '16px', lineHeight: '1.6' }}>
                 Professional courier and logistics services across the UK and Europe. 
                 Established 2021.
               </p>
-              <p style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px', marginBottom: 0 }}>
+              <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', marginBottom: '20px' }}>
                 Payment Terms: 14/30 days for business accounts
               </p>
-            </div>
 
-            <div>
-              <h4 style={{ color: 'white', fontSize: '16px', marginBottom: '12px' }}>Quick Links</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <a href="#home" style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>Home</a>
-                <a href="#services" style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>Services</a>
-                <a href="#about" style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>About Us</a>
-                <a href="#contact" style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>Contact</a>
+              {/* WhatsApp CTA in Footer */}
+              <a 
+                href="https://wa.me/447423272138?text=Hello%2C%20I%27d%20like%20to%20inquire%20about%20your%20courier%20services" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 24px',
+                  background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
+                  color: '#0a1628',
+                  borderRadius: '10px',
+                  fontWeight: '700',
+                  textDecoration: 'none',
+                  fontSize: '15px',
+                  boxShadow: '0 4px 16px rgba(212, 175, 55, 0.4)',
+                  transition: 'all 0.3s',
+                  marginBottom: '16px'
+                }}
+                className="footer-whatsapp-btn"
+              >
+                <span style={{ fontSize: '20px' }}>💬</span> WhatsApp Us
+              </a>
+
+              {/* Social Media Icons */}
+              <div>
+                <div style={{ 
+                  color: 'rgba(255, 255, 255, 0.7)', 
+                  fontSize: '14px', 
+                  marginBottom: '12px',
+                  fontWeight: '600'
+                }}>
+                  Follow Us
+                </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {[
+                    { icon: '📘', name: 'Facebook' },
+                    { icon: '📷', name: 'Instagram' },
+                    { icon: '🎵', name: 'TikTok' },
+                    { icon: '💼', name: 'LinkedIn' }
+                  ].map((social, idx) => (
+                    <a 
+                      key={idx}
+                      href="#"
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        border: '1px solid rgba(212, 175, 55, 0.4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '20px',
+                        transition: 'all 0.2s',
+                        textDecoration: 'none'
+                      }}
+                      className="footer-social-icon"
+                      aria-label={social.name}
+                    >
+                      {social.icon}
+                    </a>
+                  ))}
+                </div>
               </div>
             </div>
 
             <div>
-              <h4 style={{ color: 'white', fontSize: '16px', marginBottom: '12px' }}>Contact</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <a href="tel:07423272138" style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
+              <h4 style={{ color: '#d4af37', fontSize: '16px', marginBottom: '16px', fontWeight: '700' }}>Quick Links</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <a href="#home" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', textDecoration: 'none', transition: 'color 0.2s' }} className="footer-link">Home</a>
+                <a href="#services" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', textDecoration: 'none', transition: 'color 0.2s' }} className="footer-link">Services</a>
+                <a href="#about" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', textDecoration: 'none', transition: 'color 0.2s' }} className="footer-link">About Us</a>
+                <a href="#quote" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', textDecoration: 'none', transition: 'color 0.2s' }} className="footer-link">Get Quote</a>
+              </div>
+            </div>
+
+            <div>
+              <h4 style={{ color: '#d4af37', fontSize: '16px', marginBottom: '16px', fontWeight: '700' }}>Contact</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <a href="tel:07423272138" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', textDecoration: 'none', transition: 'color 0.2s' }} className="footer-link">
                   📞 07423 272 138
                 </a>
-                <a href="mailto:xdrivelogisticsltd@gmail.com" style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
+                <a href="mailto:xdrivelogisticsltd@gmail.com" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', textDecoration: 'none', transition: 'color 0.2s', wordBreak: 'break-word' }} className="footer-link">
                   📧 xdrivelogisticsltd@gmail.com
                 </a>
               </div>
@@ -962,11 +1258,25 @@ export default function Home() {
           </div>
 
           <div style={{ 
-            borderTop: '1px solid rgba(255, 255, 255, 0.2)',
-            paddingTop: '20px',
+            borderTop: '1px solid rgba(212, 175, 55, 0.2)',
+            paddingTop: '24px',
             textAlign: 'center'
           }}>
-            <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', marginBottom: 0 }}>
+            <div style={{ 
+              display: 'flex', 
+              gap: '16px', 
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+              marginBottom: '16px',
+              fontSize: '13px'
+            }}>
+              <a href="#" style={{ color: 'rgba(255, 255, 255, 0.5)', textDecoration: 'none' }} className="footer-link">Privacy Policy</a>
+              <span style={{ color: 'rgba(255, 255, 255, 0.3)' }}>•</span>
+              <a href="#" style={{ color: 'rgba(255, 255, 255, 0.5)', textDecoration: 'none' }} className="footer-link">Terms & Conditions</a>
+              <span style={{ color: 'rgba(255, 255, 255, 0.3)' }}>•</span>
+              <a href="#" style={{ color: 'rgba(255, 255, 255, 0.5)', textDecoration: 'none' }} className="footer-link">Payment Terms</a>
+            </div>
+            <p style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '13px', marginBottom: 0 }}>
               © {new Date().getFullYear()} Danny Courier Ltd. All rights reserved.
             </p>
           </div>
@@ -979,11 +1289,22 @@ export default function Home() {
             grid-template-columns: 2fr 1fr 1fr !important;
           }
         }
+        .footer-link:hover {
+          color: #d4af37 !important;
+        }
+        .footer-social-icon:hover {
+          border-color: #d4af37 !important;
+          transform: scale(1.1);
+        }
+        .footer-whatsapp-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(212, 175, 55, 0.6) !important;
+        }
       `}</style>
 
-      {/* 9. FLOATING WHATSAPP BUTTON */}
+      {/* 11. FLOATING WHATSAPP BUTTON - GOLD THEMED */}
       <a
-        href="https://wa.me/447423272138"
+        href="https://wa.me/447423272138?text=Hello%2C%20I%27d%20like%20to%20inquire%20about%20your%20courier%20services"
         target="_blank"
         rel="noopener noreferrer"
         style={{
@@ -992,28 +1313,28 @@ export default function Home() {
           right: '24px',
           width: '60px',
           height: '60px',
-          backgroundColor: '#25D366',
+          background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
           borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: '32px',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+          boxShadow: '0 4px 20px rgba(212, 175, 55, 0.5)',
           zIndex: 999,
-          transition: 'transform 0.2s, box-shadow 0.2s'
+          transition: 'all 0.3s'
         }}
         aria-label="Contact us on WhatsApp"
-        onMouseOver={(e) => {
-          e.currentTarget.style.transform = 'scale(1.1)';
-          e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.4)';
-        }}
-        onMouseOut={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.3)';
-        }}
+        className="floating-whatsapp"
       >
         💬
       </a>
+
+      <style jsx>{`
+        .floating-whatsapp:hover {
+          transform: scale(1.15);
+          box-shadow: 0 6px 28px rgba(212, 175, 55, 0.7) !important;
+        }
+      `}</style>
     </main>
   );
 }
