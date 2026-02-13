@@ -1,28 +1,8 @@
 [build]
   command = "npm run build"
-  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-
-# Domain and redirect configuration
-[[redirects]]
-  from = "https://www.dannycourierltd.co.uk/*"
-  to = "https://dannycourierltd.co.uk/:splat"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "http://dannycourierltd.co.uk/*"
-  to = "https://dannycourierltd.co.uk/:splat"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "http://www.dannycourierltd.co.uk/*"
-  to = "https://dannycourierltd.co.uk/:splat"
-  status = 301
-  force = true
