@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { AuthProvider } from './components/AuthContext'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -10,27 +11,27 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'Danny Courier LTD - Professional Courier and Logistics Services',
-    template: '%s | Danny Courier LTD',
+    default: 'Danny Courier Ltd - Reliable Same Day & Express Transport Across UK & Europe',
+    template: '%s | Danny Courier Ltd',
   },
-  description: 'Reliable courier and logistics services in the UK. Fast, secure deliveries for businesses and individuals. Professional transport solutions you can trust.',
-  keywords: ['courier', 'logistics', 'delivery', 'transport', 'UK courier', 'parcel delivery', 'express delivery', 'same day delivery'],
-  authors: [{ name: 'Danny Courier LTD' }],
-  creator: 'Danny Courier LTD',
-  publisher: 'Danny Courier LTD',
+  description: 'Danny Courier Ltd offers 24/7 courier and logistics services across the UK and Europe. Fast, secure, and on-time deliveries. Same day, express, and scheduled transport solutions.',
+  keywords: ['courier', 'logistics', 'delivery', 'transport', 'UK courier', 'Europe courier', 'parcel delivery', 'express delivery', 'same day delivery', 'pallet transport', 'UK-EU freight', 'Danny Courier'],
+  authors: [{ name: 'Danny Courier Ltd' }],
+  creator: 'Danny Courier Ltd',
+  publisher: 'Danny Courier Ltd',
   metadataBase: new URL('https://dannycourierltd.co.uk'),
   openGraph: {
     type: 'website',
     locale: 'en_GB',
     url: 'https://dannycourierltd.co.uk',
-    title: 'Danny Courier LTD - Professional Courier and Logistics Services',
-    description: 'Reliable courier and logistics services in the UK. Fast, secure deliveries for businesses and individuals.',
-    siteName: 'Danny Courier LTD',
+    title: 'Danny Courier Ltd - Reliable Same Day & Express Transport',
+    description: 'Danny Courier Ltd offers 24/7 courier and logistics services across the UK and Europe. Fast, secure, and on-time deliveries.',
+    siteName: 'Danny Courier Ltd',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Danny Courier LTD - Professional Courier and Logistics Services',
-    description: 'Reliable courier and logistics services in the UK. Fast, secure deliveries for businesses and individuals.',
+    title: 'Danny Courier Ltd - Reliable Same Day & Express Transport',
+    description: 'Danny Courier Ltd offers 24/7 courier and logistics services across the UK and Europe.',
   },
   robots: {
     index: true,
@@ -52,7 +53,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   )
 }
