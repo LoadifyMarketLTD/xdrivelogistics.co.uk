@@ -2,6 +2,15 @@
 
 import { useState } from 'react';
 
+const WHATSAPP_URL = "https://wa.me/447423272138?text=Hello%2C%20I%27d%20like%20to%20inquire%20about%20your%20courier%20services";
+
+const SOCIAL_MEDIA_LINKS = [
+  { name: 'Facebook', icon: '📘', url: '#' },
+  { name: 'Instagram', icon: '📷', url: '#' },
+  { name: 'TikTok', icon: '🎵', url: '#' },
+  { name: 'LinkedIn', icon: '💼', url: '#' }
+];
+
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [language, setLanguage] = useState('EN');
@@ -275,7 +284,7 @@ export default function Home() {
               justifyContent: 'center',
               alignItems: 'center'
             }}>
-              <a href="https://wa.me/447423272138?text=Hello%2C%20I%27d%20like%20to%20inquire%20about%20your%20courier%20services" target="_blank" rel="noopener noreferrer" style={{ 
+              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" style={{ 
                 height: '56px', 
                 fontSize: '17px',
                 padding: '0 32px',
@@ -397,15 +406,10 @@ export default function Home() {
             alignItems: 'center',
             flexWrap: 'wrap'
           }}>
-            {[
-              { icon: '📘', name: 'Facebook', href: '#' },
-              { icon: '📷', name: 'Instagram', href: '#' },
-              { icon: '🎵', name: 'TikTok', href: '#' },
-              { icon: '💼', name: 'LinkedIn', href: '#' }
-            ].map((social, idx) => (
+            {SOCIAL_MEDIA_LINKS.map((social, idx) => (
               <a 
                 key={idx}
-                href={social.href}
+                href={social.url}
                 style={{
                   width: '64px',
                   height: '64px',
@@ -735,7 +739,7 @@ export default function Home() {
             marginTop: '40px'
           }}>
             <a 
-              href="https://wa.me/447423272138?text=Hello%2C%20I%27d%20like%20to%20inquire%20about%20your%20courier%20services" 
+              href={WHATSAPP_URL} 
               target="_blank" 
               rel="noopener noreferrer"
               style={{ 
@@ -1169,7 +1173,7 @@ export default function Home() {
 
               {/* WhatsApp CTA in Footer */}
               <a 
-                href="https://wa.me/447423272138?text=Hello%2C%20I%27d%20like%20to%20inquire%20about%20your%20courier%20services" 
+                href={WHATSAPP_URL} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{ 
@@ -1203,15 +1207,10 @@ export default function Home() {
                   Follow Us
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  {[
-                    { icon: '📘', name: 'Facebook' },
-                    { icon: '📷', name: 'Instagram' },
-                    { icon: '🎵', name: 'TikTok' },
-                    { icon: '💼', name: 'LinkedIn' }
-                  ].map((social, idx) => (
+                  {SOCIAL_MEDIA_LINKS.map((social, idx) => (
                     <a 
                       key={idx}
-                      href="#"
+                      href={social.url}
                       style={{
                         width: '40px',
                         height: '40px',
@@ -1304,7 +1303,7 @@ export default function Home() {
 
       {/* 11. FLOATING WHATSAPP BUTTON - GOLD THEMED */}
       <a
-        href="https://wa.me/447423272138?text=Hello%2C%20I%27d%20like%20to%20inquire%20about%20your%20courier%20services"
+        href={WHATSAPP_URL}
         target="_blank"
         rel="noopener noreferrer"
         style={{
