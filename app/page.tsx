@@ -5,19 +5,25 @@ import { useState } from 'react';
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [language, setLanguage] = useState('EN');
+  const [quoteSuccess, setQuoteSuccess] = useState(false);
+  const [contactSuccess, setContactSuccess] = useState(false);
 
   const handleQuoteSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     console.log('Quote Form Submitted:', Object.fromEntries(formData));
-    alert('Quote request received! We will contact you shortly.');
+    setQuoteSuccess(true);
+    e.currentTarget.reset();
+    setTimeout(() => setQuoteSuccess(false), 5000);
   };
 
   const handleContactSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     console.log('Contact Form Submitted:', Object.fromEntries(formData));
-    alert('Message sent! We will get back to you soon.');
+    setContactSuccess(true);
+    e.currentTarget.reset();
+    setTimeout(() => setContactSuccess(false), 5000);
   };
 
   return (
@@ -267,6 +273,23 @@ export default function Home() {
             {/* Quote Form */}
             <div className="card" style={{ maxWidth: '740px', margin: '0 auto', width: '100%' }}>
               <h3 style={{ marginBottom: '24px' }}>Get a Quick Quote</h3>
+              
+              {quoteSuccess && (
+                <div style={{
+                  padding: '16px',
+                  backgroundColor: 'var(--color-cta)',
+                  color: 'white',
+                  borderRadius: 'var(--input-radius)',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span style={{ fontSize: '20px' }}>✓</span>
+                  <span>Quote request received! We will contact you shortly.</span>
+                </div>
+              )}
+
               <form onSubmit={handleQuoteSubmit}>
                 <div style={{ display: 'grid', gap: '16px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }} className="form-row">
@@ -511,42 +534,49 @@ export default function Home() {
                     Follow Us
                   </div>
                   <div style={{ display: 'flex', gap: '16px' }}>
+                    {/* TODO: Replace with actual XDrive Logistics social media URLs */}
                     <a 
-                      href="https://facebook.com" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
+                      href="#facebook" 
+                      onClick={(e) => e.preventDefault()}
                       style={{ 
                         fontSize: '32px',
                         display: 'inline-block',
-                        transition: 'transform 0.2s'
+                        transition: 'transform 0.2s',
+                        opacity: 0.5,
+                        cursor: 'not-allowed'
                       }}
-                      aria-label="Facebook"
+                      aria-label="Facebook (Coming Soon)"
+                      title="Coming Soon"
                     >
                       📘
                     </a>
                     <a 
-                      href="https://instagram.com" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
+                      href="#instagram" 
+                      onClick={(e) => e.preventDefault()}
                       style={{ 
                         fontSize: '32px',
                         display: 'inline-block',
-                        transition: 'transform 0.2s'
+                        transition: 'transform 0.2s',
+                        opacity: 0.5,
+                        cursor: 'not-allowed'
                       }}
-                      aria-label="Instagram"
+                      aria-label="Instagram (Coming Soon)"
+                      title="Coming Soon"
                     >
                       📷
                     </a>
                     <a 
-                      href="https://tiktok.com" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
+                      href="#tiktok" 
+                      onClick={(e) => e.preventDefault()}
                       style={{ 
                         fontSize: '32px',
                         display: 'inline-block',
-                        transition: 'transform 0.2s'
+                        transition: 'transform 0.2s',
+                        opacity: 0.5,
+                        cursor: 'not-allowed'
                       }}
-                      aria-label="TikTok"
+                      aria-label="TikTok (Coming Soon)"
+                      title="Coming Soon"
                     >
                       🎵
                     </a>
@@ -558,6 +588,23 @@ export default function Home() {
             {/* Contact Form */}
             <div className="card">
               <h3 style={{ marginBottom: '24px' }}>Send Us a Message</h3>
+              
+              {contactSuccess && (
+                <div style={{
+                  padding: '16px',
+                  backgroundColor: 'var(--color-cta)',
+                  color: 'white',
+                  borderRadius: 'var(--input-radius)',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span style={{ fontSize: '20px' }}>✓</span>
+                  <span>Message sent! We will get back to you soon.</span>
+                </div>
+              )}
+
               <form onSubmit={handleContactSubmit}>
                 <div style={{ display: 'grid', gap: '16px' }}>
                   <div>
