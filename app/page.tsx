@@ -2,20 +2,18 @@
 
 import { useState } from 'react';
 
-const WHATSAPP_URL = "https://wa.me/447423272138?text=Hello%2C%20I%27d%20like%20to%20inquire%20about%20your%20courier%20services";
+const WHATSAPP_URL = "https://wa.me/447423272138?text=Hello%2C%20I%27d%20like%20to%20inquire%20about%20your%20transport%20services";
 
 const SOCIAL_MEDIA_LINKS = [
   { name: 'Facebook', icon: '📘', url: '#' },
   { name: 'Instagram', icon: '📷', url: '#' },
-  { name: 'TikTok', icon: '🎵', url: '#' },
-  { name: 'LinkedIn', icon: '💼', url: '#' }
+  { name: 'TikTok', icon: '🎵', url: '#' }
 ];
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [language, setLanguage] = useState('EN');
   const [quoteSuccess, setQuoteSuccess] = useState(false);
-  const [contactSuccess, setContactSuccess] = useState(false);
 
   const handleQuoteSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -26,27 +24,17 @@ export default function Home() {
     setTimeout(() => setQuoteSuccess(false), 5000);
   };
 
-  const handleContactSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    console.log('Contact Form Submitted:', Object.fromEntries(formData));
-    setContactSuccess(true);
-    e.currentTarget.reset();
-    setTimeout(() => setContactSuccess(false), 5000);
-  };
-
   return (
-    <main style={{ backgroundColor: '#0a1628', minHeight: '100vh' }}>
-      {/* 1. NAVIGATION (STICKY) - DARK GLASS */}
+    <main style={{ backgroundColor: '#F4F7FA', minHeight: '100vh' }}>
+      {/* 1. HEADER (STICKY) - PREMIUM CLEAN */}
       <nav style={{
         position: 'sticky',
         top: 0,
         zIndex: 1000,
-        backgroundColor: 'rgba(10, 22, 40, 0.85)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
+        backgroundColor: '#ffffff',
+        borderBottom: '1px solid rgba(30, 78, 140, 0.1)',
         height: '56px',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+        boxShadow: '0 2px 8px rgba(10, 34, 57, 0.08)'
       }}>
         <div className="container" style={{
           display: 'flex',
@@ -58,12 +46,9 @@ export default function Home() {
           <div style={{ 
             fontSize: '18px', 
             fontWeight: 'bold',
-            background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
+            color: '#0A2239'
           }}>
-            Danny Courier Ltd
+            XDrive Logistics Ltd
           </div>
 
           {/* Desktop Navigation */}
@@ -72,29 +57,29 @@ export default function Home() {
             gap: '32px',
             alignItems: 'center'
           }} className="desktop-nav">
-            <a href="#home" style={{ fontWeight: '500', color: '#ffffff', transition: 'color 0.2s' }} className="nav-link">Home</a>
-            <a href="#services" style={{ fontWeight: '500', color: '#ffffff', transition: 'color 0.2s' }} className="nav-link">Services</a>
-            <a href="#about" style={{ fontWeight: '500', color: '#ffffff', transition: 'color 0.2s' }} className="nav-link">About Us</a>
-            <a href="#contact" style={{ fontWeight: '500', color: '#ffffff', transition: 'color 0.2s' }} className="nav-link">Contact</a>
+            <a href="#home" style={{ fontWeight: '500', color: '#0A2239', transition: 'color 0.2s' }} className="nav-link">Home</a>
+            <a href="#services" style={{ fontWeight: '500', color: '#0A2239', transition: 'color 0.2s' }} className="nav-link">Services</a>
+            <a href="#about" style={{ fontWeight: '500', color: '#0A2239', transition: 'color 0.2s' }} className="nav-link">About</a>
+            <a href="#contact" style={{ fontWeight: '500', color: '#0A2239', transition: 'color 0.2s' }} className="nav-link">Contact</a>
           </div>
 
           {/* Right Side */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             {/* Language Switcher */}
-            <div style={{ display: 'flex', gap: '8px', fontSize: '14px' }}>
+            <div style={{ display: 'flex', gap: '6px', fontSize: '14px' }}>
               {['EN', 'DE', 'FR', 'ES'].map((lang) => (
                 <button
                   key={lang}
                   onClick={() => setLanguage(lang)}
                   style={{
-                    background: language === lang ? '#d4af37' : 'transparent',
-                    color: language === lang ? '#0a1628' : 'rgba(255, 255, 255, 0.6)',
-                    border: '1px solid rgba(212, 175, 55, 0.3)',
+                    background: language === lang ? '#1E4E8C' : 'transparent',
+                    color: language === lang ? '#ffffff' : '#0A2239',
+                    border: '1px solid rgba(30, 78, 140, 0.2)',
                     padding: '4px 8px',
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontWeight: '600',
-                    fontSize: '13px',
+                    fontSize: '12px',
                     transition: 'all 0.2s'
                   }}
                 >
@@ -109,17 +94,17 @@ export default function Home() {
               height: '40px',
               padding: '0 20px',
               fontSize: '14px',
-              background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
-              color: '#0a1628',
+              backgroundColor: '#1F7A3D',
+              color: '#ffffff',
               border: 'none',
-              borderRadius: '8px',
-              fontWeight: '700',
+              borderRadius: '6px',
+              fontWeight: '600',
               cursor: 'pointer',
               transition: 'all 0.3s',
               alignItems: 'center',
               justifyContent: 'center',
               textDecoration: 'none',
-              boxShadow: '0 4px 14px rgba(212, 175, 55, 0.4)'
+              boxShadow: '0 2px 8px rgba(31, 122, 61, 0.3)'
             }} id="nav-cta">
               Get a Quote
             </a>
@@ -139,9 +124,9 @@ export default function Home() {
               className="mobile-menu-btn"
               aria-label="Toggle menu"
             >
-              <span style={{ width: '24px', height: '2px', backgroundColor: '#d4af37' }}></span>
-              <span style={{ width: '24px', height: '2px', backgroundColor: '#d4af37' }}></span>
-              <span style={{ width: '24px', height: '2px', backgroundColor: '#d4af37' }}></span>
+              <span style={{ width: '24px', height: '2px', backgroundColor: '#0A2239' }}></span>
+              <span style={{ width: '24px', height: '2px', backgroundColor: '#0A2239' }}></span>
+              <span style={{ width: '24px', height: '2px', backgroundColor: '#0A2239' }}></span>
             </button>
           </div>
         </div>
@@ -153,24 +138,23 @@ export default function Home() {
             top: '56px',
             left: 0,
             right: 0,
-            backgroundColor: 'rgba(10, 22, 40, 0.95)',
-            backdropFilter: 'blur(12px)',
-            borderBottom: '1px solid rgba(212, 175, 55, 0.2)',
+            backgroundColor: '#ffffff',
+            borderBottom: '1px solid rgba(30, 78, 140, 0.1)',
             padding: '16px',
-            boxShadow: '0 8px 16px rgba(0, 0, 0, 0.4)'
+            boxShadow: '0 8px 16px rgba(10, 34, 57, 0.1)'
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <a href="#home" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: '500', color: '#ffffff' }}>Home</a>
-              <a href="#services" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: '500', color: '#ffffff' }}>Services</a>
-              <a href="#about" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: '500', color: '#ffffff' }}>About Us</a>
-              <a href="#contact" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: '500', color: '#ffffff' }}>Contact</a>
-              <a href="#quote" style={{ 
+              <a href="#home" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: '500', color: '#0A2239' }}>Home</a>
+              <a href="#services" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: '500', color: '#0A2239' }}>Services</a>
+              <a href="#about" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: '500', color: '#0A2239' }}>About</a>
+              <a href="#contact" onClick={() => setMobileMenuOpen(false)} style={{ padding: '8px', fontWeight: '500', color: '#0A2239' }}>Contact</a>
+              <a href="#quote" onClick={() => setMobileMenuOpen(false)} style={{ 
                 marginTop: '8px',
                 padding: '12px',
-                background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
-                color: '#0a1628',
-                fontWeight: '700',
-                borderRadius: '8px',
+                backgroundColor: '#1F7A3D',
+                color: '#ffffff',
+                fontWeight: '600',
+                borderRadius: '6px',
                 textAlign: 'center',
                 textDecoration: 'none'
               }}>Get a Quote</a>
@@ -178,6 +162,97 @@ export default function Home() {
           </div>
         )}
       </nav>
+
+      {/* 2. HERO SECTION - PREMIUM CLEAN */}
+      <section id="home" style={{
+        minHeight: '480px',
+        display: 'flex',
+        alignItems: 'center',
+        background: 'linear-gradient(135deg, rgba(10, 34, 57, 0.85) 0%, rgba(30, 78, 140, 0.85) 100%), url(https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1920&q=80) center/cover',
+        color: 'white',
+        position: 'relative',
+        padding: '60px 0'
+      }}>
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
+            <h1 style={{ 
+              color: '#ffffff', 
+              marginBottom: '12px', 
+              lineHeight: '1.15',
+              fontSize: 'clamp(2rem, 5vw, 3.2rem)',
+              fontWeight: '700'
+            }}>
+              Reliable Same Day & Express Transport
+            </h1>
+            
+            <h1 style={{ 
+              fontSize: 'clamp(1.75rem, 4vw, 2.8rem)', 
+              fontWeight: '700',
+              color: '#ffffff',
+              marginBottom: '20px'
+            }}>
+              Across the UK & Europe
+            </h1>
+            
+            <p style={{ 
+              fontSize: 'clamp(16px, 2vw, 19px)', 
+              marginBottom: '36px',
+              color: 'rgba(255, 255, 255, 0.95)',
+              lineHeight: '1.6',
+              maxWidth: '650px',
+              margin: '0 auto 36px'
+            }}>
+              Fast, Secure & On-Time Deliveries 24/7
+            </p>
+            
+            {/* CTAs */}
+            <div style={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: '16px', 
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}>
+              <a href="#quote" style={{ 
+                height: '52px', 
+                fontSize: '16px',
+                padding: '0 32px',
+                backgroundColor: '#1F7A3D',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textDecoration: 'none',
+                boxShadow: '0 4px 16px rgba(31, 122, 61, 0.4)',
+                transition: 'all 0.3s'
+              }} className="green-btn">
+                📦 Get a Free Quote
+              </a>
+              <a href="tel:+447423272138" style={{ 
+                height: '52px',
+                fontSize: '16px',
+                padding: '0 32px',
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                backdropFilter: 'blur(10px)',
+                border: '2px solid rgba(255, 255, 255, 0.4)',
+                color: '#ffffff',
+                borderRadius: '8px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textDecoration: 'none',
+                transition: 'all 0.3s'
+              }} className="outline-btn">
+                📞 Call Us: 07423 272 138
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <style jsx>{`
         @media (min-width: 1024px) {
@@ -195,233 +270,514 @@ export default function Home() {
           }
         }
         .nav-link:hover {
-          color: #d4af37 !important;
+          color: #1E4E8C !important;
         }
         #nav-cta:hover {
+          background-color: #1a6534 !important;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(31, 122, 61, 0.4) !important;
+        }
+        .green-btn:hover {
+          background-color: #1a6534 !important;
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(212, 175, 55, 0.6) !important;
+          box-shadow: 0 6px 20px rgba(31, 122, 61, 0.5) !important;
+        }
+        .outline-btn:hover {
+          background-color: rgba(255, 255, 255, 0.25) !important;
+          border-color: rgba(255, 255, 255, 0.6) !important;
+          transform: translateY(-2px);
         }
       `}</style>
 
-      {/* 2. HERO SECTION - CINEMATIC DARK */}
-      <section id="home" style={{
-        minHeight: '500px',
-        display: 'flex',
-        alignItems: 'center',
-        background: 'linear-gradient(180deg, #0a1628 0%, #050c16 50%, #000000 100%)',
-        color: 'white',
-        position: 'relative',
-        padding: '60px 0 80px'
+      {/* 3. BENEFITS STRIP */}
+      <section style={{ 
+        backgroundColor: '#ffffff',
+        padding: '48px 0',
+        borderBottom: '1px solid rgba(30, 78, 140, 0.1)'
       }}>
-        {/* Animated gradient overlay */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'radial-gradient(circle at 30% 40%, rgba(212, 175, 55, 0.08) 0%, transparent 50%), radial-gradient(circle at 70% 60%, rgba(0, 212, 255, 0.06) 0%, transparent 50%)',
-          pointerEvents: 'none'
-        }}></div>
-        
-        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
-            {/* Badge */}
+        <div className="container">
+          <div style={{ 
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '24px',
+            maxWidth: '1000px',
+            margin: '0 auto'
+          }}>
             <div style={{
-              display: 'inline-block',
-              padding: '8px 20px',
-              backgroundColor: 'rgba(0, 212, 255, 0.1)',
-              border: '1px solid rgba(0, 212, 255, 0.3)',
-              borderRadius: '50px',
-              fontSize: '14px',
-              fontWeight: '600',
-              marginBottom: '24px',
-              color: '#00d4ff'
+              textAlign: 'center',
+              padding: '24px',
+              backgroundColor: '#F4F7FA',
+              borderRadius: '12px',
+              border: '1px solid rgba(30, 78, 140, 0.1)',
+              boxShadow: '0 2px 8px rgba(10, 34, 57, 0.05)'
             }}>
-              🚚 Available 24/7 Across UK & Europe
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>🕐</div>
+              <h3 style={{ 
+                fontSize: '18px', 
+                fontWeight: '600', 
+                color: '#0A2239',
+                marginBottom: '8px'
+              }}>24/7 Service</h3>
+              <p style={{ fontSize: '14px', color: '#1E4E8C' }}>Always available for your urgent deliveries</p>
             </div>
             
-            <h1 style={{ 
-              color: '#ffffff', 
-              marginBottom: '20px', 
-              lineHeight: '1.1',
-              fontSize: 'clamp(2rem, 5vw, 3.5rem)',
-              fontWeight: '800',
-              textShadow: '0 4px 12px rgba(212, 175, 55, 0.3)'
+            <div style={{
+              textAlign: 'center',
+              padding: '24px',
+              backgroundColor: '#F4F7FA',
+              borderRadius: '12px',
+              border: '1px solid rgba(30, 78, 140, 0.1)',
+              boxShadow: '0 2px 8px rgba(10, 34, 57, 0.05)'
             }}>
-              Reliable Same Day & Express Transport
-            </h1>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>🌍</div>
+              <h3 style={{ 
+                fontSize: '18px', 
+                fontWeight: '600', 
+                color: '#0A2239',
+                marginBottom: '8px'
+              }}>UK & Europe</h3>
+              <p style={{ fontSize: '14px', color: '#1E4E8C' }}>Comprehensive coverage across the continent</p>
+            </div>
             
+            <div style={{
+              textAlign: 'center',
+              padding: '24px',
+              backgroundColor: '#F4F7FA',
+              borderRadius: '12px',
+              border: '1px solid rgba(30, 78, 140, 0.1)',
+              boxShadow: '0 2px 8px rgba(10, 34, 57, 0.05)'
+            }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>✅</div>
+              <h3 style={{ 
+                fontSize: '18px', 
+                fontWeight: '600', 
+                color: '#0A2239',
+                marginBottom: '8px'
+              }}>Fully Insured</h3>
+              <p style={{ fontSize: '14px', color: '#1E4E8C' }}>Your cargo is protected every step</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. QUICK QUOTE SECTION (MOST IMPORTANT) */}
+      <section id="quote" style={{ 
+        backgroundColor: '#F4F7FA',
+        padding: '64px 0'
+      }}>
+        <div className="container">
+          <div style={{ textAlign: 'center', marginBottom: '48px' }}>
             <h2 style={{ 
-              fontSize: 'clamp(1.5rem, 3vw, 2rem)', 
-              fontWeight: '600',
-              background: 'linear-gradient(135deg, #d4af37 0%, #00d4ff 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              marginBottom: '24px'
-            }}>
-              Across the UK & Europe
-            </h2>
-            
-            <p style={{ 
-              fontSize: 'clamp(16px, 2vw, 18px)', 
-              marginBottom: '40px',
-              color: 'rgba(255, 255, 255, 0.8)',
-              lineHeight: '1.7',
-              maxWidth: '700px',
-              margin: '0 auto 40px'
-            }}>
-              Fast, Secure & On-Time Deliveries 24/7. Professional courier and logistics services you can trust.
+              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', 
+              fontWeight: '700',
+              color: '#0A2239',
+              marginBottom: '12px'
+            }}>Get Your Free Quote</h2>
+            <p style={{ fontSize: '17px', color: '#1E4E8C' }}>
+              Fill out the form below and we'll get back to you within 1 hour
             </p>
-            
-            {/* CTAs */}
-            <div style={{ 
-              display: 'flex', 
-              flexWrap: 'wrap', 
-              gap: '16px', 
-              marginBottom: '32px',
-              justifyContent: 'center',
-              alignItems: 'center'
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr',
+            gap: '40px',
+            maxWidth: '1200px',
+            margin: '0 auto',
+            alignItems: 'center'
+          }} className="quote-grid">
+            {/* Form */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '40px',
+              borderRadius: '12px',
+              boxShadow: '0 4px 20px rgba(10, 34, 57, 0.1)',
+              border: '1px solid rgba(30, 78, 140, 0.1)'
             }}>
-              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" style={{ 
-                height: '56px', 
-                fontSize: '17px',
-                padding: '0 32px',
-                background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
-                color: '#0a1628',
-                border: 'none',
-                borderRadius: '12px',
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textDecoration: 'none',
-                boxShadow: '0 4px 20px rgba(212, 175, 55, 0.5)',
-                transition: 'all 0.3s'
-              }} className="gold-btn">
-                📦 Get a Free Quote
-              </a>
-              <a href="tel:07423272138" style={{ 
-                height: '56px',
-                fontSize: '17px',
-                padding: '0 32px',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                backdropFilter: 'blur(10px)',
-                border: '2px solid rgba(0, 212, 255, 0.4)',
-                color: '#00d4ff',
-                borderRadius: '12px',
-                fontWeight: '600',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textDecoration: 'none',
-                transition: 'all 0.3s'
-              }} className="electric-btn">
-                📞 Call: 07423 272 138
-              </a>
+              <form onSubmit={handleQuoteSubmit}>
+                <div style={{ 
+                  display: 'grid',
+                  gridTemplateColumns: '1fr',
+                  gap: '20px'
+                }} className="form-grid">
+                  <div>
+                    <label style={{ 
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      color: '#0A2239'
+                    }}>Full Name *</label>
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(30, 78, 140, 0.2)',
+                        fontSize: '15px',
+                        fontFamily: 'inherit',
+                        outline: 'none',
+                        transition: 'border-color 0.2s'
+                      }}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ 
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      color: '#0A2239'
+                    }}>Email *</label>
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(30, 78, 140, 0.2)',
+                        fontSize: '15px',
+                        fontFamily: 'inherit',
+                        outline: 'none',
+                        transition: 'border-color 0.2s'
+                      }}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ 
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      color: '#0A2239'
+                    }}>Pickup Location *</label>
+                    <input
+                      type="text"
+                      name="pickup"
+                      required
+                      placeholder="e.g., London, UK"
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(30, 78, 140, 0.2)',
+                        fontSize: '15px',
+                        fontFamily: 'inherit',
+                        outline: 'none',
+                        transition: 'border-color 0.2s'
+                      }}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ 
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      color: '#0A2239'
+                    }}>Delivery Location *</label>
+                    <input
+                      type="text"
+                      name="delivery"
+                      required
+                      placeholder="e.g., Paris, France"
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(30, 78, 140, 0.2)',
+                        fontSize: '15px',
+                        fontFamily: 'inherit',
+                        outline: 'none',
+                        transition: 'border-color 0.2s'
+                      }}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ 
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      color: '#0A2239'
+                    }}>Cargo Type *</label>
+                    <select
+                      name="cargoType"
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(30, 78, 140, 0.2)',
+                        fontSize: '15px',
+                        fontFamily: 'inherit',
+                        outline: 'none',
+                        backgroundColor: '#ffffff',
+                        transition: 'border-color 0.2s'
+                      }}
+                      className="form-input"
+                    >
+                      <option value="">Select cargo type</option>
+                      <option value="pallets">Pallets</option>
+                      <option value="parcels">Parcels</option>
+                      <option value="furniture">Furniture</option>
+                      <option value="documents">Documents</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ 
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      color: '#0A2239'
+                    }}>Quantity (optional)</label>
+                    <input
+                      type="text"
+                      name="quantity"
+                      placeholder="e.g., 5 pallets"
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(30, 78, 140, 0.2)',
+                        fontSize: '15px',
+                        fontFamily: 'inherit',
+                        outline: 'none',
+                        transition: 'border-color 0.2s'
+                      }}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ 
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      color: '#0A2239'
+                    }}>Notes (optional)</label>
+                    <textarea
+                      name="notes"
+                      rows={4}
+                      placeholder="Any special requirements or additional information..."
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(30, 78, 140, 0.2)',
+                        fontSize: '15px',
+                        fontFamily: 'inherit',
+                        outline: 'none',
+                        resize: 'vertical',
+                        transition: 'border-color 0.2s'
+                      }}
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  style={{
+                    width: '100%',
+                    marginTop: '24px',
+                    padding: '16px',
+                    backgroundColor: '#1F7A3D',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
+                    boxShadow: '0 4px 12px rgba(31, 122, 61, 0.3)'
+                  }}
+                  className="submit-btn"
+                >
+                  Request a Quote
+                </button>
+
+                {quoteSuccess && (
+                  <div style={{
+                    marginTop: '16px',
+                    padding: '12px',
+                    backgroundColor: '#d4edda',
+                    border: '1px solid #c3e6cb',
+                    borderRadius: '6px',
+                    color: '#155724',
+                    textAlign: 'center',
+                    fontWeight: '500'
+                  }}>
+                    ✅ Request sent! We'll contact you soon.
+                  </div>
+                )}
+              </form>
             </div>
 
-            {/* Contact Info */}
-            <div style={{ 
-              display: 'flex', 
-              gap: '24px', 
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-              alignItems: 'center',
-              fontSize: '14px', 
-              color: 'rgba(255, 255, 255, 0.7)' 
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>📧</span>
-                <a href="mailto:xdrivelogisticsltd@gmail.com" style={{ 
-                  color: 'rgba(255, 255, 255, 0.8)', 
-                  textDecoration: 'none',
-                  borderBottom: '1px solid rgba(212, 175, 55, 0.4)'
-                }}>
-                  xdrivelogisticsltd@gmail.com
-                </a>
-              </div>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '8px',
-                padding: '6px 14px',
-                backgroundColor: 'rgba(212, 175, 55, 0.1)',
-                border: '1px solid rgba(212, 175, 55, 0.2)',
-                borderRadius: '8px',
-                color: '#d4af37'
-              }}>
-                <span>✓</span>
-                <span>Fully Insured & Licensed</span>
-              </div>
+            {/* Promo Image - Desktop Only */}
+            <div style={{
+              display: 'none',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              boxShadow: '0 4px 20px rgba(10, 34, 57, 0.1)'
+            }} className="promo-image">
+              <img 
+                src="https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?w=600&q=80" 
+                alt="Transport services"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover'
+                }}
+              />
             </div>
           </div>
         </div>
       </section>
 
       <style jsx>{`
-        @media (min-width: 768px) {
-          #home {
-            min-height: 520px !important;
-          }
-        }
         @media (min-width: 1024px) {
-          #home {
-            min-height: 560px !important;
+          .quote-grid {
+            grid-template-columns: 1fr 1fr !important;
+          }
+          .form-grid {
+            grid-template-columns: 1fr 1fr !important;
+          }
+          .promo-image {
+            display: block !important;
           }
         }
-        .gold-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 24px rgba(212, 175, 55, 0.7) !important;
+        .form-input:focus {
+          border-color: #1E4E8C !important;
         }
-        .electric-btn:hover {
-          background-color: rgba(0, 212, 255, 0.1) !important;
-          border-color: rgba(0, 212, 255, 0.6) !important;
-          transform: translateY(-2px);
+        .submit-btn:hover {
+          background-color: #1a6534 !important;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(31, 122, 61, 0.4) !important;
         }
       `}</style>
 
-      {/* 3. SOCIAL MEDIA ICONS SECTION */}
+      {/* 5. CONTACT QUICK ACTIONS */}
       <section style={{ 
-        backgroundColor: '#050c16',
-        padding: '40px 0',
-        borderTop: '1px solid rgba(212, 175, 55, 0.1)',
-        borderBottom: '1px solid rgba(212, 175, 55, 0.1)'
+        backgroundColor: '#ffffff',
+        padding: '48px 0',
+        borderTop: '1px solid rgba(30, 78, 140, 0.1)'
       }}>
         <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
             <h3 style={{ 
-              color: '#d4af37', 
-              fontSize: '18px', 
+              fontSize: '24px', 
               fontWeight: '600',
-              letterSpacing: '1px',
-              textTransform: 'uppercase'
-            }}>Connect With Us</h3>
+              color: '#0A2239',
+              marginBottom: '8px'
+            }}>Get In Touch</h3>
+            <p style={{ fontSize: '15px', color: '#1E4E8C' }}>
+              Choose your preferred contact method
+            </p>
           </div>
-          <div style={{ 
-            display: 'flex', 
-            gap: '24px', 
+
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '16px',
             justifyContent: 'center',
-            alignItems: 'center',
-            flexWrap: 'wrap'
+            marginBottom: '32px'
+          }}>
+            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '14px 24px',
+              backgroundColor: '#25D366',
+              color: '#ffffff',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: '600',
+              fontSize: '15px',
+              transition: 'all 0.3s',
+              boxShadow: '0 2px 8px rgba(37, 211, 102, 0.3)'
+            }} className="contact-btn whatsapp-btn">
+              <span style={{ fontSize: '20px' }}>💬</span>
+              WhatsApp Us
+            </a>
+
+            <a href="mailto:xdrivelogisticsltd@gmail.com" style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '14px 24px',
+              backgroundColor: '#1E4E8C',
+              color: '#ffffff',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: '600',
+              fontSize: '15px',
+              transition: 'all 0.3s',
+              boxShadow: '0 2px 8px rgba(30, 78, 140, 0.3)'
+            }} className="contact-btn email-btn">
+              <span style={{ fontSize: '20px' }}>📧</span>
+              Email Us
+            </a>
+
+            <a href="tel:+447423272138" style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '14px 24px',
+              backgroundColor: '#1F7A3D',
+              color: '#ffffff',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: '600',
+              fontSize: '15px',
+              transition: 'all 0.3s',
+              boxShadow: '0 2px 8px rgba(31, 122, 61, 0.3)'
+            }} className="contact-btn call-btn">
+              <span style={{ fontSize: '20px' }}>📞</span>
+              Call Us
+            </a>
+          </div>
+
+          {/* Social Icons */}
+          <div style={{
+            display: 'flex',
+            gap: '16px',
+            justifyContent: 'center',
+            paddingTop: '24px',
+            borderTop: '1px solid rgba(30, 78, 140, 0.1)'
           }}>
             {SOCIAL_MEDIA_LINKS.map((social, idx) => (
               <a 
                 key={idx}
                 href={social.url}
                 style={{
-                  width: '64px',
-                  height: '64px',
+                  width: '48px',
+                  height: '48px',
                   borderRadius: '50%',
-                  border: '2px solid #d4af37',
+                  border: '2px solid #1E4E8C',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '28px',
+                  fontSize: '24px',
                   transition: 'all 0.3s',
-                  backgroundColor: 'rgba(10, 22, 40, 0.5)',
-                  boxShadow: '0 0 0 rgba(212, 175, 55, 0.5)',
+                  backgroundColor: '#F4F7FA',
                   textDecoration: 'none'
                 }}
                 className="social-icon"
@@ -435,848 +791,394 @@ export default function Home() {
       </section>
 
       <style jsx>{`
+        .contact-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+        }
+        .whatsapp-btn:hover {
+          background-color: #20ba5a !important;
+        }
+        .email-btn:hover {
+          background-color: #1a3f70 !important;
+        }
+        .call-btn:hover {
+          background-color: #1a6534 !important;
+        }
         .social-icon:hover {
           transform: scale(1.1);
-          box-shadow: 0 0 24px rgba(212, 175, 55, 0.6) !important;
-          border-color: #f4d03f !important;
+          border-color: #0A2239 !important;
+          background-color: #ffffff !important;
         }
       `}</style>
 
-      {/* 4. BENEFITS / SERVICES PREVIEW */}
-      <section style={{ 
-        backgroundColor: '#0a1628',
-        padding: '60px 0',
-        position: 'relative'
-      }}>
-        <div className="container">
-          <div className="grid grid-3" style={{ textAlign: 'center', gap: '24px' }}>
-            <div style={{ 
-              padding: '32px 24px',
-              backgroundColor: 'rgba(10, 22, 40, 0.6)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(212, 175, 55, 0.2)',
-              borderRadius: '16px',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-              transition: 'all 0.3s'
-            }} className="benefit-card-dark">
-              <div style={{ 
-                fontSize: '48px', 
-                marginBottom: '16px'
-              }}>🕐</div>
-              <h3 style={{ 
-                fontSize: '20px', 
-                marginBottom: '12px',
-                fontWeight: '700',
-                color: '#d4af37'
-              }}>24/7 Service</h3>
-              <p style={{ fontSize: '15px', marginBottom: 0, lineHeight: '1.6', color: 'rgba(255, 255, 255, 0.8)' }}>
-                Round-the-clock availability for all your urgent transport needs
-              </p>
-            </div>
-            <div style={{ 
-              padding: '32px 24px',
-              backgroundColor: 'rgba(10, 22, 40, 0.6)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(212, 175, 55, 0.2)',
-              borderRadius: '16px',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-              transition: 'all 0.3s'
-            }} className="benefit-card-dark">
-              <div style={{ 
-                fontSize: '48px', 
-                marginBottom: '16px'
-              }}>🌍</div>
-              <h3 style={{ 
-                fontSize: '20px', 
-                marginBottom: '12px',
-                fontWeight: '700',
-                color: '#d4af37'
-              }}>Nationwide & Europe</h3>
-              <p style={{ fontSize: '15px', marginBottom: 0, lineHeight: '1.6', color: 'rgba(255, 255, 255, 0.8)' }}>
-                Comprehensive UK and EU coverage with reliable delivery
-              </p>
-            </div>
-            <div style={{ 
-              padding: '32px 24px',
-              backgroundColor: 'rgba(10, 22, 40, 0.6)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(212, 175, 55, 0.2)',
-              borderRadius: '16px',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-              transition: 'all 0.3s'
-            }} className="benefit-card-dark">
-              <div style={{ 
-                fontSize: '48px', 
-                marginBottom: '16px'
-              }}>🛡️</div>
-              <h3 style={{ 
-                fontSize: '20px', 
-                marginBottom: '12px',
-                fontWeight: '700',
-                color: '#d4af37'
-              }}>Fully Insured</h3>
-              <p style={{ fontSize: '15px', marginBottom: 0, lineHeight: '1.6', color: 'rgba(255, 255, 255, 0.8)' }}>
-                Your cargo is fully protected with comprehensive insurance
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <style jsx>{`
-        .benefit-card-dark:hover {
-          transform: translateY(-4px);
-          border-color: rgba(212, 175, 55, 0.5) !important;
-          box-shadow: 0 12px 32px rgba(212, 175, 55, 0.2) !important;
-        }
-      `}</style>
-
-      {/* 5. QUOTE FORM SECTION - GLASS DARK */}
-      <section id="quote" style={{ 
-        backgroundColor: '#050c16',
-        padding: '60px 0',
-        borderTop: '1px solid rgba(212, 175, 55, 0.1)'
+      {/* 6. SERVICES - COMPACT */}
+      <section id="services" style={{ 
+        backgroundColor: '#F4F7FA',
+        padding: '64px 0'
       }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '48px' }}>
             <h2 style={{ 
-              marginBottom: '16px',
-              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-              color: '#ffffff',
-              fontWeight: '800'
-            }}>Ready to Move Your Freight?</h2>
-            <p style={{ 
-              fontSize: '18px', 
-              color: 'rgba(255, 255, 255, 0.7)',
-              maxWidth: '600px',
-              margin: '0 auto'
-            }}>
-              Fast, competitive pricing for all your transport needs
-            </p>
-          </div>
-          
-          <div style={{ maxWidth: '740px', margin: '0 auto', width: '100%' }}>
-            {/* Quote Form - Dark Glass */}
-            <div style={{
-              padding: '32px',
-              backgroundColor: 'rgba(10, 22, 40, 0.7)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(212, 175, 55, 0.3)',
-              borderRadius: '20px',
-              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)'
-            }}>
-              <h3 style={{ marginBottom: '24px', color: '#d4af37', fontSize: '22px', fontWeight: '700' }}>Get a Quick Quote</h3>
-              
-              {quoteSuccess && (
-                <div style={{
-                  padding: '16px',
-                  backgroundColor: 'rgba(212, 175, 55, 0.2)',
-                  border: '1px solid #d4af37',
-                  color: '#d4af37',
-                  borderRadius: '12px',
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  <span style={{ fontSize: '20px' }}>✓</span>
-                  <span>Quote request received! We will contact you shortly.</span>
-                </div>
-              )}
-
-              <form onSubmit={handleQuoteSubmit}>
-                <div style={{ display: 'grid', gap: '16px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }} className="form-row">
-                    <div>
-                      <label htmlFor="name" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
-                        Name *
-                      </label>
-                      <input type="text" id="name" name="name" required placeholder="Your full name" style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(0, 212, 255, 0.3)',
-                        borderRadius: '8px',
-                        color: '#ffffff',
-                        fontSize: '15px'
-                      }} />
-                    </div>
-                    <div>
-                      <label htmlFor="email" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
-                        Email *
-                      </label>
-                      <input type="email" id="email" name="email" required placeholder="your.email@example.com" style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(0, 212, 255, 0.3)',
-                        borderRadius: '8px',
-                        color: '#ffffff',
-                        fontSize: '15px'
-                      }} />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }} className="form-row">
-                    <div>
-                      <label htmlFor="pickup" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
-                        Pickup Location *
-                      </label>
-                      <input type="text" id="pickup" name="pickup" required placeholder="City, Postcode, or Address" style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(0, 212, 255, 0.3)',
-                        borderRadius: '8px',
-                        color: '#ffffff',
-                        fontSize: '15px'
-                      }} />
-                    </div>
-                    <div>
-                      <label htmlFor="delivery" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
-                        Delivery Location *
-                      </label>
-                      <input type="text" id="delivery" name="delivery" required placeholder="City, Postcode, or Address" style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(0, 212, 255, 0.3)',
-                        borderRadius: '8px',
-                        color: '#ffffff',
-                        fontSize: '15px'
-                      }} />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }} className="form-row">
-                    <div>
-                      <label htmlFor="cargo" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
-                        Cargo Details *
-                      </label>
-                      <select id="cargo" name="cargo" required style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(0, 212, 255, 0.3)',
-                        borderRadius: '8px',
-                        color: '#ffffff',
-                        fontSize: '15px'
-                      }}>
-                        <option value="">Select cargo type</option>
-                        <option value="documents">Documents / Small Parcel</option>
-                        <option value="packages">Packages (up to 30kg)</option>
-                        <option value="pallets">Pallets</option>
-                        <option value="large">Large Items / Furniture</option>
-                        <option value="other">Other (specify in message)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="quantity" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
-                        Quantity
-                      </label>
-                      <input type="number" id="quantity" name="quantity" min="1" defaultValue="1" placeholder="Number of items" style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(0, 212, 255, 0.3)',
-                        borderRadius: '8px',
-                        color: '#ffffff',
-                        fontSize: '15px'
-                      }} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="message" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffffff' }}>
-                      Additional Details
-                    </label>
-                    <textarea 
-                      id="message" 
-                      name="message" 
-                      placeholder="Any special requirements or additional information..."
-                      rows={3}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(0, 212, 255, 0.3)',
-                        borderRadius: '8px',
-                        color: '#ffffff',
-                        fontSize: '15px',
-                        fontFamily: 'inherit'
-                      }}
-                    ></textarea>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
-                    <button type="submit" style={{ 
-                      minWidth: '200px',
-                      padding: '14px 32px',
-                      background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
-                      color: '#0a1628',
-                      border: 'none',
-                      borderRadius: '10px',
-                      fontWeight: '700',
-                      fontSize: '16px',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 20px rgba(212, 175, 55, 0.4)',
-                      transition: 'all 0.3s'
-                    }} className="submit-gold-btn">
-                      Request a Quote
-                    </button>
-                  </div>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          {/* Contact Buttons */}
-          <div style={{ 
-            display: 'flex', 
-            flexWrap: 'wrap',
-            gap: '16px', 
-            justifyContent: 'center',
-            marginTop: '40px'
-          }}>
-            <a 
-              href={WHATSAPP_URL} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              style={{ 
-                padding: '14px 28px',
-                background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
-                color: '#0a1628',
-                border: 'none',
-                borderRadius: '10px',
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                textDecoration: 'none',
-                boxShadow: '0 4px 16px rgba(212, 175, 55, 0.4)',
-                transition: 'all 0.3s'
-              }}
-              className="gold-cta-btn"
-            >
-              <span style={{ fontSize: '20px' }}>💬</span> WhatsApp
-            </a>
-            <a 
-              href="mailto:xdrivelogisticsltd@gmail.com"
-              style={{ 
-                padding: '14px 28px',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                backdropFilter: 'blur(10px)',
-                border: '2px solid rgba(0, 212, 255, 0.4)',
-                color: '#00d4ff',
-                borderRadius: '10px',
-                fontWeight: '600',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                textDecoration: 'none',
-                transition: 'all 0.3s'
-              }}
-              className="electric-cta-btn"
-            >
-              <span style={{ fontSize: '20px' }}>📧</span> Email Us
-            </a>
-            <a 
-              href="tel:07423272138"
-              style={{ 
-                padding: '14px 28px',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                backdropFilter: 'blur(10px)',
-                border: '2px solid rgba(212, 175, 55, 0.4)',
-                color: '#d4af37',
-                borderRadius: '10px',
-                fontWeight: '600',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                textDecoration: 'none',
-                transition: 'all 0.3s'
-              }}
-              className="gold-outline-btn"
-            >
-              <span style={{ fontSize: '20px' }}>📞</span> Call Now
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <style jsx>{`
-        @media (min-width: 768px) {
-          .form-row {
-            grid-template-columns: 1fr 1fr !important;
-          }
-        }
-        input::placeholder, textarea::placeholder, select {
-          color: rgba(255, 255, 255, 0.4);
-        }
-        input:focus, textarea:focus, select:focus {
-          outline: none;
-          border-color: rgba(0, 212, 255, 0.6) !important;
-        }
-        .submit-gold-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 24px rgba(212, 175, 55, 0.6) !important;
-        }
-        .gold-cta-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 24px rgba(212, 175, 55, 0.6) !important;
-        }
-        .electric-cta-btn:hover {
-          background-color: rgba(0, 212, 255, 0.1) !important;
-          border-color: rgba(0, 212, 255, 0.6) !important;
-          transform: translateY(-2px);
-        }
-        .gold-outline-btn:hover {
-          background-color: rgba(212, 175, 55, 0.1) !important;
-          border-color: rgba(212, 175, 55, 0.6) !important;
-          transform: translateY(-2px);
-        }
-      `}</style>
-
-      {/* 6. SERVICES SECTION - COMPACT */}
-      <section id="services" style={{ 
-        backgroundColor: '#0a1628',
-        padding: '60px 0'
-      }}>
-        <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <h2 style={{ 
-              marginBottom: '16px',
-              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-              color: '#ffffff',
-              fontWeight: '800'
+              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', 
+              fontWeight: '700',
+              color: '#0A2239',
+              marginBottom: '12px'
             }}>Our Services</h2>
-            <p style={{ 
-              fontSize: '16px',
-              color: 'rgba(255, 255, 255, 0.7)',
-              maxWidth: '600px',
-              margin: '0 auto'
-            }}>
-              Comprehensive transport solutions tailored to your needs
+            <p style={{ fontSize: '17px', color: '#1E4E8C' }}>
+              Comprehensive transport solutions for all your needs
             </p>
           </div>
 
-          <div className="grid grid-3" style={{ gap: '20px' }}>
-            {[
-              { icon: '⚡', title: 'Same Day Delivery', desc: 'Urgent deliveries within hours across the UK' },
-              { icon: '📦', title: 'Express / Next Day', desc: 'Reliable overnight shipping nationwide' },
-              { icon: '📅', title: 'Scheduled Transport', desc: 'Plan ahead with our scheduled delivery service' },
-              { icon: '🏗️', title: 'Pallet Transport', desc: 'Efficient pallet delivery for businesses' },
-              { icon: '🚚', title: 'UK-EU Road Freight', desc: 'Cross-border transport solutions' },
-              { icon: '🚐', title: 'Dedicated Van', desc: 'Exclusive van hire for your shipments' }
-            ].map((service, index) => (
-              <div key={index} style={{
-                textAlign: 'center',
-                padding: '28px 20px',
-                backgroundColor: 'rgba(10, 22, 40, 0.5)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(212, 175, 55, 0.2)',
-                borderRadius: '16px',
-                transition: 'all 0.3s'
-              }} className="service-card-dark">
-                <div style={{ 
-                  fontSize: '48px', 
-                  marginBottom: '16px',
-                  lineHeight: 1
-                }}>{service.icon}</div>
-                <h3 style={{ 
-                  marginBottom: '10px',
-                  fontSize: '18px',
-                  fontWeight: '700',
-                  color: '#d4af37'
-                }}>{service.title}</h3>
-                <p style={{ 
-                  fontSize: '14px', 
-                  marginBottom: 0,
-                  lineHeight: '1.5',
-                  color: 'rgba(255, 255, 255, 0.7)'
-                }}>
-                  {service.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <style jsx>{`
-        .service-card-dark:hover {
-          border-color: rgba(212, 175, 55, 0.5) !important;
-          transform: translateY(-4px);
-          box-shadow: 0 8px 24px rgba(212, 175, 55, 0.2) !important;
-        }
-      `}</style>
-
-      {/* 7. INVOICE/PAYMENT SECTION */}
-      <section style={{ 
-        backgroundColor: '#050c16',
-        padding: '60px 0',
-        borderTop: '1px solid rgba(212, 175, 55, 0.1)'
-      }}>
-        <div className="container">
-          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '24px',
+            maxWidth: '1200px',
+            margin: '0 auto'
+          }}>
             <div style={{
-              padding: '40px 32px',
-              backgroundColor: 'rgba(10, 22, 40, 0.6)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(212, 175, 55, 0.3)',
-              borderRadius: '20px',
-              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)',
-              textAlign: 'center'
-            }}>
+              backgroundColor: '#ffffff',
+              padding: '32px 24px',
+              borderRadius: '12px',
+              border: '1px solid rgba(30, 78, 140, 0.1)',
+              boxShadow: '0 2px 12px rgba(10, 34, 57, 0.06)',
+              transition: 'all 0.3s'
+            }} className="service-card">
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚡</div>
               <h3 style={{ 
-                color: '#d4af37', 
-                fontSize: '24px', 
-                fontWeight: '700',
-                marginBottom: '20px'
-              }}>Payment Options</h3>
-              
-              <p style={{ 
-                color: 'rgba(255, 255, 255, 0.8)', 
-                fontSize: '16px',
-                marginBottom: '28px',
-                lineHeight: '1.6'
-              }}>
-                We offer flexible payment terms for business accounts
+                fontSize: '20px', 
+                fontWeight: '600', 
+                color: '#0A2239',
+                marginBottom: '12px'
+              }}>Same Day Delivery</h3>
+              <p style={{ fontSize: '15px', color: '#1E4E8C', lineHeight: '1.6' }}>
+                Urgent shipments delivered the same day across the UK
               </p>
+            </div>
 
-              <div style={{ 
-                display: 'flex', 
-                gap: '24px', 
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-                marginBottom: '28px'
-              }}>
-                <div style={{
-                  flex: '1 1 250px',
-                  padding: '20px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(0, 212, 255, 0.2)',
-                  borderRadius: '12px'
-                }}>
-                  <div style={{ fontSize: '36px', marginBottom: '12px' }}>🏦</div>
-                  <h4 style={{ color: '#00d4ff', fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>Bank Transfer</h4>
-                  <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '14px', marginBottom: 0 }}>Secure direct payments</p>
-                </div>
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '32px 24px',
+              borderRadius: '12px',
+              border: '1px solid rgba(30, 78, 140, 0.1)',
+              boxShadow: '0 2px 12px rgba(10, 34, 57, 0.06)',
+              transition: 'all 0.3s'
+            }} className="service-card">
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚀</div>
+              <h3 style={{ 
+                fontSize: '20px', 
+                fontWeight: '600', 
+                color: '#0A2239',
+                marginBottom: '12px'
+              }}>Express / Next Day</h3>
+              <p style={{ fontSize: '15px', color: '#1E4E8C', lineHeight: '1.6' }}>
+                Fast next-day delivery to any UK or European destination
+              </p>
+            </div>
 
-                <div style={{
-                  flex: '1 1 250px',
-                  padding: '20px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(0, 212, 255, 0.2)',
-                  borderRadius: '12px'
-                }}>
-                  <div style={{ fontSize: '36px', marginBottom: '12px' }}>💳</div>
-                  <h4 style={{ color: '#00d4ff', fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>PayPal</h4>
-                  <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '14px', marginBottom: 0 }}>Quick online payment</p>
-                </div>
-              </div>
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '32px 24px',
+              borderRadius: '12px',
+              border: '1px solid rgba(30, 78, 140, 0.1)',
+              boxShadow: '0 2px 12px rgba(10, 34, 57, 0.06)',
+              transition: 'all 0.3s'
+            }} className="service-card">
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>📅</div>
+              <h3 style={{ 
+                fontSize: '20px', 
+                fontWeight: '600', 
+                color: '#0A2239',
+                marginBottom: '12px'
+              }}>Scheduled Transport</h3>
+              <p style={{ fontSize: '15px', color: '#1E4E8C', lineHeight: '1.6' }}>
+                Plan ahead with our flexible scheduled delivery options
+              </p>
+            </div>
 
-              <div style={{
-                padding: '16px',
-                backgroundColor: 'rgba(212, 175, 55, 0.1)',
-                border: '1px solid rgba(212, 175, 55, 0.3)',
-                borderRadius: '10px'
-              }}>
-                <p style={{ color: '#d4af37', fontSize: '15px', fontWeight: '600', marginBottom: 0 }}>
-                  ✓ 14/30 Day Payment Terms Available for Business Accounts
-                </p>
-              </div>
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '32px 24px',
+              borderRadius: '12px',
+              border: '1px solid rgba(30, 78, 140, 0.1)',
+              boxShadow: '0 2px 12px rgba(10, 34, 57, 0.06)',
+              transition: 'all 0.3s'
+            }} className="service-card">
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>📦</div>
+              <h3 style={{ 
+                fontSize: '20px', 
+                fontWeight: '600', 
+                color: '#0A2239',
+                marginBottom: '12px'
+              }}>Pallet Transport</h3>
+              <p style={{ fontSize: '15px', color: '#1E4E8C', lineHeight: '1.6' }}>
+                Secure pallet delivery with professional handling
+              </p>
+            </div>
+
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '32px 24px',
+              borderRadius: '12px',
+              border: '1px solid rgba(30, 78, 140, 0.1)',
+              boxShadow: '0 2px 12px rgba(10, 34, 57, 0.06)',
+              transition: 'all 0.3s'
+            }} className="service-card">
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🌍</div>
+              <h3 style={{ 
+                fontSize: '20px', 
+                fontWeight: '600', 
+                color: '#0A2239',
+                marginBottom: '12px'
+              }}>UK-EU Road Freight</h3>
+              <p style={{ fontSize: '15px', color: '#1E4E8C', lineHeight: '1.6' }}>
+                Reliable cross-border transport throughout Europe
+              </p>
+            </div>
+
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '32px 24px',
+              borderRadius: '12px',
+              border: '1px solid rgba(30, 78, 140, 0.1)',
+              boxShadow: '0 2px 12px rgba(10, 34, 57, 0.06)',
+              transition: 'all 0.3s'
+            }} className="service-card">
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚚</div>
+              <h3 style={{ 
+                fontSize: '20px', 
+                fontWeight: '600', 
+                color: '#0A2239',
+                marginBottom: '12px'
+              }}>Dedicated Van</h3>
+              <p style={{ fontSize: '15px', color: '#1E4E8C', lineHeight: '1.6' }}>
+                Exclusive vehicle for your specific delivery needs
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 8. ABOUT US - COMPACT */}
+      <style jsx>{`
+        .service-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 24px rgba(10, 34, 57, 0.12) !important;
+          border-color: rgba(30, 78, 140, 0.3) !important;
+        }
+      `}</style>
+
+      {/* 7. ABOUT - COMPACT */}
       <section id="about" style={{ 
-        backgroundColor: '#0a1628',
-        padding: '60px 0'
+        backgroundColor: '#ffffff',
+        padding: '64px 0',
+        borderTop: '1px solid rgba(30, 78, 140, 0.1)'
       }}>
         <div className="container">
           <div style={{ maxWidth: '900px', margin: '0 auto' }}>
             <div style={{ textAlign: 'center', marginBottom: '40px' }}>
               <h2 style={{ 
-                marginBottom: '16px',
-                fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-                color: '#ffffff',
-                fontWeight: '800'
-              }}>About Danny Courier</h2>
+                fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', 
+                fontWeight: '700',
+                color: '#0A2239',
+                marginBottom: '16px'
+              }}>About XDrive Logistics Ltd</h2>
               <p style={{ 
-                fontSize: '16px',
-                color: 'rgba(255, 255, 255, 0.7)',
+                fontSize: '16px', 
+                color: '#1E4E8C', 
                 lineHeight: '1.7',
-                maxWidth: '700px',
-                margin: '0 auto'
+                marginBottom: '32px'
               }}>
-                Established in 2021, Danny Courier Ltd has grown to become a trusted partner for 
-                businesses and individuals across the UK and Europe.
+                Established in 2021, XDrive Logistics Ltd is your trusted partner for professional transport and courier services across the UK and Europe. We pride ourselves on delivering excellence with every shipment, ensuring your cargo arrives safely and on time, every time.
               </p>
             </div>
 
-            <div className="grid grid-2" style={{ gap: '24px' }}>
-              <div style={{ 
-                padding: '28px 24px',
-                border: '1px solid rgba(212, 175, 55, 0.3)',
-                borderRadius: '16px',
-                backgroundColor: 'rgba(10, 22, 40, 0.5)',
-                backdropFilter: 'blur(12px)'
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '24px'
+            }}>
+              <div style={{
+                padding: '24px',
+                backgroundColor: '#F4F7FA',
+                borderRadius: '10px',
+                border: '1px solid rgba(30, 78, 140, 0.1)'
               }}>
-                <h3 style={{ 
-                  marginBottom: '16px',
-                  fontSize: '20px',
-                  fontWeight: '700',
-                  color: '#d4af37'
-                }}>Why Choose Us</h3>
-                <ul style={{ marginBottom: 0, color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
-                  <li style={{ paddingTop: '10px', paddingBottom: '10px' }}>Experienced UK & EU coverage with local expertise</li>
-                  <li style={{ paddingTop: '10px', paddingBottom: '10px' }}>Comprehensive proof of delivery workflow</li>
-                  <li style={{ paddingTop: '10px', paddingBottom: '10px' }}>Transparent pricing and payment terms</li>
-                  <li style={{ paddingTop: '10px', paddingBottom: '10px' }}>Dedicated customer support team</li>
-                </ul>
-              </div>
-
-              <div style={{ 
-                padding: '28px 24px',
-                background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(0, 212, 255, 0.1) 100%)',
-                border: '1px solid rgba(0, 212, 255, 0.3)',
-                borderRadius: '16px',
-                backdropFilter: 'blur(12px)'
-              }}>
-                <h3 style={{ 
-                  color: '#00d4ff', 
-                  marginBottom: '16px',
-                  fontSize: '20px',
-                  fontWeight: '700'
-                }}>Our Commitment</h3>
-                <p style={{ 
-                  color: 'rgba(255, 255, 255, 0.8)', 
-                  marginBottom: '16px',
-                  lineHeight: '1.6',
-                  fontSize: '14px'
-                }}>
-                  We are committed to providing reliable, professional transport services with a focus on:
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>🏆</div>
+                <h4 style={{ 
+                  fontSize: '17px', 
+                  fontWeight: '600', 
+                  color: '#0A2239',
+                  marginBottom: '8px'
+                }}>Established 2021</h4>
+                <p style={{ fontSize: '14px', color: '#1E4E8C' }}>
+                  Years of reliable service and growing expertise
                 </p>
-                <ul style={{ marginBottom: 0, color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
-                  <li style={{ paddingTop: '8px', paddingBottom: '8px' }}>On-time delivery performance</li>
-                  <li style={{ paddingTop: '8px', paddingBottom: '8px' }}>Secure handling of goods</li>
-                  <li style={{ paddingTop: '8px', paddingBottom: '8px' }}>Clear communication</li>
-                </ul>
+              </div>
+
+              <div style={{
+                padding: '24px',
+                backgroundColor: '#F4F7FA',
+                borderRadius: '10px',
+                border: '1px solid rgba(30, 78, 140, 0.1)'
+              }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>✅</div>
+                <h4 style={{ 
+                  fontSize: '17px', 
+                  fontWeight: '600', 
+                  color: '#0A2239',
+                  marginBottom: '8px'
+                }}>Reliable & Professional</h4>
+                <p style={{ fontSize: '14px', color: '#1E4E8C' }}>
+                  Committed to on-time deliveries with professional care
+                </p>
+              </div>
+
+              <div style={{
+                padding: '24px',
+                backgroundColor: '#F4F7FA',
+                borderRadius: '10px',
+                border: '1px solid rgba(30, 78, 140, 0.1)'
+              }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>🛡️</div>
+                <h4 style={{ 
+                  fontSize: '17px', 
+                  fontWeight: '600', 
+                  color: '#0A2239',
+                  marginBottom: '8px'
+                }}>Fully Insured</h4>
+                <p style={{ fontSize: '14px', color: '#1E4E8C' }}>
+                  Complete peace of mind with comprehensive insurance
+                </p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 9. LEGAL LINKS & COOKIE NOTICE */}
-      <section style={{ 
-        backgroundColor: '#050c16',
-        padding: '40px 0',
-        borderTop: '1px solid rgba(212, 175, 55, 0.1)'
-      }}>
-        <div className="container">
-          <div style={{ 
-            textAlign: 'center',
-            marginBottom: '24px'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              gap: '24px', 
-              justifyContent: 'center',
-              flexWrap: 'wrap',
-              fontSize: '14px'
-            }}>
-              <a href="#" style={{ 
-                color: 'rgba(255, 255, 255, 0.7)', 
-                textDecoration: 'none',
-                borderBottom: '1px solid rgba(212, 175, 55, 0.3)',
-                paddingBottom: '2px',
-                transition: 'color 0.2s'
-              }} className="legal-link">Privacy Policy</a>
-              <a href="#" style={{ 
-                color: 'rgba(255, 255, 255, 0.7)', 
-                textDecoration: 'none',
-                borderBottom: '1px solid rgba(212, 175, 55, 0.3)',
-                paddingBottom: '2px',
-                transition: 'color 0.2s'
-              }} className="legal-link">Terms & Conditions</a>
-              <a href="#" style={{ 
-                color: 'rgba(255, 255, 255, 0.7)', 
-                textDecoration: 'none',
-                borderBottom: '1px solid rgba(212, 175, 55, 0.3)',
-                paddingBottom: '2px',
-                transition: 'color 0.2s'
-              }} className="legal-link">Payment Terms</a>
-            </div>
-          </div>
-          
-          <div style={{
-            maxWidth: '600px',
-            margin: '0 auto',
-            padding: '12px 20px',
-            backgroundColor: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '8px',
-            textAlign: 'center'
-          }}>
-            <p style={{ 
-              fontSize: '12px', 
-              color: 'rgba(255, 255, 255, 0.5)', 
-              marginBottom: 0 
-            }}>
-              🍪 This website uses cookies to enhance your experience
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <style jsx>{`
-        .legal-link:hover {
-          color: #d4af37 !important;
-          border-color: #d4af37 !important;
-        }
-      `}</style>
-
-      {/* 10. FOOTER - DARK WITH GOLD ACCENTS */}
-      <footer style={{ 
-        backgroundColor: '#0a1628',
-        color: 'white',
-        padding: '48px 0 24px',
-        borderTop: '1px solid rgba(212, 175, 55, 0.2)'
+      {/* 8. FOOTER - CORPORATE LIGHT */}
+      <footer id="contact" style={{ 
+        backgroundColor: '#0A2239',
+        color: '#ffffff',
+        padding: '48px 0 24px'
       }}>
         <div className="container">
           <div style={{ 
             display: 'grid',
-            gap: '32px',
             gridTemplateColumns: '1fr',
+            gap: '32px',
             marginBottom: '32px'
           }} className="footer-grid">
             <div>
               <h3 style={{ 
-                color: '#d4af37', 
                 fontSize: '22px', 
+                fontWeight: '700',
                 marginBottom: '16px',
-                fontWeight: '700'
+                color: '#ffffff'
+              }}>XDrive Logistics Ltd</h3>
+              <p style={{ 
+                fontSize: '15px', 
+                color: 'rgba(255, 255, 255, 0.8)',
+                lineHeight: '1.6',
+                marginBottom: '20px'
               }}>
-                Danny Courier Ltd
-              </h3>
-              <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', marginBottom: '16px', lineHeight: '1.6' }}>
-                Professional courier and logistics services across the UK and Europe. 
-                Established 2021.
+                Professional transport and logistics services across the UK and Europe. Available 24/7 for all your delivery needs.
               </p>
-              <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', marginBottom: '20px' }}>
-                Payment Terms: 14/30 days for business accounts
-              </p>
+              
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '12px',
+                marginBottom: '20px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '18px' }}>📧</span>
+                  <a href="mailto:xdrivelogisticsltd@gmail.com" style={{ 
+                    color: 'rgba(255, 255, 255, 0.9)', 
+                    textDecoration: 'none',
+                    fontSize: '15px'
+                  }}>xdrivelogisticsltd@gmail.com</a>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '18px' }}>📞</span>
+                  <a href="tel:+447423272138" style={{ 
+                    color: 'rgba(255, 255, 255, 0.9)', 
+                    textDecoration: 'none',
+                    fontSize: '15px'
+                  }}>07423 272 138</a>
+                </div>
+              </div>
 
-              {/* WhatsApp CTA in Footer */}
-              <a 
-                href={WHATSAPP_URL} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                style={{ 
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '12px 24px',
-                  background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
-                  color: '#0a1628',
-                  borderRadius: '10px',
-                  fontWeight: '700',
-                  textDecoration: 'none',
-                  fontSize: '15px',
-                  boxShadow: '0 4px 16px rgba(212, 175, 55, 0.4)',
-                  transition: 'all 0.3s',
-                  marginBottom: '16px'
-                }}
-                className="footer-whatsapp-btn"
-              >
-                <span style={{ fontSize: '20px' }}>💬</span> WhatsApp Us
+              {/* Social Icons */}
+              <div style={{
+                display: 'flex',
+                gap: '12px',
+                marginBottom: '20px'
+              }}>
+                {SOCIAL_MEDIA_LINKS.map((social, idx) => (
+                  <a 
+                    key={idx}
+                    href={social.url}
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      border: '2px solid rgba(255, 255, 255, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '20px',
+                      transition: 'all 0.3s',
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      textDecoration: 'none'
+                    }}
+                    className="footer-social"
+                    aria-label={social.name}
+                  >
+                    {social.icon}
+                  </a>
+                ))}
+              </div>
+
+              {/* WhatsApp CTA */}
+              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '12px 24px',
+                backgroundColor: '#25D366',
+                color: '#ffffff',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                fontWeight: '600',
+                fontSize: '15px',
+                transition: 'all 0.3s',
+                boxShadow: '0 2px 8px rgba(37, 211, 102, 0.3)'
+              }} className="footer-whatsapp">
+                <span style={{ fontSize: '20px' }}>💬</span>
+                Chat on WhatsApp
               </a>
-
-              {/* Social Media Icons */}
-              <div>
-                <div style={{ 
-                  color: 'rgba(255, 255, 255, 0.7)', 
-                  fontSize: '14px', 
-                  marginBottom: '12px',
-                  fontWeight: '600'
-                }}>
-                  Follow Us
-                </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  {SOCIAL_MEDIA_LINKS.map((social, idx) => (
-                    <a 
-                      key={idx}
-                      href={social.url}
-                      style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '50%',
-                        border: '1px solid rgba(212, 175, 55, 0.4)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '20px',
-                        transition: 'all 0.2s',
-                        textDecoration: 'none'
-                      }}
-                      className="footer-social-icon"
-                      aria-label={social.name}
-                    >
-                      {social.icon}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h4 style={{ color: '#d4af37', fontSize: '16px', marginBottom: '16px', fontWeight: '700' }}>Quick Links</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <a href="#home" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', textDecoration: 'none', transition: 'color 0.2s' }} className="footer-link">Home</a>
-                <a href="#services" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', textDecoration: 'none', transition: 'color 0.2s' }} className="footer-link">Services</a>
-                <a href="#about" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', textDecoration: 'none', transition: 'color 0.2s' }} className="footer-link">About Us</a>
-                <a href="#quote" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', textDecoration: 'none', transition: 'color 0.2s' }} className="footer-link">Get Quote</a>
-              </div>
-            </div>
-
-            <div>
-              <h4 style={{ color: '#d4af37', fontSize: '16px', marginBottom: '16px', fontWeight: '700' }}>Contact</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <a href="tel:07423272138" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', textDecoration: 'none', transition: 'color 0.2s' }} className="footer-link">
-                  📞 07423 272 138
-                </a>
-                <a href="mailto:xdrivelogisticsltd@gmail.com" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', textDecoration: 'none', transition: 'color 0.2s', wordBreak: 'break-word' }} className="footer-link">
-                  📧 xdrivelogisticsltd@gmail.com
-                </a>
-              </div>
             </div>
           </div>
 
-          <div style={{ 
-            borderTop: '1px solid rgba(212, 175, 55, 0.2)',
+          {/* Bottom Bar */}
+          <div style={{
             paddingTop: '24px',
+            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
             textAlign: 'center'
           }}>
-            <div style={{ 
-              display: 'flex', 
-              gap: '16px', 
-              justifyContent: 'center',
-              flexWrap: 'wrap',
-              marginBottom: '16px',
-              fontSize: '13px'
+            <p style={{ 
+              fontSize: '14px', 
+              color: 'rgba(255, 255, 255, 0.7)',
+              marginBottom: '12px',
+              fontWeight: '500'
             }}>
-              <a href="#" style={{ color: 'rgba(255, 255, 255, 0.5)', textDecoration: 'none' }} className="footer-link">Privacy Policy</a>
-              <span style={{ color: 'rgba(255, 255, 255, 0.3)' }}>•</span>
-              <a href="#" style={{ color: 'rgba(255, 255, 255, 0.5)', textDecoration: 'none' }} className="footer-link">Terms & Conditions</a>
-              <span style={{ color: 'rgba(255, 255, 255, 0.3)' }}>•</span>
-              <a href="#" style={{ color: 'rgba(255, 255, 255, 0.5)', textDecoration: 'none' }} className="footer-link">Payment Terms</a>
-            </div>
-            <p style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '13px', marginBottom: 0 }}>
-              © {new Date().getFullYear()} Danny Courier Ltd. All rights reserved.
+              24/7 • UK & Europe • Fully Insured
+            </p>
+            <p style={{ 
+              fontSize: '13px', 
+              color: 'rgba(255, 255, 255, 0.5)'
+            }}>
+              © {new Date().getFullYear()} XDrive Logistics Ltd. All rights reserved.
             </p>
           </div>
         </div>
@@ -1285,23 +1187,22 @@ export default function Home() {
       <style jsx>{`
         @media (min-width: 768px) {
           .footer-grid {
-            grid-template-columns: 2fr 1fr 1fr !important;
+            grid-template-columns: 1fr !important;
           }
         }
-        .footer-link:hover {
-          color: #d4af37 !important;
-        }
-        .footer-social-icon:hover {
-          border-color: #d4af37 !important;
+        .footer-social:hover {
           transform: scale(1.1);
+          border-color: rgba(255, 255, 255, 0.6) !important;
+          background-color: rgba(255, 255, 255, 0.1) !important;
         }
-        .footer-whatsapp-btn:hover {
+        .footer-whatsapp:hover {
+          background-color: #20ba5a !important;
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(212, 175, 55, 0.6) !important;
+          box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4) !important;
         }
       `}</style>
 
-      {/* 11. FLOATING WHATSAPP BUTTON - GOLD THEMED */}
+      {/* 9. FLOATING WHATSAPP BUTTON */}
       <a
         href={WHATSAPP_URL}
         target="_blank"
@@ -1312,18 +1213,19 @@ export default function Home() {
           right: '24px',
           width: '60px',
           height: '60px',
-          background: 'linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)',
+          backgroundColor: '#25D366',
           borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: '32px',
-          boxShadow: '0 4px 20px rgba(212, 175, 55, 0.5)',
+          boxShadow: '0 4px 16px rgba(37, 211, 102, 0.4)',
           zIndex: 999,
-          transition: 'all 0.3s'
+          transition: 'all 0.3s',
+          textDecoration: 'none'
         }}
-        aria-label="Contact us on WhatsApp"
         className="floating-whatsapp"
+        aria-label="Chat on WhatsApp"
       >
         💬
       </a>
@@ -1331,7 +1233,7 @@ export default function Home() {
       <style jsx>{`
         .floating-whatsapp:hover {
           transform: scale(1.15);
-          box-shadow: 0 6px 28px rgba(212, 175, 55, 0.7) !important;
+          box-shadow: 0 6px 24px rgba(37, 211, 102, 0.6) !important;
         }
       `}</style>
     </main>
