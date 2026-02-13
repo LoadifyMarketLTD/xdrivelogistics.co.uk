@@ -1,0 +1,19 @@
+# Hero Section Mockups
+
+Place hero section mockup images here. Supported formats:
+- PNG
+- JPG/JPEG
+- SVG
+- WebP
+
+## Naming Convention
+- `hero-desktop-v1.png` - Desktop version, version 1
+- `hero-mobile-v1.png` - Mobile version, version 1
+- `hero-tablet-v1.png` - Tablet version, version 1
+
+## Current Hero Section
+The current website has a hero section. Any new mockups should:
+- Maintain brand consistency
+- Be responsive across all devices
+- Include clear call-to-action
+- Highlight courier services
