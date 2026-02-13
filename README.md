@@ -75,4 +75,4 @@ All pull requests create deploy previews automatically.
 
 ## License
 
-© 2026 Danny Courier LTD. All rights reserved.
+© 2021 Danny Courier LTD. All rights reserved.
