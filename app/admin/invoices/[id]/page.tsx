@@ -58,26 +58,29 @@ export default function InvoiceDetailPage() {
   }, [formData.date, formData.paymentTerms]);
 
   // Generate unique Job Reference using timestamp to prevent collisions
-  // Format: DC-YYMMDD-XXXX where XXXX is based on timestamp milliseconds
+  // Format: DC-YYMMDD-XXXX where XXXX is based on timestamp
+  // NOTE: In production, use a proper sequential counter from database
   const generateJobRef = () => {
     const now = new Date();
     const yy = now.getFullYear().toString().slice(-2);
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
-    // Use timestamp milliseconds for uniqueness instead of random
-    const xxxx = String(now.getTime() % 10000).padStart(4, '0');
+    // Use last 4 digits of timestamp + random component for better uniqueness
+    const timePart = String(now.getTime()).slice(-3);
+    const randomPart = String(Math.floor(Math.random() * 10));
+    const xxxx = (timePart + randomPart).padStart(4, '0');
     return `${COMPANY_CONFIG.invoice.jobRefPrefix}-${yy}${mm}${dd}-${xxxx}`;
   };
 
   // Generate unique Invoice Number using timestamp
   // Format: INV-YYYYMM-XXX
-  // TODO: In production, use sequential counter from backend database
+  // NOTE: In production, use a proper sequential counter from database
   const generateInvoiceNumber = () => {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    // Use timestamp milliseconds for uniqueness instead of random
-    const uniqueId = String(now.getTime() % 1000).padStart(3, '0');
+    // Use last 3 digits of timestamp for better distribution
+    const uniqueId = String(now.getTime()).slice(-3);
     return `${COMPANY_CONFIG.invoice.invoicePrefix}-${year}${month}-${uniqueId}`;
   };
 

@@ -7,6 +7,7 @@ import { useAuth } from '../../../components/AuthContext';
 import PODPhotoUpload from '../../../components/PODPhotoUpload';
 import SignatureCanvas from '../../../components/SignatureCanvas';
 import DelayUpdate from '../../../components/DelayUpdate';
+import Toast from '../../../components/Toast';
 
 interface JobPODData {
   pickupPhotos: string[];
@@ -94,6 +95,7 @@ export default function JobDetailPage() {
   });
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [showDelayModal, setShowDelayModal] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
     // Load job data
@@ -132,12 +134,12 @@ export default function JobDetailPage() {
     const newPodData = { ...podData, signature: signatureData, recipientName };
     savePODData(newPodData);
     setShowSignatureModal(false);
-    alert('Signature saved successfully!');
+    setToast({ message: 'Signature saved successfully!', type: 'success' });
   };
 
   const handleMarkDelivered = () => {
     if (!podData.signature || !podData.recipientName) {
-      alert('Please capture signature before marking as delivered');
+      setToast({ message: 'Please capture signature before marking as delivered', type: 'error' });
       return;
     }
 
@@ -150,39 +152,53 @@ export default function JobDetailPage() {
     const newPodData = { ...podData, deliveredAt };
     savePODData(newPodData);
 
-    alert(`Job ${job?.ref} marked as delivered!\nDelivery time: ${new Date(deliveredAt).toLocaleString()}`);
+    setToast({ 
+      message: `Job ${job?.ref} marked as delivered at ${new Date(deliveredAt).toLocaleTimeString()}`, 
+      type: 'success' 
+    });
     
     // In production, this would sync to backend
     setTimeout(() => {
       router.push('/m/jobs');
-    }, 1000);
+    }, 1500);
   };
 
   const handleSendPickupPOD = () => {
     if (podData.pickupPhotos.length === 0) {
-      alert('Please add at least one pickup photo');
+      setToast({ message: 'Please add at least one pickup photo', type: 'error' });
       return;
     }
-    alert(`Pickup POD sent for ${job?.ref}!\n${podData.pickupPhotos.length} photos uploaded.`);
+    setToast({ 
+      message: `Pickup POD sent - ${podData.pickupPhotos.length} photo(s) uploaded`, 
+      type: 'success' 
+    });
     // In production, this would send to backend
   };
 
   const handleSendDeliveryPOD = () => {
     if (podData.deliveryPhotos.length === 0) {
-      alert('Please add at least one delivery photo');
+      setToast({ message: 'Please add at least one delivery photo', type: 'error' });
       return;
     }
-    alert(`Delivery POD sent for ${job?.ref}!\n${podData.deliveryPhotos.length} photos uploaded.`);
+    setToast({ 
+      message: `Delivery POD sent - ${podData.deliveryPhotos.length} photo(s) uploaded`, 
+      type: 'success' 
+    });
     // In production, this would send to backend
   };
 
   const handleDelayUpdate = (delayMinutes: number, reason: string) => {
     const message = `Delay Update - ${job?.ref}\n\nEstimated delay: ${delayMinutes} minutes\nReason: ${reason}\n\nWe apologize for any inconvenience.`;
     
-    // In production, this would send via WhatsApp/Email
-    alert(`Delay update prepared:\n\n${message}\n\n(In production, this would be sent via WhatsApp/Email)`);
+    setToast({ 
+      message: `Delay update prepared: +${delayMinutes} minutes`, 
+      type: 'info' 
+    });
     
     setShowDelayModal(false);
+    
+    // In production, this would send via WhatsApp/Email
+    console.log('Delay update message:', message);
   };
 
   const formatTime = (isoString: string) => {
@@ -642,6 +658,15 @@ export default function JobDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={() => setToast(null)} 
+        />
+      )}
     </ProtectedRoute>
   );
 }
