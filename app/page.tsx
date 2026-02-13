@@ -49,7 +49,7 @@ export default function Home() {
             fontWeight: 'var(--font-weight-bold)',
             color: 'var(--color-primary)'
           }}>
-            XDrive Logistics LTD
+            Danny Courier Ltd
           </div>
 
           {/* Desktop Navigation */}
@@ -467,9 +467,9 @@ export default function Home() {
       <section id="about" style={{ backgroundColor: 'var(--color-light-bg)' }}>
         <div className="container">
           <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-            <h2 className="text-center" style={{ marginBottom: '24px' }}>About XDrive Logistics</h2>
+            <h2 className="text-center" style={{ marginBottom: '24px' }}>About Danny Courier</h2>
             <p className="text-center" style={{ fontSize: '17px', marginBottom: '40px' }}>
-              Established in 2021, XDrive Logistics Ltd has grown to become a trusted partner for 
+              Established in 2021, Danny Courier Ltd has grown to become a trusted partner for 
               businesses and individuals across the UK and Europe.
             </p>
 
@@ -534,7 +534,7 @@ export default function Home() {
                     Follow Us
                   </div>
                   <div style={{ display: 'flex', gap: '16px' }}>
-                    {/* TODO: Replace with actual XDrive Logistics social media URLs */}
+                    {/* TODO: Replace with actual Danny Courier social media URLs */}
                     <a 
                       href="#facebook" 
                       onClick={(e) => e.preventDefault()}
@@ -674,7 +674,7 @@ export default function Home() {
           }} className="footer-grid">
             <div>
               <h3 style={{ color: 'white', fontSize: '20px', marginBottom: '12px' }}>
-                XDrive Logistics Ltd
+                Danny Courier Ltd
               </h3>
               <p style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px', marginBottom: '16px' }}>
                 Professional courier and logistics services across the UK and Europe. 
@@ -714,7 +714,7 @@ export default function Home() {
             textAlign: 'center'
           }}>
             <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '13px', marginBottom: 0 }}>
-              © {new Date().getFullYear()} XDrive Logistics Ltd. All rights reserved.
+              © {new Date().getFullYear()} Danny Courier Ltd. All rights reserved.
             </p>
           </div>
         </div>
