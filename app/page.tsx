@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { COMPANY_CONFIG } from './config/company';
 
-const WHATSAPP_URL = "https://wa.me/447423272138?text=Hello%2C%20I%27d%20like%20to%20inquire%20about%20your%20transport%20services";
+const WHATSAPP_URL = `https://wa.me/${COMPANY_CONFIG.whatsapp.number}?text=${encodeURIComponent(COMPANY_CONFIG.whatsapp.defaultMessage)}`;
 
 const SOCIAL_MEDIA_LINKS = [
-  { name: 'Facebook', icon: '📘', url: '#' },
-  { name: 'Instagram', icon: '📷', url: '#' },
-  { name: 'TikTok', icon: '🎵', url: '#' }
+  { name: 'Facebook', icon: '📘', url: COMPANY_CONFIG.social.facebook },
+  { name: 'Instagram', icon: '📷', url: COMPANY_CONFIG.social.instagram },
+  { name: 'TikTok', icon: '🎵', url: COMPANY_CONFIG.social.tiktok }
 ];
 
 export default function Home() {
@@ -48,7 +49,7 @@ export default function Home() {
             fontWeight: 'bold',
             color: '#0A2239'
           }}>
-            XDrive Logistics Ltd
+            {COMPANY_CONFIG.name}
           </div>
 
           {/* Desktop Navigation */}
@@ -247,7 +248,7 @@ export default function Home() {
                 textDecoration: 'none',
                 transition: 'all 0.3s'
               }} className="outline-btn">
-                📞 Call Us: 07423 272 138
+                📞 Call Us: {COMPANY_CONFIG.phoneDisplay}
               </a>
             </div>
           </div>
@@ -718,7 +719,7 @@ export default function Home() {
               WhatsApp Us
             </a>
 
-            <a href="mailto:xdrivelogisticsltd@gmail.com" style={{
+            <a href={`mailto:${COMPANY_CONFIG.email}`} style={{
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
@@ -736,7 +737,7 @@ export default function Home() {
               Email Us
             </a>
 
-            <a href="tel:+447423272138" style={{
+            <a href={`tel:${COMPANY_CONFIG.phone}`} style={{
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
@@ -981,14 +982,14 @@ export default function Home() {
                 fontWeight: '700',
                 color: '#0A2239',
                 marginBottom: '16px'
-              }}>About XDrive Logistics Ltd</h2>
+              }}>About {COMPANY_CONFIG.name}</h2>
               <p style={{ 
                 fontSize: '16px', 
                 color: '#1E4E8C', 
                 lineHeight: '1.7',
                 marginBottom: '32px'
               }}>
-                Established in 2021, XDrive Logistics Ltd is your trusted partner for professional transport and courier services across the UK and Europe. We pride ourselves on delivering excellence with every shipment, ensuring your cargo arrives safely and on time, every time.
+                Established in 2021, {COMPANY_CONFIG.name} is your trusted partner for professional transport and courier services across the UK and Europe. We pride ourselves on delivering excellence with every shipment, ensuring your cargo arrives safely and on time, every time.
               </p>
             </div>
 
@@ -1074,7 +1075,7 @@ export default function Home() {
                 fontWeight: '700',
                 marginBottom: '16px',
                 color: '#ffffff'
-              }}>XDrive Logistics Ltd</h3>
+              }}>{COMPANY_CONFIG.name}</h3>
               <p style={{ 
                 fontSize: '15px', 
                 color: 'rgba(255, 255, 255, 0.8)',
@@ -1092,19 +1093,19 @@ export default function Home() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '18px' }}>📧</span>
-                  <a href="mailto:xdrivelogisticsltd@gmail.com" style={{ 
+                  <a href={`mailto:${COMPANY_CONFIG.email}`} style={{ 
                     color: 'rgba(255, 255, 255, 0.9)', 
                     textDecoration: 'none',
                     fontSize: '15px'
-                  }}>xdrivelogisticsltd@gmail.com</a>
+                  }}>{COMPANY_CONFIG.email}</a>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '18px' }}>📞</span>
-                  <a href="tel:+447423272138" style={{ 
+                  <a href={`tel:${COMPANY_CONFIG.phone}`} style={{ 
                     color: 'rgba(255, 255, 255, 0.9)', 
                     textDecoration: 'none',
                     fontSize: '15px'
-                  }}>07423 272 138</a>
+                  }}>{COMPANY_CONFIG.phoneDisplay}</a>
                 </div>
               </div>
 
@@ -1178,7 +1179,7 @@ export default function Home() {
               fontSize: '13px', 
               color: 'rgba(255, 255, 255, 0.5)'
             }}>
-              © {new Date().getFullYear()} XDrive Logistics Ltd. All rights reserved.
+              © {new Date().getFullYear()} {COMPANY_CONFIG.name}. All rights reserved.
             </p>
           </div>
         </div>

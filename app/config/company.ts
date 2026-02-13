@@ -1,33 +1,69 @@
-// Company configuration for Danny Courier Ltd
-// TODO: Move sensitive data to environment variables in production
+// Company configuration for XDrive Logistics Ltd
+// MASTER SPEC - ONE SOURCE OF TRUTH
 
 export const COMPANY_CONFIG = {
-  name: 'Danny Courier Ltd',
-  tagline: 'Professional Courier Services',
+  name: 'XDrive Logistics Ltd',
+  tagline: 'Professional Transport Services',
   
-  // NOTE: Primary operational email is xdrivelogisticsltd@gmail.com as per business requirements
-  // This email is used for quotes, bookings, and customer communication
+  // Primary operational email
   email: 'xdrivelogisticsltd@gmail.com',
+  phone: '+447423272138',
+  phoneDisplay: '07423 272 138',
   
-  // TODO: Replace with actual bank details in production
-  // These are PLACEHOLDER values for development only
-  // NEVER commit real bank account details to the repository
+  // WhatsApp
+  whatsapp: {
+    number: '447423272138',
+    defaultMessage: "Hello, I'd like to inquire about your transport services",
+  },
+  
+  // Payment configuration (MASTER SPEC)
   payment: {
     bankTransfer: {
-      accountName: 'Danny Courier Ltd',
-      sortCode: '04-00-04', // PLACEHOLDER
-      accountNumber: '12345678', // PLACEHOLDER
+      accountName: 'XDrive Logistics Ltd',
+      sortCode: '04-00-04', // PLACEHOLDER - replace in production
+      accountNumber: '12345678', // PLACEHOLDER - replace in production
     },
     paypal: {
-      email: 'xdrivelogisticsltd@gmail.com', // Business PayPal account
+      email: 'xdrivelogisticsltd@gmail.com',
     },
+    terms: ['Pay now', '14 days', '30 days'] as const,
+    lateFeeNote: 'Late payments may incur administrative charges.',
+    lateFeeAmount: 'A late payment charge of £25 per full week may apply after the due date.',
   },
   
-  // Invoice configuration
+  // VAT options (MASTER SPEC)
+  vat: {
+    rates: [0, 5, 20] as const,
+    defaultRate: 20,
+  },
+  
+  // Invoice configuration (MASTER SPEC)
   invoice: {
-    paymentTerms: ['14 days', '30 days'] as const,
-    lateFeeNote: 'Late fee: £25 per full week overdue after due date',
-    jobRefPrefix: 'DC', // Danny Courier
+    jobRefPrefix: 'XD', // XDrive prefix
     invoicePrefix: 'INV',
   },
+  
+  // Social media
+  social: {
+    facebook: '#', // To be filled
+    instagram: '#', // To be filled
+    tiktok: '#', // To be filled
+    linkedin: '#', // Optional
+  },
 };
+
+// Job status options (MASTER SPEC)
+export const JOB_STATUS = {
+  RECEIVED: 'Received',
+  POSTED: 'Posted',
+  ALLOCATED: 'Allocated',
+  DELIVERED: 'Delivered',
+} as const;
+
+// Delay update options (MASTER SPEC)
+export const DELAY_OPTIONS = [15, 30, 45, 60] as const;
+
+export type JobStatus = typeof JOB_STATUS[keyof typeof JOB_STATUS];
+export type DelayOption = typeof DELAY_OPTIONS[number];
+export type PaymentTerm = typeof COMPANY_CONFIG.payment.terms[number];
+export type VATRate = typeof COMPANY_CONFIG.vat.rates[number];
