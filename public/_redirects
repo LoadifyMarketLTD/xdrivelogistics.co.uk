@@ -1,7 +1,3 @@
-# Redirect apex domain to www subdomain (primary domain per Netlify config)
-# Use standard redirect to allow SSL certificate checks
-https://dannycourierltd.co.uk/* https://www.dannycourierltd.co.uk/:splat 301
-
-# Redirect HTTP to HTTPS (forced redirects for HTTP are safe)
-http://dannycourierltd.co.uk/* https://www.dannycourierltd.co.uk/:splat 301!
-http://www.dannycourierltd.co.uk/* https://www.dannycourierltd.co.uk/:splat 301!
+# Netlify automatically handles www to apex domain redirects based on primary domain configuration
+# Primary domain is dannycourierltd.co.uk (configured in Netlify dashboard)
+# No custom redirect rules needed here
