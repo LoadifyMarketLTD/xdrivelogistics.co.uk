@@ -161,56 +161,139 @@ export default function Home() {
 
       {/* 2. HERO SECTION */}
       <section id="home" style={{
-        minHeight: '420px',
+        minHeight: '500px',
         display: 'flex',
         alignItems: 'center',
-        background: 'linear-gradient(135deg, rgba(10, 34, 57, 0.95) 0%, rgba(27, 99, 198, 0.85) 100%), url(/placeholder-van.jpg) center/cover',
+        background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%)',
         color: 'white',
-        position: 'relative'
+        position: 'relative',
+        padding: '80px 0'
       }}>
+        {/* Decorative elements */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.2) 0%, transparent 50%)',
+          pointerEvents: 'none'
+        }}></div>
+        
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ maxWidth: '800px' }}>
-            <h1 style={{ color: 'white', marginBottom: '12px', lineHeight: '1.1' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
+            {/* Badge */}
+            <div style={{
+              display: 'inline-block',
+              padding: '8px 20px',
+              backgroundColor: 'rgba(16, 185, 129, 0.15)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '50px',
+              fontSize: '14px',
+              fontWeight: 'var(--font-weight-semibold)',
+              marginBottom: '24px',
+              color: '#6ee7b7'
+            }}>
+              🚚 Available 24/7 Across UK & Europe
+            </div>
+            
+            <h1 style={{ 
+              color: 'white', 
+              marginBottom: '20px', 
+              lineHeight: '1.1',
+              fontSize: 'clamp(2rem, 5vw, 3.5rem)',
+              fontWeight: 'var(--font-weight-bold)',
+              textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+            }}>
               Reliable Same Day & Express Transport
             </h1>
+            
             <h2 style={{ 
-              fontSize: 'var(--font-size-h2)', 
+              fontSize: 'clamp(1.5rem, 3vw, 2rem)', 
               fontWeight: 'var(--font-weight-semibold)',
               color: 'rgba(255, 255, 255, 0.95)',
-              marginBottom: '16px'
+              marginBottom: '24px',
+              textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
             }}>
               Across the UK & Europe
             </h2>
+            
             <p style={{ 
-              fontSize: '18px', 
-              marginBottom: '32px',
-              color: 'rgba(255, 255, 255, 0.9)'
+              fontSize: 'clamp(16px, 2vw, 20px)', 
+              marginBottom: '40px',
+              color: 'rgba(255, 255, 255, 0.9)',
+              lineHeight: '1.6',
+              maxWidth: '700px',
+              margin: '0 auto 40px'
             }}>
-              Fast, Secure & On-Time Deliveries 24/7
+              Fast, Secure & On-Time Deliveries 24/7. Professional courier and logistics services you can trust.
             </p>
             
             {/* CTAs */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
-              <a href="#quote" className="btn btn-primary" style={{ height: '52px', fontSize: '16px' }}>
-                Get a Free Quote
+            <div style={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: '16px', 
+              marginBottom: '32px',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}>
+              <a href="#quote" className="btn btn-primary" style={{ 
+                height: '56px', 
+                fontSize: '17px',
+                padding: '0 32px',
+                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                fontWeight: 'var(--font-weight-bold)'
+              }}>
+                📦 Get a Free Quote
               </a>
               <a href="tel:07423272138" className="btn" style={{ 
-                height: '52px',
-                fontSize: '16px',
-                backgroundColor: 'transparent',
-                border: '2px solid white',
-                color: 'white'
+                height: '56px',
+                fontSize: '17px',
+                padding: '0 32px',
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                backdropFilter: 'blur(10px)',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
+                color: 'white',
+                fontWeight: 'var(--font-weight-semibold)'
               }}>
-                📞 Call Us: 07423 272 138
+                📞 Call: 07423 272 138
               </a>
             </div>
 
-            {/* Email */}
-            <p style={{ fontSize: '15px', color: 'rgba(255, 255, 255, 0.85)' }}>
-              Email: <a href="mailto:xdrivelogisticsltd@gmail.com" style={{ color: 'white', textDecoration: 'underline' }}>
-                xdrivelogisticsltd@gmail.com
-              </a>
-            </p>
+            {/* Contact Info */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '24px', 
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              alignItems: 'center',
+              fontSize: '15px', 
+              color: 'rgba(255, 255, 255, 0.85)' 
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>📧</span>
+                <a href="mailto:xdrivelogisticsltd@gmail.com" style={{ 
+                  color: 'white', 
+                  textDecoration: 'none',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.4)',
+                  paddingBottom: '2px'
+                }}>
+                  xdrivelogisticsltd@gmail.com
+                </a>
+              </div>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px',
+                padding: '8px 16px',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px'
+              }}>
+                <span>✓</span>
+                <span>Fully Insured & Licensed</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -218,52 +301,126 @@ export default function Home() {
       <style jsx>{`
         @media (min-width: 768px) {
           #home {
-            min-height: 460px !important;
+            min-height: 560px !important;
           }
         }
         @media (min-width: 1024px) {
           #home {
-            min-height: 480px !important;
+            min-height: 600px !important;
           }
+        }
+        .btn:hover {
+          transform: translateY(-2px);
         }
       `}</style>
 
       {/* 3. BENEFITS STRIP */}
       <section style={{ 
-        backgroundColor: 'white',
-        padding: 'var(--section-padding) 0'
+        backgroundColor: '#f9fafb',
+        padding: 'var(--section-padding) 0',
+        borderTop: '1px solid var(--color-border)',
+        borderBottom: '1px solid var(--color-border)'
       }}>
         <div className="container">
-          <div className="grid grid-3" style={{ textAlign: 'center' }}>
-            <div style={{ padding: '20px' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>🕐</div>
-              <h3 style={{ fontSize: '18px', marginBottom: '8px' }}>24/7 Service</h3>
-              <p className="text-muted" style={{ fontSize: '14px', marginBottom: 0 }}>
-                Round-the-clock availability
+          <div className="grid grid-3" style={{ textAlign: 'center', gap: '32px' }}>
+            <div style={{ 
+              padding: '32px 24px',
+              backgroundColor: 'white',
+              borderRadius: 'var(--card-radius)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+            }} className="benefit-card">
+              <div style={{ 
+                fontSize: '48px', 
+                marginBottom: '16px',
+                filter: 'grayscale(0%)'
+              }}>🕐</div>
+              <h3 style={{ 
+                fontSize: '20px', 
+                marginBottom: '12px',
+                fontWeight: 'var(--font-weight-bold)',
+                color: 'var(--color-text)'
+              }}>24/7 Service</h3>
+              <p className="text-muted" style={{ fontSize: '15px', marginBottom: 0, lineHeight: '1.6' }}>
+                Round-the-clock availability for all your urgent transport needs
               </p>
             </div>
-            <div style={{ padding: '20px' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>🌍</div>
-              <h3 style={{ fontSize: '18px', marginBottom: '8px' }}>Nationwide & Europe</h3>
-              <p className="text-muted" style={{ fontSize: '14px', marginBottom: 0 }}>
-                UK and EU coverage
+            <div style={{ 
+              padding: '32px 24px',
+              backgroundColor: 'white',
+              borderRadius: 'var(--card-radius)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+            }} className="benefit-card">
+              <div style={{ 
+                fontSize: '48px', 
+                marginBottom: '16px',
+                filter: 'grayscale(0%)'
+              }}>🌍</div>
+              <h3 style={{ 
+                fontSize: '20px', 
+                marginBottom: '12px',
+                fontWeight: 'var(--font-weight-bold)',
+                color: 'var(--color-text)'
+              }}>Nationwide & Europe</h3>
+              <p className="text-muted" style={{ fontSize: '15px', marginBottom: 0, lineHeight: '1.6' }}>
+                Comprehensive UK and EU coverage with reliable delivery
               </p>
             </div>
-            <div style={{ padding: '20px' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>🛡️</div>
-              <h3 style={{ fontSize: '18px', marginBottom: '8px' }}>Fully Insured</h3>
-              <p className="text-muted" style={{ fontSize: '14px', marginBottom: 0 }}>
-                Your cargo is protected
+            <div style={{ 
+              padding: '32px 24px',
+              backgroundColor: 'white',
+              borderRadius: 'var(--card-radius)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+            }} className="benefit-card">
+              <div style={{ 
+                fontSize: '48px', 
+                marginBottom: '16px',
+                filter: 'grayscale(0%)'
+              }}>🛡️</div>
+              <h3 style={{ 
+                fontSize: '20px', 
+                marginBottom: '12px',
+                fontWeight: 'var(--font-weight-bold)',
+                color: 'var(--color-text)'
+              }}>Fully Insured</h3>
+              <p className="text-muted" style={{ fontSize: '15px', marginBottom: 0, lineHeight: '1.6' }}>
+                Your cargo is fully protected with comprehensive insurance
               </p>
             </div>
           </div>
         </div>
       </section>
 
+      <style jsx>{`
+        .benefit-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+        }
+      `}</style>
+
       {/* 4. QUICK QUOTE SECTION */}
-      <section id="quote" style={{ backgroundColor: 'var(--color-light-bg)' }}>
+      <section id="quote" style={{ 
+        backgroundColor: 'white',
+        padding: 'var(--section-padding) 0'
+      }}>
         <div className="container">
-          <h2 className="text-center" style={{ marginBottom: '40px' }}>Get Your Quote Today</h2>
+          <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+            <h2 style={{ 
+              marginBottom: '16px',
+              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
+              color: 'var(--color-text)'
+            }}>Get Your Quote Today</h2>
+            <p style={{ 
+              fontSize: '18px', 
+              color: 'var(--color-text-muted)',
+              maxWidth: '600px',
+              margin: '0 auto'
+            }}>
+              Fast, competitive pricing for all your transport needs
+            </p>
+          </div>
           
           <div style={{ 
             display: 'grid',
@@ -435,12 +592,26 @@ export default function Home() {
       `}</style>
 
       {/* 5. SERVICES SECTION */}
-      <section id="services" style={{ backgroundColor: 'white' }}>
+      <section id="services" style={{ 
+        backgroundColor: '#f9fafb',
+        padding: 'var(--section-padding) 0'
+      }}>
         <div className="container">
-          <h2 className="text-center" style={{ marginBottom: '16px' }}>Our Services</h2>
-          <p className="text-center text-muted" style={{ marginBottom: '40px', maxWidth: '600px', marginLeft: 'auto', marginRight: 'auto' }}>
-            Comprehensive transport solutions tailored to your needs
-          </p>
+          <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+            <h2 style={{ 
+              marginBottom: '16px',
+              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
+              color: 'var(--color-text)'
+            }}>Our Services</h2>
+            <p style={{ 
+              fontSize: '18px',
+              color: 'var(--color-text-muted)',
+              maxWidth: '600px',
+              margin: '0 auto'
+            }}>
+              Comprehensive transport solutions tailored to your needs
+            </p>
+          </div>
 
           <div className="grid grid-3">
             {[
@@ -451,10 +622,28 @@ export default function Home() {
               { icon: '🚚', title: 'UK-EU Road Freight', desc: 'Cross-border transport solutions' },
               { icon: '🚐', title: 'Dedicated Van', desc: 'Exclusive van hire for your shipments' }
             ].map((service, index) => (
-              <div key={index} className="card">
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>{service.icon}</div>
-                <h3 style={{ marginBottom: '12px' }}>{service.title}</h3>
-                <p className="text-muted" style={{ fontSize: '14px', marginBottom: 0 }}>
+              <div key={index} className="card" style={{
+                textAlign: 'center',
+                padding: '32px 24px',
+                backgroundColor: 'white',
+                transition: 'all 0.2s ease'
+              }}>
+                <div style={{ 
+                  fontSize: '56px', 
+                  marginBottom: '20px',
+                  lineHeight: 1
+                }}>{service.icon}</div>
+                <h3 style={{ 
+                  marginBottom: '12px',
+                  fontSize: '20px',
+                  fontWeight: 'var(--font-weight-bold)',
+                  color: 'var(--color-text)'
+                }}>{service.title}</h3>
+                <p className="text-muted" style={{ 
+                  fontSize: '15px', 
+                  marginBottom: 0,
+                  lineHeight: '1.6'
+                }}>
                   {service.desc}
                 </p>
               </div>
@@ -464,35 +653,82 @@ export default function Home() {
       </section>
 
       {/* 6. ABOUT US SECTION */}
-      <section id="about" style={{ backgroundColor: 'var(--color-light-bg)' }}>
+      <section id="about" style={{ 
+        backgroundColor: 'white',
+        padding: 'var(--section-padding) 0'
+      }}>
         <div className="container">
           <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-            <h2 className="text-center" style={{ marginBottom: '24px' }}>About Danny Courier</h2>
-            <p className="text-center" style={{ fontSize: '17px', marginBottom: '40px' }}>
-              Established in 2021, Danny Courier Ltd has grown to become a trusted partner for 
-              businesses and individuals across the UK and Europe.
-            </p>
+            <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+              <h2 style={{ 
+                marginBottom: '16px',
+                fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
+                color: 'var(--color-text)'
+              }}>About Danny Courier</h2>
+              <p style={{ 
+                fontSize: '18px',
+                color: 'var(--color-text-muted)',
+                lineHeight: '1.7',
+                maxWidth: '700px',
+                margin: '0 auto'
+              }}>
+                Established in 2021, Danny Courier Ltd has grown to become a trusted partner for 
+                businesses and individuals across the UK and Europe.
+              </p>
+            </div>
 
             <div className="grid grid-2" style={{ gap: '32px' }}>
-              <div className="card" style={{ border: '2px solid var(--color-border)' }}>
-                <h3 style={{ marginBottom: '16px' }}>Why Choose Us</h3>
+              <div className="card" style={{ 
+                border: '2px solid var(--color-border)',
+                backgroundColor: 'white'
+              }}>
+                <h3 style={{ 
+                  marginBottom: '20px',
+                  fontSize: '22px',
+                  fontWeight: 'var(--font-weight-bold)',
+                  color: 'var(--color-text)'
+                }}>Why Choose Us</h3>
                 <ul style={{ marginBottom: 0 }}>
-                  <li>Experienced UK & EU coverage with local expertise</li>
-                  <li>Comprehensive proof of delivery workflow</li>
-                  <li>Transparent pricing and payment terms</li>
-                  <li>Dedicated customer support team</li>
+                  <li style={{ paddingTop: '12px', paddingBottom: '12px' }}>Experienced UK & EU coverage with local expertise</li>
+                  <li style={{ paddingTop: '12px', paddingBottom: '12px' }}>Comprehensive proof of delivery workflow</li>
+                  <li style={{ paddingTop: '12px', paddingBottom: '12px' }}>Transparent pricing and payment terms</li>
+                  <li style={{ paddingTop: '12px', paddingBottom: '12px' }}>Dedicated customer support team</li>
                 </ul>
               </div>
 
-              <div className="card" style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}>
-                <h3 style={{ color: 'white', marginBottom: '16px' }}>Our Commitment</h3>
-                <p style={{ color: 'rgba(255, 255, 255, 0.9)', marginBottom: '16px' }}>
+              <div className="card" style={{ 
+                background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)',
+                color: 'white'
+              }}>
+                <h3 style={{ 
+                  color: 'white', 
+                  marginBottom: '20px',
+                  fontSize: '22px',
+                  fontWeight: 'var(--font-weight-bold)'
+                }}>Our Commitment</h3>
+                <p style={{ 
+                  color: 'rgba(255, 255, 255, 0.95)', 
+                  marginBottom: '20px',
+                  lineHeight: '1.7'
+                }}>
                   We are committed to providing reliable, professional transport services with a focus on:
                 </p>
                 <ul style={{ marginBottom: 0 }}>
-                  <li style={{ color: 'rgba(255, 255, 255, 0.95)' }}>On-time delivery performance</li>
-                  <li style={{ color: 'rgba(255, 255, 255, 0.95)' }}>Secure handling of goods</li>
-                  <li style={{ color: 'rgba(255, 255, 255, 0.95)' }}>Clear communication</li>
+                  <li style={{ 
+                    color: 'rgba(255, 255, 255, 0.95)',
+                    paddingTop: '12px',
+                    paddingBottom: '12px'
+                  }}>On-time delivery performance</li>
+                  <li style={{ 
+                    color: 'rgba(255, 255, 255, 0.95)',
+                    paddingTop: '12px',
+                    paddingBottom: '12px'
+                  }}>Secure handling of goods</li>
+                  <li style={{ 
+                    color: 'rgba(255, 255, 255, 0.95)',
+                    paddingTop: '12px',
+                    paddingBottom: '12px'
+                  }}>Clear communication</li>
                 </ul>
               </div>
             </div>
@@ -501,9 +737,26 @@ export default function Home() {
       </section>
 
       {/* 7. CONTACT SECTION */}
-      <section id="contact" style={{ backgroundColor: 'white' }}>
+      <section id="contact" style={{ 
+        backgroundColor: '#f9fafb',
+        padding: 'var(--section-padding) 0'
+      }}>
         <div className="container">
-          <h2 className="text-center" style={{ marginBottom: '40px' }}>Get In Touch</h2>
+          <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+            <h2 style={{ 
+              marginBottom: '16px',
+              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
+              color: 'var(--color-text)'
+            }}>Get In Touch</h2>
+            <p style={{ 
+              fontSize: '18px',
+              color: 'var(--color-text-muted)',
+              maxWidth: '600px',
+              margin: '0 auto'
+            }}>
+              Have questions? We're here to help with all your transport needs
+            </p>
+          </div>
 
           <div style={{ 
             display: 'grid',
