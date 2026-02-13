@@ -205,6 +205,8 @@ Specific styling notes:
 
 ```tsx
 // app/components/Hero.tsx
+import Image from 'next/image';
+
 interface HeroProps {
   title: string;
   subtitle: string;
