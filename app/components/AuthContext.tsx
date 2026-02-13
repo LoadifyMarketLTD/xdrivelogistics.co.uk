@@ -23,6 +23,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    // SECURITY NOTE: localStorage is vulnerable to XSS attacks
+    // TODO: Replace with httpOnly cookies when backend is implemented
     const storedUser = localStorage.getItem('dannycourier_user');
     if (storedUser) {
       try {
@@ -37,11 +39,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Simple client-side authentication (to be replaced with backend)
-      // For now, check against hardcoded credentials
+      // TEMPORARY: Simple client-side authentication for development
+      // TODO: Replace with secure backend API authentication
+      // SECURITY NOTE: These credentials are for development only
       const validCredentials = [
-        { email: 'mobile@dannycourier.co.uk', password: 'mobile123', role: 'mobile' as const },
-        { email: 'admin@dannycourier.co.uk', password: 'admin123', role: 'desktop' as const },
+        { 
+          email: process.env.NEXT_PUBLIC_MOBILE_USER || 'mobile@dannycourier.co.uk', 
+          password: process.env.NEXT_PUBLIC_MOBILE_PASS || 'mobile123', 
+          role: 'mobile' as const 
+        },
+        { 
+          email: process.env.NEXT_PUBLIC_ADMIN_USER || 'admin@dannycourier.co.uk', 
+          password: process.env.NEXT_PUBLIC_ADMIN_PASS || 'admin123', 
+          role: 'desktop' as const 
+        },
       ];
 
       const credential = validCredentials.find(
