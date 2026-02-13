@@ -19,11 +19,11 @@ export const metadata: Metadata = {
   authors: [{ name: 'Danny Courier Ltd' }],
   creator: 'Danny Courier Ltd',
   publisher: 'Danny Courier Ltd',
-  metadataBase: new URL('https://dannycourierltd.co.uk'),
+  metadataBase: new URL('https://www.dannycourierltd.co.uk'),
   openGraph: {
     type: 'website',
     locale: 'en_GB',
-    url: 'https://dannycourierltd.co.uk',
+    url: 'https://www.dannycourierltd.co.uk',
     title: 'Danny Courier Ltd - Reliable Same Day & Express Transport',
     description: 'Danny Courier Ltd offers 24/7 courier and logistics services across the UK and Europe. Fast, secure, and on-time deliveries.',
     siteName: 'Danny Courier Ltd',

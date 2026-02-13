@@ -1,6 +1,7 @@
-# Redirect www subdomain to apex domain
-https://www.dannycourierltd.co.uk/* https://dannycourierltd.co.uk/:splat 301!
+# Redirect apex domain to www subdomain (primary domain per Netlify config)
+# Use standard redirect to allow SSL certificate checks
+https://dannycourierltd.co.uk/* https://www.dannycourierltd.co.uk/:splat 301
 
-# Redirect HTTP to HTTPS
-http://dannycourierltd.co.uk/* https://dannycourierltd.co.uk/:splat 301!
-http://www.dannycourierltd.co.uk/* https://dannycourierltd.co.uk/:splat 301!
+# Redirect HTTP to HTTPS (forced redirects for HTTP are safe)
+http://dannycourierltd.co.uk/* https://www.dannycourierltd.co.uk/:splat 301!
+http://www.dannycourierltd.co.uk/* https://www.dannycourierltd.co.uk/:splat 301!

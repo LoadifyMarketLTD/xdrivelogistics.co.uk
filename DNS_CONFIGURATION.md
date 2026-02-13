@@ -67,8 +67,8 @@ Replace `[your-netlify-site-name]` with your actual Netlify site name.
 
 ### 4. Set Primary Domain
 
-1. In **Domain management**, ensure `dannycourierltd.co.uk` is set as the primary domain
-2. Enable the option to **Redirect www to primary domain** if you want www.dannycourierltd.co.uk to redirect to dannycourierltd.co.uk
+1. In **Domain management**, ensure `www.dannycourierltd.co.uk` is set as the primary domain
+2. The apex domain `dannycourierltd.co.uk` should automatically redirect to the primary domain (www)
 
 ## Verification
 
@@ -85,7 +85,8 @@ curl -I https://dannycourierltd.co.uk
 You should see:
 - DNS resolves to Netlify's IP addresses
 - HTTPS redirects work properly
-- The site loads successfully
+- The site loads successfully at https://www.dannycourierltd.co.uk
+- Apex domain redirects to www
 
 ## Troubleshooting
 
@@ -106,13 +107,36 @@ You should see:
 3. Check that the site is deployed successfully
 4. Ensure the domain is set as primary
 
+### Network Request Fails with Status Code 0?
+
+If you see network requests failing with status code 0 (especially to www subdomain):
+
+1. **SSL Certificate Issue**: 
+   - Go to Netlify **Site settings** → **Domain management** → **HTTPS**
+   - Verify SSL certificate is provisioned for both apex and www subdomain
+   - If not, click **Verify DNS configuration** and then **Provision certificate**
+
+2. **Redirect Configuration**:
+   - This has been fixed in the latest version with proper redirect rules in `netlify.toml`
+   - The apex→www redirect uses `force = false` to allow SSL certificate checks
+   - HTTP→HTTPS redirects use `force = true` which is safe
+   - Primary domain is www.dannycourierltd.co.uk (as configured in Netlify)
+
+3. **Check Browser Console**:
+   - Look for specific error messages like `ERR_CONNECTION_TIMED_OUT` or `ERR_SSL_PROTOCOL_ERROR`
+   - These provide more details about the connection failure
+
+4. **Test from Different Network**:
+   - Try accessing from a different network or using mobile data
+   - Use incognito/private browsing mode to rule out browser cache issues
+
 ## Current Configuration
 
 This repository includes:
 
-- **netlify.toml**: Redirect rules for www → apex and HTTP → HTTPS
-- **public/_redirects**: Additional Netlify redirect configuration
-- **Metadata**: All configured for `https://dannycourierltd.co.uk`
+- **netlify.toml**: Redirect rules for apex → www and HTTP → HTTPS
+- **public/_redirects**: Additional Netlify redirect configuration  
+- **Metadata**: All configured for `https://www.dannycourierltd.co.uk` (primary domain)
 
 ## Need Help?
 
