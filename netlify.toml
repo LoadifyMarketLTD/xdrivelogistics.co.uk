@@ -7,26 +7,6 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Redirect rules for domain canonicalization
-# Primary domain is www.dannycourierltd.co.uk (as configured in Netlify)
-[[redirects]]
-  from = "https://dannycourierltd.co.uk/*"
-  to = "https://www.dannycourierltd.co.uk/:splat"
-  status = 301
-  force = false
-
-[[redirects]]
-  from = "http://dannycourierltd.co.uk/*"
-  to = "https://www.dannycourierltd.co.uk/:splat"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "http://www.dannycourierltd.co.uk/*"
-  to = "https://www.dannycourierltd.co.uk/:splat"
-  status = 301
-  force = true
-
 # Headers for security and performance
 [[headers]]
   for = "/*"
