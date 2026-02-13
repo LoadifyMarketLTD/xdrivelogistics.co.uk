@@ -14,8 +14,7 @@ export default function MobilePage() {
   ];
 
   const handleTileClick = (tileId: string) => {
-    console.log(`Tile clicked: ${tileId}`);
-    alert(`${tileId} - Coming soon!`);
+    window.location.href = '/m/jobs';
   };
 
   return (
