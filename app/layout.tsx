@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   creator: 'Danny Courier Ltd',
   publisher: 'Danny Courier Ltd',
   metadataBase: new URL('https://dannycourierltd.co.uk'),
+  icons: {
+    apple: '/apple-touch-icon.png',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_GB',
