@@ -1,21 +1,30 @@
 // Premium Dark + Gold Theme Configuration
-// Master theme for cinematic premium UI
+// XDrive Logistics Brand Colors - Exact specification
 
 export const THEME = {
-  // Color Palette - Premium Dark + Gold
+  // Color Palette - XDrive Logistics Brand Colors (Exact from specification)
   colors: {
-    // Primary - Dark Navy/Black
+    // Primary - Navy
     primary: {
-      dark: '#0A0E1A',      // Deep dark background
-      navy: '#1A1F2E',      // Navy background
+      dark: '#0e1a2b',      // Navy dark - Header, Footer, Main background
+      navy: '#1F3A5F',      // Navy Primary (Brand) - Services, CTA sections
       slate: '#2D3748',     // Medium dark
     },
     
     // Accent - Premium Gold
     gold: {
-      primary: '#D4AF37',   // Rich gold
+      primary: '#C8A96E',   // Gold accent (Brand) - Logo X, highlights
       light: '#E5C158',     // Light gold
-      dark: '#B8941F',      // Dark gold
+      dark: '#b8964f',      // Dark gold (hover state)
+    },
+    
+    // CTA Green
+    green: {
+      primary: '#2E7D32',   // Green CTA (Brand) - Get Quote buttons
+      dark: '#1B5E20',      // Dark green (hover)
+      light: '#4CAF50',     // Light green
+      whatsapp: '#25D366',  // WhatsApp green (Brand)
+      whatsappHover: '#20ba5a', // WhatsApp hover
     },
     
     // Text Colors
@@ -23,6 +32,13 @@ export const THEME = {
       primary: '#FFFFFF',   // White text
       secondary: '#E2E8F0', // Light gray
       muted: '#94A3B8',     // Muted gray
+      dark: '#1C1C1C',      // Dark text (Brand) - for light backgrounds
+    },
+    
+    // Background Colors
+    background: {
+      light: '#F4F6F8',     // Light Background (Brand)
+      dark: '#0e1a2b',      // Dark background
     },
     
     // Glass Effects
@@ -47,8 +63,8 @@ export const THEME = {
   // Typography
   typography: {
     fonts: {
-      display: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-      body: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      display: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      body: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     },
     
     sizes: {
@@ -172,6 +188,36 @@ export const goldButton = {
   cursor: 'pointer',
   transition: THEME.transitions.medium,
   boxShadow: THEME.shadows.gold,
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.5px',
+};
+
+export const greenButton = {
+  background: `linear-gradient(135deg, ${THEME.colors.green.primary} 0%, ${THEME.colors.green.dark} 100())`,
+  color: THEME.colors.text.primary,
+  border: 'none',
+  borderRadius: THEME.borderRadius.md,
+  padding: '16px 32px',
+  fontSize: THEME.typography.sizes.body.regular,
+  fontWeight: THEME.typography.weights.semibold,
+  cursor: 'pointer',
+  transition: THEME.transitions.medium,
+  boxShadow: '0 4px 24px rgba(46, 125, 50, 0.3)',
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.5px',
+};
+
+export const whatsappButton = {
+  background: THEME.colors.green.whatsapp,
+  color: THEME.colors.text.primary,
+  border: 'none',
+  borderRadius: THEME.borderRadius.md,
+  padding: '16px 32px',
+  fontSize: THEME.typography.sizes.body.regular,
+  fontWeight: THEME.typography.weights.semibold,
+  cursor: 'pointer',
+  transition: THEME.transitions.medium,
+  boxShadow: '0 4px 16px rgba(37, 211, 102, 0.4)',
   textTransform: 'uppercase' as const,
   letterSpacing: '0.5px',
 };
