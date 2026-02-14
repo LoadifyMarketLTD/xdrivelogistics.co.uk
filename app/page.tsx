@@ -645,16 +645,17 @@ export default function Home() {
               display: 'none',
               borderRadius: '12px',
               overflow: 'hidden',
-              boxShadow: '0 4px 20px rgba(10, 34, 57, 0.1)',
-              position: 'relative',
-              height: '400px'
+              boxShadow: '0 4px 20px rgba(10, 34, 57, 0.1)'
             }} className="promo-image">
               <Image 
                 src="https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?w=600&q=80" 
                 alt="Transport services"
-                fill
+                width={600}
+                height={400}
                 style={{
-                  objectFit: 'cover'
+                  objectFit: 'cover',
+                  width: '100%',
+                  height: 'auto'
                 }}
                 sizes="(max-width: 768px) 100vw, 600px"
               />

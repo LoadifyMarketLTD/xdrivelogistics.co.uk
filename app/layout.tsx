@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   creator: 'Danny Courier Ltd',
   publisher: 'Danny Courier Ltd',
   metadataBase: new URL('https://dannycourierltd.co.uk'),
+  icons: {
+    apple: '/apple-touch-icon.png',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_GB',
@@ -53,9 +56,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-      </head>
       <body>
         <AuthProvider>
           {children}
