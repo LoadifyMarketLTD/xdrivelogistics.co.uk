@@ -153,7 +153,7 @@ export default function JobDetailPage() {
   };
 
   const handlePickupPhotosChange = (photos: string[]) => {
-    const timestamp = (photos.length > 0 && !podData.pickupTimestamp) || photos.length > podData.pickupPhotos.length 
+    const timestamp = photos.length > 0 && !podData.pickupTimestamp 
       ? new Date().toISOString() 
       : podData.pickupTimestamp;
     const newPodData = { 
@@ -377,6 +377,7 @@ export default function JobDetailPage() {
           }}>
             <button
               onClick={() => router.push('/m/jobs')}
+              aria-label="Back to jobs list"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.2)',
                 color: 'white',
