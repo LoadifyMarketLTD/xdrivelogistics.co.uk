@@ -153,8 +153,8 @@ export default function AdminPage() {
               margin: 0
             }}>
               {activeSection === 'dashboard' && 'Overview of your courier operations'}
-              {activeSection === 'invoices' && 'Manage and view all invoices (coming soon)'}
-              {activeSection === 'jobs' && 'View and manage delivery jobs (coming soon)'}
+              {activeSection === 'invoices' && 'Manage and view all invoices'}
+              {activeSection === 'jobs' && 'View and manage all delivery jobs'}
               {activeSection === 'drivers' && 'Manage driver information (coming soon)'}
               {activeSection === 'settings' && 'Configure system settings (coming soon)'}
             </p>
@@ -257,6 +257,7 @@ export default function AdminPage() {
                     💰 View Invoices
                   </button>
                   <button
+                    onClick={() => window.location.href = '/admin/jobs'}
                     style={{
                       padding: '1rem',
                       backgroundColor: '#1F7A3D',
@@ -277,7 +278,7 @@ export default function AdminPage() {
                       e.currentTarget.style.borderColor = '#1F7A3D';
                     }}
                   >
-                    ➕ New Job
+                    📦 Manage Jobs
                   </button>
                   <button
                     style={{
@@ -357,7 +358,56 @@ export default function AdminPage() {
             </div>
           )}
           
-          {activeSection !== 'dashboard' && activeSection !== 'invoices' && (
+          {activeSection === 'jobs' && (
+            <div style={{
+              backgroundColor: 'white',
+              padding: '3rem 2rem',
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '4rem',
+                marginBottom: '1rem'
+              }}>
+                📦
+              </div>
+              <h3 style={{
+                fontSize: '1.5rem',
+                color: '#1f2937',
+                marginBottom: '0.5rem'
+              }}>
+                Job Management
+              </h3>
+              <p style={{
+                color: '#6b7280',
+                fontSize: '1rem',
+                marginBottom: '1.5rem'
+              }}>
+                View and manage all your delivery jobs.
+              </p>
+              <button
+                onClick={() => window.location.href = '/admin/jobs'}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#1F7A3D',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}
+              >
+                Go to Jobs
+              </button>
+            </div>
+          )}
+          
+          {activeSection !== 'dashboard' && activeSection !== 'invoices' && activeSection !== 'jobs' && (
             <div style={{
               backgroundColor: 'white',
               padding: '3rem 2rem',
