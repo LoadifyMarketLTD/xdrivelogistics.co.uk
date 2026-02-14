@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Successfully transformed Danny Courier Ltd website from light corporate theme to **premium dark + gold cinematic style** with glassmorphism effects while maintaining 100% of existing functionality.
+Successfully transformed the website to XDrive Logistics Ltd branding with **premium dark + gold cinematic style** with glassmorphism effects while maintaining 100% of existing functionality.
 
 ## Visual Transformation
 

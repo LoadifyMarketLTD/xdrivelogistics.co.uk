@@ -297,7 +297,7 @@ import Hero from './components/Hero';
   ctaText="Get a Quote"
   ctaLink="#quote"
   imageSrc="/images/hero-image.png"
-  imageAlt="Danny Courier delivery van"
+  imageAlt="XDrive Logistics delivery van"
 />
 ```
 

@@ -45,9 +45,9 @@ export const COMPANY_CONFIG = {
   
   // Social media
   social: {
-    facebook: '#', // To be filled
-    instagram: '#', // To be filled
-    tiktok: '#', // To be filled
+    facebook: 'https://www.facebook.com/xdrivelogistics',
+    instagram: 'https://www.instagram.com/xdrivelogistics',
+    tiktok: 'https://www.tiktok.com/@xdrivelogistics',
     linkedin: '#', // Optional
   },
 };
