@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { COMPANY_CONFIG } from './config/company';
 
 const WHATSAPP_URL = `https://wa.me/${COMPANY_CONFIG.whatsapp.number}?text=${encodeURIComponent(COMPANY_CONFIG.whatsapp.defaultMessage)}`;
@@ -186,14 +187,14 @@ export default function Home() {
               Reliable Same Day & Express Transport
             </h1>
             
-            <h1 style={{ 
+            <p style={{ 
               fontSize: 'clamp(1.75rem, 4vw, 2.8rem)', 
               fontWeight: '700',
               color: '#ffffff',
               marginBottom: '20px'
             }}>
               Across the UK & Europe
-            </h1>
+            </p>
             
             <p style={{ 
               fontSize: 'clamp(16px, 2vw, 19px)', 
@@ -313,12 +314,12 @@ export default function Home() {
               boxShadow: '0 2px 8px rgba(10, 34, 57, 0.05)'
             }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>🕐</div>
-              <h3 style={{ 
+              <h2 style={{ 
                 fontSize: '18px', 
                 fontWeight: '600', 
                 color: '#0A2239',
                 marginBottom: '8px'
-              }}>24/7 Service</h3>
+              }}>24/7 Service</h2>
               <p style={{ fontSize: '14px', color: '#1E4E8C' }}>Always available for your urgent deliveries</p>
             </div>
             
@@ -331,12 +332,12 @@ export default function Home() {
               boxShadow: '0 2px 8px rgba(10, 34, 57, 0.05)'
             }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>🌍</div>
-              <h3 style={{ 
+              <h2 style={{ 
                 fontSize: '18px', 
                 fontWeight: '600', 
                 color: '#0A2239',
                 marginBottom: '8px'
-              }}>UK & Europe</h3>
+              }}>UK & Europe</h2>
               <p style={{ fontSize: '14px', color: '#1E4E8C' }}>Comprehensive coverage across the continent</p>
             </div>
             
@@ -349,12 +350,12 @@ export default function Home() {
               boxShadow: '0 2px 8px rgba(10, 34, 57, 0.05)'
             }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>✅</div>
-              <h3 style={{ 
+              <h2 style={{ 
                 fontSize: '18px', 
                 fontWeight: '600', 
                 color: '#0A2239',
                 marginBottom: '8px'
-              }}>Fully Insured</h3>
+              }}>Fully Insured</h2>
               <p style={{ fontSize: '14px', color: '#1E4E8C' }}>Your cargo is protected every step</p>
             </div>
           </div>
@@ -402,7 +403,7 @@ export default function Home() {
                   gap: '20px'
                 }} className="form-grid">
                   <div>
-                    <label style={{ 
+                    <label htmlFor="quote-name" style={{ 
                       display: 'block',
                       marginBottom: '8px',
                       fontWeight: '600',
@@ -410,6 +411,7 @@ export default function Home() {
                       color: '#0A2239'
                     }}>Full Name *</label>
                     <input
+                      id="quote-name"
                       type="text"
                       name="name"
                       required
@@ -428,7 +430,7 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <label style={{ 
+                    <label htmlFor="quote-email" style={{ 
                       display: 'block',
                       marginBottom: '8px',
                       fontWeight: '600',
@@ -436,6 +438,7 @@ export default function Home() {
                       color: '#0A2239'
                     }}>Email *</label>
                     <input
+                      id="quote-email"
                       type="email"
                       name="email"
                       required
@@ -454,7 +457,7 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <label style={{ 
+                    <label htmlFor="quote-pickup" style={{ 
                       display: 'block',
                       marginBottom: '8px',
                       fontWeight: '600',
@@ -462,6 +465,7 @@ export default function Home() {
                       color: '#0A2239'
                     }}>Pickup Location *</label>
                     <input
+                      id="quote-pickup"
                       type="text"
                       name="pickup"
                       required
@@ -481,7 +485,7 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <label style={{ 
+                    <label htmlFor="quote-delivery" style={{ 
                       display: 'block',
                       marginBottom: '8px',
                       fontWeight: '600',
@@ -489,6 +493,7 @@ export default function Home() {
                       color: '#0A2239'
                     }}>Delivery Location *</label>
                     <input
+                      id="quote-delivery"
                       type="text"
                       name="delivery"
                       required
@@ -508,7 +513,7 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <label style={{ 
+                    <label htmlFor="quote-cargo-type" style={{ 
                       display: 'block',
                       marginBottom: '8px',
                       fontWeight: '600',
@@ -516,6 +521,7 @@ export default function Home() {
                       color: '#0A2239'
                     }}>Cargo Type *</label>
                     <select
+                      id="quote-cargo-type"
                       name="cargoType"
                       required
                       style={{
@@ -541,7 +547,7 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <label style={{ 
+                    <label htmlFor="quote-quantity" style={{ 
                       display: 'block',
                       marginBottom: '8px',
                       fontWeight: '600',
@@ -549,6 +555,7 @@ export default function Home() {
                       color: '#0A2239'
                     }}>Quantity (optional)</label>
                     <input
+                      id="quote-quantity"
                       type="text"
                       name="quantity"
                       placeholder="e.g., 5 pallets"
@@ -567,7 +574,7 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <label style={{ 
+                    <label htmlFor="quote-notes" style={{ 
                       display: 'block',
                       marginBottom: '8px',
                       fontWeight: '600',
@@ -575,6 +582,7 @@ export default function Home() {
                       color: '#0A2239'
                     }}>Notes (optional)</label>
                     <textarea
+                      id="quote-notes"
                       name="notes"
                       rows={4}
                       placeholder="Any special requirements or additional information..."
@@ -637,16 +645,18 @@ export default function Home() {
               display: 'none',
               borderRadius: '12px',
               overflow: 'hidden',
-              boxShadow: '0 4px 20px rgba(10, 34, 57, 0.1)'
+              boxShadow: '0 4px 20px rgba(10, 34, 57, 0.1)',
+              position: 'relative',
+              height: '400px'
             }} className="promo-image">
-              <img 
+              <Image 
                 src="https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?w=600&q=80" 
                 alt="Transport services"
+                fill
                 style={{
-                  width: '100%',
-                  height: '100%',
                   objectFit: 'cover'
                 }}
+                sizes="(max-width: 768px) 100vw, 600px"
               />
             </div>
           </div>
@@ -706,14 +716,14 @@ export default function Home() {
               alignItems: 'center',
               gap: '10px',
               padding: '14px 24px',
-              backgroundColor: '#25D366',
+              backgroundColor: '#128C7E',
               color: '#ffffff',
               borderRadius: '8px',
               textDecoration: 'none',
               fontWeight: '600',
               fontSize: '15px',
               transition: 'all 0.3s',
-              boxShadow: '0 2px 8px rgba(37, 211, 102, 0.3)'
+              boxShadow: '0 2px 8px rgba(18, 140, 126, 0.3)'
             }} className="contact-btn whatsapp-btn">
               <span style={{ fontSize: '20px' }}>💬</span>
               WhatsApp Us
@@ -797,7 +807,7 @@ export default function Home() {
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
         }
         .whatsapp-btn:hover {
-          background-color: #20ba5a !important;
+          background-color: #0d6b5f !important;
         }
         .email-btn:hover {
           background-color: #1a3f70 !important;
@@ -1146,14 +1156,14 @@ export default function Home() {
                 alignItems: 'center',
                 gap: '10px',
                 padding: '12px 24px',
-                backgroundColor: '#25D366',
+                backgroundColor: '#128C7E',
                 color: '#ffffff',
                 borderRadius: '8px',
                 textDecoration: 'none',
                 fontWeight: '600',
                 fontSize: '15px',
                 transition: 'all 0.3s',
-                boxShadow: '0 2px 8px rgba(37, 211, 102, 0.3)'
+                boxShadow: '0 2px 8px rgba(18, 140, 126, 0.3)'
               }} className="footer-whatsapp">
                 <span style={{ fontSize: '20px' }}>💬</span>
                 Chat on WhatsApp
@@ -1197,7 +1207,7 @@ export default function Home() {
           background-color: rgba(255, 255, 255, 0.1) !important;
         }
         .footer-whatsapp:hover {
-          background-color: #20ba5a !important;
+          background-color: #0d6b5f !important;
           transform: translateY(-2px);
           box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4) !important;
         }
