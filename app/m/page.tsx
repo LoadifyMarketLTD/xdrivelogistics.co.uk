@@ -7,10 +7,10 @@ export default function MobilePage() {
   const { user, logout } = useAuth();
 
   const tiles = [
-    { id: 'active', label: 'Active Jobs', icon: '🚚', color: '#10b981' },
+    { id: 'active', label: 'Active Jobs', icon: '🚚', color: '#1F7A3D' },
     { id: 'pickup', label: 'Pickup', icon: '📦', color: '#f59e0b' },
-    { id: 'delivery', label: 'Delivery', icon: '✅', color: '#3b82f6' },
-    { id: 'history', label: 'History', icon: '📋', color: '#6366f1' },
+    { id: 'delivery', label: 'Delivery', icon: '✅', color: '#2F6FB3' },
+    { id: 'history', label: 'History', icon: '📋', color: '#0A2239' },
   ];
 
   const handleTileClick = (tileId: string) => {
@@ -26,7 +26,7 @@ export default function MobilePage() {
       }}>
         {/* Header */}
         <header style={{
-          backgroundColor: '#2563eb',
+          backgroundColor: '#0A2239',
           color: 'white',
           padding: '1rem',
           display: 'flex',
