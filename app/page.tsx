@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { COMPANY_CONFIG } from './config/company';
-import { THEME, glassStyle, goldButton, darkGlassButton } from './config/theme';
+import { THEME, glassStyle, goldButton, greenButton, whatsappButton, darkGlassButton } from './config/theme';
 
 const WHATSAPP_URL = `https://wa.me/${COMPANY_CONFIG.whatsapp.number}?text=${encodeURIComponent(COMPANY_CONFIG.whatsapp.defaultMessage)}`;
 
@@ -39,9 +39,15 @@ const WHY_XDRIVE = [
   'Real-Time Communication'
 ];
 
+const TRUSTED_PARTNERS = [
+  'Amazon',
+  'Construct',
+  'Buildex',
+  'CityExpress'
+];
+
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [language, setLanguage] = useState('EN');
   const [quoteModalOpen, setQuoteModalOpen] = useState(false);
   const [quoteSuccess, setQuoteSuccess] = useState(false);
 
@@ -61,17 +67,19 @@ export default function Home() {
     <main style={{ 
       backgroundColor: THEME.colors.primary.dark, 
       minHeight: '100vh',
-      color: THEME.colors.text.primary 
+      color: THEME.colors.text.primary,
+      fontFamily: THEME.typography.fonts.body
     }}>
-      {/* HEADER - Dark with Glass Effect */}
+      {/* HEADER - Fixed Navigation Bar */}
       <nav style={{
         position: 'fixed',
         top: 0,
         left: 0,
         right: 0,
         zIndex: 1000,
-        ...glassStyle('dark'),
-        height: '72px',
+        backgroundColor: THEME.colors.primary.dark,
+        height: '64px',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
       }}>
         <div className="container" style={{
           display: 'flex',
@@ -84,98 +92,109 @@ export default function Home() {
         }}>
           {/* Logo */}
           <div style={{ 
-            fontSize: '24px', 
-            fontWeight: THEME.typography.weights.bold,
-            color: THEME.colors.text.primary,
-            textTransform: 'uppercase',
-            letterSpacing: '1px'
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0px'
           }}>
-            <span style={{ color: THEME.colors.gold.primary }}>XDrive</span> Logistics
+            <div style={{ 
+              fontSize: '28px', 
+              fontWeight: 800,
+              fontStyle: 'italic',
+              color: THEME.colors.text.primary,
+              letterSpacing: '0px',
+              lineHeight: '1'
+            }}>
+              <span style={{ color: THEME.colors.gold.primary, fontSize: '32px' }}>X</span>
+              <span>Drive</span>
+            </div>
+            <div style={{
+              fontSize: '10px',
+              color: 'rgba(255, 255, 255, 0.5)',
+              letterSpacing: '2px',
+              textTransform: 'uppercase',
+              marginTop: '-2px'
+            }}>
+              Logistics
+            </div>
           </div>
 
           {/* Desktop Navigation */}
           <div style={{ 
             display: 'none',
-            gap: '48px',
+            gap: '32px',
             alignItems: 'center'
           }} className="desktop-nav">
             <a href="#home" style={{ 
-              fontWeight: THEME.typography.weights.medium, 
-              color: THEME.colors.text.secondary, 
-              transition: THEME.transitions.fast,
+              fontWeight: 500, 
+              color: 'rgba(255, 255, 255, 0.85)', 
+              transition: 'color 0.3s ease',
               textDecoration: 'none',
-              textTransform: 'uppercase',
-              fontSize: '14px',
-              letterSpacing: '0.5px'
+              fontSize: '15px'
             }} className="nav-link">Home</a>
             <a href="#services" style={{ 
-              fontWeight: THEME.typography.weights.medium, 
-              color: THEME.colors.text.secondary, 
-              transition: THEME.transitions.fast,
+              fontWeight: 500, 
+              color: 'rgba(255, 255, 255, 0.85)', 
+              transition: 'color 0.3s ease',
               textDecoration: 'none',
-              textTransform: 'uppercase',
-              fontSize: '14px',
-              letterSpacing: '0.5px'
+              fontSize: '15px'
             }} className="nav-link">Services</a>
-            <a href="#contact" style={{ 
-              fontWeight: THEME.typography.weights.medium, 
-              color: THEME.colors.text.secondary, 
-              transition: THEME.transitions.fast,
+            <a href="#about" style={{ 
+              fontWeight: 500, 
+              color: 'rgba(255, 255, 255, 0.85)', 
+              transition: 'color 0.3s ease',
               textDecoration: 'none',
-              textTransform: 'uppercase',
-              fontSize: '14px',
-              letterSpacing: '0.5px'
+              fontSize: '15px'
+            }} className="nav-link">About</a>
+            <a href="#contact" style={{ 
+              fontWeight: 500, 
+              color: 'rgba(255, 255, 255, 0.85)', 
+              transition: 'color 0.3s ease',
+              textDecoration: 'none',
+              fontSize: '15px'
             }} className="nav-link">Contact</a>
+            
+            {/* Desktop CTA Button */}
+            <button 
+              onClick={() => setQuoteModalOpen(true)}
+              style={{
+                height: '40px',
+                padding: '0 20px',
+                backgroundColor: THEME.colors.green.primary,
+                color: THEME.colors.text.primary,
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+              className="desktop-cta-btn"
+            >
+              Request a Quote
+            </button>
           </div>
 
-          {/* Right Side */}
+          {/* Right Side - Hamburger for Mobile */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {/* Language Switcher */}
-            <div style={{ 
-              display: 'flex', 
-              gap: '6px', 
-              fontSize: '12px',
-              ...glassStyle('light'),
-              padding: '6px',
-              borderRadius: THEME.borderRadius.md
-            }}>
-              {['EN', 'DE', 'FR', 'ES'].map((lang) => (
-                <button
-                  key={lang}
-                  onClick={() => setLanguage(lang)}
-                  style={{
-                    background: language === lang ? THEME.colors.gold.primary : 'transparent',
-                    color: language === lang ? THEME.colors.primary.dark : THEME.colors.text.secondary,
-                    border: 'none',
-                    padding: '6px 12px',
-                    borderRadius: THEME.borderRadius.sm,
-                    cursor: 'pointer',
-                    fontWeight: THEME.typography.weights.semibold,
-                    fontSize: '12px',
-                    transition: THEME.transitions.fast,
-                    textTransform: 'uppercase'
-                  }}
-                >
-                  {lang}
-                </button>
-              ))}
-            </div>
 
             {/* Hamburger Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               style={{
-                ...glassStyle('light'),
+                background: 'transparent',
                 border: 'none',
-                padding: '12px',
-                borderRadius: THEME.borderRadius.md,
+                padding: '8px',
                 cursor: 'pointer',
-                fontSize: '24px',
-                lineHeight: 1
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                alignItems: 'center'
               }}
               className="mobile-menu-btn"
             >
-              {mobileMenuOpen ? '✕' : '☰'}
+              <div style={{ width: '24px', height: '2px', backgroundColor: 'white' }}></div>
+              <div style={{ width: '24px', height: '2px', backgroundColor: 'white' }}></div>
+              <div style={{ width: '24px', height: '2px', backgroundColor: 'white' }}></div>
             </button>
           </div>
         </div>
@@ -183,52 +202,73 @@ export default function Home() {
         {/* Mobile Menu Dropdown */}
         {mobileMenuOpen && (
           <div style={{
-            ...glassStyle('dark'),
+            backgroundColor: THEME.colors.primary.dark,
             position: 'absolute',
-            top: '72px',
+            top: '64px',
             left: 0,
             right: 0,
             padding: '24px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '16px'
+            gap: '12px',
+            borderTop: '1px solid rgba(255, 255, 255, 0.08)'
           }}>
             <a href="#home" onClick={() => setMobileMenuOpen(false)} style={{ 
               color: THEME.colors.text.primary, 
               textDecoration: 'none',
-              fontSize: '18px',
-              fontWeight: THEME.typography.weights.medium,
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px'
+              fontSize: '16px',
+              fontWeight: 500,
+              padding: '12px 0'
             }}>Home</a>
             <a href="#services" onClick={() => setMobileMenuOpen(false)} style={{ 
               color: THEME.colors.text.primary, 
               textDecoration: 'none',
-              fontSize: '18px',
-              fontWeight: THEME.typography.weights.medium,
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px'
+              fontSize: '16px',
+              fontWeight: 500,
+              padding: '12px 0'
             }}>Services</a>
+            <a href="#about" onClick={() => setMobileMenuOpen(false)} style={{ 
+              color: THEME.colors.text.primary, 
+              textDecoration: 'none',
+              fontSize: '16px',
+              fontWeight: 500,
+              padding: '12px 0'
+            }}>About</a>
             <a href="#contact" onClick={() => setMobileMenuOpen(false)} style={{ 
               color: THEME.colors.text.primary, 
               textDecoration: 'none',
-              fontSize: '18px',
-              fontWeight: THEME.typography.weights.medium,
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px'
+              fontSize: '16px',
+              fontWeight: 500,
+              padding: '12px 0'
             }}>Contact</a>
+            <button 
+              onClick={() => { setQuoteModalOpen(true); setMobileMenuOpen(false); }}
+              style={{
+                marginTop: '12px',
+                height: '48px',
+                backgroundColor: THEME.colors.green.primary,
+                color: THEME.colors.text.primary,
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '16px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Get a Quote
+            </button>
           </div>
         )}
       </nav>
 
-      {/* HERO SECTION - Cinematic Premium */}
+      {/* HERO SECTION - Cinematic with Truck Image */}
       <section id="home" style={{
-        minHeight: '100vh',
+        minHeight: '520px',
         display: 'flex',
         alignItems: 'center',
-        background: `linear-gradient(135deg, rgba(10, 14, 26, 0.95) 0%, rgba(26, 31, 46, 0.85) 100%), url(https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1920&q=80) center/cover`,
+        background: `linear-gradient(135deg, rgba(14, 26, 43, 0.88) 0%, rgba(31, 58, 95, 0.75) 100%), url(https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1920&q=80) center/cover`,
         position: 'relative',
-        padding: '120px 24px 80px',
+        padding: '120px 24px 60px',
       }}>
         <div className="container" style={{ 
           position: 'relative', 
@@ -237,59 +277,53 @@ export default function Home() {
           margin: '0 auto',
           width: '100%'
         }}>
-          <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ maxWidth: '600px' }}>
             <h1 style={{ 
               color: THEME.colors.text.primary,
-              marginBottom: '24px', 
+              marginBottom: '32px', 
               lineHeight: '1.1',
-              fontSize: 'clamp(36px, 6vw, 64px)',
-              fontWeight: THEME.typography.weights.bold,
-              textTransform: 'uppercase',
-              letterSpacing: '2px',
-              textShadow: `0 4px 20px ${THEME.colors.primary.dark}`
+              fontSize: 'clamp(2rem, 5vw, 3rem)',
+              fontWeight: 800,
+              textTransform: 'uppercase'
             }}>
-              DRIVING EXCELLENCE
+              DRIVING <span style={{ color: THEME.colors.gold.primary }}>EXCELLENCE</span>
               <br />
-              <span style={{ color: THEME.colors.gold.primary }}>IN LOGISTICS</span>
+              IN LOGISTICS
             </h1>
             
             <p style={{ 
-              fontSize: 'clamp(18px, 3vw, 28px)', 
-              fontWeight: THEME.typography.weights.medium,
-              color: THEME.colors.text.secondary,
-              marginBottom: '48px',
-              letterSpacing: '3px',
-              textTransform: 'uppercase'
+              fontSize: '17px', 
+              color: 'rgba(255, 255, 255, 0.85)',
+              marginBottom: '32px',
+              lineHeight: '1.6'
             }}>
-              Fast <span style={{ color: THEME.colors.gold.primary }}>•</span> Secure <span style={{ color: THEME.colors.gold.primary }}>•</span> Reliable
-              <br />
-              UK & EU Transport
+              Fast · Secure · Reliable UK & EU Transport
             </p>
             
             {/* Hero CTAs */}
             <div style={{ 
               display: 'flex', 
               flexWrap: 'wrap', 
-              gap: '20px', 
-              justifyContent: 'center',
+              gap: '14px',
               alignItems: 'center'
             }}>
               <button 
                 onClick={() => setQuoteModalOpen(true)}
                 style={{ 
-                  ...goldButton,
-                  height: '60px',
-                  minWidth: '220px',
-                  fontSize: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
-                  border: 'none'
+                  height: '48px',
+                  padding: '0 28px',
+                  background: THEME.colors.gold.primary,
+                  color: THEME.colors.primary.dark,
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  textTransform: 'none'
                 }} 
-                className="gold-btn"
+                className="hero-gold-btn"
               >
-                <span style={{ fontSize: '24px' }}>📦</span>
                 Request a Quote
               </button>
               
@@ -298,30 +332,35 @@ export default function Home() {
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ 
-                  ...darkGlassButton,
-                  height: '60px',
-                  minWidth: '220px',
-                  fontSize: '16px',
+                  height: '48px',
+                  padding: '0 28px',
+                  background: THEME.colors.green.whatsapp,
+                  color: THEME.colors.text.primary,
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  textDecoration: 'none',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
-                  textDecoration: 'none'
+                  gap: '8px'
                 }} 
-                className="glass-btn"
+                className="hero-whatsapp-btn"
               >
-                <span style={{ fontSize: '24px' }}>💬</span>
-                WhatsApp Us
+                <span style={{ fontSize: '20px' }}>💬</span>
+                WhatsApp
               </a>
             </div>
           </div>
         </div>
       </section>
 
-      {/* MID SECTION - Services & Why XDrive */}
+      {/* SECTION 3: Services + Why XDrive (Two Column Layout) */}
       <section id="services" style={{ 
         backgroundColor: THEME.colors.primary.navy,
-        padding: '80px 24px',
+        padding: '64px 24px',
         position: 'relative'
       }}>
         <div className="container" style={{ 
@@ -331,48 +370,63 @@ export default function Home() {
           <div style={{ 
             display: 'grid',
             gridTemplateColumns: '1fr',
-            gap: '60px'
+            gap: '48px'
           }} className="services-grid">
             {/* LEFT: OUR SERVICES */}
             <div>
               <h2 style={{ 
-                fontSize: 'clamp(32px, 5vw, 48px)', 
-                fontWeight: THEME.typography.weights.bold,
-                color: THEME.colors.text.primary,
-                marginBottom: '40px',
+                fontSize: '14px', 
+                fontWeight: 700,
+                color: THEME.colors.gold.primary,
+                marginBottom: '24px',
                 textTransform: 'uppercase',
                 letterSpacing: '2px'
               }}>
-                <span style={{ color: THEME.colors.gold.primary }}>Our</span> Services
+                OUR SERVICES
               </h2>
               
               <div style={{ 
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                gap: '24px'
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px'
               }}>
                 {SERVICES.map((service, idx) => (
                   <div key={idx} style={{
-                    ...glassStyle('light'),
-                    padding: '32px',
-                    borderRadius: THEME.borderRadius.lg,
-                    transition: THEME.transitions.medium,
-                    cursor: 'pointer'
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '10px',
+                    padding: '24px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '16px',
+                    transition: 'all 0.3s ease'
                   }} className="service-card">
-                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>{service.icon}</div>
-                    <h3 style={{ 
-                      fontSize: '24px', 
-                      fontWeight: THEME.typography.weights.bold, 
-                      color: THEME.colors.text.primary,
-                      marginBottom: '12px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '1px'
-                    }}>{service.title}</h3>
-                    <p style={{ 
-                      fontSize: '16px', 
-                      color: THEME.colors.text.muted,
-                      lineHeight: '1.6'
-                    }}>{service.description}</p>
+                    <div style={{ 
+                      width: '48px',
+                      height: '48px',
+                      minWidth: '48px',
+                      borderRadius: '10px',
+                      background: THEME.colors.gold.primary,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '24px',
+                      color: THEME.colors.primary.dark
+                    }}>{service.icon}</div>
+                    <div>
+                      <h3 style={{ 
+                        fontSize: '17px', 
+                        fontWeight: 700, 
+                        color: THEME.colors.text.primary,
+                        marginBottom: '4px'
+                      }}>{service.title}</h3>
+                      <p style={{ 
+                        fontSize: '14px', 
+                        color: 'rgba(255, 255, 255, 0.65)',
+                        lineHeight: '1.5',
+                        margin: 0
+                      }}>{service.description}</p>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -381,38 +435,44 @@ export default function Home() {
             {/* RIGHT: WHY XDRIVE */}
             <div>
               <h2 style={{ 
-                fontSize: 'clamp(32px, 5vw, 48px)', 
-                fontWeight: THEME.typography.weights.bold,
-                color: THEME.colors.text.primary,
-                marginBottom: '40px',
+                fontSize: '14px', 
+                fontWeight: 700,
+                color: THEME.colors.gold.primary,
+                marginBottom: '24px',
                 textTransform: 'uppercase',
                 letterSpacing: '2px'
               }}>
-                Why <span style={{ color: THEME.colors.gold.primary }}>XDrive</span>
+                WHY XDRIVE
               </h2>
               
               <div style={{ 
-                ...glassStyle('light'),
-                padding: '40px',
-                borderRadius: THEME.borderRadius.lg
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '18px'
               }}>
                 {WHY_XDRIVE.map((item, idx) => (
                   <div key={idx} style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '16px',
-                    padding: '20px 0',
-                    borderBottom: idx < WHY_XDRIVE.length - 1 ? `1px solid ${THEME.colors.border.light}` : 'none'
+                    gap: '14px'
                   }}>
                     <div style={{ 
-                      fontSize: '24px',
-                      color: THEME.colors.gold.primary
+                      width: '28px',
+                      height: '28px',
+                      minWidth: '28px',
+                      borderRadius: '50%',
+                      background: THEME.colors.green.primary,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: THEME.colors.text.primary,
+                      fontSize: '14px',
+                      fontWeight: 'bold'
                     }}>✓</div>
                     <span style={{ 
-                      fontSize: '20px',
-                      fontWeight: THEME.typography.weights.medium,
-                      color: THEME.colors.text.primary,
-                      letterSpacing: '0.5px'
+                      fontSize: '16px',
+                      fontWeight: 600,
+                      color: THEME.colors.text.primary
                     }}>{item}</span>
                   </div>
                 ))}
@@ -422,12 +482,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SOCIAL PROOF BAND */}
+      {/* SECTION 4: TRUSTED BY UK BUSINESSES */}
       <section style={{ 
-        backgroundColor: THEME.colors.primary.dark,
-        padding: '60px 24px',
-        borderTop: `1px solid ${THEME.colors.border.light}`,
-        borderBottom: `1px solid ${THEME.colors.border.light}`
+        backgroundColor: THEME.colors.background.light,
+        padding: '40px 24px',
+        borderTop: '1px solid rgba(31, 58, 95, 0.08)',
+        borderBottom: '1px solid rgba(31, 58, 95, 0.08)'
       }}>
         <div className="container" style={{ 
           maxWidth: '1400px',
@@ -435,14 +495,14 @@ export default function Home() {
           textAlign: 'center'
         }}>
           <h3 style={{ 
-            fontSize: 'clamp(20px, 3vw, 28px)', 
-            fontWeight: THEME.typography.weights.bold,
-            color: THEME.colors.text.secondary,
-            marginBottom: '32px',
+            fontSize: '12px', 
+            fontWeight: 700,
+            color: THEME.colors.text.dark,
+            marginBottom: '24px',
             textTransform: 'uppercase',
-            letterSpacing: '2px'
+            letterSpacing: '3px'
           }}>
-            Trusted by <span style={{ color: THEME.colors.gold.primary }}>UK Businesses</span>
+            TRUSTED BY UK BUSINESSES
           </h3>
           
           <div style={{
@@ -450,236 +510,266 @@ export default function Home() {
             flexWrap: 'wrap',
             justifyContent: 'center',
             alignItems: 'center',
-            gap: '48px',
-            opacity: 0.6
+            gap: '40px'
           }}>
             <div style={{ 
-              ...glassStyle('light'),
-              padding: '24px 48px',
-              borderRadius: THEME.borderRadius.md,
-              fontSize: '18px',
-              fontWeight: THEME.typography.weights.semibold,
-              color: THEME.colors.text.secondary
-            }}>Retail</div>
+              fontSize: '22px',
+              fontWeight: 700,
+              color: THEME.colors.primary.navy,
+              opacity: 0.55,
+              fontStyle: 'italic',
+              textTransform: 'lowercase'
+            }}>amazon</div>
             <div style={{ 
-              ...glassStyle('light'),
-              padding: '24px 48px',
-              borderRadius: THEME.borderRadius.md,
-              fontSize: '18px',
-              fontWeight: THEME.typography.weights.semibold,
-              color: THEME.colors.text.secondary
-            }}>Logistics</div>
+              fontSize: '16px',
+              fontWeight: 700,
+              color: THEME.colors.primary.navy,
+              opacity: 0.55,
+              letterSpacing: '2px',
+              textTransform: 'uppercase'
+            }}>CONSTRUCT</div>
             <div style={{ 
-              ...glassStyle('light'),
-              padding: '24px 48px',
-              borderRadius: THEME.borderRadius.md,
-              fontSize: '18px',
-              fontWeight: THEME.typography.weights.semibold,
-              color: THEME.colors.text.secondary
-            }}>Construction</div>
+              fontSize: '16px',
+              fontWeight: 700,
+              color: THEME.colors.primary.navy,
+              opacity: 0.55,
+              letterSpacing: '2px',
+              textTransform: 'uppercase'
+            }}>BUILDEX</div>
             <div style={{ 
-              ...glassStyle('light'),
-              padding: '24px 48px',
-              borderRadius: THEME.borderRadius.md,
-              fontSize: '18px',
-              fontWeight: THEME.typography.weights.semibold,
-              color: THEME.colors.text.secondary
-            }}>E-Commerce</div>
+              fontSize: '16px',
+              fontWeight: 700,
+              color: THEME.colors.primary.navy,
+              opacity: 0.55,
+              letterSpacing: '2px',
+              textTransform: 'uppercase'
+            }}>CITYEXPRESS</div>
           </div>
         </div>
       </section>
 
-      {/* FINAL CTA SECTION */}
+      {/* SECTION 5: READY TO MOVE YOUR FREIGHT CTA */}
       <section style={{ 
         backgroundColor: THEME.colors.primary.navy,
-        padding: '120px 24px',
+        padding: '64px 24px',
         textAlign: 'center'
       }}>
         <div className="container" style={{ 
-          maxWidth: '1400px',
+          maxWidth: '700px',
           margin: '0 auto'
         }}>
           <h2 style={{ 
-            fontSize: 'clamp(32px, 5vw, 56px)', 
-            fontWeight: THEME.typography.weights.bold,
+            fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', 
+            fontWeight: 700,
             color: THEME.colors.text.primary,
-            marginBottom: '32px',
-            textTransform: 'uppercase',
-            letterSpacing: '2px'
+            marginBottom: '12px'
           }}>
-            Ready to Move <span style={{ color: THEME.colors.gold.primary }}>Your Freight?</span>
+            Ready to Move Your Freight?
           </h2>
           
-          <button 
-            onClick={() => setQuoteModalOpen(true)}
+          <p style={{
+            fontSize: '16px',
+            color: 'rgba(255, 255, 255, 0.75)',
+            marginBottom: '32px'
+          }}>
+            Fast quote in under 100 minutes
+          </p>
+          
+          <a 
+            href={`mailto:${COMPANY_CONFIG.email}?subject=Instant Quote Request`}
             style={{ 
-              ...goldButton,
-              height: '70px',
-              minWidth: '280px',
-              fontSize: '20px',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '16px',
-              border: 'none'
+              height: '54px',
+              padding: '0 40px',
+              background: THEME.colors.green.primary,
+              color: THEME.colors.text.primary,
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '17px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              textDecoration: 'none',
+              boxShadow: '0 4px 16px rgba(46, 125, 50, 0.35)'
             }} 
-            className="gold-btn"
+            className="cta-quote-btn"
           >
             Get Instant Quote
-          </button>
+          </a>
         </div>
       </section>
 
-      {/* CONTACT STRIP & FOOTER */}
+      {/* SECTION 6: Contact Information Bar */}
+      <section style={{ 
+        backgroundColor: THEME.colors.background.light,
+        padding: '40px 24px'
+      }}>
+        <div className="container" style={{ 
+          maxWidth: '1400px',
+          margin: '0 auto',
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: '32px'
+        }}>
+          {/* Phone */}
+          <a href={`tel:${COMPANY_CONFIG.phone}`} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            textDecoration: 'none',
+            color: THEME.colors.primary.navy,
+            fontSize: '16px',
+            fontWeight: 600
+          }}>
+            <span style={{ fontSize: '20px' }}>📞</span>
+            {COMPANY_CONFIG.phoneDisplay}
+          </a>
+          
+          {/* Email */}
+          <a href={`mailto:${COMPANY_CONFIG.email}`} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            textDecoration: 'none',
+            color: THEME.colors.primary.navy,
+            fontSize: '16px',
+            fontWeight: 600
+          }}>
+            <span style={{ fontSize: '20px' }}>✉️</span>
+            {COMPANY_CONFIG.email}
+          </a>
+        </div>
+      </section>
+
+      {/* SECTION 7: Footer */}
       <footer id="contact" style={{ 
         backgroundColor: THEME.colors.primary.dark,
-        padding: '60px 24px 40px'
+        padding: '40px 24px 20px'
       }}>
         <div className="container" style={{ 
           maxWidth: '1400px',
           margin: '0 auto'
         }}>
-          {/* Contact Info */}
-          <div style={{
-            textAlign: 'center',
-            marginBottom: '48px',
-            padding: '40px',
-            ...glassStyle('light'),
-            borderRadius: THEME.borderRadius.lg
-          }}>
-            <h3 style={{ 
-              fontSize: '32px', 
-              fontWeight: THEME.typography.weights.bold,
-              marginBottom: '32px',
-              color: THEME.colors.text.primary,
-              textTransform: 'uppercase',
-              letterSpacing: '1px'
-            }}>Get In Touch</h3>
-            
-            <div style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-              gap: '24px',
-              marginBottom: '32px'
-            }}>
-              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" style={{ 
-                ...darkGlassButton,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '12px'
-              }}>
-                <span style={{ fontSize: '24px' }}>💬</span>
-                WhatsApp
-              </a>
-              
-              <a href={`mailto:${COMPANY_CONFIG.email}`} style={{ 
-                ...darkGlassButton,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '12px'
-              }}>
-                <span style={{ fontSize: '24px' }}>📧</span>
-                Email Us
-              </a>
-              
-              <a href={`tel:${COMPANY_CONFIG.phone}`} style={{ 
-                ...darkGlassButton,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '12px'
-              }}>
-                <span style={{ fontSize: '24px' }}>📞</span>
-                Call Us
-              </a>
-            </div>
-
-            {/* Contact Details */}
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-              color: THEME.colors.text.secondary,
-              fontSize: '18px'
-            }}>
-              <div>
-                <strong style={{ color: THEME.colors.gold.primary }}>Email:</strong> {COMPANY_CONFIG.email}
-              </div>
-              <div>
-                <strong style={{ color: THEME.colors.gold.primary }}>Phone:</strong> {COMPANY_CONFIG.phoneDisplay}
-              </div>
-            </div>
-          </div>
-
-          {/* Social Icons */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '24px',
-            marginBottom: '40px'
-          }}>
-            {SOCIAL_MEDIA_LINKS.map((social, idx) => (
-              <a 
-                key={idx}
-                href={social.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  ...glassStyle('light'),
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: THEME.borderRadius.full,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '28px',
-                  transition: THEME.transitions.medium,
-                  textDecoration: 'none'
-                }}
-                className="social-icon"
-                aria-label={social.name}
-              >
-                {social.icon}
-              </a>
-            ))}
-          </div>
-
-          {/* Footer Links */}
+          {/* Top Row */}
           <div style={{
             display: 'flex',
             flexWrap: 'wrap',
-            justifyContent: 'center',
-            gap: '32px',
-            marginBottom: '32px',
-            fontSize: '14px',
-            textTransform: 'uppercase',
-            letterSpacing: '1px'
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '20px',
+            paddingBottom: '24px',
+            marginBottom: '24px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
           }}>
-            <a href="#home" style={{ color: THEME.colors.text.muted, textDecoration: 'none' }}>Home</a>
-            <a href="#services" style={{ color: THEME.colors.text.muted, textDecoration: 'none' }}>Services</a>
-            <a href="#contact" style={{ color: THEME.colors.text.muted, textDecoration: 'none' }}>Contact</a>
-            <a href="/privacy" style={{ color: THEME.colors.text.muted, textDecoration: 'none' }}>Privacy Policy</a>
-            <a href="/terms" style={{ color: THEME.colors.text.muted, textDecoration: 'none' }}>Terms</a>
+            {/* Logo */}
+            <div style={{ 
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0px'
+            }}>
+              <div style={{ 
+                fontSize: '24px', 
+                fontWeight: 800,
+                fontStyle: 'italic',
+                color: THEME.colors.text.primary,
+                lineHeight: '1'
+              }}>
+                <span style={{ color: THEME.colors.gold.primary, fontSize: '28px' }}>X</span>
+                <span>Drive</span>
+              </div>
+              <div style={{
+                fontSize: '9px',
+                color: 'rgba(255, 255, 255, 0.5)',
+                letterSpacing: '2px',
+                textTransform: 'uppercase',
+                marginTop: '-2px'
+              }}>
+                Logistics
+              </div>
+            </div>
+            
+            {/* Navigation Links */}
+            <div style={{
+              display: 'flex',
+              gap: '24px',
+              flexWrap: 'wrap'
+            }}>
+              <a href="#home" style={{ 
+                fontSize: '14px',
+                fontWeight: 500,
+                color: 'rgba(255, 255, 255, 0.7)',
+                textDecoration: 'none',
+                transition: 'color 0.3s ease'
+              }}>Home</a>
+              <a href="#services" style={{ 
+                fontSize: '14px',
+                fontWeight: 500,
+                color: 'rgba(255, 255, 255, 0.7)',
+                textDecoration: 'none',
+                transition: 'color 0.3s ease'
+              }}>Services</a>
+              <a href="#contact" style={{ 
+                fontSize: '14px',
+                fontWeight: 500,
+                color: 'rgba(255, 255, 255, 0.7)',
+                textDecoration: 'none',
+                transition: 'color 0.3s ease'
+              }}>Contact</a>
+            </div>
           </div>
 
-          {/* Copyright */}
+          {/* Bottom Row */}
           <div style={{
-            textAlign: 'center',
-            color: THEME.colors.text.muted,
-            fontSize: '14px',
-            paddingTop: '32px',
-            borderTop: `1px solid ${THEME.colors.border.light}`
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '16px',
+            fontSize: '13px',
+            color: 'rgba(255, 255, 255, 0.45)'
           }}>
-            <p style={{ marginBottom: '8px' }}>
-              24/7 <span style={{ color: THEME.colors.gold.primary }}>•</span> UK & Europe <span style={{ color: THEME.colors.gold.primary }}>•</span> Fully Insured
-            </p>
-            <p>© 2026 {COMPANY_CONFIG.name}. All rights reserved.</p>
+            <div>XDrive Logistics Ltd</div>
+            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+              <span>© 2026 XDrive Logistics Ltd</span>
+              <a href="/privacy" style={{ 
+                color: 'rgba(255, 255, 255, 0.45)',
+                textDecoration: 'none'
+              }}>Privacy Policy</a>
+            </div>
           </div>
         </div>
       </footer>
+
+      {/* SECTION 8: Floating WhatsApp Button */}
+      <a
+        href={WHATSAPP_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Chat on WhatsApp"
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          width: '56px',
+          height: '56px',
+          borderRadius: '50%',
+          backgroundColor: THEME.colors.green.whatsapp,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '28px',
+          boxShadow: '0 4px 16px rgba(37, 211, 102, 0.4)',
+          zIndex: 999,
+          transition: 'all 0.3s ease',
+          textDecoration: 'none'
+        }}
+        className="floating-whatsapp"
+      >
+        💬
+      </a>
 
       {/* MOBILE STICKY CONTACT BAR */}
       <div style={{
@@ -1037,15 +1127,34 @@ export default function Home() {
           width: 100%;
         }
         
-        @media (min-width: 768px) {
+        /* Responsive Breakpoints */
+        @media (min-width: 1024px) {
           .desktop-nav {
             display: flex !important;
           }
           .mobile-menu-btn {
             display: none !important;
           }
+          .desktop-cta-btn {
+            display: block !important;
+          }
+        }
+        
+        @media (min-width: 768px) {
           .services-grid {
-            grid-template-columns: 1fr 1fr !important;
+            grid-template-columns: 1.2fr 0.8fr !important;
+          }
+        }
+
+        @media (max-width: 1023px) {
+          .desktop-nav {
+            display: none !important;
+          }
+          .mobile-menu-btn {
+            display: flex !important;
+          }
+          .desktop-cta-btn {
+            display: none !important;
           }
         }
 
@@ -1055,29 +1164,38 @@ export default function Home() {
           }
         }
         
+        /* Hover States */
         .nav-link:hover {
           color: ${THEME.colors.gold.primary} !important;
         }
         
-        .gold-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: ${THEME.shadows.glow};
+        .desktop-cta-btn:hover {
+          background-color: ${THEME.colors.green.dark} !important;
         }
         
-        .glass-btn:hover {
-          background: rgba(255, 255, 255, 0.2) !important;
+        .hero-gold-btn:hover {
+          background: ${THEME.colors.gold.dark} !important;
           transform: translateY(-2px);
+        }
+        
+        .hero-whatsapp-btn:hover {
+          background: ${THEME.colors.green.whatsappHover} !important;
+          transform: translateY(-2px);
+        }
+        
+        .cta-quote-btn:hover {
+          background: ${THEME.colors.green.dark} !important;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(46, 125, 50, 0.45) !important;
+        }
+        
+        .floating-whatsapp:hover {
+          transform: scale(1.1);
+          box-shadow: 0 6px 20px rgba(37, 211, 102, 0.5) !important;
         }
         
         .service-card:hover {
-          transform: translateY(-4px);
-          background: rgba(255, 255, 255, 0.15) !important;
-          box-shadow: ${THEME.shadows.lg};
-        }
-        
-        .social-icon:hover {
-          transform: scale(1.1);
-          background: rgba(255, 255, 255, 0.2) !important;
+          background: rgba(255, 255, 255, 0.12) !important;
         }
         
         .form-input:focus {
