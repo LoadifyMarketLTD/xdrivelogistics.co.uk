@@ -193,7 +193,7 @@ export const goldButton = {
 };
 
 export const greenButton = {
-  background: `linear-gradient(135deg, ${THEME.colors.green.primary} 0%, ${THEME.colors.green.dark} 100())`,
+  background: `linear-gradient(135deg, ${THEME.colors.green.primary} 0%, ${THEME.colors.green.dark} 100%)`,
   color: THEME.colors.text.primary,
   border: 'none',
   borderRadius: THEME.borderRadius.md,
