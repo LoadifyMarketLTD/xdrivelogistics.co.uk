@@ -547,11 +547,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-              color: THEME.colors.text.secondary
-            }}>E-Commerce</div>
-          </div>
-        </div>
-      </section>
 
       {/* SECTION 5: READY TO MOVE YOUR FREIGHT CTA */}
       <section style={{ 
@@ -1206,8 +1201,6 @@ export default function Home() {
         .form-input:focus {
           border-color: ${THEME.colors.gold.primary} !important;
           box-shadow: 0 0 0 2px ${THEME.colors.gold.primary}40 !important;
-        }
-      `}</style>
         }
       `}</style>
     </main>
