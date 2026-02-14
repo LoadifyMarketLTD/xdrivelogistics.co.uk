@@ -26,7 +26,7 @@ export default function AdminPage() {
         {/* Sidebar */}
         <aside style={{
           width: '250px',
-          backgroundColor: '#1e293b',
+          backgroundColor: '#0A2239',
           color: 'white',
           display: 'flex',
           flexDirection: 'column',
@@ -43,7 +43,7 @@ export default function AdminPage() {
               margin: 0,
               color: 'white'
             }}>
-              Danny Courier
+              XDrive Logistics Ltd
             </h1>
             <p style={{
               fontSize: '0.85rem',
@@ -66,10 +66,10 @@ export default function AdminPage() {
                 style={{
                   width: '100%',
                   padding: '0.875rem 1.5rem',
-                  backgroundColor: activeSection === item.id ? 'rgba(59, 130, 246, 0.5)' : 'transparent',
+                  backgroundColor: activeSection === item.id ? 'rgba(31, 122, 61, 0.5)' : 'transparent',
                   color: 'white',
                   border: 'none',
-                  borderLeft: activeSection === item.id ? '4px solid #3b82f6' : '4px solid transparent',
+                  borderLeft: activeSection === item.id ? '4px solid #1F7A3D' : '4px solid transparent',
                   textAlign: 'left',
                   cursor: 'pointer',
                   display: 'flex',
@@ -81,7 +81,7 @@ export default function AdminPage() {
                 }}
                 onMouseEnter={(e) => {
                   if (activeSection !== item.id) {
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.backgroundColor = 'rgba(10, 34, 57, 0.5)';
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -153,8 +153,8 @@ export default function AdminPage() {
               margin: 0
             }}>
               {activeSection === 'dashboard' && 'Overview of your courier operations'}
-              {activeSection === 'invoices' && 'Manage and view all invoices (coming soon)'}
-              {activeSection === 'jobs' && 'View and manage delivery jobs (coming soon)'}
+              {activeSection === 'invoices' && 'Manage and view all invoices'}
+              {activeSection === 'jobs' && 'View and manage all delivery jobs'}
               {activeSection === 'drivers' && 'Manage driver information (coming soon)'}
               {activeSection === 'settings' && 'Configure system settings (coming soon)'}
             </p>
@@ -171,10 +171,10 @@ export default function AdminPage() {
                 marginBottom: '2rem'
               }}>
                 {[
-                  { label: 'Active Jobs', value: '24', icon: '🚚', color: '#10b981' },
+                  { label: 'Active Jobs', value: '24', icon: '🚚', color: '#1F7A3D' },
                   { label: 'Pending Invoices', value: '12', icon: '💰', color: '#f59e0b' },
-                  { label: 'Active Drivers', value: '8', icon: '👤', color: '#3b82f6' },
-                  { label: 'Completed Today', value: '45', icon: '✅', color: '#8b5cf6' },
+                  { label: 'Active Drivers', value: '8', icon: '👤', color: '#0A2239' },
+                  { label: 'Completed Today', value: '45', icon: '✅', color: '#5C9FD8' },
                 ].map((stat, index) => (
                   <div
                     key={index}
@@ -236,31 +236,8 @@ export default function AdminPage() {
                     onClick={() => window.location.href = '/admin/invoices'}
                     style={{
                       padding: '1rem',
-                      backgroundColor: '#eff6ff',
-                      border: '1px solid #bfdbfe',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.95rem',
-                      fontWeight: '600',
-                      color: '#1e40af',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#dbeafe';
-                      e.currentTarget.style.borderColor = '#93c5fd';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#eff6ff';
-                      e.currentTarget.style.borderColor = '#bfdbfe';
-                    }}
-                  >
-                    💰 View Invoices
-                  </button>
-                  <button
-                    style={{
-                      padding: '1rem',
                       backgroundColor: '#f0fdf4',
-                      border: '1px solid #bbf7d0',
+                      border: '1px solid #86efac',
                       borderRadius: '8px',
                       cursor: 'pointer',
                       fontSize: '0.95rem',
@@ -270,34 +247,58 @@ export default function AdminPage() {
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = '#dcfce7';
-                      e.currentTarget.style.borderColor = '#86efac';
+                      e.currentTarget.style.borderColor = '#1F7A3D';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = '#f0fdf4';
-                      e.currentTarget.style.borderColor = '#bbf7d0';
+                      e.currentTarget.style.borderColor = '#86efac';
                     }}
                   >
-                    ➕ New Job
+                    💰 View Invoices
                   </button>
                   <button
+                    onClick={() => window.location.href = '/admin/jobs'}
                     style={{
                       padding: '1rem',
-                      backgroundColor: '#fef3c7',
-                      border: '1px solid #fde68a',
+                      backgroundColor: '#1F7A3D',
+                      border: '1px solid #1F7A3D',
                       borderRadius: '8px',
                       cursor: 'pointer',
                       fontSize: '0.95rem',
                       fontWeight: '600',
-                      color: '#92400e',
+                      color: 'white',
                       transition: 'all 0.2s'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#fef08a';
-                      e.currentTarget.style.borderColor = '#fcd34d';
+                      e.currentTarget.style.backgroundColor = '#166534';
+                      e.currentTarget.style.borderColor = '#166534';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#fef3c7';
-                      e.currentTarget.style.borderColor = '#fde68a';
+                      e.currentTarget.style.backgroundColor = '#1F7A3D';
+                      e.currentTarget.style.borderColor = '#1F7A3D';
+                    }}
+                  >
+                    📦 Manage Jobs
+                  </button>
+                  <button
+                    style={{
+                      padding: '1rem',
+                      backgroundColor: '#e0f2fe',
+                      border: '1px solid #7dd3fc',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '0.95rem',
+                      fontWeight: '600',
+                      color: '#075985',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#bae6fd';
+                      e.currentTarget.style.borderColor = '#5C9FD8';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#e0f2fe';
+                      e.currentTarget.style.borderColor = '#7dd3fc';
                     }}
                   >
                     📊 Generate Report
@@ -340,7 +341,7 @@ export default function AdminPage() {
                 onClick={() => window.location.href = '/admin/invoices'}
                 style={{
                   padding: '0.75rem 1.5rem',
-                  backgroundColor: '#3b82f6',
+                  backgroundColor: '#1F7A3D',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
@@ -349,15 +350,64 @@ export default function AdminPage() {
                   cursor: 'pointer',
                   transition: 'background-color 0.2s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}
               >
                 Go to Invoices
               </button>
             </div>
           )}
           
-          {activeSection !== 'dashboard' && activeSection !== 'invoices' && (
+          {activeSection === 'jobs' && (
+            <div style={{
+              backgroundColor: 'white',
+              padding: '3rem 2rem',
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '4rem',
+                marginBottom: '1rem'
+              }}>
+                📦
+              </div>
+              <h3 style={{
+                fontSize: '1.5rem',
+                color: '#1f2937',
+                marginBottom: '0.5rem'
+              }}>
+                Job Management
+              </h3>
+              <p style={{
+                color: '#6b7280',
+                fontSize: '1rem',
+                marginBottom: '1.5rem'
+              }}>
+                View and manage all your delivery jobs.
+              </p>
+              <button
+                onClick={() => window.location.href = '/admin/jobs'}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#1F7A3D',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}
+              >
+                Go to Jobs
+              </button>
+            </div>
+          )}
+          
+          {activeSection !== 'dashboard' && activeSection !== 'invoices' && activeSection !== 'jobs' && (
             <div style={{
               backgroundColor: 'white',
               padding: '3rem 2rem',

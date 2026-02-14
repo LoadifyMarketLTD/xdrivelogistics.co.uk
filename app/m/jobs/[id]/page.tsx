@@ -8,76 +8,54 @@ import PODPhotoUpload from '../../../components/PODPhotoUpload';
 import SignatureCanvas from '../../../components/SignatureCanvas';
 import DelayUpdate from '../../../components/DelayUpdate';
 import Toast from '../../../components/Toast';
+import { JOB_STATUS } from '../../../config/company';
 
 interface JobPODData {
   pickupPhotos: string[];
+  pickupTimestamp?: string;
   deliveryPhotos: string[];
   signature: string;
   recipientName: string;
-  deliveredAt: string;
+  deliveryTimestamp?: string;
 }
 
 interface Job {
   id: string;
-  ref: string;
-  pickupLocation: string;
-  deliveryLocation: string;
-  pickupTime: string;
-  deliveryTime: string;
-  status: 'active' | 'pickup' | 'delivery' | 'completed';
-  pickupAddress: string;
-  deliveryAddress: string;
-  specialInstructions?: string;
+  jobRef: string;
+  client: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+  pickup: {
+    location: string;
+    date: string;
+    time: string;
+  };
+  delivery: {
+    location: string;
+    date: string;
+    time: string;
+  };
+  cargo: {
+    type: string;
+    quantity: number;
+    notes: string;
+  };
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  statusHistory?: Array<{
+    status: string;
+    timestamp: string;
+  }>;
+  pod?: JobPODData;
+  delayHistory?: Array<{
+    delayMinutes: number;
+    reason: string;
+    timestamp: string;
+  }>;
 }
-
-// Mock data
-const mockJobs: Record<string, Job> = {
-  '1': {
-    id: '1',
-    ref: 'DC-240115-0001',
-    pickupLocation: 'Birmingham Warehouse',
-    deliveryLocation: 'London Office',
-    pickupTime: '2024-01-15T09:00:00',
-    deliveryTime: '2024-01-15T14:00:00',
-    status: 'active',
-    pickupAddress: '123 Industrial Estate, Birmingham, B1 1AA',
-    deliveryAddress: '456 Business Park, London, EC1A 1BB',
-    specialInstructions: 'Ring bell at reception. Contact: John Smith 07700 900000'
-  },
-  '2': {
-    id: '2',
-    ref: 'DC-240115-0002',
-    pickupLocation: 'Manchester Depot',
-    deliveryLocation: 'Leeds Distribution Center',
-    pickupTime: '2024-01-15T10:30:00',
-    deliveryTime: '2024-01-15T13:30:00',
-    status: 'pickup',
-    pickupAddress: '789 Depot Road, Manchester, M1 1CC',
-    deliveryAddress: '321 Distribution Way, Leeds, LS1 1DD'
-  },
-  '3': {
-    id: '3',
-    ref: 'DC-240115-0003',
-    pickupLocation: 'Bristol Storage',
-    deliveryLocation: 'Cardiff Warehouse',
-    pickupTime: '2024-01-15T08:00:00',
-    deliveryTime: '2024-01-15T11:00:00',
-    status: 'delivery',
-    pickupAddress: '555 Storage Lane, Bristol, BS1 1EE',
-    deliveryAddress: '777 Warehouse Street, Cardiff, CF1 1FF'
-  },
-  '4': {
-    id: '4',
-    ref: 'DC-240114-0045',
-    pickupLocation: 'Southampton Port',
-    deliveryLocation: 'Reading HQ',
-    pickupTime: '2024-01-14T15:00:00',
-    deliveryTime: '2024-01-14T17:30:00',
-    status: 'completed',
-    pickupAddress: '999 Port Road, Southampton, SO1 1GG',
-    deliveryAddress: '111 HQ Plaza, Reading, RG1 1HH'
-  },
-};
 
 export default function JobDetailPage() {
   const { user } = useAuth();
@@ -90,38 +68,99 @@ export default function JobDetailPage() {
     pickupPhotos: [],
     deliveryPhotos: [],
     signature: '',
-    recipientName: '',
-    deliveredAt: ''
+    recipientName: ''
   });
+  const [loading, setLoading] = useState(true);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [showDelayModal, setShowDelayModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
-    // Load job data
-    const jobData = mockJobs[jobId];
-    if (jobData) {
-      setJob(jobData);
-      
-      // Load POD data from localStorage
-      const savedPOD = localStorage.getItem(`job_pod_${jobId}`);
-      if (savedPOD) {
-        try {
-          setPodData(JSON.parse(savedPOD));
-        } catch (e) {
-          console.error('Failed to parse POD data:', e);
-        }
-      }
-    }
+    loadJobData();
   }, [jobId]);
 
+  const loadJobData = () => {
+    try {
+      // Load jobs from localStorage
+      const stored = localStorage.getItem('xdrive_jobs');
+      if (stored) {
+        const jobs: Job[] = JSON.parse(stored);
+        const foundJob = jobs.find((j) => j.id === jobId);
+        
+        if (foundJob) {
+          setJob(foundJob);
+          
+          // Load POD data for this specific job
+          const podStorage = localStorage.getItem('xdrive_job_pods');
+          if (podStorage) {
+            const allPods = JSON.parse(podStorage);
+            if (allPods[jobId]) {
+              setPodData(allPods[jobId]);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading job data:', error);
+      setToast({ message: 'Error loading job data', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateJobInStorage = (updates: Partial<Job>) => {
+    try {
+      const stored = localStorage.getItem('xdrive_jobs');
+      if (stored) {
+        const jobs: Job[] = JSON.parse(stored);
+        const jobIndex = jobs.findIndex((j) => j.id === jobId);
+        
+        if (jobIndex !== -1) {
+          jobs[jobIndex] = {
+            ...jobs[jobIndex],
+            ...updates,
+            updatedAt: new Date().toISOString()
+          };
+          localStorage.setItem('xdrive_jobs', JSON.stringify(jobs));
+          setJob(jobs[jobIndex]);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating job:', error);
+    }
+  };
+
   const savePODData = (newPodData: JobPODData) => {
-    setPodData(newPodData);
-    localStorage.setItem(`job_pod_${jobId}`, JSON.stringify(newPodData));
+    try {
+      setPodData(newPodData);
+      
+      // Get existing POD storage
+      const podStorage = localStorage.getItem('xdrive_job_pods');
+      const allPods = podStorage ? JSON.parse(podStorage) : {};
+      
+      // Update POD for this job
+      allPods[jobId] = newPodData;
+      
+      // Save back to localStorage
+      localStorage.setItem('xdrive_job_pods', JSON.stringify(allPods));
+      
+      // Also update job.pod field
+      updateJobInStorage({ pod: newPodData });
+    } catch (error) {
+      console.error('Error saving POD data:', error);
+      setToast({ message: 'Error saving POD data', type: 'error' });
+    }
   };
 
   const handlePickupPhotosChange = (photos: string[]) => {
-    const newPodData = { ...podData, pickupPhotos: photos };
+    const timestamp = photos.length > 0 && !podData.pickupTimestamp 
+      ? new Date().toISOString() 
+      : podData.pickupTimestamp;
+    const newPodData = { 
+      ...podData, 
+      pickupPhotos: photos,
+      pickupTimestamp: timestamp
+    };
     savePODData(newPodData);
   };
 
@@ -131,15 +170,40 @@ export default function JobDetailPage() {
   };
 
   const handleSignatureSave = (signatureData: string, recipientName: string) => {
-    const newPodData = { ...podData, signature: signatureData, recipientName };
+    const newPodData = { 
+      ...podData, 
+      signature: signatureData, 
+      recipientName 
+    };
     savePODData(newPodData);
     setShowSignatureModal(false);
     setToast({ message: 'Signature saved successfully!', type: 'success' });
   };
 
+  const handleSavePickupPOD = () => {
+    if (podData.pickupPhotos.length === 0) {
+      setToast({ message: 'Please add at least one pickup photo', type: 'error' });
+      return;
+    }
+
+    // Update job status to Allocated (picked up)
+    updateJobInStorage({ 
+      status: JOB_STATUS.ALLOCATED,
+      statusHistory: [
+        ...(job?.statusHistory || []),
+        { status: JOB_STATUS.ALLOCATED, timestamp: new Date().toISOString() }
+      ]
+    });
+
+    setToast({ 
+      message: 'Pickup POD saved successfully!', 
+      type: 'success' 
+    });
+  };
+
   const handleMarkDelivered = () => {
     if (!podData.signature || !podData.recipientName) {
-      setToast({ message: 'Please capture signature before marking as delivered', type: 'error' });
+      setToast({ message: 'Please capture signature and recipient name', type: 'error' });
       return;
     }
 
@@ -148,68 +212,112 @@ export default function JobDetailPage() {
       if (!confirm) return;
     }
 
-    const deliveredAt = new Date().toISOString();
-    const newPodData = { ...podData, deliveredAt };
+    const deliveryTimestamp = new Date().toISOString();
+    const newPodData = { 
+      ...podData, 
+      deliveryTimestamp 
+    };
     savePODData(newPodData);
 
+    // Update job status to Delivered
+    updateJobInStorage({ 
+      status: JOB_STATUS.DELIVERED,
+      statusHistory: [
+        ...(job?.statusHistory || []),
+        { status: JOB_STATUS.DELIVERED, timestamp: deliveryTimestamp }
+      ]
+    });
+
     setToast({ 
-      message: `Job ${job?.ref} marked as delivered at ${new Date(deliveredAt).toLocaleTimeString()}`, 
+      message: `Job ${job?.jobRef} marked as delivered!`, 
       type: 'success' 
     });
     
-    // In production, this would sync to backend
     setTimeout(() => {
       router.push('/m/jobs');
-    }, 1500);
-  };
-
-  const handleSendPickupPOD = () => {
-    if (podData.pickupPhotos.length === 0) {
-      setToast({ message: 'Please add at least one pickup photo', type: 'error' });
-      return;
-    }
-    setToast({ 
-      message: `Pickup POD sent - ${podData.pickupPhotos.length} photo(s) uploaded`, 
-      type: 'success' 
-    });
-    // In production, this would send to backend
-  };
-
-  const handleSendDeliveryPOD = () => {
-    if (podData.deliveryPhotos.length === 0) {
-      setToast({ message: 'Please add at least one delivery photo', type: 'error' });
-      return;
-    }
-    setToast({ 
-      message: `Delivery POD sent - ${podData.deliveryPhotos.length} photo(s) uploaded`, 
-      type: 'success' 
-    });
-    // In production, this would send to backend
+    }, 2000);
   };
 
   const handleDelayUpdate = (delayMinutes: number, reason: string) => {
-    const message = `Delay Update - ${job?.ref}\n\nEstimated delay: ${delayMinutes} minutes\nReason: ${reason}\n\nWe apologize for any inconvenience.`;
+    const timestamp = new Date().toISOString();
+    
+    // Log delay to job history
+    const delayEntry = {
+      delayMinutes,
+      reason,
+      timestamp
+    };
+    
+    updateJobInStorage({
+      delayHistory: [
+        ...(job?.delayHistory || []),
+        delayEntry
+      ]
+    });
+
+    // Mock send notification (console.log for now)
+    const message = `Delay Update - ${job?.jobRef}\n\nEstimated delay: ${delayMinutes} minutes\nReason: ${reason}\n\nWe apologize for any inconvenience.`;
+    console.log('Delay notification:', message);
     
     setToast({ 
-      message: `Delay update prepared: +${delayMinutes} minutes`, 
+      message: `Delay notification sent: +${delayMinutes} minutes`, 
       type: 'info' 
     });
     
     setShowDelayModal(false);
-    
-    // In production, this would send via WhatsApp/Email
-    console.log('Delay update message:', message);
   };
 
-  const formatTime = (isoString: string) => {
-    const date = new Date(isoString);
-    return date.toLocaleString('en-GB', { 
+  const formatDateTime = (date: string, time: string) => {
+    const dateObj = new Date(`${date}T${time}`);
+    return dateObj.toLocaleString('en-GB', { 
       day: '2-digit', 
       month: 'short', 
       hour: '2-digit', 
       minute: '2-digit' 
     });
   };
+
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const canShowPickupPOD = () => {
+    return job?.status === JOB_STATUS.RECEIVED || job?.status === JOB_STATUS.POSTED;
+  };
+
+  const canShowDeliveryPOD = () => {
+    return job?.status === JOB_STATUS.ALLOCATED || job?.status === JOB_STATUS.DELIVERED;
+  };
+
+  const isReadOnly = () => {
+    return job?.status === JOB_STATUS.DELIVERED;
+  };
+
+  if (loading) {
+    return (
+      <ProtectedRoute>
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f3f4f6'
+        }}>
+          <div style={{ textAlign: 'center', color: '#6b7280' }}>
+            <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</p>
+            <p role="status" aria-live="polite">Loading job details...</p>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
 
   if (!job) {
     return (
@@ -224,6 +332,21 @@ export default function JobDetailPage() {
           <div style={{ textAlign: 'center', color: '#6b7280' }}>
             <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>❌</p>
             <p>Job not found</p>
+            <button
+              onClick={() => router.push('/m/jobs')}
+              style={{
+                marginTop: '1rem',
+                backgroundColor: '#0A2239',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '0.75rem 1.5rem',
+                fontSize: '1rem',
+                cursor: 'pointer'
+              }}
+            >
+              Back to Jobs
+            </button>
           </div>
         </div>
       </ProtectedRoute>
@@ -237,9 +360,9 @@ export default function JobDetailPage() {
         backgroundColor: '#f3f4f6',
         paddingBottom: '2rem'
       }}>
-        {/* Header */}
+        {/* Header - XDrive Navy #0A2239 */}
         <header style={{
-          backgroundColor: '#2563eb',
+          backgroundColor: '#0A2239',
           color: 'white',
           padding: '1rem',
           boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
@@ -254,6 +377,7 @@ export default function JobDetailPage() {
           }}>
             <button
               onClick={() => router.push('/m/jobs')}
+              aria-label="Back to jobs list"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.2)',
                 color: 'white',
@@ -262,10 +386,11 @@ export default function JobDetailPage() {
                 padding: '0.5rem 0.75rem',
                 fontSize: '1rem',
                 cursor: 'pointer',
-                minHeight: '40px'
+                minHeight: '40px',
+                minWidth: '40px'
               }}
             >
-              ← Back
+              ←
             </button>
             <div style={{ flex: 1 }}>
               <h1 style={{
@@ -273,14 +398,14 @@ export default function JobDetailPage() {
                 fontWeight: '700',
                 margin: 0
               }}>
-                {job.ref}
+                {job.jobRef}
               </h1>
               <p style={{
                 fontSize: '0.85rem',
                 margin: 0,
                 opacity: 0.9
               }}>
-                Job Details
+                Status: {job.status}
               </p>
             </div>
           </div>
@@ -326,26 +451,19 @@ export default function JobDetailPage() {
                 marginBottom: '0.25rem',
                 fontWeight: '500'
               }}>
-                {job.pickupLocation}
-              </div>
-              <div style={{
-                fontSize: '0.875rem',
-                color: '#6b7280',
-                marginBottom: '0.25rem'
-              }}>
-                {job.pickupAddress}
+                {job.pickup.location}
               </div>
               <div style={{
                 fontSize: '0.875rem',
                 color: '#9ca3af',
                 fontWeight: '500'
               }}>
-                ⏰ {formatTime(job.pickupTime)}
+                ⏰ {formatDateTime(job.pickup.date, job.pickup.time)}
               </div>
             </div>
 
             {/* Delivery Section */}
-            <div>
+            <div style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #e5e7eb' }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -368,174 +486,93 @@ export default function JobDetailPage() {
                 marginBottom: '0.25rem',
                 fontWeight: '500'
               }}>
-                {job.deliveryLocation}
-              </div>
-              <div style={{
-                fontSize: '0.875rem',
-                color: '#6b7280',
-                marginBottom: '0.25rem'
-              }}>
-                {job.deliveryAddress}
+                {job.delivery.location}
               </div>
               <div style={{
                 fontSize: '0.875rem',
                 color: '#9ca3af',
                 fontWeight: '500'
               }}>
-                ⏰ {formatTime(job.deliveryTime)}
+                ⏰ {formatDateTime(job.delivery.date, job.delivery.time)}
               </div>
             </div>
 
-            {/* Special Instructions */}
-            {job.specialInstructions && (
+            {/* Cargo Info */}
+            <div>
               <div style={{
-                marginTop: '1rem',
-                padding: '0.75rem',
-                backgroundColor: '#fef3c7',
-                borderRadius: '6px',
-                borderLeft: '3px solid #f59e0b'
+                fontSize: '0.875rem',
+                color: '#6b7280',
+                marginBottom: '0.25rem'
               }}>
-                <div style={{
-                  fontSize: '0.75rem',
-                  fontWeight: '600',
-                  color: '#92400e',
-                  marginBottom: '0.25rem'
-                }}>
-                  📝 SPECIAL INSTRUCTIONS
-                </div>
-                <div style={{
-                  fontSize: '0.875rem',
-                  color: '#78350f'
-                }}>
-                  {job.specialInstructions}
-                </div>
+                <strong>Cargo:</strong> {job.cargo.type} ({job.cargo.quantity})
               </div>
-            )}
-          </div>
-
-          {/* Pickup POD */}
-          <PODPhotoUpload
-            maxPhotos={3}
-            podType="pickup"
-            onPhotosChange={handlePickupPhotosChange}
-            initialPhotos={podData.pickupPhotos}
-          />
-
-          {podData.pickupPhotos.length > 0 && (
-            <button
-              onClick={handleSendPickupPOD}
-              style={{
-                width: '100%',
-                backgroundColor: '#f59e0b',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '1rem',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                minHeight: '48px'
-              }}
-            >
-              📤 Send Pickup POD
-            </button>
-          )}
-
-          {/* Delivery POD */}
-          <PODPhotoUpload
-            maxPhotos={5}
-            podType="delivery"
-            onPhotosChange={handleDeliveryPhotosChange}
-            initialPhotos={podData.deliveryPhotos}
-          />
-
-          {podData.deliveryPhotos.length > 0 && (
-            <button
-              onClick={handleSendDeliveryPOD}
-              style={{
-                width: '100%',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '1rem',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                minHeight: '48px'
-              }}
-            >
-              📤 Send Delivery POD
-            </button>
-          )}
-
-          {/* Signature Section */}
-          {!showSignatureModal && (
-            <div style={{
-              backgroundColor: 'white',
-              padding: '1rem',
-              borderRadius: '8px',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-            }}>
-              <h3 style={{
-                fontSize: '1rem',
-                fontWeight: '600',
-                color: '#1f2937',
-                marginBottom: '0.5rem'
-              }}>
-                Signature
-              </h3>
-              
-              {podData.signature ? (
-                <div>
+              {job.cargo.notes && (
+                <div style={{
+                  marginTop: '0.5rem',
+                  padding: '0.75rem',
+                  backgroundColor: '#fef3c7',
+                  borderRadius: '6px',
+                  borderLeft: '3px solid #f59e0b'
+                }}>
                   <div style={{
-                    border: '2px solid #10b981',
-                    borderRadius: '8px',
-                    padding: '0.5rem',
-                    marginBottom: '0.5rem',
-                    backgroundColor: '#f0fdf4'
+                    fontSize: '0.75rem',
+                    fontWeight: '600',
+                    color: '#92400e',
+                    marginBottom: '0.25rem'
                   }}>
-                    <img 
-                      src={podData.signature} 
-                      alt="Signature" 
-                      style={{
-                        width: '100%',
-                        height: 'auto',
-                        display: 'block'
-                      }}
-                    />
+                    📝 NOTES
                   </div>
                   <div style={{
                     fontSize: '0.875rem',
-                    color: '#374151',
-                    marginBottom: '0.5rem'
+                    color: '#78350f'
                   }}>
-                    <strong>Recipient:</strong> {podData.recipientName}
+                    {job.cargo.notes}
                   </div>
-                  <button
-                    onClick={() => setShowSignatureModal(true)}
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#f3f4f6',
-                      color: '#374151',
-                      border: 'none',
-                      borderRadius: '8px',
-                      padding: '0.75rem',
-                      fontSize: '0.9rem',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      minHeight: '48px'
-                    }}
-                  >
-                    ✏️ Edit Signature
-                  </button>
                 </div>
-              ) : (
+              )}
+            </div>
+          </div>
+
+          {/* Pickup POD Section */}
+          {canShowPickupPOD() && !isReadOnly() && (
+            <>
+              <div style={{
+                backgroundColor: 'white',
+                padding: '1rem',
+                borderRadius: '8px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+              }}>
+                <h3 style={{
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#1f2937',
+                  marginBottom: '0.5rem'
+                }}>
+                  📦 Pickup POD
+                </h3>
+                <PODPhotoUpload
+                  maxPhotos={3}
+                  podType="pickup"
+                  onPhotosChange={handlePickupPhotosChange}
+                  initialPhotos={podData.pickupPhotos}
+                />
+                {podData.pickupTimestamp && (
+                  <div style={{
+                    fontSize: '0.75rem',
+                    color: '#6b7280',
+                    marginTop: '0.5rem'
+                  }}>
+                    Captured: {formatTimestamp(podData.pickupTimestamp)}
+                  </div>
+                )}
+              </div>
+
+              {podData.pickupPhotos.length > 0 && (
                 <button
-                  onClick={() => setShowSignatureModal(true)}
+                  onClick={handleSavePickupPOD}
                   style={{
                     width: '100%',
-                    backgroundColor: '#10b981',
+                    backgroundColor: '#1F7A3D',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
@@ -546,90 +583,314 @@ export default function JobDetailPage() {
                     minHeight: '48px'
                   }}
                 >
-                  ✍️ Capture Signature
+                  ✅ Save Pickup POD
+                </button>
+              )}
+            </>
+          )}
+
+          {/* Delivery POD Section */}
+          {canShowDeliveryPOD() && !isReadOnly() && (
+            <>
+              <div style={{
+                backgroundColor: 'white',
+                padding: '1rem',
+                borderRadius: '8px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+              }}>
+                <h3 style={{
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#1f2937',
+                  marginBottom: '0.5rem'
+                }}>
+                  📍 Delivery POD
+                </h3>
+                <PODPhotoUpload
+                  maxPhotos={5}
+                  podType="delivery"
+                  onPhotosChange={handleDeliveryPhotosChange}
+                  initialPhotos={podData.deliveryPhotos}
+                />
+              </div>
+
+              {/* Recipient Name Input */}
+              <div style={{
+                backgroundColor: 'white',
+                padding: '1rem',
+                borderRadius: '8px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+              }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  color: '#374151',
+                  marginBottom: '0.5rem'
+                }}>
+                  Recipient Name *
+                </label>
+                <input
+                  type="text"
+                  value={podData.recipientName}
+                  onChange={(e) => {
+                    const newPodData = { ...podData, recipientName: e.target.value };
+                    savePODData(newPodData);
+                  }}
+                  placeholder="Enter recipient name"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '1rem'
+                  }}
+                />
+              </div>
+
+              {/* Signature Section */}
+              <div style={{
+                backgroundColor: 'white',
+                padding: '1rem',
+                borderRadius: '8px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+              }}>
+                <h3 style={{
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#1f2937',
+                  marginBottom: '0.5rem'
+                }}>
+                  ✍️ Signature *
+                </h3>
+                
+                {podData.signature ? (
+                  <div>
+                    <div style={{
+                      border: '2px solid #1F7A3D',
+                      borderRadius: '8px',
+                      padding: '0.5rem',
+                      marginBottom: '0.5rem',
+                      backgroundColor: '#f0fdf4'
+                    }}>
+                      <img 
+                        src={podData.signature} 
+                        alt="Signature" 
+                        style={{
+                          width: '100%',
+                          height: 'auto',
+                          display: 'block'
+                        }}
+                      />
+                    </div>
+                    <button
+                      onClick={() => setShowSignatureModal(true)}
+                      style={{
+                        width: '100%',
+                        backgroundColor: '#f3f4f6',
+                        color: '#374151',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '0.75rem',
+                        fontSize: '0.9rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        minHeight: '48px'
+                      }}
+                    >
+                      ✏️ Edit Signature
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowSignatureModal(true)}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#1F7A3D',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '1rem',
+                      fontSize: '1rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      minHeight: '48px'
+                    }}
+                  >
+                    ✍️ Capture Signature
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Read-only POD Display */}
+          {isReadOnly() && (
+            <>
+              {podData.pickupPhotos.length > 0 && (
+                <div style={{
+                  backgroundColor: 'white',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                }}>
+                  <h3 style={{
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    color: '#1f2937',
+                    marginBottom: '0.5rem'
+                  }}>
+                    📦 Pickup POD
+                  </h3>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '0.5rem'
+                  }}>
+                    {podData.pickupPhotos.map((photo, index) => (
+                      <img
+                        key={index}
+                        src={photo}
+                        alt={`Pickup ${index + 1}`}
+                        style={{
+                          width: '100%',
+                          height: '100px',
+                          objectFit: 'cover',
+                          borderRadius: '6px'
+                        }}
+                      />
+                    ))}
+                  </div>
+                  {podData.pickupTimestamp && (
+                    <div style={{
+                      fontSize: '0.75rem',
+                      color: '#6b7280',
+                      marginTop: '0.5rem'
+                    }}>
+                      {formatTimestamp(podData.pickupTimestamp)}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {podData.deliveryPhotos.length > 0 && (
+                <div style={{
+                  backgroundColor: 'white',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                }}>
+                  <h3 style={{
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    color: '#1f2937',
+                    marginBottom: '0.5rem'
+                  }}>
+                    📍 Delivery POD
+                  </h3>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '0.5rem',
+                    marginBottom: '0.5rem'
+                  }}>
+                    {podData.deliveryPhotos.map((photo, index) => (
+                      <img
+                        key={index}
+                        src={photo}
+                        alt={`Delivery ${index + 1}`}
+                        style={{
+                          width: '100%',
+                          height: '100px',
+                          objectFit: 'cover',
+                          borderRadius: '6px'
+                        }}
+                      />
+                    ))}
+                  </div>
+                  {podData.recipientName && (
+                    <div style={{
+                      fontSize: '0.875rem',
+                      color: '#374151',
+                      marginBottom: '0.25rem'
+                    }}>
+                      <strong>Recipient:</strong> {podData.recipientName}
+                    </div>
+                  )}
+                  {podData.signature && (
+                    <div style={{
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '6px',
+                      padding: '0.5rem',
+                      marginTop: '0.5rem'
+                    }}>
+                      <img src={podData.signature} alt="Signature" style={{ width: '100%' }} />
+                    </div>
+                  )}
+                  {podData.deliveryTimestamp && (
+                    <div style={{
+                      fontSize: '0.75rem',
+                      color: '#6b7280',
+                      marginTop: '0.5rem'
+                    }}>
+                      Delivered: {formatTimestamp(podData.deliveryTimestamp)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Action Buttons */}
+          {!isReadOnly() && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '0.5rem'
+            }}>
+              <button
+                onClick={() => setShowDelayModal(true)}
+                style={{
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  minHeight: '48px'
+                }}
+              >
+                ⏰ Delay Update
+              </button>
+              {canShowDeliveryPOD() && (
+                <button
+                  onClick={handleMarkDelivered}
+                  disabled={!podData.signature || !podData.recipientName}
+                  aria-label={!podData.signature || !podData.recipientName ? 'Complete signature and recipient name to enable' : 'Mark job as delivered'}
+                  style={{
+                    backgroundColor: podData.signature && podData.recipientName ? '#1F7A3D' : '#9ca3af',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '1rem',
+                    fontSize: '0.95rem',
+                    fontWeight: '600',
+                    cursor: podData.signature && podData.recipientName ? 'pointer' : 'not-allowed',
+                    minHeight: '48px'
+                  }}
+                >
+                  ✅ Mark Delivered
                 </button>
               )}
             </div>
           )}
 
-          {showSignatureModal && (
-            <SignatureCanvas
-              onSave={handleSignatureSave}
-              onCancel={() => setShowSignatureModal(false)}
-              initialSignature={podData.signature}
-              initialRecipientName={podData.recipientName}
-            />
-          )}
-
-          {/* Action Buttons */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '0.5rem'
-          }}>
-            <button
-              onClick={() => setShowDelayModal(true)}
-              style={{
-                backgroundColor: '#f59e0b',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '1rem',
-                fontSize: '0.95rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                minHeight: '48px'
-              }}
-            >
-              ⏰ Delay Update
-            </button>
-            <button
-              onClick={handleMarkDelivered}
-              style={{
-                backgroundColor: '#10b981',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '1rem',
-                fontSize: '0.95rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                minHeight: '48px'
-              }}
-            >
-              ✅ Mark Delivered
-            </button>
-          </div>
-
-          {/* Delay Update Modal */}
-          {showDelayModal && (
-            <div style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 50,
-              padding: '1rem'
-            }}>
-              <div style={{ maxWidth: '500px', width: '100%' }}>
-                <DelayUpdate
-                  jobRef={job.ref}
-                  onSend={handleDelayUpdate}
-                  onCancel={() => setShowDelayModal(false)}
-                />
-              </div>
-            </div>
-          )}
-
           {/* Delivered Status */}
-          {podData.deliveredAt && (
+          {isReadOnly() && podData.deliveryTimestamp && (
             <div style={{
-              backgroundColor: '#10b981',
+              backgroundColor: '#1F7A3D',
               color: 'white',
               padding: '1rem',
               borderRadius: '8px',
@@ -652,11 +913,114 @@ export default function JobDetailPage() {
                 fontSize: '0.875rem',
                 opacity: 0.9
               }}>
-                {new Date(podData.deliveredAt).toLocaleString()}
+                {formatTimestamp(podData.deliveryTimestamp)}
               </div>
             </div>
           )}
+
+          {/* Delay History */}
+          {job.delayHistory && job.delayHistory.length > 0 && (
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1rem',
+              borderRadius: '8px',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h3 style={{
+                fontSize: '1rem',
+                fontWeight: '600',
+                color: '#1f2937',
+                marginBottom: '0.5rem'
+              }}>
+                ⏰ Delay History
+              </h3>
+              {job.delayHistory.map((delay, index) => (
+                <div
+                  key={index}
+                  style={{
+                    padding: '0.75rem',
+                    backgroundColor: '#fef3c7',
+                    borderRadius: '6px',
+                    marginBottom: index < job.delayHistory!.length - 1 ? '0.5rem' : 0
+                  }}
+                >
+                  <div style={{
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: '#92400e'
+                  }}>
+                    +{delay.delayMinutes} minutes
+                  </div>
+                  <div style={{
+                    fontSize: '0.875rem',
+                    color: '#78350f',
+                    marginTop: '0.25rem'
+                  }}>
+                    {delay.reason}
+                  </div>
+                  <div style={{
+                    fontSize: '0.75rem',
+                    color: '#92400e',
+                    marginTop: '0.25rem'
+                  }}>
+                    {formatTimestamp(delay.timestamp)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* Signature Modal */}
+        {showSignatureModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+            padding: '1rem'
+          }}>
+            <div style={{ maxWidth: '500px', width: '100%' }}>
+              <SignatureCanvas
+                onSave={handleSignatureSave}
+                onCancel={() => setShowSignatureModal(false)}
+                initialSignature={podData.signature}
+                initialRecipientName={podData.recipientName}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Delay Update Modal */}
+        {showDelayModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+            padding: '1rem'
+          }}>
+            <div style={{ maxWidth: '500px', width: '100%' }}>
+              <DelayUpdate
+                jobRef={job.jobRef}
+                onSend={handleDelayUpdate}
+                onCancel={() => setShowDelayModal(false)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Toast Notification */}

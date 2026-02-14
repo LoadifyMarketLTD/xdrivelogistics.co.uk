@@ -1,18 +1,34 @@
-/* CSS Variables */
+/* CSS Variables - XDrive Logistics Premium Clean Theme */
 :root {
-  /* Colors */
-  --color-primary: #1e40af;
-  --color-secondary: #2563eb;
-  --color-cta: #10b981;
-  --color-text: #1f2937;
-  --color-text-muted: #6b7280;
-  --color-border: #e5e7eb;
-  --color-bg-light: #f9fafb;
+  /* Brand Colors (MASTER SPEC) */
+  --color-primary-navy: #0A2239;
+  --color-secondary-blue: #1E4E8C;
+  --color-light-blue: #2F6FB3;
+  --color-cta-green: #1F7A3D;
+  --color-bg-light: #F4F7FA;
+  --color-text-dark: #0B1B33;
+  --color-text-muted: #5B6B85;
+  --color-border: rgba(14, 36, 72, 0.12);
+  --color-card-bg: rgba(255, 255, 255, 0.92);
   
-  /* Typography */
-  --font-size-h1: 2.5rem;
+  /* Legacy variables for compatibility */
+  --color-primary: #0A2239;
+  --color-secondary: #1E4E8C;
+  --color-cta: #1F7A3D;
+  --color-text: #0B1B33;
+  
+  /* Premium effects */
+  --card-shadow: 0 2px 12px rgba(10, 34, 57, 0.08);
+  --card-shadow-hover: 0 4px 20px rgba(10, 34, 57, 0.12);
+  --soft-glow: 0 0 20px rgba(31, 122, 61, 0.15);
+  
+  /* Typography (Inter font) */
+  --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-size-h1: 2.75rem; /* 44px */
   --font-size-h2: 2rem;
   --font-size-h3: 1.5rem;
+  --font-size-body: 16px;
+  --font-size-button: 15px;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -42,14 +58,13 @@ body {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
-  color: var(--color-text);
+  color: var(--color-text-dark);
   background-color: var(--color-bg-light);
+  font-size: var(--font-size-body);
 }
 
 main {
@@ -90,46 +105,61 @@ p {
   line-height: 1.7;
 }
 
-/* Buttons */
+/* Buttons - Premium Clean Style */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 12px 24px;
-  font-size: 16px;
+  font-size: var(--font-size-button);
   font-weight: var(--font-weight-semibold);
   border-radius: var(--button-radius);
   border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   text-decoration: none;
   height: 48px;
+  font-family: var(--font-family);
 }
 
 .btn-primary {
-  background-color: var(--color-cta);
+  background-color: var(--color-cta-green);
   color: white;
+  box-shadow: 0 2px 8px rgba(31, 122, 61, 0.2);
 }
 
 .btn-primary:hover {
-  background-color: #059669;
+  background-color: #1a6633;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 4px 16px rgba(31, 122, 61, 0.3);
   text-decoration: none;
 }
 
-/* Cards */
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-primary-navy);
+  border: 2px solid var(--color-primary-navy);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-primary-navy);
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Cards - Premium Clean Style */
 .card {
-  background: white;
+  background: var(--color-card-bg);
   padding: var(--card-padding);
   border-radius: var(--card-radius);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--card-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--card-shadow-hover);
 }
 
 /* Grid Layouts */
@@ -147,7 +177,7 @@ p {
   grid-template-columns: 1fr;
 }
 
-/* Form Elements */
+/* Form Elements - Premium Clean Style */
 input,
 textarea,
 select {
@@ -156,16 +186,23 @@ select {
   border: 1px solid var(--color-border);
   border-radius: var(--input-radius);
   font-size: 15px;
-  font-family: inherit;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: var(--font-family);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  background: white;
+  color: var(--color-text-dark);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-muted);
 }
 
 input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--color-secondary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: var(--color-secondary-blue);
+  box-shadow: 0 0 0 3px rgba(30, 78, 140, 0.1);
 }
 
 label {
@@ -179,14 +216,14 @@ label {
 
 /* Links */
 a {
-  color: var(--color-secondary);
+  color: var(--color-secondary-blue);
   text-decoration: none;
-  transition: color 0.2s ease;
+  transition: color 0.3s ease;
 }
 
 a:hover {
-  color: var(--color-primary);
-  text-decoration: underline;
+  color: var(--color-light-blue);
+  text-decoration: none;
 }
 
 /* Lists */
@@ -249,4 +286,52 @@ ul li::before {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Premium Clean Theme Utilities */
+.premium-card {
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  padding: var(--card-padding);
+}
+
+.premium-card:hover {
+  box-shadow: var(--card-shadow-hover);
+}
+
+.navy-text {
+  color: var(--color-primary-navy);
+}
+
+.green-text {
+  color: var(--color-cta-green);
+}
+
+.soft-glow {
+  box-shadow: var(--soft-glow);
+}
+
+/* WhatsApp Button Styles */
+.whatsapp-btn {
+  background: #25D366;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.whatsapp-btn:hover {
+  background: #20ba5a;
+  box-shadow: 0 4px 16px rgba(37, 211, 102, 0.3);
+  transform: translateY(-2px);
+}
+
+/* Floating Animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.float-animation {
+  animation: float 3s ease-in-out infinite;
 }
