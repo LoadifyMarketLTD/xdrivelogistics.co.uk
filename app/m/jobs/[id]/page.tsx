@@ -153,7 +153,9 @@ export default function JobDetailPage() {
   };
 
   const handlePickupPhotosChange = (photos: string[]) => {
-    const timestamp = photos.length > podData.pickupPhotos.length ? new Date().toISOString() : podData.pickupTimestamp;
+    const timestamp = (photos.length > 0 && !podData.pickupTimestamp) || photos.length > podData.pickupPhotos.length 
+      ? new Date().toISOString() 
+      : podData.pickupTimestamp;
     const newPodData = { 
       ...podData, 
       pickupPhotos: photos,
@@ -310,7 +312,7 @@ export default function JobDetailPage() {
         }}>
           <div style={{ textAlign: 'center', color: '#6b7280' }}>
             <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</p>
-            <p>Loading job details...</p>
+            <p role="status" aria-live="polite">Loading job details...</p>
           </div>
         </div>
       </ProtectedRoute>
@@ -865,6 +867,7 @@ export default function JobDetailPage() {
                 <button
                   onClick={handleMarkDelivered}
                   disabled={!podData.signature || !podData.recipientName}
+                  aria-label={!podData.signature || !podData.recipientName ? 'Complete signature and recipient name to enable' : 'Mark job as delivered'}
                   style={{
                     backgroundColor: podData.signature && podData.recipientName ? '#1F7A3D' : '#9ca3af',
                     color: 'white',
