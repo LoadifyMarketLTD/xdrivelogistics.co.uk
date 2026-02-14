@@ -1,10 +1,10 @@
-# Danny Courier LTD Website
+# XDrive Logistics Website
 
-This is the official website for Danny Courier LTD, built with Next.js 14 and deployed on Netlify.
+This is the official website for XDrive Logistics Ltd, built with Next.js 16 and deployed on Netlify.
 
 ## Technology Stack
 
-- **Framework**: Next.js 14.2.5
+- **Framework**: Next.js 16.1.6
 - **Runtime**: Node.js 20
 - **Deployment**: Netlify with Next.js plugin
 
@@ -66,6 +66,7 @@ All pull requests create deploy previews automatically.
 .
 ├── app/                 # Next.js App Router
 │   ├── components/     # Reusable React components
+│   ├── config/         # Configuration files
 │   ├── layout.tsx      # Root layout
 │   └── page.tsx        # Home page
 ├── mockups/            # Design mockups and integration docs
@@ -83,6 +84,30 @@ All pull requests create deploy previews automatically.
 └── tsconfig.json       # TypeScript configuration
 ```
 
+## Design System
+
+### Current Design Tokens (XDrive Logistics Premium Dark Theme)
+The website uses a professional premium dark theme:
+- **Primary Navy Dark**: #0A2239 (Background, Header, Footer)
+- **Primary Navy**: #1F3A5F (Sections, Cards)
+- **Gold Primary**: #D4AF37 (Accents, CTAs, Logo)
+- **Gold Dark**: #B8941F (Hover states)
+- **Green Primary**: #1F7A3D (Checkmarks, Success)
+- **WhatsApp Green**: #25D366 (WhatsApp buttons)
+- **Background Light**: #F4F7FA (Light sections)
+- **Typography**: Inter font family
+- **Spacing**: Consistent 24px, 32px, 48px, 64px scale
+- **Responsive**: Mobile-first with breakpoints at 768px and 1024px
+
+### Key Features
+- Premium dark theme with cinematic aesthetics
+- Glass morphism effects on cards and modals
+- Smooth animations (0.3s transitions)
+- Fully responsive design (mobile, tablet, desktop)
+- Interactive quote modal
+- WhatsApp integration
+- SEO optimized
+
 ## Design & Mockups
 
 ### Adding New Mockups
@@ -99,16 +124,6 @@ This project has a structured process for integrating design mockups:
 - **[Quick Start Guide](mockups/QUICKSTART.md)** - Fast track reference
 - **[Analysis Template](mockups/analysis/TEMPLATE.md)** - Structured analysis template
 
-### Current Design Tokens
-The website uses a consistent design system:
-- **Primary Color**: #2563eb (Blue)
-- **Secondary Color**: #10b981 (Green)
-- **Typography**: System fonts with clear hierarchy
-- **Spacing**: Standard 4px-based scale
-- **Responsive**: Mobile-first approach
-
-See `mockups/QUICKSTART.md` for complete design token reference.
-
 ## License
 
-© 2021 Danny Courier LTD. All rights reserved.
+© 2026 XDrive Logistics Ltd. All rights reserved.
