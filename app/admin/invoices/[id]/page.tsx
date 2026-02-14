@@ -31,6 +31,9 @@ export default function InvoiceDetailPage() {
     amount: 0,
     paymentTerms: '14 days',
     lateFee: COMPANY_CONFIG.payment.lateFeeNote,
+    vatRate: COMPANY_CONFIG.vat.defaultRate as 0 | 5 | 20,
+    netAmount: 0,
+    vatAmount: 0,
   });
 
   const [showPreview, setShowPreview] = useState(false);
@@ -56,6 +59,19 @@ export default function InvoiceDetailPage() {
       }));
     }
   }, [formData.date, formData.paymentTerms]);
+
+  // Calculate VAT breakdown whenever amount or VAT rate changes
+  useEffect(() => {
+    if (formData.amount > 0) {
+      const netAmount = formData.amount / (1 + formData.vatRate / 100);
+      const vatAmount = formData.amount - netAmount;
+      setFormData((prev) => ({
+        ...prev,
+        netAmount: Number(netAmount.toFixed(2)),
+        vatAmount: Number(vatAmount.toFixed(2)),
+      }));
+    }
+  }, [formData.amount, formData.vatRate]);
 
   // Generate unique Job Reference using timestamp to prevent collisions
   // Format: DC-YYMMDD-XXXX where XXXX is based on timestamp
@@ -392,9 +408,10 @@ export default function InvoiceDetailPage() {
                     <label style={labelStyle}>Payment Terms</label>
                     <select
                       value={formData.paymentTerms}
-                      onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value as '14 days' | '30 days' })}
+                      onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value as 'Pay now' | '14 days' | '30 days' })}
                       style={inputStyle}
                     >
+                      <option value="Pay now">Pay now</option>
                       <option value="14 days">14 days</option>
                       <option value="30 days">30 days</option>
                     </select>
@@ -550,18 +567,54 @@ export default function InvoiceDetailPage() {
                       onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
                     />
                   </div>
-                  <div>
-                    <label style={labelStyle}>Amount Payable (£)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                      placeholder="0.00"
-                      style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
-                    />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                    <div>
+                      <label style={labelStyle}>VAT Rate (%)</label>
+                      <select
+                        value={formData.vatRate}
+                        onChange={(e) => setFormData({ ...formData, vatRate: parseInt(e.target.value) as 0 | 5 | 20 })}
+                        style={inputStyle}
+                      >
+                        <option value="0">0%</option>
+                        <option value="5">5%</option>
+                        <option value="20">20%</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Total Amount (£)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.amount}
+                        onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                        placeholder="0.00"
+                        style={inputStyle}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
+                        onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ backgroundColor: '#f9fafb', padding: '1rem', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', fontSize: '0.95rem' }}>
+                      <div>
+                        <span style={{ color: '#6b7280', fontWeight: '500' }}>Net Amount:</span>
+                        <span style={{ fontWeight: '600', color: '#1f2937', marginLeft: '0.5rem' }}>
+                          £{formData.netAmount.toFixed(2)}
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ color: '#6b7280', fontWeight: '500' }}>VAT ({formData.vatRate}%):</span>
+                        <span style={{ fontWeight: '600', color: '#1f2937', marginLeft: '0.5rem' }}>
+                          £{formData.vatAmount.toFixed(2)}
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ color: '#6b7280', fontWeight: '500' }}>Total:</span>
+                        <span style={{ fontWeight: '700', color: '#10b981', marginLeft: '0.5rem' }}>
+                          £{formData.amount.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
