@@ -1,44 +1,44 @@
 // Premium Dark + Gold Theme Configuration
-// XDrive Logistics Brand Colors - Exact specification
+// XDrive Logistics Brand Colors - Exact specification from requirements
 
 export const THEME = {
-  // Color Palette - XDrive Logistics Brand Colors (Exact from specification)
+  // Color Palette - XDrive Logistics Brand Colors (EXACT SPEC)
   colors: {
     // Primary - Navy
     primary: {
-      dark: '#0e1a2b',      // Navy dark - Header, Footer, Main background
-      navy: '#1F3A5F',      // Navy Primary (Brand) - Services, CTA sections
+      dark: '#0A2239',      // Navy dark (EXACT) - Header, Footer, Main background
+      navy: '#1F3A5F',      // Navy Primary (EXACT) - Services, CTA sections
       slate: '#2D3748',     // Medium dark
     },
     
     // Accent - Premium Gold
     gold: {
-      primary: '#C8A96E',   // Gold accent (Brand) - Logo X, highlights
+      primary: '#D4AF37',   // Gold accent (EXACT) - Logo X, highlights
       light: '#E5C158',     // Light gold
-      dark: '#b8964f',      // Dark gold (hover state)
+      dark: '#B8941F',      // Dark gold (EXACT) - hover state
     },
     
     // CTA Green
     green: {
-      primary: '#2E7D32',   // Green CTA (Brand) - Get Quote buttons
+      primary: '#1F7A3D',   // Green CTA (EXACT) - Checkmarks
       dark: '#1B5E20',      // Dark green (hover)
       light: '#4CAF50',     // Light green
-      whatsapp: '#25D366',  // WhatsApp green (Brand)
+      whatsapp: '#25D366',  // WhatsApp green (EXACT)
       whatsappHover: '#20ba5a', // WhatsApp hover
     },
     
     // Text Colors
     text: {
-      primary: '#FFFFFF',   // White text
-      secondary: '#E2E8F0', // Light gray
+      primary: '#FFFFFF',   // White text (EXACT)
+      secondary: 'rgba(255,255,255,0.85)', // White transparent (EXACT)
       muted: '#94A3B8',     // Muted gray
-      dark: '#1C1C1C',      // Dark text (Brand) - for light backgrounds
+      dark: '#0A2239',      // Dark text (EXACT) - for light backgrounds
     },
     
     // Background Colors
     background: {
-      light: '#F4F6F8',     // Light Background (Brand)
-      dark: '#0e1a2b',      // Dark background
+      light: '#F4F7FA',     // Light Background (EXACT)
+      dark: '#0A2239',      // Dark background (EXACT)
     },
     
     // Glass Effects
@@ -178,10 +178,10 @@ export const glassStyle = (variant: 'light' | 'medium' | 'dark' = 'medium') => (
 });
 
 export const goldButton = {
-  background: `linear-gradient(135deg, ${THEME.colors.gold.primary} 0%, ${THEME.colors.gold.dark} 100%)`,
+  background: THEME.colors.gold.primary,
   color: THEME.colors.primary.dark,
   border: 'none',
-  borderRadius: THEME.borderRadius.md,
+  borderRadius: THEME.borderRadius.sm,
   padding: '16px 32px',
   fontSize: THEME.typography.sizes.body.regular,
   fontWeight: THEME.typography.weights.semibold,
