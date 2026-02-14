@@ -100,7 +100,7 @@
 - Mobile-responsive grid layouts
 - Hover states and transitions maintained
 
-## Changes from Danny Courier Theme
+## Changes from Previous Theme
 1. Removed dark cinematic background (#0a1628)
 2. Removed gold gradient accents (#d4af37, #f4d03f)
 3. Removed electric blue accents (#00d4ff)

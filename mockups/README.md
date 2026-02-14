@@ -1,7 +1,7 @@
 # Mockup Integration Guide
 
 ## Overview
-This directory contains design mockups for the Danny Courier Ltd website and documentation on how to analyze and integrate them into the project.
+This directory contains design mockups for the XDrive Logistics Ltd website and documentation on how to analyze and integrate them into the project.
 
 ## Directory Structure
 
@@ -197,7 +197,7 @@ public/images/hero-background.jpg
 
 ## Current Status
 
-The Danny Courier Ltd website currently has:
+The XDrive Logistics Ltd website currently has:
 - ✅ Complete homepage with all sections
 - ✅ Responsive design
 - ✅ Service offerings display

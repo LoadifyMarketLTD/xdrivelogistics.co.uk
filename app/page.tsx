@@ -707,13 +707,114 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Social Media Row */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '20px',
+              marginBottom: '32px',
+              paddingBottom: '32px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+            }}>
+              <a
+                href={COMPANY_CONFIG.social.facebook}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: THEME.colors.text.secondary,
+                  textDecoration: 'none',
+                  fontSize: '24px',
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255,255,255,0.05)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = THEME.colors.gold.primary;
+                  e.currentTarget.style.backgroundColor = 'rgba(212, 175, 55, 0.1)';
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = THEME.colors.text.secondary;
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                📘
+              </a>
+              <a
+                href={COMPANY_CONFIG.social.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: THEME.colors.text.secondary,
+                  textDecoration: 'none',
+                  fontSize: '24px',
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255,255,255,0.05)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = THEME.colors.gold.primary;
+                  e.currentTarget.style.backgroundColor = 'rgba(212, 175, 55, 0.1)';
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = THEME.colors.text.secondary;
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                📷
+              </a>
+              <a
+                href={COMPANY_CONFIG.social.tiktok}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: THEME.colors.text.secondary,
+                  textDecoration: 'none',
+                  fontSize: '24px',
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255,255,255,0.05)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = THEME.colors.gold.primary;
+                  e.currentTarget.style.backgroundColor = 'rgba(212, 175, 55, 0.1)';
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = THEME.colors.text.secondary;
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                🎵
+              </a>
+            </div>
+
             {/* Bottom Row */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               paddingTop: '24px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
               flexWrap: 'wrap',
               gap: '16px',
               fontSize: '14px',
