@@ -126,6 +126,7 @@ export function HowItWorks() {
               {/* Connection Line (except last item) */}
               {index < STEPS.length - 1 && (
                 <div
+                  className="connection-line"
                   style={{
                     position: 'absolute',
                     right: '-1rem',
@@ -134,7 +135,6 @@ export function HowItWorks() {
                     height: '2px',
                     backgroundColor: 'var(--color-gold-primary)',
                     opacity: 0.3,
-                    display: window.innerWidth < 768 ? 'none' : 'block',
                   }}
                 />
               )}
@@ -142,6 +142,15 @@ export function HowItWorks() {
           ))}
         </div>
       </div>
+
+      {/* Hide connection lines on mobile */}
+      <style jsx>{`
+        @media (max-width: 768px) {
+          .connection-line {
+            display: none !important;
+          }
+        }
+      `}</style>
     </Section>
   );
 }
