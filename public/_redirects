@@ -1,2 +1,3 @@
-# Netlify automatically handles redirects for Next.js via @netlify/plugin-nextjs
+# Netlify automatically handles www to apex domain redirects based on primary domain configuration
+# Primary domain is dannycourierltd.co.uk (configured in Netlify dashboard)
 # No custom redirect rules needed here
