@@ -9,6 +9,7 @@ export default defineConfig({
   plugins: [inspectAttr(), react()],
   resolve: {
     alias: {
+      // Alias @ to project root to support existing imports throughout the codebase
       "@": path.resolve(__dirname, "."),
     },
   },
