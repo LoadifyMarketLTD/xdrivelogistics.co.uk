@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { COMPANY_CONFIG, JOB_STATUS } from '../../config/company';
+import { generateTimeOptions } from '../../utils/timeUtils';
 
 interface Job {
   id: string;
@@ -748,8 +749,7 @@ export default function JobsPage() {
                         <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
                           Pickup Time *
                         </label>
-                        <input
-                          type="time"
+                        <select
                           value={formData.pickupTime}
                           onChange={(e) => setFormData({ ...formData, pickupTime: e.target.value })}
                           style={{
@@ -758,9 +758,18 @@ export default function JobsPage() {
                             border: `1px solid ${formErrors.pickupTime ? '#ef4444' : '#d1d5db'}`,
                             borderRadius: '6px',
                             fontSize: '0.95rem',
-                            boxSizing: 'border-box'
+                            boxSizing: 'border-box',
+                            backgroundColor: 'white',
+                            cursor: 'pointer'
                           }}
-                        />
+                        >
+                          <option value="">Select time</option>
+                          {generateTimeOptions().map((time) => (
+                            <option key={time} value={time}>
+                              {time}
+                            </option>
+                          ))}
+                        </select>
                         {formErrors.pickupTime && (
                           <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
                             {formErrors.pickupTime}
@@ -829,8 +838,7 @@ export default function JobsPage() {
                         <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
                           Delivery Time *
                         </label>
-                        <input
-                          type="time"
+                        <select
                           value={formData.deliveryTime}
                           onChange={(e) => setFormData({ ...formData, deliveryTime: e.target.value })}
                           style={{
@@ -839,9 +847,18 @@ export default function JobsPage() {
                             border: `1px solid ${formErrors.deliveryTime ? '#ef4444' : '#d1d5db'}`,
                             borderRadius: '6px',
                             fontSize: '0.95rem',
-                            boxSizing: 'border-box'
+                            boxSizing: 'border-box',
+                            backgroundColor: 'white',
+                            cursor: 'pointer'
                           }}
-                        />
+                        >
+                          <option value="">Select time</option>
+                          {generateTimeOptions().map((time) => (
+                            <option key={time} value={time}>
+                              {time}
+                            </option>
+                          ))}
+                        </select>
                         {formErrors.deliveryTime && (
                           <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
                             {formErrors.deliveryTime}
