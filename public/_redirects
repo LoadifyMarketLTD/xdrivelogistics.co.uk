@@ -1,2 +1,2 @@
-# SPA redirect rule for client-side routing
-/* /index.html 200
+# Netlify automatically handles redirects for Next.js via @netlify/plugin-nextjs
+# No custom redirect rules needed here
