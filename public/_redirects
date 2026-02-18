@@ -1,3 +1,5 @@
 # Netlify automatically handles www to apex domain redirects based on primary domain configuration
 # Primary domain is dannycourierltd.co.uk (configured in Netlify dashboard)
-# No custom redirect rules needed here
+
+# SPA redirect rule - redirect all routes to index.html for client-side routing
+/*    /index.html   200

@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [inspectAttr(), react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(__dirname, "."),
     },
   },
 });
