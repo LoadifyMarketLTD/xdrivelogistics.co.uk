@@ -7,7 +7,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Create Supabase client
 // This client can be used throughout the application for authentication and database operations
-// If environment variables are not set, create a placeholder client
+// If environment variables are not set, the client will be null
 export const supabase = 
   supabaseUrl && supabaseAnonKey
     ? createClient(supabaseUrl, supabaseAnonKey, {
@@ -18,6 +18,3 @@ export const supabase =
         },
       })
     : null;
-
-// Helper to check if Supabase is configured
-export const isSupabaseConfigured = () => Boolean(supabaseUrl && supabaseAnonKey);

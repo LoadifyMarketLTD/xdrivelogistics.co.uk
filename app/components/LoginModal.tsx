@@ -1,15 +1,19 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import * as Dialog from '@radix-ui/react-dialog';
-import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
+import { supabase } from '../../lib/supabaseClient';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+const MIN_PASSWORD_LENGTH = 6;
+
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -25,8 +29,8 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setLoading(true);
 
     try {
-      if (!isSupabaseConfigured() || !supabase) {
-        throw new Error('Supabase is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.');
+      if (!supabase) {
+        throw new Error('Authentication service is currently unavailable. Please try again later.');
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -40,8 +44,8 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         setSuccessMessage('Successfully logged in!');
         setTimeout(() => {
           onClose();
-          // Redirect to appropriate dashboard based on user metadata
-          window.location.href = '/admin';
+          // Use Next.js router for client-side navigation
+          router.push('/admin');
         }, 1000);
       }
     } catch (err: any) {
@@ -61,16 +65,16 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
       return;
     }
 
     setLoading(true);
 
     try {
-      if (!isSupabaseConfigured() || !supabase) {
-        throw new Error('Supabase is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.');
+      if (!supabase) {
+        throw new Error('Authentication service is currently unavailable. Please try again later.');
       }
 
       const { data, error } = await supabase.auth.signUp({
