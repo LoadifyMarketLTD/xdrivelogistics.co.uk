@@ -57,7 +57,7 @@ The project uses:
 - **Email:** dannycourierltd@gmail.com
 - **Password:** Johnny2000$$
 - **Access:** Full access (desktop, mobile, admin dashboard)
-- **Note:** Change password after first production login
+- **Note:** For development use only - implement proper authentication before production
 
 ### Secondary Accounts
 
