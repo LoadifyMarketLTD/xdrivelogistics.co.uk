@@ -4,6 +4,9 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+// Minimum length for Supabase anon key (typical JWT format is much longer)
+const MIN_ANON_KEY_LENGTH = 20;
+
 // Validate that variables exist
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
@@ -37,7 +40,7 @@ if (
 if (
   supabaseAnonKey.includes('your-anon-key') || 
   supabaseAnonKey.includes('placeholder') ||
-  supabaseAnonKey.length < 20
+  supabaseAnonKey.length < MIN_ANON_KEY_LENGTH
 ) {
   throw new Error(
     '❌ Invalid Supabase Anon Key!\n\n' +
@@ -59,5 +62,4 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // Log successful initialization (only in development)
 if (process.env.NODE_ENV === 'development') {
   console.log('✅ Supabase client initialized successfully');
-  console.log('📍 Project URL:', supabaseUrl);
 }
