@@ -1,13 +1,17 @@
 'use client';
 
+import { useState } from 'react';
 import { Section } from '../ui/Section';
 import { StatCard } from '../ui/StatCard';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { COMPANY_CONFIG } from '../../../config/company';
+import { LoginModal } from '../../../components/LoginModal';
 
 const WHATSAPP_URL = `https://wa.me/${COMPANY_CONFIG.whatsapp.number}?text=${encodeURIComponent(COMPANY_CONFIG.whatsapp.defaultMessage)}`;
 
 export function Hero() {
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
   return (
     <Section>
       <div style={{ paddingTop: '6rem', paddingBottom: '4rem' }}>
@@ -66,6 +70,30 @@ export function Hero() {
             >
               Call {COMPANY_CONFIG.phoneDisplay}
             </PrimaryButton>
+            <button
+              onClick={() => setIsLoginModalOpen(true)}
+              style={{
+                padding: '0.875rem 2rem',
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                borderRadius: '8px',
+                border: '2px solid var(--color-gold-primary)',
+                backgroundColor: 'transparent',
+                color: 'var(--color-gold-primary)',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--color-gold-primary)';
+                e.currentTarget.style.color = 'var(--color-primary-navy-dark)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = 'var(--color-gold-primary)';
+              }}
+            >
+              Intră în Cont
+            </button>
           </div>
 
           {/* Stats Cards */}
@@ -85,6 +113,11 @@ export function Hero() {
           </div>
         </div>
       </div>
+
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+      />
     </Section>
   );
 }
