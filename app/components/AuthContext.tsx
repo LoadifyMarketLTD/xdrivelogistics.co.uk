@@ -10,22 +10,16 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, verifyOtp?: boolean, otp?: string) => Promise<{ success: boolean; error?: string; requiresOtp?: boolean }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Simple OTP generation (6 digits)
-function generateOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [pendingAuth, setPendingAuth] = useState<{ email: string; role: 'mobile' | 'desktop'; otp: string } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -45,10 +39,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (
     email: string,
-    password: string,
-    verifyOtp: boolean = false,
-    otp?: string
-  ): Promise<{ success: boolean; error?: string; requiresOtp?: boolean }> => {
+    password: string
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
       // TEMPORARY: Simple client-side authentication for development
       // TODO: Replace with secure backend API authentication
@@ -72,60 +64,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       ];
 
-      if (!verifyOtp) {
-        // Step 1: Validate credentials
-        const credential = validCredentials.find(
-          (cred) => cred.email === email && cred.password === password
-        );
+      // Validate credentials
+      const credential = validCredentials.find(
+        (cred) => cred.email === email && cred.password === password
+      );
 
-        if (!credential) {
-          return { success: false, error: 'Invalid email or password' };
-        }
-
-        // Generate OTP
-        const generatedOTP = generateOTP();
-        
-        // Store pending authentication
-        setPendingAuth({
-          email: credential.email,
-          role: credential.role,
-          otp: generatedOTP
-        });
-
-        // TODO: In production, send OTP via email service
-        // For now, just log it to console for testing
-        console.log(`🔐 2FA Code for ${email}: ${generatedOTP}`);
-        
-        return { success: true, requiresOtp: true };
-      } else {
-        // Step 2: Verify OTP
-        if (!pendingAuth) {
-          return { success: false, error: 'Session expired. Please log in again.' };
-        }
-
-        if (!otp || otp !== pendingAuth.otp) {
-          return { success: false, error: 'Invalid verification code. Please try again.' };
-        }
-
-        // OTP verified, complete login
-        const userData: User = {
-          email: pendingAuth.email,
-          role: pendingAuth.role,
-        };
-
-        localStorage.setItem('xdrive_user', JSON.stringify(userData));
-        setUser(userData);
-        setPendingAuth(null);
-
-        // Redirect based on role and viewport
-        if (pendingAuth.role === 'mobile' || window.innerWidth < 768) {
-          router.push('/m');
-        } else {
-          router.push('/admin');
-        }
-
-        return { success: true };
+      if (!credential) {
+        return { success: false, error: 'Invalid email or password' };
       }
+
+      // Login directly without 2FA
+      const userData: User = {
+        email: credential.email,
+        role: credential.role,
+      };
+
+      localStorage.setItem('xdrive_user', JSON.stringify(userData));
+      setUser(userData);
+
+      // Redirect based on role and viewport
+      if (credential.role === 'mobile' || window.innerWidth < 768) {
+        router.push('/m');
+      } else {
+        router.push('/admin');
+      }
+
+      return { success: true };
     } catch (error) {
       console.error('Login error:', error);
       return { success: false, error: 'An error occurred during login' };
@@ -134,7 +98,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('xdrive_user');
-    setPendingAuth(null);
     setUser(null);
     router.push('/login');
   };
