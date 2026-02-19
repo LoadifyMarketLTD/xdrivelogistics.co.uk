@@ -19,36 +19,6 @@ First, install the dependencies:
 npm install
 ```
 
-### Environment Variables
-
-This project requires environment variables to be configured. Follow these steps:
-
-1. **Copy the example file:**
-   ```bash
-   cp .env.example .env.local
-   ```
-
-2. **Update the values in `.env.local`** with your actual configuration:
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL (e.g., `https://xxxxx.supabase.co`) | Yes |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anonymous/public API key | Yes |
-| `NEXT_PUBLIC_OWNER_EMAIL` | Owner account email (development only) | No |
-| `NEXT_PUBLIC_OWNER_PASS` | Owner account password (development only) | No |
-| `NEXT_PUBLIC_ADMIN_USER` | Admin account email (development only) | No |
-| `NEXT_PUBLIC_ADMIN_PASS` | Admin account password (development only) | No |
-| `NEXT_PUBLIC_MOBILE_USER` | Mobile account email (development only) | No |
-| `NEXT_PUBLIC_MOBILE_PASS` | Mobile account password (development only) | No |
-
-3. **Get your Supabase credentials:**
-   - Go to [Supabase Dashboard](https://app.supabase.com)
-   - Select your project
-   - Navigate to Settings → API
-   - Copy the Project URL and anon/public key
-
-**⚠️ Important:** Never commit `.env.local` to version control. This file contains sensitive information and is already included in `.gitignore`.
-
 Then, run the development server:
 
 ```bash
