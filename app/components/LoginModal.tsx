@@ -2,7 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { supabase } from '../../lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -25,6 +25,10 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setLoading(true);
 
     try {
+      if (!isSupabaseConfigured() || !supabase) {
+        throw new Error('Supabase is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.');
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -65,6 +69,10 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setLoading(true);
 
     try {
+      if (!isSupabaseConfigured() || !supabase) {
+        throw new Error('Supabase is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.');
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
