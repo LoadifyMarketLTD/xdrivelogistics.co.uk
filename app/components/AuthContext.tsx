@@ -54,6 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // TODO: Replace with secure backend API authentication
       // SECURITY NOTE: These credentials are for development only
       const validCredentials = [
+        // ⭐ MAIN ACCOUNT - Owner with full access
+        { 
+          email: 'dannycourierltd@gmail.com', 
+          password: 'Johnny2000$$', 
+          role: 'desktop' as const 
+        },
         { 
           email: process.env.NEXT_PUBLIC_MOBILE_USER || 'mobile@xdrivelogistics.com', 
           password: process.env.NEXT_PUBLIC_MOBILE_PASS || 'mobile123', 

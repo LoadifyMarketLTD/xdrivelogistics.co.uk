@@ -51,6 +51,40 @@ The project uses:
 - `tsconfig.json` - TypeScript configuration
 - `eslint.config.js` - ESLint configuration
 
+## 🔑 Authentication Credentials
+
+### Main Account (Owner)
+- **Email:** dannycourierltd@gmail.com
+- **Password:** Johnny2000$$
+- **Access:** Full access (desktop, mobile, admin dashboard)
+- **Note:** Change password after first production login
+
+### Secondary Accounts
+
+#### Admin Desktop
+- **Email:** admin@xdrivelogistics.com (or from NEXT_PUBLIC_ADMIN_USER)
+- **Password:** admin123 (or from NEXT_PUBLIC_ADMIN_PASS)
+- **Access:** Desktop dashboard
+
+#### Mobile (Drivers)
+- **Email:** mobile@xdrivelogistics.com (or from NEXT_PUBLIC_MOBILE_USER)
+- **Password:** mobile123 (or from NEXT_PUBLIC_MOBILE_PASS)
+- **Access:** Mobile interface
+
+---
+
+## ⚠️ Security Notice
+
+**DEVELOPMENT ONLY:**
+These credentials are hard-coded for development purposes. In production:
+1. Migrate to a database-backed authentication system
+2. Implement password hashing (bcrypt)
+3. Add mandatory 2FA
+4. Use environment variables for all credentials
+5. Remove hard-coded credentials from source code
+
+---
+
 ## Learn More
 
 To learn more about Next.js and the technologies used in this project:
