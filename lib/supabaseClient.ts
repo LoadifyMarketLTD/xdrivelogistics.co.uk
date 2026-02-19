@@ -28,9 +28,13 @@ if (
   supabaseUrl.includes('placeholder') ||
   !supabaseUrl.includes('supabase.co')
 ) {
+  const urlToShow = process.env.NODE_ENV === 'development' 
+    ? supabaseUrl 
+    : supabaseUrl.substring(0, 20) + '...';
+  
   throw new Error(
     '❌ Invalid Supabase URL!\n\n' +
-    `Current value: ${supabaseUrl}\n\n` +
+    `Current value: ${urlToShow}\n\n` +
     'This appears to be a placeholder value.\n' +
     'Please set the correct URL from your Supabase project:\n' +
     'https://supabase.com/dashboard/project/_/settings/api'
