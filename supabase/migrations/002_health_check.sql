@@ -1,5 +1,5 @@
 -- ============================================================
--- XDrive Logistics LTD — Supabase Schema Health Check
+-- Danny Courier Ltd — Supabase Schema Health Check
 -- Run this FIRST (read-only). It reports what is missing.
 -- ============================================================
 

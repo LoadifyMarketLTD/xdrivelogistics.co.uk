@@ -48,7 +48,7 @@ export default function AdminPage() {
               margin: 0,
               color: 'white'
             }}>
-              XDrive Logistics Ltd
+              Danny Courier Ltd
             </h1>
             <p style={{
               fontSize: '0.85rem',

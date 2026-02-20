@@ -125,7 +125,7 @@ export default function JobsPage() {
       }
     }
     // Fallback to localStorage
-    const stored = localStorage.getItem('xdrive_jobs');
+    const stored = localStorage.getItem('danny_jobs');
     if (stored) {
       setJobs(JSON.parse(stored));
     } else {
@@ -185,7 +185,7 @@ export default function JobsPage() {
           updatedAt: new Date().toISOString()
         }
       ];
-      localStorage.setItem('xdrive_jobs', JSON.stringify(sampleJobs));
+      localStorage.setItem('danny_jobs', JSON.stringify(sampleJobs));
       setJobs(sampleJobs);
     }
   };
@@ -298,7 +298,7 @@ export default function JobsPage() {
       }]);
       await loadJobs();
     } else {
-      localStorage.setItem('xdrive_jobs', JSON.stringify(updatedJobs));
+      localStorage.setItem('danny_jobs', JSON.stringify(updatedJobs));
       setJobs(updatedJobs);
     }
     closeModal();
@@ -310,7 +310,7 @@ export default function JobsPage() {
         ? { ...job, status: newStatus, updatedAt: new Date().toISOString() }
         : job
     );
-    localStorage.setItem('xdrive_jobs', JSON.stringify(updatedJobs));
+    localStorage.setItem('danny_jobs', JSON.stringify(updatedJobs));
     setJobs(updatedJobs);
   };
 

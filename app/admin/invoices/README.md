@@ -55,7 +55,7 @@ Bank Transfer:
 - Sort Code: 04-00-04 (PLACEHOLDER)
 - Account: 12345678 (PLACEHOLDER)
 
-PayPal: xdrivelogisticsltd@gmail.com
+PayPal: dannycourierltd@gmail.com
 
 **Note**: Bank details are placeholders for development. Update in `app/config/company.ts` for production.
 

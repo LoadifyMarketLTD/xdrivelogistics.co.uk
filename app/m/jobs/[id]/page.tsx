@@ -82,7 +82,7 @@ export default function JobDetailPage() {
   const loadJobData = () => {
     try {
       // Load jobs from localStorage
-      const stored = localStorage.getItem('xdrive_jobs');
+      const stored = localStorage.getItem('danny_jobs');
       if (stored) {
         const jobs: Job[] = JSON.parse(stored);
         const foundJob = jobs.find((j) => j.id === jobId);
@@ -91,7 +91,7 @@ export default function JobDetailPage() {
           setJob(foundJob);
           
           // Load POD data for this specific job
-          const podStorage = localStorage.getItem('xdrive_job_pods');
+          const podStorage = localStorage.getItem('danny_job_pods');
           if (podStorage) {
             const allPods = JSON.parse(podStorage);
             if (allPods[jobId]) {
@@ -110,7 +110,7 @@ export default function JobDetailPage() {
 
   const updateJobInStorage = (updates: Partial<Job>) => {
     try {
-      const stored = localStorage.getItem('xdrive_jobs');
+      const stored = localStorage.getItem('danny_jobs');
       if (stored) {
         const jobs: Job[] = JSON.parse(stored);
         const jobIndex = jobs.findIndex((j) => j.id === jobId);
@@ -121,7 +121,7 @@ export default function JobDetailPage() {
             ...updates,
             updatedAt: new Date().toISOString()
           };
-          localStorage.setItem('xdrive_jobs', JSON.stringify(jobs));
+          localStorage.setItem('danny_jobs', JSON.stringify(jobs));
           setJob(jobs[jobIndex]);
         }
       }
@@ -135,14 +135,14 @@ export default function JobDetailPage() {
       setPodData(newPodData);
       
       // Get existing POD storage
-      const podStorage = localStorage.getItem('xdrive_job_pods');
+      const podStorage = localStorage.getItem('danny_job_pods');
       const allPods = podStorage ? JSON.parse(podStorage) : {};
       
       // Update POD for this job
       allPods[jobId] = newPodData;
       
       // Save back to localStorage
-      localStorage.setItem('xdrive_job_pods', JSON.stringify(allPods));
+      localStorage.setItem('danny_job_pods', JSON.stringify(allPods));
       
       // Also update job.pod field
       updateJobInStorage({ pod: newPodData });
@@ -360,7 +360,7 @@ export default function JobDetailPage() {
         backgroundColor: '#f3f4f6',
         paddingBottom: '2rem'
       }}>
-        {/* Header - XDrive Navy #0A2239 */}
+        {/* Header - Danny Courier Navy #0A2239 */}
         <header style={{
           backgroundColor: '#0A2239',
           color: 'white',

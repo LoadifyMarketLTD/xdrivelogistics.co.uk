@@ -72,7 +72,7 @@ export default function JobDetailPage() {
 
   const loadJob = () => {
     try {
-      const stored = localStorage.getItem('xdrive_jobs');
+      const stored = localStorage.getItem('danny_jobs');
       if (stored) {
         const jobs: Job[] = JSON.parse(stored);
         const foundJob = jobs.find((j) => j.id === jobId);
@@ -104,7 +104,7 @@ export default function JobDetailPage() {
     if (!formData) return;
 
     try {
-      const stored = localStorage.getItem('xdrive_jobs');
+      const stored = localStorage.getItem('danny_jobs');
       if (stored) {
         let jobs: Job[] = JSON.parse(stored);
         
@@ -126,7 +126,7 @@ export default function JobDetailPage() {
         formData.updatedAt = new Date().toISOString();
         
         jobs = jobs.map((j) => (j.id === jobId ? formData : j));
-        localStorage.setItem('xdrive_jobs', JSON.stringify(jobs));
+        localStorage.setItem('danny_jobs', JSON.stringify(jobs));
         
         setJob(formData);
         setEditMode(false);
@@ -142,11 +142,11 @@ export default function JobDetailPage() {
 
   const handleDelete = () => {
     try {
-      const stored = localStorage.getItem('xdrive_jobs');
+      const stored = localStorage.getItem('danny_jobs');
       if (stored) {
         let jobs: Job[] = JSON.parse(stored);
         jobs = jobs.filter((j) => j.id !== jobId);
-        localStorage.setItem('xdrive_jobs', JSON.stringify(jobs));
+        localStorage.setItem('danny_jobs', JSON.stringify(jobs));
         router.push('/admin/jobs');
       }
     } catch (error) {

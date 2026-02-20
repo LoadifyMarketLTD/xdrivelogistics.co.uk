@@ -24,7 +24,7 @@ const SERVICES = [
   }
 ];
 
-const WHY_XDRIVE = [
+const WHY_DANNY_COURIER = [
   '24/7 Availability',
   'Fast Response Time',
   'Fully Insured',
@@ -440,7 +440,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* WHY XDRIVE SECTION */}
+        {/* WHY DANNY COURIER SECTION */}
         <section style={{
           padding: '64px 24px',
           backgroundColor: THEME.colors.primary.navy
@@ -458,7 +458,7 @@ export default function Home() {
               marginBottom: '32px',
               textAlign: 'center'
             }}>
-              WHY XDRIVE
+              WHY DANNY COURIER
             </h2>
 
             <div style={{
@@ -468,7 +468,7 @@ export default function Home() {
               maxWidth: '600px',
               margin: '0 auto'
             }}>
-              {WHY_XDRIVE.map((item, index) => (
+              {WHY_DANNY_COURIER.map((item, index) => (
                 <div
                   key={index}
                   style={{
@@ -821,7 +821,7 @@ export default function Home() {
               color: THEME.colors.text.secondary
             }}>
               <div>
-                © 2026 XDrive Logistics Ltd
+                © 2026 Danny Courier Ltd
               </div>
               <a href="/privacy" style={{
                 color: THEME.colors.text.secondary,
