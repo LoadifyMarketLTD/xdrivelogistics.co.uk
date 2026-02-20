@@ -2,8 +2,10 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 interface User {
+  id: string;
   email: string;
   role: 'mobile' | 'desktop';
 }
@@ -17,87 +19,115 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Legacy credentials for fallback when Supabase is not configured
+const LEGACY_CREDENTIALS = [
+  { email: 'dannycourierltd@gmail.com', password: 'Johnny2000$$', role: 'desktop' as const },
+  { email: process.env.NEXT_PUBLIC_MOBILE_USER || 'mobile@xdrivelogistics.com', password: process.env.NEXT_PUBLIC_MOBILE_PASS || 'mobile123', role: 'mobile' as const },
+  { email: process.env.NEXT_PUBLIC_ADMIN_USER || 'admin@xdrivelogistics.com', password: process.env.NEXT_PUBLIC_ADMIN_PASS || 'admin123', role: 'desktop' as const },
+];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // SECURITY NOTE: localStorage is vulnerable to XSS attacks
-    // TODO: Replace with httpOnly cookies when backend is implemented
-    const storedUser = localStorage.getItem('xdrive_user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('xdrive_user');
+    if (isSupabaseConfigured) {
+      // Use Supabase auth
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email ?? '',
+            role: 'desktop',
+          });
+        }
+        setIsLoading(false);
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email ?? '',
+            role: 'desktop',
+          });
+        } else {
+          setUser(null);
+        }
+        setIsLoading(false);
+      });
+
+      return () => subscription.unsubscribe();
+    } else {
+      // Legacy localStorage auth
+      const storedUser = localStorage.getItem('xdrive_user');
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          // In legacy mode, use email as ID (no real UUID available without Supabase)
+          setUser({ id: parsed.email, email: parsed.email, role: parsed.role });
+        } catch (error) {
+          console.error('Failed to parse stored user:', error);
+          localStorage.removeItem('xdrive_user');
+        }
       }
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
-  const login = async (
-    email: string,
-    password: string
-  ): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // TEMPORARY: Simple client-side authentication for development
-      // TODO: Replace with secure backend API authentication
-      // SECURITY NOTE: These credentials are for development only
-      const validCredentials = [
-        // ⭐ MAIN ACCOUNT - Owner with full access
-        { 
-          email: 'dannycourierltd@gmail.com', 
-          password: 'Johnny2000$$', 
-          role: 'desktop' as const 
-        },
-        { 
-          email: process.env.NEXT_PUBLIC_MOBILE_USER || 'mobile@xdrivelogistics.com', 
-          password: process.env.NEXT_PUBLIC_MOBILE_PASS || 'mobile123', 
-          role: 'mobile' as const 
-        },
-        { 
-          email: process.env.NEXT_PUBLIC_ADMIN_USER || 'admin@xdrivelogistics.com', 
-          password: process.env.NEXT_PUBLIC_ADMIN_PASS || 'admin123', 
-          role: 'desktop' as const 
-        },
-      ];
-
-      // Validate credentials
-      const credential = validCredentials.find(
-        (cred) => cred.email === email && cred.password === password
-      );
-
-      if (!credential) {
-        return { success: false, error: 'Invalid email or password' };
-      }
-
-      // Login directly without 2FA
-      const userData: User = {
-        email: credential.email,
-        role: credential.role,
-      };
-
-      localStorage.setItem('xdrive_user', JSON.stringify(userData));
-      setUser(userData);
-
-      // Redirect based on role and viewport
-      if (credential.role === 'mobile' || window.innerWidth < 768) {
-        router.push('/m');
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          // Fall back to legacy credentials check
+          const cred = LEGACY_CREDENTIALS.find(c => c.email === email && c.password === password);
+          if (!cred) return { success: false, error: error.message };
+          // In legacy fallback mode, use email as a stand-in ID (no real UUID without Supabase)
+          const userData: User = { id: email, email: cred.email, role: cred.role };
+          setUser(userData);
+          if (cred.role === 'mobile' || (typeof window !== 'undefined' && window.innerWidth < 768)) {
+            router.push('/m');
+          } else {
+            router.push('/admin');
+          }
+          return { success: true };
+        }
+        if (data.user) {
+          const userData: User = { id: data.user.id, email: data.user.email ?? '', role: 'desktop' };
+          setUser(userData);
+          router.push('/admin');
+          return { success: true };
+        }
+        return { success: false, error: 'Login failed' };
       } else {
-        router.push('/admin');
+        // Legacy auth (no Supabase configured)
+        const cred = LEGACY_CREDENTIALS.find(c => c.email === email && c.password === password);
+        if (!cred) return { success: false, error: 'Invalid email or password' };
+        // In legacy mode, use email as a stand-in ID (no real UUID without Supabase)
+        const userData: User = { id: email, email: cred.email, role: cred.role };
+        localStorage.setItem('xdrive_user', JSON.stringify({ email: cred.email, role: cred.role }));
+        setUser(userData);
+        if (cred.role === 'mobile' || (typeof window !== 'undefined' && window.innerWidth < 768)) {
+          router.push('/m');
+        } else {
+          router.push('/admin');
+        }
+        return { success: true };
       }
-
-      return { success: true };
     } catch (error) {
       console.error('Login error:', error);
       return { success: false, error: 'An error occurred during login' };
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('xdrive_user');
+  const logout = async () => {
+    if (isSupabaseConfigured) {
+      await supabase.auth.signOut();
+    } else {
+      localStorage.removeItem('xdrive_user');
+    }
     setUser(null);
     router.push('/login');
   };

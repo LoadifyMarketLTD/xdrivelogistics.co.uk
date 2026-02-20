@@ -1,69 +1,34 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Get environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
-// Minimum length for Supabase anon key (typical JWT format is much longer)
-const MIN_ANON_KEY_LENGTH = 20;
+const isConfigured =
+  supabaseUrl.length > 0 &&
+  supabaseAnonKey.length > 0 &&
+  supabaseUrl.includes('supabase.co');
 
-// Validate that variables exist
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    '❌ Missing Supabase credentials!\n\n' +
-    'Required environment variables:\n' +
-    `- NEXT_PUBLIC_SUPABASE_URL: ${supabaseUrl ? '✅ Set' : '❌ Missing'}\n` +
-    `- NEXT_PUBLIC_SUPABASE_ANON_KEY: ${supabaseAnonKey ? '✅ Set' : '❌ Missing'}\n\n` +
-    'Please check your Netlify environment variables:\n' +
-    '1. Go to Netlify Dashboard → Site Settings → Environment Variables\n' +
-    '2. Verify these variables are set with correct values\n' +
-    '3. Get the correct values from: https://supabase.com/dashboard/project/_/settings/api\n' +
-    '4. Redeploy after updating variables'
+if (!isConfigured && typeof window !== 'undefined') {
+  console.warn(
+    '⚠️ Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable database features.'
   );
 }
 
-// Validate that values are not placeholders
-if (
-  supabaseUrl.includes('your-project') || 
-  supabaseUrl.includes('placeholder') ||
-  !supabaseUrl.includes('supabase.co')
-) {
-  const urlToShow = process.env.NODE_ENV === 'development' 
-    ? supabaseUrl 
-    : supabaseUrl.substring(0, 20) + '...';
-  
-  throw new Error(
-    '❌ Invalid Supabase URL!\n\n' +
-    `Current value: ${urlToShow}\n\n` +
-    'This appears to be a placeholder value.\n' +
-    'Please set the correct URL from your Supabase project:\n' +
-    'https://supabase.com/dashboard/project/_/settings/api'
-  );
-}
+// Always create a client (may be non-functional if not configured)
+export const supabase: SupabaseClient = createClient(
+  isConfigured ? supabaseUrl : 'https://placeholder.supabase.co',
+  isConfigured ? supabaseAnonKey : 'placeholder-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  }
+);
 
-if (
-  supabaseAnonKey.includes('your-anon-key') || 
-  supabaseAnonKey.includes('placeholder') ||
-  supabaseAnonKey.length < MIN_ANON_KEY_LENGTH
-) {
-  throw new Error(
-    '❌ Invalid Supabase Anon Key!\n\n' +
-    'This appears to be a placeholder or invalid value.\n' +
-    'Please set the correct anon key from your Supabase project:\n' +
-    'https://supabase.com/dashboard/project/_/settings/api'
-  );
-}
+export const isSupabaseConfigured = isConfigured;
 
-// Create and export Supabase client with proper configuration
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-});
-
-// Log successful initialization (only in development)
-if (process.env.NODE_ENV === 'development') {
-  console.log('✅ Supabase client initialized successfully');
+export function getSupabase(): SupabaseClient | null {
+  return isConfigured ? supabase : null;
 }
