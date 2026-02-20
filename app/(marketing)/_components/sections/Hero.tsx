@@ -14,7 +14,7 @@ export function Hero() {
 
   return (
     <Section>
-      <div style={{ paddingTop: '6rem', paddingBottom: '4rem' }}>
+      <div style={{ paddingTop: '8rem', paddingBottom: '4rem' }}>
         {/* Hero Content */}
         <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
           <h1
