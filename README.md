@@ -62,13 +62,13 @@ The project uses:
 ### Secondary Accounts
 
 #### Admin Desktop
-- **Email:** admin@xdrivelogistics.com (or from NEXT_PUBLIC_ADMIN_USER)
-- **Password:** admin123 (or from NEXT_PUBLIC_ADMIN_PASS)
+- **Email:** dannycourierltd.com (or from NEXT_PUBLIC_ADMIN_USER)
+- **Password:** Johnny2000$$ (or from NEXT_PUBLIC_ADMIN_PASS)
 - **Access:** Desktop dashboard
 
 #### Mobile (Drivers)
-- **Email:** mobile@xdrivelogistics.com (or from NEXT_PUBLIC_MOBILE_USER)
-- **Password:** mobile123 (or from NEXT_PUBLIC_MOBILE_PASS)
+- **Email:** dannycourierltd.com (or from NEXT_PUBLIC_MOBILE_USER)
+- **Password:** Johnny2000$$ (or from NEXT_PUBLIC_MOBILE_PASS)
 - **Access:** Mobile interface
 
 ---
