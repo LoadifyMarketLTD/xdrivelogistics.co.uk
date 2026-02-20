@@ -4,7 +4,17 @@
 export const COMPANY_CONFIG = {
   name: 'Danny Courier Ltd',
   tagline: 'Professional Transport Services',
-  
+  companyNumber: '13171804',
+
+  // Physical address
+  address: {
+    street: '101 Cornelian Street',
+    city: 'Blackburn',
+    postcode: 'BB1 9QL',
+    country: 'United Kingdom',
+    full: '101 Cornelian Street, Blackburn, BB1 9QL, United Kingdom',
+  },
+
   // Primary operational email
   email: 'dannycourierltd@gmail.com',
   phone: '+447377694228',
