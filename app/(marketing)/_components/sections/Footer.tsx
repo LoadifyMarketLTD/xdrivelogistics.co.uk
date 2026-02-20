@@ -66,7 +66,7 @@ export function Footer() {
             <p
               style={{
                 fontSize: '0.8rem',
-                color: 'rgba(255,255,255,0.45)',
+                color: 'rgba(255,255,255,0.75)',
                 lineHeight: '1.5',
               }}
             >
@@ -334,7 +334,7 @@ export function Footer() {
           <p
             style={{
               fontSize: '0.8rem',
-              color: 'rgba(255,255,255,0.45)',
+              color: 'rgba(255,255,255,0.75)',
               textAlign: 'center',
               margin: 0,
             }}
@@ -345,7 +345,7 @@ export function Footer() {
           <p
             style={{
               fontSize: '0.75rem',
-              color: 'rgba(255,255,255,0.35)',
+              color: 'rgba(255,255,255,0.65)',
               textAlign: 'center',
               margin: '0.5rem 0 0 0',
               lineHeight: '1.5',
