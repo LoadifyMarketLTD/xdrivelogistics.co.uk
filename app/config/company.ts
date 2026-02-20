@@ -1,8 +1,9 @@
-// Company configuration for Danny Courier Ltd
+// Company configuration for Danny Courier (trading name of XDrive Logistics Ltd)
 // MASTER SPEC - ONE SOURCE OF TRUTH
 
 export const COMPANY_CONFIG = {
-  name: 'Danny Courier Ltd',
+  name: 'Danny Courier',
+  legalName: 'XDrive Logistics Ltd',
   tagline: 'Professional Transport Services',
   companyNumber: '13171804',
 
@@ -29,7 +30,7 @@ export const COMPANY_CONFIG = {
   // Payment configuration (MASTER SPEC)
   payment: {
     bankTransfer: {
-      accountName: 'Danny Courier Ltd',
+      accountName: 'XDrive Logistics Ltd',
       sortCode: '04-00-04', // PLACEHOLDER - replace in production
       accountNumber: '12345678', // PLACEHOLDER - replace in production
     },

@@ -296,6 +296,21 @@ export function Footer() {
           >
             Professional transport services across the UK and Europe
           </p>
+          {/* Legal trading name disclosure */}
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: 'rgba(255,255,255,0.4)',
+              textAlign: 'center',
+              margin: '0.75rem 0 0 0',
+              lineHeight: '1.6',
+            }}
+          >
+            {COMPANY_CONFIG.name} is a trading name of {COMPANY_CONFIG.legalName}.
+            Company No: {COMPANY_CONFIG.companyNumber}.{' '}
+            {COMPANY_CONFIG.address.street}, {COMPANY_CONFIG.address.city}{' '}
+            {COMPANY_CONFIG.address.postcode}, {COMPANY_CONFIG.address.country}.
+          </p>
         </div>
       </div>
     </footer>

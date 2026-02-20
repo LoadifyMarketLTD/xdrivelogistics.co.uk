@@ -8,7 +8,7 @@ const TESTIMONIALS = [
     name: 'Sarah Johnson',
     company: 'Tech Solutions Ltd',
     role: 'Operations Manager',
-    text: 'Danny Courier Ltd has been our go-to courier service for over two years. Their reliability and professionalism are unmatched.',
+    text: 'Danny Courier has been our go-to courier service for over two years. Their reliability and professionalism are unmatched.',
     rating: 5,
   },
   {

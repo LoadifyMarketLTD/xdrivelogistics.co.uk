@@ -49,7 +49,7 @@ export function Benefits() {
               marginBottom: '1rem',
             }}
           >
-            Why Choose Danny Courier Ltd
+            Why Choose Danny Courier
           </h2>
           <p
             style={{
