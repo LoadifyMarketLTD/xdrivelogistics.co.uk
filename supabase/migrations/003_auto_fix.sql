@@ -78,19 +78,25 @@ CREATE INDEX IF NOT EXISTS job_notes_company_id_idx
   ON public.job_notes (company_id);
 
 -- ──────────────────────────────────────────────
--- G) JOB_BIDS — add bid_price_gbp and bidder_id
---    as aliases so either naming convention works
+-- G) JOB_BIDS — ensure all required columns exist
+--    (amount / bidder_user_id are core columns that
+--     must exist; bid_price_gbp / bidder_id are new
+--     aliases added by this migration)
 -- ──────────────────────────────────────────────
 ALTER TABLE public.job_bids
+  ADD COLUMN IF NOT EXISTS amount        numeric(12,2),
+  ADD COLUMN IF NOT EXISTS bidder_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS bid_price_gbp numeric(12,2),
   ADD COLUMN IF NOT EXISTS bidder_id     uuid REFERENCES auth.users(id) ON DELETE SET NULL;
 
--- Backfill bid_price_gbp from amount for existing rows
+-- Backfill bid_price_gbp from amount for existing rows.
+-- amount is guaranteed to exist after ADD COLUMN IF NOT EXISTS above.
 UPDATE public.job_bids
 SET bid_price_gbp = amount
 WHERE bid_price_gbp IS NULL AND amount IS NOT NULL;
 
--- Backfill bidder_id from bidder_user_id for existing rows
+-- Backfill bidder_id from bidder_user_id for existing rows.
+-- bidder_user_id is guaranteed to exist after ADD COLUMN IF NOT EXISTS above.
 UPDATE public.job_bids
 SET bidder_id = bidder_user_id
 WHERE bidder_id IS NULL AND bidder_user_id IS NOT NULL;
