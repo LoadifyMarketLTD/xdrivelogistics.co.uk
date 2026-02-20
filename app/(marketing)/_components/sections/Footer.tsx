@@ -25,7 +25,7 @@ export function Footer() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
             gap: '2rem',
             marginBottom: '2rem',
           }}
@@ -46,7 +46,7 @@ export function Footer() {
               style={{
                 fontSize: '0.95rem',
                 color: 'var(--color-text-white-transparent)',
-                marginBottom: '1rem',
+                marginBottom: '0.75rem',
                 lineHeight: '1.6',
               }}
             >
@@ -54,11 +54,23 @@ export function Footer() {
             </p>
             <p
               style={{
-                fontSize: '0.9rem',
+                fontSize: '0.875rem',
                 color: 'var(--color-text-white-transparent)',
+                lineHeight: '1.6',
+                marginBottom: '0.5rem',
               }}
             >
-              Professional 24/7 courier and transport services across the UK and Europe.
+              📍 {COMPANY_CONFIG.address.street},<br />
+              {COMPANY_CONFIG.address.city}, {COMPANY_CONFIG.address.postcode}
+            </p>
+            <p
+              style={{
+                fontSize: '0.8rem',
+                color: 'rgba(255,255,255,0.45)',
+                lineHeight: '1.5',
+              }}
+            >
+              Company No. {COMPANY_CONFIG.companyNumber}
             </p>
           </div>
 
@@ -130,34 +142,32 @@ export function Footer() {
               Quick Links
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <a
-                href="/login"
-                style={{
-                  color: 'var(--color-text-white-transparent)',
-                  textDecoration: 'none',
-                  transition: 'color 0.2s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-gold-primary)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-white-transparent)')}
-              >
-                Login
-              </a>
-              <a
-                href={`https://wa.me/${COMPANY_CONFIG.whatsapp.number}?text=${encodeURIComponent('I would like to get a quote')}`}
-                style={{
-                  color: 'var(--color-text-white-transparent)',
-                  textDecoration: 'none',
-                  transition: 'color 0.2s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-gold-primary)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-white-transparent)')}
-              >
-                Get Quote
-              </a>
+              {[
+                { label: 'Login', href: '/login' },
+                { label: 'How It Works', href: '#how-it-works' },
+                { label: 'For Drivers', href: '#for-drivers' },
+                { label: 'For Companies', href: '#for-companies' },
+                { label: 'FAQ', href: '#faq' },
+              ].map((link) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  style={{
+                    color: 'var(--color-text-white-transparent)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                    fontSize: '0.9rem',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-gold-primary)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-white-transparent)')}
+                >
+                  {link.label}
+                </a>
+              ))}
             </div>
           </div>
 
-          {/* Social Media */}
+          {/* Legal & Social */}
           <div>
             <h4
               style={{
@@ -167,9 +177,42 @@ export function Footer() {
                 marginBottom: '1rem',
               }}
             >
+              Legal
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              {[
+                { label: 'Terms & Conditions', href: '/terms' },
+                { label: 'Privacy Policy', href: '/privacy' },
+                { label: 'Cookie Policy', href: '/cookies' },
+              ].map((link) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  style={{
+                    color: 'var(--color-text-white-transparent)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                    fontSize: '0.9rem',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-gold-primary)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-white-transparent)')}
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+
+            <h4
+              style={{
+                fontSize: '1rem',
+                fontWeight: 'var(--font-weight-semibold)',
+                color: 'var(--color-text-white)',
+                marginBottom: '0.75rem',
+              }}
+            >
               Follow Us
             </h4>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
               {COMPANY_CONFIG.social.facebook && (
                 <a
                   href={COMPANY_CONFIG.social.facebook}
@@ -177,8 +220,8 @@ export function Footer() {
                   rel="noopener noreferrer"
                   aria-label="Facebook"
                   style={{
-                    width: '2.5rem',
-                    height: '2.5rem',
+                    width: '2.25rem',
+                    height: '2.25rem',
                     borderRadius: '50%',
                     backgroundColor: 'rgba(255,255,255,0.1)',
                     display: 'flex',
@@ -186,6 +229,8 @@ export function Footer() {
                     justifyContent: 'center',
                     color: 'var(--color-text-white)',
                     textDecoration: 'none',
+                    fontSize: '0.875rem',
+                    fontWeight: 700,
                     transition: 'all 0.3s ease',
                   }}
                   onMouseEnter={(e) => {
@@ -207,8 +252,8 @@ export function Footer() {
                   rel="noopener noreferrer"
                   aria-label="Instagram"
                   style={{
-                    width: '2.5rem',
-                    height: '2.5rem',
+                    width: '2.25rem',
+                    height: '2.25rem',
                     borderRadius: '50%',
                     backgroundColor: 'rgba(255,255,255,0.1)',
                     display: 'flex',
@@ -237,8 +282,8 @@ export function Footer() {
                   rel="noopener noreferrer"
                   aria-label="TikTok"
                   style={{
-                    width: '2.5rem',
-                    height: '2.5rem',
+                    width: '2.25rem',
+                    height: '2.25rem',
                     borderRadius: '50%',
                     backgroundColor: 'rgba(255,255,255,0.1)',
                     display: 'flex',
@@ -284,17 +329,17 @@ export function Footer() {
               margin: 0,
             }}
           >
-            © {currentYear} {COMPANY_CONFIG.name}. All rights reserved.
+            © {currentYear} {COMPANY_CONFIG.name}. All rights reserved. Company No. {COMPANY_CONFIG.companyNumber}
           </p>
           <p
             style={{
               fontSize: '0.8rem',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'rgba(255,255,255,0.45)',
               textAlign: 'center',
               margin: 0,
             }}
           >
-            Professional transport services across the UK and Europe
+            Registered in England & Wales · {COMPANY_CONFIG.address.full}
           </p>
         </div>
       </div>
