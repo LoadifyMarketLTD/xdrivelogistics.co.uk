@@ -77,7 +77,7 @@ export function Benefits() {
               style={{
                 backgroundColor: 'var(--glass-bg)',
                 border: '1px solid var(--glass-border)',
-                borderRadius: 'var(--radius-lg)',
+                borderRadius: '20px',
                 padding: '2rem',
                 backdropFilter: 'blur(10px)',
                 transition: 'transform 0.3s ease, border-color 0.3s ease',
