@@ -12,7 +12,12 @@ export default function AdminPage() {
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'invoices', label: 'Invoices', icon: '💰' },
     { id: 'jobs', label: 'Jobs', icon: '📦' },
+    { id: 'companies', label: 'Companies', icon: '🏢' },
     { id: 'drivers', label: 'Drivers', icon: '🚚' },
+    { id: 'vehicles', label: 'Vehicles', icon: '🚛' },
+    { id: 'documents', label: 'Documents', icon: '📄' },
+    { id: 'bids', label: 'Bids', icon: '💼' },
+    { id: 'quotes', label: 'Quotes', icon: '💬' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
 
@@ -155,7 +160,12 @@ export default function AdminPage() {
               {activeSection === 'dashboard' && 'Overview of your courier operations'}
               {activeSection === 'invoices' && 'Manage and view all invoices'}
               {activeSection === 'jobs' && 'View and manage all delivery jobs'}
-              {activeSection === 'drivers' && 'Manage driver information (coming soon)'}
+              {activeSection === 'companies' && 'Manage companies and memberships'}
+              {activeSection === 'drivers' && 'Manage driver information'}
+              {activeSection === 'vehicles' && 'Manage fleet vehicles'}
+              {activeSection === 'documents' && 'Review and verify documents'}
+              {activeSection === 'bids' && 'Review and manage job bids'}
+              {activeSection === 'quotes' && 'Create and manage price quotes'}
               {activeSection === 'settings' && 'Configure system settings (coming soon)'}
             </p>
           </div>
@@ -407,7 +417,55 @@ export default function AdminPage() {
             </div>
           )}
           
-          {activeSection !== 'dashboard' && activeSection !== 'invoices' && activeSection !== 'jobs' && (
+          {activeSection === 'companies' && (
+            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🏢</div>
+              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Company Management</h3>
+              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Manage companies and memberships.</p>
+              <button onClick={() => window.location.href = '/admin/companies'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Companies</button>
+            </div>
+          )}
+          {activeSection === 'drivers' && (
+            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚚</div>
+              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Driver Management</h3>
+              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Manage your drivers.</p>
+              <button onClick={() => window.location.href = '/admin/drivers'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Drivers</button>
+            </div>
+          )}
+          {activeSection === 'vehicles' && (
+            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚛</div>
+              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Vehicle Management</h3>
+              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Manage your fleet vehicles.</p>
+              <button onClick={() => window.location.href = '/admin/vehicles'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Vehicles</button>
+            </div>
+          )}
+          {activeSection === 'documents' && (
+            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📄</div>
+              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Document Management</h3>
+              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Review and verify driver & vehicle documents.</p>
+              <button onClick={() => window.location.href = '/admin/documents'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Documents</button>
+            </div>
+          )}
+          {activeSection === 'bids' && (
+            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💼</div>
+              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Bid Management</h3>
+              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Review and manage job bids.</p>
+              <button onClick={() => window.location.href = '/admin/bids'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Bids</button>
+            </div>
+          )}
+          {activeSection === 'quotes' && (
+            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💬</div>
+              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Quote Management</h3>
+              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Create and manage price quotes.</p>
+              <button onClick={() => window.location.href = '/admin/quotes'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Quotes</button>
+            </div>
+          )}
+          {activeSection !== 'dashboard' && activeSection !== 'invoices' && activeSection !== 'jobs' && activeSection !== 'companies' && activeSection !== 'drivers' && activeSection !== 'vehicles' && activeSection !== 'documents' && activeSection !== 'bids' && activeSection !== 'quotes' && (
             <div style={{
               backgroundColor: 'white',
               padding: '3rem 2rem',

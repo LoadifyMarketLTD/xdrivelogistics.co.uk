@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { COMPANY_CONFIG, JOB_STATUS } from '../../config/company';
 import { generateTimeOptions } from '../../utils/timeUtils';
+import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
 interface Job {
   id: string;
@@ -74,7 +75,42 @@ export default function JobsPage() {
     filterJobs();
   }, [jobs, searchTerm, statusFilter]);
 
-  const loadJobs = () => {
+  const loadJobs = async () => {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
+      if (!error && data) {
+        const mapped = data.map((row: Record<string, unknown>) => ({
+          id: row.id as string,
+          jobRef: (row.id as string).slice(0, 13).toUpperCase(),
+          client: {
+            name: (row.load_details as string) || 'Unknown',
+            email: '',
+            phone: '',
+          },
+          pickup: {
+            location: (row.pickup_location as string) || '',
+            date: row.pickup_datetime ? (row.pickup_datetime as string).slice(0, 10) : '',
+            time: row.pickup_datetime ? (row.pickup_datetime as string).slice(11, 16) : '',
+          },
+          delivery: {
+            location: (row.delivery_location as string) || '',
+            date: row.delivery_datetime ? (row.delivery_datetime as string).slice(0, 10) : '',
+            time: row.delivery_datetime ? (row.delivery_datetime as string).slice(11, 16) : '',
+          },
+          cargo: {
+            type: (row.cargo_type as string) || 'Other',
+            quantity: (row.items as number) || 1,
+            notes: (row.special_requirements as string) || '',
+          },
+          status: (row.status as string) || JOB_STATUS.RECEIVED,
+          createdAt: row.created_at as string,
+          updatedAt: row.updated_at as string,
+        }));
+        setJobs(mapped);
+        return;
+      }
+    }
+    // Fallback to localStorage
     const stored = localStorage.getItem('xdrive_jobs');
     if (stored) {
       setJobs(JSON.parse(stored));
@@ -202,7 +238,7 @@ export default function JobsPage() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleCreateJob = () => {
+  const handleCreateJob = async () => {
     if (!validateForm()) return;
 
     const newJob: Job = {
@@ -234,8 +270,24 @@ export default function JobsPage() {
     };
 
     const updatedJobs = [...jobs, newJob];
-    localStorage.setItem('xdrive_jobs', JSON.stringify(updatedJobs));
-    setJobs(updatedJobs);
+    if (isSupabaseConfigured) {
+      await supabase.from('jobs').insert([{
+        pickup_location: formData.pickupLocation,
+        pickup_datetime: `${formData.pickupDate}T${formData.pickupTime}:00`,
+        delivery_location: formData.deliveryLocation,
+        delivery_datetime: `${formData.deliveryDate}T${formData.deliveryTime}:00`,
+        cargo_type: formData.cargoType.toLowerCase() as string,
+        items: parseInt(formData.cargoQuantity),
+        special_requirements: formData.cargoNotes,
+        load_details: formData.clientName,
+        status: 'draft',
+        company_id: '00000000-0000-0000-0000-000000000000',
+      }]);
+      await loadJobs();
+    } else {
+      localStorage.setItem('xdrive_jobs', JSON.stringify(updatedJobs));
+      setJobs(updatedJobs);
+    }
     closeModal();
   };
 
