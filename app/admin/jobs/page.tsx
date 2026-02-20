@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { COMPANY_CONFIG, JOB_STATUS } from '../../config/company';
 import { generateTimeOptions } from '../../utils/timeUtils';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { useAuth } from '../../components/AuthContext';
 
 interface Job {
   id: string;
@@ -46,6 +47,7 @@ const CARGO_TYPES = [
 
 export default function JobsPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -278,10 +280,12 @@ export default function JobsPage() {
         delivery_datetime: `${formData.deliveryDate}T${formData.deliveryTime}:00`,
         cargo_type: formData.cargoType.toLowerCase() as string,
         items: parseInt(formData.cargoQuantity),
-        special_requirements: formData.cargoNotes,
-        load_details: formData.clientName,
+        // Use authenticated user's company or leave null for RLS to handle
+        // load_details stores cargo description; client info stored in special_requirements
+        special_requirements: [formData.clientName, formData.clientPhone, formData.clientEmail, formData.cargoNotes].filter(Boolean).join(' | '),
         status: 'draft',
-        company_id: '00000000-0000-0000-0000-000000000000',
+        // company_id must be provided by the authenticated user's context
+        // When Supabase auth is active, RLS requires a valid company membership
       }]);
       await loadJobs();
     } else {
