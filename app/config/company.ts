@@ -1,8 +1,9 @@
-// Company configuration for XDrive Logistics Ltd
+// Company configuration for Danny Courier (trading name of XDrive Logistics Ltd)
 // MASTER SPEC - ONE SOURCE OF TRUTH
 
 export const COMPANY_CONFIG = {
-  name: 'XDrive Logistics Ltd',
+  name: 'Danny Courier',
+  legalName: 'XDrive Logistics Ltd',
   tagline: 'Professional Transport Services',
   companyNumber: '13171804',
 
@@ -16,13 +17,13 @@ export const COMPANY_CONFIG = {
   },
 
   // Primary operational email
-  email: 'xdrivelogisticsltd@gmail.com',
-  phone: '+447423272138',
-  phoneDisplay: '07423 272 138',
+  email: 'dannycourierltd@gmail.com',
+  phone: '+447377694228',
+  phoneDisplay: '07377 694 228',
   
   // WhatsApp
   whatsapp: {
-    number: '447423272138',
+    number: '447377694228',
     defaultMessage: "Hello, I'd like to inquire about your transport services",
   },
   
@@ -34,7 +35,7 @@ export const COMPANY_CONFIG = {
       accountNumber: '12345678', // PLACEHOLDER - replace in production
     },
     paypal: {
-      email: 'xdrivelogisticsltd@gmail.com',
+      email: 'dannycourierltd@gmail.com',
     },
     terms: ['Pay now', '14 days', '30 days'] as const,
     lateFeeNote: 'Late payments may incur administrative charges.',
@@ -49,15 +50,15 @@ export const COMPANY_CONFIG = {
   
   // Invoice configuration (MASTER SPEC)
   invoice: {
-    jobRefPrefix: 'XD', // XDrive prefix
+    jobRefPrefix: 'DC', // Danny Courier prefix
     invoicePrefix: 'INV',
   },
   
   // Social media
   social: {
-    facebook: 'https://www.facebook.com/xdrivelogistics',
-    instagram: 'https://www.instagram.com/xdrivelogistics',
-    tiktok: 'https://www.tiktok.com/@xdrivelogistics',
+    facebook: '#',
+    instagram: '#',
+    tiktok: '#',
     linkedin: '#', // Optional
   },
 };

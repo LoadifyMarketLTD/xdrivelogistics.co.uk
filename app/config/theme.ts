@@ -1,8 +1,8 @@
 // Premium Dark + Gold Theme Configuration
-// XDrive Logistics Brand Colors - Exact specification from requirements
+// Danny Courier Brand Colors - Exact specification from requirements
 
 export const THEME = {
-  // Color Palette - XDrive Logistics Brand Colors (EXACT SPEC)
+  // Color Palette - Danny Courier Brand Colors (EXACT SPEC)
   colors: {
     // Primary - Navy
     primary: {

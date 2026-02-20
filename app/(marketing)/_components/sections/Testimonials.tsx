@@ -8,7 +8,7 @@ const TESTIMONIALS = [
     name: 'Sarah Johnson',
     company: 'Tech Solutions Ltd',
     role: 'Operations Manager',
-    text: 'XDrive Logistics has been our go-to courier service for over two years. Their reliability and professionalism are unmatched.',
+    text: 'Danny Courier has been our go-to courier service for over two years. Their reliability and professionalism are unmatched.',
     rating: 5,
   },
   {
@@ -29,7 +29,7 @@ const TESTIMONIALS = [
     name: 'David Williams',
     company: 'Med Supplies Co',
     role: 'Logistics Coordinator',
-    text: 'Professional drivers and secure transport. We trust XDrive with our most important deliveries.',
+    text: 'Professional drivers and secure transport. We trust Danny Courier with our most important deliveries.',
     rating: 5,
   },
 ];

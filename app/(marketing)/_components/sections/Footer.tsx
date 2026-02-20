@@ -341,6 +341,18 @@ export function Footer() {
           >
             Registered in England & Wales · {COMPANY_CONFIG.address.full}
           </p>
+          {/* Legal trading name disclosure */}
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: 'rgba(255,255,255,0.35)',
+              textAlign: 'center',
+              margin: '0.5rem 0 0 0',
+              lineHeight: '1.5',
+            }}
+          >
+            {COMPANY_CONFIG.name} is a trading name of {COMPANY_CONFIG.legalName}.
+          </p>
         </div>
       </div>
     </footer>

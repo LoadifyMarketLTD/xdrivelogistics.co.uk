@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Cookie Policy',
-  description: 'XDrive Logistics Ltd Cookie Policy — how we use cookies on our website and how you can manage your preferences.',
+  description: 'Danny Courier Cookie Policy — how we use cookies on our website and how you can manage your preferences.',
 };
 
 const LAST_UPDATED = '20 February 2026';
@@ -145,7 +145,7 @@ export default function CookiesPage() {
             If you have any questions about our use of cookies, please contact:<br /><br />
             XDrive Logistics Ltd<br />
             101 Cornelian Street, Blackburn, BB1 9QL<br />
-            Email: xdrivelogisticsltd@gmail.com<br />
+            Email: dannycourierltd@gmail.com<br />
             Phone: 07423 272 138
           </Section>
         </div>

@@ -1,7 +1,7 @@
 # Authentication System Documentation
 
 ## Overview
-This directory contains the authentication system for XDrive Logistics Ltd, including login, protected routes, and role-based access control.
+This directory contains the authentication system for Danny Courier Ltd, including login, protected routes, and role-based access control.
 
 ## Components
 
@@ -103,20 +103,20 @@ Before deploying to production, implement:
 Default development credentials (can be overridden with environment variables):
 
 **Mobile User:**
-- Email: `mobile@xdrivelogistics.co.uk`
+- Email: `mobile@dannycourierltd.co.uk`
 - Password: `mobile123`
 
 **Admin User:**
-- Email: `admin@xdrivelogistics.co.uk`
+- Email: `admin@dannycourierltd.co.uk`
 - Password: `admin123`
 
 ## Environment Variables
 
 See `.env.example` for configuration options:
 ```bash
-NEXT_PUBLIC_MOBILE_USER=mobile@xdrivelogistics.co.uk
+NEXT_PUBLIC_MOBILE_USER=mobile@dannycourierltd.co.uk
 NEXT_PUBLIC_MOBILE_PASS=mobile123
-NEXT_PUBLIC_ADMIN_USER=admin@xdrivelogistics.co.uk
+NEXT_PUBLIC_ADMIN_USER=admin@dannycourierltd.co.uk
 NEXT_PUBLIC_ADMIN_PASS=admin123
 ```
 

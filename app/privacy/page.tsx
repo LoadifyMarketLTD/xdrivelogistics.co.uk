@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
-  description: 'XDrive Logistics Ltd Privacy Policy — how we collect, use, and protect your personal data in accordance with UK GDPR.',
+  description: 'Danny Courier Privacy Policy — how we collect, use, and protect your personal data in accordance with UK GDPR.',
 };
 
 const LAST_UPDATED = '20 February 2026';
@@ -115,7 +115,7 @@ export default function PrivacyPage() {
               <li>Data portability</li>
               <li>Withdraw consent at any time</li>
             </ul>
-            To exercise any of these rights, contact us at xdrivelogisticsltd@gmail.com.
+            To exercise any of these rights, contact us at dannycourierltd@gmail.com.
           </Section>
 
           <Section title="8. Cookies">
@@ -136,7 +136,7 @@ export default function PrivacyPage() {
             For privacy-related queries, contact us at:<br /><br />
             XDrive Logistics Ltd<br />
             101 Cornelian Street, Blackburn, BB1 9QL<br />
-            Email: xdrivelogisticsltd@gmail.com<br /><br />
+            Email: dannycourierltd@gmail.com<br /><br />
             You also have the right to lodge a complaint with the UK Information Commissioner&apos;s
             Office (ICO) at{' '}
             <a href="https://ico.org.uk" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-gold-primary)' }}>

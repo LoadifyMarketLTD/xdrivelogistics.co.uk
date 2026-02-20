@@ -76,7 +76,7 @@ export function FAQ() {
               margin: '0 auto',
             }}
           >
-            Everything you need to know about XDrive Logistics
+            Everything you need to know about Danny Courier
           </p>
         </div>
 
