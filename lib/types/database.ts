@@ -10,6 +10,9 @@ export interface Profile {
   id: string;
   full_name: string | null;
   phone: string | null;
+  email: string | null;
+  role: string | null;
+  company_id: string | null;
   is_driver: boolean;
   created_at: string;
   updated_at: string;
@@ -27,6 +30,8 @@ export interface Company {
   city: string | null;
   postcode: string | null;
   country: string;
+  status: 'active' | 'inactive' | 'suspended';
+  company_type: 'admin' | 'standard' | null;
   created_by: string | null;
   created_at: string;
 }
@@ -130,6 +135,7 @@ export interface DbJob {
   access_restrictions: string | null;
   job_distance_miles: number | null;
   job_distance_minutes: number | null;
+  distance_to_pickup_miles: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -139,10 +145,56 @@ export interface JobBid {
   job_id: string;
   company_id: string | null;
   bidder_user_id: string;
+  bidder_id: string | null;
   bidder_driver_id: string | null;
   amount: number;
+  bid_price_gbp: number | null;
   currency: string;
   message: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface JobNote {
+  id: string;
+  job_id: string;
+  company_id: string;
+  created_by: string | null;
+  note: string;
+  created_at: string;
+}
+
+export interface JobDocument {
+  id: string;
+  job_id: string;
+  uploaded_by: string | null;
+  doc_type: string;
+  file_path: string | null;
+  created_at: string;
+}
+
+export interface DriverLocation {
+  id: string;
+  driver_id: string;
+  company_id: string | null;
+  lat: number;
+  lng: number;
+  heading: number | null;
+  speed_mph: number | null;
+  updated_at: string | null;
+  recorded_at: string;
+}
+
+export interface ReturnJourney {
+  id: string;
+  company_id: string;
+  driver_id: string | null;
+  vehicle_type: VehicleType | null;
+  from_postcode: string | null;
+  to_postcode: string | null;
+  available_from: string | null;
+  available_to: string | null;
+  notes: string | null;
   status: string;
   created_at: string;
 }
