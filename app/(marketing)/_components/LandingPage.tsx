@@ -2,6 +2,7 @@
 
 import { Navbar } from './sections/Navbar';
 import { Hero } from './sections/Hero';
+import { KPIStats } from './sections/KPIStats';
 import { ForDrivers } from './sections/ForDrivers';
 import { ForCompanies } from './sections/ForCompanies';
 import { HowItWorks } from './sections/HowItWorks';
@@ -23,6 +24,7 @@ export function LandingPage() {
       <div id="home">
         <Hero />
       </div>
+      <KPIStats />
       <div id="for-drivers">
         <ForDrivers />
       </div>

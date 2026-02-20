@@ -19,10 +19,12 @@ export function Navbar() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
+    const handleScroll = () => setScrolled(window.scrollY > 60);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const isLight = scrolled;
 
   return (
     <>
@@ -33,14 +35,11 @@ export function Navbar() {
           left: 0,
           right: 0,
           zIndex: 1000,
-          backgroundColor: scrolled
-            ? 'rgba(10, 34, 57, 0.97)'
-            : 'rgba(10, 34, 57, 0.85)',
-          backdropFilter: 'blur(12px)',
-          borderBottom: scrolled
-            ? '1px solid rgba(212, 175, 55, 0.3)'
-            : '1px solid transparent',
+          backgroundColor: scrolled ? 'rgba(255, 255, 255, 0.97)' : 'transparent',
+          backdropFilter: scrolled ? 'blur(12px)' : 'none',
+          boxShadow: scrolled ? '0 2px 20px rgba(0,0,0,0.08)' : 'none',
           transition: 'all 0.3s ease',
+          borderBottom: scrolled ? '1px solid rgba(31,58,95,0.08)' : '1px solid transparent',
         }}
       >
         <div
@@ -51,10 +50,9 @@ export function Navbar() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            height: '4rem',
+            height: '4.5rem',
           }}
         >
-          {/* Logo */}
           <a
             href="#home"
             style={{
@@ -69,7 +67,7 @@ export function Navbar() {
               style={{
                 fontSize: '1.5rem',
                 fontWeight: 800,
-                color: 'var(--color-gold-primary)',
+                color: '#D4AF37',
                 letterSpacing: '-0.5px',
               }}
             >
@@ -79,14 +77,14 @@ export function Navbar() {
               style={{
                 fontSize: '1.1rem',
                 fontWeight: 700,
-                color: 'var(--color-text-white)',
+                color: isLight ? '#1F3A5F' : '#FFFFFF',
+                transition: 'color 0.3s ease',
               }}
             >
               Drive Logistics
             </span>
           </a>
 
-          {/* Desktop Nav Links */}
           <nav
             aria-label="Main navigation"
             style={{
@@ -101,21 +99,21 @@ export function Navbar() {
                 key={link.label}
                 href={link.href}
                 style={{
-                  padding: '0.5rem 0.75rem',
+                  padding: '0.5rem 0.875rem',
                   fontSize: '0.9rem',
                   fontWeight: 500,
-                  color: 'rgba(255,255,255,0.85)',
+                  color: isLight ? '#374151' : 'rgba(255,255,255,0.9)',
                   textDecoration: 'none',
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                   transition: 'all 0.2s ease',
                   whiteSpace: 'nowrap',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.color = 'var(--color-gold-primary)';
-                  e.currentTarget.style.backgroundColor = 'rgba(212,175,55,0.1)';
+                  e.currentTarget.style.color = '#1F3A5F';
+                  e.currentTarget.style.backgroundColor = isLight ? 'rgba(31,58,95,0.06)' : 'rgba(255,255,255,0.1)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.85)';
+                  e.currentTarget.style.color = isLight ? '#374151' : 'rgba(255,255,255,0.9)';
                   e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
@@ -124,7 +122,6 @@ export function Navbar() {
             ))}
           </nav>
 
-          {/* Right: Phone + Login */}
           <div
             style={{
               display: 'flex',
@@ -140,11 +137,12 @@ export function Navbar() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.4rem',
-                fontSize: '0.9rem',
+                fontSize: '0.875rem',
                 fontWeight: 600,
-                color: 'var(--color-gold-primary)',
+                color: isLight ? '#1F3A5F' : '#D4AF37',
                 textDecoration: 'none',
                 whiteSpace: 'nowrap',
+                transition: 'color 0.3s ease',
               }}
               className="phone-link"
             >
@@ -158,27 +156,28 @@ export function Navbar() {
                 padding: '0.5rem 1.25rem',
                 fontSize: '0.875rem',
                 fontWeight: 600,
-                borderRadius: '6px',
-                border: '1.5px solid var(--color-gold-primary)',
-                backgroundColor: 'transparent',
-                color: 'var(--color-gold-primary)',
+                borderRadius: '8px',
+                border: `1.5px solid ${isLight ? '#1F3A5F' : '#D4AF37'}`,
+                backgroundColor: isLight ? '#1F3A5F' : 'transparent',
+                color: isLight ? '#FFFFFF' : '#D4AF37',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.3s ease',
                 whiteSpace: 'nowrap',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--color-gold-primary)';
-                e.currentTarget.style.color = 'var(--color-primary-navy-dark)';
+                e.currentTarget.style.backgroundColor = '#2E7D32';
+                e.currentTarget.style.borderColor = '#2E7D32';
+                e.currentTarget.style.color = '#FFFFFF';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = 'var(--color-gold-primary)';
+                e.currentTarget.style.backgroundColor = isLight ? '#1F3A5F' : 'transparent';
+                e.currentTarget.style.borderColor = isLight ? '#1F3A5F' : '#D4AF37';
+                e.currentTarget.style.color = isLight ? '#FFFFFF' : '#D4AF37';
               }}
             >
               Login
             </button>
 
-            {/* Mobile menu button */}
             <button
               onClick={() => setMenuOpen(!menuOpen)}
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
@@ -187,10 +186,11 @@ export function Navbar() {
                 display: 'none',
                 background: 'none',
                 border: 'none',
-                color: 'var(--color-text-white)',
+                color: isLight ? '#1F3A5F' : '#FFFFFF',
                 cursor: 'pointer',
                 padding: '0.25rem',
                 fontSize: '1.5rem',
+                transition: 'color 0.3s ease',
               }}
               className="mobile-menu-btn"
             >
@@ -199,13 +199,12 @@ export function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Menu */}
         {menuOpen && (
           <nav
             aria-label="Mobile navigation"
             style={{
-              backgroundColor: 'rgba(10, 34, 57, 0.98)',
-              borderTop: '1px solid rgba(212, 175, 55, 0.2)',
+              backgroundColor: '#FFFFFF',
+              borderTop: '1px solid rgba(31,58,95,0.1)',
               padding: '1rem 24px 1.5rem',
             }}
           >
@@ -219,9 +218,9 @@ export function Navbar() {
                   padding: '0.75rem 0',
                   fontSize: '1rem',
                   fontWeight: 500,
-                  color: 'rgba(255,255,255,0.9)',
+                  color: '#374151',
                   textDecoration: 'none',
-                  borderBottom: '1px solid rgba(255,255,255,0.08)',
+                  borderBottom: '1px solid rgba(31,58,95,0.06)',
                 }}
               >
                 {link.label}
@@ -235,8 +234,8 @@ export function Navbar() {
                 padding: '0.75rem 1.5rem',
                 fontSize: '1rem',
                 fontWeight: 600,
-                color: 'var(--color-primary-navy-dark)',
-                backgroundColor: 'var(--color-gold-primary)',
+                color: '#FFFFFF',
+                backgroundColor: '#1F3A5F',
                 textDecoration: 'none',
                 borderRadius: '8px',
                 textAlign: 'center',
@@ -248,7 +247,6 @@ export function Navbar() {
         )}
       </header>
 
-      {/* Responsive styles */}
       <style jsx>{`
         @media (max-width: 900px) {
           .desktop-nav {

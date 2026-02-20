@@ -1,78 +1,104 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Section } from '../ui/Section';
 
 const TESTIMONIALS = [
   {
     name: 'Sarah Johnson',
+    initials: 'SJ',
+    avatarColor: '#2E7D32',
     company: 'Tech Solutions Ltd',
+    companyInitials: 'TS',
     role: 'Operations Manager',
     text: 'Danny Courier has been our go-to courier service for over two years. Their reliability and professionalism are unmatched.',
     rating: 5,
+    verified: true,
   },
   {
     name: 'Michael Chen',
+    initials: 'MC',
+    avatarColor: '#1F3A5F',
     company: 'BuildEx Construction',
+    companyInitials: 'BC',
     role: 'Project Director',
     text: 'Excellent service for our pallet deliveries. The real-time tracking gives us complete peace of mind.',
     rating: 5,
+    verified: true,
   },
   {
     name: 'Emma Thompson',
+    initials: 'ET',
+    avatarColor: '#7B3F00',
     company: 'Fashion Forward',
+    companyInitials: 'FF',
     role: 'E-commerce Manager',
     text: 'Fast, efficient, and always on time. Their customer service team is incredibly responsive and helpful.',
     rating: 5,
+    verified: true,
   },
   {
     name: 'David Williams',
+    initials: 'DW',
+    avatarColor: '#1565C0',
     company: 'Med Supplies Co',
+    companyInitials: 'MS',
     role: 'Logistics Coordinator',
     text: 'Professional drivers and secure transport. We trust Danny Courier with our most important deliveries.',
     rating: 5,
+    verified: true,
+  },
+  {
+    name: 'Rachel Davies',
+    initials: 'RD',
+    avatarColor: '#6A0DAD',
+    company: 'Green Foods Ltd',
+    companyInitials: 'GF',
+    role: 'Supply Chain Manager',
+    text: 'The temperature-controlled logistics service exceeded our expectations. Every delivery was on time and intact.',
+    rating: 5,
+    verified: true,
+  },
+  {
+    name: 'James Carter',
+    initials: 'JC',
+    avatarColor: '#C62828',
+    company: 'AutoParts Direct',
+    companyInitials: 'AP',
+    role: 'Warehouse Manager',
+    text: 'We rely on Danny Courier for our daily parts distribution. Consistent, professional, and competitively priced.',
+    rating: 5,
+    verified: true,
   },
 ];
 
 export function Testimonials() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
 
-  const scroll = (direction: 'left' | 'right') => {
-    if (!scrollContainerRef.current) return;
-
-    const container = scrollContainerRef.current;
-    const cardWidth = container.children[0]?.clientWidth || 0;
-    const gap = 24; // 1.5rem
-    const scrollAmount = cardWidth + gap;
-
-    if (direction === 'right') {
-      const newIndex = Math.min(currentIndex + 1, TESTIMONIALS.length - 1);
-      setCurrentIndex(newIndex);
-      container.scrollTo({
-        left: scrollAmount * newIndex,
-        behavior: 'smooth',
-      });
-    } else {
-      const newIndex = Math.max(currentIndex - 1, 0);
-      setCurrentIndex(newIndex);
-      container.scrollTo({
-        left: scrollAmount * newIndex,
-        behavior: 'smooth',
-      });
-    }
-  };
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    if (sectionRef.current) observer.observe(sectionRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <Section backgroundColor="var(--color-primary-navy)">
-      <div style={{ paddingTop: '4rem', paddingBottom: '4rem' }}>
-        {/* Section Header */}
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+      <div ref={sectionRef} style={{ paddingTop: '5rem', paddingBottom: '5rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
           <h2
             style={{
               fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-              fontWeight: 'var(--font-weight-bold)',
-              color: 'var(--color-text-white)',
+              fontWeight: 800,
+              color: '#FFFFFF',
               marginBottom: '1rem',
             }}
           >
@@ -81,7 +107,7 @@ export function Testimonials() {
           <p
             style={{
               fontSize: '1.1rem',
-              color: 'var(--color-text-white-transparent)',
+              color: 'rgba(255,255,255,0.7)',
               maxWidth: '600px',
               margin: '0 auto',
             }}
@@ -90,178 +116,152 @@ export function Testimonials() {
           </p>
         </div>
 
-        {/* Carousel Container */}
-        <div style={{ position: 'relative', maxWidth: '1200px', margin: '0 auto' }}>
-          {/* Testimonials Scroll Container */}
-          <div
-            ref={scrollContainerRef}
-            style={{
-              display: 'flex',
-              gap: '1.5rem',
-              overflowX: 'auto',
-              scrollSnapType: 'x mandatory',
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-              WebkitOverflowScrolling: 'touch',
-            }}
-            className="hide-scrollbar"
-          >
-            {TESTIMONIALS.map((testimonial, index) => (
-              <div
-                key={index}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '1.5rem',
+          }}
+          className="testimonials-grid"
+        >
+          {TESTIMONIALS.map((t, index) => (
+            <div
+              key={index}
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '20px',
+                padding: '1.75rem',
+                backdropFilter: 'blur(10px)',
+                transition: 'all 0.3s ease',
+                opacity: visible ? 1 : 0,
+                transform: visible ? 'translateY(0)' : 'translateY(20px)',
+                transitionDelay: `${index * 0.08}s`,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.borderColor = 'rgba(212,175,55,0.3)';
+                e.currentTarget.style.boxShadow = '0 12px 30px rgba(0,0,0,0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <div style={{ marginBottom: '1rem' }}>
+                {Array.from({ length: t.rating }).map((_, i) => (
+                  <span key={i} style={{ color: '#D4AF37', fontSize: '1.1rem' }}>★</span>
+                ))}
+              </div>
+
+              <p
                 style={{
-                  minWidth: '100%',
-                  scrollSnapAlign: 'start',
-                  backgroundColor: 'var(--glass-bg)',
-                  border: '1px solid var(--glass-border)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '2rem',
-                  backdropFilter: 'blur(10px)',
+                  fontSize: '0.95rem',
+                  color: 'rgba(255,255,255,0.85)',
+                  lineHeight: '1.7',
+                  marginBottom: '1.5rem',
+                  fontStyle: 'italic',
                 }}
               >
-                {/* Rating Stars */}
-                <div style={{ marginBottom: '1rem' }}>
-                  {Array.from({ length: testimonial.rating }).map((_, i) => (
-                    <span key={i} style={{ color: 'var(--color-gold-primary)', fontSize: '1.25rem' }}>
-                      ★
-                    </span>
-                  ))}
-                </div>
+                &ldquo;{t.text}&rdquo;
+              </p>
 
-                {/* Testimonial Text */}
-                <p
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
                   style={{
-                    fontSize: '1.1rem',
-                    color: 'var(--color-text-white)',
-                    lineHeight: '1.6',
-                    marginBottom: '1.5rem',
-                    fontStyle: 'italic',
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '50%',
+                    backgroundColor: t.avatarColor,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.875rem',
+                    fontWeight: 700,
+                    color: '#FFFFFF',
+                    flexShrink: 0,
                   }}
                 >
-                  "{testimonial.text}"
-                </p>
+                  {t.initials}
+                </div>
 
-                {/* Author Info */}
-                <div>
-                  <div
-                    style={{
-                      fontSize: '1rem',
-                      fontWeight: 'var(--font-weight-semibold)',
-                      color: 'var(--color-text-white)',
-                      marginBottom: '0.25rem',
-                    }}
-                  >
-                    {testimonial.name}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFFFFF' }}>
+                      {t.name}
+                    </span>
+                    {t.verified && (
+                      <span
+                        title="Verified client"
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          borderRadius: '50%',
+                          backgroundColor: '#2E7D32',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.6rem',
+                          color: '#fff',
+                          fontWeight: 700,
+                          flexShrink: 0,
+                        }}
+                      >
+                        ✓
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.55)', marginBottom: '0.3rem' }}>
+                    {t.role}
                   </div>
                   <div
                     style={{
-                      fontSize: '0.9rem',
-                      color: 'var(--color-text-white-transparent)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                      backgroundColor: 'rgba(255,255,255,0.08)',
+                      borderRadius: '6px',
+                      padding: '0.15rem 0.5rem',
                     }}
                   >
-                    {testimonial.role}, {testimonial.company}
+                    <span
+                      style={{
+                        width: '14px',
+                        height: '14px',
+                        borderRadius: '3px',
+                        backgroundColor: t.avatarColor,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.5rem',
+                        fontWeight: 700,
+                        color: '#fff',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {t.companyInitials[0]}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>
+                      {t.company}
+                    </span>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Navigation Buttons */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              gap: '1rem',
-              marginTop: '2rem',
-            }}
-          >
-            <button
-              onClick={() => scroll('left')}
-              disabled={currentIndex === 0}
-              aria-label="Previous testimonial"
-              style={{
-                width: '3rem',
-                height: '3rem',
-                borderRadius: '50%',
-                backgroundColor: currentIndex === 0 ? 'rgba(255,255,255,0.1)' : 'var(--color-gold-primary)',
-                color: currentIndex === 0 ? 'rgba(255,255,255,0.3)' : 'var(--color-primary-navy-dark)',
-                border: 'none',
-                fontSize: '1.5rem',
-                cursor: currentIndex === 0 ? 'not-allowed' : 'pointer',
-                transition: 'all 0.3s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              ←
-            </button>
-            <button
-              onClick={() => scroll('right')}
-              disabled={currentIndex === TESTIMONIALS.length - 1}
-              aria-label="Next testimonial"
-              style={{
-                width: '3rem',
-                height: '3rem',
-                borderRadius: '50%',
-                backgroundColor: currentIndex === TESTIMONIALS.length - 1 ? 'rgba(255,255,255,0.1)' : 'var(--color-gold-primary)',
-                color: currentIndex === TESTIMONIALS.length - 1 ? 'rgba(255,255,255,0.3)' : 'var(--color-primary-navy-dark)',
-                border: 'none',
-                fontSize: '1.5rem',
-                cursor: currentIndex === TESTIMONIALS.length - 1 ? 'not-allowed' : 'pointer',
-                transition: 'all 0.3s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              →
-            </button>
-          </div>
-
-          {/* Dot Indicators */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              marginTop: '1rem',
-            }}
-          >
-            {TESTIMONIALS.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  setCurrentIndex(index);
-                  if (scrollContainerRef.current) {
-                    const container = scrollContainerRef.current;
-                    const cardWidth = container.children[0]?.clientWidth || 0;
-                    const gap = 24;
-                    container.scrollTo({
-                      left: (cardWidth + gap) * index,
-                      behavior: 'smooth',
-                    });
-                  }
-                }}
-                aria-label={`Go to testimonial ${index + 1}`}
-                style={{
-                  width: '0.75rem',
-                  height: '0.75rem',
-                  borderRadius: '50%',
-                  backgroundColor: currentIndex === index ? 'var(--color-gold-primary)' : 'rgba(255,255,255,0.3)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                }}
-              />
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
 
-        {/* Hide scrollbar CSS */}
         <style jsx>{`
-          .hide-scrollbar::-webkit-scrollbar {
-            display: none;
+          @media (max-width: 1024px) {
+            .testimonials-grid {
+              grid-template-columns: repeat(2, 1fr) !important;
+            }
+          }
+          @media (max-width: 640px) {
+            .testimonials-grid {
+              grid-template-columns: 1fr !important;
+            }
           }
         `}</style>
       </div>
