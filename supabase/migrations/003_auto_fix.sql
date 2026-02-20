@@ -306,43 +306,81 @@ CREATE TABLE IF NOT EXISTS public.job_notes (
 
 -- ──────────────────────────────────────────────
 -- 2) ADD MISSING COLUMNS to tables that existed
---    before this migration (fully idempotent)
+--    before this migration (fully idempotent).
+--    Each block catches undefined_table (42P01)
+--    so it is a safe no-op when the table was
+--    freshly created with all columns in step 1.
 -- ──────────────────────────────────────────────
 
 -- Profiles
-ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS email      text,
-  ADD COLUMN IF NOT EXISTS role       text DEFAULT 'viewer',
-  ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL;
+DO $$
+BEGIN
+  ALTER TABLE public.profiles
+    ADD COLUMN IF NOT EXISTS email      text,
+    ADD COLUMN IF NOT EXISTS role       text DEFAULT 'viewer',
+    ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL;
+EXCEPTION WHEN undefined_table THEN NULL;
+END
+$$;
 
 -- Companies
-ALTER TABLE public.companies
-  ADD COLUMN IF NOT EXISTS status       text DEFAULT 'active',
-  ADD COLUMN IF NOT EXISTS company_type text DEFAULT 'standard';
+DO $$
+BEGIN
+  ALTER TABLE public.companies
+    ADD COLUMN IF NOT EXISTS status       text DEFAULT 'active',
+    ADD COLUMN IF NOT EXISTS company_type text DEFAULT 'standard';
+EXCEPTION WHEN undefined_table THEN NULL;
+END
+$$;
 
 -- Jobs
-ALTER TABLE public.jobs
-  ADD COLUMN IF NOT EXISTS distance_to_pickup_miles numeric;
+DO $$
+BEGIN
+  ALTER TABLE public.jobs
+    ADD COLUMN IF NOT EXISTS distance_to_pickup_miles numeric;
+EXCEPTION WHEN undefined_table THEN NULL;
+END
+$$;
 
 -- Job documents
-ALTER TABLE public.job_documents
-  ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+DO $$
+BEGIN
+  ALTER TABLE public.job_documents
+    ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+EXCEPTION WHEN undefined_table THEN NULL;
+END
+$$;
 
 -- Job bids — add alias columns + ensure core columns exist
-ALTER TABLE public.job_bids
-  ADD COLUMN IF NOT EXISTS amount          numeric(12,2),
-  ADD COLUMN IF NOT EXISTS bidder_user_id  uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS bid_price_gbp   numeric(12,2),
-  ADD COLUMN IF NOT EXISTS bidder_id       uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+DO $$
+BEGIN
+  ALTER TABLE public.job_bids
+    ADD COLUMN IF NOT EXISTS amount          numeric(12,2),
+    ADD COLUMN IF NOT EXISTS bidder_user_id  uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS bid_price_gbp   numeric(12,2),
+    ADD COLUMN IF NOT EXISTS bidder_id       uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+EXCEPTION WHEN undefined_table THEN NULL;
+END
+$$;
 
 -- Driver locations
-ALTER TABLE public.driver_locations
-  ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE CASCADE,
-  ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+DO $$
+BEGIN
+  ALTER TABLE public.driver_locations
+    ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE CASCADE,
+    ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+EXCEPTION WHEN undefined_table THEN NULL;
+END
+$$;
 
 -- Return journeys
-ALTER TABLE public.return_journeys
-  ADD COLUMN IF NOT EXISTS status text DEFAULT 'available';
+DO $$
+BEGIN
+  ALTER TABLE public.return_journeys
+    ADD COLUMN IF NOT EXISTS status text DEFAULT 'available';
+EXCEPTION WHEN undefined_table THEN NULL;
+END
+$$;
 
 -- ──────────────────────────────────────────────
 -- 3) UNIQUE CONSTRAINT on company_memberships
@@ -369,16 +407,19 @@ $$;
 
 -- ──────────────────────────────────────────────
 -- 4) BACKFILL alias columns in job_bids
---    (amount and bidder_user_id are guaranteed to
---     exist after step 2 above)
 -- ──────────────────────────────────────────────
-UPDATE public.job_bids
-SET bid_price_gbp = amount
-WHERE bid_price_gbp IS NULL AND amount IS NOT NULL;
+DO $$
+BEGIN
+  UPDATE public.job_bids
+  SET bid_price_gbp = amount
+  WHERE bid_price_gbp IS NULL AND amount IS NOT NULL;
 
-UPDATE public.job_bids
-SET bidder_id = bidder_user_id
-WHERE bidder_id IS NULL AND bidder_user_id IS NOT NULL;
+  UPDATE public.job_bids
+  SET bidder_id = bidder_user_id
+  WHERE bidder_id IS NULL AND bidder_user_id IS NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL;
+END
+$$;
 
 -- ──────────────────────────────────────────────
 -- 5) HELPER FUNCTIONS (idempotent via CREATE OR REPLACE)
@@ -444,23 +485,28 @@ CREATE TRIGGER trg_sync_job_bid_price
 -- ──────────────────────────────────────────────
 -- 7) ENABLE ROW LEVEL SECURITY
 -- ──────────────────────────────────────────────
-ALTER TABLE public.profiles                  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.companies                 ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.company_memberships       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.drivers                   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vehicles                  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.driver_documents          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vehicle_documents         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.jobs                      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.job_documents             ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.job_notes                 ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.job_tracking_events       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.job_bids                  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.driver_locations          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.job_driver_distance_cache ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.quotes                    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.diary_events              ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.return_journeys           ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  ALTER TABLE public.profiles                  ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.companies                 ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.company_memberships       ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.drivers                   ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.vehicles                  ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.driver_documents          ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.vehicle_documents         ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.jobs                      ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.job_documents             ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.job_notes                 ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.job_tracking_events       ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.job_bids                  ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.driver_locations          ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.job_driver_distance_cache ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.quotes                    ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.diary_events              ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.return_journeys           ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN undefined_table THEN NULL;
+END
+$$;
 
 -- ──────────────────────────────────────────────
 -- 8) RLS POLICIES (create only if absent)
