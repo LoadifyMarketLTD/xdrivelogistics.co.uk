@@ -92,7 +92,7 @@ export function Footer() {
                 marginBottom: '1rem',
               }}
             >
-              {COMPANY_CONFIG.tagline}. Professional transport across UK &amp; Europe.
+              {COMPANY_CONFIG.tagline}. Professional transport across UK & Europe.
             </p>
             <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', lineHeight: '1.5' }}>
               📍 {COMPANY_CONFIG.address.street},<br />
@@ -343,7 +343,7 @@ export function Footer() {
               textAlign: 'right',
             }}
           >
-            {COMPANY_CONFIG.name} is a trading name of {COMPANY_CONFIG.legalName} · Registered in England &amp; Wales
+            {COMPANY_CONFIG.name} is a trading name of {COMPANY_CONFIG.legalName} · Registered in England & Wales
           </p>
         </div>
       </div>

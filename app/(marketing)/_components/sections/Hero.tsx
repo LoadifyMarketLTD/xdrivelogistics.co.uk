@@ -109,7 +109,7 @@ export function Hero() {
             Professional Transport Services
             <br />
             <span style={{ color: '#D4AF37' }}>
-              Across UK &amp; Europe
+              Across UK & Europe
             </span>
           </h1>
 
@@ -368,7 +368,7 @@ export function Hero() {
                   Driver Available
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>
-                  Response time: &lt;5 min
+                  Response time: {'<'}5 min
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -391,7 +391,7 @@ export function Hero() {
                 3 drivers online nearby
               </span>
               <div style={{ display: 'flex', gap: '0.25rem' }}>
-                {[1,2,3].map(i => (
+                {[1, 2, 3].map(i => (
                   <div
                     key={i}
                     style={{
