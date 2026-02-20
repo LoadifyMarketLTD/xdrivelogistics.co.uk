@@ -48,6 +48,7 @@ const CARGO_TYPES = [
 export default function JobsPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,7 +72,18 @@ export default function JobsPage() {
 
   useEffect(() => {
     loadJobs();
-  }, []);
+    if (isSupabaseConfigured && user?.id) {
+      supabase
+        .from('company_memberships')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1)
+        .single()
+        .then(({ data }) => { if (data) setCompanyId(data.company_id as string); });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   useEffect(() => {
     filterJobs();
@@ -274,18 +286,15 @@ export default function JobsPage() {
     const updatedJobs = [...jobs, newJob];
     if (isSupabaseConfigured) {
       await supabase.from('jobs').insert([{
+        company_id: companyId,
         pickup_location: formData.pickupLocation,
         pickup_datetime: `${formData.pickupDate}T${formData.pickupTime}:00`,
         delivery_location: formData.deliveryLocation,
         delivery_datetime: `${formData.deliveryDate}T${formData.deliveryTime}:00`,
         cargo_type: formData.cargoType.toLowerCase() as string,
         items: parseInt(formData.cargoQuantity),
-        // Use authenticated user's company or leave null for RLS to handle
-        // load_details stores cargo description; client info stored in special_requirements
         special_requirements: [formData.clientName, formData.clientPhone, formData.clientEmail, formData.cargoNotes].filter(Boolean).join(' | '),
         status: 'draft',
-        // company_id must be provided by the authenticated user's context
-        // When Supabase auth is active, RLS requires a valid company membership
       }]);
       await loadJobs();
     } else {

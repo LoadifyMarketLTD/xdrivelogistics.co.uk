@@ -65,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
+          // In legacy mode, use email as ID (no real UUID available without Supabase)
           setUser({ id: parsed.email, email: parsed.email, role: parsed.role });
         } catch (error) {
           console.error('Failed to parse stored user:', error);
@@ -83,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Fall back to legacy credentials check
           const cred = LEGACY_CREDENTIALS.find(c => c.email === email && c.password === password);
           if (!cred) return { success: false, error: error.message };
+          // In legacy fallback mode, use email as a stand-in ID (no real UUID without Supabase)
           const userData: User = { id: email, email: cred.email, role: cred.role };
           setUser(userData);
           if (cred.role === 'mobile' || (typeof window !== 'undefined' && window.innerWidth < 768)) {
@@ -100,9 +102,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         return { success: false, error: 'Login failed' };
       } else {
-        // Legacy auth
+        // Legacy auth (no Supabase configured)
         const cred = LEGACY_CREDENTIALS.find(c => c.email === email && c.password === password);
         if (!cred) return { success: false, error: 'Invalid email or password' };
+        // In legacy mode, use email as a stand-in ID (no real UUID without Supabase)
         const userData: User = { id: email, email: cred.email, role: cred.role };
         localStorage.setItem('xdrive_user', JSON.stringify({ email: cred.email, role: cred.role }));
         setUser(userData);
