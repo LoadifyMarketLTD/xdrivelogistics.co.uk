@@ -299,7 +299,7 @@ export default function JobsPage() {
         cargo_type: formData.cargoType.toLowerCase() as string,
         items: parseInt(formData.cargoQuantity),
         special_requirements: [formData.clientName, formData.clientPhone, formData.clientEmail, formData.cargoNotes].filter(Boolean).join(' | '),
-        status: JOB_STATUS.RECEIVED,
+        status: JOB_STATUS.POSTED,
       }]);
       if (insertError) {
         console.error('Failed to create job:', insertError.message);
