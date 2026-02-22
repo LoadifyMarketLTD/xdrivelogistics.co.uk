@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { COMPANY_CONFIG, JOB_STATUS, JOB_STATUS_LABEL } from '../../../config/company';
+import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
 
 interface Job {
   id: string;
@@ -70,8 +71,50 @@ export default function JobDetailPage() {
     loadJob();
   }, [jobId]);
 
-  const loadJob = () => {
+  const loadJob = async () => {
     try {
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase.from('jobs').select('*').eq('id', jobId).single();
+        if (error) {
+          console.error('Failed to load job:', error.message);
+          setSaveMessage('Job not found');
+          return;
+        }
+        if (data) {
+          const row = data as Record<string, unknown>;
+          const mapped: Job = {
+            id: row.id as string,
+            jobRef: (row.id as string).slice(0, 13).toUpperCase(),
+            client: {
+              name: (row.load_details as string) || 'Unknown',
+              email: '',
+              phone: '',
+            },
+            pickup: {
+              location: (row.pickup_location as string) || '',
+              date: row.pickup_datetime ? (row.pickup_datetime as string).slice(0, 10) : '',
+              time: row.pickup_datetime ? (row.pickup_datetime as string).slice(11, 16) : '',
+            },
+            delivery: {
+              location: (row.delivery_location as string) || '',
+              date: row.delivery_datetime ? (row.delivery_datetime as string).slice(0, 10) : '',
+              time: row.delivery_datetime ? (row.delivery_datetime as string).slice(11, 16) : '',
+            },
+            cargo: {
+              type: (row.cargo_type as string) || 'other',
+              quantity: (row.items as number) || 1,
+              notes: (row.special_requirements as string) || '',
+            },
+            status: (row.status as string) || JOB_STATUS.RECEIVED,
+            createdAt: row.created_at as string,
+            updatedAt: row.updated_at as string,
+          };
+          setJob(mapped);
+          setFormData(mapped);
+          return;
+        }
+      }
+      // Fallback to localStorage
       const stored = localStorage.getItem('danny_jobs');
       if (stored) {
         const jobs: Job[] = JSON.parse(stored);
@@ -100,34 +143,42 @@ export default function JobDetailPage() {
     setEditMode(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData) return;
 
     try {
+      if (isSupabaseConfigured) {
+        const { error } = await supabase.from('jobs').update({
+          load_details: formData.client.name,
+          special_requirements: [formData.client.name, formData.client.phone, formData.client.email, formData.cargo.notes].filter(Boolean).join(' | '),
+          pickup_location: formData.pickup.location,
+          pickup_datetime: formData.pickup.date && formData.pickup.time ? `${formData.pickup.date}T${formData.pickup.time}:00` : null,
+          delivery_location: formData.delivery.location,
+          delivery_datetime: formData.delivery.date && formData.delivery.time ? `${formData.delivery.date}T${formData.delivery.time}:00` : null,
+          cargo_type: formData.cargo.type.toLowerCase(),
+          items: formData.cargo.quantity,
+          status: formData.status,
+          updated_at: new Date().toISOString(),
+        }).eq('id', jobId);
+        if (error) {
+          console.error('Failed to save job:', error.message);
+          setSaveMessage('Error saving job. Please try again.');
+          setTimeout(() => setSaveMessage(''), 3000);
+          return;
+        }
+        setJob(formData);
+        setEditMode(false);
+        setSaveMessage('Job saved successfully!');
+        setTimeout(() => setSaveMessage(''), 3000);
+        return;
+      }
+      // Fallback to localStorage
       const stored = localStorage.getItem('danny_jobs');
       if (stored) {
         let jobs: Job[] = JSON.parse(stored);
-        
-        // Check if status changed
-        const oldJob = jobs.find(j => j.id === jobId);
-        const statusChanged = oldJob && oldJob.status !== formData.status;
-        
-        // Update status history if status changed
-        if (statusChanged) {
-          const statusHistory = formData.statusHistory || [];
-          statusHistory.push({
-            status: formData.status,
-            timestamp: new Date().toISOString()
-          });
-          formData.statusHistory = statusHistory;
-        }
-        
-        // Update timestamp
         formData.updatedAt = new Date().toISOString();
-        
         jobs = jobs.map((j) => (j.id === jobId ? formData : j));
         localStorage.setItem('danny_jobs', JSON.stringify(jobs));
-        
         setJob(formData);
         setEditMode(false);
         setSaveMessage('Job saved successfully!');
@@ -140,8 +191,20 @@ export default function JobDetailPage() {
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     try {
+      if (isSupabaseConfigured) {
+        const { error } = await supabase.from('jobs').delete().eq('id', jobId);
+        if (error) {
+          console.error('Failed to delete job:', error.message);
+          setSaveMessage('Error deleting job. Please try again.');
+          setTimeout(() => setSaveMessage(''), 3000);
+          return;
+        }
+        router.push('/admin/jobs');
+        return;
+      }
+      // Fallback to localStorage
       const stored = localStorage.getItem('danny_jobs');
       if (stored) {
         let jobs: Job[] = JSON.parse(stored);
