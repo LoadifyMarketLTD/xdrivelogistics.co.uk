@@ -28,7 +28,11 @@ export default function BidsPage() {
 
   const updateStatus = async (id: string, status: string) => {
     if (!isSupabaseConfigured) return;
-    await supabase.from('job_bids').update({ status }).eq('id', id);
+    const { error } = await supabase.from('job_bids').update({ status }).eq('id', id);
+    if (error) {
+      console.error('Failed to update bid status:', error.message);
+      return;
+    }
     loadBids();
   };
 

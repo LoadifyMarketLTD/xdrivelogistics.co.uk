@@ -37,7 +37,11 @@ export default function DocumentsPage() {
   const updateStatus = async (id: string, status: DocStatus) => {
     if (!isSupabaseConfigured) return;
     const table = tab === 'driver' ? 'driver_documents' : 'vehicle_documents';
-    await supabase.from(table).update({ status }).eq('id', id);
+    const { error } = await supabase.from(table).update({ status }).eq('id', id);
+    if (error) {
+      console.error('Failed to update document status:', error.message);
+      return;
+    }
     loadDocs();
   };
 
