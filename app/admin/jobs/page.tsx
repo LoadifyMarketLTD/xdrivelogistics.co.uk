@@ -285,8 +285,13 @@ export default function JobsPage() {
 
     const updatedJobs = [...jobs, newJob];
     if (isSupabaseConfigured) {
-      await supabase.from('jobs').insert([{
+      if (!companyId) {
+        alert('Company profile not loaded yet. Please wait a moment and try again.');
+        return;
+      }
+      const { error: insertError } = await supabase.from('jobs').insert([{
         company_id: companyId,
+        load_details: formData.clientName,
         pickup_location: formData.pickupLocation,
         pickup_datetime: `${formData.pickupDate}T${formData.pickupTime}:00`,
         delivery_location: formData.deliveryLocation,
@@ -296,6 +301,12 @@ export default function JobsPage() {
         special_requirements: [formData.clientName, formData.clientPhone, formData.clientEmail, formData.cargoNotes].filter(Boolean).join(' | '),
         status: JOB_STATUS.RECEIVED,
       }]);
+      if (insertError) {
+        console.error('Failed to create job:', insertError.message);
+        alert('Failed to create job. Please check your connection and try again.');
+        return;
+      }
+      setStatusFilter('All');
       await loadJobs();
     } else {
       localStorage.setItem('danny_jobs', JSON.stringify(updatedJobs));
