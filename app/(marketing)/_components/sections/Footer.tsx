@@ -51,7 +51,7 @@ export function Footer() {
                 <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>
                   {badge.label}
                 </div>
-                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.8)' }}>
                   {badge.sub}
                 </div>
               </div>
@@ -94,11 +94,11 @@ export function Footer() {
             >
               {COMPANY_CONFIG.tagline}. Professional transport across UK & Europe.
             </p>
-            <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', lineHeight: '1.5' }}>
+            <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.75)', lineHeight: '1.5' }}>
               📍 {COMPANY_CONFIG.address.street},<br />
               {COMPANY_CONFIG.address.city}, {COMPANY_CONFIG.address.postcode}
             </p>
-            <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.35)', marginTop: '0.5rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.65)', marginTop: '0.5rem' }}>
               Co. No. {COMPANY_CONFIG.companyNumber}
             </p>
           </div>
@@ -329,7 +329,7 @@ export function Footer() {
           <p
             style={{
               fontSize: '0.8rem',
-              color: 'rgba(255,255,255,0.4)',
+              color: 'rgba(255,255,255,0.7)',
               margin: 0,
             }}
           >
@@ -338,7 +338,7 @@ export function Footer() {
           <p
             style={{
               fontSize: '0.75rem',
-              color: 'rgba(255,255,255,0.3)',
+              color: 'rgba(255,255,255,0.6)',
               margin: 0,
               textAlign: 'right',
             }}
