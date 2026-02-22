@@ -602,10 +602,10 @@ export default function JobsPage() {
                               outline: 'none'
                             }}
                           >
-                            <option value={JOB_STATUS.RECEIVED}>{JOB_STATUS.RECEIVED}</option>
-                            <option value={JOB_STATUS.POSTED}>{JOB_STATUS.POSTED}</option>
-                            <option value={JOB_STATUS.ALLOCATED}>{JOB_STATUS.ALLOCATED}</option>
-                            <option value={JOB_STATUS.DELIVERED}>{JOB_STATUS.DELIVERED}</option>
+                            <option value={JOB_STATUS.RECEIVED}>Received</option>
+                            <option value={JOB_STATUS.POSTED}>Posted</option>
+                            <option value={JOB_STATUS.ALLOCATED}>Allocated</option>
+                            <option value={JOB_STATUS.DELIVERED}>Delivered</option>
                           </select>
                         </td>
                         <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#6b7280' }}>

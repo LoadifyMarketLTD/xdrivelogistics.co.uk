@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import { COMPANY_CONFIG, JOB_STATUS } from '../../../config/company';
+import { COMPANY_CONFIG, JOB_STATUS, JOB_STATUS_LABEL } from '../../../config/company';
 
 interface Job {
   id: string;
@@ -513,14 +513,14 @@ export default function JobDetailPage() {
                     >
                       {STATUS_OPTIONS.map((status) => (
                         <option key={status} value={status}>
-                          {status}
+                          {JOB_STATUS_LABEL[status] ?? status}
                         </option>
                       ))}
                     </select>
                   </div>
                 ) : (
                   <div style={getStatusBadgeStyle(formData.status)}>
-                    {formData.status}
+                    {JOB_STATUS_LABEL[formData.status] ?? formData.status}
                   </div>
                 )}
               </div>

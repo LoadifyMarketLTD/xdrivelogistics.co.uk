@@ -51,7 +51,7 @@ export default function AdminPage() {
       supabase.from('jobs').select('id', { count: 'exact', head: true }).in('status', ['posted', 'allocated', 'in_transit']),
       supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered').gte('updated_at', todayUtc),
       supabase.from('drivers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-      supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
+      supabase.from('quotes').select('id', { count: 'exact', head: true }).in('status', ['draft', 'sent']),
     ]).then(([activeJobsRes, completedRes, driversRes, quotesRes]) => {
       setStats({
         activeJobs: String(activeJobsRes.count ?? 0),

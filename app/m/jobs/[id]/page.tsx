@@ -8,7 +8,7 @@ import PODPhotoUpload from '../../../components/PODPhotoUpload';
 import SignatureCanvas from '../../../components/SignatureCanvas';
 import DelayUpdate from '../../../components/DelayUpdate';
 import Toast from '../../../components/Toast';
-import { JOB_STATUS } from '../../../config/company';
+import { JOB_STATUS, JOB_STATUS_LABEL } from '../../../config/company';
 
 interface JobPODData {
   pickupPhotos: string[];
@@ -405,7 +405,7 @@ export default function JobDetailPage() {
                 margin: 0,
                 opacity: 0.9
               }}>
-                Status: {job.status}
+                Status: {JOB_STATUS_LABEL[job.status] ?? job.status}
               </p>
             </div>
           </div>
