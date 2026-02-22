@@ -14,6 +14,7 @@ interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
 }
 
@@ -122,6 +123,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'Password reset is not available in offline mode.' };
+    }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/settings`,
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    } catch (err) {
+      console.error('Reset password error:', err);
+      return { success: false, error: 'An error occurred. Please try again.' };
+    }
+  };
+
   const logout = async () => {
     if (isSupabaseConfigured) {
       await supabase.auth.signOut();
@@ -133,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, resetPassword, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
