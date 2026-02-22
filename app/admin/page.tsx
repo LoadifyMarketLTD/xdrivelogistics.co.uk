@@ -491,7 +491,15 @@ export default function AdminPage() {
               <button onClick={() => window.location.href = '/admin/quotes'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Quotes</button>
             </div>
           )}
-          {activeSection !== 'dashboard' && activeSection !== 'invoices' && activeSection !== 'jobs' && activeSection !== 'companies' && activeSection !== 'drivers' && activeSection !== 'vehicles' && activeSection !== 'documents' && activeSection !== 'bids' && activeSection !== 'quotes' && (
+          {activeSection === 'settings' && (
+            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⚙️</div>
+              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>System Settings</h3>
+              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Configure company information, notifications, and system preferences.</p>
+              <button onClick={() => window.location.href = '/admin/settings'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Settings</button>
+            </div>
+          )}
+          {activeSection !== 'dashboard' && activeSection !== 'invoices' && activeSection !== 'jobs' && activeSection !== 'companies' && activeSection !== 'drivers' && activeSection !== 'vehicles' && activeSection !== 'documents' && activeSection !== 'bids' && activeSection !== 'quotes' && activeSection !== 'settings' && (
             <div style={{
               backgroundColor: 'white',
               padding: '3rem 2rem',

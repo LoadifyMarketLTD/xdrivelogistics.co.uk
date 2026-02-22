@@ -294,7 +294,7 @@ export default function JobsPage() {
         cargo_type: formData.cargoType.toLowerCase() as string,
         items: parseInt(formData.cargoQuantity),
         special_requirements: [formData.clientName, formData.clientPhone, formData.clientEmail, formData.cargoNotes].filter(Boolean).join(' | '),
-        status: 'draft',
+        status: JOB_STATUS.RECEIVED,
       }]);
       await loadJobs();
     } else {
@@ -304,7 +304,14 @@ export default function JobsPage() {
     closeModal();
   };
 
-  const handleStatusChange = (jobId: string, newStatus: string) => {
+  const handleStatusChange = async (jobId: string, newStatus: string) => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('jobs').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', jobId);
+      if (error) {
+        console.error('Failed to update job status:', error.message);
+        return;
+      }
+    }
     const updatedJobs = jobs.map(job =>
       job.id === jobId
         ? { ...job, status: newStatus, updatedAt: new Date().toISOString() }
@@ -312,6 +319,10 @@ export default function JobsPage() {
     );
     localStorage.setItem('danny_jobs', JSON.stringify(updatedJobs));
     setJobs(updatedJobs);
+  };
+
+  const handlePostJob = async (jobId: string) => {
+    await handleStatusChange(jobId, JOB_STATUS.POSTED);
   };
 
   const closeModal = () => {
@@ -601,24 +612,46 @@ export default function JobsPage() {
                           {formatDate(job.createdAt)}
                         </td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>
-                          <button
-                            onClick={() => router.push(`/admin/jobs/${job.id}`)}
-                            style={{
-                              padding: '0.5rem 1rem',
-                              backgroundColor: '#0A2239',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '6px',
-                              fontSize: '0.85rem',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              transition: 'background-color 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e3a5f'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0A2239'}
-                          >
-                            View
-                          </button>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                            {job.status === JOB_STATUS.RECEIVED && (
+                              <button
+                                onClick={() => handlePostJob(job.id)}
+                                style={{
+                                  padding: '0.5rem 1rem',
+                                  backgroundColor: '#5C9FD8',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '0.85rem',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                  transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2F6FB3'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#5C9FD8'}
+                              >
+                                Post
+                              </button>
+                            )}
+                            <button
+                              onClick={() => router.push(`/admin/jobs/${job.id}`)}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                backgroundColor: '#0A2239',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '0.85rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e3a5f'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0A2239'}
+                            >
+                              View
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
