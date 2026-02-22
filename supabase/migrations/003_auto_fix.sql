@@ -327,8 +327,12 @@ $$;
 DO $$
 BEGIN
   ALTER TABLE public.companies
-    ADD COLUMN IF NOT EXISTS status       text DEFAULT 'active',
-    ADD COLUMN IF NOT EXISTS company_type text DEFAULT 'standard';
+    ADD COLUMN IF NOT EXISTS address_line1 text,
+    ADD COLUMN IF NOT EXISTS address_line2 text,
+    ADD COLUMN IF NOT EXISTS city          text,
+    ADD COLUMN IF NOT EXISTS postcode      text,
+    ADD COLUMN IF NOT EXISTS status        text DEFAULT 'active',
+    ADD COLUMN IF NOT EXISTS company_type  text DEFAULT 'standard';
 EXCEPTION WHEN undefined_table THEN NULL;
 END
 $$;
