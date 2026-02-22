@@ -3,16 +3,17 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import type { Driver } from '../../../lib/types/database';
+import type { Driver, Company } from '../../../lib/types/database';
 
 export default function DriversPage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ display_name: '', phone: '', email: '', company_id: '' });
   const [error, setError] = useState('');
 
-  useEffect(() => { loadDrivers(); }, []);
+  useEffect(() => { loadDrivers(); loadCompanies(); }, []);
 
   const loadDrivers = async () => {
     setLoading(true);
@@ -22,9 +23,16 @@ export default function DriversPage() {
     setLoading(false);
   };
 
+  const loadCompanies = async () => {
+    if (!isSupabaseConfigured) return;
+    const { data, error } = await supabase.from('companies').select('id, name').order('name');
+    if (error) { console.error('Failed to load companies:', error.message); return; }
+    if (data) setCompanies(data as Company[]);
+  };
+
   const handleCreate = async () => {
     if (!formData.display_name.trim()) { setError('Driver name is required'); return; }
-    if (!formData.company_id.trim()) { setError('Company ID is required'); return; }
+    if (!formData.company_id) { setError('Company is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     const { error } = await supabase.from('drivers').insert([formData]);
     if (error) { setError(error.message); return; }
@@ -101,7 +109,13 @@ export default function DriversPage() {
               <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
                 {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
                 <div><label style={labelStyle}>Full Name *</label><input style={inputStyle} value={formData.display_name} onChange={e => setFormData({...formData, display_name: e.target.value})} placeholder="John Smith" /></div>
-                <div><label style={labelStyle}>Company ID *</label><input style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})} placeholder="UUID of company" /></div>
+                <div>
+                  <label style={labelStyle}>Company *</label>
+                  <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})}>
+                    <option value="">Select a company…</option>
+                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
                 <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="driver@email.com" /></div>
                 <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="07123456789" /></div>
               </div>
