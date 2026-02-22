@@ -1,18 +1,28 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Driver } from '../../../lib/types/database';
 
 export default function DriversPage() {
+  const router = useRouter();
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ display_name: '', phone: '', email: '', company_id: '' });
   const [error, setError] = useState('');
 
-  useEffect(() => { loadDrivers(); }, []);
+  useEffect(() => {
+    loadDrivers();
+    if (isSupabaseConfigured) {
+      supabase.from('companies').select('id,name').then(({ data, error }) => {
+        if (!error && data) setCompanies(data);
+      });
+    }
+  }, []);
 
   const loadDrivers = async () => {
     setLoading(true);
@@ -24,7 +34,7 @@ export default function DriversPage() {
 
   const handleCreate = async () => {
     if (!formData.display_name.trim()) { setError('Driver name is required'); return; }
-    if (!formData.company_id.trim()) { setError('Company ID is required'); return; }
+    if (!formData.company_id.trim()) { setError('Company is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     const { error } = await supabase.from('drivers').insert([formData]);
     if (error) { setError(error.message); return; }
@@ -47,9 +57,14 @@ export default function DriversPage() {
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Drivers</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage drivers for your company</p>
             </div>
-            <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
-              + Add Driver
-            </button>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={() => router.push('/admin')} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#0A2239', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
+                ← Back to Admin
+              </button>
+              <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
+                + Add Driver
+              </button>
+            </div>
           </div>
 
           {!isSupabaseConfigured && (
@@ -101,7 +116,17 @@ export default function DriversPage() {
               <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
                 {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
                 <div><label style={labelStyle}>Full Name *</label><input style={inputStyle} value={formData.display_name} onChange={e => setFormData({...formData, display_name: e.target.value})} placeholder="John Smith" /></div>
-                <div><label style={labelStyle}>Company ID *</label><input style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})} placeholder="UUID of company" /></div>
+                <div>
+                  <label style={labelStyle}>Company *</label>
+                  {companies.length > 0 ? (
+                    <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})}>
+                      <option value="">— Select company —</option>
+                      {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  ) : (
+                    <input style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})} placeholder="Company UUID" />
+                  )}
+                </div>
                 <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="driver@email.com" /></div>
                 <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="07123456789" /></div>
               </div>
