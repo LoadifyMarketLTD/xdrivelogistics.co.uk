@@ -2,11 +2,37 @@
 
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../components/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 export default function AdminPage() {
   const { user, logout } = useAuth();
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [stats, setStats] = useState({ activeJobs: '—', pendingQuotes: '—', activeDrivers: '—', completedToday: '—' });
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setStats({ activeJobs: '0', pendingQuotes: '0', activeDrivers: '0', completedToday: '0' });
+      return;
+    }
+    // Use start-of-UTC-day so "today" is consistent with the timestamps stored by Supabase
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    Promise.all([
+      supabase.from('jobs').select('id', { count: 'exact', head: true }).in('status', ['posted', 'allocated', 'in_transit']),
+      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered').gte('updated_at', todayUtc),
+      supabase.from('drivers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
+    ]).then(([activeJobsRes, completedRes, driversRes, quotesRes]) => {
+      setStats({
+        activeJobs: String(activeJobsRes.count ?? 0),
+        pendingQuotes: String(quotesRes.count ?? 0),
+        activeDrivers: String(driversRes.count ?? 0),
+        completedToday: String(completedRes.count ?? 0),
+      });
+    }).catch(() => {
+      setStats({ activeJobs: '0', pendingQuotes: '0', activeDrivers: '0', completedToday: '0' });
+    });
+  }, []);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -181,10 +207,10 @@ export default function AdminPage() {
                 marginBottom: '2rem'
               }}>
                 {[
-                  { label: 'Active Jobs', value: '24', icon: '🚚', color: '#1F7A3D' },
-                  { label: 'Pending Invoices', value: '12', icon: '💰', color: '#f59e0b' },
-                  { label: 'Active Drivers', value: '8', icon: '👤', color: '#0A2239' },
-                  { label: 'Completed Today', value: '45', icon: '✅', color: '#5C9FD8' },
+                  { label: 'Active Jobs', value: stats.activeJobs, icon: '🚚', color: '#1F7A3D' },
+                  { label: 'Pending Quotes', value: stats.pendingQuotes, icon: '💬', color: '#f59e0b' },
+                  { label: 'Active Drivers', value: stats.activeDrivers, icon: '👤', color: '#0A2239' },
+                  { label: 'Completed Today', value: stats.completedToday, icon: '✅', color: '#5C9FD8' },
                 ].map((stat, index) => (
                   <div
                     key={index}
