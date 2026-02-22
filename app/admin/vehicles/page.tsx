@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Vehicle, VehicleType } from '../../../lib/types/database';
@@ -8,13 +9,22 @@ import type { Vehicle, VehicleType } from '../../../lib/types/database';
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
 export default function VehiclesPage() {
+  const router = useRouter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ company_id: '', type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
   const [error, setError] = useState('');
 
-  useEffect(() => { loadVehicles(); }, []);
+  useEffect(() => {
+    loadVehicles();
+    if (isSupabaseConfigured) {
+      supabase.from('companies').select('id,name').then(({ data, error }) => {
+        if (!error && data) setCompanies(data);
+      });
+    }
+  }, []);
 
   const loadVehicles = async () => {
     setLoading(true);
@@ -25,7 +35,7 @@ export default function VehiclesPage() {
   };
 
   const handleCreate = async () => {
-    if (!formData.company_id.trim()) { setError('Company ID is required'); return; }
+    if (!formData.company_id.trim()) { setError('Company is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     const { error } = await supabase.from('vehicles').insert([{ ...formData, payload_kg: formData.payload_kg ? parseFloat(formData.payload_kg) : null }]);
     if (error) { setError(error.message); return; }
@@ -47,9 +57,14 @@ export default function VehiclesPage() {
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Vehicles</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage fleet vehicles</p>
             </div>
-            <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
-              + Add Vehicle
-            </button>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={() => router.push('/admin')} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#0A2239', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
+                ← Back to Admin
+              </button>
+              <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
+                + Add Vehicle
+              </button>
+            </div>
           </div>
 
           {!isSupabaseConfigured && (
@@ -101,7 +116,17 @@ export default function VehiclesPage() {
               </div>
               <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
                 {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
-                <div><label style={labelStyle}>Company ID *</label><input style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})} placeholder="UUID of company" /></div>
+                <div>
+                  <label style={labelStyle}>Company *</label>
+                  {companies.length > 0 ? (
+                    <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})}>
+                      <option value="">— Select company —</option>
+                      {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  ) : (
+                    <input style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})} placeholder="Company UUID" />
+                  )}
+                </div>
                 <div>
                   <label style={labelStyle}>Vehicle Type *</label>
                   <select style={inputStyle} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as VehicleType})}>
