@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DriverDocument, VehicleDocument, DocStatus } from '../../../lib/types/database';
@@ -16,7 +15,6 @@ const STATUS_COLORS: Record<DocStatus, { bg: string; text: string }> = {
 };
 
 export default function DocumentsPage() {
-  const router = useRouter();
   const [docs, setDocs] = useState<AnyDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'driver' | 'vehicle'>('driver');
@@ -52,14 +50,9 @@ export default function DocumentsPage() {
     <ProtectedRoute>
       <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Documents</h1>
-              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Review and verify driver & vehicle documents</p>
-            </div>
-            <button onClick={() => router.push('/admin')} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#0A2239', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
-              ← Back to Admin
-            </button>
+          <div style={{ marginBottom: '2rem' }}>
+            <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Documents</h1>
+            <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Review and verify driver & vehicle documents</p>
           </div>
 
           {!isSupabaseConfigured && (
