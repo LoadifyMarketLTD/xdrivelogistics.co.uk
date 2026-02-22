@@ -5,10 +5,13 @@ import { useRouter, useParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import InvoiceTemplate, { InvoiceData } from '../../../components/InvoiceTemplate';
 import { COMPANY_CONFIG } from '../../../config/company';
+import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
+import { useAuth } from '../../../components/AuthContext';
 
 export default function InvoiceDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const { user } = useAuth();
   const invoiceId = params?.id as string;
   const isNew = invoiceId === 'new';
 
@@ -38,14 +41,6 @@ export default function InvoiceDetailPage() {
 
   const [showPreview, setShowPreview] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
-
-  useEffect(() => {
-    if (!isNew) {
-      loadInvoice();
-    } else {
-      generateNewInvoiceData();
-    }
-  }, [invoiceId]);
 
   useEffect(() => {
     if (formData.date && formData.paymentTerms) {
@@ -116,52 +111,107 @@ export default function InvoiceDetailPage() {
     }));
   };
 
-  const loadInvoice = () => {
-    try {
-      const stored = localStorage.getItem('dannycourier_invoices');
-      if (stored) {
-        const invoices: InvoiceData[] = JSON.parse(stored);
-        const invoice = invoices.find((inv) => inv.id === invoiceId);
-        if (invoice) {
-          setFormData(invoice);
-        } else {
-          router.push('/admin/invoices');
-        }
-      } else {
-        router.push('/admin/invoices');
-      }
-    } catch (error) {
-      console.error('Error loading invoice:', error);
-      router.push('/admin/invoices');
-    }
+  const loadInvoice = async () => {
+    if (!isSupabaseConfigured) { router.push('/admin/invoices'); return; }
+    const { data, error } = await supabase.from('invoices').select('*').eq('id', invoiceId).single();
+    if (error || !data) { router.push('/admin/invoices'); return; }
+    setFormData({
+      id: data.id,
+      invoiceNumber: data.invoice_number,
+      jobRef: data.job_ref,
+      date: data.date,
+      dueDate: data.due_date,
+      status: data.status as InvoiceData['status'],
+      clientName: data.client_name,
+      clientAddress: data.client_address ?? '',
+      clientEmail: data.client_email ?? '',
+      pickupLocation: data.pickup_location ?? '',
+      pickupDateTime: data.pickup_datetime ?? '',
+      deliveryLocation: data.delivery_location ?? '',
+      deliveryDateTime: data.delivery_datetime ?? '',
+      deliveryRecipient: data.delivery_recipient ?? '',
+      serviceDescription: data.service_description ?? '',
+      amount: data.amount,
+      paymentTerms: data.payment_terms as InvoiceData['paymentTerms'],
+      lateFee: data.late_fee ?? COMPANY_CONFIG.payment.lateFeeNote,
+      vatRate: data.vat_rate as 0 | 5 | 20,
+      netAmount: data.net_amount,
+      vatAmount: data.vat_amount,
+      podPhotos: data.pod_photos ?? undefined,
+      signature: data.signature ?? undefined,
+      recipientName: data.recipient_name ?? undefined,
+    });
   };
 
-  const handleSave = () => {
-    try {
-      const stored = localStorage.getItem('dannycourier_invoices');
-      let invoices: InvoiceData[] = stored ? JSON.parse(stored) : [];
-
-      if (isNew) {
-        invoices.push(formData);
-      } else {
-        invoices = invoices.map((inv) => (inv.id === invoiceId ? formData : inv));
-      }
-
-      localStorage.setItem('dannycourier_invoices', JSON.stringify(invoices));
+  const handleSave = async () => {
+    if (!isSupabaseConfigured) {
+      setSaveMessage('Supabase is not configured. Cannot save invoice.');
+      setTimeout(() => setSaveMessage(''), 3000);
+      return;
+    }
+    // Resolve company_id from user's active membership
+    let companyId: string | null = null;
+    if (user?.id) {
+      const { data: mem } = await supabase
+        .from('company_memberships')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1)
+        .single();
+      companyId = mem?.company_id ?? null;
+    }
+    const record = {
+      company_id: companyId,
+      created_by: user?.id ?? null,
+      invoice_number: formData.invoiceNumber,
+      job_ref: formData.jobRef,
+      date: formData.date,
+      due_date: formData.dueDate,
+      status: formData.status,
+      client_name: formData.clientName,
+      client_address: formData.clientAddress || null,
+      client_email: formData.clientEmail || null,
+      pickup_location: formData.pickupLocation || null,
+      pickup_datetime: formData.pickupDateTime || null,
+      delivery_location: formData.deliveryLocation || null,
+      delivery_datetime: formData.deliveryDateTime || null,
+      delivery_recipient: formData.deliveryRecipient || null,
+      service_description: formData.serviceDescription || null,
+      amount: formData.amount,
+      payment_terms: formData.paymentTerms,
+      late_fee: formData.lateFee || null,
+      vat_rate: formData.vatRate,
+      net_amount: formData.netAmount,
+      vat_amount: formData.vatAmount,
+      updated_at: new Date().toISOString(),
+    };
+    let error;
+    if (isNew) {
+      ({ error } = await supabase.from('invoices').insert([record]));
+    } else {
+      ({ error } = await supabase.from('invoices').update(record).eq('id', invoiceId));
+    }
+    if (error) {
+      setSaveMessage(`Error saving invoice: ${error.message}`);
+    } else {
       setSaveMessage('Invoice saved successfully!');
-      setTimeout(() => setSaveMessage(''), 3000);
-
       if (isNew) {
-        setTimeout(() => {
-          router.push(`/admin/invoices/${formData.id}`);
-        }, 1000);
+        setTimeout(() => router.push('/admin/invoices'), 1000);
       }
-    } catch (error) {
-      console.error('Error saving invoice:', error);
-      setSaveMessage('Error saving invoice. Please try again.');
-      setTimeout(() => setSaveMessage(''), 3000);
     }
+    setTimeout(() => setSaveMessage(''), 3000);
   };
+
+  // Load existing invoice or generate new data - placed after function declarations
+  useEffect(() => {
+    if (!isNew) {
+      loadInvoice();
+    } else {
+      generateNewInvoiceData();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceId]);
 
   const handleWhatsAppShare = () => {
     const message = encodeURIComponent(
@@ -429,7 +479,7 @@ export default function InvoiceDetailPage() {
                     <label style={labelStyle}>Status</label>
                     <select
                       value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as InvoiceData['status'] })}
                       style={inputStyle}
                     >
                       <option value="Pending">Pending</option>

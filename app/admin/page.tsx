@@ -21,7 +21,7 @@ export default function AdminPage() {
       supabase.from('jobs').select('id', { count: 'exact', head: true }).in('status', ['posted', 'allocated', 'in_transit']),
       supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered').gte('updated_at', todayUtc),
       supabase.from('drivers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-      supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
+      supabase.from('quotes').select('id', { count: 'exact', head: true }).in('status', ['draft', 'sent']),
     ]).then(([activeJobsRes, completedRes, driversRes, quotesRes]) => {
       setStats({
         activeJobs: String(activeJobsRes.count ?? 0),
@@ -33,6 +33,40 @@ export default function AdminPage() {
       setStats({ activeJobs: '0', pendingQuotes: '0', activeDrivers: '0', completedToday: '0' });
     });
   }, []);
+
+  const handleGenerateReport = async () => {
+    if (!isSupabaseConfigured) {
+      alert('Supabase is not configured. Cannot generate report.');
+      return;
+    }
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('id, status, pickup_location, delivery_location, pickup_datetime, delivery_datetime, created_at, updated_at')
+      .order('created_at', { ascending: false });
+    if (error || !data) {
+      alert('Failed to fetch jobs for report.');
+      return;
+    }
+    const headers = ['ID', 'Status', 'Pickup Location', 'Delivery Location', 'Pickup Date', 'Delivery Date', 'Created At', 'Updated At'];
+    const rows = data.map((j) => [
+      j.id,
+      j.status,
+      j.pickup_location ?? '',
+      j.delivery_location ?? '',
+      j.pickup_datetime ?? '',
+      j.delivery_datetime ?? '',
+      j.created_at,
+      j.updated_at,
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `jobs-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -317,6 +351,7 @@ export default function AdminPage() {
                     📦 Manage Jobs
                   </button>
                   <button
+                    onClick={handleGenerateReport}
                     style={{
                       padding: '1rem',
                       backgroundColor: '#e0f2fe',

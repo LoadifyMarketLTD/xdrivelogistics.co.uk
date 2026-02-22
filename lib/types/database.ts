@@ -215,3 +215,34 @@ export interface Quote {
   status: string;
   created_at: string;
 }
+
+export interface Invoice {
+  id: string;
+  company_id: string | null;
+  created_by: string | null;
+  invoice_number: string;
+  job_ref: string;
+  date: string;
+  due_date: string;
+  status: string;
+  client_name: string;
+  client_address: string | null;
+  client_email: string | null;
+  pickup_location: string | null;
+  pickup_datetime: string | null;
+  delivery_location: string | null;
+  delivery_datetime: string | null;
+  delivery_recipient: string | null;
+  service_description: string | null;
+  amount: number;
+  payment_terms: string;
+  late_fee: string | null;
+  vat_rate: number;
+  net_amount: number;
+  vat_amount: number;
+  pod_photos: string[] | null;
+  signature: string | null;
+  recipient_name: string | null;
+  created_at: string;
+  updated_at: string;
+}

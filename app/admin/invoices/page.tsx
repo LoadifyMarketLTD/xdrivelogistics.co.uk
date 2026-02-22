@@ -3,50 +3,52 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import type { InvoiceData } from '../../components/InvoiceTemplate';
+import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { useAuth } from '../../components/AuthContext';
+import type { Invoice } from '../../../lib/types/database';
+
+type InvoiceStatus = 'All' | 'Paid' | 'Pending' | 'Overdue';
+
+function calculateStatus(dueDate: string, currentStatus: string): 'Paid' | 'Pending' | 'Overdue' {
+  if (currentStatus === 'Paid') return 'Paid';
+  const today = new Date();
+  const due = new Date(dueDate);
+  return today > due ? 'Overdue' : 'Pending';
+}
 
 export default function InvoicesPage() {
   const router = useRouter();
-  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
+  const { user } = useAuth();
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Paid' | 'Pending' | 'Overdue'>('All');
+  const [statusFilter, setStatusFilter] = useState<InvoiceStatus>('All');
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadInvoices();
-  }, []);
-
-  const loadInvoices = () => {
-    try {
-      const stored = localStorage.getItem('dannycourier_invoices');
-      if (stored) {
-        const parsedInvoices = JSON.parse(stored);
-        const updatedInvoices = parsedInvoices.map((inv: InvoiceData) => ({
-          ...inv,
-          status: calculateStatus(inv.dueDate, inv.status)
-        }));
-        setInvoices(updatedInvoices);
-        localStorage.setItem('dannycourier_invoices', JSON.stringify(updatedInvoices));
-      }
-    } catch (error) {
-      console.error('Error loading invoices:', error);
+  const loadInvoices = async () => {
+    setLoading(true);
+    if (!isSupabaseConfigured) { setLoading(false); return; }
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      const updated = (data as Invoice[]).map((inv) => ({
+        ...inv,
+        status: calculateStatus(inv.due_date, inv.status),
+      }));
+      setInvoices(updated);
     }
+    setLoading(false);
   };
 
-  const calculateStatus = (dueDate: string, currentStatus: string): 'Paid' | 'Pending' | 'Overdue' => {
-    if (currentStatus === 'Paid') return 'Paid';
-    const today = new Date();
-    const due = new Date(dueDate);
-    return today > due ? 'Overdue' : 'Pending';
-  };
+  useEffect(() => { loadInvoices(); }, [user]); // eslint-disable-line react-hooks/set-state-in-effect
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
-      invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.jobRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.clientName.toLowerCase().includes(searchTerm.toLowerCase());
-
+      invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.job_ref.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.client_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'All' || invoice.status === statusFilter;
-
     return matchesSearch && matchesStatus;
   });
 
@@ -58,7 +60,6 @@ export default function InvoicesPage() {
       fontWeight: '600',
       display: 'inline-block',
     };
-
     switch (status) {
       case 'Paid':
         return { ...baseStyle, backgroundColor: '#d1fae5', color: '#065f46' };
@@ -115,6 +116,12 @@ export default function InvoicesPage() {
 
         {/* Main Content */}
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+          {!isSupabaseConfigured && (
+            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
+              ⚠️ Supabase is not configured. Database features are disabled.
+            </div>
+          )}
+
           {/* Controls */}
           <div style={{
             backgroundColor: 'white',
@@ -125,7 +132,6 @@ export default function InvoicesPage() {
           }}>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', flex: 1 }}>
-                {/* Search */}
                 <input
                   type="text"
                   placeholder="Search invoices..."
@@ -144,11 +150,9 @@ export default function InvoicesPage() {
                   onFocus={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
                   onBlur={(e) => e.currentTarget.style.borderColor = '#e5e7eb'}
                 />
-
-                {/* Status Filter */}
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  onChange={(e) => setStatusFilter(e.target.value as InvoiceStatus)}
                   style={{
                     padding: '0.75rem 1rem',
                     border: '2px solid #e5e7eb',
@@ -165,8 +169,6 @@ export default function InvoicesPage() {
                   <option value="Overdue">Overdue</option>
                 </select>
               </div>
-
-              {/* Create New Button */}
               <button
                 onClick={() => router.push('/admin/invoices/new')}
                 style={{
@@ -196,7 +198,9 @@ export default function InvoicesPage() {
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
             overflow: 'hidden'
           }}>
-            {filteredInvoices.length === 0 ? (
+            {loading ? (
+              <div style={{ padding: '3rem 2rem', textAlign: 'center', color: '#6b7280' }}>Loading invoices…</div>
+            ) : filteredInvoices.length === 0 ? (
               <div style={{
                 padding: '3rem 2rem',
                 textAlign: 'center'
@@ -236,30 +240,14 @@ export default function InvoicesPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
-                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
-                        Invoice #
-                      </th>
-                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
-                        Job Ref
-                      </th>
-                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
-                        Client
-                      </th>
-                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
-                        Date
-                      </th>
-                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
-                        Due Date
-                      </th>
-                      <th style={{ padding: '1rem', textAlign: 'right', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
-                        Amount
-                      </th>
-                      <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
-                        Status
-                      </th>
-                      <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
-                        Actions
-                      </th>
+                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>Invoice #</th>
+                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>Job Ref</th>
+                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>Client</th>
+                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>Date</th>
+                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>Due Date</th>
+                      <th style={{ padding: '1rem', textAlign: 'right', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>Amount</th>
+                      <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>Status</th>
+                      <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -275,35 +263,18 @@ export default function InvoicesPage() {
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
                         onClick={() => router.push(`/admin/invoices/${invoice.id}`)}
                       >
-                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#1f2937', fontWeight: '500' }}>
-                          {invoice.invoiceNumber}
-                        </td>
-                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#1f2937' }}>
-                          {invoice.jobRef}
-                        </td>
-                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#1f2937' }}>
-                          {invoice.clientName}
-                        </td>
-                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#6b7280' }}>
-                          {new Date(invoice.date).toLocaleDateString('en-GB')}
-                        </td>
-                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#6b7280' }}>
-                          {new Date(invoice.dueDate).toLocaleDateString('en-GB')}
-                        </td>
-                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#1f2937', fontWeight: '600', textAlign: 'right' }}>
-                          £{invoice.amount.toFixed(2)}
-                        </td>
+                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#1f2937', fontWeight: '500' }}>{invoice.invoice_number}</td>
+                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#1f2937' }}>{invoice.job_ref}</td>
+                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#1f2937' }}>{invoice.client_name}</td>
+                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#6b7280' }}>{new Date(invoice.date).toLocaleDateString('en-GB')}</td>
+                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#6b7280' }}>{new Date(invoice.due_date).toLocaleDateString('en-GB')}</td>
+                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#1f2937', fontWeight: '600', textAlign: 'right' }}>£{invoice.amount.toFixed(2)}</td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>
-                          <span style={getStatusStyle(invoice.status)}>
-                            {invoice.status}
-                          </span>
+                          <span style={getStatusStyle(invoice.status)}>{invoice.status}</span>
                         </td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/admin/invoices/${invoice.id}`);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); router.push(`/admin/invoices/${invoice.id}`); }}
                             style={{
                               padding: '0.5rem 1rem',
                               backgroundColor: '#eff6ff',
@@ -315,14 +286,8 @@ export default function InvoicesPage() {
                               cursor: 'pointer',
                               transition: 'all 0.2s'
                             }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#dbeafe';
-                              e.currentTarget.style.borderColor = '#93c5fd';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = '#eff6ff';
-                              e.currentTarget.style.borderColor = '#bfdbfe';
-                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.borderColor = '#93c5fd'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
                           >
                             View
                           </button>
