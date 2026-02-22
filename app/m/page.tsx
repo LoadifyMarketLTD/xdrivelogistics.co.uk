@@ -7,14 +7,14 @@ export default function MobilePage() {
   const { user, logout } = useAuth();
 
   const tiles = [
-    { id: 'active', label: 'Active Jobs', icon: '🚚', color: '#1F7A3D' },
-    { id: 'pickup', label: 'Pickup', icon: '📦', color: '#f59e0b' },
-    { id: 'delivery', label: 'Delivery', icon: '✅', color: '#2F6FB3' },
-    { id: 'history', label: 'History', icon: '📋', color: '#0A2239' },
+    { id: 'active', label: 'Active Jobs', icon: '🚚', color: '#1F7A3D', filter: 'active' },
+    { id: 'pickup', label: 'Pickup', icon: '📦', color: '#f59e0b', filter: 'pickup' },
+    { id: 'delivery', label: 'Delivery', icon: '✅', color: '#2F6FB3', filter: 'delivery' },
+    { id: 'history', label: 'History', icon: '📋', color: '#0A2239', filter: 'completed' },
   ];
 
-  const handleTileClick = (tileId: string) => {
-    window.location.href = '/m/jobs';
+  const handleTileClick = (filter: string) => {
+    window.location.href = `/m/jobs?filter=${filter}`;
   };
 
   return (
@@ -103,7 +103,7 @@ export default function MobilePage() {
             {tiles.map((tile) => (
               <button
                 key={tile.id}
-                onClick={() => handleTileClick(tile.id)}
+                onClick={() => handleTileClick(tile.filter)}
                 style={{
                   backgroundColor: 'white',
                   border: 'none',

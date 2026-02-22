@@ -38,6 +38,21 @@ export default function InvoiceDetailPage() {
 
   const [showPreview, setShowPreview] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDelete = () => {
+    try {
+      const stored = localStorage.getItem('dannycourier_invoices');
+      if (stored) {
+        const invoices: InvoiceData[] = JSON.parse(stored);
+        const filtered = invoices.filter((inv) => inv.id !== invoiceId);
+        localStorage.setItem('dannycourier_invoices', JSON.stringify(filtered));
+      }
+      router.push('/admin/invoices');
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+    }
+  };
 
   useEffect(() => {
     if (!isNew) {
@@ -342,6 +357,26 @@ export default function InvoiceDetailPage() {
                   >
                     📱 WhatsApp
                   </button>
+                  {!isNew && (
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      style={{
+                        padding: '0.75rem 1.25rem',
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '0.95rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ef4444')}
+                    >
+                      🗑️ Delete
+                    </button>
+                  )}
                 </div>
                 {saveMessage && (
                   <div
@@ -645,6 +680,18 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
       </div>
+      {showDeleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', maxWidth: '400px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1f2937', marginBottom: '0.75rem' }}>Delete Invoice</h3>
+            <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>Are you sure you want to delete invoice <strong>{formData.invoiceNumber}</strong>? This action cannot be undone.</p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowDeleteConfirm(false)} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.95rem', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleDelete} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </ProtectedRoute>
   );
 }

@@ -1,9 +1,21 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
+
+interface StoredJob {
+  id: string;
+  jobRef: string;
+  client: { name: string; email: string; phone: string };
+  pickup: { location: string; date: string; time: string };
+  delivery: { location: string; date: string; time: string };
+  cargo: { type: string; quantity: number; notes: string };
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface Job {
   id: string;
@@ -15,50 +27,46 @@ interface Job {
   status: 'active' | 'pickup' | 'delivery' | 'completed';
 }
 
-// Mock data - will be replaced with real data from backend
-const mockJobs: Job[] = [
-  {
-    id: '1',
-    ref: 'DC-240115-0001',
-    pickupLocation: 'Birmingham Warehouse',
-    deliveryLocation: 'London Office',
-    pickupTime: '2024-01-15T09:00:00',
-    deliveryTime: '2024-01-15T14:00:00',
-    status: 'active'
-  },
-  {
-    id: '2',
-    ref: 'DC-240115-0002',
-    pickupLocation: 'Manchester Depot',
-    deliveryLocation: 'Leeds Distribution Center',
-    pickupTime: '2024-01-15T10:30:00',
-    deliveryTime: '2024-01-15T13:30:00',
-    status: 'pickup'
-  },
-  {
-    id: '3',
-    ref: 'DC-240115-0003',
-    pickupLocation: 'Bristol Storage',
-    deliveryLocation: 'Cardiff Warehouse',
-    pickupTime: '2024-01-15T08:00:00',
-    deliveryTime: '2024-01-15T11:00:00',
-    status: 'delivery'
-  },
-  {
-    id: '4',
-    ref: 'DC-240114-0045',
-    pickupLocation: 'Southampton Port',
-    deliveryLocation: 'Reading HQ',
-    pickupTime: '2024-01-14T15:00:00',
-    deliveryTime: '2024-01-14T17:30:00',
-    status: 'completed'
-  },
-];
+// Map admin status values to mobile filter categories
+const adminStatusToMobile = (status: string): Job['status'] => {
+  switch (status) {
+    case 'Posted': return 'pickup';
+    case 'Allocated': return 'delivery';
+    case 'Delivered': return 'completed';
+    default: return 'active'; // 'Received' and any unknown
+  }
+};
 
 export default function JobsPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'pickup' | 'delivery' | 'completed'>('all');
+  const searchParams = useSearchParams();
+  const initialFilter = (searchParams.get('filter') as Job['status'] | 'all') ?? 'all';
+  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'pickup' | 'delivery' | 'completed'>(initialFilter);
+  const [jobs, setJobs] = useState<Job[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('danny_jobs');
+      if (stored) {
+        const storedJobs: StoredJob[] = JSON.parse(stored);
+        const mapped: Job[] = storedJobs
+          .filter((j) => j.pickup?.location && j.delivery?.location)
+          .map((j) => ({
+          id: j.id,
+          ref: j.jobRef || j.id,
+          pickupLocation: j.pickup.location,
+          deliveryLocation: j.delivery.location,
+          pickupTime: j.pickup.date && j.pickup.time ? `${j.pickup.date}T${j.pickup.time}:00` : '',
+          deliveryTime: j.delivery.date && j.delivery.time ? `${j.delivery.date}T${j.delivery.time}:00` : '',
+          status: adminStatusToMobile(j.status),
+        }));
+        setJobs(mapped);
+      }
+    } catch (e) {
+      console.error('Error loading jobs:', e);
+    }
+  }, []);
 
   const filters = [
     { id: 'all', label: 'All', icon: '📋', color: '#6366f1' },
@@ -68,16 +76,18 @@ export default function JobsPage() {
     { id: 'completed', label: 'History', icon: '📝', color: '#8b5cf6' },
   ];
 
-  const filteredJobs = activeFilter === 'all' 
-    ? mockJobs 
-    : mockJobs.filter(job => job.status === activeFilter);
+  const filteredJobs = activeFilter === 'all'
+    ? jobs
+    : jobs.filter(job => job.status === activeFilter);
 
   const formatTime = (isoString: string) => {
+    if (!isoString) return '—';
     const date = new Date(isoString);
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
   const formatDate = (isoString: string) => {
+    if (!isoString) return '—';
     const date = new Date(isoString);
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
   };
@@ -172,10 +182,10 @@ export default function JobsPage() {
             {filters.map((filter) => (
               <button
                 key={filter.id}
-                onClick={() => setActiveFilter(filter.id as any)}
+                onClick={() => setActiveFilter(filter.id as typeof activeFilter)}
                 style={{
-                  backgroundColor: activeFilter === filter.id 
-                    ? 'rgba(255, 255, 255, 0.3)' 
+                  backgroundColor: activeFilter === filter.id
+                    ? 'rgba(255, 255, 255, 0.3)'
                     : 'rgba(255, 255, 255, 0.1)',
                   color: 'white',
                   border: activeFilter === filter.id ? '2px solid white' : '2px solid transparent',
