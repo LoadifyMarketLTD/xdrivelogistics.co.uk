@@ -63,13 +63,24 @@ export const COMPANY_CONFIG = {
   },
 };
 
-// Job status options (MASTER SPEC)
+// Job status options (MASTER SPEC) — values match the Supabase public.job_status ENUM
 export const JOB_STATUS = {
-  RECEIVED: 'Received',
-  POSTED: 'Posted',
-  ALLOCATED: 'Allocated',
-  DELIVERED: 'Delivered',
+  RECEIVED: 'draft',       // new job awaiting posting
+  POSTED: 'posted',        // posted for driver bids
+  ALLOCATED: 'allocated',  // driver assigned
+  DELIVERED: 'delivered',  // job completed
 } as const;
+
+// Human-readable labels for each DB status value
+export const JOB_STATUS_LABEL: Record<string, string> = {
+  draft: 'Received',
+  posted: 'Posted',
+  allocated: 'Allocated',
+  in_transit: 'In Transit',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+  disputed: 'Disputed',
+};
 
 // Delay update options (MASTER SPEC)
 export const DELAY_OPTIONS = [15, 30, 45, 60] as const;

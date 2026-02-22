@@ -3,12 +3,42 @@
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../components/AuthContext';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
+import { COMPANY_CONFIG } from '../config/company';
 
 export default function AdminPage() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [activeSection, setActiveSection] = useState('dashboard');
   const [stats, setStats] = useState({ activeJobs: '—', pendingQuotes: '—', activeDrivers: '—', completedToday: '—' });
+
+  const generateReport = () => {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-GB');
+    const timeStr = now.toLocaleTimeString('en-GB');
+    const rows: string[][] = [
+      [`${COMPANY_CONFIG.legalName} \u2014 Operations Report`],
+      [`Date: ${dateStr}`, `Time: ${timeStr}`],
+      [''],
+      ['DASHBOARD SUMMARY'],
+      ['Metric', 'Value'],
+      ['Active Jobs', stats.activeJobs],
+      ['Pending Quotes', stats.pendingQuotes],
+      ['Active Drivers', stats.activeDrivers],
+      ['Completed Today', stats.completedToday],
+    ];
+    const csv = rows.map(r => r.map(cell => `"${cell}"`).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `danny-courier-report-${now.toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -21,7 +51,7 @@ export default function AdminPage() {
       supabase.from('jobs').select('id', { count: 'exact', head: true }).in('status', ['posted', 'allocated', 'in_transit']),
       supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered').gte('updated_at', todayUtc),
       supabase.from('drivers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-      supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
+      supabase.from('quotes').select('id', { count: 'exact', head: true }).in('status', ['draft', 'sent']),
     ]).then(([activeJobsRes, completedRes, driversRes, quotesRes]) => {
       setStats({
         activeJobs: String(activeJobsRes.count ?? 0),
@@ -93,7 +123,7 @@ export default function AdminPage() {
             {menuItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => setActiveSection(item.id)}
+                onClick={() => item.id === 'dashboard' ? setActiveSection('dashboard') : router.push(`/admin/${item.id}`)}
                 style={{
                   width: '100%',
                   padding: '0.875rem 1.5rem',
@@ -269,7 +299,7 @@ export default function AdminPage() {
                   gap: '1rem'
                 }}>
                   <button
-                    onClick={() => window.location.href = '/admin/invoices'}
+                    onClick={() => router.push('/admin/invoices')}
                     style={{
                       padding: '1rem',
                       backgroundColor: '#f0fdf4',
@@ -293,7 +323,7 @@ export default function AdminPage() {
                     💰 View Invoices
                   </button>
                   <button
-                    onClick={() => window.location.href = '/admin/jobs'}
+                    onClick={() => router.push('/admin/jobs')}
                     style={{
                       padding: '1rem',
                       backgroundColor: '#1F7A3D',
@@ -317,6 +347,7 @@ export default function AdminPage() {
                     📦 Manage Jobs
                   </button>
                   <button
+                    onClick={generateReport}
                     style={{
                       padding: '1rem',
                       backgroundColor: '#e0f2fe',
@@ -374,7 +405,7 @@ export default function AdminPage() {
                 Manage all your invoices in the dedicated invoice section.
               </p>
               <button
-                onClick={() => window.location.href = '/admin/invoices'}
+                onClick={() => router.push('/admin/invoices')}
                 style={{
                   padding: '0.75rem 1.5rem',
                   backgroundColor: '#1F7A3D',
@@ -423,7 +454,7 @@ export default function AdminPage() {
                 View and manage all your delivery jobs.
               </p>
               <button
-                onClick={() => window.location.href = '/admin/jobs'}
+                onClick={() => router.push('/admin/jobs')}
                 style={{
                   padding: '0.75rem 1.5rem',
                   backgroundColor: '#1F7A3D',
@@ -448,7 +479,7 @@ export default function AdminPage() {
               <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🏢</div>
               <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Company Management</h3>
               <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Manage companies and memberships.</p>
-              <button onClick={() => window.location.href = '/admin/companies'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Companies</button>
+              <button onClick={() => router.push('/admin/companies')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Companies</button>
             </div>
           )}
           {activeSection === 'drivers' && (
@@ -456,7 +487,7 @@ export default function AdminPage() {
               <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚚</div>
               <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Driver Management</h3>
               <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Manage your drivers.</p>
-              <button onClick={() => window.location.href = '/admin/drivers'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Drivers</button>
+              <button onClick={() => router.push('/admin/drivers')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Drivers</button>
             </div>
           )}
           {activeSection === 'vehicles' && (
@@ -464,7 +495,7 @@ export default function AdminPage() {
               <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚛</div>
               <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Vehicle Management</h3>
               <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Manage your fleet vehicles.</p>
-              <button onClick={() => window.location.href = '/admin/vehicles'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Vehicles</button>
+              <button onClick={() => router.push('/admin/vehicles')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Vehicles</button>
             </div>
           )}
           {activeSection === 'documents' && (
@@ -472,7 +503,7 @@ export default function AdminPage() {
               <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📄</div>
               <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Document Management</h3>
               <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Review and verify driver & vehicle documents.</p>
-              <button onClick={() => window.location.href = '/admin/documents'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Documents</button>
+              <button onClick={() => router.push('/admin/documents')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Documents</button>
             </div>
           )}
           {activeSection === 'bids' && (
@@ -480,7 +511,7 @@ export default function AdminPage() {
               <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💼</div>
               <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Bid Management</h3>
               <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Review and manage job bids.</p>
-              <button onClick={() => window.location.href = '/admin/bids'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Bids</button>
+              <button onClick={() => router.push('/admin/bids')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Bids</button>
             </div>
           )}
           {activeSection === 'quotes' && (
@@ -488,7 +519,7 @@ export default function AdminPage() {
               <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💬</div>
               <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Quote Management</h3>
               <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Create and manage price quotes.</p>
-              <button onClick={() => window.location.href = '/admin/quotes'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Quotes</button>
+              <button onClick={() => router.push('/admin/quotes')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Quotes</button>
             </div>
           )}
           {activeSection === 'settings' && (
@@ -496,7 +527,7 @@ export default function AdminPage() {
               <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⚙️</div>
               <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>System Settings</h3>
               <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Configure company information, notifications, and system preferences.</p>
-              <button onClick={() => window.location.href = '/admin/settings'} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Settings</button>
+              <button onClick={() => router.push('/admin/settings')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Settings</button>
             </div>
           )}
           {activeSection !== 'dashboard' && activeSection !== 'invoices' && activeSection !== 'jobs' && activeSection !== 'companies' && activeSection !== 'drivers' && activeSection !== 'vehicles' && activeSection !== 'documents' && activeSection !== 'bids' && activeSection !== 'quotes' && activeSection !== 'settings' && (
