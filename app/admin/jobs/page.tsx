@@ -89,70 +89,39 @@ export default function JobsPage() {
     filterJobs();
   }, [jobs, searchTerm, statusFilter]);
 
-  const dbStatusToAppStatus = (dbStatus: string): string => {
-    switch (dbStatus) {
-      case 'draft': return JOB_STATUS.RECEIVED;
-      case 'posted': return JOB_STATUS.POSTED;
-      case 'allocated': return JOB_STATUS.ALLOCATED;
-      case 'in_transit': return JOB_STATUS.ALLOCATED;
-      case 'delivered': return JOB_STATUS.DELIVERED;
-      default: return JOB_STATUS.RECEIVED;
-    }
-  };
-
-  const appStatusToDbStatus = (appStatus: string): string => {
-    switch (appStatus) {
-      case JOB_STATUS.RECEIVED: return 'draft';
-      case JOB_STATUS.POSTED: return 'posted';
-      case JOB_STATUS.ALLOCATED: return 'allocated';
-      case JOB_STATUS.DELIVERED: return 'delivered';
-      default: return 'draft';
-    }
-  };
-
   const loadJobs = async () => {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
-      if (!error && data && data.length > 0) {
-        const mapped = data.map((row: Record<string, unknown>) => {
-          const specialReqs = (row.special_requirements as string) || '';
-          const parts = specialReqs.split(' | ');
-          // New records store clientName in load_details and special_requirements as [phone, email, notes].
-          // Old records stored special_requirements as [name, phone, email, notes] without load_details.
-          const hasLoadDetails = Boolean(row.load_details);
-          return {
-            id: row.id as string,
-            jobRef: (row.id as string).slice(0, 13).toUpperCase(),
-            client: {
-              name: (row.load_details as string) || parts[0] || 'Unknown',
-              phone: hasLoadDetails ? (parts[0] || '') : (parts[1] || ''),
-              email: hasLoadDetails ? (parts[1] || '') : (parts[2] || ''),
-            },
-            pickup: {
-              location: (row.pickup_location as string) || '',
-              date: row.pickup_datetime ? (row.pickup_datetime as string).slice(0, 10) : '',
-              time: row.pickup_datetime ? (row.pickup_datetime as string).slice(11, 16) : '',
-            },
-            delivery: {
-              location: (row.delivery_location as string) || '',
-              date: row.delivery_datetime ? (row.delivery_datetime as string).slice(0, 10) : '',
-              time: row.delivery_datetime ? (row.delivery_datetime as string).slice(11, 16) : '',
-            },
-            cargo: {
-              type: (row.cargo_type as string) || 'Other',
-              quantity: (row.items as number) || 1,
-              notes: hasLoadDetails ? (parts[2] || '') : (parts[3] || ''),
-            },
-            status: dbStatusToAppStatus((row.status as string) || 'draft'),
-            createdAt: row.created_at as string,
-            updatedAt: row.updated_at as string,
-          };
-        });
+      if (!error && data) {
+        const mapped = data.map((row: Record<string, unknown>) => ({
+          id: row.id as string,
+          jobRef: (row.id as string).slice(0, 13).toUpperCase(),
+          client: {
+            name: (row.load_details as string) || 'Unknown',
+            email: '',
+            phone: '',
+          },
+          pickup: {
+            location: (row.pickup_location as string) || '',
+            date: row.pickup_datetime ? (row.pickup_datetime as string).slice(0, 10) : '',
+            time: row.pickup_datetime ? (row.pickup_datetime as string).slice(11, 16) : '',
+          },
+          delivery: {
+            location: (row.delivery_location as string) || '',
+            date: row.delivery_datetime ? (row.delivery_datetime as string).slice(0, 10) : '',
+            time: row.delivery_datetime ? (row.delivery_datetime as string).slice(11, 16) : '',
+          },
+          cargo: {
+            type: (row.cargo_type as string) || 'Other',
+            quantity: (row.items as number) || 1,
+            notes: (row.special_requirements as string) || '',
+          },
+          status: (row.status as string) || JOB_STATUS.RECEIVED,
+          createdAt: row.created_at as string,
+          updatedAt: row.updated_at as string,
+        }));
         setJobs(mapped);
         return;
-      }
-      if (!error) {
-        // Supabase returned empty — fall through to localStorage
       }
     }
     // Fallback to localStorage
@@ -315,8 +284,8 @@ export default function JobsPage() {
     };
 
     const updatedJobs = [...jobs, newJob];
-    if (isSupabaseConfigured && companyId) {
-      const { error } = await supabase.from('jobs').insert([{
+    if (isSupabaseConfigured) {
+      await supabase.from('jobs').insert([{
         company_id: companyId,
         pickup_location: formData.pickupLocation,
         pickup_datetime: `${formData.pickupDate}T${formData.pickupTime}:00`,
@@ -324,34 +293,25 @@ export default function JobsPage() {
         delivery_datetime: `${formData.deliveryDate}T${formData.deliveryTime}:00`,
         cargo_type: formData.cargoType.toLowerCase() as string,
         items: parseInt(formData.cargoQuantity),
-        load_details: formData.clientName,
-        special_requirements: [formData.clientPhone, formData.clientEmail, formData.cargoNotes].filter(Boolean).join(' | '),
-        status: appStatusToDbStatus(JOB_STATUS.RECEIVED),
+        special_requirements: [formData.clientName, formData.clientPhone, formData.clientEmail, formData.cargoNotes].filter(Boolean).join(' | '),
+        status: 'draft',
       }]);
-      if (!error) {
-        await loadJobs();
-        closeModal();
-        return;
-      }
+      await loadJobs();
+    } else {
+      localStorage.setItem('danny_jobs', JSON.stringify(updatedJobs));
+      setJobs(updatedJobs);
     }
-    // Fallback: save to localStorage (used when Supabase is not configured,
-    // company_id is unavailable, or the insert returned an error)
-    localStorage.setItem('danny_jobs', JSON.stringify(updatedJobs));
-    setJobs(updatedJobs);
     closeModal();
   };
 
-  const handleStatusChange = async (jobId: string, newStatus: string) => {
+  const handleStatusChange = (jobId: string, newStatus: string) => {
     const updatedJobs = jobs.map(job =>
       job.id === jobId
         ? { ...job, status: newStatus, updatedAt: new Date().toISOString() }
         : job
     );
-    setJobs(updatedJobs);
-    if (isSupabaseConfigured) {
-      await supabase.from('jobs').update({ status: appStatusToDbStatus(newStatus) }).eq('id', jobId);
-    }
     localStorage.setItem('danny_jobs', JSON.stringify(updatedJobs));
+    setJobs(updatedJobs);
   };
 
   const closeModal = () => {

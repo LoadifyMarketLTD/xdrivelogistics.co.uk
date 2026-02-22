@@ -2,37 +2,11 @@
 
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../components/AuthContext';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function AdminPage() {
   const { user, logout } = useAuth();
   const [activeSection, setActiveSection] = useState('dashboard');
-  const [dashboardStats, setDashboardStats] = useState({ activeJobs: 0, pendingInvoices: 0, activeDrivers: 0, completedToday: 0 });
-  const [reportMsg, setReportMsg] = useState('');
-
-  useEffect(() => {
-    // Load live stats from localStorage
-    try {
-      // Jobs use key 'danny_jobs'; invoices use 'dannycourier_invoices' (legacy naming)
-      const storedJobs = localStorage.getItem('danny_jobs');
-      const jobs = storedJobs ? JSON.parse(storedJobs) : [];
-      const activeJobs = jobs.filter((j: { status: string }) => j.status !== 'Delivered').length;
-      const completedToday = jobs.filter((j: { status: string; updatedAt: string }) => {
-        if (j.status !== 'Delivered') return false;
-        const today = new Date().toDateString();
-        return new Date(j.updatedAt).toDateString() === today;
-      }).length;
-
-      const storedInvoices = localStorage.getItem('dannycourier_invoices');
-      const invoices = storedInvoices ? JSON.parse(storedInvoices) : [];
-      const pendingInvoices = invoices.filter((inv: { status: string }) => inv.status === 'Pending' || inv.status === 'Overdue').length;
-
-      setDashboardStats({ activeJobs, pendingInvoices, activeDrivers: 0, completedToday });
-    } catch (e) {
-      // Non-critical: stats stay at 0 if localStorage is unavailable or data is corrupt
-      console.warn('Dashboard stats could not be loaded from localStorage:', e);
-    }
-  }, []);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -207,10 +181,10 @@ export default function AdminPage() {
                 marginBottom: '2rem'
               }}>
                 {[
-                  { label: 'Active Jobs', value: String(dashboardStats.activeJobs), icon: '🚚', color: '#1F7A3D' },
-                  { label: 'Pending Invoices', value: String(dashboardStats.pendingInvoices), icon: '💰', color: '#f59e0b' },
-                  { label: 'Active Drivers', value: String(dashboardStats.activeDrivers), icon: '👤', color: '#0A2239' },
-                  { label: 'Completed Today', value: String(dashboardStats.completedToday), icon: '✅', color: '#5C9FD8' },
+                  { label: 'Active Jobs', value: '24', icon: '🚚', color: '#1F7A3D' },
+                  { label: 'Pending Invoices', value: '12', icon: '💰', color: '#f59e0b' },
+                  { label: 'Active Drivers', value: '8', icon: '👤', color: '#0A2239' },
+                  { label: 'Completed Today', value: '45', icon: '✅', color: '#5C9FD8' },
                 ].map((stat, index) => (
                   <div
                     key={index}
@@ -317,7 +291,6 @@ export default function AdminPage() {
                     📦 Manage Jobs
                   </button>
                   <button
-                    onClick={() => setReportMsg('📊 Report generation is coming soon. Your data will be exportable as CSV/PDF in a future update.')}
                     style={{
                       padding: '1rem',
                       backgroundColor: '#e0f2fe',
@@ -340,12 +313,6 @@ export default function AdminPage() {
                   >
                     📊 Generate Report
                   </button>
-                  {reportMsg && (
-                    <div style={{ gridColumn: '1 / -1', backgroundColor: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '8px', padding: '0.75rem', color: '#075985', fontSize: '0.9rem' }}>
-                      {reportMsg}
-                      <button onClick={() => setReportMsg('')} style={{ marginLeft: '0.75rem', background: 'none', border: 'none', cursor: 'pointer', color: '#075985', fontWeight: '700' }}>×</button>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
