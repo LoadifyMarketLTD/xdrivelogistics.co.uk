@@ -77,7 +77,7 @@ export default function JobsPage() {
         .from('company_memberships')
         .select('company_id')
         .eq('user_id', user.id)
-        .eq('status', 'active')
+        .neq('status', 'suspended')
         .limit(1)
         .single()
         .then(({ data }) => { if (data) setCompanyId(data.company_id as string); });
