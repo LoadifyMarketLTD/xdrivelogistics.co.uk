@@ -73,14 +73,27 @@ export default function JobsPage() {
   useEffect(() => {
     loadJobs();
     if (isSupabaseConfigured && user?.id) {
+      // Use get_or_create_company_for_user() which fixes the RLS circular
+      // dependency (old memberships_select_member policy blocked 'invited'
+      // status users) and auto-provisions a company when none exists.
       supabase
-        .from('company_memberships')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .neq('status', 'suspended')
-        .limit(1)
-        .single()
-        .then(({ data }) => { if (data) setCompanyId(data.company_id as string); });
+        .rpc('get_or_create_company_for_user')
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setCompanyId(data as string);
+          } else {
+            if (error) console.error('get_or_create_company_for_user failed:', error.message);
+            // Fallback: direct membership query (works after migration 010)
+            supabase
+              .from('company_memberships')
+              .select('company_id')
+              .eq('user_id', user.id)
+              .neq('status', 'suspended')
+              .limit(1)
+              .single()
+              .then(({ data: mbData }) => { if (mbData) setCompanyId(mbData.company_id as string); });
+          }
+        });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
@@ -285,12 +298,21 @@ export default function JobsPage() {
 
     const updatedJobs = [...jobs, newJob];
     if (isSupabaseConfigured) {
-      if (!companyId) {
-        alert('Company profile not loaded yet. Please wait a moment and try again.');
-        return;
+      // Resolve companyId — use state value or re-fetch if missing
+      let resolvedCompanyId = companyId;
+      if (!resolvedCompanyId) {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('get_or_create_company_for_user');
+        if (rpcData) {
+          resolvedCompanyId = rpcData as string;
+          setCompanyId(resolvedCompanyId);
+        } else {
+          console.error('Failed to provision company:', rpcError?.message);
+          alert('Unable to load company profile. Please refresh the page and try again.');
+          return;
+        }
       }
       const { error: insertError } = await supabase.from('jobs').insert([{
-        company_id: companyId,
+        company_id: resolvedCompanyId,
         load_details: formData.clientName,
         pickup_location: formData.pickupLocation,
         pickup_datetime: `${formData.pickupDate}T${formData.pickupTime}:00`,
