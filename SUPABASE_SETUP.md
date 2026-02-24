@@ -375,7 +375,38 @@ EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE public.jobs
-    ADD COLUMN IF NOT EXISTS distance_to_pickup_miles numeric;
+    ADD COLUMN IF NOT EXISTS created_by               uuid    REFERENCES auth.users(id),
+    ADD COLUMN IF NOT EXISTS status                   public.job_status DEFAULT 'draft',
+    ADD COLUMN IF NOT EXISTS vehicle_type             public.vehicle_type,
+    ADD COLUMN IF NOT EXISTS cargo_type               public.cargo_type,
+    ADD COLUMN IF NOT EXISTS pickup_location          text,
+    ADD COLUMN IF NOT EXISTS pickup_postcode          text,
+    ADD COLUMN IF NOT EXISTS pickup_lat               double precision,
+    ADD COLUMN IF NOT EXISTS pickup_lng               double precision,
+    ADD COLUMN IF NOT EXISTS pickup_datetime          timestamptz,
+    ADD COLUMN IF NOT EXISTS delivery_location        text,
+    ADD COLUMN IF NOT EXISTS delivery_postcode        text,
+    ADD COLUMN IF NOT EXISTS delivery_lat             double precision,
+    ADD COLUMN IF NOT EXISTS delivery_lng             double precision,
+    ADD COLUMN IF NOT EXISTS delivery_datetime        timestamptz,
+    ADD COLUMN IF NOT EXISTS pallets                  int,
+    ADD COLUMN IF NOT EXISTS boxes                    int,
+    ADD COLUMN IF NOT EXISTS bags                     int,
+    ADD COLUMN IF NOT EXISTS items                    int,
+    ADD COLUMN IF NOT EXISTS weight_kg                numeric,
+    ADD COLUMN IF NOT EXISTS length_cm                numeric,
+    ADD COLUMN IF NOT EXISTS width_cm                 numeric,
+    ADD COLUMN IF NOT EXISTS height_cm                numeric,
+    ADD COLUMN IF NOT EXISTS currency                 text    DEFAULT 'GBP',
+    ADD COLUMN IF NOT EXISTS budget_amount            numeric,
+    ADD COLUMN IF NOT EXISTS is_fixed_price           boolean DEFAULT false,
+    ADD COLUMN IF NOT EXISTS load_details             text,
+    ADD COLUMN IF NOT EXISTS special_requirements     text,
+    ADD COLUMN IF NOT EXISTS access_restrictions      text,
+    ADD COLUMN IF NOT EXISTS job_distance_miles       numeric,
+    ADD COLUMN IF NOT EXISTS job_distance_minutes     int,
+    ADD COLUMN IF NOT EXISTS distance_to_pickup_miles numeric,
+    ADD COLUMN IF NOT EXISTS updated_at               timestamptz DEFAULT now();
 EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN

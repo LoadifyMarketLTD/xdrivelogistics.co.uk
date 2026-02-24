@@ -52,6 +52,7 @@ export default function JobsPage() {
   const [companyLoading, setCompanyLoading] = useState(false);
   const [companyError, setCompanyError] = useState<string | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
@@ -285,6 +286,7 @@ export default function JobsPage() {
   const handleCreateJob = async () => {
     if (!validateForm()) return;
     setIsSubmitting(true);
+    setModalError(null);
     setDbError(null);
 
     const newJob: Job = {
@@ -333,6 +335,7 @@ export default function JobsPage() {
       }
       const { error: insertError } = await supabase.from('jobs').insert([{
         company_id: resolvedCompanyId,
+        created_by: user?.id ?? null,
         load_details: formData.clientName,
         pickup_location: formData.pickupLocation,
         pickup_datetime: `${formData.pickupDate}T${formData.pickupTime}:00`,
@@ -345,12 +348,14 @@ export default function JobsPage() {
       }]);
       if (insertError) {
         console.error('Failed to create job:', insertError.message);
-        const hint = insertError.message.includes('row-level security')
-          ? ' (RLS blocked — verify your company membership exists and migration 012 has been applied in Supabase)'
+        const hint = insertError.message.includes('row-level security') || insertError.message.includes('policy')
+          ? ' — RLS blocked: verify your company membership is active and migration 012 has been applied in Supabase'
+          : insertError.message.includes('schema cache') || insertError.message.includes('column')
+          ? ' — schema out of date: re-run 011_complete_schema_v2.sql in the Supabase SQL Editor to add missing columns'
           : insertError.message.includes('get_or_create_company')
-          ? ' (RPC not found — run supabase/migrations/011_complete_schema_v2.sql in the Supabase SQL Editor)'
+          ? ' — RPC missing: run 011_complete_schema_v2.sql in the Supabase SQL Editor'
           : '';
-        setDbError(`Failed to create job: ${insertError.message}${hint}`);
+        setModalError(`${insertError.message}${hint}`);
         setIsSubmitting(false);
         return;
       }
@@ -391,6 +396,7 @@ export default function JobsPage() {
 
   const closeModal = () => {
     setShowModal(false);
+    setModalError(null);
     setFormData({
       clientName: '',
       clientEmail: '',
@@ -475,7 +481,7 @@ export default function JobsPage() {
                 ← Back to Dashboard
               </button>
               <button
-                onClick={() => { setCompanyError(null); setShowModal(true); }}
+                onClick={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
                 disabled={newJobDisabled}
                 style={{
                   padding: '0.75rem 1.5rem',
@@ -1196,6 +1202,21 @@ export default function JobsPage() {
                 backgroundColor: '#f9fafb',
                 borderRadius: '0 0 12px 12px'
               }}>
+                {/* In-modal error */}
+                {modalError && (
+                  <div style={{
+                    backgroundColor: '#fef2f2',
+                    border: '1px solid #fca5a5',
+                    borderRadius: '8px',
+                    padding: '0.75rem 1rem',
+                    marginBottom: '0.5rem',
+                    color: '#991b1b',
+                    fontSize: '0.85rem',
+                    lineHeight: '1.4',
+                  }}>
+                    ❌ {modalError}
+                  </div>
+                )}
                 <button
                   onClick={closeModal}
                   style={{

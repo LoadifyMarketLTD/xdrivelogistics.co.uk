@@ -71,7 +71,8 @@ export default function JobDetailPage() {
 
   useEffect(() => {
     loadJob();
-  }, [jobId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId, hasSupabaseSession]);
 
   const loadJob = async () => {
     try {
