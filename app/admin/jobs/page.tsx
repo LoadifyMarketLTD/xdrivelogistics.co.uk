@@ -49,6 +49,8 @@ export default function JobsPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companyLoading, setCompanyLoading] = useState(false);
+  const [companyError, setCompanyError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,30 +72,39 @@ export default function JobsPage() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  const loadCompanyId = async (userId: string) => {
+    setCompanyLoading(true);
+    setCompanyError(null);
+    // Use get_or_create_company_for_user() which fixes the RLS circular
+    // dependency (old memberships_select_member policy blocked 'invited'
+    // status users) and auto-provisions a company when none exists.
+    const { data, error } = await supabase.rpc('get_or_create_company_for_user');
+    if (!error && data) {
+      setCompanyId(data as string);
+      setCompanyLoading(false);
+      return;
+    }
+    if (error) console.error('get_or_create_company_for_user failed:', error.message);
+    // Fallback: direct membership query (works after migration 010)
+    const { data: mbData } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', userId)
+      .neq('status', 'suspended')
+      .limit(1)
+      .single();
+    if (mbData) {
+      setCompanyId(mbData.company_id as string);
+    } else {
+      setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
+    }
+    setCompanyLoading(false);
+  };
+
   useEffect(() => {
     loadJobs();
     if (isSupabaseConfigured && user?.id) {
-      // Use get_or_create_company_for_user() which fixes the RLS circular
-      // dependency (old memberships_select_member policy blocked 'invited'
-      // status users) and auto-provisions a company when none exists.
-      supabase
-        .rpc('get_or_create_company_for_user')
-        .then(({ data, error }) => {
-          if (!error && data) {
-            setCompanyId(data as string);
-          } else {
-            if (error) console.error('get_or_create_company_for_user failed:', error.message);
-            // Fallback: direct membership query (works after migration 010)
-            supabase
-              .from('company_memberships')
-              .select('company_id')
-              .eq('user_id', user.id)
-              .neq('status', 'suspended')
-              .limit(1)
-              .single()
-              .then(({ data: mbData }) => { if (mbData) setCompanyId(mbData.company_id as string); });
-          }
-        });
+      loadCompanyId(user.id);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
@@ -307,7 +318,7 @@ export default function JobsPage() {
           setCompanyId(resolvedCompanyId);
         } else {
           console.error('Failed to provision company:', rpcError?.message);
-          alert('Unable to load company profile. Please refresh the page and try again.');
+          setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
           return;
         }
       }
@@ -402,6 +413,8 @@ export default function JobsPage() {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
+  const newJobDisabled = isSupabaseConfigured && companyLoading;
+
   return (
     <ProtectedRoute>
       <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
@@ -442,26 +455,62 @@ export default function JobsPage() {
                 ← Back to Dashboard
               </button>
               <button
-                onClick={() => setShowModal(true)}
+                onClick={() => { setCompanyError(null); setShowModal(true); }}
+                disabled={newJobDisabled}
                 style={{
                   padding: '0.75rem 1.5rem',
-                  backgroundColor: '#1F7A3D',
+                  backgroundColor: newJobDisabled ? '#6b7280' : '#1F7A3D',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
                   fontSize: '0.95rem',
                   fontWeight: '600',
-                  cursor: 'pointer',
+                  cursor: newJobDisabled ? 'not-allowed' : 'pointer',
                   transition: 'background-color 0.2s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}
+                onMouseEnter={(e) => { if (!newJobDisabled) e.currentTarget.style.backgroundColor = '#166534'; }}
+                onMouseLeave={(e) => { if (!newJobDisabled) e.currentTarget.style.backgroundColor = '#1F7A3D'; }}
               >
-                + New Job
+                {newJobDisabled ? '⏳ Loading...' : '+ New Job'}
               </button>
             </div>
           </div>
         </div>
+
+        {/* Company profile error banner */}
+        {companyError && (
+          <div style={{
+            backgroundColor: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: '8px',
+            padding: '1rem 1.5rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '1rem',
+          }}>
+            <span style={{ color: '#92400e', fontSize: '0.95rem' }}>⚠️ {companyError}</span>
+            {user?.id && (
+              <button
+                onClick={() => loadCompanyId(user.id)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Try Again
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div style={{
