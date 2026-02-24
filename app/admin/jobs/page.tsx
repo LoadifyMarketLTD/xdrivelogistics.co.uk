@@ -47,8 +47,13 @@ const CARGO_TYPES = [
 
 export default function JobsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, hasSupabaseSession } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companyLoading, setCompanyLoading] = useState(false);
+  const [companyError, setCompanyError] = useState<string | null>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,41 +75,54 @@ export default function JobsPage() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  const loadCompanyId = async (userId: string) => {
+    setCompanyLoading(true);
+    setCompanyError(null);
+    // Use get_or_create_company_for_user() which fixes the RLS circular
+    // dependency (old memberships_select_member policy blocked 'invited'
+    // status users) and auto-provisions a company when none exists.
+    const { data, error } = await supabase.rpc('get_or_create_company_for_user');
+    if (!error && data) {
+      setCompanyId(data as string);
+      setCompanyLoading(false);
+      return;
+    }
+    if (error) console.error('get_or_create_company_for_user failed:', error.message);
+    // Fallback: direct membership query (works after migration 010)
+    const { data: mbData } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', userId)
+      .neq('status', 'suspended')
+      .limit(1)
+      .single();
+    if (mbData) {
+      setCompanyId(mbData.company_id as string);
+    } else {
+      setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
+    }
+    setCompanyLoading(false);
+  };
+
   useEffect(() => {
     loadJobs();
-    if (isSupabaseConfigured && user?.id) {
-      // Use get_or_create_company_for_user() which fixes the RLS circular
-      // dependency (old memberships_select_member policy blocked 'invited'
-      // status users) and auto-provisions a company when none exists.
-      supabase
-        .rpc('get_or_create_company_for_user')
-        .then(({ data, error }) => {
-          if (!error && data) {
-            setCompanyId(data as string);
-          } else {
-            if (error) console.error('get_or_create_company_for_user failed:', error.message);
-            // Fallback: direct membership query (works after migration 010)
-            supabase
-              .from('company_memberships')
-              .select('company_id')
-              .eq('user_id', user.id)
-              .neq('status', 'suspended')
-              .limit(1)
-              .single()
-              .then(({ data: mbData }) => { if (mbData) setCompanyId(mbData.company_id as string); });
-          }
-        });
+    if (hasSupabaseSession && user?.id) {
+      loadCompanyId(user.id);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, hasSupabaseSession]);
 
   useEffect(() => {
     filterJobs();
   }, [jobs, searchTerm, statusFilter]);
 
   const loadJobs = async () => {
-    if (isSupabaseConfigured) {
+    if (hasSupabaseSession) {
       const { data, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
+      if (error) {
+        console.error('Failed to load jobs from Supabase:', error.message);
+        setDbError(`Failed to load jobs: ${error.message}`);
+      }
       if (!error && data) {
         const mapped = data.map((row: Record<string, unknown>) => ({
           id: row.id as string,
@@ -267,6 +285,9 @@ export default function JobsPage() {
 
   const handleCreateJob = async () => {
     if (!validateForm()) return;
+    setIsSubmitting(true);
+    setModalError(null);
+    setDbError(null);
 
     const newJob: Job = {
       id: Date.now().toString(),
@@ -297,7 +318,7 @@ export default function JobsPage() {
     };
 
     const updatedJobs = [...jobs, newJob];
-    if (isSupabaseConfigured) {
+    if (hasSupabaseSession) {
       // Resolve companyId — use state value or re-fetch if missing
       let resolvedCompanyId = companyId;
       if (!resolvedCompanyId) {
@@ -307,12 +328,14 @@ export default function JobsPage() {
           setCompanyId(resolvedCompanyId);
         } else {
           console.error('Failed to provision company:', rpcError?.message);
-          alert('Unable to load company profile. Please refresh the page and try again.');
+          setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
+          setIsSubmitting(false);
           return;
         }
       }
       const { error: insertError } = await supabase.from('jobs').insert([{
         company_id: resolvedCompanyId,
+        created_by: user?.id ?? null,
         load_details: formData.clientName,
         pickup_location: formData.pickupLocation,
         pickup_datetime: `${formData.pickupDate}T${formData.pickupTime}:00`,
@@ -325,7 +348,15 @@ export default function JobsPage() {
       }]);
       if (insertError) {
         console.error('Failed to create job:', insertError.message);
-        alert('Failed to create job. Please check your connection and try again.');
+        const hint = insertError.message.includes('row-level security') || insertError.message.includes('policy')
+          ? ' — RLS blocked: verify your company membership is active and migration 012 has been applied in Supabase'
+          : insertError.message.includes('schema cache') || insertError.message.includes('column')
+          ? ' — schema out of date: re-run 011_complete_schema_v2.sql in the Supabase SQL Editor to add missing columns'
+          : insertError.message.includes('get_or_create_company')
+          ? ' — RPC missing: run 011_complete_schema_v2.sql in the Supabase SQL Editor'
+          : '';
+        setModalError(`${insertError.message}${hint}`);
+        setIsSubmitting(false);
         return;
       }
       setStatusFilter('All');
@@ -334,16 +365,21 @@ export default function JobsPage() {
       localStorage.setItem('danny_jobs', JSON.stringify(updatedJobs));
       setJobs(updatedJobs);
     }
+    setIsSubmitting(false);
     closeModal();
   };
 
   const handleStatusChange = async (jobId: string, newStatus: string) => {
-    if (isSupabaseConfigured) {
+    if (hasSupabaseSession) {
       const { error } = await supabase.from('jobs').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', jobId);
       if (error) {
         console.error('Failed to update job status:', error.message);
+        setDbError(`Failed to update job status: ${error.message}`);
         return;
       }
+      // Re-fetch from DB to confirm the persisted state
+      await loadJobs();
+      return;
     }
     const updatedJobs = jobs.map(job =>
       job.id === jobId
@@ -360,6 +396,7 @@ export default function JobsPage() {
 
   const closeModal = () => {
     setShowModal(false);
+    setModalError(null);
     setFormData({
       clientName: '',
       clientEmail: '',
@@ -402,6 +439,8 @@ export default function JobsPage() {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
+  const newJobDisabled = (hasSupabaseSession && companyLoading) || isSubmitting;
+
   return (
     <ProtectedRoute>
       <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
@@ -442,26 +481,99 @@ export default function JobsPage() {
                 ← Back to Dashboard
               </button>
               <button
-                onClick={() => setShowModal(true)}
+                onClick={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
+                disabled={newJobDisabled}
                 style={{
                   padding: '0.75rem 1.5rem',
-                  backgroundColor: '#1F7A3D',
+                  backgroundColor: newJobDisabled ? '#6b7280' : '#1F7A3D',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
                   fontSize: '0.95rem',
                   fontWeight: '600',
-                  cursor: 'pointer',
+                  cursor: newJobDisabled ? 'not-allowed' : 'pointer',
                   transition: 'background-color 0.2s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}
+                onMouseEnter={(e) => { if (!newJobDisabled) e.currentTarget.style.backgroundColor = '#166534'; }}
+                onMouseLeave={(e) => { if (!newJobDisabled) e.currentTarget.style.backgroundColor = '#1F7A3D'; }}
               >
-                + New Job
+                {newJobDisabled ? '⏳ Loading...' : '+ New Job'}
               </button>
             </div>
           </div>
         </div>
+
+        {/* Company profile error banner */}
+        {companyError && (
+          <div style={{
+            backgroundColor: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: '8px',
+            padding: '1rem 1.5rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '1rem',
+          }}>
+            <span style={{ color: '#92400e', fontSize: '0.95rem' }}>⚠️ {companyError}</span>
+            {user?.id && (
+              <button
+                onClick={() => loadCompanyId(user.id)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Try Again
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* No-session warning banner */}
+        {isSupabaseConfigured && !hasSupabaseSession && (
+          <div style={{
+            backgroundColor: '#fff7ed',
+            border: '1px solid #fb923c',
+            borderRadius: '8px',
+            padding: '1rem 1.5rem',
+            marginBottom: '1.5rem',
+            color: '#9a3412',
+            fontSize: '0.95rem',
+          }}>
+            ⚠️ Local sign-in detected. Jobs will be stored locally only. Sign in with a Supabase account to sync your jobs.
+          </div>
+        )}
+
+        {/* Database error banner */}
+        {dbError && (
+          <div style={{
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fca5a5',
+            borderRadius: '8px',
+            padding: '1rem 1.5rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '1rem',
+          }}>
+            <span style={{ color: '#991b1b', fontSize: '0.95rem' }}>❌ {dbError}</span>
+            <button
+              onClick={() => setDbError(null)}
+              style={{ background: 'none', border: 'none', color: '#991b1b', fontSize: '1.25rem', cursor: 'pointer', lineHeight: 1 }}
+              aria-label="Dismiss"
+            >×</button>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div style={{
@@ -1090,6 +1202,21 @@ export default function JobsPage() {
                 backgroundColor: '#f9fafb',
                 borderRadius: '0 0 12px 12px'
               }}>
+                {/* In-modal error */}
+                {modalError && (
+                  <div style={{
+                    backgroundColor: '#fef2f2',
+                    border: '1px solid #fca5a5',
+                    borderRadius: '8px',
+                    padding: '0.75rem 1rem',
+                    marginBottom: '0.5rem',
+                    color: '#991b1b',
+                    fontSize: '0.85rem',
+                    lineHeight: '1.4',
+                  }}>
+                    ❌ {modalError}
+                  </div>
+                )}
                 <button
                   onClick={closeModal}
                   style={{
@@ -1110,21 +1237,22 @@ export default function JobsPage() {
                 </button>
                 <button
                   onClick={handleCreateJob}
+                  disabled={isSubmitting}
                   style={{
                     padding: '0.75rem 1.5rem',
-                    backgroundColor: '#1F7A3D',
+                    backgroundColor: isSubmitting ? '#6b7280' : '#1F7A3D',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
                     fontSize: '0.95rem',
                     fontWeight: '600',
-                    cursor: 'pointer',
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
                     transition: 'background-color 0.2s'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}
+                  onMouseEnter={(e) => { if (!isSubmitting) e.currentTarget.style.backgroundColor = '#166534'; }}
+                  onMouseLeave={(e) => { if (!isSubmitting) e.currentTarget.style.backgroundColor = '#1F7A3D'; }}
                 >
-                  Create Job
+                  {isSubmitting ? '⏳ Saving...' : 'Create Job'}
                 </button>
               </div>
             </div>

@@ -16,6 +16,7 @@ interface AuthContextType {
   logout: () => void;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
+  hasSupabaseSession: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,6 +31,7 @@ const LEGACY_CREDENTIALS = [
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -42,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: session.user.email ?? '',
             role: 'desktop',
           });
+          setHasSupabaseSession(true);
         }
         setIsLoading(false);
       });
@@ -53,8 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: session.user.email ?? '',
             role: 'desktop',
           });
+          setHasSupabaseSession(true);
         } else {
           setUser(null);
+          setHasSupabaseSession(false);
         }
         setIsLoading(false);
       });
@@ -86,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const cred = LEGACY_CREDENTIALS.find(c => c.email === email && c.password === password);
           if (!cred) return { success: false, error: error.message };
           // In legacy fallback mode, use email as a stand-in ID (no real UUID without Supabase)
+          // hasSupabaseSession stays false — no real DB session
           const userData: User = { id: email, email: cred.email, role: cred.role };
           setUser(userData);
           if (cred.role === 'mobile' || (typeof window !== 'undefined' && window.innerWidth < 768)) {
@@ -98,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.user) {
           const userData: User = { id: data.user.id, email: data.user.email ?? '', role: 'desktop' };
           setUser(userData);
+          setHasSupabaseSession(true);
           router.push('/admin');
           return { success: true };
         }
@@ -146,11 +153,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('danny_user');
     }
     setUser(null);
+    setHasSupabaseSession(false);
     router.push('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, resetPassword, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, resetPassword, isLoading, hasSupabaseSession }}>
       {children}
     </AuthContext.Provider>
   );

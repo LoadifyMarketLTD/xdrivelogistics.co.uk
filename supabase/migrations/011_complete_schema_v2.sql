@@ -357,13 +357,44 @@ DO $$ BEGIN
     ADD COLUMN IF NOT EXISTS city          text,
     ADD COLUMN IF NOT EXISTS postcode      text,
     ADD COLUMN IF NOT EXISTS status        text DEFAULT 'active',
-    ADD COLUMN IF NOT EXISTS company_type  text DEFAULT 'standard';
+    ADD COLUMN IF NOT EXISTS company_type  text DEFAULT 'standard',
+    ADD COLUMN IF NOT EXISTS created_by    uuid REFERENCES auth.users(id);
 EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
-DO $$ BEGIN
-  ALTER TABLE public.jobs
-    ADD COLUMN IF NOT EXISTS distance_to_pickup_miles numeric;
-EXCEPTION WHEN undefined_table THEN NULL; END $$;
+-- Add every column the application needs on the jobs table.
+-- Each statement is independent so a missing enum type or
+-- pre-existing column never aborts the whole transaction.
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS created_by               uuid    REFERENCES auth.users(id);
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS vehicle_type             public.vehicle_type;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS cargo_type               public.cargo_type;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS pickup_location          text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS pickup_postcode          text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS pickup_lat               double precision;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS pickup_lng               double precision;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS pickup_datetime          timestamptz;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_location        text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_postcode        text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_lat             double precision;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_lng             double precision;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_datetime        timestamptz;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS pallets                  int;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS boxes                    int;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS bags                     int;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS items                    int;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS weight_kg                numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS length_cm                numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS width_cm                 numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS height_cm                numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS currency                 text    DEFAULT 'GBP';
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS budget_amount            numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS is_fixed_price           boolean DEFAULT false;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS load_details             text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS special_requirements     text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS access_restrictions      text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS job_distance_miles       numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS job_distance_minutes     int;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS distance_to_pickup_miles numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS updated_at               timestamptz DEFAULT now();
 
 DO $$ BEGIN
   ALTER TABLE public.job_bids
@@ -419,7 +450,7 @@ $$;
 -- 5. HELPER FUNCTIONS
 -- ──────────────────────────────────────────────────────────────
 
--- Is the current user an active member of a company?
+-- Is the current user a non-suspended member of a company?
 CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -429,7 +460,7 @@ AS $$
     SELECT 1 FROM public.company_memberships
     WHERE  company_id = cid
       AND  user_id    = auth.uid()
-      AND  status     = 'active'
+      AND  status    <> 'suspended'
   );
 $$;
 
@@ -443,7 +474,7 @@ AS $$
     SELECT 1 FROM public.company_memberships
     WHERE  company_id      = cid
       AND  user_id         = auth.uid()
-      AND  status          = 'active'
+      AND  status         <> 'suspended'
       AND  role_in_company IN ('owner', 'admin')
   );
 $$;

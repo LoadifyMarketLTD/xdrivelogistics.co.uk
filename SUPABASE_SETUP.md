@@ -369,13 +369,44 @@ DO $$ BEGIN
     ADD COLUMN IF NOT EXISTS city          text,
     ADD COLUMN IF NOT EXISTS postcode      text,
     ADD COLUMN IF NOT EXISTS status        text DEFAULT 'active',
-    ADD COLUMN IF NOT EXISTS company_type  text DEFAULT 'standard';
+    ADD COLUMN IF NOT EXISTS company_type  text DEFAULT 'standard',
+    ADD COLUMN IF NOT EXISTS created_by    uuid REFERENCES auth.users(id);
 EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
-DO $$ BEGIN
-  ALTER TABLE public.jobs
-    ADD COLUMN IF NOT EXISTS distance_to_pickup_miles numeric;
-EXCEPTION WHEN undefined_table THEN NULL; END $$;
+-- Add every column the application needs on the jobs table.
+-- Each statement is independent so a missing enum type or
+-- pre-existing column never aborts the whole transaction.
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS created_by               uuid    REFERENCES auth.users(id);
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS vehicle_type             public.vehicle_type;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS cargo_type               public.cargo_type;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS pickup_location          text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS pickup_postcode          text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS pickup_lat               double precision;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS pickup_lng               double precision;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS pickup_datetime          timestamptz;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_location        text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_postcode        text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_lat             double precision;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_lng             double precision;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_datetime        timestamptz;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS pallets                  int;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS boxes                    int;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS bags                     int;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS items                    int;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS weight_kg                numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS length_cm                numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS width_cm                 numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS height_cm                numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS currency                 text    DEFAULT 'GBP';
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS budget_amount            numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS is_fixed_price           boolean DEFAULT false;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS load_details             text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS special_requirements     text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS access_restrictions      text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS job_distance_miles       numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS job_distance_minutes     int;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS distance_to_pickup_miles numeric;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS updated_at               timestamptz DEFAULT now();
 
 DO $$ BEGIN
   ALTER TABLE public.job_bids
@@ -435,7 +466,7 @@ CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
 RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.company_memberships
-    WHERE company_id = cid AND user_id = auth.uid() AND status = 'active'
+    WHERE company_id = cid AND user_id = auth.uid() AND status <> 'suspended'
   );
 $$;
 
@@ -443,7 +474,7 @@ CREATE OR REPLACE FUNCTION public.is_company_admin(cid uuid)
 RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.company_memberships
-    WHERE company_id = cid AND user_id = auth.uid() AND status = 'active'
+    WHERE company_id = cid AND user_id = auth.uid() AND status <> 'suspended'
       AND role_in_company IN ('owner', 'admin')
   );
 $$;
@@ -903,6 +934,52 @@ Toate secțiunile 1–4 trebuie să returneze **0 rânduri**.
 
 ---
 
+## 🔧 Patch rapid pentru baze de date existente (Migrare 012)
+
+Dacă ai rulat deja `011_complete_schema_v2.sql` și job-urile tot nu se pot posta / statusul revine după refresh, rulează și acest script mic:
+
+```sql
+-- ============================================================
+-- 012_fix_is_company_member.sql
+-- Fix postare job-uri blocată silențios de RLS:
+--   is_company_member() cerea status = 'active', dar utilizatorii
+--   noi aveau status = 'invited' → INSERT/UPDATE pe jobs respins.
+-- ============================================================
+
+BEGIN;
+
+CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.company_memberships
+    WHERE  company_id = cid
+      AND  user_id    = auth.uid()
+      AND  status    <> 'suspended'
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_company_admin(cid uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.company_memberships
+    WHERE  company_id      = cid
+      AND  user_id         = auth.uid()
+      AND  status         <> 'suspended'
+      AND  role_in_company IN ('owner', 'admin')
+  );
+$$;
+
+COMMIT;
+```
+
+---
+
 ## Structura completă a bazei de date
 
 ```
@@ -952,6 +1029,7 @@ public
 | Fișier | Descriere |
 |--------|-----------|
 | `supabase/migrations/011_complete_schema_v2.sql` | **⭐ Schema completă v2** — cel mai recent, include toate fix-urile |
+| `supabase/migrations/012_fix_is_company_member.sql` | **⭐ Patch pentru DB-uri existente** — fix postare job-uri (RLS blocat) |
 | `supabase/migrations/007_verify_schema.sql` | **Health check** — verifică ce lipsește |
 | `supabase/migrations/006_complete_schema.sql` | Schema completă v1 (versiune anterioară) |
 | `supabase/migrations/010_fix_company_profile_loading.sql` | Fix RLS pentru eroarea "Company profile not loaded" |
