@@ -369,7 +369,8 @@ DO $$ BEGIN
     ADD COLUMN IF NOT EXISTS city          text,
     ADD COLUMN IF NOT EXISTS postcode      text,
     ADD COLUMN IF NOT EXISTS status        text DEFAULT 'active',
-    ADD COLUMN IF NOT EXISTS company_type  text DEFAULT 'standard';
+    ADD COLUMN IF NOT EXISTS company_type  text DEFAULT 'standard',
+    ADD COLUMN IF NOT EXISTS created_by    uuid REFERENCES auth.users(id);
 EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
