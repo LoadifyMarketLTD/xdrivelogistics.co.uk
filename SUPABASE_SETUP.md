@@ -435,7 +435,7 @@ CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
 RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.company_memberships
-    WHERE company_id = cid AND user_id = auth.uid() AND status = 'active'
+    WHERE company_id = cid AND user_id = auth.uid() AND status <> 'suspended'
   );
 $$;
 
@@ -443,7 +443,7 @@ CREATE OR REPLACE FUNCTION public.is_company_admin(cid uuid)
 RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.company_memberships
-    WHERE company_id = cid AND user_id = auth.uid() AND status = 'active'
+    WHERE company_id = cid AND user_id = auth.uid() AND status <> 'suspended'
       AND role_in_company IN ('owner', 'admin')
   );
 $$;
@@ -903,6 +903,52 @@ Toate secțiunile 1–4 trebuie să returneze **0 rânduri**.
 
 ---
 
+## 🔧 Patch rapid pentru baze de date existente (Migrare 012)
+
+Dacă ai rulat deja `011_complete_schema_v2.sql` și job-urile tot nu se pot posta / statusul revine după refresh, rulează și acest script mic:
+
+```sql
+-- ============================================================
+-- 012_fix_is_company_member.sql
+-- Fix postare job-uri blocată silențios de RLS:
+--   is_company_member() cerea status = 'active', dar utilizatorii
+--   noi aveau status = 'invited' → INSERT/UPDATE pe jobs respins.
+-- ============================================================
+
+BEGIN;
+
+CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.company_memberships
+    WHERE  company_id = cid
+      AND  user_id    = auth.uid()
+      AND  status    <> 'suspended'
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_company_admin(cid uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.company_memberships
+    WHERE  company_id      = cid
+      AND  user_id         = auth.uid()
+      AND  status         <> 'suspended'
+      AND  role_in_company IN ('owner', 'admin')
+  );
+$$;
+
+COMMIT;
+```
+
+---
+
 ## Structura completă a bazei de date
 
 ```
@@ -952,6 +998,7 @@ public
 | Fișier | Descriere |
 |--------|-----------|
 | `supabase/migrations/011_complete_schema_v2.sql` | **⭐ Schema completă v2** — cel mai recent, include toate fix-urile |
+| `supabase/migrations/012_fix_is_company_member.sql` | **⭐ Patch pentru DB-uri existente** — fix postare job-uri (RLS blocat) |
 | `supabase/migrations/007_verify_schema.sql` | **Health check** — verifică ce lipsește |
 | `supabase/migrations/006_complete_schema.sql` | Schema completă v1 (versiune anterioară) |
 | `supabase/migrations/010_fix_company_profile_loading.sql` | Fix RLS pentru eroarea "Company profile not loaded" |
