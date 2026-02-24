@@ -73,12 +73,12 @@ export default function TermsPage() {
             All drivers registered on the platform must hold valid and appropriate qualifications,
             including but not limited to: a Certificate of Professional Competence (CPC), a valid
             tachograph card, comprehensive goods-in-transit insurance, and any other licences
-            required by UK law. XDrive Logistics reserves the right to verify these documents
+            required by UK law. XDrive Logistics Ltd reserves the right to verify these documents
             and to remove any driver who does not comply.
           </Section>
 
           <Section title="5. Payments & Fees">
-            Payment terms are agreed between clients and drivers through the platform. XDrive Logistics
+            Payment terms are agreed between clients and drivers through the platform. XDrive Logistics Ltd
             may charge a service fee or commission as outlined at the time of booking. Invoices are
             issued for all transactions. Late payments may incur administrative charges of £25 per
             full week beyond the agreed due date.
@@ -114,7 +114,7 @@ export default function TermsPage() {
             XDrive Logistics Ltd<br />
             101 Cornelian Street, Blackburn, BB1 9QL<br />
             Email: dannycourierltd@gmail.com<br />
-            Phone: 07423 272 138
+            Phone: 07377 694 228
           </Section>
         </div>
       </div>

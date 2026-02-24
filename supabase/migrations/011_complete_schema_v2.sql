@@ -419,7 +419,7 @@ $$;
 -- 5. HELPER FUNCTIONS
 -- ──────────────────────────────────────────────────────────────
 
--- Is the current user an active member of a company?
+-- Is the current user a non-suspended member of a company?
 CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -429,7 +429,7 @@ AS $$
     SELECT 1 FROM public.company_memberships
     WHERE  company_id = cid
       AND  user_id    = auth.uid()
-      AND  status     = 'active'
+      AND  status    <> 'suspended'
   );
 $$;
 
@@ -443,7 +443,7 @@ AS $$
     SELECT 1 FROM public.company_memberships
     WHERE  company_id      = cid
       AND  user_id         = auth.uid()
-      AND  status          = 'active'
+      AND  status         <> 'suspended'
       AND  role_in_company IN ('owner', 'admin')
   );
 $$;

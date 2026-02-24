@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { COMPANY_CONFIG, JOB_STATUS, JOB_STATUS_LABEL } from '../../../config/company';
-import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
+import { supabase } from '../../../../lib/supabaseClient';
+import { useAuth } from '../../../components/AuthContext';
 
 interface Job {
   id: string;
@@ -60,6 +61,7 @@ export default function JobDetailPage() {
   const router = useRouter();
   const params = useParams();
   const jobId = params?.id as string;
+  const { hasSupabaseSession } = useAuth();
 
   const [job, setJob] = useState<Job | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -73,7 +75,7 @@ export default function JobDetailPage() {
 
   const loadJob = async () => {
     try {
-      if (isSupabaseConfigured) {
+      if (hasSupabaseSession) {
         const { data, error } = await supabase.from('jobs').select('*').eq('id', jobId).single();
         if (error) {
           console.error('Failed to load job:', error.message);
@@ -147,7 +149,7 @@ export default function JobDetailPage() {
     if (!formData) return;
 
     try {
-      if (isSupabaseConfigured) {
+      if (hasSupabaseSession) {
         const { error } = await supabase.from('jobs').update({
           load_details: formData.client.name,
           special_requirements: [formData.client.name, formData.client.phone, formData.client.email, formData.cargo.notes].filter(Boolean).join(' | '),
@@ -193,7 +195,7 @@ export default function JobDetailPage() {
 
   const handleDelete = async () => {
     try {
-      if (isSupabaseConfigured) {
+      if (hasSupabaseSession) {
         const { error } = await supabase.from('jobs').delete().eq('id', jobId);
         if (error) {
           console.error('Failed to delete job:', error.message);

@@ -146,7 +146,7 @@ export default function CookiesPage() {
             XDrive Logistics Ltd<br />
             101 Cornelian Street, Blackburn, BB1 9QL<br />
             Email: dannycourierltd@gmail.com<br />
-            Phone: 07423 272 138
+            Phone: 07377 694 228
           </Section>
         </div>
       </div>

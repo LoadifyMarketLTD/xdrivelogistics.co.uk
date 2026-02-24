@@ -47,10 +47,12 @@ const CARGO_TYPES = [
 
 export default function JobsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, hasSupabaseSession } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companyLoading, setCompanyLoading] = useState(false);
   const [companyError, setCompanyError] = useState<string | null>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,19 +105,23 @@ export default function JobsPage() {
 
   useEffect(() => {
     loadJobs();
-    if (isSupabaseConfigured && user?.id) {
+    if (hasSupabaseSession && user?.id) {
       loadCompanyId(user.id);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, hasSupabaseSession]);
 
   useEffect(() => {
     filterJobs();
   }, [jobs, searchTerm, statusFilter]);
 
   const loadJobs = async () => {
-    if (isSupabaseConfigured) {
+    if (hasSupabaseSession) {
       const { data, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
+      if (error) {
+        console.error('Failed to load jobs from Supabase:', error.message);
+        setDbError(`Failed to load jobs: ${error.message}`);
+      }
       if (!error && data) {
         const mapped = data.map((row: Record<string, unknown>) => ({
           id: row.id as string,
@@ -278,6 +284,8 @@ export default function JobsPage() {
 
   const handleCreateJob = async () => {
     if (!validateForm()) return;
+    setIsSubmitting(true);
+    setDbError(null);
 
     const newJob: Job = {
       id: Date.now().toString(),
@@ -308,7 +316,7 @@ export default function JobsPage() {
     };
 
     const updatedJobs = [...jobs, newJob];
-    if (isSupabaseConfigured) {
+    if (hasSupabaseSession) {
       // Resolve companyId — use state value or re-fetch if missing
       let resolvedCompanyId = companyId;
       if (!resolvedCompanyId) {
@@ -319,6 +327,7 @@ export default function JobsPage() {
         } else {
           console.error('Failed to provision company:', rpcError?.message);
           setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
+          setIsSubmitting(false);
           return;
         }
       }
@@ -336,7 +345,13 @@ export default function JobsPage() {
       }]);
       if (insertError) {
         console.error('Failed to create job:', insertError.message);
-        alert('Failed to create job. Please check your connection and try again.');
+        const hint = insertError.message.includes('row-level security')
+          ? ' (RLS blocked — verify your company membership exists and migration 012 has been applied in Supabase)'
+          : insertError.message.includes('get_or_create_company')
+          ? ' (RPC not found — run supabase/migrations/011_complete_schema_v2.sql in the Supabase SQL Editor)'
+          : '';
+        setDbError(`Failed to create job: ${insertError.message}${hint}`);
+        setIsSubmitting(false);
         return;
       }
       setStatusFilter('All');
@@ -345,16 +360,21 @@ export default function JobsPage() {
       localStorage.setItem('danny_jobs', JSON.stringify(updatedJobs));
       setJobs(updatedJobs);
     }
+    setIsSubmitting(false);
     closeModal();
   };
 
   const handleStatusChange = async (jobId: string, newStatus: string) => {
-    if (isSupabaseConfigured) {
+    if (hasSupabaseSession) {
       const { error } = await supabase.from('jobs').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', jobId);
       if (error) {
         console.error('Failed to update job status:', error.message);
+        setDbError(`Failed to update job status: ${error.message}`);
         return;
       }
+      // Re-fetch from DB to confirm the persisted state
+      await loadJobs();
+      return;
     }
     const updatedJobs = jobs.map(job =>
       job.id === jobId
@@ -413,7 +433,7 @@ export default function JobsPage() {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  const newJobDisabled = isSupabaseConfigured && companyLoading;
+  const newJobDisabled = (hasSupabaseSession && companyLoading) || isSubmitting;
 
   return (
     <ProtectedRoute>
@@ -509,6 +529,43 @@ export default function JobsPage() {
                 Try Again
               </button>
             )}
+          </div>
+        )}
+
+        {/* No-session warning banner */}
+        {isSupabaseConfigured && !hasSupabaseSession && (
+          <div style={{
+            backgroundColor: '#fff7ed',
+            border: '1px solid #fb923c',
+            borderRadius: '8px',
+            padding: '1rem 1.5rem',
+            marginBottom: '1.5rem',
+            color: '#9a3412',
+            fontSize: '0.95rem',
+          }}>
+            ⚠️ Local sign-in detected. Jobs will be stored locally only. Sign in with a Supabase account to sync your jobs.
+          </div>
+        )}
+
+        {/* Database error banner */}
+        {dbError && (
+          <div style={{
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fca5a5',
+            borderRadius: '8px',
+            padding: '1rem 1.5rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '1rem',
+          }}>
+            <span style={{ color: '#991b1b', fontSize: '0.95rem' }}>❌ {dbError}</span>
+            <button
+              onClick={() => setDbError(null)}
+              style={{ background: 'none', border: 'none', color: '#991b1b', fontSize: '1.25rem', cursor: 'pointer', lineHeight: 1 }}
+              aria-label="Dismiss"
+            >×</button>
           </div>
         )}
 
@@ -1159,21 +1216,22 @@ export default function JobsPage() {
                 </button>
                 <button
                   onClick={handleCreateJob}
+                  disabled={isSubmitting}
                   style={{
                     padding: '0.75rem 1.5rem',
-                    backgroundColor: '#1F7A3D',
+                    backgroundColor: isSubmitting ? '#6b7280' : '#1F7A3D',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
                     fontSize: '0.95rem',
                     fontWeight: '600',
-                    cursor: 'pointer',
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
                     transition: 'background-color 0.2s'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}
+                  onMouseEnter={(e) => { if (!isSubmitting) e.currentTarget.style.backgroundColor = '#166534'; }}
+                  onMouseLeave={(e) => { if (!isSubmitting) e.currentTarget.style.backgroundColor = '#1F7A3D'; }}
                 >
-                  Create Job
+                  {isSubmitting ? '⏳ Saving...' : 'Create Job'}
                 </button>
               </div>
             </div>
