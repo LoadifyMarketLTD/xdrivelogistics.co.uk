@@ -1,15 +1,3 @@
-# Supabase Schema Setup — Danny Courier Ltd
-
-## ⚡ Metoda rapidă — un singur copy-paste
-
-1. Mergi la [https://app.supabase.com](https://app.supabase.com)
-2. Selectează proiectul **Danny Courier Ltd**
-3. În meniul din stânga, apasă pe **SQL Editor**
-4. Apasă **New Query**
-5. Copiază **tot scriptul de mai jos** și lipește-l în editor
-6. Apasă **Run** → aștepți mesajul **`Success. No rows returned`**
-
-```sql
 -- ============================================================
 -- Danny Courier Ltd — COMPLETE SCHEMA v2
 -- Single idempotent file — copy and paste the ENTIRE contents
@@ -431,25 +419,40 @@ $$;
 -- 5. HELPER FUNCTIONS
 -- ──────────────────────────────────────────────────────────────
 
+-- Is the current user an active member of a company?
 CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
-RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.company_memberships
-    WHERE company_id = cid AND user_id = auth.uid() AND status = 'active'
+    WHERE  company_id = cid
+      AND  user_id    = auth.uid()
+      AND  status     = 'active'
   );
 $$;
 
+-- Is the current user an owner or admin of a company?
 CREATE OR REPLACE FUNCTION public.is_company_admin(cid uuid)
-RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.company_memberships
-    WHERE company_id = cid AND user_id = auth.uid() AND status = 'active'
-      AND role_in_company IN ('owner', 'admin')
+    WHERE  company_id      = cid
+      AND  user_id         = auth.uid()
+      AND  status          = 'active'
+      AND  role_in_company IN ('owner', 'admin')
   );
 $$;
 
+-- Keep bid_price_gbp / amount and bidder_id / bidder_user_id in sync
 CREATE OR REPLACE FUNCTION public.sync_job_bid_price()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
 BEGIN
   IF NEW.bid_price_gbp IS NULL AND NEW.amount IS NOT NULL THEN
     NEW.bid_price_gbp := NEW.amount;
@@ -459,8 +462,11 @@ BEGIN
   END IF;
   IF NEW.bid_price_gbp IS NOT NULL AND NEW.amount IS NOT NULL
      AND NEW.bid_price_gbp <> NEW.amount THEN
+    RAISE WARNING 'job_bids: bid_price_gbp (%) and amount (%) differ — using bid_price_gbp',
+                  NEW.bid_price_gbp, NEW.amount;
     NEW.amount := NEW.bid_price_gbp;
   END IF;
+
   IF NEW.bidder_id IS NULL AND NEW.bidder_user_id IS NOT NULL THEN
     NEW.bidder_id := NEW.bidder_user_id;
   END IF;
@@ -469,42 +475,68 @@ BEGIN
   END IF;
   IF NEW.bidder_id IS NOT NULL AND NEW.bidder_user_id IS NOT NULL
      AND NEW.bidder_id <> NEW.bidder_user_id THEN
+    RAISE WARNING 'job_bids: bidder_id (%) and bidder_user_id (%) differ — using bidder_user_id',
+                  NEW.bidder_id, NEW.bidder_user_id;
     NEW.bidder_id := NEW.bidder_user_id;
   END IF;
+
   RETURN NEW;
 END;
 $$;
 
--- Returns (or auto-provisions) the company_id for the current user.
--- Fixes "Company profile not loaded yet" for first-time users.
+-- Returns the company_id for the current user.
+-- If no company / membership exists, one is auto-provisioned.
+-- Fixes the "Company profile not loaded yet" error that occurred
+-- when a new user had no company_memberships row.
 CREATE OR REPLACE FUNCTION public.get_or_create_company_for_user()
-RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
   v_company_id uuid;
   v_user_id    uuid := auth.uid();
   v_user_email text;
 BEGIN
+  -- a) Existing non-suspended membership
   SELECT company_id INTO v_company_id
   FROM public.company_memberships
-  WHERE user_id = v_user_id AND status <> 'suspended'
+  WHERE user_id = v_user_id
+    AND status <> 'suspended'
   LIMIT 1;
-  IF v_company_id IS NOT NULL THEN RETURN v_company_id; END IF;
 
-  SELECT id INTO v_company_id
-  FROM public.companies WHERE created_by = v_user_id LIMIT 1;
   IF v_company_id IS NOT NULL THEN
-    INSERT INTO public.company_memberships (company_id, user_id, role_in_company, status)
-    VALUES (v_company_id, v_user_id, 'owner', 'active')
-    ON CONFLICT (company_id, user_id) DO UPDATE SET status = 'active', role_in_company = 'owner';
     RETURN v_company_id;
   END IF;
 
-  SELECT email INTO v_user_email FROM auth.users WHERE id = v_user_id;
+  -- b) Company this user created (membership row may be missing)
+  SELECT id INTO v_company_id
+  FROM public.companies
+  WHERE created_by = v_user_id
+  LIMIT 1;
+
+  IF v_company_id IS NOT NULL THEN
+    INSERT INTO public.company_memberships (company_id, user_id, role_in_company, status)
+    VALUES (v_company_id, v_user_id, 'owner', 'active')
+    ON CONFLICT (company_id, user_id)
+    DO UPDATE SET status = 'active', role_in_company = 'owner';
+
+    RETURN v_company_id;
+  END IF;
+
+  -- c) No company at all — create a default one
+  SELECT email INTO v_user_email
+  FROM auth.users
+  WHERE id = v_user_id;
+
   INSERT INTO public.companies (name, email, created_by)
   VALUES (COALESCE(v_user_email, 'My Company'), v_user_email, v_user_id)
   RETURNING id INTO v_company_id;
+
   INSERT INTO public.company_memberships (company_id, user_id, role_in_company, status)
   VALUES (v_company_id, v_user_id, 'owner', 'active');
+
   RETURN v_company_id;
 END;
 $$;
@@ -525,6 +557,7 @@ CREATE TRIGGER trg_sync_job_bid_price
 DO $$ BEGIN
   UPDATE public.job_bids SET bid_price_gbp = amount
   WHERE bid_price_gbp IS NULL AND amount IS NOT NULL;
+
   UPDATE public.job_bids SET bidder_id = bidder_user_id
   WHERE bidder_id IS NULL AND bidder_user_id IS NOT NULL;
 EXCEPTION WHEN undefined_table THEN NULL; END $$;
@@ -552,7 +585,8 @@ BEGIN
   ALTER TABLE public.diary_events              ENABLE ROW LEVEL SECURITY;
   ALTER TABLE public.return_journeys           ENABLE ROW LEVEL SECURITY;
 EXCEPTION WHEN undefined_table THEN NULL;
-END $$;
+END
+$$;
 
 -- ──────────────────────────────────────────────────────────────
 -- 9. RLS POLICIES
@@ -560,137 +594,237 @@ END $$;
 DO $$
 BEGIN
 
-  -- profiles
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='profiles_select_own') THEN
+  -- ── profiles ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'profiles'
+                   AND policyname = 'profiles_select_own') THEN
     CREATE POLICY "profiles_select_own" ON public.profiles FOR SELECT USING (id = auth.uid());
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='profiles_update_own') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'profiles'
+                   AND policyname = 'profiles_update_own') THEN
     CREATE POLICY "profiles_update_own" ON public.profiles FOR UPDATE USING (id = auth.uid());
   END IF;
 
-  -- companies (fixed: SELECT by creator OR non-suspended member)
+  -- ── companies ──
+  -- Drop the old broken policy (if present) and replace with the fixed version
+  -- that allows SELECT for the company creator OR any non-suspended member.
+  -- The old 'companies_select_member' used is_company_member() which required
+  -- status='active', creating a circular lock-out for new users.
   DROP POLICY IF EXISTS "companies_select_member" ON public.companies;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='companies' AND policyname='companies_select_member_or_creator') THEN
-    CREATE POLICY "companies_select_member_or_creator" ON public.companies FOR SELECT
-      USING (created_by = auth.uid() OR EXISTS (
-        SELECT 1 FROM public.company_memberships
-        WHERE company_id = id AND user_id = auth.uid() AND status <> 'suspended'
-      ));
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'companies'
+                   AND policyname = 'companies_select_member_or_creator') THEN
+    CREATE POLICY "companies_select_member_or_creator" ON public.companies
+      FOR SELECT USING (
+        created_by = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM public.company_memberships
+          WHERE company_id = id
+            AND user_id    = auth.uid()
+            AND status    <> 'suspended'
+        )
+      );
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='companies' AND policyname='companies_insert_admin') THEN
-    CREATE POLICY "companies_insert_admin" ON public.companies FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'companies'
+                   AND policyname = 'companies_insert_admin') THEN
+    CREATE POLICY "companies_insert_admin" ON public.companies
+      FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='companies' AND policyname='companies_update_admin') THEN
-    CREATE POLICY "companies_update_admin" ON public.companies FOR UPDATE USING (public.is_company_admin(id));
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'companies'
+                   AND policyname = 'companies_update_admin') THEN
+    CREATE POLICY "companies_update_admin" ON public.companies
+      FOR UPDATE USING (public.is_company_admin(id));
   END IF;
 
-  -- company_memberships (fixed: SELECT own row by user_id)
+  -- ── company_memberships ──
+  -- Drop the old broken policy (if present) and replace with the fixed version
+  -- that lets users read their own membership row regardless of status.
+  -- The old 'memberships_select_member' required status='active'.
   DROP POLICY IF EXISTS "memberships_select_member" ON public.company_memberships;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='company_memberships' AND policyname='memberships_select_own') THEN
-    CREATE POLICY "memberships_select_own" ON public.company_memberships FOR SELECT USING (user_id = auth.uid());
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'company_memberships'
+                   AND policyname = 'memberships_select_own') THEN
+    CREATE POLICY "memberships_select_own" ON public.company_memberships
+      FOR SELECT USING (user_id = auth.uid());
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='company_memberships' AND policyname='memberships_insert_admin') THEN
-    CREATE POLICY "memberships_insert_admin" ON public.company_memberships FOR INSERT WITH CHECK (public.is_company_admin(company_id));
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'company_memberships'
+                   AND policyname = 'memberships_insert_admin') THEN
+    CREATE POLICY "memberships_insert_admin" ON public.company_memberships
+      FOR INSERT WITH CHECK (public.is_company_admin(company_id));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='company_memberships' AND policyname='memberships_update_admin') THEN
-    CREATE POLICY "memberships_update_admin" ON public.company_memberships FOR UPDATE USING (public.is_company_admin(company_id));
-  END IF;
-
-  -- drivers
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='drivers' AND policyname='drivers_select_member') THEN
-    CREATE POLICY "drivers_select_member" ON public.drivers FOR SELECT USING (public.is_company_member(company_id));
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='drivers' AND policyname='drivers_all_admin') THEN
-    CREATE POLICY "drivers_all_admin" ON public.drivers FOR ALL USING (public.is_company_admin(company_id));
-  END IF;
-
-  -- vehicles
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='vehicles' AND policyname='vehicles_select_member') THEN
-    CREATE POLICY "vehicles_select_member" ON public.vehicles FOR SELECT USING (public.is_company_member(company_id));
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='vehicles' AND policyname='vehicles_all_admin') THEN
-    CREATE POLICY "vehicles_all_admin" ON public.vehicles FOR ALL USING (public.is_company_admin(company_id));
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'company_memberships'
+                   AND policyname = 'memberships_update_admin') THEN
+    CREATE POLICY "memberships_update_admin" ON public.company_memberships
+      FOR UPDATE USING (public.is_company_admin(company_id));
   END IF;
 
-  -- driver_documents
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='driver_documents' AND policyname='driver_docs_select_member') THEN
-    CREATE POLICY "driver_docs_select_member" ON public.driver_documents FOR SELECT
-      USING (EXISTS (SELECT 1 FROM public.drivers d WHERE d.id = driver_id AND public.is_company_member(d.company_id)));
+  -- ── drivers ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'drivers'
+                   AND policyname = 'drivers_select_member') THEN
+    CREATE POLICY "drivers_select_member" ON public.drivers
+      FOR SELECT USING (public.is_company_member(company_id));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='driver_documents' AND policyname='driver_docs_all_admin') THEN
-    CREATE POLICY "driver_docs_all_admin" ON public.driver_documents FOR ALL
-      USING (EXISTS (SELECT 1 FROM public.drivers d WHERE d.id = driver_id AND public.is_company_admin(d.company_id)));
-  END IF;
-
-  -- vehicle_documents
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='vehicle_documents' AND policyname='vehicle_docs_select_member') THEN
-    CREATE POLICY "vehicle_docs_select_member" ON public.vehicle_documents FOR SELECT
-      USING (EXISTS (SELECT 1 FROM public.vehicles v WHERE v.id = vehicle_id AND public.is_company_member(v.company_id)));
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='vehicle_documents' AND policyname='vehicle_docs_all_admin') THEN
-    CREATE POLICY "vehicle_docs_all_admin" ON public.vehicle_documents FOR ALL
-      USING (EXISTS (SELECT 1 FROM public.vehicles v WHERE v.id = vehicle_id AND public.is_company_admin(v.company_id)));
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'drivers'
+                   AND policyname = 'drivers_all_admin') THEN
+    CREATE POLICY "drivers_all_admin" ON public.drivers
+      FOR ALL USING (public.is_company_admin(company_id));
   END IF;
 
-  -- jobs
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='jobs' AND policyname='jobs_all_member') THEN
-    CREATE POLICY "jobs_all_member" ON public.jobs FOR ALL USING (public.is_company_member(company_id));
+  -- ── vehicles ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'vehicles'
+                   AND policyname = 'vehicles_select_member') THEN
+    CREATE POLICY "vehicles_select_member" ON public.vehicles
+      FOR SELECT USING (public.is_company_member(company_id));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'vehicles'
+                   AND policyname = 'vehicles_all_admin') THEN
+    CREATE POLICY "vehicles_all_admin" ON public.vehicles
+      FOR ALL USING (public.is_company_admin(company_id));
   END IF;
 
-  -- job_documents
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='job_documents' AND policyname='job_documents_all_member') THEN
-    CREATE POLICY "job_documents_all_member" ON public.job_documents FOR ALL
-      USING (EXISTS (SELECT 1 FROM public.jobs j WHERE j.id = job_id AND public.is_company_member(j.company_id)));
+  -- ── driver_documents ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'driver_documents'
+                   AND policyname = 'driver_docs_select_member') THEN
+    CREATE POLICY "driver_docs_select_member" ON public.driver_documents
+      FOR SELECT USING (
+        EXISTS (SELECT 1 FROM public.drivers d
+                WHERE d.id = driver_id AND public.is_company_member(d.company_id))
+      );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'driver_documents'
+                   AND policyname = 'driver_docs_all_admin') THEN
+    CREATE POLICY "driver_docs_all_admin" ON public.driver_documents
+      FOR ALL USING (
+        EXISTS (SELECT 1 FROM public.drivers d
+                WHERE d.id = driver_id AND public.is_company_admin(d.company_id))
+      );
   END IF;
 
-  -- job_notes
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='job_notes' AND policyname='job_notes_all_member') THEN
-    CREATE POLICY "job_notes_all_member" ON public.job_notes FOR ALL USING (public.is_company_member(company_id));
+  -- ── vehicle_documents ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'vehicle_documents'
+                   AND policyname = 'vehicle_docs_select_member') THEN
+    CREATE POLICY "vehicle_docs_select_member" ON public.vehicle_documents
+      FOR SELECT USING (
+        EXISTS (SELECT 1 FROM public.vehicles v
+                WHERE v.id = vehicle_id AND public.is_company_member(v.company_id))
+      );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'vehicle_documents'
+                   AND policyname = 'vehicle_docs_all_admin') THEN
+    CREATE POLICY "vehicle_docs_all_admin" ON public.vehicle_documents
+      FOR ALL USING (
+        EXISTS (SELECT 1 FROM public.vehicles v
+                WHERE v.id = vehicle_id AND public.is_company_admin(v.company_id))
+      );
   END IF;
 
-  -- job_tracking_events
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='job_tracking_events' AND policyname='job_tracking_all_member') THEN
-    CREATE POLICY "job_tracking_all_member" ON public.job_tracking_events FOR ALL
-      USING (EXISTS (SELECT 1 FROM public.jobs j WHERE j.id = job_id AND public.is_company_member(j.company_id)));
+  -- ── jobs ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'jobs'
+                   AND policyname = 'jobs_all_member') THEN
+    CREATE POLICY "jobs_all_member" ON public.jobs
+      FOR ALL USING (public.is_company_member(company_id));
   END IF;
 
-  -- job_bids
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='job_bids' AND policyname='bids_all_member') THEN
-    CREATE POLICY "bids_all_member" ON public.job_bids FOR ALL
-      USING (company_id IS NULL OR public.is_company_member(company_id));
+  -- ── job_documents ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'job_documents'
+                   AND policyname = 'job_documents_all_member') THEN
+    CREATE POLICY "job_documents_all_member" ON public.job_documents
+      FOR ALL USING (
+        EXISTS (SELECT 1 FROM public.jobs j
+                WHERE j.id = job_id AND public.is_company_member(j.company_id))
+      );
   END IF;
 
-  -- driver_locations
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='driver_locations' AND policyname='driver_locations_all_member') THEN
-    CREATE POLICY "driver_locations_all_member" ON public.driver_locations FOR ALL
-      USING (company_id IS NULL OR public.is_company_member(company_id));
+  -- ── job_notes ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'job_notes'
+                   AND policyname = 'job_notes_all_member') THEN
+    CREATE POLICY "job_notes_all_member" ON public.job_notes
+      FOR ALL USING (public.is_company_member(company_id));
   END IF;
 
-  -- job_driver_distance_cache
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='job_driver_distance_cache' AND policyname='distance_cache_all_member') THEN
-    CREATE POLICY "distance_cache_all_member" ON public.job_driver_distance_cache FOR ALL
-      USING (EXISTS (SELECT 1 FROM public.jobs j WHERE j.id = job_id AND public.is_company_member(j.company_id)));
+  -- ── job_tracking_events ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'job_tracking_events'
+                   AND policyname = 'job_tracking_all_member') THEN
+    CREATE POLICY "job_tracking_all_member" ON public.job_tracking_events
+      FOR ALL USING (
+        EXISTS (SELECT 1 FROM public.jobs j
+                WHERE j.id = job_id AND public.is_company_member(j.company_id))
+      );
   END IF;
 
-  -- quotes
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='quotes' AND policyname='quotes_all_member') THEN
-    CREATE POLICY "quotes_all_member" ON public.quotes FOR ALL USING (public.is_company_member(company_id));
+  -- ── job_bids ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'job_bids'
+                   AND policyname = 'bids_all_member') THEN
+    CREATE POLICY "bids_all_member" ON public.job_bids
+      FOR ALL USING (company_id IS NULL OR public.is_company_member(company_id));
   END IF;
 
-  -- diary_events
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='diary_events' AND policyname='diary_events_all_member') THEN
-    CREATE POLICY "diary_events_all_member" ON public.diary_events FOR ALL USING (public.is_company_member(company_id));
+  -- ── driver_locations ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'driver_locations'
+                   AND policyname = 'driver_locations_all_member') THEN
+    CREATE POLICY "driver_locations_all_member" ON public.driver_locations
+      FOR ALL USING (company_id IS NULL OR public.is_company_member(company_id));
   END IF;
 
-  -- return_journeys
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='return_journeys' AND policyname='return_journeys_all_member') THEN
-    CREATE POLICY "return_journeys_all_member" ON public.return_journeys FOR ALL USING (public.is_company_member(company_id));
+  -- ── job_driver_distance_cache ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'job_driver_distance_cache'
+                   AND policyname = 'distance_cache_all_member') THEN
+    CREATE POLICY "distance_cache_all_member" ON public.job_driver_distance_cache
+      FOR ALL USING (
+        EXISTS (SELECT 1 FROM public.jobs j
+                WHERE j.id = job_id AND public.is_company_member(j.company_id))
+      );
   END IF;
 
-END $$;
+  -- ── quotes ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'quotes'
+                   AND policyname = 'quotes_all_member') THEN
+    CREATE POLICY "quotes_all_member" ON public.quotes
+      FOR ALL USING (public.is_company_member(company_id));
+  END IF;
+
+  -- ── diary_events ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'diary_events'
+                   AND policyname = 'diary_events_all_member') THEN
+    CREATE POLICY "diary_events_all_member" ON public.diary_events
+      FOR ALL USING (public.is_company_member(company_id));
+  END IF;
+
+  -- ── return_journeys ──
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'return_journeys'
+                   AND policyname = 'return_journeys_all_member') THEN
+    CREATE POLICY "return_journeys_all_member" ON public.return_journeys
+      FOR ALL USING (public.is_company_member(company_id));
+  END IF;
+
+END
+$$;
 
 -- ──────────────────────────────────────────────────────────────
--- 10. INDEXES
+-- 10. INDEXES (all idempotent via IF NOT EXISTS)
 -- ──────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS jobs_company_id_idx              ON public.jobs (company_id);
 CREATE INDEX IF NOT EXISTS jobs_status_idx                  ON public.jobs (status);
@@ -712,246 +846,9 @@ CREATE INDEX IF NOT EXISTS diary_events_start_at_idx        ON public.diary_even
 CREATE INDEX IF NOT EXISTS return_journeys_company_id_idx   ON public.return_journeys (company_id);
 
 COMMIT;
-```
 
-> ✅ **Rezultat așteptat:** `Success. No rows returned`
-
----
-
-## Instrucțiuni detaliate (metodă alternativă)
-
-Urmărește pașii de mai jos **în ordine** pentru a verifica și aplica schema.
-
----
-
-## PASUL 1 — Deschide Supabase SQL Editor
-
-1. Mergi la [https://app.supabase.com](https://app.supabase.com)
-2. Selectează proiectul **Danny Courier Ltd**
-3. În meniul din stânga, apasă pe **SQL Editor**
-
----
-
-## PASUL 2 — Rulează Health Check (verificare ce lipsește)
-
-Copiază scriptul de mai jos în SQL Editor și apasă **Run**.
-Acesta este *read-only* — nu modifică nimic, doar raportează ce lipsește.
-
-```sql
 -- ============================================================
--- Danny Courier Ltd — SCHEMA HEALTH CHECK (read-only)
+-- COMPLETE SCHEMA v2 APPLIED SUCCESSFULLY
+-- All tables, enums, functions, triggers, RLS policies,
+-- and indexes are now in place.
 -- ============================================================
-
--- 1) TABELE LIPSĂ
-SELECT 'TABEL LIPSĂ' AS problema, t AS tabel
-FROM (VALUES
-  ('profiles'), ('companies'), ('company_memberships'),
-  ('drivers'), ('vehicles'), ('driver_documents'), ('vehicle_documents'),
-  ('jobs'), ('job_documents'), ('job_notes'), ('job_tracking_events'),
-  ('job_bids'), ('driver_locations'), ('job_driver_distance_cache'),
-  ('quotes'), ('diary_events'), ('return_journeys')
-) AS necesar(t)
-WHERE NOT EXISTS (
-  SELECT 1 FROM information_schema.tables
-  WHERE table_schema = 'public' AND table_name = t
-);
-
--- 2) COLOANE LIPSĂ PE TABELE EXISTENTE
-SELECT 'COLOANĂ LIPSĂ' AS problema, c.tabel, c.coloana
-FROM (VALUES
-  ('profiles',            'email'),
-  ('profiles',            'role'),
-  ('profiles',            'company_id'),
-  ('companies',           'address_line1'),
-  ('companies',           'status'),
-  ('companies',           'company_type'),
-  ('jobs',                'distance_to_pickup_miles'),
-  ('job_bids',            'amount'),
-  ('job_bids',            'bid_price_gbp'),
-  ('job_bids',            'bidder_user_id'),
-  ('job_bids',            'bidder_id'),
-  ('driver_locations',    'company_id'),
-  ('driver_locations',    'updated_at'),
-  ('quotes',              'vehicle_type'),
-  ('quotes',              'cargo_type'),
-  ('quotes',              'currency'),
-  ('quotes',              'status'),
-  ('return_journeys',     'status'),
-  ('job_notes',           'id')
-) AS c(tabel, coloana)
-WHERE EXISTS (
-  SELECT 1 FROM information_schema.tables
-  WHERE table_schema = 'public' AND table_name = c.tabel
-)
-AND NOT EXISTS (
-  SELECT 1 FROM information_schema.columns
-  WHERE table_schema = 'public'
-    AND table_name   = c.tabel
-    AND column_name  = c.coloana
-);
-
--- 3) TIPURI ENUM LIPSĂ
-SELECT 'ENUM LIPSĂ' AS problema, e AS tip_enum
-FROM (VALUES
-  ('company_role'), ('membership_status'), ('doc_status'),
-  ('job_status'), ('cargo_type'), ('vehicle_type'), ('tracking_event_type')
-) AS e(e)
-WHERE NOT EXISTS (
-  SELECT 1 FROM pg_type
-  WHERE typname = e
-    AND typnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
-);
-
--- 4) FUNCȚII LIPSĂ
-SELECT 'FUNCȚIE LIPSĂ' AS problema, f AS functie
-FROM (VALUES
-  ('is_company_member'), ('is_company_admin'), ('sync_job_bid_price')
-) AS f(f)
-WHERE NOT EXISTS (
-  SELECT 1 FROM pg_proc p
-  JOIN pg_namespace n ON n.oid = p.pronamespace
-  WHERE n.nspname = 'public' AND p.proname = f
-);
-
--- 5) RLS STATUS
-SELECT tablename,
-       CASE WHEN rowsecurity THEN '✅ RLS ACTIV' ELSE '❌ RLS INACTIV' END AS stare_rls
-FROM pg_tables
-WHERE schemaname = 'public'
-  AND tablename IN (
-    'profiles','companies','company_memberships','drivers','vehicles',
-    'driver_documents','vehicle_documents','jobs','job_documents',
-    'job_notes','job_tracking_events','job_bids','driver_locations',
-    'job_driver_distance_cache','quotes','diary_events','return_journeys'
-  )
-ORDER BY tablename;
-
--- 6) REZULTAT FINAL
-SELECT 'VERIFICARE COMPLETĂ' AS status,
-       'Sănătos = secțiunile 1-5 și 7 returnează 0 rânduri; secțiunea 6 arată RLS ACTIV.' AS nota;
-```
-
-### ✅ Rezultat așteptat
-- Secțiunile 1–5 și 7 trebuie să returneze **0 rânduri** (nimic lipsă).
-- Secțiunea 6 trebuie să arate **✅ RLS ACTIV** pentru toate tabelele.
-
----
-
-## PASUL 3 — Aplică Schema Completă (dacă lipsesc tabele / coloane)
-
-Dacă Health Check-ul de la Pasul 2 a găsit probleme, folosește scriptul complet de la **secțiunea ⚡ Metoda rapidă** de la începutul acestui fișier (sau fișierul `supabase/migrations/011_complete_schema_v2.sql` din repository):
-
-1. În SQL Editor, deschide un **New Query** (tab nou)
-2. Copiază scriptul complet de la `supabase/migrations/011_complete_schema_v2.sql`
-3. Lipește în SQL Editor
-4. Apasă **Run**
-5. Verifică că mesajul de jos afișează: **`Success. No rows returned`**
-6. **Rulează din nou** Health Check (scriptul din `007_verify_schema.sql`) pentru a confirma că totul este în regulă — secțiunile 1–5 și 7 trebuie să returneze 0 rânduri
-
----
-
-## PASUL 4 — Instrucțiuni pentru Asistentul AI Supabase
-
-Dacă folosești Asistentul AI din Supabase (butonul **Ask AI** din SQL Editor), trimite-i următorul prompt:
-
----
-
-> **Prompt pentru Asistentul Supabase:**
->
-> Verifica schema bazei de date publice si asigura-te ca urmatoarele tabele exista cu toate coloanele necesare:
->
-> **Tabele necesare:**
-> `profiles`, `companies`, `company_memberships`, `drivers`, `vehicles`,
-> `driver_documents`, `vehicle_documents`, `jobs`, `job_documents`, `job_notes`,
-> `job_tracking_events`, `job_bids`, `driver_locations`, `job_driver_distance_cache`,
-> `quotes`, `diary_events`, `return_journeys`
->
-> **Tipuri enum necesare:**
-> `company_role` ('owner','admin','dispatcher','viewer'),
-> `membership_status` ('invited','active','suspended'),
-> `doc_status` ('pending','approved','rejected','expired'),
-> `job_status` ('draft','posted','allocated','in_transit','delivered','cancelled','disputed'),
-> `cargo_type` ('documents','packages','pallets','furniture','equipment','other'),
-> `vehicle_type` ('bicycle','motorbike','car','van_small','van_large','luton','truck_7_5t','truck_18t','artic'),
-> `tracking_event_type` ('created','allocated','driver_en_route','arrived_pickup','collected','in_transit','arrived_delivery','delivered','failed','cancelled','note')
->
-> **Coloane critice de verificat:**
-> - `quotes` trebuie sa aiba: `vehicle_type`, `cargo_type`, `currency`, `status`
-> - `profiles` trebuie sa aiba: `email`, `role`, `company_id`
-> - `companies` trebuie sa aiba: `address_line1`, `address_line2`, `city`, `postcode`, `status`, `company_type`
-> - `jobs` trebuie sa aiba: `distance_to_pickup_miles`
-> - `job_bids` trebuie sa aiba: `amount`, `bid_price_gbp`, `bidder_user_id`, `bidder_id`
-> - `driver_locations` trebuie sa aiba: `company_id`, `updated_at`
-> - `return_journeys` trebuie sa aiba: `status`
->
-> **Functii necesare:**
-> - `public.is_company_member(cid uuid) RETURNS boolean SECURITY DEFINER`
-> - `public.is_company_admin(cid uuid) RETURNS boolean SECURITY DEFINER`
->
-> **Row Level Security:**
-> - RLS activat pe toate tabelele de mai sus
-> - Politici bazate pe `is_company_member()` si `is_company_admin()`
->
-> Genereaza un script SQL idempotent (folosind IF NOT EXISTS si ADD COLUMN IF NOT EXISTS) care creeaza ce lipseste fara sa stearga date existente.
-
----
-
-## PASUL 5 — Verificare finală
-
-După aplicarea schemei, rulează din nou Health Check (Pasul 2).
-Toate secțiunile 1–4 trebuie să returneze **0 rânduri**.
-
----
-
-## Structura completă a bazei de date
-
-```
-public
-├── Enums
-│   ├── company_role
-│   ├── membership_status
-│   ├── doc_status
-│   ├── job_status
-│   ├── cargo_type
-│   ├── vehicle_type
-│   └── tracking_event_type
-│
-├── Tables
-│   ├── companies           ← firma (multi-tenant root)
-│   ├── profiles            ← utilizatori extinsi din auth.users
-│   ├── company_memberships ← cine face parte din ce firma
-│   ├── drivers             ← soferi
-│   ├── vehicles            ← vehicule
-│   ├── driver_documents    ← documente sofer (permis, etc.)
-│   ├── vehicle_documents   ← documente vehicul (RCA, ITP, etc.)
-│   ├── jobs                ← curse / livrari
-│   ├── job_documents       ← documente atasate la cursa
-│   ├── job_notes           ← note interne pe cursa
-│   ├── job_tracking_events ← istoricul statusului cursei
-│   ├── job_bids            ← oferte de pret pentru curse
-│   ├── driver_locations    ← locatia live a soferilor
-│   ├── job_driver_distance_cache ← cache distante sofer-cursa
-│   ├── quotes              ← oferte de pret pentru clienti
-│   ├── diary_events        ← planificator / agenda
-│   └── return_journeys     ← curse de intoarcere disponibile
-│
-├── Functions
-│   ├── is_company_member(uuid) → boolean
-│   ├── is_company_admin(uuid)  → boolean
-│   ├── sync_job_bid_price()    → trigger function
-│   └── get_or_create_company_for_user() → uuid
-│
-└── Triggers
-    └── trg_sync_job_bid_price  (on job_bids)
-```
-
----
-
-## Fișiere relevante în repository
-
-| Fișier | Descriere |
-|--------|-----------|
-| `supabase/migrations/011_complete_schema_v2.sql` | **⭐ Schema completă v2** — cel mai recent, include toate fix-urile |
-| `supabase/migrations/007_verify_schema.sql` | **Health check** — verifică ce lipsește |
-| `supabase/migrations/006_complete_schema.sql` | Schema completă v1 (versiune anterioară) |
-| `supabase/migrations/010_fix_company_profile_loading.sql` | Fix RLS pentru eroarea "Company profile not loaded" |
