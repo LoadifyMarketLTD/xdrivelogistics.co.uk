@@ -4,6 +4,38 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import type { InvoiceData } from '../../components/InvoiceTemplate';
+import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import type { Invoice } from '../../../lib/types/database';
+
+/** Map a Supabase Invoice row → InvoiceData used by the UI */
+function dbToInvoiceData(row: Invoice): InvoiceData {
+  return {
+    id: row.id,
+    invoiceNumber: row.invoice_number,
+    jobRef: row.job_ref,
+    date: row.invoice_date,
+    dueDate: row.due_date,
+    status: row.status,
+    clientName: row.client_name,
+    clientAddress: row.client_address ?? '',
+    clientEmail: row.client_email ?? '',
+    pickupLocation: row.pickup_location ?? '',
+    pickupDateTime: row.pickup_datetime ?? '',
+    deliveryLocation: row.delivery_location ?? '',
+    deliveryDateTime: row.delivery_datetime ?? '',
+    deliveryRecipient: row.delivery_recipient ?? '',
+    serviceDescription: row.service_description ?? '',
+    amount: Number(row.amount),
+    netAmount: Number(row.net_amount),
+    vatAmount: Number(row.vat_amount),
+    vatRate: row.vat_rate as 0 | 5 | 20,
+    paymentTerms: (row.payment_terms as 'Pay now' | '14 days' | '30 days') ?? '14 days',
+    lateFee: row.late_fee ?? '',
+    podPhotos: row.pod_photos ?? undefined,
+    signature: row.signature ?? undefined,
+    recipientName: row.recipient_name ?? undefined,
+  };
+}
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -11,11 +43,33 @@ export default function InvoicesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Paid' | 'Pending' | 'Overdue'>('All');
 
-  useEffect(() => {
-    loadInvoices();
-  }, []);
+  const calculateStatus = (dueDate: string, currentStatus: string): 'Paid' | 'Pending' | 'Overdue' => {
+    if (currentStatus === 'Paid') return 'Paid';
+    const today = new Date();
+    const due = new Date(dueDate);
+    return today > due ? 'Overdue' : 'Pending';
+  };
 
-  const loadInvoices = () => {
+  const loadInvoices = async () => {
+    // Prefer Supabase when available
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        const mapped = (data as Invoice[]).map(row => {
+          const inv = dbToInvoiceData(row);
+          return { ...inv, status: calculateStatus(inv.dueDate, inv.status) };
+        });
+        setInvoices(mapped);
+        return;
+      }
+      if (error) {
+        console.error('Failed to load invoices from Supabase:', error.message);
+      }
+    }
+    // Fallback: localStorage
     try {
       const stored = localStorage.getItem('dannycourier_invoices');
       if (stored) {
@@ -32,12 +86,10 @@ export default function InvoicesPage() {
     }
   };
 
-  const calculateStatus = (dueDate: string, currentStatus: string): 'Paid' | 'Pending' | 'Overdue' => {
-    if (currentStatus === 'Paid') return 'Paid';
-    const today = new Date();
-    const due = new Date(dueDate);
-    return today > due ? 'Overdue' : 'Pending';
-  };
+  useEffect(() => {
+    loadInvoices();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
@@ -148,7 +200,7 @@ export default function InvoicesPage() {
                 {/* Status Filter */}
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  onChange={(e) => setStatusFilter(e.target.value as 'All' | 'Paid' | 'Pending' | 'Overdue')}
                   style={{
                     padding: '0.75rem 1rem',
                     border: '2px solid #e5e7eb',

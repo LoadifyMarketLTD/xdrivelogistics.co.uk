@@ -5,12 +5,79 @@ import { useRouter, useParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import InvoiceTemplate, { InvoiceData } from '../../../components/InvoiceTemplate';
 import { COMPANY_CONFIG } from '../../../config/company';
+import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
+import type { Invoice } from '../../../../lib/types/database';
+
+/** Map InvoiceData (UI shape) → Supabase invoice row (DB shape) */
+function invoiceDataToDb(inv: InvoiceData, companyId: string): Omit<Invoice, 'created_at' | 'updated_at'> {
+  return {
+    id: inv.id,
+    company_id: companyId,
+    created_by: null,
+    invoice_number: inv.invoiceNumber,
+    job_ref: inv.jobRef,
+    job_id: null,
+    invoice_date: inv.date,
+    due_date: inv.dueDate,
+    status: inv.status,
+    client_name: inv.clientName,
+    client_address: inv.clientAddress || null,
+    client_email: inv.clientEmail || null,
+    pickup_location: inv.pickupLocation || null,
+    pickup_datetime: inv.pickupDateTime || null,
+    delivery_location: inv.deliveryLocation || null,
+    delivery_datetime: inv.deliveryDateTime || null,
+    delivery_recipient: inv.deliveryRecipient || null,
+    service_description: inv.serviceDescription || null,
+    amount: inv.amount,
+    net_amount: inv.netAmount,
+    vat_amount: inv.vatAmount,
+    vat_rate: inv.vatRate,
+    currency: 'GBP',
+    payment_terms: inv.paymentTerms,
+    late_fee: inv.lateFee || null,
+    pod_photos: inv.podPhotos ?? null,
+    signature: inv.signature ?? null,
+    recipient_name: inv.recipientName ?? null,
+  };
+}
+
+/** Map Supabase Invoice row → InvoiceData used by the UI */
+function dbToInvoiceData(row: Invoice): InvoiceData {
+  return {
+    id: row.id,
+    invoiceNumber: row.invoice_number,
+    jobRef: row.job_ref,
+    date: row.invoice_date,
+    dueDate: row.due_date,
+    status: row.status,
+    clientName: row.client_name,
+    clientAddress: row.client_address ?? '',
+    clientEmail: row.client_email ?? '',
+    pickupLocation: row.pickup_location ?? '',
+    pickupDateTime: row.pickup_datetime ?? '',
+    deliveryLocation: row.delivery_location ?? '',
+    deliveryDateTime: row.delivery_datetime ?? '',
+    deliveryRecipient: row.delivery_recipient ?? '',
+    serviceDescription: row.service_description ?? '',
+    amount: Number(row.amount),
+    netAmount: Number(row.net_amount),
+    vatAmount: Number(row.vat_amount),
+    vatRate: row.vat_rate as 0 | 5 | 20,
+    paymentTerms: (row.payment_terms as 'Pay now' | '14 days' | '30 days') ?? '14 days',
+    lateFee: row.late_fee ?? '',
+    podPhotos: row.pod_photos ?? undefined,
+    signature: row.signature ?? undefined,
+    recipientName: row.recipient_name ?? undefined,
+  };
+}
 
 export default function InvoiceDetailPage() {
   const router = useRouter();
   const params = useParams();
   const invoiceId = params?.id as string;
   const isNew = invoiceId === 'new';
+  const [companyId, setCompanyId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<InvoiceData>({
     id: '',
@@ -39,13 +106,43 @@ export default function InvoiceDetailPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
 
+  // Load the company ID for the current user (needed to write invoices to Supabase)
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const fetchCompanyId = async () => {
+      const { data, error } = await supabase.rpc('get_or_create_company_for_user');
+      if (!error && data) {
+        setCompanyId(data as string);
+        return;
+      }
+      // Fallback: direct membership query
+      const { data: mbData } = await supabase
+        .from('company_memberships')
+        .select('company_id')
+        .neq('status', 'suspended')
+        .limit(1)
+        .single();
+      if (mbData) setCompanyId(mbData.company_id as string);
+    };
+    fetchCompanyId();
+  }, []);
+
+  // Load existing invoice once when invoiceId changes
   useEffect(() => {
     if (!isNew) {
       loadInvoice();
-    } else {
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceId]);
+
+  // Generate new invoice data once on mount for new invoices;
+  // re-run if companyId resolves so we can use the DB sequence number
+  useEffect(() => {
+    if (isNew) {
       generateNewInvoiceData();
     }
-  }, [invoiceId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNew, companyId]);
 
   useEffect(() => {
     if (formData.date && formData.paymentTerms) {
@@ -100,23 +197,47 @@ export default function InvoiceDetailPage() {
     return `${COMPANY_CONFIG.invoice.invoicePrefix}-${year}${month}-${uniqueId}`;
   };
 
-  const generateNewInvoiceData = () => {
-    const id = `invoice_${Date.now()}`;
+  const generateNewInvoiceData = async () => {
+    const tempId = crypto.randomUUID ? crypto.randomUUID() : `invoice_${Date.now()}`;
+    let invoiceNumber = generateInvoiceNumber();
+
+    // Use the DB sequence helper when Supabase is available
+    if (isSupabaseConfigured && companyId) {
+      const { data } = await supabase.rpc('next_invoice_number', { p_company_id: companyId });
+      if (data) invoiceNumber = data as string;
+      // DB will assign the UUID on insert; keep the locally generated one for the form
+    }
+
     const jobRef = generateJobRef();
-    const invoiceNumber = generateInvoiceNumber();
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 14);
 
     setFormData((prev) => ({
       ...prev,
-      id,
+      id: tempId,
       jobRef,
       invoiceNumber,
       dueDate: dueDate.toISOString().split('T')[0],
     }));
   };
 
-  const loadInvoice = () => {
+  const loadInvoice = async () => {
+    // Try Supabase first
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('id', invoiceId)
+        .single();
+      if (!error && data) {
+        setFormData(dbToInvoiceData(data as Invoice));
+        return;
+      }
+      if (error && error.code !== 'PGRST116') {
+        console.error('Failed to load invoice from Supabase:', error.message);
+      }
+    }
+    // Fallback: localStorage
     try {
       const stored = localStorage.getItem('dannycourier_invoices');
       if (stored) {
@@ -136,7 +257,27 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // Save to Supabase when available
+    if (isSupabaseConfigured && companyId) {
+      const row = invoiceDataToDb(formData, companyId);
+      const { error } = isNew
+        ? await supabase.from('invoices').insert([row])
+        : await supabase.from('invoices').upsert([row]);
+      if (!error) {
+        setSaveMessage('Invoice saved successfully!');
+        setTimeout(() => setSaveMessage(''), 3000);
+        if (isNew) {
+          setTimeout(() => router.push(`/admin/invoices/${row.id}`), 1000);
+        }
+        return;
+      }
+      console.error('Supabase save error:', error.message);
+      setSaveMessage(`Error saving invoice: ${error.message}`);
+      setTimeout(() => setSaveMessage(''), 4000);
+      return;
+    }
+    // Fallback: localStorage
     try {
       const stored = localStorage.getItem('dannycourier_invoices');
       let invoices: InvoiceData[] = stored ? JSON.parse(stored) : [];
@@ -429,7 +570,7 @@ export default function InvoiceDetailPage() {
                     <label style={labelStyle}>Status</label>
                     <select
                       value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Paid' | 'Pending' | 'Overdue' })}
                       style={inputStyle}
                     >
                       <option value="Pending">Pending</option>

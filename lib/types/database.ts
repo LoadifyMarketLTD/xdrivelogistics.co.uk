@@ -199,6 +199,41 @@ export interface ReturnJourney {
   created_at: string;
 }
 
+export type InvoiceStatus = 'Pending' | 'Paid' | 'Overdue';
+
+export interface Invoice {
+  id: string;
+  company_id: string;
+  created_by: string | null;
+  invoice_number: string;
+  job_ref: string;
+  job_id: string | null;
+  invoice_date: string;
+  due_date: string;
+  status: InvoiceStatus;
+  client_name: string;
+  client_address: string | null;
+  client_email: string | null;
+  pickup_location: string | null;
+  pickup_datetime: string | null;
+  delivery_location: string | null;
+  delivery_datetime: string | null;
+  delivery_recipient: string | null;
+  service_description: string | null;
+  amount: number;
+  net_amount: number;
+  vat_amount: number;
+  vat_rate: 0 | 5 | 20;
+  currency: string;
+  payment_terms: string;
+  late_fee: string | null;
+  pod_photos: string[] | null;
+  signature: string | null;
+  recipient_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Quote {
   id: string;
   company_id: string;
