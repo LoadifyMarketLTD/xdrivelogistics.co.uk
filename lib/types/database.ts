@@ -55,6 +55,10 @@ export interface Driver {
   phone: string | null;
   email: string | null;
   status: string;
+  login_pin: string | null;
+  app_access: boolean;
+  last_app_login: string | null;
+  device_token: string | null;
   created_at: string;
 }
 
@@ -136,6 +140,12 @@ export interface DbJob {
   job_distance_miles: number | null;
   job_distance_minutes: number | null;
   distance_to_pickup_miles: number | null;
+  collection_photo_url: string | null;
+  delivery_photos: string[] | null;
+  delivery_signature_data: string | null;
+  status_history: Array<{ status: string; timestamp: string; note?: string }> | null;
+  driver_notes: string | null;
+  client_signature_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -177,12 +187,13 @@ export interface DriverLocation {
   id: string;
   driver_id: string;
   company_id: string | null;
+  job_id: string | null;
   lat: number;
   lng: number;
   heading: number | null;
   speed_mph: number | null;
-  updated_at: string | null;
   recorded_at: string;
+  updated_at: string;
 }
 
 export interface ReturnJourney {
