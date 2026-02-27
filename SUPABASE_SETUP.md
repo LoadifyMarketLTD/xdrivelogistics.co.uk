@@ -168,14 +168,18 @@ CREATE TABLE IF NOT EXISTS public.company_memberships (
 
 -- 2.4 drivers
 CREATE TABLE IF NOT EXISTS public.drivers (
-  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id   uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
-  user_id      uuid            REFERENCES auth.users(id)    ON DELETE SET NULL,
-  display_name text NOT NULL,
-  phone        text,
-  email        text,
-  status       text DEFAULT 'active',
-  created_at   timestamptz DEFAULT now()
+  id             uuid    PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id     uuid    NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  user_id        uuid             REFERENCES auth.users(id)    ON DELETE SET NULL,
+  display_name   text    NOT NULL,
+  phone          text,
+  email          text,
+  status         text    DEFAULT 'active',
+  login_pin      text,
+  app_access     boolean NOT NULL DEFAULT false,
+  last_app_login timestamptz,
+  device_token   text,
+  created_at     timestamptz DEFAULT now()
 );
 
 -- 2.5 vehicles
@@ -384,6 +388,40 @@ CREATE TABLE IF NOT EXISTS public.return_journeys (
   created_at     timestamptz DEFAULT now()
 );
 
+-- 2.18 invoices
+CREATE TABLE IF NOT EXISTS public.invoices (
+  id                  uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id          uuid        NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  created_by          uuid        REFERENCES auth.users(id),
+  invoice_number      text        NOT NULL,
+  job_ref             text,
+  job_id              uuid        REFERENCES public.jobs(id) ON DELETE SET NULL,
+  invoice_date        date        NOT NULL DEFAULT CURRENT_DATE,
+  due_date            date,
+  status              text        NOT NULL DEFAULT 'Pending',
+  client_name         text        NOT NULL,
+  client_address      text,
+  client_email        text,
+  pickup_location     text,
+  pickup_datetime     text,
+  delivery_location   text,
+  delivery_datetime   text,
+  delivery_recipient  text,
+  service_description text,
+  amount              numeric     NOT NULL DEFAULT 0,
+  net_amount          numeric     NOT NULL DEFAULT 0,
+  vat_amount          numeric     NOT NULL DEFAULT 0,
+  vat_rate            int         NOT NULL DEFAULT 0,
+  currency            text        NOT NULL DEFAULT 'GBP',
+  payment_terms       text        NOT NULL DEFAULT '14 days',
+  late_fee            text,
+  pod_photos          text[],
+  signature           text,
+  recipient_name      text,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  updated_at          timestamptz NOT NULL DEFAULT now()
+);
+
 -- ──────────────────────────────────────────────────────────────
 -- 3. ADD MISSING COLUMNS to pre-existing tables (idempotent)
 -- ──────────────────────────────────────────────────────────────
@@ -467,6 +505,27 @@ DO $$ BEGIN
   ALTER TABLE public.return_journeys
     ADD COLUMN IF NOT EXISTS status text DEFAULT 'available';
 EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+-- Driver app columns (migration 015)
+-- display_name added as nullable here for backwards compat; the CREATE TABLE above defines it NOT NULL for fresh installs.
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS display_name   text;
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS login_pin      text;
+-- app_access: omit NOT NULL in ALTER so existing rows with NULLs are accepted; DEFAULT false fills them.
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS app_access     boolean DEFAULT false;
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS last_app_login timestamptz;
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS device_token   text;
+
+-- Vehicles / quotes company_id (migration 016)
+ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE public.quotes   ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE CASCADE;
+
+-- Job driver-app columns (migration 015)
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS collection_photo_url    text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_photos         text[];
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_signature_data text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS status_history          jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS driver_notes            text;
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS client_signature_name   text;
 
 -- ──────────────────────────────────────────────────────────────
 -- 4. UNIQUE CONSTRAINT on company_memberships (idempotent)
@@ -583,6 +642,19 @@ CREATE TRIGGER trg_sync_job_bid_price
   BEFORE INSERT OR UPDATE ON public.job_bids
   FOR EACH ROW EXECUTE FUNCTION public.sync_job_bid_price();
 
+-- updated_at trigger for invoices
+CREATE OR REPLACE FUNCTION public.set_invoices_updated_at()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_invoices_updated_at ON public.invoices;
+CREATE TRIGGER trg_invoices_updated_at
+  BEFORE UPDATE ON public.invoices
+  FOR EACH ROW EXECUTE FUNCTION public.set_invoices_updated_at();
+
 -- ──────────────────────────────────────────────────────────────
 -- 7. BACKFILL alias columns in job_bids
 -- ──────────────────────────────────────────────────────────────
@@ -615,6 +687,7 @@ BEGIN
   ALTER TABLE public.quotes                    ENABLE ROW LEVEL SECURITY;
   ALTER TABLE public.diary_events              ENABLE ROW LEVEL SECURITY;
   ALTER TABLE public.return_journeys           ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.invoices                  ENABLE ROW LEVEL SECURITY;
 EXCEPTION WHEN undefined_table THEN NULL;
 END $$;
 
@@ -751,6 +824,11 @@ BEGIN
     CREATE POLICY "return_journeys_all_member" ON public.return_journeys FOR ALL USING (public.is_company_member(company_id));
   END IF;
 
+  -- invoices
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='invoices' AND policyname='invoices_all_member') THEN
+    CREATE POLICY "invoices_all_member" ON public.invoices FOR ALL USING (public.is_company_member(company_id));
+  END IF;
+
 END $$;
 
 -- ──────────────────────────────────────────────────────────────
@@ -774,6 +852,9 @@ CREATE INDEX IF NOT EXISTS vehicles_company_id_idx          ON public.vehicles (
 CREATE INDEX IF NOT EXISTS diary_events_company_id_idx      ON public.diary_events (company_id);
 CREATE INDEX IF NOT EXISTS diary_events_start_at_idx        ON public.diary_events (start_at);
 CREATE INDEX IF NOT EXISTS return_journeys_company_id_idx   ON public.return_journeys (company_id);
+CREATE INDEX IF NOT EXISTS invoices_company_id_idx          ON public.invoices (company_id);
+CREATE INDEX IF NOT EXISTS invoices_status_idx              ON public.invoices (status);
+CREATE INDEX IF NOT EXISTS invoices_created_at_idx          ON public.invoices (created_at DESC);
 
 COMMIT;
 ```
