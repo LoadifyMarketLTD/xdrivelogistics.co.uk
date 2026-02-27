@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
-  description: 'Danny Courier Privacy Policy — how we collect, use, and protect your personal data in accordance with UK GDPR.',
+  description: 'XDrive Logistics Privacy Policy — how we collect, use, and protect your personal data in accordance with UK GDPR.',
 };
 
 const LAST_UPDATED = '20 February 2026';

@@ -239,7 +239,7 @@ export default function InvoiceDetailPage() {
     }
     // Fallback: localStorage
     try {
-      const stored = localStorage.getItem('dannycourier_invoices');
+      const stored = localStorage.getItem('xdrivelogistics_invoices');
       if (stored) {
         const invoices: InvoiceData[] = JSON.parse(stored);
         const invoice = invoices.find((inv) => inv.id === invoiceId);
@@ -279,7 +279,7 @@ export default function InvoiceDetailPage() {
     }
     // Fallback: localStorage
     try {
-      const stored = localStorage.getItem('dannycourier_invoices');
+      const stored = localStorage.getItem('xdrivelogistics_invoices');
       let invoices: InvoiceData[] = stored ? JSON.parse(stored) : [];
 
       if (isNew) {
@@ -288,7 +288,7 @@ export default function InvoiceDetailPage() {
         invoices = invoices.map((inv) => (inv.id === invoiceId ? formData : inv));
       }
 
-      localStorage.setItem('dannycourier_invoices', JSON.stringify(invoices));
+      localStorage.setItem('xdrivelogistics_invoices', JSON.stringify(invoices));
       setSaveMessage('Invoice saved successfully!');
       setTimeout(() => setSaveMessage(''), 3000);
 

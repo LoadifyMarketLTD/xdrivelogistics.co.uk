@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Terms & Conditions',
-  description: 'Danny Courier Terms and Conditions for the use of our transport platform and services.',
+  description: 'XDrive Logistics Terms and Conditions for the use of our transport platform and services.',
 };
 
 const LAST_UPDATED = '20 February 2026';
@@ -49,7 +49,7 @@ export default function TermsPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: '1.7', color: 'rgba(255,255,255,0.82)' }}>
           <Section title="1. Introduction">
-            These Terms and Conditions (&quot;Terms&quot;) govern your use of the Danny Courier platform and services
+            These Terms and Conditions (&quot;Terms&quot;) govern your use of the XDrive Logistics platform and services
             operated by XDrive Logistics Ltd, a company registered in England and Wales (Company Number 13171804),
             with a registered office at 101 Cornelian Street, Blackburn, BB1 9QL, United Kingdom.
             <br /><br />

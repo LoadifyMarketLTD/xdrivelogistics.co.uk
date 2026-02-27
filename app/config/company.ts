@@ -1,8 +1,8 @@
-// Company configuration for Danny Courier (trading name of XDrive Logistics Ltd)
+// Company configuration for XDrive Logistics Ltd
 // MASTER SPEC - ONE SOURCE OF TRUTH
 
 export const COMPANY_CONFIG = {
-  name: 'Danny Courier',
+  name: 'XDrive Logistics',
   legalName: 'XDrive Logistics Ltd',
   tagline: 'Professional Transport Services',
   companyNumber: '13171804',
@@ -50,7 +50,7 @@ export const COMPANY_CONFIG = {
   
   // Invoice configuration (MASTER SPEC)
   invoice: {
-    jobRefPrefix: 'DC', // Danny Courier prefix
+    jobRefPrefix: 'DC', // job reference prefix
     invoicePrefix: 'INV',
   },
   

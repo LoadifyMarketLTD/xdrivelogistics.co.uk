@@ -104,7 +104,7 @@ export default function AdminPage() {
               margin: 0,
               color: 'white'
             }}>
-              Danny Courier
+              XDrive Logistics
             </h1>
             <p style={{
               fontSize: '0.85rem',

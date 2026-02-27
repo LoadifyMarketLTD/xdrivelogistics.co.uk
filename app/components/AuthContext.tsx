@@ -23,9 +23,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Legacy credentials for fallback when Supabase is not configured
 const LEGACY_CREDENTIALS = [
-  { email: 'dannycourierltd@gmail.com', password: 'Johnny2000$$', role: 'desktop' as const },
-  { email: process.env.NEXT_PUBLIC_MOBILE_USER || 'mobile@dannycourierltd.co.uk', password: process.env.NEXT_PUBLIC_MOBILE_PASS || 'mobile123', role: 'mobile' as const },
-  { email: process.env.NEXT_PUBLIC_ADMIN_USER || 'admin@dannycourierltd.co.uk', password: process.env.NEXT_PUBLIC_ADMIN_PASS || 'admin123', role: 'desktop' as const },
+  { email: process.env.NEXT_PUBLIC_OWNER_EMAIL || '', password: process.env.NEXT_PUBLIC_OWNER_PASS || '', role: 'desktop' as const },
+  { email: process.env.NEXT_PUBLIC_MOBILE_USER || '', password: process.env.NEXT_PUBLIC_MOBILE_PASS || '', role: 'mobile' as const },
+  { email: process.env.NEXT_PUBLIC_ADMIN_USER || '', password: process.env.NEXT_PUBLIC_ADMIN_PASS || '', role: 'desktop' as const },
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return () => subscription.unsubscribe();
     } else {
       // Legacy localStorage auth
-      const storedUser = localStorage.getItem('danny_user');
+      const storedUser = localStorage.getItem('xdrivelogistics_user');
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser({ id: parsed.email, email: parsed.email, role: parsed.role });
         } catch (error) {
           console.error('Failed to parse stored user:', error);
-          localStorage.removeItem('danny_user');
+          localStorage.removeItem('xdrivelogistics_user');
         }
       }
       setIsLoading(false);
@@ -115,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cred) return { success: false, error: 'Invalid email or password' };
         // In legacy mode, use email as a stand-in ID (no real UUID without Supabase)
         const userData: User = { id: email, email: cred.email, role: cred.role };
-        localStorage.setItem('danny_user', JSON.stringify({ email: cred.email, role: cred.role }));
+        localStorage.setItem('xdrivelogistics_user', JSON.stringify({ email: cred.email, role: cred.role }));
         setUser(userData);
         if (cred.role === 'mobile' || (typeof window !== 'undefined' && window.innerWidth < 768)) {
           router.push('/m');
@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isSupabaseConfigured) {
       await supabase.auth.signOut();
     } else {
-      localStorage.removeItem('danny_user');
+      localStorage.removeItem('xdrivelogistics_user');
     }
     setUser(null);
     setHasSupabaseSession(false);
