@@ -1,11 +1,19 @@
 # Supabase AI Assistant — XDrive Logistics Prompt
 
-> **How to use this file**
+> ⚠️ **DO NOT paste this `.md` file into the Supabase SQL Editor.**
+> Markdown headings (`#`) are not valid SQL and will cause a syntax error.
+>
+> **To run the SQL directly**, open the file:
+> ```
+> supabase/migrations/017_complete_idempotent_setup.sql
+> ```
+> Copy its entire contents and paste them into the Supabase **SQL Editor**, then click **Run**.
+> That file is pure SQL with no Markdown — it is safe to run as-is.
+>
+> **To use the Supabase AI assistant instead:**
 > 1. Open your Supabase project → **SQL Editor** → click the **"Supabase AI"** button (✨ icon).
-> 2. Copy the text from **"PROMPT START"** to **"PROMPT END"** and paste it into the AI chat.
-> 3. Let the assistant generate any missing SQL, then run it.
-> 4. After the AI responds, also run the **Health Check** and **Complete Fix SQL** sections
->    below directly in the SQL Editor to guarantee everything is in place.
+> 2. Copy the text from **"PROMPT START"** to **"PROMPT END"** below and paste it into the AI chat.
+> 3. Let the assistant generate any missing SQL, then click **Run** on the SQL it produces.
 
 ---
 
