@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Cookie Policy',
-  description: 'Danny Courier Cookie Policy — how we use cookies on our website and how you can manage your preferences.',
+  description: 'XDrive Logistics Cookie Policy — how we use cookies on our website and how you can manage your preferences.',
 };
 
 const LAST_UPDATED = '20 February 2026';

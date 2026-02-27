@@ -12,12 +12,12 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'Danny Courier | Transport Platform UK | Loads for Drivers & Businesses',
-    template: '%s | Danny Courier',
+    default: 'XDrive Logistics | Transport Platform UK | Loads for Drivers & Businesses',
+    template: '%s | XDrive Logistics',
   },
-  description: 'Danny Courier connects self-employed courier drivers with businesses across the UK and Europe. Find loads, manage deliveries, and grow your transport business. 24/7 reliable freight services.',
+  description: 'XDrive Logistics connects self-employed courier drivers with businesses across the UK and Europe. Find loads, manage deliveries, and grow your transport business. 24/7 reliable freight services.',
   keywords: [
-    'Danny Courier',
+    'XDrive Logistics',
     'courier jobs UK',
     'self employed driver',
     'haulage exchange UK',
@@ -35,21 +35,21 @@ export const metadata: Metadata = {
   authors: [{ name: 'XDrive Logistics Ltd' }],
   creator: 'XDrive Logistics Ltd',
   publisher: 'XDrive Logistics Ltd',
-  metadataBase: new URL('https://dannycourierltd.co.uk'),
+  metadataBase: new URL('https://www.xdrivelogistics.co.uk'),
   icons: {
     apple: '/apple-touch-icon.png',
   },
   openGraph: {
     type: 'website',
     locale: 'en_GB',
-    url: 'https://dannycourierltd.co.uk',
-    title: 'Danny Courier - Premium Transport Services',
+    url: 'https://www.xdrivelogistics.co.uk',
+    title: 'XDrive Logistics - Premium Transport Services',
     description: 'Professional 24/7 courier and transport services across the UK and Europe. Fast, secure, and reliable.',
-    siteName: 'Danny Courier',
+    siteName: 'XDrive Logistics',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Danny Courier - Premium Transport Services',
+    title: 'XDrive Logistics - Premium Transport Services',
     description: 'Professional 24/7 courier and transport services across the UK and Europe.',
   },
   robots: {
@@ -68,10 +68,10 @@ export const metadata: Metadata = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'Danny Courier',
+  name: 'XDrive Logistics',
   legalName: 'XDrive Logistics Ltd',
-  url: 'https://dannycourierltd.co.uk',
-  logo: 'https://dannycourierltd.co.uk/icon-512.png',
+  url: 'https://www.xdrivelogistics.co.uk',
+  logo: 'https://www.xdrivelogistics.co.uk/icon-512.png',
   address: {
     '@type': 'PostalAddress',
     streetAddress: '101 Cornelian Street',

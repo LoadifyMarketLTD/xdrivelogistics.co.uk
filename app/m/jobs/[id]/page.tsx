@@ -360,7 +360,7 @@ export default function JobDetailPage() {
         backgroundColor: '#f3f4f6',
         paddingBottom: '2rem'
       }}>
-        {/* Header - Danny Courier Navy #0A2239 */}
+        {/* Header - XDrive Logistics Navy #0A2239 */}
         <header style={{
           backgroundColor: '#0A2239',
           color: 'white',

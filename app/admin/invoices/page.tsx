@@ -71,7 +71,7 @@ export default function InvoicesPage() {
     }
     // Fallback: localStorage
     try {
-      const stored = localStorage.getItem('dannycourier_invoices');
+      const stored = localStorage.getItem('xdrivelogistics_invoices');
       if (stored) {
         const parsedInvoices = JSON.parse(stored);
         const updatedInvoices = parsedInvoices.map((inv: InvoiceData) => ({
@@ -79,7 +79,7 @@ export default function InvoicesPage() {
           status: calculateStatus(inv.dueDate, inv.status)
         }));
         setInvoices(updatedInvoices);
-        localStorage.setItem('dannycourier_invoices', JSON.stringify(updatedInvoices));
+        localStorage.setItem('xdrivelogistics_invoices', JSON.stringify(updatedInvoices));
       }
     } catch (error) {
       console.error('Error loading invoices:', error);

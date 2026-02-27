@@ -9,7 +9,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Driver App | Danny Courier',
+  title: 'Driver App | XDrive Logistics',
   description: 'Driver mobile app for managing jobs and deliveries.',
   robots: { index: false, follow: false },
 };

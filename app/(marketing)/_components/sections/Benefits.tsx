@@ -49,7 +49,7 @@ export function Benefits() {
               marginBottom: '1rem',
             }}
           >
-            Why Choose Danny Courier
+            Why Choose XDrive Logistics
           </h2>
           <p
             style={{

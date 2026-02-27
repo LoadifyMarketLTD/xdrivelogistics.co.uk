@@ -6,6 +6,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
     },
-    sitemap: 'https://dannycourierltd.co.uk/sitemap.xml',
+    sitemap: 'https://www.xdrivelogistics.co.uk/sitemap.xml',
   }
 }
