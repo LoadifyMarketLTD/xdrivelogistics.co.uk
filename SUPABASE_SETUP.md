@@ -1,5 +1,38 @@
 # Supabase Schema Setup — Danny Courier Ltd
 
+## 🔧 Fix: "Could not find column in schema cache" errors
+
+If you see any of the following errors when adding a driver, vehicle, or quote:
+
+- *Could not find the 'display_name' column of 'drivers' in the schema cache*
+- *Could not find the 'company_id' column of 'vehicles' in the schema cache*
+- *Could not find the 'company_id' column of 'quotes' in the schema cache*
+
+Run the following SQL in the **Supabase SQL Editor** (safe to run multiple times):
+
+```sql
+-- Paste this into the Supabase SQL Editor and click Run.
+-- Each statement is a no-op when the column already exists.
+
+ALTER TABLE public.drivers
+  ADD COLUMN IF NOT EXISTS display_name text;
+
+ALTER TABLE public.vehicles
+  ADD COLUMN IF NOT EXISTS company_id uuid
+    REFERENCES public.companies(id) ON DELETE CASCADE;
+
+ALTER TABLE public.quotes
+  ADD COLUMN IF NOT EXISTS company_id uuid
+    REFERENCES public.companies(id) ON DELETE CASCADE;
+
+-- Reload PostgREST schema cache immediately.
+NOTIFY pgrst, 'reload schema';
+```
+
+This is also available as `supabase/migrations/016_fix_missing_columns_v2.sql`.
+
+---
+
 ## ⚡ Metoda rapidă — un singur copy-paste
 
 1. Mergi la [https://app.supabase.com](https://app.supabase.com)
