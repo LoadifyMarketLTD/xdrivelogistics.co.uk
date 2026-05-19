@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run validate:supabase-env && next build",
     "start": "next start",
     "lint": "eslint .",
-    "preview": "next start"
+    "preview": "next start",
+    "validate:supabase-env": "node ./scripts/validate-supabase-env.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
