@@ -49,7 +49,7 @@ export default function SettingsPage() {
     bankAccountNumber: COMPANY_CONFIG.payment.bankTransfer.accountNumber,
   });
 
-  const SETTINGS_KEY = 'danny_admin_settings';
+  const SETTINGS_KEY = 'xdrive_admin_settings';
 
   const handleSave = () => {
     const settings = { companyForm, notifForm, systemForm };

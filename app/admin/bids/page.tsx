@@ -16,8 +16,6 @@ export default function BidsPage() {
   const [bids, setBids] = useState<JobBid[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadBids(); }, []);
-
   const loadBids = async () => {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
@@ -25,6 +23,8 @@ export default function BidsPage() {
     if (!error && data) setBids(data as JobBid[]);
     setLoading(false);
   };
+
+  useEffect(() => { loadBids(); }, []);
 
   const updateStatus = async (id: string, status: string) => {
     if (!isSupabaseConfigured) return;

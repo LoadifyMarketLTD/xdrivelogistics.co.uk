@@ -1,5 +1,5 @@
 -- ============================================================
--- Danny Courier Ltd — COMPLETE SCHEMA (single idempotent file)
+-- XDrive Logistics Ltd — COMPLETE SCHEMA (single idempotent file)
 -- ============================================================
 -- Paste the entire contents of this file into the Supabase
 -- SQL Editor and click "Run".  It is fully idempotent:

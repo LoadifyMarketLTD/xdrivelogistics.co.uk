@@ -28,8 +28,6 @@ export default function QuotesPage() {
   });
   const [error, setError] = useState('');
 
-  useEffect(() => { loadQuotes(); loadCompanies(); }, []);
-
   const loadQuotes = async () => {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
@@ -44,6 +42,8 @@ export default function QuotesPage() {
     if (error) { console.error('Failed to load companies:', error.message); return; }
     if (data) setCompanies(data as Company[]);
   };
+
+  useEffect(() => { loadQuotes(); loadCompanies(); }, []);
 
   const handleCreate = async () => {
     if (!formData.company_id) { setError('Company is required'); return; }

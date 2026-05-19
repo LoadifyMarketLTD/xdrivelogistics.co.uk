@@ -19,8 +19,6 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'driver' | 'vehicle'>('driver');
 
-  useEffect(() => { loadDocs(); }, [tab]);
-
   const loadDocs = async () => {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
@@ -33,6 +31,8 @@ export default function DocumentsPage() {
     }
     setLoading(false);
   };
+
+  useEffect(() => { loadDocs(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateStatus = async (id: string, status: DocStatus) => {
     if (!isSupabaseConfigured) return;

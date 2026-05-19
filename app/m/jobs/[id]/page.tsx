@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import { useAuth } from '../../../components/AuthContext';
 import PODPhotoUpload from '../../../components/PODPhotoUpload';
 import SignatureCanvas from '../../../components/SignatureCanvas';
 import DelayUpdate from '../../../components/DelayUpdate';
@@ -58,7 +57,6 @@ interface Job {
 }
 
 export default function JobDetailPage() {
-  const { user } = useAuth();
   const router = useRouter();
   const params = useParams();
   const jobId = params.id as string;
@@ -77,12 +75,13 @@ export default function JobDetailPage() {
 
   useEffect(() => {
     loadJobData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
   const loadJobData = () => {
     try {
       // Load jobs from localStorage
-      const stored = localStorage.getItem('danny_jobs');
+      const stored = localStorage.getItem('xdrive_jobs');
       if (stored) {
         const jobs: Job[] = JSON.parse(stored);
         const foundJob = jobs.find((j) => j.id === jobId);
@@ -91,7 +90,7 @@ export default function JobDetailPage() {
           setJob(foundJob);
           
           // Load POD data for this specific job
-          const podStorage = localStorage.getItem('danny_job_pods');
+          const podStorage = localStorage.getItem('xdrive_job_pods');
           if (podStorage) {
             const allPods = JSON.parse(podStorage);
             if (allPods[jobId]) {
@@ -110,7 +109,7 @@ export default function JobDetailPage() {
 
   const updateJobInStorage = (updates: Partial<Job>) => {
     try {
-      const stored = localStorage.getItem('danny_jobs');
+      const stored = localStorage.getItem('xdrive_jobs');
       if (stored) {
         const jobs: Job[] = JSON.parse(stored);
         const jobIndex = jobs.findIndex((j) => j.id === jobId);
@@ -121,7 +120,7 @@ export default function JobDetailPage() {
             ...updates,
             updatedAt: new Date().toISOString()
           };
-          localStorage.setItem('danny_jobs', JSON.stringify(jobs));
+          localStorage.setItem('xdrive_jobs', JSON.stringify(jobs));
           setJob(jobs[jobIndex]);
         }
       }
@@ -135,14 +134,14 @@ export default function JobDetailPage() {
       setPodData(newPodData);
       
       // Get existing POD storage
-      const podStorage = localStorage.getItem('danny_job_pods');
+      const podStorage = localStorage.getItem('xdrive_job_pods');
       const allPods = podStorage ? JSON.parse(podStorage) : {};
       
       // Update POD for this job
       allPods[jobId] = newPodData;
       
       // Save back to localStorage
-      localStorage.setItem('danny_job_pods', JSON.stringify(allPods));
+      localStorage.setItem('xdrive_job_pods', JSON.stringify(allPods));
       
       // Also update job.pod field
       updateJobInStorage({ pod: newPodData });
