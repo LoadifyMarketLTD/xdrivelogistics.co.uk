@@ -58,33 +58,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
     const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
     const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access'> | null;
+    const driverId = driver?.id ?? null;
 
     if (membership?.role_in_company === 'owner') {
-      return { role: 'owner', companyId: membership.company_id, driverId: driver?.id ?? null };
+      return { role: 'owner', companyId: membership.company_id, driverId };
     }
     if (membership?.role_in_company === 'admin') {
-      return { role: 'admin', companyId: membership.company_id, driverId: driver?.id ?? null };
+      return { role: 'admin', companyId: membership.company_id, driverId };
     }
     if (membership?.role_in_company === 'dispatcher') {
-      return { role: 'company', companyId: membership.company_id, driverId: driver?.id ?? null };
+      return { role: 'company', companyId: membership.company_id, driverId };
     }
     if (driver || profile?.is_driver) {
-      return { role: 'driver', companyId: driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null, driverId: driver?.id ?? null };
+      return { role: 'driver', companyId: driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null, driverId };
     }
     if (membership?.role_in_company === 'viewer') {
-      return { role: 'customer', companyId: membership.company_id, driverId: driver?.id ?? null };
+      return { role: 'customer', companyId: membership.company_id, driverId };
     }
 
     const profileRole = (profile?.role ?? '').toLowerCase();
-    if (profileRole === 'owner') return { role: 'owner', companyId: profile?.company_id ?? null, driverId: driver?.id ?? null };
-    if (profileRole === 'admin') return { role: 'admin', companyId: profile?.company_id ?? null, driverId: driver?.id ?? null };
-    if (profileRole === 'company' || profileRole === 'dispatcher') return { role: 'company', companyId: profile?.company_id ?? null, driverId: driver?.id ?? null };
-    if (profileRole === 'driver') return { role: 'driver', companyId: profile?.company_id ?? null, driverId: driver?.id ?? null };
+    if (profileRole === 'owner') return { role: 'owner', companyId: profile?.company_id ?? null, driverId };
+    if (profileRole === 'admin') return { role: 'admin', companyId: profile?.company_id ?? null, driverId };
+    if (profileRole === 'company' || profileRole === 'dispatcher') return { role: 'company', companyId: profile?.company_id ?? null, driverId };
+    if (profileRole === 'driver') return { role: 'driver', companyId: profile?.company_id ?? null, driverId };
     if (profileRole === 'customer' || profileRole === 'client' || profileRole === 'viewer') {
-      return { role: 'customer', companyId: profile?.company_id ?? null, driverId: driver?.id ?? null };
+      return { role: 'customer', companyId: profile?.company_id ?? null, driverId };
     }
 
-    return { role: 'customer', companyId: profile?.company_id ?? membership?.company_id ?? null, driverId: driver?.id ?? null };
+    return { role: 'customer', companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
   };
 
   const hydrateUser = async (sessionUser: { id: string; email?: string | null }) => {

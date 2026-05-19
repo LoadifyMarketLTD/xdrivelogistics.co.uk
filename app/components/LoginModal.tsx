@@ -211,18 +211,16 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               </div>
             )}
 
-             {!isResetMode && !isRegisterMode && (
-               <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
-                 <button
-                   type="button"
-                   onClick={() => {
-                     setIsResetMode(true);
-                     setIsRegisterMode(false);
-                     setPassword('');
-                     setConfirmPassword('');
-                     setError('');
-                     setSuccessMessage('');
-                   }}
+             {!isResetMode && (
+                <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsResetMode(true);
+                      setPassword('');
+                      setError('');
+                      setSuccessMessage('');
+                    }}
                    disabled={loading}
                    style={{
                      color: '#1E4E8C',

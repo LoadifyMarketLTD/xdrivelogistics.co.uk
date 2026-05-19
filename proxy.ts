@@ -9,7 +9,7 @@ const hasSupabaseAuthCookie = (request: NextRequest) => {
   );
 };
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const requiresAuth = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
