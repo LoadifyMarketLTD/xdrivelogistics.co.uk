@@ -35,7 +35,7 @@ interface InvoiceTemplateProps {
   showPreview?: boolean;
 }
 
-export default function InvoiceTemplate({ invoice, showPreview = false }: InvoiceTemplateProps) {
+export default function InvoiceTemplate({ invoice, showPreview: _showPreview = false }: InvoiceTemplateProps) {
   // Calculate payment due date based on payment terms
   const calculateDueDate = (invoiceDate: string, terms: string): Date => {
     const date = new Date(invoiceDate);
@@ -105,12 +105,6 @@ export default function InvoiceTemplate({ invoice, showPreview = false }: Invoic
     padding: '0.75rem',
     borderBottom: '1px solid #e5e7eb',
     color: '#1f2937',
-  };
-
-  const totalSectionStyle: React.CSSProperties = {
-    backgroundColor: '#f9fafb',
-    padding: '1.5rem 2rem',
-    marginTop: '2rem',
   };
 
   const printStyles = `

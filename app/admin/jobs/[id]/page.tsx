@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import { COMPANY_CONFIG, JOB_STATUS, JOB_STATUS_LABEL } from '../../../config/company';
+import { JOB_STATUS, JOB_STATUS_LABEL } from '../../../config/company';
 import { supabase } from '../../../../lib/supabaseClient';
 import { useAuth } from '../../../components/AuthContext';
 
@@ -118,7 +118,7 @@ export default function JobDetailPage() {
         }
       }
       // Fallback to localStorage
-      const stored = localStorage.getItem('danny_jobs');
+      const stored = localStorage.getItem('xdrive_jobs');
       if (stored) {
         const jobs: Job[] = JSON.parse(stored);
         const foundJob = jobs.find((j) => j.id === jobId);
@@ -176,12 +176,12 @@ export default function JobDetailPage() {
         return;
       }
       // Fallback to localStorage
-      const stored = localStorage.getItem('danny_jobs');
+      const stored = localStorage.getItem('xdrive_jobs');
       if (stored) {
         let jobs: Job[] = JSON.parse(stored);
         formData.updatedAt = new Date().toISOString();
         jobs = jobs.map((j) => (j.id === jobId ? formData : j));
-        localStorage.setItem('danny_jobs', JSON.stringify(jobs));
+        localStorage.setItem('xdrive_jobs', JSON.stringify(jobs));
         setJob(formData);
         setEditMode(false);
         setSaveMessage('Job saved successfully!');
@@ -208,11 +208,11 @@ export default function JobDetailPage() {
         return;
       }
       // Fallback to localStorage
-      const stored = localStorage.getItem('danny_jobs');
+      const stored = localStorage.getItem('xdrive_jobs');
       if (stored) {
         let jobs: Job[] = JSON.parse(stored);
         jobs = jobs.filter((j) => j.id !== jobId);
-        localStorage.setItem('danny_jobs', JSON.stringify(jobs));
+        localStorage.setItem('xdrive_jobs', JSON.stringify(jobs));
         router.push('/admin/jobs');
       }
     } catch (error) {
