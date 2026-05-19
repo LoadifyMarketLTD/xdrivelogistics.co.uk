@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 
 const STATS = [
-  { value: '5,000+', label: 'Deliveries Completed', icon: '📦', description: 'successful routes' },
-  { value: '99.8%', label: 'On-Time Rate', icon: '⏱️', description: 'delivery precision' },
+  { value: 'Registered', label: 'Platform Ready', icon: '📦', description: 'operational logistics' },
+  { value: 'Monitored', label: 'Status Updates', icon: '⏱️', description: 'service visibility' },
   { value: '24/7', label: 'Availability', icon: '🕐', description: 'always reachable' },
   { value: 'UK & EU', label: 'Coverage Area', icon: '🌍', description: 'cross-border logistics' },
 ];

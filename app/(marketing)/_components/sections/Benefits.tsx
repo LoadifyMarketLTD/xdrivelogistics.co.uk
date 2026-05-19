@@ -10,8 +10,8 @@ const BENEFITS = [
   },
   {
     icon: '✅',
-    title: 'Fully Insured',
-    description: 'Complete coverage for peace of mind',
+    title: 'Insurance Compliance',
+    description: 'Insurance documentation required for transport partners',
   },
   {
     icon: '👨‍✈️',
@@ -20,8 +20,8 @@ const BENEFITS = [
   },
   {
     icon: '💬',
-    title: 'Real-Time Updates',
-    description: 'Stay informed throughout the delivery process',
+    title: 'Status Updates',
+    description: 'Receive service status communication during delivery',
   },
   {
     icon: '💳',

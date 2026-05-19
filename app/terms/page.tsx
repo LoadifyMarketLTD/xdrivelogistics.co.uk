@@ -52,6 +52,8 @@ export default function TermsPage() {
             These Terms and Conditions (&quot;Terms&quot;) govern your use of the XDrive Logistics platform and services
             operated by XDrive Logistics Ltd, a company registered in England and Wales (Company Number 13171804),
             with a registered office at 101 Cornelian Street, Blackburn, BB1 9QL, United Kingdom.
+            XDrive Logistics Ltd is an independent platform and is not affiliated with Courier Exchange or any
+            third-party courier exchange platform.
             <br /><br />
             By accessing or using our platform, you agree to be bound by these Terms. If you do not agree,
             please do not use our services.
@@ -113,7 +115,7 @@ export default function TermsPage() {
             If you have any questions about these Terms, please contact us at:<br /><br />
             XDrive Logistics Ltd<br />
             101 Cornelian Street, Blackburn, BB1 9QL<br />
-            Email: dannycourierltd@gmail.com<br />
+            Email: contact@xdrivelogistics.co.uk<br />
             Phone: 07377 694 228
           </Section>
         </div>

@@ -100,7 +100,7 @@ Generated: 2026-02-22
 
 | Feature | Result | Evidence |
 |---|---|---|
-| List invoices | ⚠️ FAKE/STUB | `admin/invoices/page.tsx` reads from `localStorage.getItem('dannycourier_invoices')`. No `invoices` table in Supabase schema. |
+| List invoices | ⚠️ FAKE/STUB | `admin/invoices/page.tsx` reads from `localStorage.getItem('xdrive_invoices')`. No `invoices` table in Supabase schema. |
 | Create invoice | ⚠️ FAKE/STUB | `admin/invoices/[id]/page.tsx` saves to `localStorage`. |
 | View invoice detail / print | ⚠️ FAKE/STUB | Reads from `localStorage`. Uses `InvoiceTemplate` component for rendering (real template, fake storage). |
 

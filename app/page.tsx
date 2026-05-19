@@ -12,10 +12,12 @@ export default function Home() {
   useEffect(() => {
     // If user is authenticated, redirect to appropriate dashboard
     if (!isLoading && user) {
-      if (user.role === 'mobile') {
-        router.push('/m');
-      } else {
+      if (user.role === 'driver') {
+        router.push('/driver/jobs');
+      } else if (user.role === 'company' || user.role === 'admin' || user.role === 'owner') {
         router.push('/admin');
+      } else {
+        router.push('/forbidden');
       }
     }
   }, [user, isLoading, router]);

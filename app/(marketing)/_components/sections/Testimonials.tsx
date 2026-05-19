@@ -13,7 +13,6 @@ const TESTIMONIALS = [
     role: 'Operations Manager',
     text: 'XDrive Logistics has been our go-to courier service for over two years. Their reliability and professionalism are unmatched.',
     rating: 5,
-    verified: true,
   },
   {
     name: 'Michael Chen',
@@ -22,9 +21,8 @@ const TESTIMONIALS = [
     company: 'BuildEx Construction',
     companyInitials: 'BC',
     role: 'Project Director',
-    text: 'Excellent service for our pallet deliveries. The real-time tracking gives us complete peace of mind.',
+    text: 'Excellent service for our pallet deliveries. The delivery status communication has been clear and helpful.',
     rating: 5,
-    verified: true,
   },
   {
     name: 'Emma Thompson',
@@ -35,7 +33,6 @@ const TESTIMONIALS = [
     role: 'E-commerce Manager',
     text: 'Fast, efficient, and always on time. Their customer service team is incredibly responsive and helpful.',
     rating: 5,
-    verified: true,
   },
   {
     name: 'David Williams',
@@ -46,7 +43,6 @@ const TESTIMONIALS = [
     role: 'Logistics Coordinator',
     text: 'Professional drivers and secure transport. We trust XDrive Logistics with our most important deliveries.',
     rating: 5,
-    verified: true,
   },
   {
     name: 'Rachel Davies',
@@ -57,7 +53,6 @@ const TESTIMONIALS = [
     role: 'Supply Chain Manager',
     text: 'The temperature-controlled logistics service exceeded our expectations. Every delivery was on time and intact.',
     rating: 5,
-    verified: true,
   },
   {
     name: 'James Carter',
@@ -68,7 +63,6 @@ const TESTIMONIALS = [
     role: 'Warehouse Manager',
     text: 'We rely on XDrive Logistics for our daily parts distribution. Consistent, professional, and competitively priced.',
     rating: 5,
-    verified: true,
   },
 ];
 
@@ -191,26 +185,6 @@ export function Testimonials() {
                     <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#FFFFFF' }}>
                       {t.name}
                     </span>
-                    {t.verified && (
-                      <span
-                        title="Verified client"
-                        style={{
-                          width: '16px',
-                          height: '16px',
-                          borderRadius: '50%',
-                          backgroundColor: '#2E7D32',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.6rem',
-                          color: '#fff',
-                          fontWeight: 700,
-                          flexShrink: 0,
-                        }}
-                      >
-                        ✓
-                      </span>
-                    )}
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.55)', marginBottom: '0.3rem' }}>
                     {t.role}

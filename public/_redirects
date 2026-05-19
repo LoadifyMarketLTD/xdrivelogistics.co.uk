@@ -1,3 +1,2 @@
-# Netlify automatically handles www to apex domain redirects based on primary domain configuration
-# Primary domain is dannycourierltd.co.uk (configured in Netlify dashboard)
-# No custom redirect rules needed here
+# Netlify automatically handles www to apex domain redirects based on primary domain configuration.
+# No custom redirect rules are currently required.

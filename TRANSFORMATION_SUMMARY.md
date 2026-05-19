@@ -4,7 +4,7 @@
 
 ### Company Branding
 - ✅ Company name: "XDrive Logistics Ltd" (exact spelling)
-- ✅ Email: xdrivelogisticsltd@gmail.com
+- ✅ Email: contact@xdrivelogistics.co.uk
 - ✅ Phone: 07423 272 138 / +447423272138
 - ✅ WhatsApp pre-filled message: "Hello, I'd like to inquire about your transport services"
 
@@ -52,7 +52,7 @@
   - Notes (optional)
 - Button: "Request a Quote" (green)
 - On submit: success message "✅ Request sent"
-- Sends to: xdrivelogisticsltd@gmail.com
+- Sends to: contact@xdrivelogistics.co.uk
 
 #### 5. CONTACT QUICK ACTIONS ✅
 - WhatsApp button

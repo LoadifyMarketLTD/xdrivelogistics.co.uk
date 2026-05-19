@@ -1,4 +1,4 @@
-# DNS Configuration Guide for dannycourierltd.co.uk
+# DNS Configuration Guide for xdrivelogistics.co.uk
 
 ## Issue: DNS_PROBE_FINISHED_NXDOMAIN
 
@@ -6,7 +6,7 @@ This error occurs when the domain name cannot be resolved by DNS. Follow these s
 
 ## Prerequisites
 
-- Access to your domain registrar (where you purchased dannycourierltd.co.uk)
+- Access to your domain registrar (where you purchased xdrivelogistics.co.uk)
 - Access to your Netlify account
 
 ## Solution Steps
@@ -17,7 +17,7 @@ This error occurs when the domain name cannot be resolved by DNS. Follow these s
 2. Navigate to your site dashboard
 3. Go to **Site settings** → **Domain management**
 4. Click **Add custom domain**
-5. Enter: `dannycourierltd.co.uk`
+5. Enter: `xdrivelogistics.co.uk`
 6. Click **Verify** and then **Add domain**
 
 ### 2. Configure DNS Records at Your Domain Registrar
@@ -26,7 +26,7 @@ You have two options:
 
 #### Option A: Use Netlify DNS (Recommended)
 
-1. In Netlify, go to **Domain management** → **dannycourierltd.co.uk**
+1. In Netlify, go to **Domain management** → **xdrivelogistics.co.uk**
 2. Click **Set up Netlify DNS**
 3. Follow the wizard to add your domain
 4. Netlify will provide you with nameservers (e.g., `dns1.p01.nsone.net`)
@@ -40,7 +40,7 @@ You have two options:
 
 If you prefer to keep DNS with your registrar, add these records:
 
-**For Apex Domain (dannycourierltd.co.uk):**
+**For Apex Domain (xdrivelogistics.co.uk):**
 ```
 Type: A
 Name: @ (or leave blank)
@@ -67,8 +67,8 @@ Replace `[your-netlify-site-name]` with your actual Netlify site name.
 
 ### 4. Set Primary Domain
 
-1. In **Domain management**, ensure `www.dannycourierltd.co.uk` is set as the primary domain
-2. The apex domain `dannycourierltd.co.uk` should automatically redirect to the primary domain (www)
+1. In **Domain management**, ensure `www.xdrivelogistics.co.uk` is set as the primary domain
+2. The apex domain `xdrivelogistics.co.uk` should automatically redirect to the primary domain (www)
 
 ## Verification
 
@@ -76,16 +76,16 @@ Once DNS propagation is complete, test your domain:
 
 ```bash
 # Check DNS resolution
-nslookup dannycourierltd.co.uk
+nslookup xdrivelogistics.co.uk
 
 # Test HTTP/HTTPS access
-curl -I https://dannycourierltd.co.uk
+curl -I https://xdrivelogistics.co.uk
 ```
 
 You should see:
 - DNS resolves to Netlify's IP addresses
 - HTTPS redirects work properly
-- The site loads successfully at https://www.dannycourierltd.co.uk
+- The site loads successfully at https://www.xdrivelogistics.co.uk
 - Apex domain redirects to www
 
 ## Troubleshooting
@@ -98,7 +98,7 @@ You should see:
    - macOS: `sudo dscacheutil -flushcache`
    - Linux: `sudo systemd-resolve --flush-caches`
 3. **Check with external DNS**: Use [https://dnschecker.org/](https://dnschecker.org/) to see if DNS has propagated globally
-4. **Verify domain spelling**: Ensure it's `dannycourierltd.co.uk` (with "ltd")
+4. **Verify domain spelling**: Ensure it's `xdrivelogistics.co.uk` (with "ltd")
 
 ### Domain Shows "Site Not Found" After DNS Resolves?
 
@@ -120,7 +120,7 @@ If you see network requests failing with status code 0 (especially to www subdom
    - This has been fixed in the latest version with proper redirect rules in `netlify.toml`
    - The apex→www redirect uses `force = false` to allow SSL certificate checks
    - HTTP→HTTPS redirects use `force = true` which is safe
-   - Primary domain is www.dannycourierltd.co.uk (as configured in Netlify)
+   - Primary domain is www.xdrivelogistics.co.uk (as configured in Netlify)
 
 3. **Check Browser Console**:
    - Look for specific error messages like `ERR_CONNECTION_TIMED_OUT` or `ERR_SSL_PROTOCOL_ERROR`
@@ -136,7 +136,7 @@ This repository includes:
 
 - **netlify.toml**: Redirect rules for apex → www and HTTP → HTTPS
 - **public/_redirects**: Additional Netlify redirect configuration  
-- **Metadata**: All configured for `https://www.dannycourierltd.co.uk` (primary domain)
+- **Metadata**: All configured for `https://www.xdrivelogistics.co.uk` (primary domain)
 
 ## Need Help?
 

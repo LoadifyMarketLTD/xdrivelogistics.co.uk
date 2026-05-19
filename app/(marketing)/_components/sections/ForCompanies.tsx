@@ -22,8 +22,8 @@ const FEATURES = [
   },
   {
     icon: '📋',
-    title: 'Real-Time Tracking',
-    description: 'Monitor your deliveries every step',
+    title: 'Delivery Status Communication',
+    description: 'Receive progress updates from operations',
   },
 ];
 
