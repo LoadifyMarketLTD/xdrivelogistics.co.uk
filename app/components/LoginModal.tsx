@@ -11,6 +11,10 @@ interface LoginModalProps {
 }
 
 const MIN_PASSWORD_LENGTH = 6;
+const getErrorMessage = (err: unknown, fallback: string) => {
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+};
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const router = useRouter();
@@ -49,8 +53,8 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           router.push('/admin');
         }, 1000);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to login');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to login'));
     } finally {
       setLoading(false);
     }
@@ -97,8 +101,8 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           setIsRegisterMode(false);
         }, 3000);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to register');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to register'));
     } finally {
       setLoading(false);
     }
@@ -133,8 +137,8 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
       if (error) throw error;
       setSuccessMessage('Password reset email sent. Please check your inbox.');
-    } catch (err: any) {
-      setError(err.message || 'Failed to send reset email');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to send reset email'));
     } finally {
       setLoading(false);
     }
