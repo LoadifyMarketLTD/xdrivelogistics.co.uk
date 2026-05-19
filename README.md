@@ -1,6 +1,6 @@
-# Danny Courier Ltd - Next.js Website
+# XDrive Logistics Ltd - Next.js Website
 
-This is a Next.js project for Danny Courier Ltd, built with modern web technologies.
+This is a Next.js project for XDrive Logistics Ltd, built with modern web technologies.
 
 ## Tech Stack
 

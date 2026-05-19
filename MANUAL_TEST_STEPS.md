@@ -1,4 +1,4 @@
-# Manual Test Steps — Danny Courier Ltd Dashboard
+# Manual Test Steps — XDrive Logistics Ltd Dashboard
 
 These are click-by-click steps for each dashboard feature. Run after deploying with valid Supabase credentials.
 
