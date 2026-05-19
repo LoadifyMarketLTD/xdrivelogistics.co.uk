@@ -11,6 +11,10 @@ interface LoginModalProps {
 }
 
 const MIN_PASSWORD_LENGTH = 6;
+const getErrorMessage = (err: unknown, fallback: string) => {
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+};
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const router = useRouter();
@@ -18,6 +22,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [isResetMode, setIsResetMode] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -48,8 +53,8 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           router.push('/admin');
         }, 1000);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to login');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to login'));
     } finally {
       setLoading(false);
     }
@@ -96,18 +101,46 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           setIsRegisterMode(false);
         }, 3000);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to register');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to register'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleSubmit = (e: FormEvent) => {
+    if (isResetMode) {
+      handleResetPassword(e);
+      return;
+    }
     if (isRegisterMode) {
       handleRegister(e);
     } else {
       handleLogin(e);
+    }
+  };
+
+  const handleResetPassword = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMessage('');
+    setLoading(true);
+
+    try {
+      if (!supabase) {
+        throw new Error('Authentication service is currently unavailable. Please try again later.');
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/admin/settings`,
+      });
+
+      if (error) throw error;
+      setSuccessMessage('Password reset email sent. Please check your inbox.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to send reset email'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -147,7 +180,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               marginBottom: '1rem',
             }}
           >
-            {isRegisterMode ? 'Create Account' : 'Sign In'}
+            {isResetMode ? 'Reset Password' : isRegisterMode ? 'Create Account' : 'Sign In'}
           </Dialog.Title>
 
           <Dialog.Description
@@ -157,7 +190,9 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               marginBottom: '1.5rem',
             }}
           >
-            {isRegisterMode
+            {isResetMode
+              ? 'Enter your account email to receive a password reset link'
+              : isRegisterMode
               ? 'Create a new account to get started'
               : 'Sign in to access your dashboard'}
           </Dialog.Description>
@@ -197,42 +232,72 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               />
             </div>
 
-            <div style={{ marginBottom: '1.25rem' }}>
-              <label
-                htmlFor="password"
-                style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  color: '#0B1B33',
-                  fontWeight: '500',
-                  fontSize: '0.9rem',
-                }}
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '6px',
-                  fontSize: '1rem',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                }}
-                onFocus={(e) => (e.target.style.borderColor = '#1E4E8C')}
-                onBlur={(e) => (e.target.style.borderColor = '#E5E7EB')}
-              />
-            </div>
-
-            {isRegisterMode && (
+            {!isResetMode && (
               <div style={{ marginBottom: '1.25rem' }}>
+                <label
+                  htmlFor="password"
+                  style={{
+                    display: 'block',
+                    marginBottom: '0.5rem',
+                    color: '#0B1B33',
+                    fontWeight: '500',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required={!isResetMode}
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '6px',
+                    fontSize: '1rem',
+                    outline: 'none',
+                    transition: 'border-color 0.2s',
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = '#1E4E8C')}
+                  onBlur={(e) => (e.target.style.borderColor = '#E5E7EB')}
+                />
+              </div>
+            )}
+
+             {!isResetMode && !isRegisterMode && (
+               <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
+                 <button
+                   type="button"
+                   onClick={() => {
+                     setIsResetMode(true);
+                     setIsRegisterMode(false);
+                     setPassword('');
+                     setConfirmPassword('');
+                     setError('');
+                     setSuccessMessage('');
+                   }}
+                   disabled={loading}
+                   style={{
+                     color: '#1E4E8C',
+                     background: 'none',
+                     border: 'none',
+                     fontSize: '0.9rem',
+                     cursor: loading ? 'not-allowed' : 'pointer',
+                     textDecoration: 'underline',
+                     padding: 0,
+                   }}
+                 >
+                   Forgot password?
+                 </button>
+               </div>
+             )}
+
+             {isRegisterMode && !isResetMode && (
+               <div style={{ marginBottom: '1.25rem' }}>
                 <label
                   htmlFor="confirmPassword"
                   style={{
@@ -326,33 +391,57 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
             >
               {loading
                 ? 'Please wait...'
+                : isResetMode
+                ? 'Send Reset Email'
                 : isRegisterMode
                 ? 'Create Account'
                 : 'Sign In'}
             </button>
 
             <div style={{ textAlign: 'center' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsRegisterMode(!isRegisterMode);
-                  setError('');
-                  setSuccessMessage('');
-                }}
-                disabled={loading}
-                style={{
-                  color: '#1E4E8C',
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '0.9rem',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  textDecoration: 'underline',
-                }}
-              >
-                {isRegisterMode
-                  ? 'Already have an account? Sign in'
-                  : "Don't have an account? Register"}
-              </button>
+              {isResetMode ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsResetMode(false);
+                    setError('');
+                    setSuccessMessage('');
+                  }}
+                  disabled={loading}
+                  style={{
+                    color: '#1E4E8C',
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '0.9rem',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Back to Sign in
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegisterMode(!isRegisterMode);
+                    setError('');
+                    setSuccessMessage('');
+                  }}
+                  disabled={loading}
+                  style={{
+                    color: '#1E4E8C',
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '0.9rem',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  {isRegisterMode
+                    ? 'Already have an account? Sign in'
+                    : "Don't have an account? Register"}
+                </button>
+              )}
             </div>
           </form>
 
