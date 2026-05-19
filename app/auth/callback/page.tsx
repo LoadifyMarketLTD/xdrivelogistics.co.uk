@@ -26,7 +26,7 @@ export default function AuthCallbackPage() {
         if (tokenHash && type) {
           const { error: verifyError } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
-            type: type as 'signup' | 'email' | 'recovery' | 'invite' | 'email_change' | 'phone_change',
+            type: type as 'signup' | 'email' | 'recovery' | 'invite' | 'email_change',
           });
           if (verifyError) throw verifyError;
           router.replace(type === 'recovery' ? '/admin/settings' : '/admin');
