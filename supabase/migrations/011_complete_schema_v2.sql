@@ -1,5 +1,5 @@
 -- ============================================================
--- Danny Courier Ltd — COMPLETE SCHEMA v2
+-- XDrive Logistics Ltd — COMPLETE SCHEMA v2
 -- Single idempotent file — copy and paste the ENTIRE contents
 -- into the Supabase SQL Editor and click "Run".
 --

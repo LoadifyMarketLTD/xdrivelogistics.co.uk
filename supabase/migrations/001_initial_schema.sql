@@ -1,4 +1,4 @@
--- Danny Courier Ltd multi-tenant CX platform schema
+-- XDrive Logistics Ltd multi-tenant CX platform schema
 
 -- Enums
 CREATE TYPE public.company_role AS ENUM ('owner', 'admin', 'dispatcher', 'viewer');

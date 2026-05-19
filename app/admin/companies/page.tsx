@@ -15,8 +15,6 @@ export default function CompaniesPage() {
   });
   const [error, setError] = useState('');
 
-  useEffect(() => { loadCompanies(); }, []);
-
   const loadCompanies = async () => {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
@@ -24,6 +22,8 @@ export default function CompaniesPage() {
     if (!error && data) setCompanies(data as Company[]);
     setLoading(false);
   };
+
+  useEffect(() => { loadCompanies(); }, []);
 
   const handleCreate = async () => {
     if (!formData.name.trim()) { setError('Company name is required'); return; }

@@ -15,8 +15,6 @@ export default function VehiclesPage() {
   const [formData, setFormData] = useState({ company_id: '', type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
   const [error, setError] = useState('');
 
-  useEffect(() => { loadVehicles(); loadCompanies(); }, []);
-
   const loadVehicles = async () => {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
@@ -31,6 +29,8 @@ export default function VehiclesPage() {
     if (error) { console.error('Failed to load companies:', error.message); return; }
     if (data) setCompanies(data as Company[]);
   };
+
+  useEffect(() => { loadVehicles(); loadCompanies(); }, []);
 
   const handleCreate = async () => {
     if (!formData.company_id) { setError('Company is required'); return; }

@@ -1,7 +1,7 @@
 # Authentication System Documentation
 
 ## Overview
-This directory contains the authentication system for Danny Courier Ltd, including login, protected routes, and role-based access control.
+This directory contains the authentication system for XDrive Logistics Ltd, including login, protected routes, and role-based access control.
 
 ## Components
 
