@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import * as Dialog from '@radix-ui/react-dialog';
-import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from './AuthContext';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -16,7 +15,7 @@ const getErrorMessage = (err: unknown, fallback: string) => {
 };
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
-  const router = useRouter();
+  const { login, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isResetMode, setIsResetMode] = useState(false);
@@ -31,25 +30,14 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setLoading(true);
 
     try {
-      if (!supabase) {
-        throw new Error('Authentication service is currently unavailable. Please try again later.');
+      const result = await login(email, password);
+      if (!result.success) {
+        throw new Error(result.error ?? 'Failed to login');
       }
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        setSuccessMessage('Successfully logged in!');
-        setTimeout(() => {
-          onClose();
-          // Use Next.js router for client-side navigation
-          router.push('/admin');
-        }, 1000);
-      }
+      setSuccessMessage('Successfully logged in!');
+      setTimeout(() => {
+        onClose();
+      }, 1000);
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to login'));
     } finally {
@@ -72,15 +60,10 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setLoading(true);
 
     try {
-      if (!supabase) {
-        throw new Error('Authentication service is currently unavailable. Please try again later.');
+      const result = await resetPassword(email);
+      if (!result.success) {
+        throw new Error(result.error ?? 'Failed to send reset email');
       }
-
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      });
-
-      if (error) throw error;
       setSuccessMessage('Password reset email sent. Please check your inbox.');
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to send reset email'));
