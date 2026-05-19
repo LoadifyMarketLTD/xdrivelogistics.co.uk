@@ -1,5 +1,5 @@
 -- ============================================================
--- Danny Courier Ltd — Auto-Fix / Migration
+-- XDrive Logistics Ltd — Auto-Fix / Migration
 -- Fully STANDALONE and idempotent.
 -- Safe to run on a completely fresh database OR on top of an
 -- existing schema — creates what is missing, adds columns that

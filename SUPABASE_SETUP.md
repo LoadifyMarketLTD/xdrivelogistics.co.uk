@@ -1,4 +1,4 @@
-# Supabase Schema Setup — Danny Courier Ltd
+# Supabase Schema Setup — XDrive Logistics Ltd
 
 ## 🔧 Fix: "Could not find column in schema cache" errors
 
@@ -36,7 +36,7 @@ This is also available as `supabase/migrations/016_fix_missing_columns_v2.sql`.
 ## ⚡ Metoda rapidă — un singur copy-paste
 
 1. Mergi la [https://app.supabase.com](https://app.supabase.com)
-2. Selectează proiectul **Danny Courier Ltd**
+2. Selectează proiectul **XDrive Logistics Ltd**
 3. În meniul din stânga, apasă pe **SQL Editor**
 4. Apasă **New Query**
 5. Copiază **tot scriptul de mai jos** și lipește-l în editor
@@ -44,7 +44,7 @@ This is also available as `supabase/migrations/016_fix_missing_columns_v2.sql`.
 
 ```sql
 -- ============================================================
--- Danny Courier Ltd — COMPLETE SCHEMA v2
+-- XDrive Logistics Ltd — COMPLETE SCHEMA v2
 -- Single idempotent file — copy and paste the ENTIRE contents
 -- into the Supabase SQL Editor and click "Run".
 --
@@ -872,7 +872,7 @@ Urmărește pașii de mai jos **în ordine** pentru a verifica și aplica schema
 ## PASUL 1 — Deschide Supabase SQL Editor
 
 1. Mergi la [https://app.supabase.com](https://app.supabase.com)
-2. Selectează proiectul **Danny Courier Ltd**
+2. Selectează proiectul **XDrive Logistics Ltd**
 3. În meniul din stânga, apasă pe **SQL Editor**
 
 ---
@@ -884,7 +884,7 @@ Acesta este *read-only* — nu modifică nimic, doar raportează ce lipsește.
 
 ```sql
 -- ============================================================
--- Danny Courier Ltd — SCHEMA HEALTH CHECK (read-only)
+-- XDrive Logistics Ltd — SCHEMA HEALTH CHECK (read-only)
 -- ============================================================
 
 -- 1) TABELE LIPSĂ

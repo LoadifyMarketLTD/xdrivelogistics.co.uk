@@ -1,5 +1,5 @@
 -- ============================================================
--- Danny Courier Ltd — SCHEMA VERIFICATION (read-only)
+-- XDrive Logistics Ltd — SCHEMA VERIFICATION (read-only)
 -- ============================================================
 -- Paste into Supabase SQL Editor and click Run.
 -- Safe read-only query — makes NO changes to the database.
