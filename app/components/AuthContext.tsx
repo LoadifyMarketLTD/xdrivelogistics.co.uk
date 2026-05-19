@@ -32,7 +32,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
   const router = useRouter();
 
-  const resolveRole = async (userId: string): Promise<{ role: UserRole; companyId: string | null; driverId: string | null }> => {
+  const mapRole = (value: string | null | undefined): UserRole | null => {
+    const normalized = (value ?? '').toLowerCase();
+    if (normalized === 'owner') return 'owner';
+    if (normalized === 'admin') return 'admin';
+    if (normalized === 'company' || normalized === 'dispatcher') return 'company';
+    if (normalized === 'driver') return 'driver';
+    if (normalized === 'customer' || normalized === 'client' || normalized === 'viewer') return 'customer';
+    return null;
+  };
+
+  const resolveRole = async (
+    userId: string,
+    fallbackRole?: string | null
+  ): Promise<{ role: UserRole; companyId: string | null; driverId: string | null }> => {
     const [profileRes, membershipRes, driverRes] = await Promise.all([
       supabase
         .from('profiles')
@@ -76,20 +89,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { role: 'customer', companyId: membership.company_id, driverId };
     }
 
-    const profileRole = (profile?.role ?? '').toLowerCase();
-    if (profileRole === 'owner') return { role: 'owner', companyId: profile?.company_id ?? null, driverId };
-    if (profileRole === 'admin') return { role: 'admin', companyId: profile?.company_id ?? null, driverId };
-    if (profileRole === 'company' || profileRole === 'dispatcher') return { role: 'company', companyId: profile?.company_id ?? null, driverId };
-    if (profileRole === 'driver') return { role: 'driver', companyId: profile?.company_id ?? null, driverId };
-    if (profileRole === 'customer' || profileRole === 'client' || profileRole === 'viewer') {
-      return { role: 'customer', companyId: profile?.company_id ?? null, driverId };
+    const profileRole = mapRole(profile?.role);
+    if (profileRole) {
+      return { role: profileRole, companyId: profile?.company_id ?? null, driverId };
+    }
+
+    const metadataRole = mapRole(fallbackRole);
+    if (metadataRole) {
+      return { role: metadataRole, companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
+    }
+
+    if (fallbackRole === 'driver') {
+      return { role: 'driver', companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
     }
 
     return { role: 'customer', companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
   };
 
-  const hydrateUser = async (sessionUser: { id: string; email?: string | null }) => {
-    const roleData = await resolveRole(sessionUser.id);
+  const hydrateUser = async (sessionUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> | null }) => {
+    const fallbackRole =
+      typeof sessionUser.user_metadata?.role === 'string'
+        ? sessionUser.user_metadata.role
+        : typeof sessionUser.user_metadata?.requested_role === 'string'
+          ? sessionUser.user_metadata.requested_role
+          : null;
+    const roleData = await resolveRole(sessionUser.id, fallbackRole);
     const userData: User = {
       id: sessionUser.id,
       email: sessionUser.email ?? '',
@@ -104,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const getPostLoginRoute = (role: UserRole) => {
     if (role === 'driver') return '/driver/jobs';
+    if (role === 'customer') return '/customer';
     return '/admin';
   };
 

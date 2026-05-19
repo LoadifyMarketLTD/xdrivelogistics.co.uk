@@ -16,6 +16,8 @@ export default function Home() {
         router.push('/driver/jobs');
       } else if (user.role === 'company' || user.role === 'admin' || user.role === 'owner') {
         router.push('/admin');
+      } else if (user.role === 'customer') {
+        router.push('/customer');
       } else {
         router.push('/forbidden');
       }
