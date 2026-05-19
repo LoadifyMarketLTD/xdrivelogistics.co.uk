@@ -114,6 +114,7 @@ export default function JobsPage() {
 
   useEffect(() => {
     filterJobs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobs, searchTerm, statusFilter]);
 
   const loadJobs = async () => {
@@ -156,7 +157,7 @@ export default function JobsPage() {
       }
     }
     // Fallback to localStorage
-    const stored = localStorage.getItem('danny_jobs');
+    const stored = localStorage.getItem('xdrive_jobs');
     if (stored) {
       setJobs(JSON.parse(stored));
     } else {
@@ -216,7 +217,7 @@ export default function JobsPage() {
           updatedAt: new Date().toISOString()
         }
       ];
-      localStorage.setItem('danny_jobs', JSON.stringify(sampleJobs));
+      localStorage.setItem('xdrive_jobs', JSON.stringify(sampleJobs));
       setJobs(sampleJobs);
     }
   };
@@ -362,7 +363,7 @@ export default function JobsPage() {
       setStatusFilter('All');
       await loadJobs();
     } else {
-      localStorage.setItem('danny_jobs', JSON.stringify(updatedJobs));
+      localStorage.setItem('xdrive_jobs', JSON.stringify(updatedJobs));
       setJobs(updatedJobs);
     }
     setIsSubmitting(false);
@@ -386,7 +387,7 @@ export default function JobsPage() {
         ? { ...job, status: newStatus, updatedAt: new Date().toISOString() }
         : job
     );
-    localStorage.setItem('danny_jobs', JSON.stringify(updatedJobs));
+    localStorage.setItem('xdrive_jobs', JSON.stringify(updatedJobs));
     setJobs(updatedJobs);
   };
 
