@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Quote, VehicleType, CargoType, Company } from '../../../lib/types/database';
+import { useAuth } from '../../components/AuthContext';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'equipment', 'other'];
@@ -16,8 +17,10 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function QuotesPage() {
+  const { user, hasSupabaseSession } = useAuth();
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companies, setCompanies] = useState<Pick<Company, 'id' | 'name'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -28,28 +31,67 @@ export default function QuotesPage() {
   });
   const [error, setError] = useState('');
 
+  const loadCompanyId = async (userId: string) => {
+    const { data } = await supabase.rpc('get_or_create_company_for_user');
+    if (data) {
+      setCompanyId(data as string);
+      return;
+    }
+    const { data: membership } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle();
+    setCompanyId((membership?.company_id as string) ?? null);
+  };
+
   const loadQuotes = async () => {
     setLoading(true);
-    if (!isSupabaseConfigured) { setLoading(false); return; }
-    const { data, error } = await supabase.from('quotes').select('*').order('created_at', { ascending: false });
+    if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
+    const { data, error } = await supabase
+      .from('quotes')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
     if (!error && data) setQuotes(data as Quote[]);
     setLoading(false);
   };
 
   const loadCompanies = async () => {
-    if (!isSupabaseConfigured) return;
-    const { data, error } = await supabase.from('companies').select('id, name').order('name');
+    if (!isSupabaseConfigured || !companyId) return;
+    const { data, error } = await supabase
+      .from('companies')
+      .select('id, name')
+      .eq('id', companyId)
+      .order('name');
     if (error) { console.error('Failed to load companies:', error.message); return; }
-    if (data) setCompanies(data as Company[]);
+    if (data) setCompanies(data as Pick<Company, 'id' | 'name'>[]);
   };
 
-  useEffect(() => { loadQuotes(); loadCompanies(); }, []);
+  useEffect(() => {
+    if (hasSupabaseSession && user?.id) {
+      loadCompanyId(user.id);
+    }
+  }, [hasSupabaseSession, user?.id]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    setFormData((prev) => ({ ...prev, company_id: companyId }));
+    loadQuotes();
+    loadCompanies();
+  }, [companyId]);
 
   const handleCreate = async () => {
-    if (!formData.company_id) { setError('Company is required'); return; }
+    if (!companyId) { setError('Company profile is required'); return; }
     if (!formData.customer_name.trim()) { setError('Customer name is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { error } = await supabase.from('quotes').insert([{ ...formData, amount: formData.amount ? parseFloat(formData.amount) : null }]);
+    const { error } = await supabase.from('quotes').insert([{
+      ...formData,
+      company_id: companyId,
+      amount: formData.amount ? parseFloat(formData.amount) : null,
+    }]);
     if (error) { setError(error.message); return; }
     setShowModal(false);
     setFormData({ company_id: '', customer_name: '', customer_email: '', customer_phone: '', pickup_location: '', delivery_location: '', vehicle_type: 'van_large', cargo_type: 'packages', amount: '', currency: 'GBP' });

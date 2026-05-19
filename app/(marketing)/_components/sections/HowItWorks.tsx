@@ -24,7 +24,7 @@ const STEPS = [
   {
     number: '04',
     title: 'Track Delivery',
-    description: 'Monitor your shipment in real-time until safe delivery',
+    description: 'Receive status updates until safe delivery',
     icon: '📍',
   },
 ];

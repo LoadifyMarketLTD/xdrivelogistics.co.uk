@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
 import type { DbJob } from '../../../../lib/types/database';
+import ProtectedRoute from '../../../components/ProtectedRoute';
+import { useAuth } from '../../../components/AuthContext';
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Received',
@@ -17,6 +19,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function DriverJobDetailPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const params = useParams<{ id: string }>();
   const jobId = params?.id ?? '';
 
@@ -42,11 +45,10 @@ export default function DriverJobDetailPage() {
   const [sigClientName, setSigClientName] = useState('');
   const [isSigning, setIsSigning] = useState(false);
 
-  const driverId =
-    typeof window !== 'undefined' ? sessionStorage.getItem('driver_id') ?? '' : '';
+  const [driverId, setDriverId] = useState('');
 
   const loadJob = useCallback(async () => {
-    if (!jobId || !isSupabaseConfigured) {
+    if (!jobId || !driverId || !isSupabaseConfigured) {
       setLoading(false);
       return;
     }
@@ -54,6 +56,7 @@ export default function DriverJobDetailPage() {
       .from('jobs')
       .select('*')
       .eq('id', jobId)
+      .eq('assigned_driver_id', driverId)
       .maybeSingle();
 
     if (dbError || !data) {
@@ -66,15 +69,29 @@ export default function DriverJobDetailPage() {
       setSigClientName(data.client_signature_name ?? '');
     }
     setLoading(false);
-  }, [jobId]);
+  }, [jobId, driverId]);
 
   useEffect(() => {
-    if (!driverId) {
-      router.replace('/driver');
-      return;
-    }
+    if (!user?.id || !isSupabaseConfigured) return;
+    (async () => {
+      const { data } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('app_access', true)
+        .maybeSingle();
+      if (!data) {
+        router.replace('/forbidden');
+        return;
+      }
+      setDriverId(data.id as string);
+    })();
+  }, [router, user?.id]);
+
+  useEffect(() => {
+    if (!driverId) return;
     loadJob();
-  }, [driverId, loadJob, router]);
+  }, [driverId, loadJob]);
 
   // ── Canvas signature helpers ─────────────────────────────────
   const startSig = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -215,6 +232,7 @@ export default function DriverJobDetailPage() {
   const canDeliver = job.status === 'in_transit';
 
   return (
+    <ProtectedRoute allowedRoles={['driver', 'admin', 'owner']}>
     <div style={{ minHeight: '100dvh', backgroundColor: '#f3f4f6', paddingBottom: '5rem' }}>
       {/* Header */}
       <header
@@ -461,6 +479,7 @@ export default function DriverJobDetailPage() {
         </div>
       )}
     </div>
+    </ProtectedRoute>
   );
 }
 

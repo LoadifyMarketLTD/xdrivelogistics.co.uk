@@ -25,7 +25,6 @@ export const metadata: Metadata = {
     'owner driver jobs UK',
     'courier driver app UK',
     'freight loads UK',
-    'courier exchange',
     'UK courier',
     'express delivery',
     'same day delivery',
@@ -36,6 +35,9 @@ export const metadata: Metadata = {
   creator: 'XDrive Logistics Ltd',
   publisher: 'XDrive Logistics Ltd',
   metadataBase: new URL('https://www.xdrivelogistics.co.uk'),
+  alternates: {
+    canonical: 'https://www.xdrivelogistics.co.uk',
+  },
   icons: {
     apple: '/apple-touch-icon.png',
   },
@@ -44,13 +46,13 @@ export const metadata: Metadata = {
     locale: 'en_GB',
     url: 'https://www.xdrivelogistics.co.uk',
     title: 'XDrive Logistics - Premium Transport Services',
-    description: 'Professional 24/7 courier and transport services across the UK and Europe. Fast, secure, and reliable.',
+    description: 'Independent transport platform by XDrive Logistics Ltd for UK and EU courier operations.',
     siteName: 'XDrive Logistics',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'XDrive Logistics - Premium Transport Services',
-    description: 'Professional 24/7 courier and transport services across the UK and Europe.',
+    description: 'Independent transport platform by XDrive Logistics Ltd for UK and EU courier operations.',
   },
   robots: {
     index: true,

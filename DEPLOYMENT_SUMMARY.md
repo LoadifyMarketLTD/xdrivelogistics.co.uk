@@ -36,7 +36,7 @@
 All tested and working:
 - ✅ WhatsApp: Opens with pre-filled message
 - ✅ Phone: `tel:07423272138` 
-- ✅ Email: `mailto:xdrivelogisticsltd@gmail.com`
+- ✅ Email: `mailto:contact@xdrivelogistics.co.uk`
 - ✅ Login buttons: Navigate to `/login`
 
 ### 3. Responsive Design ✅
@@ -107,7 +107,7 @@ Perfect rendering on all devices:
 After Netlify deployment, please:
 1. ✅ Test WhatsApp links on mobile
 2. ✅ Test phone calls on mobile
-3. ✅ Run Lighthouse: `npx lighthouse https://dannycourierltd.co.uk --view`
+3. ✅ Run Lighthouse: `npx lighthouse https://xdrivelogistics.co.uk --view`
 
 ---
 
@@ -137,7 +137,7 @@ Your website is **100% functional** and ready for production deployment to Netli
 ## 📞 CONTACT DETAILS VERIFIED
 
 - **Phone:** 07423 272 138 ✅
-- **Email:** xdrivelogisticsltd@gmail.com ✅
+- **Email:** contact@xdrivelogistics.co.uk ✅
 - **WhatsApp:** 447423272138 ✅
 - **Company:** XDrive Logistics Ltd ✅
 

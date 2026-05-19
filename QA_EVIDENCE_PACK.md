@@ -1,6 +1,6 @@
 # FUNCTIONAL QA & EVIDENCE PACK
 **Date:** February 18, 2026  
-**Repository:** LoadifyMarketLTD/dannycourierltd.co.uk  
+**Repository:** LoadifyMarketLTD/xdrivelogistics.co.uk  
 **Branch:** copilot/final-qa-evidence-pack  
 **Environment:** Local Development + Production Build
 
@@ -137,13 +137,13 @@ scroll-margin-top: 80px; /* or var(--header-height) */
 |----------|-------------|----------|--------|
 | **WhatsApp (Primary)** | `wa.me/447423272138` | Hero, Footer, Multiple sections | ✅ Working |
 | **Phone Link** | `tel:+447423272138` | Hero, Footer | ✅ Working |
-| **Email Link** | `mailto:xdrivelogisticsltd@gmail.com` | Footer | ✅ Working |
+| **Email Link** | `mailto:contact@xdrivelogistics.co.uk` | Footer | ✅ Working |
 | **Driver Login** | `/login` | For Drivers section | ✅ Working |
 | **Company Login** | `/login` | For Companies section | ✅ Working |
 | **Get Quote** | WhatsApp with pre-filled message | Multiple CTAs | ✅ Working |
 
 **Phone Number Verified:** 07423 272 138 (UK format)
-**Email Verified:** xdrivelogisticsltd@gmail.com
+**Email Verified:** contact@xdrivelogistics.co.uk
 
 ### B4) Responsive Screenshots
 **Status:** ✅ PASS - All Breakpoints Render Correctly
@@ -183,7 +183,7 @@ scroll-margin-top: 80px; /* or var(--header-height) */
 
 **Recommendation:** Run Lighthouse on Netlify production URL after deployment:
 ```bash
-npx lighthouse https://dannycourierltd.co.uk --view
+npx lighthouse https://xdrivelogistics.co.uk --view
 ```
 
 ### B6) Console + Network Errors
@@ -336,7 +336,7 @@ npm install next@latest
 2. **Lighthouse Testing**
    - Requires production Netlify URL
    - Should be run post-deployment
-   - Command: `npx lighthouse https://dannycourierltd.co.uk --view`
+   - Command: `npx lighthouse https://xdrivelogistics.co.uk --view`
 
 3. **Sticky Navigation (If Desired)**
    - Currently no sticky header with nav links
