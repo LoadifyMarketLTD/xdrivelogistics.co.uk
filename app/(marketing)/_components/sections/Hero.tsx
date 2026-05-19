@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { COMPANY_CONFIG } from '../../../config/company';
 import { LoginModal } from '../../../components/LoginModal';
 
@@ -8,17 +8,6 @@ const WHATSAPP_URL = `https://wa.me/${COMPANY_CONFIG.whatsapp.number}?text=${enc
 
 export function Hero() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [loadsCount, setLoadsCount] = useState(1247);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLoadsCount(prev => {
-        const delta = Math.floor(Math.random() * 3) - 1;
-        return Math.max(1200, Math.min(1300, prev + delta));
-      });
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <section
@@ -93,7 +82,7 @@ export function Hero() {
               display: 'inline-block',
             }} />
             <span style={{ fontSize: '0.875rem', color: '#81C784', fontWeight: 600 }}>
-              {loadsCount.toLocaleString()} Loads Active Now
+              Platform online · service requests monitored
             </span>
           </div>
 
@@ -199,7 +188,7 @@ export function Hero() {
               flexWrap: 'wrap',
             }}
           >
-            {['✓ Fully Insured', '✓ 24/7 Available', '✓ 5,000+ Deliveries'].map((badge) => (
+            {['✓ Insurance documents required', '✓ 24/7 Available', '✓ Registered UK company'].map((badge) => (
               <span
                 key={badge}
                 style={{

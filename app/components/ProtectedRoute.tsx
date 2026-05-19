@@ -1,22 +1,41 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from './AuthContext';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth, type UserRole } from './AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  allowedRoles?: UserRole[];
 }
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+
+  const inferAllowedRoles = (): UserRole[] | null => {
+    if (allowedRoles?.length) return allowedRoles;
+    if (pathname.startsWith('/admin') || pathname.startsWith('/m')) {
+      return ['company', 'admin', 'owner'];
+    }
+    if (pathname.startsWith('/driver/jobs')) {
+      return ['driver', 'admin', 'owner'];
+    }
+    return null;
+  };
+
+  const effectiveAllowedRoles = inferAllowedRoles();
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/login');
     }
-  }, [user, isLoading, router]);
+
+    if (!isLoading && user && effectiveAllowedRoles && !effectiveAllowedRoles.includes(user.role)) {
+      router.push('/forbidden');
+    }
+  }, [user, isLoading, router, effectiveAllowedRoles]);
 
   if (isLoading) {
     return (
@@ -34,6 +53,10 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!user) {
+    return null;
+  }
+
+  if (effectiveAllowedRoles && !effectiveAllowedRoles.includes(user.role)) {
     return null;
   }
 

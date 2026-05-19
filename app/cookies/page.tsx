@@ -85,9 +85,7 @@ export default function CookiesPage() {
               <tbody>
                 {[
                   ['Strictly Necessary', 'Authentication, session management, security', 'Session'],
-                  ['Functional', 'Remember your preferences and settings', 'Up to 1 year'],
-                  ['Analytics', 'Understand how visitors use the site (e.g., page views)', 'Up to 2 years'],
-                  ['Performance', 'Improve platform speed and reliability', 'Up to 1 year'],
+                  ['Functional', 'User preferences needed for core platform UX', 'Up to 1 year'],
                 ].map(([type, purpose, duration], i) => (
                   <tr key={i}>
                     {[type, purpose, duration].map((cell, j) => (
@@ -109,10 +107,10 @@ export default function CookiesPage() {
           </Section>
 
           <Section title="3. Third-Party Cookies">
-            Some cookies are set by third-party services we use, including:
+            We currently do not run non-essential analytics or advertising trackers on the public website.
+            Third-party cookies may still be set when you intentionally use third-party links/services, including:
             <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               <li><strong>Supabase</strong> — authentication and database services</li>
-              <li><strong>Google Analytics</strong> — anonymous usage analytics (if enabled)</li>
               <li><strong>WhatsApp</strong> — click-to-chat functionality</li>
             </ul>
             These third parties have their own privacy and cookie policies, which we encourage you to review.
@@ -131,9 +129,9 @@ export default function CookiesPage() {
           </Section>
 
           <Section title="5. Consent">
-            When you first visit our website, you will be asked to consent to the use of non-essential cookies.
-            You can withdraw your consent at any time by adjusting your browser settings or contacting us.
-            Strictly necessary cookies do not require consent as they are essential for the operation of the site.
+            Because we currently use only essential cookies on the public website, a non-essential cookie
+            consent banner is not shown. If non-essential cookies are introduced in future, this policy and
+            consent handling will be updated before activation.
           </Section>
 
           <Section title="6. Changes to This Policy">
@@ -145,7 +143,7 @@ export default function CookiesPage() {
             If you have any questions about our use of cookies, please contact:<br /><br />
             XDrive Logistics Ltd<br />
             101 Cornelian Street, Blackburn, BB1 9QL<br />
-            Email: dannycourierltd@gmail.com<br />
+            Email: contact@xdrivelogistics.co.uk<br />
             Phone: 07377 694 228
           </Section>
         </div>

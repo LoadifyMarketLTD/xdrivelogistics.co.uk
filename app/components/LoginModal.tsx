@@ -1,27 +1,23 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import * as Dialog from '@radix-ui/react-dialog';
-import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from './AuthContext';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const MIN_PASSWORD_LENGTH = 6;
 const getErrorMessage = (err: unknown, fallback: string) => {
   if (err instanceof Error && err.message) return err.message;
   return fallback;
 };
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
-  const router = useRouter();
+  const { login, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [isResetMode, setIsResetMode] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,75 +30,16 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setLoading(true);
 
     try {
-      if (!supabase) {
-        throw new Error('Authentication service is currently unavailable. Please try again later.');
+      const result = await login(email, password);
+      if (!result.success) {
+        throw new Error(result.error ?? 'Failed to login');
       }
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        setSuccessMessage('Successfully logged in!');
-        setTimeout(() => {
-          onClose();
-          // Use Next.js router for client-side navigation
-          router.push('/admin');
-        }, 1000);
-      }
+      setSuccessMessage('Successfully logged in!');
+      setTimeout(() => {
+        onClose();
+      }, 1000);
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to login'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRegister = async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccessMessage('');
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      if (!supabase) {
-        throw new Error('Authentication service is currently unavailable. Please try again later.');
-      }
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        setSuccessMessage('Registration successful! Please check your email to confirm your account.');
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
-        setTimeout(() => {
-          setIsRegisterMode(false);
-        }, 3000);
-      }
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to register'));
     } finally {
       setLoading(false);
     }
@@ -113,11 +50,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       handleResetPassword(e);
       return;
     }
-    if (isRegisterMode) {
-      handleRegister(e);
-    } else {
-      handleLogin(e);
-    }
+    handleLogin(e);
   };
 
   const handleResetPassword = async (e: FormEvent) => {
@@ -127,15 +60,10 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setLoading(true);
 
     try {
-      if (!supabase) {
-        throw new Error('Authentication service is currently unavailable. Please try again later.');
+      const result = await resetPassword(email);
+      if (!result.success) {
+        throw new Error(result.error ?? 'Failed to send reset email');
       }
-
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/admin/settings`,
-      });
-
-      if (error) throw error;
       setSuccessMessage('Password reset email sent. Please check your inbox.');
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to send reset email'));
@@ -180,7 +108,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               marginBottom: '1rem',
             }}
           >
-            {isResetMode ? 'Reset Password' : isRegisterMode ? 'Create Account' : 'Sign In'}
+            {isResetMode ? 'Reset Password' : 'Sign In'}
           </Dialog.Title>
 
           <Dialog.Description
@@ -192,8 +120,6 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           >
             {isResetMode
               ? 'Enter your account email to receive a password reset link'
-              : isRegisterMode
-              ? 'Create a new account to get started'
               : 'Sign in to access your dashboard'}
           </Dialog.Description>
 
@@ -268,18 +194,16 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               </div>
             )}
 
-             {!isResetMode && !isRegisterMode && (
-               <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
-                 <button
-                   type="button"
-                   onClick={() => {
-                     setIsResetMode(true);
-                     setIsRegisterMode(false);
-                     setPassword('');
-                     setConfirmPassword('');
-                     setError('');
-                     setSuccessMessage('');
-                   }}
+             {!isResetMode && (
+                <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsResetMode(true);
+                      setPassword('');
+                      setError('');
+                      setSuccessMessage('');
+                    }}
                    disabled={loading}
                    style={{
                      color: '#1E4E8C',
@@ -295,42 +219,6 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                  </button>
                </div>
              )}
-
-             {isRegisterMode && !isResetMode && (
-               <div style={{ marginBottom: '1.25rem' }}>
-                <label
-                  htmlFor="confirmPassword"
-                  style={{
-                    display: 'block',
-                    marginBottom: '0.5rem',
-                    color: '#0B1B33',
-                    fontWeight: '500',
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  Confirm Password
-                </label>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    outline: 'none',
-                    transition: 'border-color 0.2s',
-                  }}
-                  onFocus={(e) => (e.target.style.borderColor = '#1E4E8C')}
-                  onBlur={(e) => (e.target.style.borderColor = '#E5E7EB')}
-                />
-              </div>
-            )}
 
             {error && (
               <div
@@ -393,8 +281,6 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 ? 'Please wait...'
                 : isResetMode
                 ? 'Send Reset Email'
-                : isRegisterMode
-                ? 'Create Account'
                 : 'Sign In'}
             </button>
 
@@ -420,27 +306,9 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                   Back to Sign in
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsRegisterMode(!isRegisterMode);
-                    setError('');
-                    setSuccessMessage('');
-                  }}
-                  disabled={loading}
-                  style={{
-                    color: '#1E4E8C',
-                    background: 'none',
-                    border: 'none',
-                    fontSize: '0.9rem',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  {isRegisterMode
-                    ? 'Already have an account? Sign in'
-                    : "Don't have an account? Register"}
-                </button>
+                <p style={{ margin: 0, color: '#6B7280', fontSize: '0.85rem' }}>
+                  Account onboarding is managed by XDrive Logistics operations.
+                </p>
               )}
             </div>
           </form>

@@ -17,7 +17,7 @@ export const COMPANY_CONFIG = {
   },
 
   // Primary operational email
-  email: 'dannycourierltd@gmail.com',
+  email: 'contact@xdrivelogistics.co.uk',
   phone: '+447377694228',
   phoneDisplay: '07377 694 228',
   
@@ -35,7 +35,7 @@ export const COMPANY_CONFIG = {
       accountNumber: '12345678', // PLACEHOLDER - replace in production
     },
     paypal: {
-      email: 'dannycourierltd@gmail.com',
+      email: 'billing@xdrivelogistics.co.uk',
     },
     terms: ['Pay now', '14 days', '30 days'] as const,
     lateFeeNote: 'Late payments may incur administrative charges.',
