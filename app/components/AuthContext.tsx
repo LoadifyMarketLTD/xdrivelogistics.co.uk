@@ -68,6 +68,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle(),
     ]);
 
+    if (profileRes.error) {
+      console.error('AuthContext.resolveRole profiles query failed', {
+        userId,
+        error: profileRes.error,
+      });
+    }
+    if (membershipRes.error) {
+      console.error('AuthContext.resolveRole company_memberships query failed', {
+        userId,
+        error: membershipRes.error,
+      });
+    }
+    if (driverRes.error) {
+      console.error('AuthContext.resolveRole drivers query failed', {
+        userId,
+        error: driverRes.error,
+      });
+    }
+
     const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
     const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
     const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access'> | null;
