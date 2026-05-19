@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DbJob } from '../../../lib/types/database';
+import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
 
 type Tab = 'active' | 'history' | 'earnings';
 
@@ -27,6 +29,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function DriverJobsPage() {
   const router = useRouter();
+  const { user, logout } = useAuth();
   const [driverName, setDriverName] = useState('');
   const [driverId, setDriverId] = useState('');
   const [tab, setTab] = useState<Tab>('active');
@@ -34,15 +37,23 @@ export default function DriverJobsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const id = sessionStorage.getItem('driver_id') ?? '';
-    const name = sessionStorage.getItem('driver_name') ?? '';
-    if (!id) {
-      router.replace('/driver');
-      return;
-    }
-    setDriverId(id);
-    setDriverName(name);
-  }, [router]);
+    if (!user?.id || !isSupabaseConfigured) return;
+    (async () => {
+      const { data } = await supabase
+        .from('drivers')
+        .select('id, display_name')
+        .eq('user_id', user.id)
+        .eq('app_access', true)
+        .maybeSingle();
+
+      if (!data) {
+        router.replace('/forbidden');
+        return;
+      }
+      setDriverId(data.id as string);
+      setDriverName((data.display_name as string) ?? '');
+    })();
+  }, [router, user?.id]);
 
   const loadJobs = useCallback(async () => {
     if (!driverId || !isSupabaseConfigured) {
@@ -70,13 +81,12 @@ export default function DriverJobsPage() {
     if (driverId) loadJobs();
   }, [driverId, tab, loadJobs]);
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('driver_id');
-    sessionStorage.removeItem('driver_name');
-    router.push('/driver');
+  const handleLogout = async () => {
+    await logout();
   };
 
   return (
+    <ProtectedRoute allowedRoles={['driver', 'admin', 'owner']}>
     <div style={{ minHeight: '100dvh', backgroundColor: '#f3f4f6' }}>
       {/* Header */}
       <header
@@ -169,6 +179,7 @@ export default function DriverJobsPage() {
         )}
       </div>
     </div>
+    </ProtectedRoute>
   );
 }
 

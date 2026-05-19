@@ -34,7 +34,7 @@ export function Footer() {
         >
           {[
             { icon: '🔒', label: 'Secure Payments', sub: 'Stripe Protected' },
-            { icon: '✅', label: 'Fully Insured', sub: 'Goods in Transit' },
+            { icon: '✅', label: 'Insurance Required', sub: 'Driver policy checks' },
             { icon: '🏢', label: 'Registered Company', sub: `No. ${COMPANY_CONFIG.companyNumber}` },
             { icon: '📋', label: 'ICO Registered', sub: 'Data Protection' },
           ].map((badge) => (
@@ -344,6 +344,8 @@ export function Footer() {
             }}
           >
             {COMPANY_CONFIG.name} is a trading name of {COMPANY_CONFIG.legalName} · Registered in England & Wales
+            <br />
+            {COMPANY_CONFIG.legalName} is an independent platform and is not affiliated with Courier Exchange or any third-party courier exchange platform.
           </p>
         </div>
       </div>

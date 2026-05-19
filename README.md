@@ -51,37 +51,18 @@ The project uses:
 - `tsconfig.json` - TypeScript configuration
 - `eslint.config.js` - ESLint configuration
 
-## 🔑 Authentication Credentials
+## 🔑 Authentication Setup
 
-### Main Account (Owner)
-- **Email:** xdrivelogisticsltd@gmail.com
-- **Password:** Johnny2000$$
-- **Access:** Full access (desktop, mobile, admin dashboard)
-- **Note:** For development use only - implement proper authentication before production
-
-### Secondary Accounts
-
-#### Admin Desktop
-- **Email:** xdrivelogisticsltd@gmail.com (or from NEXT_PUBLIC_ADMIN_USER)
-- **Password:** Johnny2000$$ (or from NEXT_PUBLIC_ADMIN_PASS)
-- **Access:** Desktop dashboard
-
-#### Mobile (Drivers)
-- **Email:** xdrivelogisticsltd@gmail.com (or from NEXT_PUBLIC_MOBILE_USER)
-- **Password:** Johnny2000$$ (or from NEXT_PUBLIC_MOBILE_PASS)
-- **Access:** Mobile interface
+- Use Supabase Auth users created in your own project environment.
+- Do not store real credentials in repository files.
+- Configure environment variables via deployment secrets and local `.env.local` only.
+- Required variables are documented in `.env.example` using placeholders.
 
 ---
 
 ## ⚠️ Security Notice
 
-**DEVELOPMENT ONLY:**
-These credentials are hard-coded for development purposes. In production:
-1. Migrate to a database-backed authentication system
-2. Implement password hashing (bcrypt)
-3. Add mandatory 2FA
-4. Use environment variables for all credentials
-5. Remove hard-coded credentials from source code
+Never commit passwords, API keys, tokens, or real login pairs to source control.
 
 ---
 

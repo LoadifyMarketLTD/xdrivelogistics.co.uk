@@ -42,7 +42,7 @@ Status is automatically calculated based on the due date.
 ## Technical Details
 
 ### Storage
-Currently uses browser localStorage with key `dannycourier_invoices`. Data persists across browser sessions but is cleared if browser cache is cleared.
+Currently uses browser localStorage with key `xdrive_invoices`. Data persists across browser sessions but is cleared if browser cache is cleared.
 
 ### Auto-Generated IDs
 - **Job Ref Format**: `DC-YYMMDD-XXXX` (e.g., DC-250213-1234)
@@ -55,7 +55,7 @@ Bank Transfer:
 - Sort Code: 04-00-04 (PLACEHOLDER)
 - Account: 12345678 (PLACEHOLDER)
 
-PayPal: dannycourierltd@gmail.com
+PayPal: contact@xdrivelogistics.co.uk
 
 **Note**: Bank details are placeholders for development. Update in `app/config/company.ts` for production.
 

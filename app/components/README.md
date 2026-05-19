@@ -100,33 +100,25 @@ Before deploying to production, implement:
 
 ## Test Credentials
 
-Default development credentials (can be overridden with environment variables):
-
-**Mobile User:**
-- Email: `mobile@dannycourierltd.co.uk`
-- Password: `mobile123`
-
-**Admin User:**
-- Email: `admin@dannycourierltd.co.uk`
-- Password: `admin123`
+Create test users directly in Supabase Auth for your environment.
+Do not store any real or demo passwords in repository files.
 
 ## Environment Variables
 
 See `.env.example` for configuration options:
 ```bash
-NEXT_PUBLIC_MOBILE_USER=mobile@dannycourierltd.co.uk
-NEXT_PUBLIC_MOBILE_PASS=mobile123
-NEXT_PUBLIC_ADMIN_USER=admin@dannycourierltd.co.uk
-NEXT_PUBLIC_ADMIN_PASS=admin123
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-**Note**: These should only be used for development. Production should use a proper authentication backend.
+**Note**: Production credentials and secrets must be stored only in deployment secret managers.
 
 ## Role-Based Routing
 
-Users are automatically redirected based on their role after login:
-- **mobile** role → `/m` (Mobile Ops)
-- **desktop** role → `/admin` (Admin Dashboard)
+Users are redirected based on role after login:
+- **driver** → `/driver/jobs`
+- **company/admin/owner** → `/admin`
+- **customer** → restricted pages only where access is granted
 
 ## Future Enhancements
 

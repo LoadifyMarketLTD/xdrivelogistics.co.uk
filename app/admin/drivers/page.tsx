@@ -4,37 +4,75 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Driver, Company } from '../../../lib/types/database';
+import { useAuth } from '../../components/AuthContext';
 
 export default function DriversPage() {
+  const { user, hasSupabaseSession } = useAuth();
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companies, setCompanies] = useState<Pick<Company, 'id' | 'name'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ display_name: '', phone: '', email: '', company_id: '' });
   const [error, setError] = useState('');
 
+  const loadCompanyId = async (userId: string) => {
+    const { data } = await supabase.rpc('get_or_create_company_for_user');
+    if (data) {
+      setCompanyId(data as string);
+      return;
+    }
+    const { data: membership } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle();
+    setCompanyId((membership?.company_id as string) ?? null);
+  };
+
   const loadDrivers = async () => {
     setLoading(true);
-    if (!isSupabaseConfigured) { setLoading(false); return; }
-    const { data, error } = await supabase.from('drivers').select('*').order('created_at', { ascending: false });
+    if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
+    const { data, error } = await supabase
+      .from('drivers')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
     if (!error && data) setDrivers(data as Driver[]);
     setLoading(false);
   };
 
   const loadCompanies = async () => {
-    if (!isSupabaseConfigured) return;
-    const { data, error } = await supabase.from('companies').select('id, name').order('name');
+    if (!isSupabaseConfigured || !companyId) return;
+    const { data, error } = await supabase
+      .from('companies')
+      .select('id, name')
+      .eq('id', companyId)
+      .order('name');
     if (error) { console.error('Failed to load companies:', error.message); return; }
-    if (data) setCompanies(data as Company[]);
+    if (data) setCompanies(data as Pick<Company, 'id' | 'name'>[]);
   };
 
-  useEffect(() => { loadDrivers(); loadCompanies(); }, []);
+  useEffect(() => {
+    if (hasSupabaseSession && user?.id) {
+      loadCompanyId(user.id);
+    }
+  }, [hasSupabaseSession, user?.id]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    setFormData((prev) => ({ ...prev, company_id: companyId }));
+    loadDrivers();
+    loadCompanies();
+  }, [companyId]);
 
   const handleCreate = async () => {
     if (!formData.display_name.trim()) { setError('Driver name is required'); return; }
-    if (!formData.company_id) { setError('Company is required'); return; }
+    if (!companyId) { setError('Company profile is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { error } = await supabase.from('drivers').insert([formData]);
+    const { error } = await supabase.from('drivers').insert([{ ...formData, company_id: companyId }]);
     if (error) { setError(error.message); return; }
     setShowModal(false);
     setFormData({ display_name: '', phone: '', email: '', company_id: '' });

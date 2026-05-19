@@ -115,11 +115,11 @@ export default function PrivacyPage() {
               <li>Data portability</li>
               <li>Withdraw consent at any time</li>
             </ul>
-            To exercise any of these rights, contact us at dannycourierltd@gmail.com.
+            To exercise any of these rights, contact us at contact@xdrivelogistics.co.uk.
           </Section>
 
           <Section title="8. Cookies">
-            We use cookies to improve your experience. See our{' '}
+            We use only essential cookies required for authentication and core platform operation. See our{' '}
             <a href="/cookies" style={{ color: 'var(--color-gold-primary)' }}>
               Cookie Policy
             </a>{' '}
@@ -136,7 +136,8 @@ export default function PrivacyPage() {
             For privacy-related queries, contact us at:<br /><br />
             XDrive Logistics Ltd<br />
             101 Cornelian Street, Blackburn, BB1 9QL<br />
-            Email: dannycourierltd@gmail.com<br /><br />
+            Email: contact@xdrivelogistics.co.uk<br /><br />
+            XDrive Logistics Ltd is an independent platform and is not affiliated with Courier Exchange or any third-party courier exchange platform.<br /><br />
             You also have the right to lodge a complaint with the UK Information Commissioner&apos;s
             Office (ICO) at{' '}
             <a href="https://ico.org.uk" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-gold-primary)' }}>

@@ -19,7 +19,7 @@
 ## 🧪 Quick Smoke Tests
 
 ### Landing Page
-- [ ] Visit https://dannycourierltd.co.uk
+- [ ] Visit https://xdrivelogistics.co.uk
 - [ ] Page loads without errors
 - [ ] Dark navy background displays
 - [ ] Gold accents visible
@@ -39,7 +39,7 @@
 - [ ] Pre-filled messages appear in WhatsApp
 
 ### Auth Flow
-- [ ] Visit https://dannycourierltd.co.uk while logged out
+- [ ] Visit https://xdrivelogistics.co.uk while logged out
 - [ ] Confirm landing page shows (not dashboard)
 - [ ] Try to visit /admin directly → Redirects to /login
 - [ ] No "flashing" or quick page switches
@@ -74,7 +74,7 @@ Test on:
 
 **Run from command line:**
 ```bash
-npx lighthouse https://dannycourierltd.co.uk --view
+npx lighthouse https://xdrivelogistics.co.uk --view
 ```
 
 **Or use Chrome DevTools:**
@@ -123,7 +123,7 @@ npx lighthouse https://dannycourierltd.co.uk --view
 
 ## 🔐 Security Headers Check
 
-Visit: https://securityheaders.com/?q=https://dannycourierltd.co.uk&followRedirects=on
+Visit: https://securityheaders.com/?q=https://xdrivelogistics.co.uk&followRedirects=on
 
 **Expected headers (configured in netlify.toml):**
 - [ ] X-Frame-Options: SAMEORIGIN
@@ -171,7 +171,7 @@ Visit: https://securityheaders.com/?q=https://dannycourierltd.co.uk&followRedire
 
 **Confirm these details are correct:**
 - Phone: **07423 272 138** ✅
-- Email: **xdrivelogisticsltd@gmail.com** ✅
+- Email: **contact@xdrivelogistics.co.uk** ✅
 - WhatsApp: **447423272138** ✅
 - Company: **XDrive Logistics Ltd** ✅
 

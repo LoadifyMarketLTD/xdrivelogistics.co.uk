@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
+import Link from 'next/link';
 import { useAuth } from '../components/AuthContext';
 import { COMPANY_CONFIG } from '../config/company';
 
@@ -207,6 +208,12 @@ export default function LoginPage() {
             >
               {isLoading ? 'Please wait...' : 'Sign In'}
             </button>
+            <p style={{ marginTop: '1rem', marginBottom: 0, color: '#5B6B85', textAlign: 'center', fontSize: '0.9rem' }}>
+              Need an account?{' '}
+              <Link href="/register" style={{ color: '#1E4E8C' }}>
+                Register
+              </Link>
+            </p>
           </form>
         ) : (
           <form onSubmit={handleResetPassword}>

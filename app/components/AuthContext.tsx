@@ -3,17 +3,22 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
+import type { CompanyMembership, Driver, Profile } from '../../lib/types/database';
 
 interface User {
   id: string;
   email: string;
-  role: 'mobile' | 'desktop';
+  role: UserRole;
+  companyId: string | null;
+  driverId: string | null;
 }
+
+export type UserRole = 'guest' | 'customer' | 'driver' | 'company' | 'admin' | 'owner';
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
   hasSupabaseSession: boolean;
@@ -21,109 +26,156 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Legacy credentials for fallback when Supabase is not configured
-const LEGACY_CREDENTIALS = [
-  { email: process.env.NEXT_PUBLIC_OWNER_EMAIL || '', password: process.env.NEXT_PUBLIC_OWNER_PASS || '', role: 'desktop' as const },
-  { email: process.env.NEXT_PUBLIC_MOBILE_USER || '', password: process.env.NEXT_PUBLIC_MOBILE_PASS || '', role: 'mobile' as const },
-  { email: process.env.NEXT_PUBLIC_ADMIN_USER || '', password: process.env.NEXT_PUBLIC_ADMIN_PASS || '', role: 'desktop' as const },
-];
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
   const router = useRouter();
 
+  const mapRole = (value: string | null | undefined): UserRole | null => {
+    const normalized = (value ?? '').toLowerCase();
+    if (normalized === 'owner') return 'owner';
+    if (normalized === 'admin') return 'admin';
+    if (normalized === 'company' || normalized === 'dispatcher') return 'company';
+    if (normalized === 'driver') return 'driver';
+    if (normalized === 'customer' || normalized === 'client' || normalized === 'viewer') return 'customer';
+    return null;
+  };
+
+  const resolveRole = async (
+    userId: string,
+    fallbackRole?: string | null
+  ): Promise<{ role: UserRole; companyId: string | null; driverId: string | null }> => {
+    const [profileRes, membershipRes, driverRes] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('role, is_driver, company_id')
+        .eq('id', userId)
+        .maybeSingle(),
+      supabase
+        .from('company_memberships')
+        .select('company_id, role_in_company, status')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('drivers')
+        .select('id, company_id, user_id, app_access')
+        .eq('user_id', userId)
+        .eq('app_access', true)
+        .maybeSingle(),
+    ]);
+
+    const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
+    const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
+    const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access'> | null;
+    const driverId = driver?.id ?? null;
+
+    if (membership?.role_in_company === 'owner') {
+      return { role: 'owner', companyId: membership.company_id, driverId };
+    }
+    if (membership?.role_in_company === 'admin') {
+      return { role: 'admin', companyId: membership.company_id, driverId };
+    }
+    if (membership?.role_in_company === 'dispatcher') {
+      return { role: 'company', companyId: membership.company_id, driverId };
+    }
+    if (driver || profile?.is_driver) {
+      return { role: 'driver', companyId: driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null, driverId };
+    }
+    if (membership?.role_in_company === 'viewer') {
+      return { role: 'customer', companyId: membership.company_id, driverId };
+    }
+
+    const profileRole = mapRole(profile?.role);
+    if (profileRole) {
+      return { role: profileRole, companyId: profile?.company_id ?? null, driverId };
+    }
+
+    const metadataRole = mapRole(fallbackRole);
+    if (metadataRole) {
+      return { role: metadataRole, companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
+    }
+
+    if (fallbackRole === 'driver') {
+      return { role: 'driver', companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
+    }
+
+    return { role: 'customer', companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
+  };
+
+  const hydrateUser = async (sessionUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> | null }) => {
+    const fallbackRole =
+      typeof sessionUser.user_metadata?.role === 'string'
+        ? sessionUser.user_metadata.role
+        : typeof sessionUser.user_metadata?.requested_role === 'string'
+          ? sessionUser.user_metadata.requested_role
+          : null;
+    const roleData = await resolveRole(sessionUser.id, fallbackRole);
+    const userData: User = {
+      id: sessionUser.id,
+      email: sessionUser.email ?? '',
+      role: roleData.role,
+      companyId: roleData.companyId,
+      driverId: roleData.driverId,
+    };
+    setUser(userData);
+    setHasSupabaseSession(true);
+    return userData;
+  };
+
+  const getPostLoginRoute = (role: UserRole) => {
+    if (role === 'driver') return '/driver/jobs';
+    if (role === 'customer') return '/customer';
+    return '/admin';
+  };
+
   useEffect(() => {
-    if (isSupabaseConfigured) {
-      // Use Supabase auth
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email ?? '',
-            role: 'desktop',
-          });
-          setHasSupabaseSession(true);
-        }
-        setIsLoading(false);
-      });
+    if (!isSupabaseConfigured) {
+      setUser(null);
+      setHasSupabaseSession(false);
+      setIsLoading(false);
+      return;
+    }
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session?.user) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email ?? '',
-            role: 'desktop',
-          });
-          setHasSupabaseSession(true);
-        } else {
-          setUser(null);
-          setHasSupabaseSession(false);
-        }
-        setIsLoading(false);
-      });
-
-      return () => subscription.unsubscribe();
-    } else {
-      // Legacy localStorage auth
-      const storedUser = localStorage.getItem('xdrivelogistics_user');
-      if (storedUser) {
-        try {
-          const parsed = JSON.parse(storedUser);
-          // In legacy mode, use email as ID (no real UUID available without Supabase)
-          setUser({ id: parsed.email, email: parsed.email, role: parsed.role });
-        } catch (error) {
-          console.error('Failed to parse stored user:', error);
-          localStorage.removeItem('xdrivelogistics_user');
-        }
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        await hydrateUser(session.user);
+      } else {
+        setUser(null);
+        setHasSupabaseSession(false);
       }
       setIsLoading(false);
-    }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        await hydrateUser(session.user);
+      } else {
+        setUser(null);
+        setHasSupabaseSession(false);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      if (isSupabaseConfigured) {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-          // Fall back to legacy credentials check
-          const cred = LEGACY_CREDENTIALS.find(c => c.email === email && c.password === password);
-          if (!cred) return { success: false, error: error.message };
-          // In legacy fallback mode, use email as a stand-in ID (no real UUID without Supabase)
-          // hasSupabaseSession stays false — no real DB session
-          const userData: User = { id: email, email: cred.email, role: cred.role };
-          setUser(userData);
-          if (cred.role === 'mobile' || (typeof window !== 'undefined' && window.innerWidth < 768)) {
-            router.push('/m');
-          } else {
-            router.push('/admin');
-          }
-          return { success: true };
-        }
-        if (data.user) {
-          const userData: User = { id: data.user.id, email: data.user.email ?? '', role: 'desktop' };
-          setUser(userData);
-          setHasSupabaseSession(true);
-          router.push('/admin');
-          return { success: true };
-        }
-        return { success: false, error: 'Login failed' };
-      } else {
-        // Legacy auth (no Supabase configured)
-        const cred = LEGACY_CREDENTIALS.find(c => c.email === email && c.password === password);
-        if (!cred) return { success: false, error: 'Invalid email or password' };
-        // In legacy mode, use email as a stand-in ID (no real UUID without Supabase)
-        const userData: User = { id: email, email: cred.email, role: cred.role };
-        localStorage.setItem('xdrivelogistics_user', JSON.stringify({ email: cred.email, role: cred.role }));
-        setUser(userData);
-        if (cred.role === 'mobile' || (typeof window !== 'undefined' && window.innerWidth < 768)) {
-          router.push('/m');
-        } else {
-          router.push('/admin');
-        }
-        return { success: true };
+      if (!isSupabaseConfigured) {
+        return { success: false, error: 'Authentication is unavailable: Supabase is not configured.' };
       }
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { success: false, error: error.message };
+      if (!data.user) return { success: false, error: 'Login failed' };
+
+      const hydrated = await hydrateUser(data.user);
+      router.push(getPostLoginRoute(hydrated.role));
+      return { success: true };
     } catch (error) {
       console.error('Login error:', error);
       return { success: false, error: 'An error occurred during login' };
@@ -132,11 +184,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
     if (!isSupabaseConfigured) {
-      return { success: false, error: 'Password reset is not available in offline mode.' };
+      return { success: false, error: 'Authentication is unavailable: Supabase is not configured.' };
     }
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/settings`,
+        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
       });
       if (error) return { success: false, error: error.message };
       return { success: true };
@@ -147,11 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    if (isSupabaseConfigured) {
-      await supabase.auth.signOut();
-    } else {
-      localStorage.removeItem('xdrivelogistics_user');
-    }
+    if (isSupabaseConfigured) await supabase.auth.signOut();
     setUser(null);
     setHasSupabaseSession(false);
     router.push('/login');

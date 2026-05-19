@@ -15,9 +15,9 @@ const FAQS = [
       'We provide transport services across the entire UK and into Europe. From local same-day deliveries to cross-border freight, our network covers all major routes.',
   },
   {
-    question: 'Are your drivers fully verified and insured?',
+    question: 'How are driver compliance checks handled?',
     answer:
-      'Yes. All drivers on our platform hold valid CPC qualifications, tachograph cards, and comprehensive goods-in-transit insurance. Every driver is vetted before being accepted onto the platform.',
+      'Drivers are required to provide valid licensing and insurance documentation during onboarding. Compliance checks are carried out before activation.',
   },
   {
     question: 'What types of goods can you transport?',
@@ -35,14 +35,14 @@ const FAQS = [
       'We proactively communicate any delays in real time. Our drivers update the status of your delivery throughout the journey so you always know where your goods are and when to expect them.',
   },
   {
-    question: 'Can I track my delivery in real time?',
+    question: 'How will I receive delivery updates?',
     answer:
-      'Yes. Once your booking is confirmed, you will receive live status updates. Our operations team monitors every delivery to ensure on-time, safe arrival.',
+      'You will receive delivery status updates from the operations team during active jobs.',
   },
   {
     question: 'How do I register as a driver?',
     answer:
-      'Click "Driver Login" and complete the registration form. You\'ll need to upload your CPC certificate, tachograph card, and proof of insurance. Our team reviews applications within 24 hours.',
+      'Driver onboarding is currently managed directly by XDrive Logistics operations. Contact the team to request onboarding instructions.',
   },
 ];
 

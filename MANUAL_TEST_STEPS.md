@@ -214,5 +214,5 @@ These are click-by-click steps for each dashboard feature. Run after deploying w
 
 ### Generate Report
 1. On `/admin`, click **Generate Report**
-2. **Expected:** CSV file downloads named `danny-courier-report-YYYY-MM-DD.csv`
+2. **Expected:** CSV file downloads named `xdrive-report-YYYY-MM-DD.csv`
 3. Open CSV — should contain the 4 KPI values from the dashboard
