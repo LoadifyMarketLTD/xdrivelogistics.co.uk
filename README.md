@@ -1,4 +1,4 @@
-# Danny Courier Ltd - Next.js Website
+# XDrive Logistics Ltd - Next.js Website
 
 This is a Next.js project for Danny Courier Ltd, built with modern web technologies.
 
@@ -54,7 +54,7 @@ The project uses:
 ## 🔑 Authentication Credentials
 
 ### Main Account (Owner)
-- **Email:** dannycourierltd@gmail.com
+- **Email:** xdrivelogisticsltd@gmail.com
 - **Password:** Johnny2000$$
 - **Access:** Full access (desktop, mobile, admin dashboard)
 - **Note:** For development use only - implement proper authentication before production
@@ -62,12 +62,12 @@ The project uses:
 ### Secondary Accounts
 
 #### Admin Desktop
-- **Email:** dannycourierltd.com (or from NEXT_PUBLIC_ADMIN_USER)
+- **Email:** xdrivelogisticsltd@gmail.com (or from NEXT_PUBLIC_ADMIN_USER)
 - **Password:** Johnny2000$$ (or from NEXT_PUBLIC_ADMIN_PASS)
 - **Access:** Desktop dashboard
 
 #### Mobile (Drivers)
-- **Email:** dannycourierltd.com (or from NEXT_PUBLIC_MOBILE_USER)
+- **Email:** xdrivelogisticsltd@gmail.com (or from NEXT_PUBLIC_MOBILE_USER)
 - **Password:** Johnny2000$$ (or from NEXT_PUBLIC_MOBILE_PASS)
 - **Access:** Mobile interface
 
