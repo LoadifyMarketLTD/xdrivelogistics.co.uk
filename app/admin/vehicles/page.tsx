@@ -24,7 +24,7 @@ export default function VehiclesPage() {
     if (!companyId) { setVehicles([]); setLoading(false); return; }
     const { data, error } = await supabase
       .from('vehicles')
-      .select('*')
+      .select('id, company_id, type, reg_plate, make, model, payload_kg, has_tail_lift, created_at')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
     if (!error && data) setVehicles(data as Vehicle[]);

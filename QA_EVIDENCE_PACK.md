@@ -78,10 +78,10 @@ Route (app)
 | **1. Logged OUT → visit `/`** | Show landing page | ✅ PASS | Landing page displays immediately |
 | **2. Logged OUT → visit `/admin`** | Redirect to `/login` | ✅ PASS | Redirects within 200ms via ProtectedRoute |
 | **3. Loading State** | Show "Loading..." with gold color | ✅ PASS | Clean loading screen, no landing flash |
-| **4. Hard Refresh** | Stable, no redirect loops | ✅ PASS | Auth state persists via localStorage |
+| **4. Hard Refresh** | Stable, no redirect loops | ✅ PASS | Auth state persists via Supabase session |
 
 **Implementation Details:**
-- **AuthContext:** Uses localStorage for session persistence
+- **AuthContext:** Uses Supabase Auth session and role hydration
 - **ProtectedRoute:** Wraps admin/mobile routes, redirects if !user
 - **Home Page (page.tsx):** Shows loading screen while checking auth, then either redirects authenticated users or shows landing page
 - **No visible flash:** Loading screen prevents landing page from showing to authenticated users
@@ -345,14 +345,11 @@ npm install next@latest
 
 ### Security Notes
 
-**From AuthContext.tsx:**
-```typescript
-// Lines 32-34
-// SECURITY NOTE: localStorage is vulnerable to XSS attacks
-// TODO: Replace with httpOnly cookies when backend is implemented
-```
+**From current auth stack:**
+- Supabase Auth is used for session/authentication.
+- Server-side route guards in `proxy.ts` enforce role-aware protected access.
 
-**Recommendation:** When backend is implemented, migrate from localStorage to httpOnly cookies for better security.
+**Recommendation:** Continue periodic RLS/policy audits and route guard regression tests for tenant isolation.
 
 ---
 
@@ -413,7 +410,7 @@ npm install next@latest
 2. **Run Lighthouse** on production URL after deployment
 3. **Test on real mobile devices** to verify tel: and wa.me links
 4. **Optional:** Add sticky navigation if section links are desired
-5. **Future:** Replace localStorage auth with httpOnly cookies when backend is ready
+5. **Future:** Maintain Supabase auth hardening and monitor role/tenant policy regressions
 
 ---
 
