@@ -5,6 +5,21 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { CompanyMembership, Driver, Profile } from '../../../lib/types/database';
 
+const AUTH_CALLBACK_TIMEOUT_MS = 10_000;
+
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => reject(new Error('Authentication callback timed out.')), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
+};
+
 const mapRole = (value: string | null | undefined) => {
   const normalized = (value ?? '').toLowerCase();
   if (normalized === 'owner') return 'owner';
@@ -41,16 +56,21 @@ const resolveRedirectPath = async (
       .maybeSingle(),
   ]);
 
+  if (profileRes.error || membershipRes.error || driverRes.error) {
+    return null;
+  }
+
   const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
   const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
   const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access'> | null;
+  const resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null;
 
   if (membership?.role_in_company === 'owner' || membership?.role_in_company === 'admin' || membership?.role_in_company === 'dispatcher') {
-    return '/admin';
+    return resolvedCompanyId ? '/admin' : null;
   }
 
   if (driver || profile?.is_driver) {
-    return '/driver/jobs';
+    return resolvedCompanyId ? '/driver/jobs' : null;
   }
 
   if (membership?.role_in_company === 'viewer') {
@@ -58,16 +78,20 @@ const resolveRedirectPath = async (
   }
 
   const profileRole = mapRole(profile?.role);
-  if (profileRole === 'driver') return '/driver/jobs';
+  if (profileRole === 'driver') return resolvedCompanyId ? '/driver/jobs' : null;
   if (profileRole === 'customer') return '/customer';
-  if (profileRole === 'company' || profileRole === 'admin' || profileRole === 'owner') return '/admin';
+  if (profileRole === 'company' || profileRole === 'admin' || profileRole === 'owner') {
+    return resolvedCompanyId ? '/admin' : null;
+  }
 
   const metadataRole = mapRole(fallbackRole);
-  if (metadataRole === 'driver') return '/driver/jobs';
+  if (metadataRole === 'driver') return resolvedCompanyId ? '/driver/jobs' : null;
   if (metadataRole === 'customer') return '/customer';
-  if (metadataRole === 'company' || metadataRole === 'admin' || metadataRole === 'owner') return '/admin';
+  if (metadataRole === 'company' || metadataRole === 'admin' || metadataRole === 'owner') {
+    return resolvedCompanyId ? '/admin' : null;
+  }
 
-  return '/customer';
+  return null;
 };
 
 export default function AuthCallbackPage() {
@@ -88,9 +112,15 @@ export default function AuthCallbackPage() {
         const type = searchParams.get('type');
 
         if (code) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          const { error: exchangeError } = await withTimeout(
+            supabase.auth.exchangeCodeForSession(code),
+            AUTH_CALLBACK_TIMEOUT_MS
+          );
           if (exchangeError) throw exchangeError;
-          const { data: userData } = await supabase.auth.getUser();
+          const { data: userData } = await withTimeout(
+            supabase.auth.getUser(),
+            AUTH_CALLBACK_TIMEOUT_MS
+          );
           if (!userData.user) {
             router.replace('/login');
             return;
@@ -101,22 +131,33 @@ export default function AuthCallbackPage() {
               : typeof userData.user.user_metadata?.requested_role === 'string'
                 ? userData.user.user_metadata.requested_role
                 : null;
-          router.replace(await resolveRedirectPath(userData.user.id, fallbackRole));
+          const redirectPath = await withTimeout(
+            resolveRedirectPath(userData.user.id, fallbackRole),
+            AUTH_CALLBACK_TIMEOUT_MS
+          );
+          if (!redirectPath) {
+            await supabase.auth.signOut();
+            router.replace('/forbidden');
+            return;
+          }
+          router.replace(redirectPath);
           return;
         }
 
         if (tokenHash && type) {
-          const { error: verifyError } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: type as 'signup' | 'email' | 'recovery' | 'invite' | 'email_change',
-          });
+          const { error: verifyError } = await withTimeout(
+            supabase.auth.verifyOtp({
+              token_hash: tokenHash,
+              type: type as 'signup' | 'email' | 'recovery' | 'invite' | 'email_change',
+            }),
+            AUTH_CALLBACK_TIMEOUT_MS
+          );
           if (verifyError) throw verifyError;
-          if (type === 'recovery') {
-            router.replace('/admin/settings');
-            return;
-          }
 
-          const { data: userData } = await supabase.auth.getUser();
+          const { data: userData } = await withTimeout(
+            supabase.auth.getUser(),
+            AUTH_CALLBACK_TIMEOUT_MS
+          );
           if (!userData.user) {
             router.replace('/login');
             return;
@@ -127,7 +168,16 @@ export default function AuthCallbackPage() {
               : typeof userData.user.user_metadata?.requested_role === 'string'
                 ? userData.user.user_metadata.requested_role
                 : null;
-          router.replace(await resolveRedirectPath(userData.user.id, fallbackRole));
+          const redirectPath = await withTimeout(
+            resolveRedirectPath(userData.user.id, fallbackRole),
+            AUTH_CALLBACK_TIMEOUT_MS
+          );
+          if (!redirectPath) {
+            await supabase.auth.signOut();
+            router.replace('/forbidden');
+            return;
+          }
+          router.replace(redirectPath);
           return;
         }
 

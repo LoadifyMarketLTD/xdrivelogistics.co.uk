@@ -10,8 +10,43 @@ import { COMPANY_CONFIG } from '../config/company';
 export default function AdminPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('dashboard');
   const [stats, setStats] = useState({ activeJobs: '—', pendingQuotes: '—', activeDrivers: '—', completedToday: '—' });
+  const [statsError, setStatsError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    const resolveCompanyId = async () => {
+      if (!isSupabaseConfigured || !user?.id) {
+        if (!cancelled) setResolvedCompanyId(user?.companyId ?? null);
+        return;
+      }
+      if (user.companyId) {
+        if (!cancelled) setResolvedCompanyId(user.companyId);
+        return;
+      }
+      const { data, error } = await supabase.rpc('get_or_create_company_for_user');
+      if (!cancelled && !error && data) {
+        setResolvedCompanyId(data as string);
+        return;
+      }
+      const { data: membership } = await supabase
+        .from('company_memberships')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .neq('status', 'suspended')
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled) {
+        setResolvedCompanyId((membership?.company_id as string) ?? null);
+      }
+    };
+    resolveCompanyId();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.companyId]);
 
   const generateReport = () => {
     const now = new Date();
@@ -43,15 +78,24 @@ export default function AdminPage() {
   useEffect(() => {
     if (!isSupabaseConfigured) {
       setStats({ activeJobs: '0', pendingQuotes: '0', activeDrivers: '0', completedToday: '0' });
+      setStatsError('');
       return;
     }
+
+    if (!resolvedCompanyId) {
+      setStats({ activeJobs: '0', pendingQuotes: '0', activeDrivers: '0', completedToday: '0' });
+      setStatsError('Company profile not available. Dashboard stats are hidden until company access resolves.');
+      return;
+    }
+
     // Use start-of-UTC-day so "today" is consistent with the timestamps stored by Supabase
     const todayUtc = new Date().toISOString().slice(0, 10);
+    setStatsError('');
     Promise.all([
-      supabase.from('jobs').select('id', { count: 'exact', head: true }).in('status', ['posted', 'allocated', 'in_transit']),
-      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered').gte('updated_at', todayUtc),
-      supabase.from('drivers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-      supabase.from('quotes').select('id', { count: 'exact', head: true }).in('status', ['draft', 'sent']),
+      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('company_id', resolvedCompanyId).in('status', ['posted', 'allocated', 'in_transit']),
+      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('company_id', resolvedCompanyId).eq('status', 'delivered').gte('updated_at', todayUtc),
+      supabase.from('drivers').select('id', { count: 'exact', head: true }).eq('company_id', resolvedCompanyId).eq('status', 'active'),
+      supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('company_id', resolvedCompanyId).in('status', ['draft', 'sent']),
     ]).then(([activeJobsRes, completedRes, driversRes, quotesRes]) => {
       setStats({
         activeJobs: String(activeJobsRes.count ?? 0),
@@ -61,8 +105,9 @@ export default function AdminPage() {
       });
     }).catch(() => {
       setStats({ activeJobs: '0', pendingQuotes: '0', activeDrivers: '0', completedToday: '0' });
+      setStatsError('Dashboard data is temporarily unavailable.');
     });
-  }, []);
+  }, [resolvedCompanyId]);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -225,6 +270,20 @@ export default function AdminPage() {
               {activeSection === 'settings' && 'Configure system settings (coming soon)'}
             </p>
           </div>
+
+          {statsError && (
+            <div style={{
+              backgroundColor: '#fef3c7',
+              border: '1px solid #f59e0b',
+              borderRadius: '8px',
+              padding: '1rem 1.5rem',
+              marginBottom: '1.5rem',
+              color: '#92400e',
+              fontWeight: '600',
+            }}>
+              {statsError}
+            </div>
+          )}
 
           {/* Dashboard Content */}
           {activeSection === 'dashboard' && (
