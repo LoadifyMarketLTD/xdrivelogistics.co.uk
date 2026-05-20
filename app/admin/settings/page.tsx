@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { COMPANY_CONFIG } from '../../config/company';
+import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
 const TABS = [
   { id: 'company', label: 'Company Info', icon: '🏢' },
@@ -13,47 +14,110 @@ const TABS = [
   { id: 'system', label: 'System', icon: '⚙️' },
 ];
 
+const DEFAULT_COMPANY_FORM = {
+  name: COMPANY_CONFIG.name,
+  legalName: COMPANY_CONFIG.legalName,
+  companyNumber: COMPANY_CONFIG.companyNumber,
+  email: COMPANY_CONFIG.email,
+  phone: COMPANY_CONFIG.phoneDisplay,
+  street: COMPANY_CONFIG.address.street,
+  city: COMPANY_CONFIG.address.city,
+  postcode: COMPANY_CONFIG.address.postcode,
+  jobRefPrefix: COMPANY_CONFIG.invoice.jobRefPrefix,
+  invoicePrefix: COMPANY_CONFIG.invoice.invoicePrefix,
+};
+
+const DEFAULT_NOTIF_FORM = {
+  emailNewJob: true,
+  emailStatusChange: true,
+  emailInvoicePaid: true,
+  emailBidReceived: false,
+};
+
+const DEFAULT_SYSTEM_FORM = {
+  defaultVatRate: String(COMPANY_CONFIG.vat.defaultRate),
+  paymentTerms: COMPANY_CONFIG.payment.terms[0] as string,
+  currency: 'GBP',
+  dateFormat: 'DD/MM/YYYY',
+  bankAccountName: COMPANY_CONFIG.payment.bankTransfer.accountName,
+  bankSortCode: COMPANY_CONFIG.payment.bankTransfer.sortCode,
+  bankAccountNumber: COMPANY_CONFIG.payment.bankTransfer.accountNumber,
+};
+
 export default function SettingsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, hasSupabaseSession } = useAuth();
   const [activeTab, setActiveTab] = useState('company');
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [dbLoading, setDbLoading] = useState(true);
+  const [companyId, setCompanyId] = useState<string | null>(null);
 
-  const [companyForm, setCompanyForm] = useState({
-    name: COMPANY_CONFIG.name,
-    legalName: COMPANY_CONFIG.legalName,
-    companyNumber: COMPANY_CONFIG.companyNumber,
-    email: COMPANY_CONFIG.email,
-    phone: COMPANY_CONFIG.phoneDisplay,
-    street: COMPANY_CONFIG.address.street,
-    city: COMPANY_CONFIG.address.city,
-    postcode: COMPANY_CONFIG.address.postcode,
-    jobRefPrefix: COMPANY_CONFIG.invoice.jobRefPrefix,
-    invoicePrefix: COMPANY_CONFIG.invoice.invoicePrefix,
-  });
+  const [companyForm, setCompanyForm] = useState(DEFAULT_COMPANY_FORM);
+  const [notifForm, setNotifForm] = useState(DEFAULT_NOTIF_FORM);
+  const [systemForm, setSystemForm] = useState(DEFAULT_SYSTEM_FORM);
 
-  const [notifForm, setNotifForm] = useState({
-    emailNewJob: true,
-    emailStatusChange: true,
-    emailInvoicePaid: true,
-    emailBidReceived: false,
-  });
+  // Step 1: resolve companyId for current user
+  useEffect(() => {
+    if (!hasSupabaseSession || !user?.id) return;
+    const load = async () => {
+      const { data } = await supabase.rpc('get_or_create_company_for_user');
+      if (data) { setCompanyId(data as string); return; }
+      const { data: membership } = await supabase
+        .from('company_memberships')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle();
+      setCompanyId((membership?.company_id as string) ?? null);
+    };
+    load();
+  }, [hasSupabaseSession, user?.id]);
 
-  const [systemForm, setSystemForm] = useState({
-    defaultVatRate: String(COMPANY_CONFIG.vat.defaultRate),
-    paymentTerms: COMPANY_CONFIG.payment.terms[0] as string,
-    currency: 'GBP',
-    dateFormat: 'DD/MM/YYYY',
-    bankAccountName: COMPANY_CONFIG.payment.bankTransfer.accountName,
-    bankSortCode: COMPANY_CONFIG.payment.bankTransfer.sortCode,
-    bankAccountNumber: COMPANY_CONFIG.payment.bankTransfer.accountNumber,
-  });
+  // Step 2: load settings from DB when companyId is known
+  useEffect(() => {
+    if (!companyId || !isSupabaseConfigured) { setDbLoading(false); return; }
+    const load = async () => {
+      setDbLoading(true);
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('settings_data')
+        .eq('company_id', companyId)
+        .maybeSingle();
+      if (!error && data?.settings_data) {
+        const s = data.settings_data as {
+          companyForm?: Partial<typeof DEFAULT_COMPANY_FORM>;
+          notifForm?: Partial<typeof DEFAULT_NOTIF_FORM>;
+          systemForm?: Partial<typeof DEFAULT_SYSTEM_FORM>;
+        };
+        if (s.companyForm) setCompanyForm((prev) => ({ ...prev, ...s.companyForm }));
+        if (s.notifForm) setNotifForm((prev) => ({ ...prev, ...s.notifForm }));
+        if (s.systemForm) setSystemForm((prev) => ({ ...prev, ...s.systemForm }));
+      }
+      setDbLoading(false);
+    };
+    load();
+  }, [companyId]);
 
-  const SETTINGS_KEY = 'xdrive_admin_settings';
-
-  const handleSave = () => {
+  const handleSave = async () => {
+    setSaveError('');
     const settings = { companyForm, notifForm, systemForm };
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+
+    if (!isSupabaseConfigured || !companyId) {
+      setSaveError('Settings cannot be saved: database connection is unavailable. Please check your Supabase configuration.');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('company_settings')
+      .upsert({ company_id: companyId, settings_data: settings }, { onConflict: 'company_id' });
+    if (error) {
+      console.error('Failed to save settings to DB:', error.message);
+      setSaveError(`Failed to save: ${error.message}`);
+      return;
+    }
+
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -131,6 +195,11 @@ export default function SettingsPage() {
           </button>
         </div>
 
+        {dbLoading && (
+          <div style={{ backgroundColor: '#f3f4f6', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#6b7280' }}>
+            Loading settings…
+          </div>
+        )}
         {saved && (
           <div style={{
             backgroundColor: '#dcfce7',
@@ -145,6 +214,11 @@ export default function SettingsPage() {
             gap: '0.5rem',
           }}>
             ✅ Settings saved successfully!
+          </div>
+        )}
+        {saveError && (
+          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#dc2626' }}>
+            ❌ {saveError}
           </div>
         )}
 

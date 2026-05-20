@@ -4,8 +4,11 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Company } from '../../../lib/types/database';
+import { useAuth } from '../../components/AuthContext';
 
 export default function CompaniesPage() {
+  const { user, hasSupabaseSession } = useAuth();
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -15,15 +18,41 @@ export default function CompaniesPage() {
   });
   const [error, setError] = useState('');
 
+  const loadCompanyId = async (userId: string) => {
+    const { data } = await supabase.rpc('get_or_create_company_for_user');
+    if (data) { setCompanyId(data as string); return; }
+    const { data: membership } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle();
+    setCompanyId((membership?.company_id as string) ?? null);
+  };
+
   const loadCompanies = async () => {
     setLoading(true);
-    if (!isSupabaseConfigured) { setLoading(false); return; }
-    const { data, error } = await supabase.from('companies').select('*').order('created_at', { ascending: false });
+    if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('id', companyId)
+      .order('created_at', { ascending: false });
     if (!error && data) setCompanies(data as Company[]);
     setLoading(false);
   };
 
-  useEffect(() => { loadCompanies(); }, []);
+  useEffect(() => {
+    if (hasSupabaseSession && user?.id) {
+      loadCompanyId(user.id);
+    }
+  }, [hasSupabaseSession, user?.id]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    loadCompanies();
+  }, [companyId]);
 
   const handleCreate = async () => {
     if (!formData.name.trim()) { setError('Company name is required'); return; }

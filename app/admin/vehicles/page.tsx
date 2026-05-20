@@ -3,42 +3,63 @@
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import type { Vehicle, VehicleType, Company } from '../../../lib/types/database';
+import type { Vehicle, VehicleType } from '../../../lib/types/database';
+import { useAuth } from '../../components/AuthContext';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
 export default function VehiclesPage() {
+  const { user, hasSupabaseSession } = useAuth();
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ company_id: '', type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
+  const [formData, setFormData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
   const [error, setError] = useState('');
+
+  const loadCompanyId = async (userId: string) => {
+    const { data } = await supabase.rpc('get_or_create_company_for_user');
+    if (data) { setCompanyId(data as string); return; }
+    const { data: membership } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle();
+    setCompanyId((membership?.company_id as string) ?? null);
+  };
 
   const loadVehicles = async () => {
     setLoading(true);
-    if (!isSupabaseConfigured) { setLoading(false); return; }
-    const { data, error } = await supabase.from('vehicles').select('*').order('created_at', { ascending: false });
+    if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
     if (!error && data) setVehicles(data as Vehicle[]);
     setLoading(false);
   };
 
-  const loadCompanies = async () => {
-    if (!isSupabaseConfigured) return;
-    const { data, error } = await supabase.from('companies').select('id, name').order('name');
-    if (error) { console.error('Failed to load companies:', error.message); return; }
-    if (data) setCompanies(data as Company[]);
-  };
+  useEffect(() => {
+    if (hasSupabaseSession && user?.id) {
+      loadCompanyId(user.id);
+    }
+  }, [hasSupabaseSession, user?.id]);
 
-  useEffect(() => { loadVehicles(); loadCompanies(); }, []);
+  useEffect(() => {
+    if (!companyId) return;
+    loadVehicles();
+  }, [companyId]);
 
   const handleCreate = async () => {
-    if (!formData.company_id) { setError('Company is required'); return; }
+    if (!companyId) { setError('Company profile is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { error } = await supabase.from('vehicles').insert([{ ...formData, payload_kg: formData.payload_kg ? parseFloat(formData.payload_kg) : null }]);
+    const { error } = await supabase.from('vehicles').insert([{ ...formData, company_id: companyId, payload_kg: formData.payload_kg ? parseFloat(formData.payload_kg) : null }]);
     if (error) { setError(error.message); return; }
     setShowModal(false);
-    setFormData({ company_id: '', type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
+    setFormData({ type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
     setError('');
     loadVehicles();
   };
@@ -109,13 +130,6 @@ export default function VehiclesPage() {
               </div>
               <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
                 {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
-                <div>
-                  <label style={labelStyle}>Company *</label>
-                  <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})}>
-                    <option value="">Select a company…</option>
-                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
                 <div>
                   <label style={labelStyle}>Vehicle Type *</label>
                   <select style={inputStyle} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as VehicleType})}>
