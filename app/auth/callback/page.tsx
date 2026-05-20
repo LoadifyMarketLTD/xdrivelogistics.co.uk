@@ -50,7 +50,7 @@ const resolveRedirectPath = async (
       .maybeSingle(),
     supabase
       .from('drivers')
-      .select('id, company_id, user_id, app_access')
+      .select('id, company_id, user_id, app_access, must_change_password')
       .eq('user_id', userId)
       .eq('app_access', true)
       .maybeSingle(),
@@ -62,7 +62,8 @@ const resolveRedirectPath = async (
 
   const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
   const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
-  const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access'> | null;
+  const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null;
+  const mustChangePassword = Boolean(driver?.must_change_password);
   const resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null;
 
   if (membership?.role_in_company === 'owner' || membership?.role_in_company === 'admin' || membership?.role_in_company === 'dispatcher') {
@@ -70,7 +71,8 @@ const resolveRedirectPath = async (
   }
 
   if (driver || profile?.is_driver) {
-    return resolvedCompanyId ? '/driver/jobs' : null;
+    if (!resolvedCompanyId) return null;
+    return mustChangePassword ? '/driver/change-password' : '/driver/jobs';
   }
 
   if (membership?.role_in_company === 'viewer') {
@@ -78,14 +80,20 @@ const resolveRedirectPath = async (
   }
 
   const profileRole = mapRole(profile?.role);
-  if (profileRole === 'driver') return resolvedCompanyId ? '/driver/jobs' : null;
+  if (profileRole === 'driver') {
+    if (!resolvedCompanyId) return null;
+    return mustChangePassword ? '/driver/change-password' : '/driver/jobs';
+  }
   if (profileRole === 'customer') return '/customer';
   if (profileRole === 'company' || profileRole === 'admin' || profileRole === 'owner') {
     return resolvedCompanyId ? '/admin' : null;
   }
 
   const metadataRole = mapRole(fallbackRole);
-  if (metadataRole === 'driver') return resolvedCompanyId ? '/driver/jobs' : null;
+  if (metadataRole === 'driver') {
+    if (!resolvedCompanyId) return null;
+    return mustChangePassword ? '/driver/change-password' : '/driver/jobs';
+  }
   if (metadataRole === 'customer') return '/customer';
   if (metadataRole === 'company' || metadataRole === 'admin' || metadataRole === 'owner') {
     return resolvedCompanyId ? '/admin' : null;

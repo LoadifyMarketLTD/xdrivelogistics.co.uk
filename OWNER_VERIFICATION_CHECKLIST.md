@@ -170,9 +170,9 @@ Visit: https://securityheaders.com/?q=https://xdrivelogistics.co.uk&followRedire
 ## 📞 CONTACT VERIFICATION
 
 **Confirm these details are correct:**
-- Phone: **07423 272 138** ✅
+- Phone: **07377 694 228** ✅
 - Email: **contact@xdrivelogistics.co.uk** ✅
-- WhatsApp: **447423272138** ✅
+- WhatsApp: **447377694228** ✅
 - Company: **XDrive Logistics Ltd** ✅
 
 ---
