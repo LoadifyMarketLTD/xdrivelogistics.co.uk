@@ -86,7 +86,7 @@ export default function DriverJobsPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={['driver', 'admin', 'owner']}>
+    <ProtectedRoute allowedRoles={['driver']}>
     <div style={{ minHeight: '100dvh', backgroundColor: '#f3f4f6' }}>
       {/* Header */}
       <header
