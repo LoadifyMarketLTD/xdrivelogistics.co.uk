@@ -52,7 +52,7 @@ export default function CompaniesPage() {
   useEffect(() => {
     if (!companyId) return;
     loadCompanies();
-  }, [companyId]);
+  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!formData.name.trim()) { setError('Company name is required'); return; }

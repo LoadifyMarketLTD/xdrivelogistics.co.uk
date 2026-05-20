@@ -81,7 +81,7 @@ export default function QuotesPage() {
     setFormData((prev) => ({ ...prev, company_id: companyId }));
     loadQuotes();
     loadCompanies();
-  }, [companyId]);
+  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!companyId) { setError('Company profile is required'); return; }
