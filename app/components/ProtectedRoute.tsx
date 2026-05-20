@@ -22,6 +22,9 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     if (pathname.startsWith('/driver')) {
       return ['driver'];
     }
+    if (pathname.startsWith('/customer')) {
+      return ['customer'];
+    }
     return null;
   };
 
