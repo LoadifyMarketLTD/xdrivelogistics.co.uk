@@ -205,7 +205,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: 'Authentication is unavailable: Supabase is not configured.' };
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const LOGIN_TIMEOUT_MS = 10000;
+      const signInPromise = supabase.auth.signInWithPassword({ email, password });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('LOGIN_TIMEOUT')), LOGIN_TIMEOUT_MS)
+      );
+
+      const { data, error } = await Promise.race([signInPromise, timeoutPromise]);
       if (error) return { success: false, error: error.message };
       if (!data.user) return { success: false, error: 'Login failed' };
 
@@ -214,7 +220,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, error: 'An error occurred during login' };
+      if (error instanceof Error && error.message === 'LOGIN_TIMEOUT') {
+        return { success: false, error: 'Login service unavailable. Please try again.' };
+      }
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        return { success: false, error: 'Login service unavailable. Please try again.' };
+      }
+      return { success: false, error: 'An unexpected error occurred during login. Please try again.' };
     }
   };
 
