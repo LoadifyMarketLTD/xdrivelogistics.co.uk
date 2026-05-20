@@ -5,6 +5,43 @@ import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import type { CompanyMembership, Driver, Profile } from '../../lib/types/database';
 
+const LOGIN_TIMEOUT_MS = 10_000;
+const LOGIN_UNAVAILABLE_ERROR = 'Login service unavailable. Please try again.';
+
+class LoginTimeoutError extends Error {
+  constructor() {
+    super('Login request timed out');
+    this.name = 'LoginTimeoutError';
+  }
+}
+
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => reject(new LoginTimeoutError()), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
+};
+
+const isServiceUnavailableError = (error: unknown): boolean => {
+  if (error instanceof LoginTimeoutError) return true;
+  if (!(error instanceof Error)) return false;
+
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('failed to fetch') ||
+    message.includes('network') ||
+    message.includes('timeout') ||
+    message.includes('timed out') ||
+    message.includes('fetch')
+  );
+};
+
 interface User {
   id: string;
   email: string;
@@ -185,10 +222,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       if (!isSupabaseConfigured) {
-        return { success: false, error: 'Authentication is unavailable: Supabase is not configured.' };
+        return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await withTimeout(
+        supabase.auth.signInWithPassword({ email, password }),
+        LOGIN_TIMEOUT_MS
+      );
       if (error) return { success: false, error: error.message };
       if (!data.user) return { success: false, error: 'Login failed' };
 
@@ -197,6 +237,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
+      if (isServiceUnavailableError(error)) {
+        return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
+      }
       return { success: false, error: 'An error occurred during login' };
     }
   };
