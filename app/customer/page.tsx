@@ -93,7 +93,7 @@ export default function CustomerPage() {
 
   useEffect(() => {
     if (user?.email) loadQuotes();
-  }, [user?.email, resolvedCompanyId]);
+  }, [user?.email, resolvedCompanyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRequestQuote = async () => {
     setFormError('');
