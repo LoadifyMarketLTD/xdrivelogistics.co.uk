@@ -74,7 +74,7 @@ export default function DriversPage() {
     setFormData((prev) => ({ ...prev, company_id: companyId }));
     loadDrivers();
     loadCompanies();
-  }, [companyId]);
+  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!formData.display_name.trim()) { setError('Driver name is required'); return; }
