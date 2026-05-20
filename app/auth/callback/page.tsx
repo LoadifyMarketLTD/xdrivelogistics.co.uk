@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from '../../../lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { CompanyMembership, Driver, Profile } from '../../../lib/types/database';
 
 const mapRole = (value: string | null | undefined) => {
@@ -78,6 +78,11 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const completeAuth = async () => {
       try {
+        if (!isSupabaseConfigured) {
+          setError('Authentication is unavailable: Supabase is not configured.');
+          return;
+        }
+
         const code = searchParams.get('code');
         const tokenHash = searchParams.get('token_hash');
         const type = searchParams.get('type');

@@ -4,14 +4,10 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Vehicle, VehicleType, Company } from '../../../lib/types/database';
-import { useAuth } from '../../components/AuthContext';
-import { resolveAdminCompanyId } from '../_lib/companyScope';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
 export default function VehiclesPage() {
-  const { user, hasSupabaseSession } = useAuth();
-  const [companyId, setCompanyId] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,82 +15,32 @@ export default function VehiclesPage() {
   const [formData, setFormData] = useState({ company_id: '', type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
   const [error, setError] = useState('');
 
-  const loadVehicles = async (resolvedCompanyId: string) => {
+  const loadVehicles = async () => {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
-    const { data, error } = await supabase
-      .from('vehicles')
-      .select('*')
-      .eq('company_id', resolvedCompanyId)
-      .order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('vehicles').select('*').order('created_at', { ascending: false });
     if (!error && data) setVehicles(data as Vehicle[]);
     setLoading(false);
   };
 
-  const loadCompanies = async (resolvedCompanyId: string) => {
+  const loadCompanies = async () => {
     if (!isSupabaseConfigured) return;
-    const { data, error } = await supabase
-      .from('companies')
-      .select('id, name')
-      .eq('id', resolvedCompanyId)
-      .order('name');
+    const { data, error } = await supabase.from('companies').select('id, name').order('name');
     if (error) { console.error('Failed to load companies:', error.message); return; }
     if (data) setCompanies(data as Company[]);
   };
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadScope = async () => {
-      if (!isSupabaseConfigured || !hasSupabaseSession || !user?.id) {
-        setLoading(false);
-        return;
-      }
-
-      const resolvedCompanyId = await resolveAdminCompanyId({
-        userId: user.id,
-        currentCompanyId: user.companyId,
-        supabase,
-      });
-
-      if (cancelled) return;
-
-      setCompanyId(resolvedCompanyId);
-      setFormData((prev) => ({ ...prev, company_id: resolvedCompanyId ?? '' }));
-
-      if (!resolvedCompanyId) {
-        setVehicles([]);
-        setCompanies([]);
-        setLoading(false);
-        return;
-      }
-
-      await Promise.all([
-        loadVehicles(resolvedCompanyId),
-        loadCompanies(resolvedCompanyId),
-      ]);
-    };
-
-    loadScope();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasSupabaseSession, user?.id, user?.companyId]);
+  useEffect(() => { loadVehicles(); loadCompanies(); }, []);
 
   const handleCreate = async () => {
-    if (!companyId) { setError('Company profile is required'); return; }
+    if (!formData.company_id) { setError('Company is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { error } = await supabase.from('vehicles').insert([{
-      ...formData,
-      company_id: companyId,
-      payload_kg: formData.payload_kg ? parseFloat(formData.payload_kg) : null,
-    }]);
+    const { error } = await supabase.from('vehicles').insert([{ ...formData, payload_kg: formData.payload_kg ? parseFloat(formData.payload_kg) : null }]);
     if (error) { setError(error.message); return; }
     setShowModal(false);
-    setFormData({ company_id: companyId, type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
+    setFormData({ company_id: '', type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
     setError('');
-    loadVehicles(companyId);
+    loadVehicles();
   };
 
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
@@ -117,12 +63,6 @@ export default function VehiclesPage() {
           {!isSupabaseConfigured && (
             <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
               ⚠️ Supabase is not configured. Database features are disabled.
-            </div>
-          )}
-
-          {isSupabaseConfigured && hasSupabaseSession && !companyId && (
-            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#991b1b' }}>
-              Company profile not loaded. Vehicles are hidden until your company scope is resolved.
             </div>
           )}
 
@@ -171,7 +111,7 @@ export default function VehiclesPage() {
                 {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
                 <div>
                   <label style={labelStyle}>Company *</label>
-                  <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})} disabled>
+                  <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})}>
                     <option value="">Select a company…</option>
                     {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
