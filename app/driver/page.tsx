@@ -9,7 +9,7 @@ export default function DriverEntryPage() {
   const { user, logout } = useAuth();
 
   return (
-    <ProtectedRoute allowedRoles={['driver', 'admin', 'owner']}>
+    <ProtectedRoute allowedRoles={['driver']}>
       <div
         style={{
           minHeight: '100dvh',

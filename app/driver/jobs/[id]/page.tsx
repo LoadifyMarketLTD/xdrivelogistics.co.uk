@@ -232,7 +232,7 @@ export default function DriverJobDetailPage() {
   const canDeliver = job.status === 'in_transit';
 
   return (
-    <ProtectedRoute allowedRoles={['driver', 'admin', 'owner']}>
+    <ProtectedRoute allowedRoles={['driver']}>
     <div style={{ minHeight: '100dvh', backgroundColor: '#f3f4f6', paddingBottom: '5rem' }}>
       {/* Header */}
       <header
