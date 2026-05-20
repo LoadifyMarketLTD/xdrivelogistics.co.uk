@@ -22,7 +22,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (authLoading || !user) return;
     if (user.role === 'driver') {
-      router.replace('/driver/jobs');
+      router.replace(user.mustChangePassword ? '/driver/change-password' : '/driver/jobs');
     } else if (user.role === 'customer') {
       router.replace('/customer');
     } else if (user.role === 'company' || user.role === 'admin' || user.role === 'owner') {

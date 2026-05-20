@@ -136,9 +136,9 @@ const fetchRoleSnapshot = async (
   token: string,
   userId: string,
   fallbackRole: string | null
-): Promise<{ status: 'ok' | 'unauthenticated' | 'error'; role: UserRole | null; companyId: string | null }> => {
+): Promise<{ status: 'ok' | 'unauthenticated' | 'error'; role: UserRole | null; companyId: string | null; mustChangePassword: boolean }> => {
   if (!supabaseUrl || !supabaseAnonKey) {
-    return { status: 'error', role: null, companyId: null };
+    return { status: 'error', role: null, companyId: null, mustChangePassword: false };
   }
 
   const fetchRows = async (endpoint: string) => {
@@ -178,19 +178,20 @@ const fetchRoleSnapshot = async (
   const [profileRes, membershipRes, driverRes] = await Promise.all([
     fetchRows(`profiles?select=role,is_driver,company_id&id=eq.${userId}&limit=1`),
     fetchRows(`company_memberships?select=company_id,role_in_company,status&user_id=eq.${userId}&status=eq.active&order=updated_at.desc&limit=1`),
-    fetchRows(`drivers?select=id,company_id,user_id,app_access&user_id=eq.${userId}&app_access=eq.true&limit=1`),
+    fetchRows(`drivers?select=id,company_id,user_id,app_access,must_change_password&user_id=eq.${userId}&app_access=eq.true&limit=1`),
   ]);
 
   if ([profileRes, membershipRes, driverRes].some((result) => result.type === 'unauthenticated')) {
-    return { status: 'unauthenticated', role: null, companyId: null };
+    return { status: 'unauthenticated', role: null, companyId: null, mustChangePassword: false };
   }
   if ([profileRes, membershipRes, driverRes].some((result) => result.type !== 'ok')) {
-    return { status: 'error', role: null, companyId: null };
+    return { status: 'error', role: null, companyId: null, mustChangePassword: false };
   }
 
   const profile = profileRes.rows?.[0] ?? null;
   const membership = membershipRes.rows?.[0] ?? null;
   const driver = driverRes.rows?.[0] ?? null;
+  const mustChangePassword = driver?.must_change_password === true;
 
   const role = resolveRole({
     membershipRole: typeof membership?.role_in_company === 'string' ? membership.role_in_company : null,
@@ -206,14 +207,14 @@ const fetchRoleSnapshot = async (
     null;
 
   if (!role) {
-    return { status: 'ok', role: null, companyId };
+    return { status: 'ok', role: null, companyId, mustChangePassword: false };
   }
 
   if ((role === 'company' || role === 'admin' || role === 'owner' || role === 'driver') && !companyId) {
-    return { status: 'ok', role: null, companyId: null };
+    return { status: 'ok', role: null, companyId: null, mustChangePassword: false };
   }
 
-  return { status: 'ok', role, companyId };
+  return { status: 'ok', role, companyId, mustChangePassword: role === 'driver' ? mustChangePassword : false };
 };
 
 const isAllowedForRoute = (pathname: string, role: UserRole | null): boolean => {
@@ -235,6 +236,11 @@ const redirectToLogin = (request: NextRequest) => {
 const redirectToForbidden = (request: NextRequest) => {
   const forbiddenUrl = new URL('/forbidden', request.url);
   return NextResponse.redirect(forbiddenUrl);
+};
+
+const redirectToDriverPasswordChange = (request: NextRequest) => {
+  const changeUrl = new URL('/driver/change-password', request.url);
+  return NextResponse.redirect(changeUrl);
 };
 
 export async function proxy(request: NextRequest) {
@@ -284,6 +290,16 @@ export async function proxy(request: NextRequest) {
 
   if (!isAllowedForRoute(pathname, snapshot.role)) {
     return redirectToForbidden(request);
+  }
+
+  if (snapshot.role === 'driver') {
+    if (snapshot.mustChangePassword && pathname !== '/driver/change-password') {
+      return redirectToDriverPasswordChange(request);
+    }
+    if (!snapshot.mustChangePassword && pathname === '/driver/change-password') {
+      const jobsUrl = new URL('/driver/jobs', request.url);
+      return NextResponse.redirect(jobsUrl);
+    }
   }
 
   return NextResponse.next();
