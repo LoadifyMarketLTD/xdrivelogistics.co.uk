@@ -30,7 +30,7 @@ export default function ResetPasswordPage() {
 
       const queryType = queryParams?.get('type') ?? null;
       const hashType = hashParams?.get('type') ?? null;
-      const recoveryType = queryType ?? hashType;
+      const recoveryType = queryType ?? hashType ?? 'recovery';
 
       const { data, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) {
