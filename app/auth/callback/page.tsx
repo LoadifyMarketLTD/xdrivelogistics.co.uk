@@ -120,29 +120,42 @@ const resolveRedirectPath = async (
   return null;
 };
 
+type SessionUser = {
+  id: string;
+  user_metadata?: {
+    role?: string;
+    requested_role?: string;
+  } | null;
+};
+
 export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const resolveUserRedirect = async () => {
-      const { data: userData } = await withTimeout(
-        supabase.auth.getUser(),
-        AUTH_CALLBACK_TIMEOUT_MS
-      );
-      if (!userData.user) {
+    const resolveUserRedirect = async (sessionUser?: SessionUser | null) => {
+      const user =
+        sessionUser ??
+        (
+          await withTimeout(
+            supabase.auth.getSession(),
+            AUTH_CALLBACK_TIMEOUT_MS
+          )
+        ).data.session?.user ??
+        null;
+      if (!user) {
         router.replace('/login');
         return;
       }
       const fallbackRole =
-        typeof userData.user.user_metadata?.role === 'string'
-          ? userData.user.user_metadata.role
-          : typeof userData.user.user_metadata?.requested_role === 'string'
-            ? userData.user.user_metadata.requested_role
+        typeof user.user_metadata?.role === 'string'
+          ? user.user_metadata.role
+          : typeof user.user_metadata?.requested_role === 'string'
+            ? user.user_metadata.requested_role
             : null;
       const redirectPath = await withTimeout(
-        resolveRedirectPath(userData.user.id, fallbackRole),
+        resolveRedirectPath(user.id, fallbackRole),
         AUTH_CALLBACK_TIMEOUT_MS
       );
       if (!redirectPath) {
@@ -169,7 +182,7 @@ export default function AuthCallbackPage() {
         const hashType = hashParams?.get('type');
 
         if (accessToken && refreshToken) {
-          const { error: setSessionError } = await withTimeout(
+          const { data: sessionData, error: setSessionError } = await withTimeout(
             supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
@@ -183,7 +196,7 @@ export default function AuthCallbackPage() {
             return;
           }
 
-          await resolveUserRedirect();
+          await resolveUserRedirect(sessionData.user);
           return;
         }
 
@@ -192,7 +205,7 @@ export default function AuthCallbackPage() {
         const type = searchParams.get('type');
 
         if (code) {
-          const { error: exchangeError } = await withTimeout(
+          const { data: exchangeData, error: exchangeError } = await withTimeout(
             supabase.auth.exchangeCodeForSession(code),
             AUTH_CALLBACK_TIMEOUT_MS
           );
@@ -201,12 +214,12 @@ export default function AuthCallbackPage() {
             router.replace('/reset-password');
             return;
           }
-          await resolveUserRedirect();
+          await resolveUserRedirect(exchangeData.user);
           return;
         }
 
         if (tokenHash && type) {
-          const { error: verifyError } = await withTimeout(
+          const { data: verifyData, error: verifyError } = await withTimeout(
             supabase.auth.verifyOtp({
               token_hash: tokenHash,
               type: type as 'signup' | 'email' | 'recovery' | 'invite' | 'email_change',
@@ -218,7 +231,7 @@ export default function AuthCallbackPage() {
             router.replace('/reset-password');
             return;
           }
-          await resolveUserRedirect();
+          await resolveUserRedirect(verifyData.user);
           return;
         }
 
