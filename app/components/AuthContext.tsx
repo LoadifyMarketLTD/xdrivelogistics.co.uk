@@ -269,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { pathname, queryType, hashType, hasRecoveryTokens } = getAuthUrlSignals();
     if (pathname === '/reset-password') return true;
     if (queryType === 'recovery' || hashType === 'recovery') return true;
-    if (pathname === '/auth/callback' && hasRecoveryTokens && (queryType === 'recovery' || hashType === 'recovery')) {
+    if (pathname === '/auth/callback' && hasRecoveryTokens) {
       return true;
     }
     return false;
@@ -288,7 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const hasRecoverySignal =
       queryType === 'recovery' ||
       hashType === 'recovery' ||
-      (hasRecoveryTokens && (queryType === 'recovery' || hashType === 'recovery'));
+      hasRecoveryTokens;
 
     if (hasRecoverySignal && pathname !== '/auth/callback') {
       router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
