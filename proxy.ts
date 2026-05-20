@@ -175,6 +175,39 @@ const fetchRoleSnapshot = async (
     }
   };
 
+  const callRpc = async (functionName: string) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), SUPABASE_AUTH_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${functionName}`, {
+        method: 'POST',
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({}),
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        return { type: 'unauthenticated' as const, value: null };
+      }
+      if (!response.ok) {
+        return { type: 'error' as const, value: null };
+      }
+
+      const data = await response.json();
+      return { type: 'ok' as const, value: typeof data === 'string' ? data : null };
+    } catch {
+      return { type: 'error' as const, value: null };
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
   const [profileRes, membershipRes, driverRes] = await Promise.all([
     fetchRows(`profiles?select=role,is_driver,company_id&id=eq.${userId}&limit=1`),
     fetchRows(`company_memberships?select=company_id,role_in_company,status&user_id=eq.${userId}&status=eq.active&order=updated_at.desc&limit=1`),
@@ -200,11 +233,21 @@ const fetchRoleSnapshot = async (
     fallbackRole,
   });
 
-  const companyId =
+  let companyId =
     (typeof driver?.company_id === 'string' && driver.company_id) ||
     (typeof profile?.company_id === 'string' && profile.company_id) ||
     (typeof membership?.company_id === 'string' && membership.company_id) ||
     null;
+
+  if (!companyId && (role === 'company' || role === 'admin' || role === 'owner')) {
+    const provisionRes = await callRpc('get_or_create_company_for_user');
+    if (provisionRes.type === 'unauthenticated') {
+      return { status: 'unauthenticated', role: null, companyId: null, mustChangePassword: false };
+    }
+    if (provisionRes.type === 'ok' && provisionRes.value) {
+      companyId = provisionRes.value;
+    }
+  }
 
   if (!role) {
     return { status: 'ok', role: null, companyId, mustChangePassword: false };

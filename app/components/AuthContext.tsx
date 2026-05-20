@@ -139,7 +139,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const driverId = driver?.id ?? null;
     const mustChangePassword = Boolean(driver?.must_change_password);
 
-    const resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null;
+    let resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null;
+
+    const fallbackMappedRole = mapRole(fallbackRole);
+    const profileMappedRole = mapRole(profile?.role);
+    const shouldProvisionCompany =
+      !resolvedCompanyId &&
+      (fallbackMappedRole === 'company' ||
+        fallbackMappedRole === 'admin' ||
+        fallbackMappedRole === 'owner' ||
+        profileMappedRole === 'company' ||
+        profileMappedRole === 'admin' ||
+        profileMappedRole === 'owner');
+
+    if (shouldProvisionCompany) {
+      const { data: provisionedCompanyId } = await supabase.rpc('get_or_create_company_for_user');
+      if (typeof provisionedCompanyId === 'string' && provisionedCompanyId) {
+        resolvedCompanyId = provisionedCompanyId;
+      }
+    }
 
     if (membership?.role_in_company === 'owner') {
       return resolvedCompanyId ? { role: 'owner', companyId: resolvedCompanyId, driverId, mustChangePassword: false } : null;

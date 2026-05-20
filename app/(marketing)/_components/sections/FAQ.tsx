@@ -7,7 +7,7 @@ const FAQS = [
   {
     question: 'How do I get a quote for my delivery?',
     answer:
-      'You can get an instant quote by contacting us via WhatsApp, calling our number, or sending an email. We respond within minutes during business hours and 24/7 for urgent requests.',
+      'You can request a quote by contacting us via WhatsApp, calling our number, or sending an email. We provide pricing and service availability after reviewing your requirements.',
   },
   {
     question: 'What areas do you cover?',
@@ -32,7 +32,7 @@ const FAQS = [
   {
     question: 'What happens if my delivery is delayed?',
     answer:
-      'We proactively communicate any delays in real time. Our drivers update the status of your delivery throughout the journey so you always know where your goods are and when to expect them.',
+      'We communicate delays through operations updates and provide revised delivery expectations when available.',
   },
   {
     question: 'How will I receive delivery updates?',

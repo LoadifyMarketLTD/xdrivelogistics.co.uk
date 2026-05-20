@@ -64,7 +64,25 @@ const resolveRedirectPath = async (
   const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
   const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null;
   const mustChangePassword = Boolean(driver?.must_change_password);
-  const resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null;
+  let resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null;
+
+  const fallbackMappedRole = mapRole(fallbackRole);
+  const profileMappedRole = mapRole(profile?.role);
+  const shouldProvisionCompany =
+    !resolvedCompanyId &&
+    (fallbackMappedRole === 'company' ||
+      fallbackMappedRole === 'admin' ||
+      fallbackMappedRole === 'owner' ||
+      profileMappedRole === 'company' ||
+      profileMappedRole === 'admin' ||
+      profileMappedRole === 'owner');
+
+  if (shouldProvisionCompany) {
+    const { data: provisionedCompanyId } = await supabase.rpc('get_or_create_company_for_user');
+    if (typeof provisionedCompanyId === 'string' && provisionedCompanyId) {
+      resolvedCompanyId = provisionedCompanyId;
+    }
+  }
 
   if (membership?.role_in_company === 'owner' || membership?.role_in_company === 'admin' || membership?.role_in_company === 'dispatcher') {
     return resolvedCompanyId ? '/admin' : null;

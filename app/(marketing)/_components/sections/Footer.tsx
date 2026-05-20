@@ -35,10 +35,10 @@ export function Footer() {
           }}
         >
           {[
-            { icon: '🔒', label: 'Secure Payments', sub: 'Stripe Protected' },
+            { icon: '🔒', label: 'Secure Platform', sub: 'TLS encrypted access' },
             { icon: '✅', label: 'Insurance Required', sub: 'Driver policy checks' },
             { icon: '🏢', label: 'Registered Company', sub: `No. ${COMPANY_CONFIG.companyNumber}` },
-            { icon: '📋', label: 'ICO Registered', sub: 'Data Protection' },
+            { icon: '📋', label: 'Data Protection', sub: 'Privacy-first operations' },
           ].map((badge) => (
             <div
               key={badge.label}
