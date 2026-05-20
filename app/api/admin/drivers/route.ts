@@ -78,16 +78,15 @@ export async function POST(request: NextRequest) {
     .from('profiles')
     .upsert(
       {
-        id: userId,
+        user_id: userId,
         full_name: displayName,
         phone,
-        email,
         role: 'driver',
         company_id: companyId,
         is_driver: true,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'id' }
+      { onConflict: 'user_id' }
     );
 
   if (profileError) {

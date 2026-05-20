@@ -209,7 +209,7 @@ const fetchRoleSnapshot = async (
   };
 
   const [profileRes, membershipRes, driverRes] = await Promise.all([
-    fetchRows(`profiles?select=role,is_driver,company_id&id=eq.${userId}&limit=1`),
+    fetchRows(`profiles?select=role,is_driver,company_id&user_id=eq.${userId}&limit=1`),
     fetchRows(`company_memberships?select=company_id,role_in_company,status&user_id=eq.${userId}&status=eq.active&order=updated_at.desc&limit=1`),
     fetchRows(`drivers?select=id,company_id,user_id,app_access,must_change_password&user_id=eq.${userId}&app_access=eq.true&limit=1`),
   ]);
