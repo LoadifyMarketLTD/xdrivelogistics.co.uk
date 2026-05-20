@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
 import type { InvoiceData } from '../../components/InvoiceTemplate';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Invoice } from '../../../lib/types/database';
@@ -39,6 +40,8 @@ function dbToInvoiceData(row: Invoice): InvoiceData {
 
 export default function InvoicesPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const companyId = user?.companyId ?? null;
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Paid' | 'Pending' | 'Overdue'>('All');
@@ -51,45 +54,30 @@ export default function InvoicesPage() {
   };
 
   const loadInvoices = async () => {
-    // Prefer Supabase when available
-    if (isSupabaseConfigured) {
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (!error && data) {
-        const mapped = (data as Invoice[]).map(row => {
-          const inv = dbToInvoiceData(row);
-          return { ...inv, status: calculateStatus(inv.dueDate, inv.status) };
-        });
-        setInvoices(mapped);
-        return;
-      }
-      if (error) {
-        console.error('Failed to load invoices from Supabase:', error.message);
-      }
+    if (!isSupabaseConfigured || !companyId) {
+      setInvoices([]);
+      return;
     }
-    // Fallback: localStorage
-    try {
-      const stored = localStorage.getItem('xdrivelogistics_invoices');
-      if (stored) {
-        const parsedInvoices = JSON.parse(stored);
-        const updatedInvoices = parsedInvoices.map((inv: InvoiceData) => ({
-          ...inv,
-          status: calculateStatus(inv.dueDate, inv.status)
-        }));
-        setInvoices(updatedInvoices);
-        localStorage.setItem('xdrivelogistics_invoices', JSON.stringify(updatedInvoices));
-      }
-    } catch (error) {
-      console.error('Error loading invoices:', error);
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      const mapped = (data as Invoice[]).map(row => {
+        const inv = dbToInvoiceData(row);
+        return { ...inv, status: calculateStatus(inv.dueDate, inv.status) };
+      });
+      setInvoices(mapped);
+    } else if (error) {
+      console.error('Failed to load invoices from Supabase:', error.message);
     }
   };
 
   useEffect(() => {
     loadInvoices();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [companyId]);
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
