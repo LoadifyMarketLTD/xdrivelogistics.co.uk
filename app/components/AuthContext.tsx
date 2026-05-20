@@ -161,17 +161,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        await hydrateUser(session.user);
+        try {
+          await hydrateUser(session.user);
+        } catch (err) {
+          console.error('AuthContext: failed to hydrate user from session', err);
+          setUser(null);
+          setHasSupabaseSession(false);
+        }
       } else {
         setUser(null);
         setHasSupabaseSession(false);
       }
       setIsLoading(false);
+    }).catch((err) => {
+      console.error('AuthContext: getSession failed', err);
+      setUser(null);
+      setHasSupabaseSession(false);
+      setIsLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        await hydrateUser(session.user);
+        try {
+          await hydrateUser(session.user);
+        } catch (err) {
+          console.error('AuthContext: failed to hydrate user on auth change', err);
+          setUser(null);
+          setHasSupabaseSession(false);
+        }
       } else {
         setUser(null);
         setHasSupabaseSession(false);
