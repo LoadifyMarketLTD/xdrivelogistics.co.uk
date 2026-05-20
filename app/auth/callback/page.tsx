@@ -154,6 +154,11 @@ export default function AuthCallbackPage() {
           );
           if (verifyError) throw verifyError;
 
+          if (type === 'recovery') {
+            router.replace('/update-password');
+            return;
+          }
+
           const { data: userData } = await withTimeout(
             supabase.auth.getUser(),
             AUTH_CALLBACK_TIMEOUT_MS
