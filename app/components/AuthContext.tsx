@@ -234,6 +234,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return '/admin';
   };
 
+  const getAuthUrlSignals = () => {
+    if (typeof window === 'undefined') {
+      return {
+        pathname: '',
+        queryType: null as string | null,
+        hashType: null as string | null,
+        hasRecoveryTokens: false,
+      };
+    }
+
+    const queryParams = new URLSearchParams(window.location.search);
+    const hashParams = window.location.hash
+      ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      : null;
+
+    const queryType = queryParams.get('type');
+    const hashType = hashParams?.get('type') ?? null;
+    const hasRecoveryTokens =
+      Boolean(hashParams?.get('access_token') && hashParams?.get('refresh_token')) ||
+      Boolean(queryParams.get('code')) ||
+      Boolean(queryParams.get('token_hash'));
+
+    return {
+      pathname: window.location.pathname,
+      queryType,
+      hashType,
+      hasRecoveryTokens,
+    };
+  };
+
+  const isRecoveryAuthContext = (event?: string) => {
+    if (event === 'PASSWORD_RECOVERY') return true;
+    const { pathname, queryType, hashType, hasRecoveryTokens } = getAuthUrlSignals();
+    if (pathname === '/reset-password') return true;
+    if (queryType === 'recovery' || hashType === 'recovery') return true;
+    if (pathname === '/auth/callback' && hasRecoveryTokens) {
+      return true;
+    }
+    return false;
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -241,6 +282,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetAuthState();
       if (isMounted) setIsLoading(false);
       return;
+    }
+
+    const { pathname, queryType, hashType, hasRecoveryTokens } = getAuthUrlSignals();
+    const hasRecoverySignal =
+      queryType === 'recovery' ||
+      hashType === 'recovery' ||
+      hasRecoveryTokens;
+
+    if (hasRecoverySignal && pathname !== '/auth/callback') {
+      router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
     }
 
     const bootstrapAuth = async () => {
@@ -251,7 +302,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (session?.user) {
-          await hydrateUser(session.user);
+          if (isRecoveryAuthContext()) {
+            setUser(null);
+            setHasSupabaseSession(true);
+          } else {
+            await hydrateUser(session.user);
+          }
         } else {
           resetAuthState();
         }
@@ -265,10 +321,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void bootstrapAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (session?.user) {
-          await hydrateUser(session.user);
+          if (isRecoveryAuthContext(event)) {
+            setUser(null);
+            setHasSupabaseSession(true);
+          } else {
+            await hydrateUser(session.user);
+          }
         } else {
           resetAuthState();
         }

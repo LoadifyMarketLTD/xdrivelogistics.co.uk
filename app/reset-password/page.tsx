@@ -10,6 +10,7 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [hasRecoverySession, setHasRecoverySession] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -21,12 +22,70 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      const { data, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !data.session?.user) {
-        router.replace('/login');
+      const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const hashParams =
+        typeof window !== 'undefined' && window.location.hash
+          ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
+          : null;
+
+      const code = queryParams?.get('code');
+
+      if (code) {
+        router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
         return;
       }
 
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        setError(sessionError.message);
+        setIsCheckingSession(false);
+        return;
+      }
+
+      if (!data.session?.user) {
+        const accessToken = hashParams?.get('access_token');
+        const refreshToken = hashParams?.get('refresh_token');
+        const tokenHash = queryParams?.get('token_hash');
+
+        if (accessToken && refreshToken) {
+          const { error: setSessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (setSessionError) {
+            setError(setSessionError.message);
+            setIsCheckingSession(false);
+            return;
+          }
+        } else {
+          if (!tokenHash) {
+            setError('Recovery link is invalid or expired. Please request a new password reset email.');
+            setHasRecoverySession(false);
+            setIsCheckingSession(false);
+            return;
+          }
+
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: 'recovery',
+          });
+          if (verifyError) {
+            setError(verifyError.message);
+            setIsCheckingSession(false);
+            return;
+          }
+        }
+      }
+
+      const { data: checkedData, error: checkedSessionError } = await supabase.auth.getSession();
+      if (checkedSessionError || !checkedData.session?.user) {
+        setError('Recovery link is invalid or expired. Please request a new password reset email.');
+        setHasRecoverySession(false);
+        setIsCheckingSession(false);
+        return;
+      }
+
+      setHasRecoverySession(true);
       setIsCheckingSession(false);
     };
 
@@ -70,6 +129,31 @@ export default function ResetPasswordPage() {
       <main>
         <section style={{ textAlign: 'center', padding: '4rem 2rem' }}>
           <h1 style={{ marginBottom: '1rem' }}>Preparing password reset…</h1>
+        </section>
+      </main>
+    );
+  }
+
+  if (!hasRecoverySession) {
+    return (
+      <main>
+        <section style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+          <h1 style={{ marginBottom: '1rem' }}>Password reset link issue</h1>
+          {error && <p style={{ color: '#dc2626', marginBottom: '1rem' }}>{error}</p>}
+          <button
+            type="button"
+            onClick={() => router.replace('/login')}
+            style={{
+              padding: '0.75rem 1.25rem',
+              backgroundColor: '#1F7A3D',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+            }}
+          >
+            Back to sign in
+          </button>
         </section>
       </main>
     );
