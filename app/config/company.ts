@@ -30,12 +30,12 @@ export const COMPANY_CONFIG = {
   // Payment configuration (MASTER SPEC)
   payment: {
     bankTransfer: {
-      accountName: 'XDrive Logistics Ltd',
-      sortCode: '04-00-04', // PLACEHOLDER - replace in production
-      accountNumber: '12345678', // PLACEHOLDER - replace in production
+      accountName: process.env.NEXT_PUBLIC_COMPANY_BANK_ACCOUNT_NAME?.trim() || '',
+      sortCode: process.env.NEXT_PUBLIC_COMPANY_BANK_SORT_CODE?.trim() || '',
+      accountNumber: process.env.NEXT_PUBLIC_COMPANY_BANK_ACCOUNT_NUMBER?.trim() || '',
     },
     paypal: {
-      email: 'billing@xdrivelogistics.co.uk',
+      email: process.env.NEXT_PUBLIC_COMPANY_PAYPAL_EMAIL?.trim() || '',
     },
     terms: ['Pay now', '14 days', '30 days'] as const,
     lateFeeNote: 'Late payments may incur administrative charges.',

@@ -1,12 +1,34 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '';
+
+const isValidSupabaseUrl = (value: string) => {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' && parsed.hostname.endsWith('supabase.co');
+  } catch {
+    return false;
+  }
+};
 
 const isConfigured =
-  supabaseUrl.length > 0 &&
-  supabaseAnonKey.length > 0 &&
-  supabaseUrl.includes('supabase.co');
+  isValidSupabaseUrl(supabaseUrl) &&
+  supabaseAnonKey.length > 0;
+
+const unconfiguredFetch: typeof fetch = async () =>
+  new Response(
+    JSON.stringify({
+      message:
+        'Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+    }),
+    {
+      status: 503,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
 
 if (!isConfigured && typeof window !== 'undefined') {
   console.warn(
@@ -23,6 +45,9 @@ export const supabase: SupabaseClient = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+    },
+    global: {
+      fetch: isConfigured ? fetch : unconfiguredFetch,
     },
   }
 );

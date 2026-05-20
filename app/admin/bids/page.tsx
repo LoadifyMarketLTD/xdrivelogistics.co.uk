@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { JobBid } from '../../../lib/types/database';
-import { useAuth } from '../../components/AuthContext';
-import { resolveAdminCompanyId } from '../_lib/companyScope';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   submitted: { bg: '#e0f2fe', text: '#075985' },
@@ -15,66 +13,27 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function BidsPage() {
-  const { user, hasSupabaseSession } = useAuth();
-  const [companyId, setCompanyId] = useState<string | null>(null);
   const [bids, setBids] = useState<JobBid[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadBids = async (resolvedCompanyId: string) => {
+  const loadBids = async () => {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
-    const { data, error } = await supabase
-      .from('job_bids')
-      .select('*')
-      .eq('company_id', resolvedCompanyId)
-      .order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('job_bids').select('*').order('created_at', { ascending: false });
     if (!error && data) setBids(data as JobBid[]);
     setLoading(false);
   };
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadScope = async () => {
-      if (!isSupabaseConfigured || !hasSupabaseSession || !user?.id) {
-        setLoading(false);
-        return;
-      }
-
-      const resolvedCompanyId = await resolveAdminCompanyId({
-        userId: user.id,
-        currentCompanyId: user.companyId,
-        supabase,
-      });
-
-      if (cancelled) return;
-
-      setCompanyId(resolvedCompanyId);
-
-      if (!resolvedCompanyId) {
-        setBids([]);
-        setLoading(false);
-        return;
-      }
-
-      await loadBids(resolvedCompanyId);
-    };
-
-    loadScope();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasSupabaseSession, user?.id, user?.companyId]);
+  useEffect(() => { loadBids(); }, []);
 
   const updateStatus = async (id: string, status: string) => {
-    if (!isSupabaseConfigured || !companyId) return;
-    const { error } = await supabase.from('job_bids').update({ status }).eq('id', id).eq('company_id', companyId);
+    if (!isSupabaseConfigured) return;
+    const { error } = await supabase.from('job_bids').update({ status }).eq('id', id);
     if (error) {
       console.error('Failed to update bid status:', error.message);
       return;
     }
-    loadBids(companyId);
+    loadBids();
   };
 
   return (
@@ -89,12 +48,6 @@ export default function BidsPage() {
           {!isSupabaseConfigured && (
             <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
               ⚠️ Supabase is not configured. Database features are disabled.
-            </div>
-          )}
-
-          {isSupabaseConfigured && hasSupabaseSession && !companyId && (
-            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#991b1b' }}>
-              Company profile not loaded. Bid data is hidden until your company scope is resolved.
             </div>
           )}
 
