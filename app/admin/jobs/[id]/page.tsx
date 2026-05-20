@@ -87,7 +87,7 @@ export default function JobDetailPage() {
 
         const { data, error } = await supabase
           .from('jobs')
-          .select('*')
+          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, load_details, special_requirements, created_at, updated_at')
           .eq('id', jobId)
           .eq('company_id', companyId)
           .single();
