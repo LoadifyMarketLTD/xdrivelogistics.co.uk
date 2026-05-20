@@ -1,13 +1,17 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DbJob } from '../../../lib/types/database';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 
 type Tab = 'active' | 'history' | 'earnings';
+
+const isTab = (value: string | null): value is Tab => {
+  return value === 'active' || value === 'history' || value === 'earnings';
+};
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Received',
@@ -29,12 +33,27 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function DriverJobsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, logout } = useAuth();
   const [driverName, setDriverName] = useState('');
   const [driverId, setDriverId] = useState('');
-  const [tab, setTab] = useState<Tab>('active');
+  const [tab, setTab] = useState<Tab>(() => {
+    const requestedTab = searchParams.get('tab');
+    return isTab(requestedTab) ? requestedTab : 'active';
+  });
   const [jobs, setJobs] = useState<DbJob[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab');
+    if (isTab(requestedTab) && requestedTab !== tab) {
+      setTab(requestedTab);
+      return;
+    }
+    if (!requestedTab && tab !== 'active') {
+      setTab('active');
+    }
+  }, [searchParams, tab]);
 
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured) return;
