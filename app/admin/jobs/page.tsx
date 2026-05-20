@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { COMPANY_CONFIG, JOB_STATUS } from '../../config/company';
+import { JOB_STATUS } from '../../config/company';
 import { generateTimeOptions } from '../../utils/timeUtils';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { useAuth } from '../../components/AuthContext';
@@ -174,70 +174,8 @@ export default function JobsPage() {
         return;
       }
     }
-    // Fallback to localStorage (local-only mode)
-    const stored = localStorage.getItem('xdrive_jobs');
-    if (stored) {
-      setJobs(JSON.parse(stored));
-    } else {
-      const sampleJobs: Job[] = [
-        {
-          id: '1',
-          jobRef: 'XD-250214-0001',
-          client: {
-            name: 'ABC Corporation',
-            email: 'contact@abc.com',
-            phone: '07123456789'
-          },
-          pickup: {
-            location: 'London, SW1A 1AA',
-            date: '2025-02-15',
-            time: '09:00'
-          },
-          delivery: {
-            location: 'Manchester, M1 1AE',
-            date: '2025-02-15',
-            time: '14:00'
-          },
-          cargo: {
-            type: 'Packages',
-            quantity: 5,
-            notes: 'Fragile items - handle with care'
-          },
-          status: JOB_STATUS.RECEIVED,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          jobRef: 'XD-250214-0002',
-          client: {
-            name: 'Tech Solutions Ltd',
-            email: 'info@techsolutions.com',
-            phone: '07987654321'
-          },
-          pickup: {
-            location: 'Birmingham, B1 1AA',
-            date: '2025-02-16',
-            time: '10:00'
-          },
-          delivery: {
-            location: 'Leeds, LS1 1AA',
-            date: '2025-02-16',
-            time: '15:00'
-          },
-          cargo: {
-            type: 'Equipment',
-            quantity: 2,
-            notes: 'Server equipment - urgent delivery'
-          },
-          status: JOB_STATUS.ALLOCATED,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-      localStorage.setItem('xdrive_jobs', JSON.stringify(sampleJobs));
-      setJobs(sampleJobs);
-    }
+    setJobs([]);
+    setFilteredJobs([]);
   };
 
   const filterJobs = () => {
@@ -258,25 +196,6 @@ export default function JobsPage() {
     }
 
     setFilteredJobs(filtered);
-  };
-
-  const generateJobRef = () => {
-    const now = new Date();
-    const year = now.getFullYear().toString().slice(-2);
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const datePrefix = `${COMPANY_CONFIG.invoice.jobRefPrefix}-${year}${month}${day}`;
-    
-    const existingRefsForToday = jobs
-      .filter(job => job.jobRef.startsWith(datePrefix))
-      .map(job => parseInt(job.jobRef.split('-')[2]))
-      .filter(num => !isNaN(num));
-    
-    const nextSequence = existingRefsForToday.length > 0 
-      ? Math.max(...existingRefsForToday) + 1 
-      : 1;
-    
-    return `${datePrefix}-${String(nextSequence).padStart(4, '0')}`;
   };
 
   const validateForm = () => {
@@ -308,35 +227,6 @@ export default function JobsPage() {
     setModalError(null);
     setDbError(null);
 
-    const newJob: Job = {
-      id: Date.now().toString(),
-      jobRef: generateJobRef(),
-      client: {
-        name: formData.clientName,
-        email: formData.clientEmail,
-        phone: formData.clientPhone
-      },
-      pickup: {
-        location: formData.pickupLocation,
-        date: formData.pickupDate,
-        time: formData.pickupTime
-      },
-      delivery: {
-        location: formData.deliveryLocation,
-        date: formData.deliveryDate,
-        time: formData.deliveryTime
-      },
-      cargo: {
-        type: formData.cargoType,
-        quantity: parseInt(formData.cargoQuantity),
-        notes: formData.cargoNotes
-      },
-      status: JOB_STATUS.RECEIVED,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    const updatedJobs = [...jobs, newJob];
     if (hasSupabaseSession) {
       // Resolve companyId — use state value or re-fetch if missing
       let resolvedCompanyId = companyId;
@@ -381,8 +271,9 @@ export default function JobsPage() {
       setStatusFilter('All');
       await loadJobs();
     } else {
-      localStorage.setItem('xdrive_jobs', JSON.stringify(updatedJobs));
-      setJobs(updatedJobs);
+      setModalError('A live Supabase session is required to create jobs safely.');
+      setIsSubmitting(false);
+      return;
     }
     setIsSubmitting(false);
     closeModal();
@@ -408,13 +299,7 @@ export default function JobsPage() {
       await loadJobs();
       return;
     }
-    const updatedJobs = jobs.map(job =>
-      job.id === jobId
-        ? { ...job, status: newStatus, updatedAt: new Date().toISOString() }
-        : job
-    );
-    localStorage.setItem('xdrive_jobs', JSON.stringify(updatedJobs));
-    setJobs(updatedJobs);
+    setDbError('A live Supabase session is required to update job status safely.');
   };
 
   const handlePostJob = async (jobId: string) => {

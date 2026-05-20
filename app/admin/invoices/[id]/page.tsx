@@ -286,24 +286,7 @@ export default function InvoiceDetailPage() {
       setSaveMessage('Invoice not found');
       return;
     }
-    // Fallback: localStorage
-    try {
-      const stored = localStorage.getItem('xdrivelogistics_invoices');
-      if (stored) {
-        const invoices: InvoiceData[] = JSON.parse(stored);
-        const invoice = invoices.find((inv) => inv.id === invoiceId);
-        if (invoice) {
-          setFormData(invoice);
-        } else {
-          router.push('/admin/invoices');
-        }
-      } else {
-        router.push('/admin/invoices');
-      }
-    } catch (error) {
-      console.error('Error loading invoice:', error);
-      router.push('/admin/invoices');
-    }
+    setSaveMessage('A live Supabase session is required to access invoice data safely.');
   };
 
   const handleSave = async () => {
@@ -339,31 +322,8 @@ export default function InvoiceDetailPage() {
       setTimeout(() => setSaveMessage(''), 4000);
       return;
     }
-    // Fallback: localStorage
-    try {
-      const stored = localStorage.getItem('xdrivelogistics_invoices');
-      let invoices: InvoiceData[] = stored ? JSON.parse(stored) : [];
-
-      if (isNew) {
-        invoices.push(formData);
-      } else {
-        invoices = invoices.map((inv) => (inv.id === invoiceId ? formData : inv));
-      }
-
-      localStorage.setItem('xdrivelogistics_invoices', JSON.stringify(invoices));
-      setSaveMessage('Invoice saved successfully!');
-      setTimeout(() => setSaveMessage(''), 3000);
-
-      if (isNew) {
-        setTimeout(() => {
-          router.push(`/admin/invoices/${formData.id}`);
-        }, 1000);
-      }
-    } catch (error) {
-      console.error('Error saving invoice:', error);
-      setSaveMessage('Error saving invoice. Please try again.');
-      setTimeout(() => setSaveMessage(''), 3000);
-    }
+    setSaveMessage('A live Supabase session is required to save invoices safely.');
+    setTimeout(() => setSaveMessage(''), 3000);
   };
 
   const handleWhatsAppShare = () => {
