@@ -172,7 +172,7 @@ export default function DriverJobDetailPage() {
   };
 
   const updateJobStatus = async (newStatus: string, extraFields: Record<string, unknown> = {}) => {
-    if (!job || !isSupabaseConfigured) return;
+    if (!job || !driverId || !isSupabaseConfigured) return;
     setActionLoading(true);
     setError('');
 
@@ -185,7 +185,8 @@ export default function DriverJobDetailPage() {
         driver_notes: driverNotes || null,
         ...extraFields,
       })
-      .eq('id', job.id);
+      .eq('id', job.id)
+      .eq('assigned_driver_id', driverId);
 
     if (dbError) {
       setError(dbError.message);
