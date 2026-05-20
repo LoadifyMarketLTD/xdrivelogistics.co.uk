@@ -38,7 +38,7 @@ const resolveRedirectPath = async (
     supabase
       .from('profiles')
       .select('role, is_driver, company_id')
-      .eq('id', userId)
+      .eq('user_id', userId)
       .maybeSingle(),
     supabase
       .from('company_memberships')
