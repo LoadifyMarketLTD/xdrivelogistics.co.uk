@@ -28,9 +28,12 @@ export default function ResetPasswordPage() {
           ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
           : null;
 
-      const queryType = queryParams?.get('type') ?? null;
-      const hashType = hashParams?.get('type') ?? null;
-      const recoveryType = queryType ?? hashType ?? 'recovery';
+      const code = queryParams?.get('code');
+
+      if (code) {
+        router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
+        return;
+      }
 
       const { data, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) {
@@ -42,7 +45,6 @@ export default function ResetPasswordPage() {
       if (!data.session?.user) {
         const accessToken = hashParams?.get('access_token');
         const refreshToken = hashParams?.get('refresh_token');
-        const code = queryParams?.get('code');
         const tokenHash = queryParams?.get('token_hash');
 
         if (accessToken && refreshToken) {
@@ -55,17 +57,17 @@ export default function ResetPasswordPage() {
             setIsCheckingSession(false);
             return;
           }
-        } else if (code) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeError) {
-            setError(exchangeError.message);
+        } else {
+          if (!tokenHash) {
+            setError('Recovery link is invalid or expired. Please request a new password reset email.');
+            setHasRecoverySession(false);
             setIsCheckingSession(false);
             return;
           }
-        } else if (tokenHash && recoveryType) {
+
           const { error: verifyError } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
-            type: recoveryType as 'signup' | 'email' | 'recovery' | 'invite' | 'email_change',
+            type: 'recovery',
           });
           if (verifyError) {
             setError(verifyError.message);
