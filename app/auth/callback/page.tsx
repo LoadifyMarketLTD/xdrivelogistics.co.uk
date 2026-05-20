@@ -111,10 +111,6 @@ export default function AuthCallbackPage() {
             type: type as 'signup' | 'email' | 'recovery' | 'invite' | 'email_change',
           });
           if (verifyError) throw verifyError;
-          if (type === 'recovery') {
-            router.replace('/admin/settings');
-            return;
-          }
 
           const { data: userData } = await supabase.auth.getUser();
           if (!userData.user) {

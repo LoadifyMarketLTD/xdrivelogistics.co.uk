@@ -61,7 +61,8 @@ export default function JobDetailPage() {
   const router = useRouter();
   const params = useParams();
   const jobId = params?.id as string;
-  const { hasSupabaseSession } = useAuth();
+  const { user, hasSupabaseSession } = useAuth();
+  const companyId = user?.companyId ?? null;
 
   const [job, setJob] = useState<Job | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -72,12 +73,24 @@ export default function JobDetailPage() {
   useEffect(() => {
     loadJob();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId, hasSupabaseSession]);
+  }, [jobId, hasSupabaseSession, companyId]);
 
   const loadJob = async () => {
     try {
       if (hasSupabaseSession) {
-        const { data, error } = await supabase.from('jobs').select('*').eq('id', jobId).single();
+        if (!companyId) {
+          setJob(null);
+          setFormData(null);
+          setSaveMessage('Company profile not loaded. This job cannot be accessed safely.');
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('jobs')
+          .select('*')
+          .eq('id', jobId)
+          .eq('company_id', companyId)
+          .single();
         if (error) {
           console.error('Failed to load job:', error.message);
           setSaveMessage('Job not found');
@@ -151,6 +164,12 @@ export default function JobDetailPage() {
 
     try {
       if (hasSupabaseSession) {
+        if (!companyId) {
+          setSaveMessage('Company profile not loaded. Job cannot be updated safely.');
+          setTimeout(() => setSaveMessage(''), 3000);
+          return;
+        }
+
         const { error } = await supabase.from('jobs').update({
           load_details: formData.client.name,
           special_requirements: [formData.client.name, formData.client.phone, formData.client.email, formData.cargo.notes].filter(Boolean).join(' | '),
@@ -162,7 +181,7 @@ export default function JobDetailPage() {
           items: formData.cargo.quantity,
           status: formData.status,
           updated_at: new Date().toISOString(),
-        }).eq('id', jobId);
+        }).eq('id', jobId).eq('company_id', companyId);
         if (error) {
           console.error('Failed to save job:', error.message);
           setSaveMessage('Error saving job. Please try again.');
@@ -197,7 +216,17 @@ export default function JobDetailPage() {
   const handleDelete = async () => {
     try {
       if (hasSupabaseSession) {
-        const { error } = await supabase.from('jobs').delete().eq('id', jobId);
+        if (!companyId) {
+          setSaveMessage('Company profile not loaded. Job cannot be deleted safely.');
+          setTimeout(() => setSaveMessage(''), 3000);
+          return;
+        }
+
+        const { error } = await supabase
+          .from('jobs')
+          .delete()
+          .eq('id', jobId)
+          .eq('company_id', companyId);
         if (error) {
           console.error('Failed to delete job:', error.message);
           setSaveMessage('Error deleting job. Please try again.');
