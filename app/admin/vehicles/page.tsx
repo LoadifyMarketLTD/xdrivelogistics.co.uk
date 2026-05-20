@@ -92,7 +92,7 @@ export default function VehiclesPage() {
     }]);
     if (error) { setError(error.message); return; }
     setShowModal(false);
-    setFormData({ company_id, type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
+    setFormData({ company_id: companyId, type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
     setError('');
     loadVehicles(companyId);
   };
