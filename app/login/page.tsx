@@ -22,11 +22,14 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
 
-    // Authenticate with email and password only
-    const result = await login(email, password);
-    
-    if (!result.success) {
-      setError(result.error || 'Login failed');
+    try {
+      // Authenticate with email and password only
+      const result = await login(email, password);
+
+      if (!result.success) {
+        setError(result.error || 'Login failed');
+      }
+    } finally {
       setIsLoading(false);
     }
   };
