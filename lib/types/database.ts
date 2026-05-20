@@ -7,10 +7,9 @@ export type VehicleType = 'bicycle' | 'motorbike' | 'car' | 'van_small' | 'van_l
 export type TrackingEventType = 'created' | 'allocated' | 'driver_en_route' | 'arrived_pickup' | 'collected' | 'in_transit' | 'arrived_delivery' | 'delivered' | 'failed' | 'cancelled' | 'note';
 
 export interface Profile {
-  id: string;
+  user_id: string;
   full_name: string | null;
   phone: string | null;
-  email: string | null;
   role: string | null;
   company_id: string | null;
   is_driver: boolean;
