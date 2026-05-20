@@ -112,7 +112,13 @@ export default function AuthCallbackPage() {
           });
           if (verifyError) throw verifyError;
           if (type === 'recovery') {
-            router.replace('/admin/settings');
+            const { data: recoveryUser } = await supabase.auth.getUser();
+            if (recoveryUser.user) {
+              const redirectPath = await resolveRedirectPath(recoveryUser.user.id);
+              router.replace(redirectPath);
+            } else {
+              router.replace('/login');
+            }
             return;
           }
 

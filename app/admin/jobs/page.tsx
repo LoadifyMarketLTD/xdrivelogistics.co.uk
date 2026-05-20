@@ -105,12 +105,15 @@ export default function JobsPage() {
   };
 
   useEffect(() => {
-    loadJobs();
     if (hasSupabaseSession && user?.id) {
       loadCompanyId(user.id);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, hasSupabaseSession]);
+
+  useEffect(() => {
+    loadJobs();
+  }, [companyId, hasSupabaseSession]);
 
   useEffect(() => {
     filterJobs();
@@ -119,7 +122,11 @@ export default function JobsPage() {
 
   const loadJobs = async () => {
     if (hasSupabaseSession) {
-      const { data, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
+      if (!companyId) {
+        setJobs([]);
+        return;
+      }
+      const { data, error } = await supabase.from('jobs').select('*').eq('company_id', companyId).order('created_at', { ascending: false });
       if (error) {
         console.error('Failed to load jobs from Supabase:', error.message);
         setDbError(`Failed to load jobs: ${error.message}`);
@@ -372,7 +379,11 @@ export default function JobsPage() {
 
   const handleStatusChange = async (jobId: string, newStatus: string) => {
     if (hasSupabaseSession) {
-      const { error } = await supabase.from('jobs').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', jobId);
+      if (!companyId) {
+        setDbError('Company not loaded. Cannot update job status.');
+        return;
+      }
+      const { error } = await supabase.from('jobs').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', jobId).eq('company_id', companyId);
       if (error) {
         console.error('Failed to update job status:', error.message);
         setDbError(`Failed to update job status: ${error.message}`);

@@ -10,6 +10,7 @@ import { COMPANY_CONFIG } from '../config/company';
 export default function AdminPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const companyId = user?.companyId ?? null;
   const [activeSection, setActiveSection] = useState('dashboard');
   const [stats, setStats] = useState({ activeJobs: '—', pendingQuotes: '—', activeDrivers: '—', completedToday: '—' });
 
@@ -45,13 +46,16 @@ export default function AdminPage() {
       setStats({ activeJobs: '0', pendingQuotes: '0', activeDrivers: '0', completedToday: '0' });
       return;
     }
-    // Use start-of-UTC-day so "today" is consistent with the timestamps stored by Supabase
+    if (!companyId) {
+      setStats({ activeJobs: '—', pendingQuotes: '—', activeDrivers: '—', completedToday: '—' });
+      return;
+    }
     const todayUtc = new Date().toISOString().slice(0, 10);
     Promise.all([
-      supabase.from('jobs').select('id', { count: 'exact', head: true }).in('status', ['posted', 'allocated', 'in_transit']),
-      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered').gte('updated_at', todayUtc),
-      supabase.from('drivers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-      supabase.from('quotes').select('id', { count: 'exact', head: true }).in('status', ['draft', 'sent']),
+      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('company_id', companyId).in('status', ['posted', 'allocated', 'in_transit']),
+      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'delivered').gte('updated_at', todayUtc),
+      supabase.from('drivers').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'active'),
+      supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('company_id', companyId).in('status', ['draft', 'sent']),
     ]).then(([activeJobsRes, completedRes, driversRes, quotesRes]) => {
       setStats({
         activeJobs: String(activeJobsRes.count ?? 0),
@@ -62,7 +66,7 @@ export default function AdminPage() {
     }).catch(() => {
       setStats({ activeJobs: '0', pendingQuotes: '0', activeDrivers: '0', completedToday: '0' });
     });
-  }, []);
+  }, [companyId]);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },

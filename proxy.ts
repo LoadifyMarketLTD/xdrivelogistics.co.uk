@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PROTECTED_PREFIXES = ['/admin', '/m', '/driver'];
+const PROTECTED_PREFIXES = ['/admin', '/m', '/driver', '/customer'];
 
 const hasSupabaseAuthCookie = (request: NextRequest) => {
   return request.cookies.getAll().some(
@@ -25,5 +25,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/m/:path*', '/driver/:path*'],
+  matcher: ['/admin/:path*', '/m/:path*', '/driver/:path*', '/customer/:path*'],
 };
