@@ -26,7 +26,7 @@
 | `/cookies` | `app/cookies/page.tsx` | Cookie policy (static) |
 
 **MISSING routes:**
-- `/register` — No sign-up/registration page exists.
+- None identified in current app router snapshot.
 
 ---
 
