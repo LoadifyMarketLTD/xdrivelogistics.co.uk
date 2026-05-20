@@ -12,6 +12,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   rejected: { bg: '#fee2e2', text: '#991b1b' },
   withdrawn: { bg: '#f3f4f6', text: '#6b7280' },
 };
+const ALLOWED_BID_STATUS = new Set(['submitted', 'accepted', 'rejected', 'withdrawn']);
 
 export default function BidsPage() {
   const { user } = useAuth();
@@ -32,7 +33,7 @@ export default function BidsPage() {
     }
     const { data, error } = await supabase
       .from('job_bids')
-      .select('*, jobs!inner(company_id)')
+      .select('id, job_id, company_id, bidder_user_id, bidder_id, bidder_driver_id, amount, bid_price_gbp, currency, message, status, created_at, jobs!inner(company_id)')
       .eq('jobs.company_id', companyId)
       .order('created_at', { ascending: false });
     if (error) {
@@ -48,6 +49,10 @@ export default function BidsPage() {
 
   const updateStatus = async (id: string, status: string) => {
     if (!isSupabaseConfigured || !companyId) return;
+    if (!ALLOWED_BID_STATUS.has(status)) {
+      setError('Invalid bid status update request.');
+      return;
+    }
 
     const { data: verifiedBid, error: verifyError } = await supabase
       .from('job_bids')

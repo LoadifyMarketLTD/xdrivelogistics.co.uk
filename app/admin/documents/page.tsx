@@ -14,6 +14,7 @@ const STATUS_COLORS: Record<DocStatus, { bg: string; text: string }> = {
   rejected: { bg: '#fee2e2', text: '#991b1b' },
   expired: { bg: '#f3f4f6', text: '#6b7280' },
 };
+const ALLOWED_DOC_STATUS = new Set<DocStatus>(['pending', 'approved', 'rejected', 'expired']);
 
 export default function DocumentsPage() {
   const { user } = useAuth();
@@ -73,6 +74,10 @@ export default function DocumentsPage() {
 
   const updateStatus = async (id: string, status: DocStatus) => {
     if (!isSupabaseConfigured || !companyId) return;
+    if (!ALLOWED_DOC_STATUS.has(status)) {
+      setError('Invalid document status update request.');
+      return;
+    }
 
     if (tab === 'driver') {
       const { data: verifiedDoc, error: verifyError } = await supabase
@@ -80,6 +85,7 @@ export default function DocumentsPage() {
         .select('id, driver_id, drivers!inner(company_id)')
         .eq('id', id)
         .eq('drivers.company_id', companyId)
+        .limit(1)
         .maybeSingle();
 
       if (verifyError || !verifiedDoc) {
@@ -104,6 +110,7 @@ export default function DocumentsPage() {
         .select('id, vehicle_id, vehicles!inner(company_id)')
         .eq('id', id)
         .eq('vehicles.company_id', companyId)
+        .limit(1)
         .maybeSingle();
 
       if (verifyError || !verifiedDoc) {

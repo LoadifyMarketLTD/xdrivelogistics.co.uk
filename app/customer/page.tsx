@@ -18,7 +18,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 
 export default function CustomerPage() {
   const { user, logout } = useAuth();
-  const companyId = user?.companyId ?? null;
+  const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -33,11 +33,44 @@ export default function CustomerPage() {
     customer_phone: '',
   });
 
+  useEffect(() => {
+    let cancelled = false;
+    const resolveCompanyId = async () => {
+      if (!isSupabaseConfigured || !user?.id) {
+        if (!cancelled) setResolvedCompanyId(user?.companyId ?? null);
+        return;
+      }
+      if (user.companyId) {
+        if (!cancelled) setResolvedCompanyId(user.companyId);
+        return;
+      }
+      const { data, error } = await supabase.rpc('get_or_create_company_for_user');
+      if (!cancelled && !error && data) {
+        setResolvedCompanyId(data as string);
+        return;
+      }
+      const { data: membership } = await supabase
+        .from('company_memberships')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .neq('status', 'suspended')
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled) {
+        setResolvedCompanyId((membership?.company_id as string) ?? null);
+      }
+    };
+    resolveCompanyId();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.companyId]);
+
   const loadQuotes = async () => {
     setLoading(true);
     setPageMessage('');
     if (!isSupabaseConfigured || !user?.email) { setLoading(false); return; }
-    if (!companyId) {
+    if (!resolvedCompanyId) {
       setQuotes([]);
       setPageMessage('Your account is not linked to a company yet, so quote data is hidden.');
       setLoading(false);
@@ -45,8 +78,8 @@ export default function CustomerPage() {
     }
     const { data, error } = await supabase
       .from('quotes')
-      .select('*')
-      .eq('company_id', companyId)
+      .select('id, company_id, created_by, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at')
+      .eq('company_id', resolvedCompanyId)
       .eq('customer_email', user.email)
       .order('created_at', { ascending: false });
     if (!error && data) {
@@ -60,16 +93,16 @@ export default function CustomerPage() {
 
   useEffect(() => {
     if (user?.email) loadQuotes();
-  }, [user?.email, companyId]);
+  }, [user?.email, resolvedCompanyId]);
 
   const handleRequestQuote = async () => {
     setFormError('');
     if (!formData.pickup_location.trim()) { setFormError('Pickup location is required'); return; }
     if (!formData.delivery_location.trim()) { setFormError('Delivery location is required'); return; }
-    if (!isSupabaseConfigured || !user?.email || !companyId) { setFormError('Your account is not linked to a company yet. Quote requests are unavailable.'); return; }
+    if (!isSupabaseConfigured || !user?.email || !resolvedCompanyId) { setFormError('Your account is not linked to a company yet. Quote requests are unavailable.'); return; }
 
     const { error } = await supabase.from('quotes').insert([{
-      company_id: companyId,
+      company_id: resolvedCompanyId,
       customer_name: user.email.split('@')[0],
       customer_email: user.email,
       customer_phone: formData.customer_phone || null,

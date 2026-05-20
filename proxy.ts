@@ -90,6 +90,12 @@ const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
   }
 };
 
+const isJwtExpired = (payload: Record<string, unknown> | null): boolean => {
+  const exp = typeof payload?.exp === 'number' ? payload.exp : null;
+  if (!exp) return false;
+  return Date.now() >= exp * 1000;
+};
+
 const mapRole = (value: string | null | undefined): UserRole | null => {
   const normalized = (value ?? '').toLowerCase();
   if (normalized === 'owner') return 'owner';
@@ -249,6 +255,9 @@ export async function proxy(request: NextRequest) {
   const payload = decodeJwtPayload(token);
   const userId = typeof payload?.sub === 'string' ? payload.sub : null;
   if (!userId) {
+    return redirectToLogin(request);
+  }
+  if (isJwtExpired(payload)) {
     return redirectToLogin(request);
   }
 
