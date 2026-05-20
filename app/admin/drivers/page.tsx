@@ -37,7 +37,7 @@ export default function DriversPage() {
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
     const { data, error } = await supabase
       .from('drivers')
-      .select('*')
+      .select('id, company_id, user_id, display_name, phone, email, status, app_access, last_app_login, created_at')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
     if (!error && data) setDrivers(data as Driver[]);

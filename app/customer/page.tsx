@@ -18,11 +18,13 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 
 export default function CustomerPage() {
   const { user, logout } = useAuth();
+  const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formError, setFormError] = useState('');
+  const [pageMessage, setPageMessage] = useState('');
   const [formData, setFormData] = useState({
     pickup_location: '',
     delivery_location: '',
@@ -31,29 +33,76 @@ export default function CustomerPage() {
     customer_phone: '',
   });
 
+  useEffect(() => {
+    let cancelled = false;
+    const resolveCompanyId = async () => {
+      if (!isSupabaseConfigured || !user?.id) {
+        if (!cancelled) setResolvedCompanyId(user?.companyId ?? null);
+        return;
+      }
+      if (user.companyId) {
+        if (!cancelled) setResolvedCompanyId(user.companyId);
+        return;
+      }
+      const { data, error } = await supabase.rpc('get_or_create_company_for_user');
+      if (!cancelled && !error && data) {
+        setResolvedCompanyId(data as string);
+        return;
+      }
+      const { data: membership } = await supabase
+        .from('company_memberships')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .neq('status', 'suspended')
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled) {
+        setResolvedCompanyId((membership?.company_id as string) ?? null);
+      }
+    };
+    resolveCompanyId();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.companyId]);
+
   const loadQuotes = async () => {
     setLoading(true);
+    setPageMessage('');
     if (!isSupabaseConfigured || !user?.email) { setLoading(false); return; }
+    if (!resolvedCompanyId) {
+      setQuotes([]);
+      setPageMessage('Your account is not linked to a company yet, so quote data is hidden.');
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from('quotes')
-      .select('*')
+      .select('id, company_id, created_by, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at')
+      .eq('company_id', resolvedCompanyId)
       .eq('customer_email', user.email)
       .order('created_at', { ascending: false });
-    if (!error && data) setQuotes(data as Quote[]);
+    if (!error && data) {
+      setQuotes(data as Quote[]);
+    } else if (error) {
+      setQuotes([]);
+      setPageMessage(`Unable to load quotes: ${error.message}`);
+    }
     setLoading(false);
   };
 
   useEffect(() => {
     if (user?.email) loadQuotes();
-  }, [user?.email]);
+  }, [user?.email, resolvedCompanyId]);
 
   const handleRequestQuote = async () => {
     setFormError('');
     if (!formData.pickup_location.trim()) { setFormError('Pickup location is required'); return; }
     if (!formData.delivery_location.trim()) { setFormError('Delivery location is required'); return; }
-    if (!isSupabaseConfigured || !user?.email) { setFormError('Service unavailable. Please try again later.'); return; }
+    if (!isSupabaseConfigured || !user?.email || !resolvedCompanyId) { setFormError('Your account is not linked to a company yet. Quote requests are unavailable.'); return; }
 
     const { error } = await supabase.from('quotes').insert([{
+      company_id: resolvedCompanyId,
       customer_name: user.email.split('@')[0],
       customer_email: user.email,
       customer_phone: formData.customer_phone || null,
@@ -98,6 +147,12 @@ export default function CustomerPage() {
         </header>
 
         <main style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
+          {pageMessage && (
+            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#92400e', fontWeight: '600' }}>
+              {pageMessage}
+            </div>
+          )}
+
           {submitSuccess && (
             <div style={{ backgroundColor: '#dcfce7', border: '1px solid #1F7A3D', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#14532d', fontWeight: '600' }}>
               ✅ Your quote request has been submitted. We&apos;ll be in touch shortly.

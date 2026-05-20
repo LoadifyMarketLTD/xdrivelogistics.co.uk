@@ -61,7 +61,8 @@ export default function JobDetailPage() {
   const router = useRouter();
   const params = useParams();
   const jobId = params?.id as string;
-  const { hasSupabaseSession } = useAuth();
+  const { user, hasSupabaseSession } = useAuth();
+  const companyId = user?.companyId ?? null;
 
   const [job, setJob] = useState<Job | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -72,12 +73,24 @@ export default function JobDetailPage() {
   useEffect(() => {
     loadJob();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId, hasSupabaseSession]);
+  }, [jobId, hasSupabaseSession, companyId]);
 
   const loadJob = async () => {
     try {
       if (hasSupabaseSession) {
-        const { data, error } = await supabase.from('jobs').select('*').eq('id', jobId).single();
+        if (!companyId) {
+          setJob(null);
+          setFormData(null);
+          setSaveMessage('Company profile not loaded. This job cannot be accessed safely.');
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('jobs')
+          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, load_details, special_requirements, created_at, updated_at')
+          .eq('id', jobId)
+          .eq('company_id', companyId)
+          .single();
         if (error) {
           console.error('Failed to load job:', error.message);
           setSaveMessage('Job not found');
@@ -117,20 +130,7 @@ export default function JobDetailPage() {
           return;
         }
       }
-      // Fallback to localStorage
-      const stored = localStorage.getItem('xdrive_jobs');
-      if (stored) {
-        const jobs: Job[] = JSON.parse(stored);
-        const foundJob = jobs.find((j) => j.id === jobId);
-        if (foundJob) {
-          setJob(foundJob);
-          setFormData(foundJob);
-        } else {
-          setSaveMessage('Job not found');
-        }
-      } else {
-        setSaveMessage('Job not found');
-      }
+      setSaveMessage('A live Supabase session is required to access job details safely.');
     } catch (error) {
       console.error('Error loading job:', error);
       setSaveMessage('Error loading job');
@@ -151,6 +151,12 @@ export default function JobDetailPage() {
 
     try {
       if (hasSupabaseSession) {
+        if (!companyId) {
+          setSaveMessage('Company profile not loaded. Job cannot be updated safely.');
+          setTimeout(() => setSaveMessage(''), 3000);
+          return;
+        }
+
         const { error } = await supabase.from('jobs').update({
           load_details: formData.client.name,
           special_requirements: [formData.client.name, formData.client.phone, formData.client.email, formData.cargo.notes].filter(Boolean).join(' | '),
@@ -162,7 +168,7 @@ export default function JobDetailPage() {
           items: formData.cargo.quantity,
           status: formData.status,
           updated_at: new Date().toISOString(),
-        }).eq('id', jobId);
+        }).eq('id', jobId).eq('company_id', companyId);
         if (error) {
           console.error('Failed to save job:', error.message);
           setSaveMessage('Error saving job. Please try again.');
@@ -175,18 +181,8 @@ export default function JobDetailPage() {
         setTimeout(() => setSaveMessage(''), 3000);
         return;
       }
-      // Fallback to localStorage
-      const stored = localStorage.getItem('xdrive_jobs');
-      if (stored) {
-        let jobs: Job[] = JSON.parse(stored);
-        formData.updatedAt = new Date().toISOString();
-        jobs = jobs.map((j) => (j.id === jobId ? formData : j));
-        localStorage.setItem('xdrive_jobs', JSON.stringify(jobs));
-        setJob(formData);
-        setEditMode(false);
-        setSaveMessage('Job saved successfully!');
-        setTimeout(() => setSaveMessage(''), 3000);
-      }
+      setSaveMessage('A live Supabase session is required to save job changes safely.');
+      setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
       console.error('Error saving job:', error);
       setSaveMessage('Error saving job. Please try again.');
@@ -197,7 +193,17 @@ export default function JobDetailPage() {
   const handleDelete = async () => {
     try {
       if (hasSupabaseSession) {
-        const { error } = await supabase.from('jobs').delete().eq('id', jobId);
+        if (!companyId) {
+          setSaveMessage('Company profile not loaded. Job cannot be deleted safely.');
+          setTimeout(() => setSaveMessage(''), 3000);
+          return;
+        }
+
+        const { error } = await supabase
+          .from('jobs')
+          .delete()
+          .eq('id', jobId)
+          .eq('company_id', companyId);
         if (error) {
           console.error('Failed to delete job:', error.message);
           setSaveMessage('Error deleting job. Please try again.');
@@ -207,14 +213,8 @@ export default function JobDetailPage() {
         router.push('/admin/jobs');
         return;
       }
-      // Fallback to localStorage
-      const stored = localStorage.getItem('xdrive_jobs');
-      if (stored) {
-        let jobs: Job[] = JSON.parse(stored);
-        jobs = jobs.filter((j) => j.id !== jobId);
-        localStorage.setItem('xdrive_jobs', JSON.stringify(jobs));
-        router.push('/admin/jobs');
-      }
+      setSaveMessage('A live Supabase session is required to delete jobs safely.');
+      setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
       console.error('Error deleting job:', error);
       setSaveMessage('Error deleting job. Please try again.');
@@ -224,10 +224,8 @@ export default function JobDetailPage() {
 
   const handleGenerateInvoice = () => {
     if (!job) return;
-    
-    // Create a new invoice with job data pre-filled
-    const invoiceData = {
-      id: `invoice_${Date.now()}`,
+
+    const params = new URLSearchParams({
       jobRef: job.jobRef,
       clientName: job.client.name,
       clientEmail: job.client.email,
@@ -236,13 +234,9 @@ export default function JobDetailPage() {
       deliveryLocation: job.delivery.location,
       deliveryDateTime: `${job.delivery.date}T${job.delivery.time}`,
       serviceDescription: `${job.cargo.type} delivery - ${job.cargo.quantity} unit(s)`,
-    };
-    
-    // Store temp invoice data
-    localStorage.setItem('temp_invoice_data', JSON.stringify(invoiceData));
-    
-    // Navigate to new invoice page
-    router.push('/admin/invoices/new');
+    });
+
+    router.push(`/admin/invoices/new?${params.toString()}`);
   };
 
   const getStatusBadgeStyle = (status: string) => {

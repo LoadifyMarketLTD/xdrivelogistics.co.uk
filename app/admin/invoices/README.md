@@ -19,7 +19,7 @@
    - Describe the service
    - Enter the amount
 3. Click **"Save Invoice"**
-4. Invoice is automatically saved to your browser
+4. Invoice is saved to Supabase and shared across authenticated sessions in the same tenant
 
 ### Managing Invoices
 - **Search**: Type in the search box to find invoices by number, job ref, or client name
@@ -42,7 +42,9 @@ Status is automatically calculated based on the due date.
 ## Technical Details
 
 ### Storage
-Currently uses browser localStorage with key `xdrive_invoices`. Data persists across browser sessions but is cleared if browser cache is cleared.
+Invoices are stored in Supabase (`invoices` table) and tenant-scoped by `company_id`.
+
+Job → invoice prefill is passed through URL search params from `/admin/jobs/[id]` to `/admin/invoices/new`.
 
 ### Auto-Generated IDs
 - **Job Ref Format**: `DC-YYMMDD-XXXX` (e.g., DC-250213-1234)
@@ -66,7 +68,6 @@ PayPal: contact@xdrivelogistics.co.uk
 - `../../config/company.ts` - Company configuration
 
 ## Future Enhancements
-- Database backend integration
 - PDF export functionality
 - Email sending
 - Payment tracking
