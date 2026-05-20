@@ -37,7 +37,7 @@ Legend: ✅ PASS | ❌ FAIL | ⚠️ FAKE/STUB | ➖ MISSING
 | View job detail | Admin | `/admin/jobs/[id]` | `jobs` | SELECT single | Job loads from DB | ✅ PASS (after fix) | `jobs/[id]/page.tsx` `loadJob()` — **was FAIL: localStorage only** | ✅ Fixed |
 | Edit job (save) | Admin | `/admin/jobs/[id]` | `jobs` | UPDATE | DB row updated | ✅ PASS (after fix) | `jobs/[id]/page.tsx` `handleSave()` — **was FAIL: localStorage only** | ✅ Fixed |
 | Delete job | Admin | `/admin/jobs/[id]` | `jobs` | DELETE | Row removed from DB | ✅ PASS (after fix) | `jobs/[id]/page.tsx` `handleDelete()` — **was FAIL: localStorage only** | ✅ Fixed |
-| Generate invoice from job | Admin | `/admin/jobs/[id]` | — | localStorage temp | Navigate to invoice create | ⚠️ FAKE | Uses `localStorage.setItem('temp_invoice_data', ...)` then `router.push('/admin/invoices/new')` — invoice not in DB | Depends on invoices DB table (MISSING) |
+| Generate invoice from job | Admin | `/admin/jobs/[id]` | `invoices` (DB) | URL prefill → save | Navigate to invoice create with prefilled fields and save to DB | ✅ PASS | Uses URL search params to `/admin/invoices/new`; invoice page reads via `useSearchParams` and persists via Supabase | None |
 | **QUOTES** | | | | | | | | |
 | List quotes | Admin | `/admin/quotes` | `quotes` | SELECT | All rows from DB | ✅ PASS | `quotes/page.tsx` `loadQuotes()` | None |
 | Create quote | Admin | `/admin/quotes` | `quotes` | INSERT | Row in DB + list refresh | ✅ PASS | `quotes/page.tsx` `handleCreate()` error surfaced | None |
@@ -53,12 +53,12 @@ Legend: ✅ PASS | ❌ FAIL | ⚠️ FAKE/STUB | ➖ MISSING
 | Reject document | Admin | `/admin/documents` | `driver_documents` / `vehicle_documents` | UPDATE `status='rejected'` | DB row updated | ✅ PASS (after fix) | `documents/page.tsx` `updateStatus()` — **was FAIL: silent error** | ✅ Fixed |
 | Upload new document | Admin | `/admin/documents` | — | — | Store file + DB row | ➖ MISSING | No upload form in documents UI | Add upload component |
 | **INVOICES** | | | | | | | | |
-| List invoices | Admin | `/admin/invoices` | `invoices` (DB) | SELECT | Invoices from DB | ⚠️ FAKE | Reads from `localStorage` only; no `invoices` table in Supabase schema | Requires `invoices` table + migration |
-| Create invoice | Admin | `/admin/invoices/new` | `invoices` (DB) | INSERT | Row in DB | ⚠️ FAKE | Saves to `localStorage` only | Requires `invoices` table + migration |
-| View invoice detail | Admin | `/admin/invoices/[id]` | `invoices` (DB) | SELECT | Load from DB | ⚠️ FAKE | Reads from `localStorage` | Requires `invoices` table + migration |
+| List invoices | Admin | `/admin/invoices` | `invoices` (DB) | SELECT | Invoices from DB | ✅ PASS | Reads tenant-scoped invoices from Supabase (`.eq('company_id', companyId)`) | None |
+| Create invoice | Admin | `/admin/invoices/new` | `invoices` (DB) | INSERT | Row in DB | ✅ PASS | Writes invoice row via Supabase insert in `/admin/invoices/[id]` | None |
+| View invoice detail | Admin | `/admin/invoices/[id]` | `invoices` (DB) | SELECT | Load from DB | ✅ PASS | Loads invoice from Supabase and enforces tenant scope (`.eq('company_id', companyId)`) | None |
 | **SETTINGS** | | | | | | | | |
 | View settings | Admin | `/admin/settings` | — | — | Load company settings | ⚠️ FAKE | Pre-fills from hardcoded `COMPANY_CONFIG`; no DB read | Add `company_settings` table |
-| Save settings | Admin | `/admin/settings` | — | localStorage | Persist to localStorage | ⚠️ FAKE | Uses `localStorage.setItem('danny_admin_settings', ...)` — not persisted to DB | Add `company_settings` table |
+| Save settings | Admin | `/admin/settings` | `companies`, `company_settings` | UPDATE/UPSERT | Persist tenant settings to DB | ✅ PASS | Uses Supabase update on `companies` and upsert on `company_settings` | None |
 | **DASHBOARD KPIs** | | | | | | | | |
 | Active Jobs count | Admin | `/admin` | `jobs` | COUNT WHERE status IN (`posted`,`allocated`,`in_transit`) | Correct count | ✅ PASS | `admin/page.tsx` `Promise.all` query | None |
 | Pending Quotes count | Admin | `/admin` | `quotes` | COUNT WHERE status IN (`draft`,`sent`) | Correct count | ✅ PASS | `admin/page.tsx` | None |

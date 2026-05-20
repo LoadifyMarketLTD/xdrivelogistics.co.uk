@@ -145,9 +145,9 @@ Visit: https://securityheaders.com/?q=https://xdrivelogistics.co.uk&followRedire
 - **Action:** Run manually after deployment (instructions above)
 
 ### Auth Backend
-**Development mode** - Uses localStorage
-- **Impact:** Works fine for demo
-- **Future:** Replace with real backend + httpOnly cookies
+**Current mode** - Uses Supabase Auth session + server-side route guards
+- **Impact:** Production-aligned auth flow with tenant-aware route protection
+- **Future:** Continue hardening RLS/policy coverage and runtime monitoring
 
 ---
 

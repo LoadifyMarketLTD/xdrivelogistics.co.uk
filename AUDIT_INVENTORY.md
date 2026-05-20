@@ -15,9 +15,9 @@
 | `/admin/quotes` | `app/admin/quotes/page.tsx` | Quotes list + create modal |
 | `/admin/bids` | `app/admin/bids/page.tsx` | Job bids list + accept/reject |
 | `/admin/documents` | `app/admin/documents/page.tsx` | Driver & vehicle doc review/approve |
-| `/admin/invoices` | `app/admin/invoices/page.tsx` | Invoices list (localStorage only) |
-| `/admin/invoices/[id]` | `app/admin/invoices/[id]/page.tsx` | Invoice create/edit/view (localStorage only) |
-| `/admin/settings` | `app/admin/settings/page.tsx` | Settings form (localStorage only) |
+| `/admin/invoices` | `app/admin/invoices/page.tsx` | Invoices list (Supabase tenant-scoped) |
+| `/admin/invoices/[id]` | `app/admin/invoices/[id]/page.tsx` | Invoice create/edit/view (Supabase + URL prefill) |
+| `/admin/settings` | `app/admin/settings/page.tsx` | Settings form (company + company_settings in Supabase) |
 | `/m` | `app/m/page.tsx` | Mobile driver dashboard |
 | `/m/jobs` | `app/m/jobs/page.tsx` | Mobile jobs list |
 | `/m/jobs/[id]` | `app/m/jobs/[id]/page.tsx` | Mobile job detail |
@@ -64,9 +64,8 @@ All routes exist as real pages. No broken `router.push` destinations.
 | `company_memberships` | SELECT | `admin/jobs/page.tsx` (get companyId) |
 | `auth.users` | Supabase auth | `lib/supabaseClient.ts`, `AuthContext.tsx` |
 
-**No Supabase interaction (localStorage / hardcoded):**
-- `invoices` — stored in `localStorage` only; no DB table in schema
-- Settings — stored in `localStorage` only; no DB table in schema
+**No Supabase interaction (local-only / hardcoded):**
+- None for invoices/settings in current runtime (both now use Supabase)
 
 ---
 
@@ -90,8 +89,8 @@ All routes exist as real pages. No broken `router.push` destinations.
 | `return_journeys` | `id`, `company_id`, `from_postcode`, `to_postcode` | UI not implemented |
 | `driver_locations` | `driver_id`, `lat`, `lng` | UI not implemented |
 
-**Table referenced in UI but absent from schema:**
-- `invoices` — does NOT exist in DB; invoice UI uses localStorage only
+**Table referenced in UI:**
+- `invoices` — required and used by invoice list/detail pages with tenant scoping
 
 ---
 
