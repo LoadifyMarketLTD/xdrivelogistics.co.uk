@@ -4,6 +4,10 @@
 [build.environment]
   NODE_VERSION = "20"
   EXPECTED_NEXT_PUBLIC_SUPABASE_URL = "https://jqxlauexhkonixtjvljw.supabase.co"
+  # NEXT_PUBLIC_SUPABASE_ANON_KEY must be set as a secret environment variable
+  # in the Netlify UI: Site → Site configuration → Environment variables.
+  # Do NOT commit the key value here. Without it the build validation script
+  # will warn and Supabase features will be unavailable at runtime.
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
