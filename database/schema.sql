@@ -104,7 +104,7 @@ CREATE TABLE public.drivers (
   last_app_login  timestamptz,
   device_token    text,
   created_at      timestamptz DEFAULT now(),
-  UNIQUE(temporary_password_seq)
+  CONSTRAINT drivers_temporary_password_seq_unique UNIQUE (temporary_password_seq)
 );
 
 -- ── Vehicles ──────────────────────────────────────────
