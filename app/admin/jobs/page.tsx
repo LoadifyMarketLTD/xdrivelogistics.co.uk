@@ -131,7 +131,7 @@ export default function JobsPage() {
 
       const { data, error } = await supabase
         .from('jobs')
-        .select('*')
+        .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, load_details, special_requirements, created_at, updated_at')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
