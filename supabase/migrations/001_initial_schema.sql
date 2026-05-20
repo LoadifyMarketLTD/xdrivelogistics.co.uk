@@ -11,7 +11,7 @@ CREATE TYPE public.tracking_event_type AS ENUM ('created', 'allocated', 'driver_
 
 -- Profiles (extends auth.users)
 CREATE TABLE public.profiles (
-  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name text,
   phone text,
   is_driver boolean DEFAULT false,
@@ -287,8 +287,8 @@ RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
 $$;
 
 -- Profiles RLS
-CREATE POLICY "profiles_select_own" ON public.profiles FOR SELECT USING (id = auth.uid());
-CREATE POLICY "profiles_update_own" ON public.profiles FOR UPDATE USING (id = auth.uid());
+CREATE POLICY "profiles_select_own" ON public.profiles FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "profiles_update_own" ON public.profiles FOR UPDATE USING (user_id = auth.uid());
 
 -- Companies RLS
 CREATE POLICY "companies_select_member" ON public.companies FOR SELECT USING (public.is_company_member(id));
