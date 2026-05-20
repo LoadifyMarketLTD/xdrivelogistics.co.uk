@@ -224,10 +224,8 @@ export default function JobDetailPage() {
 
   const handleGenerateInvoice = () => {
     if (!job) return;
-    
-    // Create a new invoice with job data pre-filled
-    const invoiceData = {
-      id: `invoice_${Date.now()}`,
+
+    const params = new URLSearchParams({
       jobRef: job.jobRef,
       clientName: job.client.name,
       clientEmail: job.client.email,
@@ -236,13 +234,9 @@ export default function JobDetailPage() {
       deliveryLocation: job.delivery.location,
       deliveryDateTime: `${job.delivery.date}T${job.delivery.time}`,
       serviceDescription: `${job.cargo.type} delivery - ${job.cargo.quantity} unit(s)`,
-    };
-    
-    // Store temp invoice data
-    localStorage.setItem('temp_invoice_data', JSON.stringify(invoiceData));
-    
-    // Navigate to new invoice page
-    router.push('/admin/invoices/new');
+    });
+
+    router.push(`/admin/invoices/new?${params.toString()}`);
   };
 
   const getStatusBadgeStyle = (status: string) => {
