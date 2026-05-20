@@ -21,7 +21,6 @@ export const metadata: Metadata = {
     'XDrive Logistics',
     'courier jobs UK',
     'self employed driver',
-    'haulage exchange UK',
     'transport platform UK',
     'owner driver jobs UK',
     'courier driver app UK',

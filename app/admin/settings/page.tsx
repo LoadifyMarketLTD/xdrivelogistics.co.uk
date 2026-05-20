@@ -57,6 +57,11 @@ export default function SettingsPage() {
     bankSortCode: DEFAULT_COMPANY_SETTINGS.bankSortCode,
     bankAccountNumber: DEFAULT_COMPANY_SETTINGS.bankAccountNumber,
   });
+  const [accountForm, setAccountForm] = useState({
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -205,6 +210,37 @@ export default function SettingsPage() {
 
     setSaved(true);
     setSaving(false);
+    setTimeout(() => setSaved(false), 3000);
+  };
+
+  const handleChangePassword = async () => {
+    setSaveError('');
+    setSaved(false);
+
+    if (!isSupabaseConfigured) {
+      setSaveError('Supabase is not configured. Password cannot be updated.');
+      return;
+    }
+    if (!accountForm.newPassword || accountForm.newPassword.length < 8) {
+      setSaveError('New password must be at least 8 characters long.');
+      return;
+    }
+    if (accountForm.newPassword !== accountForm.confirmPassword) {
+      setSaveError('Passwords do not match.');
+      return;
+    }
+
+    setChangingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: accountForm.newPassword });
+    setChangingPassword(false);
+
+    if (error) {
+      setSaveError(`Password could not be updated: ${error.message}`);
+      return;
+    }
+
+    setAccountForm({ newPassword: '', confirmPassword: '' });
+    setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
 
@@ -501,11 +537,41 @@ export default function SettingsPage() {
                   <h2 style={{ ...sectionTitleStyle, marginTop: '1.5rem' }}>Change Password</h2>
                   <div style={{ marginBottom: '1.25rem' }}>
                     <label style={labelStyle}>New Password</label>
-                    <input type="password" style={inputStyle} placeholder="Enter new password" />
+                    <input
+                      type="password"
+                      style={inputStyle}
+                      placeholder="Enter new password"
+                      value={accountForm.newPassword}
+                      onChange={(e) => setAccountForm({ ...accountForm, newPassword: e.target.value })}
+                    />
                   </div>
                   <div style={{ marginBottom: '1.25rem' }}>
                     <label style={labelStyle}>Confirm New Password</label>
-                    <input type="password" style={inputStyle} placeholder="Confirm new password" />
+                    <input
+                      type="password"
+                      style={inputStyle}
+                      placeholder="Confirm new password"
+                      value={accountForm.confirmPassword}
+                      onChange={(e) => setAccountForm({ ...accountForm, confirmPassword: e.target.value })}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={handleChangePassword}
+                      disabled={changingPassword || !isSupabaseConfigured}
+                      style={{
+                        padding: '0.75rem 1.5rem',
+                        backgroundColor: changingPassword || !isSupabaseConfigured ? '#86efac' : '#1F7A3D',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '0.95rem',
+                        fontWeight: '600',
+                        cursor: changingPassword || !isSupabaseConfigured ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {changingPassword ? 'Updating password…' : 'Update Password'}
+                    </button>
                   </div>
                 </div>
               )}
