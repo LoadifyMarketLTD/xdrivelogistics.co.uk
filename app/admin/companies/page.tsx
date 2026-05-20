@@ -4,8 +4,12 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Company } from '../../../lib/types/database';
+import { useAuth } from '../../components/AuthContext';
+import { resolveAdminCompanyId } from '../_lib/companyScope';
 
 export default function CompaniesPage() {
+  const { user, hasSupabaseSession } = useAuth();
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -15,25 +19,65 @@ export default function CompaniesPage() {
   });
   const [error, setError] = useState('');
 
-  const loadCompanies = async () => {
+  const loadCompanies = async (resolvedCompanyId: string) => {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
-    const { data, error } = await supabase.from('companies').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('id', resolvedCompanyId)
+      .order('created_at', { ascending: false });
     if (!error && data) setCompanies(data as Company[]);
     setLoading(false);
   };
 
-  useEffect(() => { loadCompanies(); }, []);
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadScope = async () => {
+      if (!isSupabaseConfigured || !hasSupabaseSession || !user?.id) {
+        setLoading(false);
+        return;
+      }
+
+      const resolvedCompanyId = await resolveAdminCompanyId({
+        userId: user.id,
+        currentCompanyId: user.companyId,
+        supabase,
+      });
+
+      if (cancelled) return;
+
+      setCompanyId(resolvedCompanyId);
+
+      if (!resolvedCompanyId) {
+        setCompanies([]);
+        setLoading(false);
+        return;
+      }
+
+      await loadCompanies(resolvedCompanyId);
+    };
+
+    loadScope();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   const handleCreate = async () => {
+    if (companyId) { setError('Your account is already linked to a company profile.'); return; }
     if (!formData.name.trim()) { setError('Company name is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { error } = await supabase.from('companies').insert([formData]);
+    const { data, error } = await supabase.from('companies').insert([formData]).select('*').single();
     if (error) { setError(error.message); return; }
     setShowModal(false);
     setFormData({ name: '', company_number: '', vat_number: '', email: '', phone: '', address_line1: '', city: '', postcode: '' });
     setError('');
-    loadCompanies();
+    if (data) {
+      setCompanies([data as Company]);
+    }
   };
 
   const inputStyle = {
@@ -51,14 +95,28 @@ export default function CompaniesPage() {
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Companies</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage companies and memberships</p>
             </div>
-            <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
-              + Create Company
-            </button>
+            {!companyId && (
+              <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
+                + Create Company
+              </button>
+            )}
           </div>
 
           {!isSupabaseConfigured && (
             <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
               ⚠️ Supabase is not configured. Database features are disabled.
+            </div>
+          )}
+
+          {companyId && (
+            <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#1d4ed8' }}>
+              Showing only the company profile linked to your account.
+            </div>
+          )}
+
+          {isSupabaseConfigured && hasSupabaseSession && !companyId && (
+            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#991b1b' }}>
+              Company profile not loaded. Company data is hidden until your scope is resolved.
             </div>
           )}
 
