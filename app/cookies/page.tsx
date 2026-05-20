@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { COMPANY_CONFIG } from '../config/company';
 
 export const metadata: Metadata = {
   title: 'Cookie Policy',
@@ -55,7 +56,7 @@ export default function CookiesPage() {
           </Section>
 
           <Section title="2. How We Use Cookies">
-            XDrive Logistics Ltd uses cookies for the following purposes:
+            {COMPANY_CONFIG.legalName} uses cookies for the following purposes:
             <table
               style={{
                 width: '100%',
@@ -141,10 +142,10 @@ export default function CookiesPage() {
 
           <Section title="7. Contact Us">
             If you have any questions about our use of cookies, please contact:<br /><br />
-            XDrive Logistics Ltd<br />
-            101 Cornelian Street, Blackburn, BB1 9QL<br />
-            Email: contact@xdrivelogistics.co.uk<br />
-            Phone: 07377 694 228
+            {COMPANY_CONFIG.legalName}<br />
+            {COMPANY_CONFIG.address.street}, {COMPANY_CONFIG.address.city}, {COMPANY_CONFIG.address.postcode}<br />
+            Email: {COMPANY_CONFIG.email}<br />
+            Phone: {COMPANY_CONFIG.phoneDisplay}
           </Section>
         </div>
       </div>

@@ -48,6 +48,7 @@ interface User {
   role: UserRole;
   companyId: string | null;
   driverId: string | null;
+  mustChangePassword: boolean;
 }
 
 export type UserRole = 'guest' | 'customer' | 'driver' | 'company' | 'admin' | 'owner';
@@ -87,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resolveRole = async (
     userId: string,
     fallbackRole?: string | null
-  ): Promise<{ role: UserRole; companyId: string | null; driverId: string | null } | null> => {
+  ): Promise<{ role: UserRole; companyId: string | null; driverId: string | null; mustChangePassword: boolean } | null> => {
     const [profileRes, membershipRes, driverRes] = await Promise.all([
       supabase
         .from('profiles')
@@ -104,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle(),
       supabase
         .from('drivers')
-        .select('id, company_id, user_id, app_access')
+        .select('id, company_id, user_id, app_access, must_change_password')
         .eq('user_id', userId)
         .eq('app_access', true)
         .maybeSingle(),
@@ -134,25 +135,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
     const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
-    const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access'> | null;
+    const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null;
     const driverId = driver?.id ?? null;
+    const mustChangePassword = Boolean(driver?.must_change_password);
 
     const resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null;
 
     if (membership?.role_in_company === 'owner') {
-      return resolvedCompanyId ? { role: 'owner', companyId: resolvedCompanyId, driverId } : null;
+      return resolvedCompanyId ? { role: 'owner', companyId: resolvedCompanyId, driverId, mustChangePassword: false } : null;
     }
     if (membership?.role_in_company === 'admin') {
-      return resolvedCompanyId ? { role: 'admin', companyId: resolvedCompanyId, driverId } : null;
+      return resolvedCompanyId ? { role: 'admin', companyId: resolvedCompanyId, driverId, mustChangePassword: false } : null;
     }
     if (membership?.role_in_company === 'dispatcher') {
-      return resolvedCompanyId ? { role: 'company', companyId: resolvedCompanyId, driverId } : null;
+      return resolvedCompanyId ? { role: 'company', companyId: resolvedCompanyId, driverId, mustChangePassword: false } : null;
     }
     if (driver || profile?.is_driver) {
-      return resolvedCompanyId ? { role: 'driver', companyId: resolvedCompanyId, driverId } : null;
+      return resolvedCompanyId ? { role: 'driver', companyId: resolvedCompanyId, driverId, mustChangePassword } : null;
     }
     if (membership?.role_in_company === 'viewer') {
-      return { role: 'customer', companyId: resolvedCompanyId, driverId };
+      return { role: 'customer', companyId: resolvedCompanyId, driverId, mustChangePassword: false };
     }
 
     const profileRole = mapRole(profile?.role);
@@ -160,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if ((profileRole === 'company' || profileRole === 'admin' || profileRole === 'owner' || profileRole === 'driver') && !resolvedCompanyId) {
         return null;
       }
-      return { role: profileRole, companyId: resolvedCompanyId, driverId };
+      return { role: profileRole, companyId: resolvedCompanyId, driverId, mustChangePassword: profileRole === 'driver' ? mustChangePassword : false };
     }
 
     const metadataRole = mapRole(fallbackRole);
@@ -168,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if ((metadataRole === 'company' || metadataRole === 'admin' || metadataRole === 'owner' || metadataRole === 'driver') && !resolvedCompanyId) {
         return null;
       }
-      return { role: metadataRole, companyId: resolvedCompanyId, driverId };
+      return { role: metadataRole, companyId: resolvedCompanyId, driverId, mustChangePassword: metadataRole === 'driver' ? mustChangePassword : false };
     }
 
     return null;
@@ -201,15 +203,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: roleData.role,
       companyId: roleData.companyId,
       driverId: roleData.driverId,
+      mustChangePassword: roleData.mustChangePassword,
     };
     setUser(userData);
     setHasSupabaseSession(true);
     return userData;
   };
 
-  const getPostLoginRoute = (role: UserRole) => {
-    if (role === 'driver') return '/driver/jobs';
-    if (role === 'customer') return '/customer';
+  const getPostLoginRoute = (currentUser: User) => {
+    if (currentUser.role === 'driver') return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
+    if (currentUser.role === 'customer') return '/customer';
     return '/admin';
   };
 
@@ -282,7 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!hydrated) {
         return { success: false, error: 'Unable to validate account access.' };
       }
-      router.push(getPostLoginRoute(hydrated.role));
+      router.push(getPostLoginRoute(hydrated));
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);

@@ -57,6 +57,9 @@ export interface Driver {
   status: string;
   login_pin: string | null;
   app_access: boolean;
+  temporary_password_seq: number | null;
+  must_change_password: boolean;
+  temp_password_generated_at: string | null;
   last_app_login: string | null;
   device_token: string | null;
   created_at: string;
