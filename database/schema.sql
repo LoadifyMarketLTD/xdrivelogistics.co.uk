@@ -48,6 +48,29 @@ CREATE TABLE public.companies (
   created_at      timestamptz DEFAULT now()
 );
 
+-- ── Company settings ───────────────────────────────────
+CREATE TABLE public.company_settings (
+  company_id                   uuid        PRIMARY KEY REFERENCES public.companies(id) ON DELETE CASCADE,
+  legal_name                   text,
+  job_ref_prefix               text,
+  invoice_prefix               text,
+  default_vat_rate             int         DEFAULT 20,
+  default_payment_terms        text        DEFAULT '14 days',
+  currency                     text        DEFAULT 'GBP',
+  date_format                  text        DEFAULT 'DD/MM/YYYY',
+  bank_account_name            text,
+  bank_sort_code               text,
+  bank_account_number          text,
+  paypal_email                 text,
+  notify_email_new_job         boolean     DEFAULT true,
+  notify_email_status_change   boolean     DEFAULT true,
+  notify_email_invoice_paid    boolean     DEFAULT true,
+  notify_email_bid_received    boolean     DEFAULT false,
+  updated_by                   uuid        REFERENCES auth.users(id),
+  created_at                   timestamptz DEFAULT now(),
+  updated_at                   timestamptz DEFAULT now()
+);
+
 -- ── Company memberships ───────────────────────────────
 CREATE TABLE public.company_memberships (
   id              uuid               PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -62,6 +85,8 @@ CREATE TABLE public.company_memberships (
   UNIQUE(company_id, invited_email)
 );
 
+CREATE SEQUENCE IF NOT EXISTS public.driver_temp_password_seq START WITH 1 INCREMENT BY 1;
+
 -- ── Drivers ───────────────────────────────────────────
 CREATE TABLE public.drivers (
   id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -73,9 +98,13 @@ CREATE TABLE public.drivers (
   status          text        DEFAULT 'active',
   login_pin       text,
   app_access      boolean     NOT NULL DEFAULT false,
+  temporary_password_seq integer DEFAULT nextval('public.driver_temp_password_seq'),
+  must_change_password boolean NOT NULL DEFAULT false,
+  temp_password_generated_at timestamptz,
   last_app_login  timestamptz,
   device_token    text,
-  created_at      timestamptz DEFAULT now()
+  created_at      timestamptz DEFAULT now(),
+  UNIQUE(temporary_password_seq)
 );
 
 -- ── Vehicles ──────────────────────────────────────────
@@ -315,6 +344,21 @@ CREATE TABLE public.job_driver_distance_cache (
   UNIQUE(job_id, driver_id)
 );
 
+CREATE OR REPLACE FUNCTION public.set_company_settings_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_company_settings_updated_at ON public.company_settings;
+CREATE TRIGGER trg_company_settings_updated_at
+  BEFORE UPDATE ON public.company_settings
+  FOR EACH ROW EXECUTE FUNCTION public.set_company_settings_updated_at();
+
 -- ── Indexes ───────────────────────────────────────────
 CREATE INDEX idx_drivers_company_id      ON public.drivers(company_id);
 CREATE INDEX idx_drivers_status          ON public.drivers(status);
@@ -333,6 +377,7 @@ CREATE INDEX idx_driver_locations_time   ON public.driver_locations(recorded_at 
 -- ── Row Level Security ────────────────────────────────
 ALTER TABLE public.profiles             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.companies            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.company_settings     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.company_memberships  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.drivers              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vehicles             ENABLE ROW LEVEL SECURITY;
@@ -366,6 +411,18 @@ RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
   );
 $$;
 
+CREATE OR REPLACE FUNCTION public.next_driver_temp_password_seq()
+RETURNS integer
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT nextval('public.driver_temp_password_seq')::integer;
+$$;
+
+REVOKE ALL ON FUNCTION public.next_driver_temp_password_seq() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.next_driver_temp_password_seq() TO service_role;
+
 -- ── RLS Policies ──────────────────────────────────────
 
 -- Profiles
@@ -377,6 +434,11 @@ CREATE POLICY "companies_select_member" ON public.companies FOR SELECT USING (pu
 CREATE POLICY "companies_insert_auth"   ON public.companies FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 CREATE POLICY "companies_update_admin"  ON public.companies FOR UPDATE USING (public.is_company_admin(id));
 
+-- Company settings
+CREATE POLICY "company_settings_select_member" ON public.company_settings FOR SELECT USING (public.is_company_member(company_id));
+CREATE POLICY "company_settings_insert_admin"  ON public.company_settings FOR INSERT WITH CHECK (public.is_company_admin(company_id));
+CREATE POLICY "company_settings_update_admin"  ON public.company_settings FOR UPDATE USING (public.is_company_admin(company_id));
+
 -- Company memberships
 CREATE POLICY "memberships_select_member" ON public.company_memberships FOR SELECT USING (public.is_company_member(company_id));
 CREATE POLICY "memberships_insert_admin"  ON public.company_memberships FOR INSERT WITH CHECK (public.is_company_admin(company_id));
@@ -384,6 +446,7 @@ CREATE POLICY "memberships_update_admin"  ON public.company_memberships FOR UPDA
 
 -- Drivers
 CREATE POLICY "drivers_select_member" ON public.drivers FOR SELECT USING (public.is_company_member(company_id));
+CREATE POLICY "drivers_select_own"    ON public.drivers FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY "drivers_all_admin"     ON public.drivers FOR ALL    USING (public.is_company_admin(company_id));
 
 -- Vehicles
