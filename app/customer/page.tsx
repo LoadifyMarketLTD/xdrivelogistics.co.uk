@@ -18,11 +18,13 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 
 export default function CustomerPage() {
   const { user, logout } = useAuth();
+  const companyId = user?.companyId ?? null;
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formError, setFormError] = useState('');
+  const [pageMessage, setPageMessage] = useState('');
   const [formData, setFormData] = useState({
     pickup_location: '',
     delivery_location: '',
@@ -33,27 +35,41 @@ export default function CustomerPage() {
 
   const loadQuotes = async () => {
     setLoading(true);
+    setPageMessage('');
     if (!isSupabaseConfigured || !user?.email) { setLoading(false); return; }
+    if (!companyId) {
+      setQuotes([]);
+      setPageMessage('Your account is not linked to a company yet, so quote data is hidden.');
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from('quotes')
       .select('*')
+      .eq('company_id', companyId)
       .eq('customer_email', user.email)
       .order('created_at', { ascending: false });
-    if (!error && data) setQuotes(data as Quote[]);
+    if (!error && data) {
+      setQuotes(data as Quote[]);
+    } else if (error) {
+      setQuotes([]);
+      setPageMessage(`Unable to load quotes: ${error.message}`);
+    }
     setLoading(false);
   };
 
   useEffect(() => {
     if (user?.email) loadQuotes();
-  }, [user?.email]);
+  }, [user?.email, companyId]);
 
   const handleRequestQuote = async () => {
     setFormError('');
     if (!formData.pickup_location.trim()) { setFormError('Pickup location is required'); return; }
     if (!formData.delivery_location.trim()) { setFormError('Delivery location is required'); return; }
-    if (!isSupabaseConfigured || !user?.email) { setFormError('Service unavailable. Please try again later.'); return; }
+    if (!isSupabaseConfigured || !user?.email || !companyId) { setFormError('Your account is not linked to a company yet. Quote requests are unavailable.'); return; }
 
     const { error } = await supabase.from('quotes').insert([{
+      company_id: companyId,
       customer_name: user.email.split('@')[0],
       customer_email: user.email,
       customer_phone: formData.customer_phone || null,
@@ -98,6 +114,12 @@ export default function CustomerPage() {
         </header>
 
         <main style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
+          {pageMessage && (
+            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#92400e', fontWeight: '600' }}>
+              {pageMessage}
+            </div>
+          )}
+
           {submitSuccess && (
             <div style={{ backgroundColor: '#dcfce7', border: '1px solid #1F7A3D', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#14532d', fontWeight: '600' }}>
               ✅ Your quote request has been submitted. We&apos;ll be in touch shortly.

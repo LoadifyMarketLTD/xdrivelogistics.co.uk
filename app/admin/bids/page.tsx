@@ -18,29 +18,61 @@ export default function BidsPage() {
   const companyId = user?.companyId ?? null;
   const [bids, setBids] = useState<JobBid[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const loadBids = async () => {
     setLoading(true);
+    setError('');
     if (!isSupabaseConfigured) { setLoading(false); return; }
-    if (!companyId) { setBids([]); setLoading(false); return; }
+    if (!companyId) {
+      setBids([]);
+      setError('Company profile not loaded. Bid data is hidden until company access resolves.');
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from('job_bids')
-      .select('*')
-      .eq('company_id', companyId)
+      .select('*, jobs!inner(company_id)')
+      .eq('jobs.company_id', companyId)
       .order('created_at', { ascending: false });
-    if (!error && data) setBids(data as JobBid[]);
+    if (error) {
+      setBids([]);
+      setError(`Failed to load bids: ${error.message}`);
+    } else if (data) {
+      setBids(data as JobBid[]);
+    }
     setLoading(false);
   };
 
   useEffect(() => { loadBids(); }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateStatus = async (id: string, status: string) => {
-    if (!isSupabaseConfigured) return;
-    const { error } = await supabase.from('job_bids').update({ status }).eq('id', id);
-    if (error) {
-      console.error('Failed to update bid status:', error.message);
+    if (!isSupabaseConfigured || !companyId) return;
+
+    const { data: verifiedBid, error: verifyError } = await supabase
+      .from('job_bids')
+      .select('id, job_id, jobs!inner(company_id)')
+      .eq('id', id)
+      .eq('jobs.company_id', companyId)
+      .maybeSingle();
+
+    if (verifyError || !verifiedBid) {
+      setError('Bid not found for the current company.');
       return;
     }
+
+    const { error: updateError } = await supabase
+      .from('job_bids')
+      .update({ status })
+      .eq('id', id)
+      .eq('job_id', verifiedBid.job_id as string);
+
+    if (updateError) {
+      console.error('Failed to update bid status:', updateError.message);
+      setError(`Failed to update bid status: ${updateError.message}`);
+      return;
+    }
+
     loadBids();
   };
 
@@ -56,6 +88,12 @@ export default function BidsPage() {
           {!isSupabaseConfigured && (
             <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
               ⚠️ Supabase is not configured. Database features are disabled.
+            </div>
+          )}
+
+          {error && (
+            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#991b1b' }}>
+              {error}
             </div>
           )}
 

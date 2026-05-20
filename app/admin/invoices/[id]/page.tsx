@@ -6,6 +6,7 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import InvoiceTemplate, { InvoiceData } from '../../../components/InvoiceTemplate';
 import { COMPANY_CONFIG } from '../../../config/company';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
+import { useAuth } from '../../../components/AuthContext';
 import {
   DEFAULT_COMPANY_SETTINGS,
   hasConfiguredBankDetails,
@@ -83,6 +84,7 @@ export default function InvoiceDetailPage() {
   const params = useParams();
   const invoiceId = params?.id as string;
   const isNew = invoiceId === 'new';
+  const { user, hasSupabaseSession } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companySettings, setCompanySettings] = useState<CompanySettingsValues>(DEFAULT_COMPANY_SETTINGS);
 
@@ -115,8 +117,12 @@ export default function InvoiceDetailPage() {
 
   // Load the company ID for the current user (needed to write invoices to Supabase)
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !user?.id) return;
     const fetchCompanyId = async () => {
+      if (user.companyId) {
+        setCompanyId(user.companyId);
+        return;
+      }
       const { data, error } = await supabase.rpc('get_or_create_company_for_user');
       if (!error && data) {
         setCompanyId(data as string);
@@ -126,13 +132,14 @@ export default function InvoiceDetailPage() {
       const { data: mbData } = await supabase
         .from('company_memberships')
         .select('company_id')
+        .eq('user_id', user.id)
         .neq('status', 'suspended')
         .limit(1)
-        .single();
+        .maybeSingle();
       if (mbData) setCompanyId(mbData.company_id as string);
     };
     fetchCompanyId();
-  }, []);
+  }, [user?.id, user?.companyId]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !companyId) return;
@@ -158,7 +165,7 @@ export default function InvoiceDetailPage() {
       loadInvoice();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoiceId]);
+  }, [invoiceId, companyId, hasSupabaseSession]);
 
   // Generate new invoice data once on mount for new invoices;
   // re-run if companyId resolves so we can use the DB sequence number
@@ -258,11 +265,16 @@ export default function InvoiceDetailPage() {
 
   const loadInvoice = async () => {
     // Try Supabase first
-    if (isSupabaseConfigured) {
+    if (isSupabaseConfigured && hasSupabaseSession) {
+      if (!companyId) {
+        setSaveMessage('Company profile not loaded. Invoice data is unavailable.');
+        return;
+      }
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
         .eq('id', invoiceId)
+        .eq('company_id', companyId)
         .single();
       if (!error && data) {
         setFormData(dbToInvoiceData(data as Invoice));
@@ -271,6 +283,8 @@ export default function InvoiceDetailPage() {
       if (error && error.code !== 'PGRST116') {
         console.error('Failed to load invoice from Supabase:', error.message);
       }
+      setSaveMessage('Invoice not found');
+      return;
     }
     // Fallback: localStorage
     try {
@@ -296,9 +310,17 @@ export default function InvoiceDetailPage() {
     // Save to Supabase when available
     if (isSupabaseConfigured && companyId) {
       const row = invoiceDataToDb(formData, companyId);
+      const { id: _id, company_id: _companyId, created_by: _createdBy, ...updateFields } = row;
       const { error } = isNew
         ? await supabase.from('invoices').insert([row])
-        : await supabase.from('invoices').upsert([row]);
+        : await supabase
+            .from('invoices')
+            .update({
+              ...updateFields,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', invoiceId)
+            .eq('company_id', companyId);
       if (!error) {
         setSaveMessage('Invoice saved successfully!');
         setTimeout(() => setSaveMessage(''), 3000);
@@ -309,6 +331,11 @@ export default function InvoiceDetailPage() {
       }
       console.error('Supabase save error:', error.message);
       setSaveMessage(`Error saving invoice: ${error.message}`);
+      setTimeout(() => setSaveMessage(''), 4000);
+      return;
+    }
+    if (isSupabaseConfigured && hasSupabaseSession && !companyId) {
+      setSaveMessage('Company profile not loaded. Invoice cannot be saved safely.');
       setTimeout(() => setSaveMessage(''), 4000);
       return;
     }

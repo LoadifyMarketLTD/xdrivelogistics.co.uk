@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { COMPANY_CONFIG } from '../config/company';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -15,7 +17,20 @@ export default function LoginPage() {
   const [resetMessage, setResetMessage] = useState('');
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
-  const { login, resetPassword } = useAuth();
+  const { login, resetPassword, user, isLoading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    if (user.role === 'driver') {
+      router.replace('/driver/jobs');
+    } else if (user.role === 'customer') {
+      router.replace('/customer');
+    } else if (user.role === 'company' || user.role === 'admin' || user.role === 'owner') {
+      router.replace('/admin');
+    } else {
+      router.replace('/forbidden');
+    }
+  }, [authLoading, user, router]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

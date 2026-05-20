@@ -105,12 +105,15 @@ export default function JobsPage() {
   };
 
   useEffect(() => {
-    loadJobs();
-    if (hasSupabaseSession && user?.id) {
+    if (hasSupabaseSession && user?.id && !companyId) {
       loadCompanyId(user.id);
     }
+  }, [user?.id, hasSupabaseSession, companyId]);
+
+  useEffect(() => {
+    loadJobs();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, hasSupabaseSession]);
+  }, [hasSupabaseSession, companyId]);
 
   useEffect(() => {
     filterJobs();
@@ -118,13 +121,28 @@ export default function JobsPage() {
   }, [jobs, searchTerm, statusFilter]);
 
   const loadJobs = async () => {
+    setDbError(null);
     if (hasSupabaseSession) {
-      const { data, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
+      if (!companyId) {
+        setJobs([]);
+        setFilteredJobs([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+
       if (error) {
         console.error('Failed to load jobs from Supabase:', error.message);
+        setJobs([]);
+        setFilteredJobs([]);
         setDbError(`Failed to load jobs: ${error.message}`);
+        return;
       }
-      if (!error && data) {
+      if (data) {
         const mapped = data.map((row: Record<string, unknown>) => ({
           id: row.id as string,
           jobRef: (row.id as string).slice(0, 13).toUpperCase(),
@@ -156,7 +174,7 @@ export default function JobsPage() {
         return;
       }
     }
-    // Fallback to localStorage
+    // Fallback to localStorage (local-only mode)
     const stored = localStorage.getItem('xdrive_jobs');
     if (stored) {
       setJobs(JSON.parse(stored));
@@ -372,7 +390,15 @@ export default function JobsPage() {
 
   const handleStatusChange = async (jobId: string, newStatus: string) => {
     if (hasSupabaseSession) {
-      const { error } = await supabase.from('jobs').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', jobId);
+      if (!companyId) {
+        setDbError('Company profile not loaded. Job status cannot be updated safely.');
+        return;
+      }
+      const { error } = await supabase
+        .from('jobs')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', jobId)
+        .eq('company_id', companyId);
       if (error) {
         console.error('Failed to update job status:', error.message);
         setDbError(`Failed to update job status: ${error.message}`);
