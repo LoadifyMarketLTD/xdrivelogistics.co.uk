@@ -20,7 +20,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       return ['company', 'admin', 'owner'];
     }
     if (pathname.startsWith('/driver')) {
-      return ['driver', 'admin', 'owner'];
+      return ['driver'];
     }
     return null;
   };

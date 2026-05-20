@@ -79,10 +79,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
+  const resetAuthState = () => {
+    setUser(null);
+    setHasSupabaseSession(false);
+  };
+
   const resolveRole = async (
     userId: string,
     fallbackRole?: string | null
-  ): Promise<{ role: UserRole; companyId: string | null; driverId: string | null }> => {
+  ): Promise<{ role: UserRole; companyId: string | null; driverId: string | null } | null> => {
     const [profileRes, membershipRes, driverRes] = await Promise.all([
       supabase
         .from('profiles')
@@ -110,18 +115,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userId,
         error: profileRes.error,
       });
+      return null;
     }
     if (membershipRes.error) {
       console.error('AuthContext.resolveRole company_memberships query failed', {
         userId,
         error: membershipRes.error,
       });
+      return null;
     }
     if (driverRes.error) {
       console.error('AuthContext.resolveRole drivers query failed', {
         userId,
         error: driverRes.error,
       });
+      return null;
     }
 
     const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
@@ -129,47 +137,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access'> | null;
     const driverId = driver?.id ?? null;
 
+    const resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null;
+
     if (membership?.role_in_company === 'owner') {
-      return { role: 'owner', companyId: membership.company_id, driverId };
+      return resolvedCompanyId ? { role: 'owner', companyId: resolvedCompanyId, driverId } : null;
     }
     if (membership?.role_in_company === 'admin') {
-      return { role: 'admin', companyId: membership.company_id, driverId };
+      return resolvedCompanyId ? { role: 'admin', companyId: resolvedCompanyId, driverId } : null;
     }
     if (membership?.role_in_company === 'dispatcher') {
-      return { role: 'company', companyId: membership.company_id, driverId };
+      return resolvedCompanyId ? { role: 'company', companyId: resolvedCompanyId, driverId } : null;
     }
     if (driver || profile?.is_driver) {
-      return { role: 'driver', companyId: driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null, driverId };
+      return resolvedCompanyId ? { role: 'driver', companyId: resolvedCompanyId, driverId } : null;
     }
     if (membership?.role_in_company === 'viewer') {
-      return { role: 'customer', companyId: membership.company_id, driverId };
+      return { role: 'customer', companyId: resolvedCompanyId, driverId };
     }
 
     const profileRole = mapRole(profile?.role);
     if (profileRole) {
-      return { role: profileRole, companyId: profile?.company_id ?? null, driverId };
+      if ((profileRole === 'company' || profileRole === 'admin' || profileRole === 'owner' || profileRole === 'driver') && !resolvedCompanyId) {
+        return null;
+      }
+      return { role: profileRole, companyId: resolvedCompanyId, driverId };
     }
 
     const metadataRole = mapRole(fallbackRole);
     if (metadataRole) {
-      return { role: metadataRole, companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
+      if ((metadataRole === 'company' || metadataRole === 'admin' || metadataRole === 'owner' || metadataRole === 'driver') && !resolvedCompanyId) {
+        return null;
+      }
+      return { role: metadataRole, companyId: resolvedCompanyId, driverId };
     }
 
-    if (fallbackRole === 'driver') {
-      return { role: 'driver', companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
-    }
-
-    return { role: 'customer', companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
+    return null;
   };
 
   const hydrateUser = async (sessionUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> | null }) => {
+    if (!sessionUser?.id) {
+      resetAuthState();
+      return null;
+    }
+
     const fallbackRole =
       typeof sessionUser.user_metadata?.role === 'string'
         ? sessionUser.user_metadata.role
         : typeof sessionUser.user_metadata?.requested_role === 'string'
           ? sessionUser.user_metadata.requested_role
           : null;
-    const roleData = await resolveRole(sessionUser.id, fallbackRole);
+    const roleData = await withTimeout(resolveRole(sessionUser.id, fallbackRole), LOGIN_TIMEOUT_MS);
+    if (!roleData) {
+      resetAuthState();
+      if (isSupabaseConfigured) {
+        await supabase.auth.signOut();
+      }
+      return null;
+    }
+
     const userData: User = {
       id: sessionUser.id,
       email: sessionUser.email ?? '',
@@ -189,34 +214,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     if (!isSupabaseConfigured) {
-      setUser(null);
-      setHasSupabaseSession(false);
-      setIsLoading(false);
+      resetAuthState();
+      if (isMounted) setIsLoading(false);
       return;
     }
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        await hydrateUser(session.user);
-      } else {
-        setUser(null);
-        setHasSupabaseSession(false);
+    const bootstrapAuth = async () => {
+      try {
+        const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
+        if (error) {
+          throw error;
+        }
+
+        if (session?.user) {
+          await hydrateUser(session.user);
+        } else {
+          resetAuthState();
+        }
+      } catch (error) {
+        console.error('AuthContext bootstrap failed', error);
+        resetAuthState();
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    };
+
+    void bootstrapAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        await hydrateUser(session.user);
-      } else {
-        setUser(null);
-        setHasSupabaseSession(false);
+      try {
+        if (session?.user) {
+          await hydrateUser(session.user);
+        } else {
+          resetAuthState();
+        }
+      } catch (error) {
+        console.error('AuthContext auth state handling failed', error);
+        resetAuthState();
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-      setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
@@ -232,7 +278,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) return { success: false, error: error.message };
       if (!data.user) return { success: false, error: 'Login failed' };
 
-      const hydrated = await hydrateUser(data.user);
+      const hydrated = await withTimeout(hydrateUser(data.user), LOGIN_TIMEOUT_MS);
+      if (!hydrated) {
+        return { success: false, error: 'Unable to validate account access.' };
+      }
       router.push(getPostLoginRoute(hydrated.role));
       return { success: true };
     } catch (error) {
@@ -262,8 +311,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
-    setUser(null);
-    setHasSupabaseSession(false);
+    resetAuthState();
     router.push('/login');
   };
 
