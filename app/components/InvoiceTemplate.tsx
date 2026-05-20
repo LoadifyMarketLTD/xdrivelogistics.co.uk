@@ -2,6 +2,11 @@
 
 import React from 'react';
 import { COMPANY_CONFIG } from '../config/company';
+import {
+  DEFAULT_COMPANY_SETTINGS,
+  hasConfiguredBankDetails,
+  type CompanySettingsValues,
+} from '../../lib/companySettings';
 
 export interface InvoiceData {
   id: string;
@@ -33,9 +38,14 @@ export interface InvoiceData {
 interface InvoiceTemplateProps {
   invoice: InvoiceData;
   showPreview?: boolean;
+  companySettings?: CompanySettingsValues;
 }
 
-export default function InvoiceTemplate({ invoice, showPreview: _showPreview = false }: InvoiceTemplateProps) {
+export default function InvoiceTemplate({
+  invoice,
+  showPreview: _showPreview = false,
+  companySettings = DEFAULT_COMPANY_SETTINGS,
+}: InvoiceTemplateProps) {
   // Calculate payment due date based on payment terms
   const calculateDueDate = (invoiceDate: string, terms: string): Date => {
     const date = new Date(invoiceDate);
@@ -50,6 +60,7 @@ export default function InvoiceTemplate({ invoice, showPreview: _showPreview = f
   };
 
   const paymentDueDate = calculateDueDate(invoice.date, invoice.paymentTerms);
+  const bankTransferConfigured = hasConfiguredBankDetails(companySettings);
   
   const containerStyle: React.CSSProperties = {
     backgroundColor: 'white',
@@ -143,7 +154,7 @@ export default function InvoiceTemplate({ invoice, showPreview: _showPreview = f
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
               <h1 style={{ fontSize: '2rem', fontWeight: '700', margin: '0 0 0.5rem 0' }}>
-                {COMPANY_CONFIG.name}
+                {companySettings.companyName}
               </h1>
               <p style={{ margin: 0, opacity: 0.9, fontSize: '0.95rem' }}>
                 {COMPANY_CONFIG.tagline}
@@ -304,7 +315,7 @@ export default function InvoiceTemplate({ invoice, showPreview: _showPreview = f
             </div>
           </div>
           <div style={{ fontSize: '0.875rem', color: '#92400e', marginTop: '1rem', fontWeight: '500' }}>
-            {COMPANY_CONFIG.payment.lateFeeAmount}
+            {invoice.lateFee || COMPANY_CONFIG.payment.lateFeeAmount}
           </div>
         </div>
 
@@ -315,16 +326,22 @@ export default function InvoiceTemplate({ invoice, showPreview: _showPreview = f
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem' }}>
             <div style={{ backgroundColor: '#f3f4f6', padding: '1.25rem', borderRadius: '8px' }}>
               <div style={{ ...labelStyle, fontSize: '0.95rem', color: '#0A2239', marginBottom: '0.75rem' }}>Bank Transfer</div>
-              <div style={{ fontSize: '0.95rem', color: '#1f2937', lineHeight: '1.8', fontWeight: '500' }}>
-                <div style={{ marginBottom: '0.5rem' }}><strong>{COMPANY_CONFIG.payment.bankTransfer.accountName}</strong></div>
-                <div>Sort Code: <strong>{COMPANY_CONFIG.payment.bankTransfer.sortCode}</strong></div>
-                <div>Account: <strong>{COMPANY_CONFIG.payment.bankTransfer.accountNumber}</strong></div>
-              </div>
+              {bankTransferConfigured ? (
+                <div style={{ fontSize: '0.95rem', color: '#1f2937', lineHeight: '1.8', fontWeight: '500' }}>
+                  <div style={{ marginBottom: '0.5rem' }}><strong>{companySettings.bankAccountName}</strong></div>
+                  <div>Sort Code: <strong>{companySettings.bankSortCode}</strong></div>
+                  <div>Account: <strong>{companySettings.bankAccountNumber}</strong></div>
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: '500' }}>
+                  Bank transfer details available on request.
+                </div>
+              )}
             </div>
             <div style={{ backgroundColor: '#f3f4f6', padding: '1.25rem', borderRadius: '8px' }}>
               <div style={{ ...labelStyle, fontSize: '0.95rem', color: '#0A2239', marginBottom: '0.75rem' }}>PayPal</div>
               <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: '500' }}>
-                {COMPANY_CONFIG.payment.paypal.email}
+                {companySettings.paypalEmail || 'PayPal details available on request.'}
               </div>
             </div>
           </div>
@@ -406,7 +423,7 @@ export default function InvoiceTemplate({ invoice, showPreview: _showPreview = f
             Thank you for your business!
           </p>
           <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: '0.5rem 0 0 0' }}>
-            For any queries, please contact us at {COMPANY_CONFIG.email}
+            For any queries, please contact us at {companySettings.email || COMPANY_CONFIG.email}
           </p>
         </div>
       </div>
