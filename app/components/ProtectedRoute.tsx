@@ -19,8 +19,11 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     if (pathname.startsWith('/admin') || pathname.startsWith('/m')) {
       return ['company', 'admin', 'owner'];
     }
-    if (pathname.startsWith('/driver/jobs')) {
+    if (pathname.startsWith('/driver')) {
       return ['driver', 'admin', 'owner'];
+    }
+    if (pathname.startsWith('/customer')) {
+      return ['customer', 'admin', 'owner'];
     }
     return null;
   };

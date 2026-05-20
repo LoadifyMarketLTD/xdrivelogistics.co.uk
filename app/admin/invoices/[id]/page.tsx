@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
+import { useAuth } from '../../../components/AuthContext';
 import InvoiceTemplate, { InvoiceData } from '../../../components/InvoiceTemplate';
 import { COMPANY_CONFIG } from '../../../config/company';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
@@ -81,6 +82,7 @@ function dbToInvoiceData(row: Invoice): InvoiceData {
 export default function InvoiceDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const { user } = useAuth();
   const invoiceId = params?.id as string;
   const isNew = invoiceId === 'new';
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -126,6 +128,7 @@ export default function InvoiceDetailPage() {
       const { data: mbData } = await supabase
         .from('company_memberships')
         .select('company_id')
+        .eq('user_id', user?.id ?? '')
         .neq('status', 'suspended')
         .limit(1)
         .single();
@@ -158,7 +161,7 @@ export default function InvoiceDetailPage() {
       loadInvoice();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoiceId]);
+  }, [invoiceId, companyId]);
 
   // Generate new invoice data once on mount for new invoices;
   // re-run if companyId resolves so we can use the DB sequence number
@@ -257,12 +260,13 @@ export default function InvoiceDetailPage() {
   };
 
   const loadInvoice = async () => {
-    // Try Supabase first
     if (isSupabaseConfigured) {
+      if (!companyId) return;
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
         .eq('id', invoiceId)
+        .eq('company_id', companyId)
         .single();
       if (!error && data) {
         setFormData(dbToInvoiceData(data as Invoice));

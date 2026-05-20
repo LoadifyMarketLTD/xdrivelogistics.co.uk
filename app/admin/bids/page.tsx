@@ -35,8 +35,8 @@ export default function BidsPage() {
   useEffect(() => { loadBids(); }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateStatus = async (id: string, status: string) => {
-    if (!isSupabaseConfigured) return;
-    const { error } = await supabase.from('job_bids').update({ status }).eq('id', id);
+    if (!isSupabaseConfigured || !companyId) return;
+    const { error } = await supabase.from('job_bids').update({ status }).eq('id', id).eq('company_id', companyId);
     if (error) {
       console.error('Failed to update bid status:', error.message);
       return;

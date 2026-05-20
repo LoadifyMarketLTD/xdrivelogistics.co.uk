@@ -185,7 +185,8 @@ export default function DriverJobDetailPage() {
         driver_notes: driverNotes || null,
         ...extraFields,
       })
-      .eq('id', job.id);
+      .eq('id', job.id)
+      .eq('assigned_driver_id', driverId);
 
     if (dbError) {
       setError(dbError.message);

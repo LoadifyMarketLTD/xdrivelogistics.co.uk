@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DriverDocument, VehicleDocument, DocStatus } from '../../../lib/types/database';
 
@@ -15,27 +16,33 @@ const STATUS_COLORS: Record<DocStatus, { bg: string; text: string }> = {
 };
 
 export default function DocumentsPage() {
+  const { user } = useAuth();
+  const companyId = user?.companyId ?? null;
   const [docs, setDocs] = useState<AnyDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'driver' | 'vehicle'>('driver');
 
   const loadDocs = async () => {
     setLoading(true);
-    if (!isSupabaseConfigured) { setLoading(false); return; }
+    if (!isSupabaseConfigured || !companyId) { setDocs([]); setLoading(false); return; }
     if (tab === 'driver') {
-      const { data } = await supabase.from('driver_documents').select('*, drivers(display_name)').order('created_at', { ascending: false });
-      if (data) setDocs(data.map((d: DriverDocument & { drivers?: { display_name: string } }) => ({ ...d, kind: 'driver' as const, subject_name: d.drivers?.display_name })));
+      const { data } = await supabase.from('driver_documents').select('*, drivers!inner(display_name, company_id)').eq('drivers.company_id', companyId).order('created_at', { ascending: false });
+      if (data) setDocs(data.map((d: DriverDocument & { drivers?: { display_name: string; company_id: string } }) => ({ ...d, kind: 'driver' as const, subject_name: d.drivers?.display_name })));
+      else setDocs([]);
     } else {
-      const { data } = await supabase.from('vehicle_documents').select('*, vehicles(reg_plate)').order('created_at', { ascending: false });
-      if (data) setDocs(data.map((d: VehicleDocument & { vehicles?: { reg_plate: string } }) => ({ ...d, kind: 'vehicle' as const, subject_name: d.vehicles?.reg_plate })));
+      const { data } = await supabase.from('vehicle_documents').select('*, vehicles!inner(reg_plate, company_id)').eq('vehicles.company_id', companyId).order('created_at', { ascending: false });
+      if (data) setDocs(data.map((d: VehicleDocument & { vehicles?: { reg_plate: string; company_id: string } }) => ({ ...d, kind: 'vehicle' as const, subject_name: d.vehicles?.reg_plate })));
+      else setDocs([]);
     }
     setLoading(false);
   };
 
-  useEffect(() => { loadDocs(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadDocs(); }, [tab, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateStatus = async (id: string, status: DocStatus) => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !companyId) return;
+    const docInScope = docs.find(d => d.id === id);
+    if (!docInScope) return;
     const table = tab === 'driver' ? 'driver_documents' : 'vehicle_documents';
     const { error } = await supabase.from(table).update({ status }).eq('id', id);
     if (error) {
