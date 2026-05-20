@@ -6,9 +6,9 @@ Legend: ✅ PASS | ❌ FAIL | ⚠️ FAKE/STUB | ➖ MISSING
 |---|---|---|---|---|---|---|---|---|
 | **AUTH** | | | | | | | | |
 | Login with Supabase credentials | Any | `/login` | `auth.users` | Supabase auth | Redirect to `/admin` | ✅ PASS | `AuthContext.tsx` `supabase.auth.signInWithPassword` | None |
-| Login with legacy fallback | Any | `/login` | None | localStorage compare | Redirect to `/admin` | ✅ PASS | `AuthContext.tsx` `LEGACY_CREDENTIALS` | None |
+| Login with legacy fallback | Any | `/login` | None | N/A | Legacy fallback should not exist | ✅ REMOVED | `AuthContext.tsx` uses Supabase-only sign-in path (no `LEGACY_CREDENTIALS`) | None |
 | Logout | Any | `/admin` | `auth.users` | Supabase signOut | Redirect to `/login` | ✅ PASS | `AuthContext.tsx` `logout()` | None |
-| Register / Sign up | Any | N/A | N/A | N/A | Create account | ➖ MISSING | No `/register` route exists | Create register page (out of scope for MVP) |
+| Register / Sign up | Any | `/register` | `auth.users` | Supabase signUp | Create account and continue via `/auth/callback` | ✅ PASS | `app/register/page.tsx` + Supabase sign-up flow | None |
 | Role-based routing (mobile vs desktop) | Mobile | `/login` | None | `role` in credentials | Redirect to `/m` | ✅ PASS | `AuthContext.tsx` `role: 'mobile'` | None |
 | ProtectedRoute (unauthenticated redirect) | Visitor | Any `/admin/**` | None | Client-side check | Redirect to `/login` | ✅ PASS | `ProtectedRoute.tsx` | None |
 | **COMPANIES** | | | | | | | | |
