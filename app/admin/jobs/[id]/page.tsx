@@ -130,20 +130,7 @@ export default function JobDetailPage() {
           return;
         }
       }
-      // Fallback to localStorage
-      const stored = localStorage.getItem('xdrive_jobs');
-      if (stored) {
-        const jobs: Job[] = JSON.parse(stored);
-        const foundJob = jobs.find((j) => j.id === jobId);
-        if (foundJob) {
-          setJob(foundJob);
-          setFormData(foundJob);
-        } else {
-          setSaveMessage('Job not found');
-        }
-      } else {
-        setSaveMessage('Job not found');
-      }
+      setSaveMessage('A live Supabase session is required to access job details safely.');
     } catch (error) {
       console.error('Error loading job:', error);
       setSaveMessage('Error loading job');
@@ -194,18 +181,8 @@ export default function JobDetailPage() {
         setTimeout(() => setSaveMessage(''), 3000);
         return;
       }
-      // Fallback to localStorage
-      const stored = localStorage.getItem('xdrive_jobs');
-      if (stored) {
-        let jobs: Job[] = JSON.parse(stored);
-        formData.updatedAt = new Date().toISOString();
-        jobs = jobs.map((j) => (j.id === jobId ? formData : j));
-        localStorage.setItem('xdrive_jobs', JSON.stringify(jobs));
-        setJob(formData);
-        setEditMode(false);
-        setSaveMessage('Job saved successfully!');
-        setTimeout(() => setSaveMessage(''), 3000);
-      }
+      setSaveMessage('A live Supabase session is required to save job changes safely.');
+      setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
       console.error('Error saving job:', error);
       setSaveMessage('Error saving job. Please try again.');
@@ -236,14 +213,8 @@ export default function JobDetailPage() {
         router.push('/admin/jobs');
         return;
       }
-      // Fallback to localStorage
-      const stored = localStorage.getItem('xdrive_jobs');
-      if (stored) {
-        let jobs: Job[] = JSON.parse(stored);
-        jobs = jobs.filter((j) => j.id !== jobId);
-        localStorage.setItem('xdrive_jobs', JSON.stringify(jobs));
-        router.push('/admin/jobs');
-      }
+      setSaveMessage('A live Supabase session is required to delete jobs safely.');
+      setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
       console.error('Error deleting job:', error);
       setSaveMessage('Error deleting job. Please try again.');
