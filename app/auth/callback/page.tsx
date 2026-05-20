@@ -2,63 +2,73 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from '../../../lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import type { CompanyMembership, Driver, Profile } from '../../../lib/types/database';
 
-/** Determine the post-login route for a user, mirroring AuthContext.resolveRole logic. */
-async function resolveRedirectRoute(userId: string, userMetadata: Record<string, unknown> | null, type: string | null): Promise<string> {
-  // For password-recovery flows, always go to settings so the user can update their password
-  if (type === 'recovery') {
-    return '/admin/settings';
-  }
+const mapRole = (value: string | null | undefined) => {
+  const normalized = (value ?? '').toLowerCase();
+  if (normalized === 'owner') return 'owner';
+  if (normalized === 'admin') return 'admin';
+  if (normalized === 'company' || normalized === 'dispatcher') return 'company';
+  if (normalized === 'driver') return 'driver';
+  if (normalized === 'customer' || normalized === 'client' || normalized === 'viewer') return 'customer';
+  return null;
+};
 
-  const [membershipRes, driverRes, profileRes] = await Promise.all([
+const resolveRedirectPath = async (
+  userId: string,
+  fallbackRole?: string | null
+) => {
+  const [profileRes, membershipRes, driverRes] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('role, is_driver, company_id')
+      .eq('id', userId)
+      .maybeSingle(),
     supabase
       .from('company_memberships')
-      .select('role_in_company, company_id')
+      .select('company_id, role_in_company, status')
       .eq('user_id', userId)
       .eq('status', 'active')
+      .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase
       .from('drivers')
-      .select('id')
+      .select('id, company_id, user_id, app_access')
       .eq('user_id', userId)
       .eq('app_access', true)
       .maybeSingle(),
-    supabase
-      .from('profiles')
-      .select('role, is_driver')
-      .eq('id', userId)
-      .maybeSingle(),
   ]);
 
-  const memberRole = membershipRes.data?.role_in_company;
-  if (memberRole === 'owner' || memberRole === 'admin' || memberRole === 'dispatcher') {
+  const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
+  const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
+  const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access'> | null;
+
+  if (membership?.role_in_company === 'owner' || membership?.role_in_company === 'admin' || membership?.role_in_company === 'dispatcher') {
     return '/admin';
   }
 
-  if (driverRes.data || profileRes.data?.is_driver) {
+  if (driver || profile?.is_driver) {
     return '/driver/jobs';
   }
 
-  if (memberRole === 'viewer') {
+  if (membership?.role_in_company === 'viewer') {
     return '/customer';
   }
 
-  // Fall back to user_metadata hints set during registration
-  const metaRole = (userMetadata?.role ?? userMetadata?.requested_role ?? '') as string;
-  const normalised = metaRole.toLowerCase();
-  if (normalised === 'driver') return '/driver/jobs';
-  if (normalised === 'owner' || normalised === 'admin' || normalised === 'company' || normalised === 'dispatcher') return '/admin';
-  if (normalised === 'customer' || normalised === 'client') return '/customer';
-
-  const profileRole = (profileRes.data?.role ?? '').toLowerCase();
+  const profileRole = mapRole(profile?.role);
   if (profileRole === 'driver') return '/driver/jobs';
-  if (profileRole === 'owner' || profileRole === 'admin' || profileRole === 'company') return '/admin';
+  if (profileRole === 'customer') return '/customer';
+  if (profileRole === 'company' || profileRole === 'admin' || profileRole === 'owner') return '/admin';
 
-  // Default: customer dashboard
+  const metadataRole = mapRole(fallbackRole);
+  if (metadataRole === 'driver') return '/driver/jobs';
+  if (metadataRole === 'customer') return '/customer';
+  if (metadataRole === 'company' || metadataRole === 'admin' || metadataRole === 'owner') return '/admin';
+
   return '/customer';
-}
+};
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -68,36 +78,56 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const completeAuth = async () => {
       try {
+        if (!isSupabaseConfigured) {
+          setError('Authentication is unavailable: Supabase is not configured.');
+          return;
+        }
+
         const code = searchParams.get('code');
         const tokenHash = searchParams.get('token_hash');
         const type = searchParams.get('type');
 
         if (code) {
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) throw exchangeError;
-          const sessionUser = data?.session?.user;
-          if (sessionUser) {
-            const route = await resolveRedirectRoute(sessionUser.id, sessionUser.user_metadata ?? null, type);
-            router.replace(route);
-          } else {
-            router.replace('/admin');
+          const { data: userData } = await supabase.auth.getUser();
+          if (!userData.user) {
+            router.replace('/login');
+            return;
           }
+          const fallbackRole =
+            typeof userData.user.user_metadata?.role === 'string'
+              ? userData.user.user_metadata.role
+              : typeof userData.user.user_metadata?.requested_role === 'string'
+                ? userData.user.user_metadata.requested_role
+                : null;
+          router.replace(await resolveRedirectPath(userData.user.id, fallbackRole));
           return;
         }
 
         if (tokenHash && type) {
-          const { data, error: verifyError } = await supabase.auth.verifyOtp({
+          const { error: verifyError } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
             type: type as 'signup' | 'email' | 'recovery' | 'invite' | 'email_change',
           });
           if (verifyError) throw verifyError;
-          const sessionUser = data?.session?.user ?? data?.user;
-          if (sessionUser) {
-            const route = await resolveRedirectRoute(sessionUser.id, sessionUser.user_metadata ?? null, type);
-            router.replace(route);
-          } else {
-            router.replace(type === 'recovery' ? '/admin/settings' : '/admin');
+          if (type === 'recovery') {
+            router.replace('/admin/settings');
+            return;
           }
+
+          const { data: userData } = await supabase.auth.getUser();
+          if (!userData.user) {
+            router.replace('/login');
+            return;
+          }
+          const fallbackRole =
+            typeof userData.user.user_metadata?.role === 'string'
+              ? userData.user.user_metadata.role
+              : typeof userData.user.user_metadata?.requested_role === 'string'
+                ? userData.user.user_metadata.requested_role
+                : null;
+          router.replace(await resolveRedirectPath(userData.user.id, fallbackRole));
           return;
         }
 

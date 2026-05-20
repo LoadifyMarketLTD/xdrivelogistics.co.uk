@@ -30,12 +30,12 @@ export const COMPANY_CONFIG = {
   // Payment configuration (MASTER SPEC)
   payment: {
     bankTransfer: {
-      accountName: 'XDrive Logistics Ltd',
-      sortCode: '', // stored in Supabase company_settings — never hardcode in client bundle
-      accountNumber: '', // stored in Supabase company_settings — never hardcode in client bundle
+      accountName: process.env.NEXT_PUBLIC_COMPANY_BANK_ACCOUNT_NAME?.trim() || '',
+      sortCode: process.env.NEXT_PUBLIC_COMPANY_BANK_SORT_CODE?.trim() || '',
+      accountNumber: process.env.NEXT_PUBLIC_COMPANY_BANK_ACCOUNT_NUMBER?.trim() || '',
     },
     paypal: {
-      email: 'billing@xdrivelogistics.co.uk',
+      email: process.env.NEXT_PUBLIC_COMPANY_PAYPAL_EMAIL?.trim() || '',
     },
     terms: ['Pay now', '14 days', '30 days'] as const,
     lateFeeNote: 'Late payments may incur administrative charges.',

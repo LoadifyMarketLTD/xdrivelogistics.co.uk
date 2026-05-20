@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { JobBid } from '../../../lib/types/database';
-import { useAuth } from '../../components/AuthContext';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   submitted: { bg: '#e0f2fe', text: '#075985' },
@@ -14,27 +14,15 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function BidsPage() {
-  const { user, hasSupabaseSession } = useAuth();
-  const [companyId, setCompanyId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const companyId = user?.companyId ?? null;
   const [bids, setBids] = useState<JobBid[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadCompanyId = async (userId: string) => {
-    const { data } = await supabase.rpc('get_or_create_company_for_user');
-    if (data) { setCompanyId(data as string); return; }
-    const { data: membership } = await supabase
-      .from('company_memberships')
-      .select('company_id')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .limit(1)
-      .maybeSingle();
-    setCompanyId((membership?.company_id as string) ?? null);
-  };
-
   const loadBids = async () => {
     setLoading(true);
-    if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
+    if (!isSupabaseConfigured) { setLoading(false); return; }
+    if (!companyId) { setBids([]); setLoading(false); return; }
     const { data, error } = await supabase
       .from('job_bids')
       .select('*')
@@ -44,16 +32,7 @@ export default function BidsPage() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    if (hasSupabaseSession && user?.id) {
-      loadCompanyId(user.id);
-    }
-  }, [hasSupabaseSession, user?.id]);
-
-  useEffect(() => {
-    if (!companyId) return;
-    loadBids();
-  }, [companyId]);
+  useEffect(() => { loadBids(); }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateStatus = async (id: string, status: string) => {
     if (!isSupabaseConfigured) return;
