@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { JobBid } from '../../../lib/types/database';
 
@@ -13,18 +14,25 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function BidsPage() {
+  const { user } = useAuth();
+  const companyId = user?.companyId ?? null;
   const [bids, setBids] = useState<JobBid[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadBids = async () => {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
-    const { data, error } = await supabase.from('job_bids').select('*').order('created_at', { ascending: false });
+    if (!companyId) { setBids([]); setLoading(false); return; }
+    const { data, error } = await supabase
+      .from('job_bids')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
     if (!error && data) setBids(data as JobBid[]);
     setLoading(false);
   };
 
-  useEffect(() => { loadBids(); }, []);
+  useEffect(() => { loadBids(); }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateStatus = async (id: string, status: string) => {
     if (!isSupabaseConfigured) return;

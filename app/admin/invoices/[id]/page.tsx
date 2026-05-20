@@ -6,6 +6,12 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import InvoiceTemplate, { InvoiceData } from '../../../components/InvoiceTemplate';
 import { COMPANY_CONFIG } from '../../../config/company';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
+import {
+  DEFAULT_COMPANY_SETTINGS,
+  hasConfiguredBankDetails,
+  loadCompanySettings,
+  type CompanySettingsValues,
+} from '../../../../lib/companySettings';
 import type { Invoice } from '../../../../lib/types/database';
 
 /** Map InvoiceData (UI shape) → Supabase invoice row (DB shape) */
@@ -78,6 +84,7 @@ export default function InvoiceDetailPage() {
   const invoiceId = params?.id as string;
   const isNew = invoiceId === 'new';
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companySettings, setCompanySettings] = useState<CompanySettingsValues>(DEFAULT_COMPANY_SETTINGS);
 
   const [formData, setFormData] = useState<InvoiceData>({
     id: '',
@@ -127,6 +134,24 @@ export default function InvoiceDetailPage() {
     fetchCompanyId();
   }, []);
 
+  useEffect(() => {
+    if (!isSupabaseConfigured || !companyId) return;
+    let cancelled = false;
+
+    const fetchSettings = async () => {
+      const settings = await loadCompanySettings(supabase, companyId);
+      if (!cancelled) {
+        setCompanySettings(settings);
+      }
+    };
+
+    fetchSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId]);
+
   // Load existing invoice once when invoiceId changes
   useEffect(() => {
     if (!isNew) {
@@ -142,7 +167,17 @@ export default function InvoiceDetailPage() {
       generateNewInvoiceData();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isNew, companyId]);
+  }, [isNew, companyId, companySettings.jobRefPrefix, companySettings.invoicePrefix]);
+
+  useEffect(() => {
+    if (!isNew) return;
+    setFormData((prev) => ({
+      ...prev,
+      paymentTerms: companySettings.paymentTerms,
+      lateFee: COMPANY_CONFIG.payment.lateFeeNote,
+      vatRate: companySettings.defaultVatRate as 0 | 5 | 20,
+    }));
+  }, [companySettings, isNew]);
 
   useEffect(() => {
     if (formData.date && formData.paymentTerms) {
@@ -182,7 +217,7 @@ export default function InvoiceDetailPage() {
     const timePart = String(now.getTime()).slice(-3);
     const randomPart = String(Math.floor(Math.random() * 10));
     const xxxx = (timePart + randomPart).padStart(4, '0');
-    return `${COMPANY_CONFIG.invoice.jobRefPrefix}-${yy}${mm}${dd}-${xxxx}`;
+    return `${companySettings.jobRefPrefix}-${yy}${mm}${dd}-${xxxx}`;
   };
 
   // Generate unique Invoice Number using timestamp
@@ -194,7 +229,7 @@ export default function InvoiceDetailPage() {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     // Use last 3 digits of timestamp for better distribution
     const uniqueId = String(now.getTime()).slice(-3);
-    return `${COMPANY_CONFIG.invoice.invoicePrefix}-${year}${month}-${uniqueId}`;
+    return `${companySettings.invoicePrefix}-${year}${month}-${uniqueId}`;
   };
 
   const generateNewInvoiceData = async () => {
@@ -305,14 +340,29 @@ export default function InvoiceDetailPage() {
   };
 
   const handleWhatsAppShare = () => {
+    const paymentLines = [];
+
+    if (hasConfiguredBankDetails(companySettings)) {
+      paymentLines.push(
+        `Bank Transfer: Sort Code ${companySettings.bankSortCode}, Account ${companySettings.bankAccountNumber}`
+      );
+    }
+
+    if (companySettings.paypalEmail) {
+      paymentLines.push(`PayPal: ${companySettings.paypalEmail}`);
+    }
+
+    if (paymentLines.length === 0) {
+      paymentLines.push('Payment details available on request.');
+    }
+
     const message = encodeURIComponent(
       `Invoice ${formData.invoiceNumber}\n` +
       `Job Ref: ${formData.jobRef}\n` +
       `Amount: £${formData.amount.toFixed(2)}\n` +
       `Due Date: ${new Date(formData.dueDate).toLocaleDateString('en-GB')}\n\n` +
       `Please make payment via:\n` +
-      `Bank Transfer: Sort Code ${COMPANY_CONFIG.payment.bankTransfer.sortCode}, Account ${COMPANY_CONFIG.payment.bankTransfer.accountNumber}\n` +
-      `PayPal: ${COMPANY_CONFIG.payment.paypal.email}`
+      paymentLines.join('\n')
     );
     window.open(`https://wa.me/?text=${message}`, '_blank');
   };
@@ -778,7 +828,7 @@ export default function InvoiceDetailPage() {
                     </h2>
                   </div>
                   <div style={{ padding: '1rem', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
-                    <InvoiceTemplate invoice={formData} showPreview={true} />
+                    <InvoiceTemplate invoice={formData} showPreview={true} companySettings={companySettings} />
                   </div>
                 </div>
               </div>

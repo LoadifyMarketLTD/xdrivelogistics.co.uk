@@ -2,35 +2,43 @@
 
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Vehicle, VehicleType, Company } from '../../../lib/types/database';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
 export default function VehiclesPage() {
+  const { user } = useAuth();
+  const companyId = user?.companyId ?? null;
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ company_id: '', type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
+  const [formData, setFormData] = useState({ company_id: companyId ?? '', type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
   const [error, setError] = useState('');
 
   const loadVehicles = async () => {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
-    const { data, error } = await supabase.from('vehicles').select('*').order('created_at', { ascending: false });
+    if (!companyId) { setVehicles([]); setLoading(false); return; }
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
     if (!error && data) setVehicles(data as Vehicle[]);
     setLoading(false);
   };
 
   const loadCompanies = async () => {
-    if (!isSupabaseConfigured) return;
-    const { data, error } = await supabase.from('companies').select('id, name').order('name');
+    if (!isSupabaseConfigured || !companyId) return;
+    const { data, error } = await supabase.from('companies').select('id, name').eq('id', companyId).order('name');
     if (error) { console.error('Failed to load companies:', error.message); return; }
     if (data) setCompanies(data as Company[]);
   };
 
-  useEffect(() => { loadVehicles(); loadCompanies(); }, []);
+  useEffect(() => { loadVehicles(); loadCompanies(); }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!formData.company_id) { setError('Company is required'); return; }
@@ -38,7 +46,7 @@ export default function VehiclesPage() {
     const { error } = await supabase.from('vehicles').insert([{ ...formData, payload_kg: formData.payload_kg ? parseFloat(formData.payload_kg) : null }]);
     if (error) { setError(error.message); return; }
     setShowModal(false);
-    setFormData({ company_id: '', type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
+    setFormData({ company_id: companyId ?? '', type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false });
     setError('');
     loadVehicles();
   };
