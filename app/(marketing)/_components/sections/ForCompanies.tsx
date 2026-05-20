@@ -2,7 +2,7 @@
 
 import { Section } from '../ui/Section';
 import { PrimaryButton } from '../ui/PrimaryButton';
-import { COMPANY_CONFIG } from '../../../config/company';
+import { useCompanyContactLinks } from '../../../hooks/useCompanyContactLinks';
 
 const FEATURES = [
   {
@@ -28,6 +28,8 @@ const FEATURES = [
 ];
 
 export function ForCompanies() {
+  const { companyQuoteWhatsappHref } = useCompanyContactLinks();
+
   return (
     <Section>
       <div style={{ paddingTop: '4rem', paddingBottom: '4rem' }}>
@@ -117,7 +119,7 @@ export function ForCompanies() {
 
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <PrimaryButton 
-                href={`https://wa.me/${COMPANY_CONFIG.whatsapp.number}?text=${encodeURIComponent('I would like to get a quote for my business')}`}
+                href={companyQuoteWhatsappHref}
                 variant="primary" 
                 size="lg"
               >

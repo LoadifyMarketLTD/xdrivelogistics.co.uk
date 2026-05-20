@@ -135,14 +135,14 @@ scroll-margin-top: 80px; /* or var(--header-height) */
 
 | CTA Type | Link/Action | Location | Status |
 |----------|-------------|----------|--------|
-| **WhatsApp (Primary)** | `wa.me/447423272138` | Hero, Footer, Multiple sections | ✅ Working |
-| **Phone Link** | `tel:+447423272138` | Hero, Footer | ✅ Working |
+| **WhatsApp (Primary)** | `wa.me/447377694228` | Hero, Footer, Multiple sections | ✅ Working |
+| **Phone Link** | `tel:+447377694228` | Hero, Footer | ✅ Working |
 | **Email Link** | `mailto:contact@xdrivelogistics.co.uk` | Footer | ✅ Working |
 | **Driver Login** | `/login` | For Drivers section | ✅ Working |
 | **Company Login** | `/login` | For Companies section | ✅ Working |
 | **Get Quote** | WhatsApp with pre-filled message | Multiple CTAs | ✅ Working |
 
-**Phone Number Verified:** 07423 272 138 (UK format)
+**Phone Number Verified:** 07377 694 228 (UK format)
 **Email Verified:** contact@xdrivelogistics.co.uk
 
 ### B4) Responsive Screenshots

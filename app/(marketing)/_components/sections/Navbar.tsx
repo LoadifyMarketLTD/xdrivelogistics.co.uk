@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { COMPANY_CONFIG } from '../../../config/company';
 import { LoginModal } from '../../../components/LoginModal';
+import { useCompanyContactLinks } from '../../../hooks/useCompanyContactLinks';
 
 const NAV_LINKS = [
   { label: 'Home', href: '#home' },
@@ -17,6 +18,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const { phoneHref } = useCompanyContactLinks();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 60);
@@ -131,7 +133,7 @@ export function Navbar() {
             }}
           >
             <a
-              href={`tel:${COMPANY_CONFIG.phone}`}
+              href={phoneHref}
               aria-label="Call us"
               style={{
                 display: 'flex',
@@ -227,7 +229,7 @@ export function Navbar() {
               </a>
             ))}
             <a
-              href={`tel:${COMPANY_CONFIG.phone}`}
+              href={phoneHref}
               style={{
                 display: 'block',
                 marginTop: '1rem',

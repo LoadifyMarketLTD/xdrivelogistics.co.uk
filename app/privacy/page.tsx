@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { COMPANY_CONFIG } from '../config/company';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -49,8 +50,8 @@ export default function PrivacyPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: '1.7', color: 'rgba(255,255,255,0.82)' }}>
           <Section title="1. Who We Are">
-            XDrive Logistics Ltd (Company Number 13171804), registered at 101 Cornelian Street,
-            Blackburn, BB1 9QL, United Kingdom, is the data controller for personal data collected
+            {COMPANY_CONFIG.legalName} (Company Number {COMPANY_CONFIG.companyNumber}), registered at {COMPANY_CONFIG.address.street},
+            {COMPANY_CONFIG.address.city}, {COMPANY_CONFIG.address.postcode}, {COMPANY_CONFIG.address.country}, is the data controller for personal data collected
             through this platform. We are committed to protecting your privacy in accordance with
             the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.
           </Section>
@@ -115,7 +116,7 @@ export default function PrivacyPage() {
               <li>Data portability</li>
               <li>Withdraw consent at any time</li>
             </ul>
-            To exercise any of these rights, contact us at contact@xdrivelogistics.co.uk.
+            To exercise any of these rights, contact us at {COMPANY_CONFIG.email}.
           </Section>
 
           <Section title="8. Cookies">
@@ -134,10 +135,10 @@ export default function PrivacyPage() {
 
           <Section title="10. Contact & Complaints">
             For privacy-related queries, contact us at:<br /><br />
-            XDrive Logistics Ltd<br />
-            101 Cornelian Street, Blackburn, BB1 9QL<br />
-            Email: contact@xdrivelogistics.co.uk<br /><br />
-            XDrive Logistics Ltd is an independent platform and is not affiliated with Courier Exchange or any third-party courier exchange platform.<br /><br />
+            {COMPANY_CONFIG.legalName}<br />
+            {COMPANY_CONFIG.address.street}, {COMPANY_CONFIG.address.city}, {COMPANY_CONFIG.address.postcode}<br />
+            Email: {COMPANY_CONFIG.email}<br /><br />
+            {COMPANY_CONFIG.legalName} is an independent platform and is not affiliated with Courier Exchange or any third-party courier exchange platform.<br /><br />
             You also have the right to lodge a complaint with the UK Information Commissioner&apos;s
             Office (ICO) at{' '}
             <a href="https://ico.org.uk" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-gold-primary)' }}>
