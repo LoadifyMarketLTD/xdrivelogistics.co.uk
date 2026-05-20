@@ -20,6 +20,28 @@ export default function LoginPage() {
   const { login, resetPassword, user, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const queryParams = new URLSearchParams(window.location.search);
+    const hashParams = window.location.hash
+      ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      : null;
+
+    const queryType = queryParams.get('type');
+    const hashType = hashParams?.get('type');
+    const hasRecoveryType = queryType === 'recovery' || hashType === 'recovery';
+    const hasRecoveryTokens =
+      Boolean(hashParams?.get('access_token') && hashParams?.get('refresh_token')) ||
+      Boolean(queryParams.get('code')) ||
+      Boolean(queryParams.get('token_hash'));
+
+    if (!hasRecoveryType && !hasRecoveryTokens) return;
+
+    const callbackUrl = `/auth/callback${window.location.search}${window.location.hash}`;
+    router.replace(callbackUrl);
+  }, [router]);
+
+  useEffect(() => {
     if (authLoading || !user) return;
     if (user.role === 'driver') {
       router.replace(user.mustChangePassword ? '/driver/change-password' : '/driver/jobs');
