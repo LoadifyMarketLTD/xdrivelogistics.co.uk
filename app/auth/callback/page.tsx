@@ -100,10 +100,64 @@ export default function AuthCallbackPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const resolveUserRedirect = async () => {
+      const { data: userData } = await withTimeout(
+        supabase.auth.getUser(),
+        AUTH_CALLBACK_TIMEOUT_MS
+      );
+      if (!userData.user) {
+        router.replace('/login');
+        return;
+      }
+      const fallbackRole =
+        typeof userData.user.user_metadata?.role === 'string'
+          ? userData.user.user_metadata.role
+          : typeof userData.user.user_metadata?.requested_role === 'string'
+            ? userData.user.user_metadata.requested_role
+            : null;
+      const redirectPath = await withTimeout(
+        resolveRedirectPath(userData.user.id, fallbackRole),
+        AUTH_CALLBACK_TIMEOUT_MS
+      );
+      if (!redirectPath) {
+        await supabase.auth.signOut();
+        router.replace('/forbidden');
+        return;
+      }
+      router.replace(redirectPath);
+    };
+
     const completeAuth = async () => {
       try {
         if (!isSupabaseConfigured) {
           setError('Authentication is unavailable: Supabase is not configured.');
+          return;
+        }
+
+        const hashParams =
+          typeof window !== 'undefined' && window.location.hash
+            ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
+            : null;
+        const accessToken = hashParams?.get('access_token');
+        const refreshToken = hashParams?.get('refresh_token');
+        const hashType = hashParams?.get('type');
+
+        if (accessToken && refreshToken) {
+          const { error: setSessionError } = await withTimeout(
+            supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            }),
+            AUTH_CALLBACK_TIMEOUT_MS
+          );
+          if (setSessionError) throw setSessionError;
+
+          if (hashType === 'recovery') {
+            router.replace('/reset-password');
+            return;
+          }
+
+          await resolveUserRedirect();
           return;
         }
 
@@ -117,30 +171,11 @@ export default function AuthCallbackPage() {
             AUTH_CALLBACK_TIMEOUT_MS
           );
           if (exchangeError) throw exchangeError;
-          const { data: userData } = await withTimeout(
-            supabase.auth.getUser(),
-            AUTH_CALLBACK_TIMEOUT_MS
-          );
-          if (!userData.user) {
-            router.replace('/login');
+          if (type === 'recovery') {
+            router.replace('/reset-password');
             return;
           }
-          const fallbackRole =
-            typeof userData.user.user_metadata?.role === 'string'
-              ? userData.user.user_metadata.role
-              : typeof userData.user.user_metadata?.requested_role === 'string'
-                ? userData.user.user_metadata.requested_role
-                : null;
-          const redirectPath = await withTimeout(
-            resolveRedirectPath(userData.user.id, fallbackRole),
-            AUTH_CALLBACK_TIMEOUT_MS
-          );
-          if (!redirectPath) {
-            await supabase.auth.signOut();
-            router.replace('/forbidden');
-            return;
-          }
-          router.replace(redirectPath);
+          await resolveUserRedirect();
           return;
         }
 
@@ -153,36 +188,11 @@ export default function AuthCallbackPage() {
             AUTH_CALLBACK_TIMEOUT_MS
           );
           if (verifyError) throw verifyError;
-
           if (type === 'recovery') {
-            router.replace('/update-password');
+            router.replace('/reset-password');
             return;
           }
-
-          const { data: userData } = await withTimeout(
-            supabase.auth.getUser(),
-            AUTH_CALLBACK_TIMEOUT_MS
-          );
-          if (!userData.user) {
-            router.replace('/login');
-            return;
-          }
-          const fallbackRole =
-            typeof userData.user.user_metadata?.role === 'string'
-              ? userData.user.user_metadata.role
-              : typeof userData.user.user_metadata?.requested_role === 'string'
-                ? userData.user.user_metadata.requested_role
-                : null;
-          const redirectPath = await withTimeout(
-            resolveRedirectPath(userData.user.id, fallbackRole),
-            AUTH_CALLBACK_TIMEOUT_MS
-          );
-          if (!redirectPath) {
-            await supabase.auth.signOut();
-            router.replace('/forbidden');
-            return;
-          }
-          router.replace(redirectPath);
+          await resolveUserRedirect();
           return;
         }
 
