@@ -3,10 +3,11 @@ import type { NextRequest } from 'next/server';
 
 type UserRole = 'customer' | 'driver' | 'company' | 'admin' | 'owner';
 
-const PROTECTED_PREFIXES = ['/admin', '/m', '/driver'] as const;
+const PROTECTED_PREFIXES = ['/admin', '/m', '/driver', '/customer'] as const;
 const ADMIN_ROLES = new Set<UserRole>(['company', 'admin', 'owner']);
 const MOBILE_ROLES = new Set<UserRole>(['company', 'admin', 'owner']);
 const DRIVER_ROLES = new Set<UserRole>(['driver']);
+const CUSTOMER_ROLES = new Set<UserRole>(['customer']);
 const SUPABASE_AUTH_TIMEOUT_MS = 5_000;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? '';
@@ -214,6 +215,7 @@ const isAllowedForRoute = (pathname: string, role: UserRole | null): boolean => 
   if (pathname.startsWith('/admin')) return ADMIN_ROLES.has(role);
   if (pathname.startsWith('/driver')) return DRIVER_ROLES.has(role);
   if (pathname.startsWith('/m')) return MOBILE_ROLES.has(role);
+  if (pathname.startsWith('/customer')) return CUSTOMER_ROLES.has(role);
   return true;
 };
 
@@ -279,5 +281,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/m/:path*', '/driver/:path*'],
+  matcher: ['/admin/:path*', '/m/:path*', '/driver/:path*', '/customer/:path*'],
 };

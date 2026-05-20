@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import InvoiceTemplate, { InvoiceData } from '../../../components/InvoiceTemplate';
 import { COMPANY_CONFIG } from '../../../config/company';
@@ -82,28 +82,39 @@ function dbToInvoiceData(row: Invoice): InvoiceData {
 export default function InvoiceDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const invoiceId = params?.id as string;
   const isNew = invoiceId === 'new';
   const { user, hasSupabaseSession } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companySettings, setCompanySettings] = useState<CompanySettingsValues>(DEFAULT_COMPANY_SETTINGS);
 
+  // Read optional job pre-fill values from URL search params (no localStorage)
+  const prefillJobRef = searchParams?.get('jobRef') ?? '';
+  const prefillClientName = searchParams?.get('clientName') ?? '';
+  const prefillClientEmail = searchParams?.get('clientEmail') ?? '';
+  const prefillPickupLocation = searchParams?.get('pickupLocation') ?? '';
+  const prefillPickupDateTime = searchParams?.get('pickupDateTime') ?? '';
+  const prefillDeliveryLocation = searchParams?.get('deliveryLocation') ?? '';
+  const prefillDeliveryDateTime = searchParams?.get('deliveryDateTime') ?? '';
+  const prefillServiceDescription = searchParams?.get('serviceDescription') ?? '';
+
   const [formData, setFormData] = useState<InvoiceData>({
     id: '',
     invoiceNumber: '',
-    jobRef: '',
+    jobRef: prefillJobRef,
     date: new Date().toISOString().split('T')[0],
     dueDate: '',
     status: 'Pending',
-    clientName: '',
+    clientName: prefillClientName,
     clientAddress: '',
-    clientEmail: '',
-    pickupLocation: '',
-    pickupDateTime: '',
-    deliveryLocation: '',
-    deliveryDateTime: '',
+    clientEmail: prefillClientEmail,
+    pickupLocation: prefillPickupLocation,
+    pickupDateTime: prefillPickupDateTime,
+    deliveryLocation: prefillDeliveryLocation,
+    deliveryDateTime: prefillDeliveryDateTime,
     deliveryRecipient: '',
-    serviceDescription: '',
+    serviceDescription: prefillServiceDescription,
     amount: 0,
     paymentTerms: '14 days',
     lateFee: COMPANY_CONFIG.payment.lateFeeNote,
