@@ -33,9 +33,11 @@ export interface InvoiceData {
 interface InvoiceTemplateProps {
   invoice: InvoiceData;
   showPreview?: boolean;
+  bankSortCode?: string;
+  bankAccountNumber?: string;
 }
 
-export default function InvoiceTemplate({ invoice, showPreview: _showPreview = false }: InvoiceTemplateProps) {
+export default function InvoiceTemplate({ invoice, showPreview: _showPreview = false, bankSortCode, bankAccountNumber }: InvoiceTemplateProps) {
   // Calculate payment due date based on payment terms
   const calculateDueDate = (invoiceDate: string, terms: string): Date => {
     const date = new Date(invoiceDate);
@@ -317,8 +319,8 @@ export default function InvoiceTemplate({ invoice, showPreview: _showPreview = f
               <div style={{ ...labelStyle, fontSize: '0.95rem', color: '#0A2239', marginBottom: '0.75rem' }}>Bank Transfer</div>
               <div style={{ fontSize: '0.95rem', color: '#1f2937', lineHeight: '1.8', fontWeight: '500' }}>
                 <div style={{ marginBottom: '0.5rem' }}><strong>{COMPANY_CONFIG.payment.bankTransfer.accountName}</strong></div>
-                <div>Sort Code: <strong>{COMPANY_CONFIG.payment.bankTransfer.sortCode}</strong></div>
-                <div>Account: <strong>{COMPANY_CONFIG.payment.bankTransfer.accountNumber}</strong></div>
+                <div>Sort Code: <strong>{bankSortCode || '—'}</strong></div>
+                <div>Account: <strong>{bankAccountNumber || '—'}</strong></div>
               </div>
             </div>
             <div style={{ backgroundColor: '#f3f4f6', padding: '1.25rem', borderRadius: '8px' }}>
