@@ -78,6 +78,8 @@ export default function InvoiceDetailPage() {
   const invoiceId = params?.id as string;
   const isNew = invoiceId === 'new';
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [bankSortCode, setBankSortCode] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
 
   const [formData, setFormData] = useState<InvoiceData>({
     id: '',
@@ -126,6 +128,24 @@ export default function InvoiceDetailPage() {
     };
     fetchCompanyId();
   }, []);
+
+  // Load bank details from Supabase company_settings (never from static config or browser storage)
+  useEffect(() => {
+    if (!companyId || !isSupabaseConfigured) return;
+    const fetchBankDetails = async () => {
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('settings_data')
+        .eq('company_id', companyId)
+        .maybeSingle();
+      if (!error && data?.settings_data) {
+        const s = data.settings_data as { systemForm?: { bankSortCode?: string; bankAccountNumber?: string } };
+        if (s.systemForm?.bankSortCode) setBankSortCode(s.systemForm.bankSortCode);
+        if (s.systemForm?.bankAccountNumber) setBankAccountNumber(s.systemForm.bankAccountNumber);
+      }
+    };
+    fetchBankDetails();
+  }, [companyId]);
 
   // Load existing invoice once when invoiceId changes
   useEffect(() => {
@@ -311,7 +331,7 @@ export default function InvoiceDetailPage() {
       `Amount: £${formData.amount.toFixed(2)}\n` +
       `Due Date: ${new Date(formData.dueDate).toLocaleDateString('en-GB')}\n\n` +
       `Please make payment via:\n` +
-      `Bank Transfer: Sort Code ${COMPANY_CONFIG.payment.bankTransfer.sortCode}, Account ${COMPANY_CONFIG.payment.bankTransfer.accountNumber}\n` +
+      `Bank Transfer: Sort Code ${bankSortCode}, Account ${bankAccountNumber}\n` +
       `PayPal: ${COMPANY_CONFIG.payment.paypal.email}`
     );
     window.open(`https://wa.me/?text=${message}`, '_blank');
@@ -778,7 +798,7 @@ export default function InvoiceDetailPage() {
                     </h2>
                   </div>
                   <div style={{ padding: '1rem', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
-                    <InvoiceTemplate invoice={formData} showPreview={true} />
+                    <InvoiceTemplate invoice={formData} showPreview={true} bankSortCode={bankSortCode} bankAccountNumber={bankAccountNumber} />
                   </div>
                 </div>
               </div>

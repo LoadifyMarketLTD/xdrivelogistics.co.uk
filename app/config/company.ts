@@ -31,8 +31,8 @@ export const COMPANY_CONFIG = {
   payment: {
     bankTransfer: {
       accountName: 'XDrive Logistics Ltd',
-      sortCode: '04-00-04', // PLACEHOLDER - replace in production
-      accountNumber: '12345678', // PLACEHOLDER - replace in production
+      sortCode: '', // stored in Supabase company_settings — never hardcode in client bundle
+      accountNumber: '', // stored in Supabase company_settings — never hardcode in client bundle
     },
     paypal: {
       email: 'billing@xdrivelogistics.co.uk',
