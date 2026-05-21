@@ -3,157 +3,100 @@
 --
 -- Canonical Courier-Exchange-style role model for public.profiles.role
 --
--- LIVE DATABASE PROBLEM
--- ──────────────────────────────────────────────────────────────
--- The live database has profiles.role typed as a user_role ENUM.
--- This causes two distinct plan-time failures for any top-level SQL:
+-- PRE-MIGRATION AUDIT FINDINGS
+-- ─────────────────────────────
+-- • public.user_role enum: DOES NOT EXIST (confirmed by full migration scan).
+-- • public.profiles.role:  plain TEXT column, no constraint, DEFAULT 'viewer'.
+-- • public.company_role enum EXISTS: ('owner','admin','dispatcher','viewer'),
+--   used only for company_memberships.role_in_company — NOT changed here.
 --
---   (a) LOWER(role)          → "function lower(user_role) does not exist"
---   (b) SET role = 'company' → "invalid input value for enum user_role: company"
---       (if 'company' is not a label in the enum)
---
--- Root cause: PostgreSQL parses and type-checks every top-level statement
--- BEFORE executing it.  A DO block that runs first cannot change the
--- column type in a way that affects the plan of a subsequent top-level
--- statement in the same script — the subsequent statement was already
--- rejected at parse time.
---
--- FIX: All statements that read or write profiles.role are placed inside
--- a single DO $$ block and run via EXECUTE (dynamic SQL).  PostgreSQL
--- does NOT type-check EXECUTE strings at block-definition time; it plans
--- and executes them only when the EXECUTE line is reached at runtime.
--- The ALTER TABLE therefore runs first, after which all UPDATEs see the
--- column as TEXT and succeed.
---
--- This migration is also re-entrant: if the column is already TEXT it
--- skips the ALTER TABLE and proceeds directly to the backfill UPDATEs.
---
--- CANONICAL APP ROLES  (profiles.role, TEXT after this migration)
--- ──────────────────────────────────────────────────────────────────
+-- CANONICAL APP ROLES (stored in profiles.role)
+-- ──────────────────────────────────────────────
 --   owner    – Platform owner; full platform control across all companies.
---   admin    – Company administrator; manages company, jobs, drivers, invoices.
+--   admin    – Company administrator; manages company account, jobs, drivers,
+--              invoices, documents, and settings.
 --   company  – Company staff / dispatcher; manages jobs under one company.
---   driver   – Delivery driver; views assigned jobs, updates status, uploads POD.
+--   driver   – Delivery driver; views assigned jobs, updates delivery status,
+--              uploads proof-of-delivery documents.
 --   customer – Shipper / customer; requests quotes, posts delivery requests.
 --
 -- LEGACY ROLE MAPPING DECISIONS
 -- ──────────────────────────────
 --   broker       → company
---     On a Courier Exchange platform a freight broker is a company-level
---     operator who posts loads, manages carrier assignments, and handles
---     invoicing.  This is identical to the company/dispatcher access model:
---     full job management dashboard within a company context.
---     NOT a passive customer who only submits delivery requests.
+--     Reason: On a Courier Exchange platform a freight broker is a company-level
+--     operator who posts loads, manages carrier assignments, and handles invoicing.
+--     This is identical to the company/dispatcher access model.  The broker
+--     operates WITHIN a company context (auto-provisioned if absent) and needs
+--     full job management dashboard access — NOT a passive customer role.
 --
 --   company_admin → admin
---     Full admin dashboard: drivers, jobs, invoices, settings, memberships.
+--     Reason: A company administrator requires full admin dashboard access to
+--     manage drivers, jobs, invoices, company settings, and memberships.
 --
---   dispatcher / company_staff / freight_broker / carrier → company
---   org_admin / platform_admin                           → admin
---   superadmin / super_admin / platform_owner            → owner
---   owner_driver                                         → driver
---   shipper / client / viewer                            → customer
+--   dispatcher    → company (already handled in app code; normalised for consistency)
+--   company_staff → company
+--   freight_broker→ company
+--   carrier       → company
+--   org_admin     → admin
+--   platform_admin→ admin
+--   superadmin    → owner
+--   super_admin   → owner
+--   platform_owner→ owner
+--   owner_driver  → driver
+--   shipper       → customer
+--   client        → customer
+--   viewer        → customer (old registration default)
 --
---   Any unrecognised value → customer (safest fallback).
+--   Any other unrecognised value → customer (safest fallback; no data loss,
+--   company admins can correct individual profiles via the admin UI).
 -- ============================================================
 
-DO $$
-DECLARE
-  v_col_type text;
-BEGIN
+-- ── 1. Backfill: owner aliases ────────────────────────────────────────────────
+UPDATE public.profiles
+SET    role       = 'owner',
+       updated_at = NOW()
+WHERE  LOWER(role) IN ('superadmin', 'super_admin', 'platform_owner')
+  AND  role <> 'owner';
 
-  -- ── 0. Detect whether profiles.role is an enum (or any non-text type) ────────
-  SELECT t.typname INTO v_col_type
-  FROM   pg_attribute  a
-  JOIN   pg_class      c ON c.oid = a.attrelid
-  JOIN   pg_namespace  n ON n.oid = c.relnamespace
-  JOIN   pg_type       t ON t.oid = a.atttypid
-  WHERE  n.nspname    = 'public'
-    AND  c.relname    = 'profiles'
-    AND  a.attname    = 'role'
-    AND  NOT a.attisdropped;
+-- ── 2. Backfill: admin aliases (incl. company_admin) ─────────────────────────
+UPDATE public.profiles
+SET    role       = 'admin',
+       updated_at = NOW()
+WHERE  LOWER(role) IN ('company_admin', 'org_admin', 'platform_admin')
+  AND  role <> 'admin';
 
-  IF v_col_type IS NOT NULL AND v_col_type <> 'text' THEN
-    -- Convert enum → text.  USING role::text preserves every existing label.
-    -- Both statements use EXECUTE so they are not plan-checked against the
-    -- current enum type.
-    EXECUTE 'ALTER TABLE public.profiles
-               ALTER COLUMN role TYPE text
-               USING role::text';
+-- ── 3. Backfill: company aliases (incl. broker) ───────────────────────────────
+UPDATE public.profiles
+SET    role       = 'company',
+       updated_at = NOW()
+WHERE  LOWER(role) IN ('broker', 'freight_broker', 'carrier', 'dispatcher', 'company_staff')
+  AND  role <> 'company';
 
-    EXECUTE 'ALTER TABLE public.profiles
-               ALTER COLUMN role SET DEFAULT ''customer''';
+-- ── 4. Backfill: driver aliases ───────────────────────────────────────────────
+UPDATE public.profiles
+SET    role       = 'driver',
+       updated_at = NOW()
+WHERE  LOWER(role) IN ('owner_driver')
+  AND  role <> 'driver';
 
-    RAISE NOTICE 'profiles.role converted from % to text', v_col_type;
-  ELSE
-    RAISE NOTICE 'profiles.role is already text; skipping ALTER TABLE';
-  END IF;
+-- ── 5. Backfill: customer aliases ─────────────────────────────────────────────
+UPDATE public.profiles
+SET    role       = 'customer',
+       updated_at = NOW()
+WHERE  LOWER(role) IN ('shipper', 'client', 'viewer')
+  AND  role <> 'customer';
 
-  -- ── 1. Backfill: owner aliases ─────────────────────────────────────────────
-  -- All UPDATE strings use EXECUTE so PostgreSQL plans them AFTER the ALTER
-  -- TABLE above has already run, guaranteeing the column is TEXT.
-  EXECUTE '
-    UPDATE public.profiles
-    SET    role       = ''owner'',
-           updated_at = NOW()
-    WHERE  LOWER(role) IN (''superadmin'', ''super_admin'', ''platform_owner'')
-      AND  role <> ''owner''
-  ';
-
-  -- ── 2. Backfill: admin aliases (incl. company_admin) ─────────────────────
-  EXECUTE '
-    UPDATE public.profiles
-    SET    role       = ''admin'',
-           updated_at = NOW()
-    WHERE  LOWER(role) IN (''company_admin'', ''org_admin'', ''platform_admin'')
-      AND  role <> ''admin''
-  ';
-
-  -- ── 3. Backfill: company aliases (incl. broker) ───────────────────────────
-  EXECUTE '
-    UPDATE public.profiles
-    SET    role       = ''company'',
-           updated_at = NOW()
-    WHERE  LOWER(role) IN (''broker'', ''freight_broker'', ''carrier'',
-                            ''dispatcher'', ''company_staff'')
-      AND  role <> ''company''
-  ';
-
-  -- ── 4. Backfill: driver aliases ───────────────────────────────────────────
-  EXECUTE '
-    UPDATE public.profiles
-    SET    role       = ''driver'',
-           updated_at = NOW()
-    WHERE  LOWER(role) IN (''owner_driver'')
-      AND  role <> ''driver''
-  ';
-
-  -- ── 5. Backfill: customer aliases ─────────────────────────────────────────
-  EXECUTE '
-    UPDATE public.profiles
-    SET    role       = ''customer'',
-           updated_at = NOW()
-    WHERE  LOWER(role) IN (''shipper'', ''client'', ''viewer'')
-      AND  role <> ''customer''
-  ';
-
-  -- ── 6. Catch-all: any remaining non-canonical value → customer ─────────────
-  EXECUTE '
-    UPDATE public.profiles
-    SET    role       = ''customer'',
-           updated_at = NOW()
-    WHERE  role NOT IN (''owner'', ''admin'', ''company'', ''driver'', ''customer'')
-      AND  role IS NOT NULL
-  ';
-
-  RAISE NOTICE 'profiles.role backfill complete';
-
-END $$;
+-- ── 6. Catch-all: any remaining non-canonical value → customer ────────────────
+--    This is the safest fallback: the user will see the /customer dashboard.
+--    A company admin can correct the profile role via the admin UI if needed.
+UPDATE public.profiles
+SET    role       = 'customer',
+       updated_at = NOW()
+WHERE  role NOT IN ('owner', 'admin', 'company', 'driver', 'customer')
+  AND  role IS NOT NULL;
 
 -- ── 7. Add CHECK constraint documenting the canonical role set ────────────────
--- This is a top-level DDL statement.  By the time PostgreSQL executes this,
--- the column is TEXT (converted by the DO block above), so there is no
--- enum-related plan-time issue here.
+--    Uses DO block to stay idempotent across repeated runs.
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -170,8 +113,8 @@ BEGIN
 END $$;
 
 -- ── 8. Update trigger to normalise role at ingestion time ─────────────────────
--- Replaces the trigger installed by migration 026.  The function body is pure
--- PL/pgSQL and assigns into a text variable, so there is no enum issue here.
+--    Replaces the trigger installed by migration 026 with one that converts
+--    any legacy or alias role value to a canonical value before inserting.
 CREATE OR REPLACE FUNCTION public.handle_auth_user_profile_sync()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -191,7 +134,9 @@ BEGIN
     'customer'
   ));
 
-  -- Map any incoming raw or legacy role value to a canonical app role.
+  -- Map incoming raw role to canonical app role.
+  -- Aliases are listed here so any future auth.admin.createUser call
+  -- using a legacy role value is silently normalised at DB level.
   v_role := CASE v_raw_role
     WHEN 'owner'          THEN 'owner'
     WHEN 'superadmin'     THEN 'owner'
@@ -213,7 +158,7 @@ BEGIN
     WHEN 'shipper'        THEN 'customer'
     WHEN 'client'         THEN 'customer'
     WHEN 'viewer'         THEN 'customer'
-    ELSE                       'customer'
+    ELSE                       'customer'   -- safe fallback
   END;
 
   v_full_name := COALESCE(
@@ -223,8 +168,7 @@ BEGIN
   v_phone     := NEW.raw_user_meta_data ->> 'phone';
   v_is_driver := v_role = 'driver';
 
-  INSERT INTO public.profiles
-         (user_id, role, status, full_name, phone, is_driver, created_at, updated_at)
+  INSERT INTO public.profiles (user_id, role, status, full_name, phone, is_driver, created_at, updated_at)
   VALUES (
     NEW.id,
     v_role,
