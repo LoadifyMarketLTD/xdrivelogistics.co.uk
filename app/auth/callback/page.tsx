@@ -42,13 +42,13 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      const resolvedUser = await withTimeout(resolveAuthenticatedUser(sessionUser), AUTH_CALLBACK_TIMEOUT_MS);
-      if (!resolvedUser) {
+      const result = await withTimeout(resolveAuthenticatedUser(sessionUser), AUTH_CALLBACK_TIMEOUT_MS);
+      if (!result.user) {
         router.replace('/forbidden');
         return;
       }
 
-      router.replace(getPostLoginRoute(resolvedUser));
+      router.replace(getPostLoginRoute(result.user));
     };
 
     const completeAuth = async () => {
