@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from '../../lib/authRole';
+import { getResetPasswordUrl } from '../../lib/authFlow';
 import type { Company, CompanyMembership, Driver, Profile } from '../../lib/types/database';
 
 const LOGIN_TIMEOUT_MS = 10_000;
@@ -254,45 +255,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return '/admin';
   };
 
-  const getAuthUrlSignals = () => {
-    if (typeof window === 'undefined') {
-      return {
-        pathname: '',
-        queryType: null as string | null,
-        hashType: null as string | null,
-        hasRecoveryTokens: false,
-      };
-    }
-
-    const queryParams = new URLSearchParams(window.location.search);
-    const hashParams = window.location.hash
-      ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
-      : null;
-
-    const queryType = queryParams.get('type');
-    const hashType = hashParams?.get('type') ?? null;
-    const hasRecoveryTokens =
-      Boolean(hashParams?.get('access_token') && hashParams?.get('refresh_token')) ||
-      Boolean(queryParams.get('code')) ||
-      Boolean(queryParams.get('token_hash'));
-
-    return {
-      pathname: window.location.pathname,
-      queryType,
-      hashType,
-      hasRecoveryTokens,
-    };
-  };
-
-  const isRecoveryAuthContext = (event?: string) => {
+  const isPasswordSetupAuthContext = (event?: string) => {
     if (event === 'PASSWORD_RECOVERY') return true;
-    const { pathname, queryType, hashType, hasRecoveryTokens } = getAuthUrlSignals();
-    if (pathname === '/reset-password') return true;
-    if (queryType === 'recovery' || hashType === 'recovery') return true;
-    if (pathname === '/auth/callback' && hasRecoveryTokens) {
-      return true;
-    }
-    return false;
+    if (typeof window === 'undefined') return false;
+    return window.location.pathname === '/reset-password';
   };
 
   useEffect(() => {
@@ -304,16 +270,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const { pathname, queryType, hashType, hasRecoveryTokens } = getAuthUrlSignals();
-    const hasRecoverySignal =
-      queryType === 'recovery' ||
-      hashType === 'recovery' ||
-      hasRecoveryTokens;
-
-    if (hasRecoverySignal && pathname !== '/auth/callback') {
-      router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
-    }
-
     const bootstrapAuth = async () => {
       try {
         const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
@@ -322,7 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (session?.user) {
-          if (isRecoveryAuthContext()) {
+          if (isPasswordSetupAuthContext()) {
             setUser(null);
             setHasSupabaseSession(true);
           } else {
@@ -344,7 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (session?.user) {
-          if (isRecoveryAuthContext(event)) {
+          if (isPasswordSetupAuthContext(event)) {
             setUser(null);
             setHasSupabaseSession(true);
           } else {
@@ -383,7 +339,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const hydrated = await withTimeout(hydrateUser(data.user), LOGIN_TIMEOUT_MS);
       if (!hydrated) {
-        return { success: false, error: 'Unable to validate account access.' };
+        return { success: false, error: 'Account access could not be validated.' };
       }
       router.push(getPostLoginRoute(hydrated));
       return { success: true };
@@ -415,7 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback?type=recovery`,
+        redirectTo: getResetPasswordUrl('recovery'),
       });
       if (error) return { success: false, error: error.message };
       if (typeof window !== 'undefined') {

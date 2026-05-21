@@ -179,6 +179,24 @@ export function Navbar() {
             >
               Login
             </button>
+            <a
+              href="/register"
+              style={{
+                padding: '0.5rem 1rem',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                borderRadius: '8px',
+                border: `1.5px solid ${isLight ? '#1F3A5F' : '#D4AF37'}`,
+                backgroundColor: 'transparent',
+                color: isLight ? '#1F3A5F' : '#D4AF37',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                whiteSpace: 'nowrap',
+                textDecoration: 'none',
+              }}
+            >
+              Register
+            </a>
 
             <button
               onClick={() => setMenuOpen(!menuOpen)}
@@ -228,6 +246,23 @@ export function Navbar() {
                 {link.label}
               </a>
             ))}
+            <a
+              href="/register"
+              style={{
+                display: 'block',
+                marginTop: '1rem',
+                padding: '0.75rem 1.5rem',
+                fontSize: '1rem',
+                fontWeight: 600,
+                color: '#1F3A5F',
+                border: '1.5px solid #1F3A5F',
+                textDecoration: 'none',
+                borderRadius: '8px',
+                textAlign: 'center',
+              }}
+            >
+              Register
+            </a>
             <a
               href={phoneHref}
               style={{

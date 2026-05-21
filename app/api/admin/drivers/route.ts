@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { getResetPasswordUrl } from '../../../../lib/authFlow';
 
 const ADMIN_ROLES = new Set(['owner', 'admin', 'dispatcher']);
 
@@ -9,8 +10,6 @@ type CreateDriverPayload = {
   email?: string;
   phone?: string;
 };
-
-const formatTempPassword = (sequenceNumber: number) => `Xdrive-${String(sequenceNumber).padStart(3, '0')}`;
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -50,29 +49,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { data: sequenceData, error: sequenceError } = await supabaseAdmin.rpc('next_driver_temp_password_seq');
-  if (sequenceError || typeof sequenceData !== 'number') {
-    return NextResponse.json({ error: 'Failed to generate temporary password sequence.' }, { status: 500 });
+  const { data: invitedUserData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: getResetPasswordUrl('invite'),
+    data: {
+      role: 'driver',
+      requested_role: 'driver',
+    },
+  });
+
+  if (inviteError || !invitedUserData.user) {
+    return NextResponse.json({ error: inviteError?.message || 'Failed to invite driver auth user.' }, { status: 400 });
   }
 
-  const sequenceNumber = sequenceData;
-  const temporaryPassword = formatTempPassword(sequenceNumber);
+  const userId = invitedUserData.user.id;
 
-  const { data: createdUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password: temporaryPassword,
-    email_confirm: true,
+  const { error: updateUserMetadataError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
     user_metadata: {
       role: 'driver',
       requested_role: 'driver',
     },
   });
 
-  if (createUserError || !createdUser.user) {
-    return NextResponse.json({ error: createUserError?.message || 'Failed to create driver auth user.' }, { status: 400 });
+  if (updateUserMetadataError) {
+    return NextResponse.json({ error: updateUserMetadataError.message }, { status: 400 });
   }
 
-  const userId = createdUser.user.id;
+  const { data: existingDriver } = await supabaseAdmin
+    .from('drivers')
+    .select('id')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingDriver?.id) {
+    return NextResponse.json({ error: 'Driver account already exists for this email.' }, { status: 409 });
+  }
 
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
@@ -90,7 +101,6 @@ export async function POST(request: NextRequest) {
     );
 
   if (profileError) {
-    await supabaseAdmin.auth.admin.deleteUser(userId);
     return NextResponse.json({ error: `Failed to initialize driver profile: ${profileError.message}` }, { status: 500 });
   }
 
@@ -105,24 +115,21 @@ export async function POST(request: NextRequest) {
         email,
         status: 'active',
         app_access: true,
-        temporary_password_seq: sequenceNumber,
-        must_change_password: true,
-        temp_password_generated_at: new Date().toISOString(),
+        must_change_password: false,
+        temp_password_generated_at: null,
       },
     ])
     .select('id, company_id, user_id, display_name, phone, email, status, app_access, temporary_password_seq, must_change_password, created_at')
     .single();
 
   if (driverInsertError) {
-    await supabaseAdmin.auth.admin.deleteUser(userId);
     return NextResponse.json({ error: `Failed to create driver record: ${driverInsertError.message}` }, { status: 500 });
   }
 
   return NextResponse.json(
     {
       driver: driverRow,
-      temporaryPassword,
-      sequenceNumber,
+      invited: true,
     },
     { status: 201 }
   );

@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
+import Link from 'next/link';
 import { useAuth } from './AuthContext';
 
 interface LoginModalProps {
@@ -306,9 +307,17 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                   Back to Sign in
                 </button>
               ) : (
-                <p style={{ margin: 0, color: '#6B7280', fontSize: '0.85rem' }}>
-                  Account onboarding is managed by XDrive Logistics operations.
-                </p>
+                <div style={{ display: 'grid', gap: '0.4rem' }}>
+                  <p style={{ margin: 0, color: '#6B7280', fontSize: '0.85rem' }}>
+                    Need an account?
+                  </p>
+                  <Link
+                    href="/register"
+                    style={{ color: '#1E4E8C', fontSize: '0.9rem', textDecoration: 'underline' }}
+                  >
+                    Register
+                  </Link>
+                </div>
               )}
             </div>
           </form>

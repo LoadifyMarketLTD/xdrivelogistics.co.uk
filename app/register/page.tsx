@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
+import { getAuthCallbackUrl } from '../../lib/authFlow';
 
-type RegisterRole = 'customer' | 'driver' | 'company';
+type RegisterRole = 'customer' | 'company';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -38,14 +39,11 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const redirectTo =
-        typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined;
-
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: redirectTo,
+          emailRedirectTo: getAuthCallbackUrl('signup'),
           data: {
             requested_role: role,
           },
@@ -115,7 +113,7 @@ export default function RegisterPage() {
       >
         <h1 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#0A2239' }}>Create account</h1>
         <p style={{ marginTop: 0, color: '#5B6B85', marginBottom: '1.5rem' }}>
-          Register as customer, driver, or company user.
+          Register as customer or company user.
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -143,7 +141,6 @@ export default function RegisterPage() {
             style={{ width: '100%', marginBottom: '1rem', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
           >
             <option value="customer">Customer</option>
-            <option value="driver">Driver</option>
             <option value="company">Company</option>
           </select>
 
