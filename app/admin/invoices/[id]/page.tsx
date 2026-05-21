@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import { useAuth } from '../../../components/AuthContext';
 import InvoiceTemplate, { InvoiceData } from '../../../components/InvoiceTemplate';
 import { COMPANY_CONFIG } from '../../../config/company';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
+import { useAuth } from '../../../components/AuthContext';
 import {
   DEFAULT_COMPANY_SETTINGS,
   hasConfiguredBankDetails,
@@ -82,28 +82,39 @@ function dbToInvoiceData(row: Invoice): InvoiceData {
 export default function InvoiceDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const { user } = useAuth();
+  const searchParams = useSearchParams();
   const invoiceId = params?.id as string;
   const isNew = invoiceId === 'new';
+  const { user, hasSupabaseSession } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companySettings, setCompanySettings] = useState<CompanySettingsValues>(DEFAULT_COMPANY_SETTINGS);
+
+  // Read optional job pre-fill values from URL search params (no localStorage)
+  const prefillJobRef = searchParams?.get('jobRef') ?? '';
+  const prefillClientName = searchParams?.get('clientName') ?? '';
+  const prefillClientEmail = searchParams?.get('clientEmail') ?? '';
+  const prefillPickupLocation = searchParams?.get('pickupLocation') ?? '';
+  const prefillPickupDateTime = searchParams?.get('pickupDateTime') ?? '';
+  const prefillDeliveryLocation = searchParams?.get('deliveryLocation') ?? '';
+  const prefillDeliveryDateTime = searchParams?.get('deliveryDateTime') ?? '';
+  const prefillServiceDescription = searchParams?.get('serviceDescription') ?? '';
 
   const [formData, setFormData] = useState<InvoiceData>({
     id: '',
     invoiceNumber: '',
-    jobRef: '',
+    jobRef: prefillJobRef,
     date: new Date().toISOString().split('T')[0],
     dueDate: '',
     status: 'Pending',
-    clientName: '',
+    clientName: prefillClientName,
     clientAddress: '',
-    clientEmail: '',
-    pickupLocation: '',
-    pickupDateTime: '',
-    deliveryLocation: '',
-    deliveryDateTime: '',
+    clientEmail: prefillClientEmail,
+    pickupLocation: prefillPickupLocation,
+    pickupDateTime: prefillPickupDateTime,
+    deliveryLocation: prefillDeliveryLocation,
+    deliveryDateTime: prefillDeliveryDateTime,
     deliveryRecipient: '',
-    serviceDescription: '',
+    serviceDescription: prefillServiceDescription,
     amount: 0,
     paymentTerms: '14 days',
     lateFee: COMPANY_CONFIG.payment.lateFeeNote,
@@ -117,8 +128,12 @@ export default function InvoiceDetailPage() {
 
   // Load the company ID for the current user (needed to write invoices to Supabase)
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !user?.id) return;
     const fetchCompanyId = async () => {
+      if (user.companyId) {
+        setCompanyId(user.companyId);
+        return;
+      }
       const { data, error } = await supabase.rpc('get_or_create_company_for_user');
       if (!error && data) {
         setCompanyId(data as string);
@@ -128,14 +143,14 @@ export default function InvoiceDetailPage() {
       const { data: mbData } = await supabase
         .from('company_memberships')
         .select('company_id')
-        .eq('user_id', user?.id ?? '')
+        .eq('user_id', user.id)
         .neq('status', 'suspended')
         .limit(1)
-        .single();
+        .maybeSingle();
       if (mbData) setCompanyId(mbData.company_id as string);
     };
     fetchCompanyId();
-  }, []);
+  }, [user?.id, user?.companyId]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !companyId) return;
@@ -161,7 +176,7 @@ export default function InvoiceDetailPage() {
       loadInvoice();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoiceId, companyId]);
+  }, [invoiceId, companyId, hasSupabaseSession]);
 
   // Generate new invoice data once on mount for new invoices;
   // re-run if companyId resolves so we can use the DB sequence number
@@ -260,11 +275,15 @@ export default function InvoiceDetailPage() {
   };
 
   const loadInvoice = async () => {
-    if (isSupabaseConfigured) {
-      if (!companyId) return;
+    // Try Supabase first
+    if (isSupabaseConfigured && hasSupabaseSession) {
+      if (!companyId) {
+        setSaveMessage('Company profile not loaded. Invoice data is unavailable.');
+        return;
+      }
       const { data, error } = await supabase
         .from('invoices')
-        .select('*')
+        .select('id, company_id, created_by, invoice_number, job_ref, job_id, invoice_date, due_date, status, client_name, client_address, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, amount, net_amount, vat_amount, vat_rate, currency, payment_terms, late_fee, pod_photos, signature, recipient_name, created_at, updated_at')
         .eq('id', invoiceId)
         .eq('company_id', companyId)
         .single();
@@ -275,34 +294,27 @@ export default function InvoiceDetailPage() {
       if (error && error.code !== 'PGRST116') {
         console.error('Failed to load invoice from Supabase:', error.message);
       }
+      setSaveMessage('Invoice not found');
+      return;
     }
-    // Fallback: localStorage
-    try {
-      const stored = localStorage.getItem('xdrivelogistics_invoices');
-      if (stored) {
-        const invoices: InvoiceData[] = JSON.parse(stored);
-        const invoice = invoices.find((inv) => inv.id === invoiceId);
-        if (invoice) {
-          setFormData(invoice);
-        } else {
-          router.push('/admin/invoices');
-        }
-      } else {
-        router.push('/admin/invoices');
-      }
-    } catch (error) {
-      console.error('Error loading invoice:', error);
-      router.push('/admin/invoices');
-    }
+    setSaveMessage('A live Supabase session is required to access invoice data safely.');
   };
 
   const handleSave = async () => {
     // Save to Supabase when available
     if (isSupabaseConfigured && companyId) {
       const row = invoiceDataToDb(formData, companyId);
+      const { id: _id, company_id: _companyId, created_by: _createdBy, ...updateFields } = row;
       const { error } = isNew
         ? await supabase.from('invoices').insert([row])
-        : await supabase.from('invoices').upsert([row]);
+        : await supabase
+            .from('invoices')
+            .update({
+              ...updateFields,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', invoiceId)
+            .eq('company_id', companyId);
       if (!error) {
         setSaveMessage('Invoice saved successfully!');
         setTimeout(() => setSaveMessage(''), 3000);
@@ -316,31 +328,13 @@ export default function InvoiceDetailPage() {
       setTimeout(() => setSaveMessage(''), 4000);
       return;
     }
-    // Fallback: localStorage
-    try {
-      const stored = localStorage.getItem('xdrivelogistics_invoices');
-      let invoices: InvoiceData[] = stored ? JSON.parse(stored) : [];
-
-      if (isNew) {
-        invoices.push(formData);
-      } else {
-        invoices = invoices.map((inv) => (inv.id === invoiceId ? formData : inv));
-      }
-
-      localStorage.setItem('xdrivelogistics_invoices', JSON.stringify(invoices));
-      setSaveMessage('Invoice saved successfully!');
-      setTimeout(() => setSaveMessage(''), 3000);
-
-      if (isNew) {
-        setTimeout(() => {
-          router.push(`/admin/invoices/${formData.id}`);
-        }, 1000);
-      }
-    } catch (error) {
-      console.error('Error saving invoice:', error);
-      setSaveMessage('Error saving invoice. Please try again.');
-      setTimeout(() => setSaveMessage(''), 3000);
+    if (isSupabaseConfigured && hasSupabaseSession && !companyId) {
+      setSaveMessage('Company profile not loaded. Invoice cannot be saved safely.');
+      setTimeout(() => setSaveMessage(''), 4000);
+      return;
     }
+    setSaveMessage('A live Supabase session is required to save invoices safely.');
+    setTimeout(() => setSaveMessage(''), 3000);
   };
 
   const handleWhatsAppShare = () => {

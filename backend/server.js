@@ -3,6 +3,14 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
+if (process.env.ALLOW_DEPRECATED_BACKEND !== 'true') {
+  console.error(
+    '[DEPRECATED BACKEND] Startup blocked. This Express backend is not part of the production path. ' +
+    'Set ALLOW_DEPRECATED_BACKEND=true only for temporary local legacy testing.'
+  );
+  process.exit(1);
+}
+
 const authRoutes = require('./routes/auth');
 const driverRoutes = require('./routes/drivers');
 const vehicleRoutes = require('./routes/vehicles');

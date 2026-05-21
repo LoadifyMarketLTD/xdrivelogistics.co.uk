@@ -3,10 +3,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
-import type { CompanyMembership, Driver, Profile } from '../../lib/types/database';
+import type { Company, CompanyMembership, Driver, Profile } from '../../lib/types/database';
 
 const LOGIN_TIMEOUT_MS = 10_000;
 const LOGIN_UNAVAILABLE_ERROR = 'Login service unavailable. Please try again.';
+const RESET_PASSWORD_COOLDOWN_MS = 60_000;
+const RESET_PASSWORD_COOLDOWN_KEY = 'xdrive:last-password-reset-request-at';
 
 class LoginTimeoutError extends Error {
   constructor() {
@@ -48,7 +50,10 @@ interface User {
   role: UserRole;
   companyId: string | null;
   driverId: string | null;
+  mustChangePassword: boolean;
 }
+
+type CreatorCompanySnapshot = Pick<Company, 'id' | 'company_type'>;
 
 export type UserRole = 'guest' | 'customer' | 'driver' | 'company' | 'admin' | 'owner';
 
@@ -79,29 +84,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
+  const resetAuthState = () => {
+    setUser(null);
+    setHasSupabaseSession(false);
+  };
+
   const resolveRole = async (
     userId: string,
     fallbackRole?: string | null
-  ): Promise<{ role: UserRole; companyId: string | null; driverId: string | null }> => {
-    const [profileRes, membershipRes, driverRes] = await Promise.all([
+  ): Promise<{ role: UserRole; companyId: string | null; driverId: string | null; mustChangePassword: boolean } | null> => {
+    const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
       supabase
         .from('profiles')
         .select('role, is_driver, company_id')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .maybeSingle(),
       supabase
         .from('company_memberships')
         .select('company_id, role_in_company, status')
         .eq('user_id', userId)
-        .eq('status', 'active')
+        .neq('status', 'suspended')
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
       supabase
         .from('drivers')
-        .select('id, company_id, user_id, app_access')
+        .select('id, company_id, user_id, app_access, must_change_password')
         .eq('user_id', userId)
         .eq('app_access', true)
+        .maybeSingle(),
+      supabase
+        .from('companies')
+        .select('id, company_type')
+        .eq('created_by', userId)
+        .limit(1)
         .maybeSingle(),
     ]);
 
@@ -110,113 +126,259 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userId,
         error: profileRes.error,
       });
+      return null;
     }
     if (membershipRes.error) {
       console.error('AuthContext.resolveRole company_memberships query failed', {
         userId,
         error: membershipRes.error,
       });
+      return null;
     }
     if (driverRes.error) {
       console.error('AuthContext.resolveRole drivers query failed', {
         userId,
         error: driverRes.error,
       });
+      return null;
+    }
+    if (creatorCompanyRes.error) {
+      console.error('AuthContext.resolveRole companies query failed', {
+        userId,
+        error: creatorCompanyRes.error,
+      });
+      return null;
     }
 
     const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
     const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
-    const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access'> | null;
+    const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null;
+    const creatorCompany = creatorCompanyRes.data as CreatorCompanySnapshot | null;
     const driverId = driver?.id ?? null;
+    const mustChangePassword = Boolean(driver?.must_change_password);
+
+    let resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? creatorCompany?.id ?? null;
+
+    const fallbackMappedRole = mapRole(fallbackRole);
+    const profileMappedRole = mapRole(profile?.role);
+    const shouldProvisionCompany =
+      !resolvedCompanyId &&
+      (fallbackMappedRole === 'company' ||
+        fallbackMappedRole === 'admin' ||
+        fallbackMappedRole === 'owner' ||
+        profileMappedRole === 'company' ||
+        profileMappedRole === 'admin' ||
+        profileMappedRole === 'owner');
+
+    if (shouldProvisionCompany) {
+      const { data: provisionedCompanyId } = await supabase.rpc('get_or_create_company_for_user');
+      if (typeof provisionedCompanyId === 'string' && provisionedCompanyId) {
+        resolvedCompanyId = provisionedCompanyId;
+      }
+    }
 
     if (membership?.role_in_company === 'owner') {
-      return { role: 'owner', companyId: membership.company_id, driverId };
+      return resolvedCompanyId ? { role: 'owner', companyId: resolvedCompanyId, driverId, mustChangePassword: false } : null;
     }
     if (membership?.role_in_company === 'admin') {
-      return { role: 'admin', companyId: membership.company_id, driverId };
+      return resolvedCompanyId ? { role: 'admin', companyId: resolvedCompanyId, driverId, mustChangePassword: false } : null;
     }
     if (membership?.role_in_company === 'dispatcher') {
-      return { role: 'company', companyId: membership.company_id, driverId };
+      return resolvedCompanyId ? { role: 'company', companyId: resolvedCompanyId, driverId, mustChangePassword: false } : null;
     }
     if (driver || profile?.is_driver) {
-      return { role: 'driver', companyId: driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null, driverId };
+      return resolvedCompanyId ? { role: 'driver', companyId: resolvedCompanyId, driverId, mustChangePassword } : null;
     }
     if (membership?.role_in_company === 'viewer') {
-      return { role: 'customer', companyId: membership.company_id, driverId };
+      return { role: 'customer', companyId: resolvedCompanyId, driverId, mustChangePassword: false };
+    }
+    if (creatorCompany && resolvedCompanyId) {
+      return {
+        role: creatorCompany.company_type === 'admin' ? 'admin' : 'owner',
+        companyId: resolvedCompanyId,
+        driverId,
+        mustChangePassword: false,
+      };
     }
 
     const profileRole = mapRole(profile?.role);
     if (profileRole) {
-      return { role: profileRole, companyId: profile?.company_id ?? null, driverId };
+      if ((profileRole === 'company' || profileRole === 'admin' || profileRole === 'owner' || profileRole === 'driver') && !resolvedCompanyId) {
+        return null;
+      }
+      return { role: profileRole, companyId: resolvedCompanyId, driverId, mustChangePassword: profileRole === 'driver' ? mustChangePassword : false };
     }
 
     const metadataRole = mapRole(fallbackRole);
     if (metadataRole) {
-      return { role: metadataRole, companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
+      if ((metadataRole === 'company' || metadataRole === 'admin' || metadataRole === 'owner' || metadataRole === 'driver') && !resolvedCompanyId) {
+        return null;
+      }
+      return { role: metadataRole, companyId: resolvedCompanyId, driverId, mustChangePassword: metadataRole === 'driver' ? mustChangePassword : false };
     }
 
-    if (fallbackRole === 'driver') {
-      return { role: 'driver', companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
-    }
-
-    return { role: 'customer', companyId: profile?.company_id ?? membership?.company_id ?? null, driverId };
+    return null;
   };
 
-  const hydrateUser = async (sessionUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> | null }) => {
+  const hydrateUser = async (sessionUser: {
+    id: string;
+    email?: string | null;
+    user_metadata?: Record<string, unknown> | null;
+    app_metadata?: Record<string, unknown> | null;
+  }) => {
+    if (!sessionUser?.id) {
+      resetAuthState();
+      return null;
+    }
+
     const fallbackRole =
       typeof sessionUser.user_metadata?.role === 'string'
         ? sessionUser.user_metadata.role
         : typeof sessionUser.user_metadata?.requested_role === 'string'
           ? sessionUser.user_metadata.requested_role
+          : typeof sessionUser.app_metadata?.role === 'string'
+            ? sessionUser.app_metadata.role
           : null;
-    const roleData = await resolveRole(sessionUser.id, fallbackRole);
+    const roleData = await withTimeout(resolveRole(sessionUser.id, fallbackRole), LOGIN_TIMEOUT_MS);
+    if (!roleData) {
+      resetAuthState();
+      if (isSupabaseConfigured) {
+        await supabase.auth.signOut();
+      }
+      return null;
+    }
+
     const userData: User = {
       id: sessionUser.id,
       email: sessionUser.email ?? '',
       role: roleData.role,
       companyId: roleData.companyId,
       driverId: roleData.driverId,
+      mustChangePassword: roleData.mustChangePassword,
     };
     setUser(userData);
     setHasSupabaseSession(true);
     return userData;
   };
 
-  const getPostLoginRoute = (role: UserRole) => {
-    if (role === 'driver') return '/driver/jobs';
-    if (role === 'customer') return '/customer';
+  const getPostLoginRoute = (currentUser: User) => {
+    if (currentUser.role === 'driver') return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
+    if (currentUser.role === 'customer') return '/customer';
     return '/admin';
   };
 
+  const getAuthUrlSignals = () => {
+    if (typeof window === 'undefined') {
+      return {
+        pathname: '',
+        queryType: null as string | null,
+        hashType: null as string | null,
+        hasRecoveryTokens: false,
+      };
+    }
+
+    const queryParams = new URLSearchParams(window.location.search);
+    const hashParams = window.location.hash
+      ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      : null;
+
+    const queryType = queryParams.get('type');
+    const hashType = hashParams?.get('type') ?? null;
+    const hasRecoveryTokens =
+      Boolean(hashParams?.get('access_token') && hashParams?.get('refresh_token')) ||
+      Boolean(queryParams.get('code')) ||
+      Boolean(queryParams.get('token_hash'));
+
+    return {
+      pathname: window.location.pathname,
+      queryType,
+      hashType,
+      hasRecoveryTokens,
+    };
+  };
+
+  const isRecoveryAuthContext = (event?: string) => {
+    if (event === 'PASSWORD_RECOVERY') return true;
+    const { pathname, queryType, hashType, hasRecoveryTokens } = getAuthUrlSignals();
+    if (pathname === '/reset-password') return true;
+    if (queryType === 'recovery' || hashType === 'recovery') return true;
+    if (pathname === '/auth/callback' && hasRecoveryTokens) {
+      return true;
+    }
+    return false;
+  };
+
   useEffect(() => {
+    let isMounted = true;
+
     if (!isSupabaseConfigured) {
-      setUser(null);
-      setHasSupabaseSession(false);
-      setIsLoading(false);
+      resetAuthState();
+      if (isMounted) setIsLoading(false);
       return;
     }
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        await hydrateUser(session.user);
-      } else {
-        setUser(null);
-        setHasSupabaseSession(false);
+    const { pathname, queryType, hashType, hasRecoveryTokens } = getAuthUrlSignals();
+    const hasRecoverySignal =
+      queryType === 'recovery' ||
+      hashType === 'recovery' ||
+      hasRecoveryTokens;
+
+    if (hasRecoverySignal && pathname !== '/auth/callback') {
+      router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
+    }
+
+    const bootstrapAuth = async () => {
+      try {
+        const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
+        if (error) {
+          throw error;
+        }
+
+        if (session?.user) {
+          if (isRecoveryAuthContext()) {
+            setUser(null);
+            setHasSupabaseSession(true);
+          } else {
+            await hydrateUser(session.user);
+          }
+        } else {
+          resetAuthState();
+        }
+      } catch (error) {
+        console.error('AuthContext bootstrap failed', error);
+        resetAuthState();
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-      setIsLoading(false);
+    };
+
+    void bootstrapAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      try {
+        if (session?.user) {
+          if (isRecoveryAuthContext(event)) {
+            setUser(null);
+            setHasSupabaseSession(true);
+          } else {
+            await hydrateUser(session.user);
+          }
+        } else {
+          resetAuthState();
+        }
+      } catch (error) {
+        console.error('AuthContext auth state handling failed', error);
+        resetAuthState();
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        await hydrateUser(session.user);
-      } else {
-        setUser(null);
-        setHasSupabaseSession(false);
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
@@ -232,8 +394,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) return { success: false, error: error.message };
       if (!data.user) return { success: false, error: 'Login failed' };
 
-      const hydrated = await hydrateUser(data.user);
-      router.push(getPostLoginRoute(hydrated.role));
+      const hydrated = await withTimeout(hydrateUser(data.user), LOGIN_TIMEOUT_MS);
+      if (!hydrated) {
+        return { success: false, error: 'Unable to validate account access.' };
+      }
+      router.push(getPostLoginRoute(hydrated));
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
@@ -249,10 +414,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'Authentication is unavailable: Supabase is not configured.' };
     }
     try {
+      if (typeof window !== 'undefined') {
+        const lastRequestAtRaw = window.sessionStorage.getItem(RESET_PASSWORD_COOLDOWN_KEY);
+        const lastRequestAt = lastRequestAtRaw ? Number(lastRequestAtRaw) : 0;
+        const elapsed = Date.now() - lastRequestAt;
+        if (Number.isFinite(lastRequestAt) && elapsed >= 0 && elapsed < RESET_PASSWORD_COOLDOWN_MS) {
+          const remainingSeconds = Math.ceil((RESET_PASSWORD_COOLDOWN_MS - elapsed) / 1000);
+          return {
+            success: false,
+            error: `Please wait ${remainingSeconds}s before requesting another reset email.`,
+          };
+        }
+      }
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
+        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback?type=recovery`,
       });
       if (error) return { success: false, error: error.message };
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(RESET_PASSWORD_COOLDOWN_KEY, String(Date.now()));
+      }
       return { success: true };
     } catch (err) {
       console.error('Reset password error:', err);
@@ -262,8 +443,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
-    setUser(null);
-    setHasSupabaseSession(false);
+    resetAuthState();
     router.push('/login');
   };
 
