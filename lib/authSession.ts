@@ -132,6 +132,7 @@ export const resolveAuthenticatedUser = async (
       driverErr: driverRes.error?.message,
       creatorErr: creatorCompanyRes.error?.message,
     });
+    return { user: null, reason: 'db_error', dbError: profileDbError };
   }
 
   if (membershipRes.error || driverRes.error || creatorCompanyRes.error) {
@@ -287,9 +288,6 @@ export const resolveAuthenticatedUser = async (
 
   // 7. No profile at all and no other resolution path
   if (!profile) {
-    if (profileDbError) {
-      return { user: null, reason: 'db_error', dbError: profileDbError };
-    }
     console.debug('[XDrive Auth] auth resolution failed', { reason: 'profile_missing', userId: sessionUser.id });
     return { user: null, reason: 'profile_missing' };
   }
