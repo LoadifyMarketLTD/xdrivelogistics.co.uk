@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useState } from 'react';
-import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
-import { getAuthCallbackUrl } from '../../lib/authFlow';
+import { type FormEvent, useState } from 'react';
+import { getAuthCallbackEmailRedirectTo } from '../../lib/authFlow';
+import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
 type RegisterRole = 'customer' | 'company';
 
@@ -39,11 +39,11 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: getAuthCallbackUrl('signup'),
+          emailRedirectTo: getAuthCallbackEmailRedirectTo(),
           data: {
             requested_role: role,
           },
@@ -55,29 +55,7 @@ export default function RegisterPage() {
         return;
       }
 
-      if (data.user?.id) {
-        const { error: profileError } = await supabase.from('profiles').upsert(
-          [{
-            user_id: data.user.id,
-            role,
-            is_driver: false,
-          }],
-          { onConflict: 'user_id' }
-        );
-
-        if (profileError) {
-          console.error('RegisterPage profile upsert failed', {
-            role,
-            message: profileError.message,
-          });
-          setError(`Account created, but profile setup failed: ${profileError.message}`);
-          return;
-        }
-      }
-
-      setMessage(
-        'Account created. Check your email to verify your account, then sign in.'
-      );
+      setMessage('Account created. Check your email to verify your account, then sign in.');
       setEmail('');
       setPassword('');
       setConfirmPassword('');
@@ -113,7 +91,7 @@ export default function RegisterPage() {
       >
         <h1 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#0A2239' }}>Create account</h1>
         <p style={{ marginTop: 0, color: '#5B6B85', marginBottom: '1.5rem' }}>
-          Register as customer or company user.
+          Register as a customer or company user.
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -131,7 +109,7 @@ export default function RegisterPage() {
           />
 
           <label htmlFor="register-role" style={{ display: 'block', marginBottom: '0.4rem', color: '#0B1B33' }}>
-            Role
+            Account type
           </label>
           <select
             id="register-role"
@@ -171,6 +149,10 @@ export default function RegisterPage() {
             disabled={loading}
             style={{ width: '100%', marginBottom: '1rem', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
           />
+
+          <p style={{ marginTop: 0, marginBottom: '1rem', color: '#5B6B85', fontSize: '0.9rem' }}>
+            Driver access is provisioned by a company after assignment and is not available through public self-registration.
+          </p>
 
           {error && (
             <p style={{ margin: '0 0 1rem', color: '#dc2626', fontSize: '0.9rem' }}>

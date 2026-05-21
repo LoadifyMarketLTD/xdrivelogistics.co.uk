@@ -1,9 +1,13 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
-import { isPasswordSetupFlowType } from '../../lib/authFlow';
+import {
+  LOGIN_RESET_SUCCESS_PATH,
+  getBrowserAuthSignals,
+  isInviteAuthFlow,
+} from '../../lib/authFlow';
+import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -12,79 +16,74 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [hasPasswordSetupSession, setHasPasswordSetupSession] = useState(false);
+  const [isInviteFlow, setIsInviteFlow] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    const checkResetSession = async () => {
+    const clearBrowserTokens = () => {
+      if (typeof window === 'undefined') return;
+      window.history.replaceState(null, '', '/reset-password');
+    };
+
+    const preparePasswordSetupSession = async () => {
       if (!isSupabaseConfigured) {
         setError('Authentication is unavailable: Supabase is not configured.');
         setIsCheckingSession(false);
         return;
       }
 
-      const queryParams = typeof window !== 'undefined'
-        ? new URLSearchParams(window.location.search)
-        : null;
-      const hashParams =
-        typeof window !== 'undefined' && window.location.hash
-          ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
-          : null;
-      const queryType = queryParams?.get('type');
-      const hashType = hashParams?.get('type');
-      const setupType: 'recovery' | 'invite' = isPasswordSetupFlowType(queryType)
-        ? queryType
-        : isPasswordSetupFlowType(hashType)
-          ? hashType
-          : 'recovery';
+      try {
+        const signals = getBrowserAuthSignals();
+        if (signals) {
+          setIsInviteFlow(isInviteAuthFlow(signals));
+        }
 
-      const code = queryParams?.get('code');
-      const tokenHash = queryParams?.get('token_hash');
-      const accessToken = hashParams?.get('access_token');
-      const refreshToken = hashParams?.get('refresh_token');
+        const { data: initialSession, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
 
-      if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeError) {
-          setError(exchangeError.message);
+        if (!initialSession.session?.user && signals?.hasHashSessionTokens && signals.accessToken && signals.refreshToken) {
+          const { error: setSessionError } = await supabase.auth.setSession({
+            access_token: signals.accessToken,
+            refresh_token: signals.refreshToken,
+          });
+          if (setSessionError) throw setSessionError;
+          clearBrowserTokens();
+        } else if (!initialSession.session?.user && signals?.code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(signals.code);
+          if (exchangeError) throw exchangeError;
+          clearBrowserTokens();
+        } else if (!initialSession.session?.user && signals?.tokenHash) {
+          const otpType = isInviteAuthFlow(signals) ? 'invite' : 'recovery';
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: signals.tokenHash,
+            type: otpType,
+          });
+          if (verifyError) throw verifyError;
+          clearBrowserTokens();
+        }
+
+        const { data: checkedSession, error: checkedSessionError } = await supabase.auth.getSession();
+        if (checkedSessionError) throw checkedSessionError;
+
+        if (!checkedSession.session?.user) {
+          setError('Password setup link is invalid or expired. Please request a new email.');
+          setHasPasswordSetupSession(false);
           setIsCheckingSession(false);
           return;
         }
-      } else if (accessToken && refreshToken) {
-        const { error: setSessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        if (setSessionError) {
-          setError(setSessionError.message);
-          setIsCheckingSession(false);
-          return;
-        }
-      } else if (tokenHash) {
-        const { error: verifyError } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: setupType,
-        });
-        if (verifyError) {
-          setError(verifyError.message);
-          setIsCheckingSession(false);
-          return;
-        }
-      }
 
-      const { data: checkedData, error: checkedSessionError } = await supabase.auth.getSession();
-      if (checkedSessionError || !checkedData.session?.user) {
-        setError('Password setup link is invalid or expired. Please request a new email.');
+        setHasPasswordSetupSession(true);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Password setup failed.';
+        setError(message);
         setHasPasswordSetupSession(false);
+      } finally {
         setIsCheckingSession(false);
-        return;
       }
-
-      setHasPasswordSetupSession(true);
-      setIsCheckingSession(false);
     };
 
-    void checkResetSession();
+    void preparePasswordSetupSession();
   }, []);
 
   const handleSubmit = async (event: FormEvent) => {
@@ -103,9 +102,7 @@ export default function ResetPasswordPage() {
 
     setIsLoading(true);
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password,
-      });
+      const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) {
         setError(updateError.message);
         return;
@@ -113,7 +110,7 @@ export default function ResetPasswordPage() {
 
       await supabase.auth.signOut();
       setSuccess('Password updated successfully. Redirecting to sign in…');
-      setTimeout(() => router.replace('/login?reset=success'), 1200);
+      setTimeout(() => router.replace(LOGIN_RESET_SUCCESS_PATH), 1200);
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +120,7 @@ export default function ResetPasswordPage() {
     return (
       <main>
         <section style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-          <h1 style={{ marginBottom: '1rem' }}>Preparing password reset…</h1>
+          <h1 style={{ marginBottom: '1rem' }}>Preparing password setup…</h1>
         </section>
       </main>
     );
@@ -175,9 +172,13 @@ export default function ResetPasswordPage() {
           maxWidth: '420px',
         }}
       >
-        <h1 style={{ marginTop: 0, marginBottom: '0.75rem', color: '#0A2239' }}>Set a new password</h1>
+        <h1 style={{ marginTop: 0, marginBottom: '0.75rem', color: '#0A2239' }}>
+          {isInviteFlow ? 'Set your password' : 'Set a new password'}
+        </h1>
         <p style={{ marginTop: 0, marginBottom: '1.5rem', color: '#5B6B85' }}>
-          Enter your new password to complete account recovery.
+          {isInviteFlow
+            ? 'Choose your password to finish account setup.'
+            : 'Enter your new password to complete account recovery.'}
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -193,6 +194,7 @@ export default function ResetPasswordPage() {
               required
               disabled={isLoading}
               minLength={8}
+              autoComplete="new-password"
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -215,6 +217,7 @@ export default function ResetPasswordPage() {
               required
               disabled={isLoading}
               minLength={8}
+              autoComplete="new-password"
               style={{
                 width: '100%',
                 padding: '0.75rem',

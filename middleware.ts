@@ -318,17 +318,15 @@ export async function middleware(request: NextRequest) {
     return redirectToLogin(request);
   }
 
-  const userMetadata =
-    payload && typeof payload.user_metadata === 'object' && payload.user_metadata !== null
-      ? (payload.user_metadata as Record<string, unknown>)
+  const appMetadata =
+    payload && typeof payload.app_metadata === 'object' && payload.app_metadata !== null
+      ? (payload.app_metadata as Record<string, unknown>)
       : null;
 
   const fallbackRole =
-    typeof userMetadata?.role === 'string'
-      ? userMetadata.role
-      : typeof userMetadata?.requested_role === 'string'
-        ? userMetadata.requested_role
-        : null;
+    typeof appMetadata?.role === 'string'
+      ? appMetadata.role
+      : null;
 
   const snapshot = await fetchRoleSnapshot(token, userId, fallbackRole);
   if (snapshot.status === 'unauthenticated') {

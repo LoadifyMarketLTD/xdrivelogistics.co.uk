@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, type FormEvent, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
+import { buildPathWithAuthParams, getBrowserAuthSignals, isRecoveryAuthFlow, RESET_PASSWORD_PATH } from '../../lib/authFlow';
 import { COMPANY_CONFIG } from '../config/company';
 
 export default function LoginPage() {
@@ -19,7 +20,12 @@ export default function LoginPage() {
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const { login, resetPassword, user, isLoading: authLoading } = useAuth();
-  const resetSuccess = searchParams.get('reset') === 'success';
+
+  useEffect(() => {
+    const signals = getBrowserAuthSignals();
+    if (!signals || !isRecoveryAuthFlow(signals)) return;
+    router.replace(buildPathWithAuthParams(RESET_PASSWORD_PATH, signals));
+  }, [router]);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -40,9 +46,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // Authenticate with email and password only
       const result = await login(email, password);
-
       if (!result.success) {
         setError(result.error || 'Login failed');
       }
@@ -77,6 +81,8 @@ export default function LoginPage() {
     setResetError('');
   };
 
+  const showResetSuccess = searchParams.get('reset') === 'success';
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -106,20 +112,21 @@ export default function LoginPage() {
           <p style={{ color: '#5B6B85', fontSize: '0.95rem' }}>
             {showReset ? 'Reset your password' : 'Sign in to your account'}
           </p>
-          {resetSuccess && !showReset && (
-            <div style={{
-              marginTop: '0.75rem',
-              padding: '0.75rem',
-              backgroundColor: '#dcfce7',
-              color: '#166534',
-              borderRadius: '6px',
-              fontSize: '0.9rem',
-              border: '1px solid #bbf7d0',
-            }}>
-              Password updated successfully. Please sign in.
-            </div>
-          )}
         </div>
+
+        {showResetSuccess && !showReset && (
+          <div style={{
+            padding: '0.75rem',
+            marginBottom: '1.5rem',
+            backgroundColor: '#dcfce7',
+            color: '#166534',
+            borderRadius: '6px',
+            fontSize: '0.9rem',
+            border: '1px solid #bbf7d0'
+          }}>
+            Password updated successfully. Sign in with your new password.
+          </div>
+        )}
 
         {!showReset ? (
           <form onSubmit={handleSubmit}>
@@ -232,18 +239,13 @@ export default function LoginPage() {
                 cursor: isLoading ? 'not-allowed' : 'pointer',
                 transition: 'background-color 0.2s'
               }}
-              onMouseEnter={(e) => {
-                if (!isLoading) e.currentTarget.style.backgroundColor = '#166534';
-              }}
-              onMouseLeave={(e) => {
-                if (!isLoading) e.currentTarget.style.backgroundColor = '#1F7A3D';
-              }}
             >
-              {isLoading ? 'Please wait...' : 'Sign In'}
+              {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
-            <p style={{ marginTop: '1rem', marginBottom: 0, color: '#5B6B85', textAlign: 'center', fontSize: '0.9rem' }}>
+
+            <p style={{ marginTop: '1rem', marginBottom: 0, color: '#5B6B85', textAlign: 'center' }}>
               Need an account?{' '}
-              <Link href="/register" style={{ color: '#1E4E8C' }}>
+              <Link href="/register" style={{ color: '#1E4E8C', fontWeight: 600 }}>
                 Register
               </Link>
             </p>
@@ -276,8 +278,6 @@ export default function LoginPage() {
                   transition: 'border-color 0.2s',
                   outline: 'none'
                 }}
-                onFocus={(e) => e.target.style.borderColor = '#1E4E8C'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(14, 36, 72, 0.12)'}
               />
             </div>
 
@@ -322,38 +322,28 @@ export default function LoginPage() {
                 fontSize: '1rem',
                 fontWeight: '600',
                 cursor: resetLoading ? 'not-allowed' : 'pointer',
-                transition: 'background-color 0.2s',
-                marginBottom: '1rem'
-              }}
-              onMouseEnter={(e) => {
-                if (!resetLoading) e.currentTarget.style.backgroundColor = '#166534';
-              }}
-              onMouseLeave={(e) => {
-                if (!resetLoading) e.currentTarget.style.backgroundColor = '#1F7A3D';
+                transition: 'background-color 0.2s'
               }}
             >
               {resetLoading ? 'Sending...' : 'Send Reset Email'}
             </button>
 
-            <button
-              type="button"
-              onClick={handleBackToSignIn}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                backgroundColor: 'transparent',
-                color: '#5B6B85',
-                border: '1px solid rgba(14, 36, 72, 0.2)',
-                borderRadius: '6px',
-                fontSize: '0.95rem',
-                cursor: 'pointer',
-                transition: 'border-color 0.2s'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#1E4E8C'; e.currentTarget.style.color = '#1E4E8C'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(14, 36, 72, 0.2)'; e.currentTarget.style.color = '#5B6B85'; }}
-            >
-              Back to Sign In
-            </button>
+            <p style={{ marginTop: '1rem', marginBottom: 0, textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={handleBackToSignIn}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#1E4E8C',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                Back to sign in
+              </button>
+            </p>
           </form>
         )}
       </div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
-import { getResetPasswordUrl } from '../../../../lib/authFlow';
+import { getResetPasswordEmailRedirectTo } from '../../../../lib/authFlow';
 
 const ADMIN_ROLES = new Set(['owner', 'admin', 'dispatcher']);
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: invitedUserData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: getResetPasswordUrl('invite'),
+    redirectTo: `${getResetPasswordEmailRedirectTo()}?type=invite`,
     data: {
       role: 'driver',
       requested_role: 'driver',
