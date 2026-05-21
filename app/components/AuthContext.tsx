@@ -241,10 +241,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : null;
     const roleData = await withTimeout(resolveRole(sessionUser.id, fallbackRole), LOGIN_TIMEOUT_MS);
     if (!roleData) {
+      // Do NOT sign out here — the Supabase session is valid but profile/role is missing.
+      // Signing out here causes "Unable to validate account access" loops on recovery flows
+      // and breaks new user sessions. Just clear local state and return null.
       resetAuthState();
-      if (isSupabaseConfigured) {
-        await supabase.auth.signOut();
-      }
       return null;
     }
 
@@ -441,8 +441,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://xdrivelogistics.co.uk/auth/callback?type=recovery',
+        // Send recovery link DIRECTLY to /reset-password (not via /auth/callback).
+        // This page handles the Supabase recovery session on its own, without callback hops.
+        redirectTo: 'https://xdrivelogistics.co.uk/reset-password',
       });
+      console.log('[AuthContext] resetPasswordForEmail sent for:', email);
       if (error) return { success: false, error: error.message };
       if (typeof window !== 'undefined') {
         window.sessionStorage.setItem(RESET_PASSWORD_COOLDOWN_KEY, String(Date.now()));
