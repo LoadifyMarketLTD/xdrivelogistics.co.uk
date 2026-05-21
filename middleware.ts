@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './lib/authRole';
 
 type UserRole = 'customer' | 'driver' | 'company' | 'admin' | 'owner';
 
@@ -96,16 +97,6 @@ const isJwtExpired = (payload: Record<string, unknown> | null): boolean => {
   return Date.now() >= exp * 1000;
 };
 
-const mapRole = (value: string | null | undefined): UserRole | null => {
-  const normalized = (value ?? '').toLowerCase();
-  if (normalized === 'owner') return 'owner';
-  if (normalized === 'admin') return 'admin';
-  if (normalized === 'company' || normalized === 'dispatcher') return 'company';
-  if (normalized === 'driver') return 'driver';
-  if (normalized === 'customer' || normalized === 'client' || normalized === 'viewer') return 'customer';
-  return null;
-};
-
 const resolveRole = ({
   membershipRole,
   profileRole,
@@ -128,10 +119,10 @@ const resolveRole = ({
   if (membershipRole === 'viewer') return 'customer';
   if (hasCreatedCompany) return creatorCompanyType === 'admin' ? 'admin' : 'owner';
 
-  const resolvedProfileRole = mapRole(profileRole);
+  const resolvedProfileRole = mapAppRole(profileRole);
   if (resolvedProfileRole) return resolvedProfileRole;
 
-  const resolvedFallbackRole = mapRole(fallbackRole);
+  const resolvedFallbackRole = mapAppRole(fallbackRole);
   if (resolvedFallbackRole) return resolvedFallbackRole;
 
   return null;
@@ -249,7 +240,14 @@ const fetchRoleSnapshot = async (
     (typeof creatorCompany?.id === 'string' && creatorCompany.id) ||
     null;
 
-  if (!companyId && (role === 'company' || role === 'admin' || role === 'owner')) {
+  if (
+    !companyId &&
+    role &&
+    shouldAutoProvisionCompany({
+      fallbackRole,
+      profileRole: typeof profile?.role === 'string' ? profile.role : null,
+    })
+  ) {
     const provisionRes = await callRpc('get_or_create_company_for_user');
     if (provisionRes.type === 'unauthenticated') {
       return { status: 'unauthenticated', role: null, companyId: null, mustChangePassword: false };
@@ -263,7 +261,7 @@ const fetchRoleSnapshot = async (
     return { status: 'ok', role: null, companyId, mustChangePassword: false };
   }
 
-  if ((role === 'company' || role === 'admin' || role === 'owner' || role === 'driver') && !companyId) {
+  if (roleRequiresCompanyContext(role) && !companyId) {
     return { status: 'ok', role: null, companyId: null, mustChangePassword: false };
   }
 
@@ -296,7 +294,7 @@ const redirectToDriverPasswordChange = (request: NextRequest) => {
   return NextResponse.redirect(changeUrl);
 };
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const requiresAuth = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 

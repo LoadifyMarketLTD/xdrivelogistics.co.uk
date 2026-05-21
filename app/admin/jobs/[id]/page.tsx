@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { JOB_STATUS, JOB_STATUS_LABEL } from '../../../config/company';
 import { supabase } from '../../../../lib/supabaseClient';
+import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../../lib/jobClientFields';
 import { useAuth } from '../../../components/AuthContext';
 
 interface Job {
@@ -87,7 +88,7 @@ export default function JobDetailPage() {
 
         const { data, error } = await supabase
           .from('jobs')
-          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, load_details, special_requirements, created_at, updated_at')
+          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, created_at, updated_at')
           .eq('id', jobId)
           .eq('company_id', companyId)
           .single();
@@ -98,13 +99,14 @@ export default function JobDetailPage() {
         }
         if (data) {
           const row = data as Record<string, unknown>;
+          const clientFields = getJobClientFields(row);
           const mapped: Job = {
             id: row.id as string,
             jobRef: (row.id as string).slice(0, 13).toUpperCase(),
             client: {
-              name: (row.load_details as string) || 'Unknown',
-              email: '',
-              phone: '',
+              name: clientFields.name,
+              email: clientFields.email,
+              phone: clientFields.phone,
             },
             pickup: {
               location: (row.pickup_location as string) || '',
@@ -119,7 +121,7 @@ export default function JobDetailPage() {
             cargo: {
               type: (row.cargo_type as string) || 'other',
               quantity: (row.items as number) || 1,
-              notes: (row.special_requirements as string) || '',
+              notes: clientFields.cargoNotes,
             },
             status: (row.status as string) || JOB_STATUS.RECEIVED,
             createdAt: row.created_at as string,
@@ -158,8 +160,15 @@ export default function JobDetailPage() {
         }
 
         const { error } = await supabase.from('jobs').update({
+          client_name: formData.client.name,
+          client_email: formData.client.email || null,
+          client_phone: formData.client.phone || null,
           load_details: formData.client.name,
-          special_requirements: [formData.client.name, formData.client.phone, formData.client.email, formData.cargo.notes].filter(Boolean).join(' | '),
+          special_requirements: buildLegacyJobSpecialRequirements({
+            clientPhone: formData.client.phone,
+            clientEmail: formData.client.email,
+            cargoNotes: formData.cargo.notes,
+          }),
           pickup_location: formData.pickup.location,
           pickup_datetime: formData.pickup.date && formData.pickup.time ? `${formData.pickup.date}T${formData.pickup.time}:00` : null,
           delivery_location: formData.delivery.location,

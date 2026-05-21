@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from '../../../lib/authRole';
 import type { Company, CompanyMembership, Driver, Profile } from '../../../lib/types/database';
 
 type CreatorCompanySnapshot = Pick<Company, 'id' | 'company_type'>;
@@ -20,16 +21,6 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<
   } finally {
     if (timeoutHandle) clearTimeout(timeoutHandle);
   }
-};
-
-const mapRole = (value: string | null | undefined) => {
-  const normalized = (value ?? '').toLowerCase();
-  if (normalized === 'owner') return 'owner';
-  if (normalized === 'admin') return 'admin';
-  if (normalized === 'company' || normalized === 'dispatcher') return 'company';
-  if (normalized === 'driver') return 'driver';
-  if (normalized === 'customer' || normalized === 'client' || normalized === 'viewer') return 'customer';
-  return null;
 };
 
 const resolveRedirectPath = async (
@@ -75,16 +66,12 @@ const resolveRedirectPath = async (
   const mustChangePassword = Boolean(driver?.must_change_password);
   let resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? creatorCompany?.id ?? null;
 
-  const fallbackMappedRole = mapRole(fallbackRole);
-  const profileMappedRole = mapRole(profile?.role);
   const shouldProvisionCompany =
     !resolvedCompanyId &&
-    (fallbackMappedRole === 'company' ||
-      fallbackMappedRole === 'admin' ||
-      fallbackMappedRole === 'owner' ||
-      profileMappedRole === 'company' ||
-      profileMappedRole === 'admin' ||
-      profileMappedRole === 'owner');
+    shouldAutoProvisionCompany({
+      fallbackRole,
+      profileRole: profile?.role,
+    });
 
   if (shouldProvisionCompany) {
     const { data: provisionedCompanyId } = await supabase.rpc('get_or_create_company_for_user');
@@ -109,9 +96,9 @@ const resolveRedirectPath = async (
     return '/admin';
   }
 
-  const profileRole = mapRole(profile?.role);
+  const profileRole = mapAppRole(profile?.role);
   if (profileRole === 'driver') {
-    if (!resolvedCompanyId) return null;
+    if (roleRequiresCompanyContext(profileRole) && !resolvedCompanyId) return null;
     return mustChangePassword ? '/driver/change-password' : '/driver/jobs';
   }
   if (profileRole === 'customer') return '/customer';
@@ -119,9 +106,9 @@ const resolveRedirectPath = async (
     return resolvedCompanyId ? '/admin' : null;
   }
 
-  const metadataRole = mapRole(fallbackRole);
+  const metadataRole = mapAppRole(fallbackRole);
   if (metadataRole === 'driver') {
-    if (!resolvedCompanyId) return null;
+    if (roleRequiresCompanyContext(metadataRole) && !resolvedCompanyId) return null;
     return mustChangePassword ? '/driver/change-password' : '/driver/jobs';
   }
   if (metadataRole === 'customer') return '/customer';
