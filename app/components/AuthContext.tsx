@@ -7,6 +7,8 @@ import {
   getResetPasswordEmailRedirectTo,
 } from '../../lib/authFlow';
 import {
+  type AuthFailureReason,
+  type AuthResolutionResult,
   type ResolvedAuthUser,
   type SessionUser,
   type UserRole,
@@ -54,6 +56,25 @@ const isServiceUnavailableError = (error: unknown): boolean => {
   );
 };
 
+/** Convert a structured failure reason into a user-facing message. */
+const authFailureReasonToMessage = (reason: AuthFailureReason | null): string => {
+  switch (reason) {
+    case 'account_pending':
+      return 'Your account is pending approval. Please contact support.';
+    case 'account_blocked':
+      return 'Your account has been suspended. Please contact support.';
+    case 'role_unsupported':
+      return 'Your account role is not supported. Please contact support.';
+    case 'profile_missing':
+      return 'Account profile not found. Please contact support.';
+    case 'company_context_missing':
+      return 'Your account is not linked to a company. Please contact support.';
+    case 'db_error':
+    default:
+      return 'Unable to validate account access. Please try again.';
+  }
+};
+
 interface AuthContextType {
   user: ResolvedAuthUser | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -88,16 +109,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   }, [pathname]);
 
-  const hydrateUser = useCallback(async (sessionUser: SessionUser) => {
-    const resolvedUser = await withTimeout(resolveAuthenticatedUser(sessionUser), LOGIN_TIMEOUT_MS);
-    if (!resolvedUser) {
+  const hydrateUser = useCallback(async (sessionUser: SessionUser): Promise<AuthResolutionResult> => {
+    const result = await withTimeout(resolveAuthenticatedUser(sessionUser), LOGIN_TIMEOUT_MS);
+    if (!result.user) {
       resetAuthState();
-      return null;
+      return result;
     }
 
-    setUser(resolvedUser);
+    setUser(result.user);
     setHasSupabaseSession(true);
-    return resolvedUser;
+    return result;
   }, [resetAuthState]);
 
   useEffect(() => {
@@ -180,13 +201,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) return { success: false, error: error.message };
       if (!data.user) return { success: false, error: 'Login failed' };
 
-      const hydrated = await hydrateUser(data.user);
-      if (!hydrated) {
+      console.debug('[XDrive Auth] signInWithPassword ok', { userId: data.user.id });
+
+      const result = await hydrateUser(data.user);
+      if (!result.user) {
         await supabase.auth.signOut();
-        return { success: false, error: 'Unable to validate account access.' };
+        return { success: false, error: authFailureReasonToMessage(result.reason) };
       }
 
-      router.push(getPostLoginRoute(hydrated));
+      const route = getPostLoginRoute(result.user);
+      console.debug('[XDrive Auth] redirect decision', { role: result.user.role, route });
+      router.push(route);
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
