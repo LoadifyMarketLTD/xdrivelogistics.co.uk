@@ -192,9 +192,12 @@ export default function AuthCallbackPage() {
         const accessToken = hashParams?.get('access_token');
         const refreshToken = hashParams?.get('refresh_token');
         const hashType = hashParams?.get('type');
+        const queryType = searchParams.get('type');
         const flow = searchParams.get('flow');
         const nextPath = searchParams.get('next');
         const isRecoveryHint =
+          queryType === 'recovery' ||
+          hashType === 'recovery' ||
           flow === 'recovery' ||
           nextPath === '/reset-password' ||
           nextPath?.startsWith('/reset-password?') ||
@@ -210,7 +213,7 @@ export default function AuthCallbackPage() {
           );
           if (setSessionError) throw setSessionError;
 
-          if (hashType === 'recovery' || isRecoveryHint) {
+          if (hashType === 'recovery' || isRecoveryHint || !hashType) {
             router.replace('/reset-password');
             return;
           }
