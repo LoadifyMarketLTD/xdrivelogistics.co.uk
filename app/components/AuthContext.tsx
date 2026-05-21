@@ -57,7 +57,10 @@ const isServiceUnavailableError = (error: unknown): boolean => {
 };
 
 /** Convert a structured failure reason into a user-facing message. */
-const authFailureReasonToMessage = (reason: AuthFailureReason | null): string => {
+const authFailureReasonToMessage = (
+  reason: AuthFailureReason | null,
+  dbError?: { message: string; code: string | null; query: string } | null
+): string => {
   switch (reason) {
     case 'account_pending':
       return 'Your account is pending approval. Please contact support.';
@@ -70,6 +73,11 @@ const authFailureReasonToMessage = (reason: AuthFailureReason | null): string =>
     case 'company_context_missing':
       return 'Your account is not linked to a company. Please contact support.';
     case 'db_error':
+      if (dbError?.message) {
+        const codeSuffix = dbError.code ? ` [${dbError.code}]` : '';
+        return `Account validation query failed${codeSuffix}: ${dbError.message}`;
+      }
+      return 'Unable to validate account access. Please try again.';
     default:
       return 'Unable to validate account access. Please try again.';
   }
@@ -112,14 +120,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hydrateUser = useCallback(async (sessionUser: SessionUser): Promise<AuthResolutionResult> => {
     const result = await withTimeout(resolveAuthenticatedUser(sessionUser), LOGIN_TIMEOUT_MS);
     if (!result.user) {
-      resetAuthState();
+      setUser(null);
+      setHasSupabaseSession(true);
       return result;
     }
 
     setUser(result.user);
     setHasSupabaseSession(true);
     return result;
-  }, [resetAuthState]);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -205,8 +214,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const result = await hydrateUser(data.user);
       if (!result.user) {
-        await supabase.auth.signOut();
-        return { success: false, error: authFailureReasonToMessage(result.reason) };
+        if (result.reason === 'db_error') {
+          console.error('[XDrive Auth] account validation db_error', {
+            query: result.dbError.query,
+            code: result.dbError.code,
+            details: result.dbError.details,
+            hint: result.dbError.hint,
+            message: result.dbError.message,
+          });
+        }
+        return {
+          success: false,
+          error: authFailureReasonToMessage(result.reason, result.reason === 'db_error' ? result.dbError : null),
+        };
       }
 
       const route = getPostLoginRoute(result.user);

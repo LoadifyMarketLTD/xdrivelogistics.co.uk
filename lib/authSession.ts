@@ -16,9 +16,18 @@ export type AuthFailureReason =
   | 'company_context_missing' // Role requires a company but none could be resolved
   | 'db_error';               // Database query failed (transient or config issue)
 
+export type AuthDbError = {
+  query: string;
+  message: string;
+  code: string | null;
+  details: string | null;
+  hint: string | null;
+};
+
 export type AuthResolutionResult =
   | { user: ResolvedAuthUser; reason: null }
-  | { user: null; reason: AuthFailureReason };
+  | { user: null; reason: Exclude<AuthFailureReason, 'db_error'> }
+  | { user: null; reason: 'db_error'; dbError: AuthDbError };
 
 type CreatorCompanySnapshot = Pick<Company, 'id' | 'company_type'>;
 
@@ -38,15 +47,41 @@ export type ResolvedAuthUser = {
   mustChangePassword: boolean;
 };
 
+const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, key: string) => {
+  const value = metadata?.[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value : null;
+};
+
 export const getFallbackRole = (sessionUser: SessionUser) =>
-  typeof sessionUser.app_metadata?.role === 'string' ? sessionUser.app_metadata.role : null;
+  readMetadataRole(sessionUser.app_metadata, 'role') ??
+  readMetadataRole(sessionUser.user_metadata, 'role') ??
+  readMetadataRole(sessionUser.user_metadata, 'requested_role');
 
 export const resolveAuthenticatedUser = async (
   sessionUser: SessionUser
 ): Promise<AuthResolutionResult> => {
-  if (!sessionUser.id) return { user: null, reason: 'db_error' };
+  if (!sessionUser.id) {
+    return {
+      user: null,
+      reason: 'db_error',
+      dbError: {
+        query: 'auth-session-user-id',
+        message: 'Missing authenticated session user id.',
+        code: null,
+        details: null,
+        hint: null,
+      },
+    };
+  }
 
   const fallbackRole = getFallbackRole(sessionUser);
+  const profileLookupQuery = `profiles.select(role,status,is_driver,company_id).eq(user_id,${sessionUser.id}).maybeSingle()`;
+  const membershipLookupQuery =
+    `company_memberships.select(company_id,role_in_company,status).eq(user_id,${sessionUser.id}).neq(status,suspended).order(updated_at desc).limit(1).maybeSingle()`;
+  const driverLookupQuery =
+    `drivers.select(id,company_id,user_id,app_access,must_change_password).eq(user_id,${sessionUser.id}).eq(app_access,true).maybeSingle()`;
+  const creatorCompanyLookupQuery =
+    `companies.select(id,company_type).eq(created_by,${sessionUser.id}).limit(1).maybeSingle()`;
   const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
     supabase
       .from('profiles')
@@ -75,21 +110,75 @@ export const resolveAuthenticatedUser = async (
       .maybeSingle(),
   ]);
 
-  if (profileRes.error || membershipRes.error || driverRes.error || creatorCompanyRes.error) {
+  const profileDbError = profileRes.error
+    ? {
+        query: profileLookupQuery,
+        message: profileRes.error.message,
+        code: profileRes.error.code ?? null,
+        details: profileRes.error.details ?? null,
+        hint: profileRes.error.hint ?? null,
+      }
+    : null;
+
+  if (profileDbError) {
     console.debug('[XDrive Auth] profile lookup db_error', {
       userId: sessionUser.id,
-      profileErr: profileRes.error?.message,
+      profileQuery: profileDbError.query,
+      profileErr: profileDbError.message,
+      profileErrCode: profileDbError.code,
+      profileErrDetails: profileDbError.details,
+      profileErrHint: profileDbError.hint,
       membershipErr: membershipRes.error?.message,
       driverErr: driverRes.error?.message,
       creatorErr: creatorCompanyRes.error?.message,
     });
-    return { user: null, reason: 'db_error' };
+    return { user: null, reason: 'db_error', dbError: profileDbError };
+  }
+
+  if (membershipRes.error || driverRes.error || creatorCompanyRes.error) {
+    console.debug('[XDrive Auth] profile lookup partial_error', {
+      userId: sessionUser.id,
+      membershipQuery: membershipLookupQuery,
+      membershipErr: membershipRes.error?.message,
+      driverQuery: driverLookupQuery,
+      driverErr: driverRes.error?.message,
+      creatorCompanyQuery: creatorCompanyLookupQuery,
+      creatorErr: creatorCompanyRes.error?.message,
+    });
   }
 
   const profile = profileRes.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'> | null;
-  const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
-  const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null;
-  const creatorCompany = creatorCompanyRes.data as CreatorCompanySnapshot | null;
+  let membership = membershipRes.error
+    ? null
+    : (membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null);
+  const driver = driverRes.error
+    ? null
+    : (driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null);
+  const creatorCompany = creatorCompanyRes.error ? null : (creatorCompanyRes.data as CreatorCompanySnapshot | null);
+
+  if (!membership) {
+    const inviteEmail = typeof sessionUser.email === 'string' ? sessionUser.email.trim().toLowerCase() : '';
+    if (inviteEmail) {
+      const invitedMembershipRes = await supabase
+        .from('company_memberships')
+        .select('company_id, role_in_company, status')
+        .eq('invited_email', inviteEmail)
+        .neq('status', 'suspended')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (invitedMembershipRes.error) {
+        console.debug('[XDrive Auth] invited membership lookup error', {
+          userId: sessionUser.id,
+          invitedEmail: inviteEmail,
+          membershipErr: invitedMembershipRes.error.message,
+        });
+      } else {
+        membership = invitedMembershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
+      }
+    }
+  }
   const driverId = driver?.id ?? null;
   const mustChangePassword = Boolean(driver?.must_change_password);
 
