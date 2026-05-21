@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from '../../../lib/authRole';
-import { isPasswordSetupFlowType } from '../../../lib/authFlow';
-import type { Company, CompanyMembership, Driver, Profile } from '../../../lib/types/database';
-
-type CreatorCompanySnapshot = Pick<Company, 'id' | 'company_type'>;
+import { useRouter } from 'next/navigation';
+import {
+  RESET_PASSWORD_PATH,
+  buildPathWithAuthParams,
+  getBrowserAuthSignals,
+  isInviteAuthFlow,
+  isRecoveryAuthFlow,
+} from '../../../lib/authFlow';
+import { getPostLoginRoute, resolveAuthenticatedUser, type SessionUser } from '../../../lib/authSession';
+import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
 const AUTH_CALLBACK_TIMEOUT_MS = 10_000;
 
@@ -24,170 +27,24 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<
   }
 };
 
-const resolveRedirectPath = async (
-  userId: string,
-  fallbackRole?: string | null
-) => {
-  const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('role, is_driver, company_id')
-      .eq('user_id', userId)
-      .maybeSingle(),
-    supabase
-      .from('company_memberships')
-      .select('company_id, role_in_company, status')
-      .eq('user_id', userId)
-      .neq('status', 'suspended')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from('drivers')
-      .select('id, company_id, user_id, app_access, must_change_password')
-      .eq('user_id', userId)
-      .eq('app_access', true)
-      .maybeSingle(),
-    supabase
-      .from('companies')
-      .select('id, company_type')
-      .eq('created_by', userId)
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  if (profileRes.error || membershipRes.error || driverRes.error || creatorCompanyRes.error) {
-    return null;
-  }
-
-  const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
-  const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
-  const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null;
-  const creatorCompany = creatorCompanyRes.data as CreatorCompanySnapshot | null;
-  const mustChangePassword = Boolean(driver?.must_change_password);
-  let resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? creatorCompany?.id ?? null;
-
-  const shouldProvisionCompany =
-    !resolvedCompanyId &&
-    shouldAutoProvisionCompany({
-      fallbackRole,
-      profileRole: profile?.role,
-    });
-
-  if (shouldProvisionCompany) {
-    const { data: provisionedCompanyId } = await supabase.rpc('get_or_create_company_for_user');
-    if (typeof provisionedCompanyId === 'string' && provisionedCompanyId) {
-      resolvedCompanyId = provisionedCompanyId;
-    }
-  }
-
-  if (membership?.role_in_company === 'owner' || membership?.role_in_company === 'admin' || membership?.role_in_company === 'dispatcher') {
-    return resolvedCompanyId ? '/admin' : null;
-  }
-
-  if (driver || profile?.is_driver) {
-    if (!resolvedCompanyId) return null;
-    return mustChangePassword ? '/driver/change-password' : '/driver/jobs';
-  }
-
-  if (membership?.role_in_company === 'viewer') {
-    return '/customer';
-  }
-  if (creatorCompany && resolvedCompanyId) {
-    return '/admin';
-  }
-
-  const profileRole = mapAppRole(profile?.role);
-  if (profileRole === 'driver') {
-    if (roleRequiresCompanyContext(profileRole) && !resolvedCompanyId) return null;
-    return mustChangePassword ? '/driver/change-password' : '/driver/jobs';
-  }
-  if (profileRole === 'customer') return '/customer';
-  if (profileRole === 'company' || profileRole === 'admin' || profileRole === 'owner') {
-    return resolvedCompanyId ? '/admin' : null;
-  }
-
-  const metadataRole = mapAppRole(fallbackRole);
-  if (metadataRole === 'driver') {
-    if (roleRequiresCompanyContext(metadataRole) && !resolvedCompanyId) return null;
-    return mustChangePassword ? '/driver/change-password' : '/driver/jobs';
-  }
-  if (metadataRole === 'customer') return '/customer';
-  if (metadataRole === 'company' || metadataRole === 'admin' || metadataRole === 'owner') {
-    return resolvedCompanyId ? '/admin' : null;
-  }
-
-  return null;
-};
-
-type SessionUser = {
-  id: string;
-  user_metadata?: Record<string, unknown> | null;
-  app_metadata?: Record<string, unknown> | null;
-};
-
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const getResetPasswordCallbackUrl = () =>
-      `/reset-password${window.location.search}${window.location.hash}`;
-
-    const hasPasswordSetupHint = () => {
-      const queryType = searchParams.get('type');
-      const flow = searchParams.get('flow');
-      const nextPath = searchParams.get('next');
-      const hashParams =
-        typeof window !== 'undefined' && window.location.hash
-          ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
-          : null;
-      const hashType = hashParams?.get('type');
-
-      return (
-        isPasswordSetupFlowType(queryType) ||
-        isPasswordSetupFlowType(hashType) ||
-        flow === 'recovery' ||
-        flow === 'invite' ||
-        nextPath === '/reset-password' ||
-        nextPath?.startsWith('/reset-password?') ||
-        false
-      );
-    };
-
-    const resolveUserRedirect = async (sessionUser?: SessionUser | null) => {
-      const user =
-        sessionUser ??
-        (
-          await withTimeout(
-            supabase.auth.getSession(),
-            AUTH_CALLBACK_TIMEOUT_MS
-          )
-        ).data.session?.user ??
-        null;
-      if (!user) {
+    const redirectAuthenticatedUser = async (sessionUser: SessionUser | null) => {
+      if (!sessionUser) {
         router.replace('/login');
         return;
       }
-      const fallbackRole =
-        typeof user.user_metadata?.role === 'string'
-          ? user.user_metadata.role
-          : typeof user.user_metadata?.requested_role === 'string'
-            ? user.user_metadata.requested_role
-            : typeof user.app_metadata?.role === 'string'
-              ? user.app_metadata.role
-            : null;
-      const redirectPath = await withTimeout(
-        resolveRedirectPath(user.id, fallbackRole),
-        AUTH_CALLBACK_TIMEOUT_MS
-      );
-      if (!redirectPath) {
-        await supabase.auth.signOut();
+
+      const resolvedUser = await withTimeout(resolveAuthenticatedUser(sessionUser), AUTH_CALLBACK_TIMEOUT_MS);
+      if (!resolvedUser) {
         router.replace('/forbidden');
         return;
       }
-      router.replace(redirectPath);
+
+      router.replace(getPostLoginRoute(resolvedUser));
     };
 
     const completeAuth = async () => {
@@ -197,75 +54,75 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        if (hasPasswordSetupHint()) {
-          router.replace(getResetPasswordCallbackUrl());
+        const signals = getBrowserAuthSignals();
+        if (!signals) {
+          router.replace('/login');
           return;
         }
 
-        const hashParams =
-          typeof window !== 'undefined' && window.location.hash
-            ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
-            : null;
-        const accessToken = hashParams?.get('access_token');
-        const refreshToken = hashParams?.get('refresh_token');
+        if (isRecoveryAuthFlow(signals)) {
+          router.replace(buildPathWithAuthParams(RESET_PASSWORD_PATH, signals));
+          return;
+        }
 
-        if (accessToken && refreshToken) {
-          const { data: sessionData, error: setSessionError } = await withTimeout(
+        let sessionUser: SessionUser | null = null;
+
+        if (signals.hasHashSessionTokens && signals.accessToken && signals.refreshToken) {
+          const { data, error: setSessionError } = await withTimeout(
             supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
+              access_token: signals.accessToken,
+              refresh_token: signals.refreshToken,
             }),
             AUTH_CALLBACK_TIMEOUT_MS
           );
           if (setSessionError) throw setSessionError;
-          await resolveUserRedirect(sessionData.user);
-          return;
-        }
-
-        const code = searchParams.get('code');
-        const tokenHash = searchParams.get('token_hash');
-        const type = searchParams.get('type');
-
-        if (code) {
-          const { data: exchangeData, error: exchangeError } = await withTimeout(
-            supabase.auth.exchangeCodeForSession(code),
+          sessionUser = data.user ?? null;
+        } else if (signals.code) {
+          const { data, error: exchangeError } = await withTimeout(
+            supabase.auth.exchangeCodeForSession(signals.code),
             AUTH_CALLBACK_TIMEOUT_MS
           );
           if (exchangeError) throw exchangeError;
-          await resolveUserRedirect(exchangeData.user);
-          return;
-        }
-
-        if (tokenHash) {
-          const otpType =
-            type === 'signup' ||
-            type === 'email' ||
-            type === 'recovery' ||
-            type === 'invite' ||
-            type === 'email_change'
-              ? type
+          sessionUser = data.user ?? null;
+        } else if (signals.tokenHash) {
+          const otpType = isInviteAuthFlow(signals)
+            ? 'invite'
+            : signals.queryType === 'signup' || signals.queryType === 'email' || signals.queryType === 'email_change'
+              ? signals.queryType
               : 'email';
-          const { data: verifyData, error: verifyError } = await withTimeout(
+
+          const { data, error: verifyError } = await withTimeout(
             supabase.auth.verifyOtp({
-              token_hash: tokenHash,
+              token_hash: signals.tokenHash,
               type: otpType,
             }),
             AUTH_CALLBACK_TIMEOUT_MS
           );
           if (verifyError) throw verifyError;
-          await resolveUserRedirect(verifyData.user);
+          sessionUser = data.user ?? null;
+        } else {
+          const {
+            data: { session },
+            error: sessionError,
+          } = await withTimeout(supabase.auth.getSession(), AUTH_CALLBACK_TIMEOUT_MS);
+          if (sessionError) throw sessionError;
+          sessionUser = session?.user ?? null;
+        }
+
+        if (isInviteAuthFlow(signals)) {
+          router.replace(RESET_PASSWORD_PATH);
           return;
         }
 
-        router.replace('/login');
+        await redirectAuthenticatedUser(sessionUser);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Authentication callback failed.';
         setError(message);
       }
     };
 
-    completeAuth();
-  }, [router, searchParams]);
+    void completeAuth();
+  }, [router]);
 
   return (
     <main>

@@ -1,30 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthCallbackUrl, getResetPasswordUrl, isPasswordSetupFlowType } from '../../../lib/authFlow';
+import { AUTH_CALLBACK_PATH, RESET_PASSWORD_PATH } from '../../../lib/authFlow';
 
 export async function GET(request: NextRequest) {
   const sourceUrl = new URL(request.url);
   const type = sourceUrl.searchParams.get('type');
   const flow = sourceUrl.searchParams.get('flow');
   const nextPath = sourceUrl.searchParams.get('next');
-  const setupType =
-    isPasswordSetupFlowType(type)
-      ? type
-      : isPasswordSetupFlowType(flow)
-        ? flow
-        : null;
-  const isPasswordSetupFlow =
-    setupType !== null ||
-    nextPath === '/reset-password' ||
-    nextPath?.startsWith('/reset-password?') ||
+  const isRecoveryFlow =
+    type === 'recovery' ||
+    flow === 'recovery' ||
+    nextPath === RESET_PASSWORD_PATH ||
+    nextPath?.startsWith(`${RESET_PASSWORD_PATH}?`) ||
     false;
-  const callbackUrl = new URL(
-    isPasswordSetupFlow ? getResetPasswordUrl(setupType ?? 'recovery') : getAuthCallbackUrl(),
-  );
 
-  if (isPasswordSetupFlow) {
-    sourceUrl.searchParams.set('type', setupType ?? 'recovery');
-  }
-
-  callbackUrl.search = sourceUrl.search;
-  return NextResponse.redirect(callbackUrl);
+  const destination = new URL(isRecoveryFlow ? RESET_PASSWORD_PATH : AUTH_CALLBACK_PATH, request.url);
+  destination.search = sourceUrl.search;
+  return NextResponse.redirect(destination);
 }

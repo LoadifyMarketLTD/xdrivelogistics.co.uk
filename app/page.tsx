@@ -1,16 +1,24 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './components/AuthContext';
 import { LandingPage } from './(marketing)/_components/LandingPage';
 
+const AUTH_TIMEOUT_MS = 5000;
+
 export default function Home() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
-    // If user is authenticated, redirect to appropriate dashboard
+    if (!isLoading) return;
+    const id = setTimeout(() => setTimedOut(true), AUTH_TIMEOUT_MS);
+    return () => clearTimeout(id);
+  }, [isLoading]);
+
+  useEffect(() => {
     if (!isLoading && user) {
       if (user.role === 'driver') {
         router.push(user.mustChangePassword ? '/driver/change-password' : '/driver/jobs');
@@ -24,8 +32,7 @@ export default function Home() {
     }
   }, [user, isLoading, router]);
 
-  // Show nothing while loading or redirecting
-  if (isLoading || user) {
+  if ((isLoading && !timedOut) || user) {
     return (
       <div
         style={{
@@ -48,6 +55,5 @@ export default function Home() {
     );
   }
 
-  // Show landing page if not authenticated
   return <LandingPage />;
 }
