@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { JOB_STATUS } from '../../config/company';
 import { generateTimeOptions } from '../../utils/timeUtils';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../lib/jobClientFields';
 import { useAuth } from '../../components/AuthContext';
 
 interface Job {
@@ -131,7 +132,7 @@ export default function JobsPage() {
 
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, load_details, special_requirements, created_at, updated_at')
+        .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, created_at, updated_at')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
@@ -143,33 +144,37 @@ export default function JobsPage() {
         return;
       }
       if (data) {
-        const mapped = data.map((row: Record<string, unknown>) => ({
-          id: row.id as string,
-          jobRef: (row.id as string).slice(0, 13).toUpperCase(),
-          client: {
-            name: (row.load_details as string) || 'Unknown',
-            email: '',
-            phone: '',
-          },
-          pickup: {
-            location: (row.pickup_location as string) || '',
-            date: row.pickup_datetime ? (row.pickup_datetime as string).slice(0, 10) : '',
-            time: row.pickup_datetime ? (row.pickup_datetime as string).slice(11, 16) : '',
-          },
-          delivery: {
-            location: (row.delivery_location as string) || '',
-            date: row.delivery_datetime ? (row.delivery_datetime as string).slice(0, 10) : '',
-            time: row.delivery_datetime ? (row.delivery_datetime as string).slice(11, 16) : '',
-          },
-          cargo: {
-            type: (row.cargo_type as string) || 'Other',
-            quantity: (row.items as number) || 1,
-            notes: (row.special_requirements as string) || '',
-          },
-          status: (row.status as string) || JOB_STATUS.RECEIVED,
-          createdAt: row.created_at as string,
-          updatedAt: row.updated_at as string,
-        }));
+        const mapped = data.map((row: Record<string, unknown>) => {
+          const clientFields = getJobClientFields(row);
+
+          return {
+            id: row.id as string,
+            jobRef: (row.id as string).slice(0, 13).toUpperCase(),
+            client: {
+              name: clientFields.name,
+              email: clientFields.email,
+              phone: clientFields.phone,
+            },
+            pickup: {
+              location: (row.pickup_location as string) || '',
+              date: row.pickup_datetime ? (row.pickup_datetime as string).slice(0, 10) : '',
+              time: row.pickup_datetime ? (row.pickup_datetime as string).slice(11, 16) : '',
+            },
+            delivery: {
+              location: (row.delivery_location as string) || '',
+              date: row.delivery_datetime ? (row.delivery_datetime as string).slice(0, 10) : '',
+              time: row.delivery_datetime ? (row.delivery_datetime as string).slice(11, 16) : '',
+            },
+            cargo: {
+              type: (row.cargo_type as string) || 'Other',
+              quantity: (row.items as number) || 1,
+              notes: clientFields.cargoNotes,
+            },
+            status: (row.status as string) || JOB_STATUS.RECEIVED,
+            createdAt: row.created_at as string,
+            updatedAt: row.updated_at as string,
+          };
+        });
         setJobs(mapped);
         return;
       }
@@ -245,6 +250,9 @@ export default function JobsPage() {
       const { error: insertError } = await supabase.from('jobs').insert([{
         company_id: resolvedCompanyId,
         created_by: user?.id ?? null,
+        client_name: formData.clientName,
+        client_email: formData.clientEmail || null,
+        client_phone: formData.clientPhone || null,
         load_details: formData.clientName,
         pickup_location: formData.pickupLocation,
         pickup_datetime: `${formData.pickupDate}T${formData.pickupTime}:00`,
@@ -252,7 +260,11 @@ export default function JobsPage() {
         delivery_datetime: `${formData.deliveryDate}T${formData.deliveryTime}:00`,
         cargo_type: formData.cargoType.toLowerCase() as string,
         items: parseInt(formData.cargoQuantity),
-        special_requirements: [formData.clientName, formData.clientPhone, formData.clientEmail, formData.cargoNotes].filter(Boolean).join(' | '),
+        special_requirements: buildLegacyJobSpecialRequirements({
+          clientPhone: formData.clientPhone,
+          clientEmail: formData.clientEmail,
+          cargoNotes: formData.cargoNotes,
+        }),
         status: JOB_STATUS.POSTED,
       }]);
       if (insertError) {
