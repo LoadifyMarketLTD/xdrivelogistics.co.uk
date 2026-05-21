@@ -16,9 +16,18 @@ export type AuthFailureReason =
   | 'company_context_missing' // Role requires a company but none could be resolved
   | 'db_error';               // Database query failed (transient or config issue)
 
+export type AuthDbError = {
+  query: string;
+  message: string;
+  code: string | null;
+  details: string | null;
+  hint: string | null;
+};
+
 export type AuthResolutionResult =
   | { user: ResolvedAuthUser; reason: null }
-  | { user: null; reason: AuthFailureReason };
+  | { user: null; reason: Exclude<AuthFailureReason, 'db_error'> }
+  | { user: null; reason: 'db_error'; dbError: AuthDbError };
 
 type CreatorCompanySnapshot = Pick<Company, 'id' | 'company_type'>;
 
@@ -51,9 +60,28 @@ export const getFallbackRole = (sessionUser: SessionUser) =>
 export const resolveAuthenticatedUser = async (
   sessionUser: SessionUser
 ): Promise<AuthResolutionResult> => {
-  if (!sessionUser.id) return { user: null, reason: 'db_error' };
+  if (!sessionUser.id) {
+    return {
+      user: null,
+      reason: 'db_error',
+      dbError: {
+        query: 'auth-session-user-id',
+        message: 'Missing authenticated session user id.',
+        code: null,
+        details: null,
+        hint: null,
+      },
+    };
+  }
 
   const fallbackRole = getFallbackRole(sessionUser);
+  const profileLookupQuery = `profiles.select(role,status,is_driver,company_id).eq(user_id,${sessionUser.id}).maybeSingle()`;
+  const membershipLookupQuery =
+    `company_memberships.select(company_id,role_in_company,status).eq(user_id,${sessionUser.id}).neq(status,suspended).order(updated_at desc).limit(1).maybeSingle()`;
+  const driverLookupQuery =
+    `drivers.select(id,company_id,user_id,app_access,must_change_password).eq(user_id,${sessionUser.id}).eq(app_access,true).maybeSingle()`;
+  const creatorCompanyLookupQuery =
+    `companies.select(id,company_type).eq(created_by,${sessionUser.id}).limit(1).maybeSingle()`;
   const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
     supabase
       .from('profiles')
@@ -82,22 +110,38 @@ export const resolveAuthenticatedUser = async (
       .maybeSingle(),
   ]);
 
-  if (profileRes.error) {
+  const profileDbError = profileRes.error
+    ? {
+        query: profileLookupQuery,
+        message: profileRes.error.message,
+        code: profileRes.error.code ?? null,
+        details: profileRes.error.details ?? null,
+        hint: profileRes.error.hint ?? null,
+      }
+    : null;
+
+  if (profileDbError) {
     console.debug('[XDrive Auth] profile lookup db_error', {
       userId: sessionUser.id,
-      profileErr: profileRes.error?.message,
+      profileQuery: profileDbError.query,
+      profileErr: profileDbError.message,
+      profileErrCode: profileDbError.code,
+      profileErrDetails: profileDbError.details,
+      profileErrHint: profileDbError.hint,
       membershipErr: membershipRes.error?.message,
       driverErr: driverRes.error?.message,
       creatorErr: creatorCompanyRes.error?.message,
     });
-    return { user: null, reason: 'db_error' };
   }
 
   if (membershipRes.error || driverRes.error || creatorCompanyRes.error) {
     console.debug('[XDrive Auth] profile lookup partial_error', {
       userId: sessionUser.id,
+      membershipQuery: membershipLookupQuery,
       membershipErr: membershipRes.error?.message,
+      driverQuery: driverLookupQuery,
       driverErr: driverRes.error?.message,
+      creatorCompanyQuery: creatorCompanyLookupQuery,
       creatorErr: creatorCompanyRes.error?.message,
     });
   }
@@ -243,6 +287,9 @@ export const resolveAuthenticatedUser = async (
 
   // 7. No profile at all and no other resolution path
   if (!profile) {
+    if (profileDbError) {
+      return { user: null, reason: 'db_error', dbError: profileDbError };
+    }
     console.debug('[XDrive Auth] auth resolution failed', { reason: 'profile_missing', userId: sessionUser.id });
     return { user: null, reason: 'profile_missing' };
   }
