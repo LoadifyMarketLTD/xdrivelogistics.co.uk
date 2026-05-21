@@ -4,11 +4,24 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from '../../../lib/authRole';
+import {
+  AUTH_CALLBACK_PATH,
+  RESET_PASSWORD_PATH,
+  clearRecoverySession,
+  hasRecoverySessionMarker,
+  markRecoverySession,
+} from '../../../lib/authFlow';
 import type { Company, CompanyMembership, Driver, Profile } from '../../../lib/types/database';
 
 type CreatorCompanySnapshot = Pick<Company, 'id' | 'company_type'>;
+type SessionUser = {
+  id: string;
+  user_metadata?: Record<string, unknown> | null;
+  app_metadata?: Record<string, unknown> | null;
+};
+type OtpType = 'signup' | 'email' | 'recovery' | 'invite' | 'email_change';
 
-const AUTH_CALLBACK_TIMEOUT_MS = 10_000;
+const AUTH_CALLBACK_TIMEOUT_MS = 20_000;
 
 const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -56,6 +69,13 @@ const resolveRedirectPath = async (
   ]);
 
   if (profileRes.error || membershipRes.error || driverRes.error || creatorCompanyRes.error) {
+    console.warn('Auth callback profile validation failure', {
+      userId,
+      profileError: profileRes.error?.message,
+      membershipError: membershipRes.error?.message,
+      driverError: driverRes.error?.message,
+      companyError: creatorCompanyRes.error?.message,
+    });
     return null;
   }
 
@@ -119,10 +139,11 @@ const resolveRedirectPath = async (
   return null;
 };
 
-type SessionUser = {
-  id: string;
-  user_metadata?: Record<string, unknown> | null;
-  app_metadata?: Record<string, unknown> | null;
+const getOtpType = (type: string | null, isRecoveryHint: boolean): OtpType => {
+  if (type === 'signup' || type === 'email' || type === 'recovery' || type === 'invite' || type === 'email_change') {
+    return type;
+  }
+  return isRecoveryHint ? 'recovery' : 'email';
 };
 
 export default function AuthCallbackPage() {
@@ -131,20 +152,35 @@ export default function AuthCallbackPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    let recoveryEventDetected = hasRecoverySessionMarker();
+
+    const markRecovery = (source: string) => {
+      recoveryEventDetected = true;
+      markRecoverySession(source);
+      console.info('Auth callback recovery session detected', { source });
+    };
+
     const resolveUserRedirect = async (sessionUser?: SessionUser | null) => {
-      const user =
-        sessionUser ??
-        (
-          await withTimeout(
-            supabase.auth.getSession(),
-            AUTH_CALLBACK_TIMEOUT_MS
-          )
-        ).data.session?.user ??
-        null;
+      let user = sessionUser ?? null;
+
       if (!user) {
+        const { data, error: sessionError } = await withTimeout(
+          supabase.auth.getSession(),
+          AUTH_CALLBACK_TIMEOUT_MS
+        );
+        if (sessionError) {
+          console.error('Auth callback getSession failure', sessionError);
+          throw new Error('Authentication session could not be loaded.');
+        }
+        user = data.session?.user ?? null;
+      }
+
+      if (!user) {
+        console.warn('Auth callback token missing and no active session');
         router.replace('/login');
         return;
       }
+
       const fallbackRole =
         typeof user.user_metadata?.role === 'string'
           ? user.user_metadata.role
@@ -152,16 +188,24 @@ export default function AuthCallbackPage() {
             ? user.user_metadata.requested_role
             : typeof user.app_metadata?.role === 'string'
               ? user.app_metadata.role
-            : null;
+              : null;
+
       const redirectPath = await withTimeout(
         resolveRedirectPath(user.id, fallbackRole),
         AUTH_CALLBACK_TIMEOUT_MS
       );
+
       if (!redirectPath) {
+        console.warn('Auth callback profile validation failure', {
+          userId: user.id,
+          fallbackRole,
+        });
         await supabase.auth.signOut();
-        router.replace('/forbidden');
+        router.replace('/login?reason=account_validation_failed');
         return;
       }
+
+      clearRecoverySession();
       router.replace(redirectPath);
     };
 
@@ -172,95 +216,164 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        const hashParams =
-          typeof window !== 'undefined' && window.location.hash
-            ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
-            : null;
-        const accessToken = hashParams?.get('access_token');
-        const refreshToken = hashParams?.get('refresh_token');
-        const hashType = hashParams?.get('type');
-        const queryType = searchParams.get('type');
-        const flow = searchParams.get('flow');
-        const nextPath = searchParams.get('next');
-        const isRecoveryHint =
-          queryType === 'recovery' ||
-          hashType === 'recovery' ||
-          flow === 'recovery' ||
-          nextPath === '/reset-password' ||
-          nextPath?.startsWith('/reset-password?') ||
-          false;
+        const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+          if (event === 'PASSWORD_RECOVERY') {
+            markRecovery('auth-state-password-recovery');
+          }
+        });
 
-        if (accessToken && refreshToken) {
-          const { data: sessionData, error: setSessionError } = await withTimeout(
-            supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            }),
-            AUTH_CALLBACK_TIMEOUT_MS
-          );
-          if (setSessionError) throw setSessionError;
+        try {
+          const hashParams =
+            typeof window !== 'undefined' && window.location.hash
+              ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
+              : null;
 
-          if (hashType === 'recovery' || isRecoveryHint || !hashType) {
-            router.replace('/reset-password');
+          const accessToken = hashParams?.get('access_token') ?? searchParams.get('access_token');
+          const refreshToken = hashParams?.get('refresh_token') ?? searchParams.get('refresh_token');
+          const hashType = hashParams?.get('type');
+          const queryType = searchParams.get('type');
+          const flow = searchParams.get('flow');
+          const nextPath = searchParams.get('next');
+          const code = searchParams.get('code');
+          const tokenHash = searchParams.get('token_hash');
+          const authErrorDescription =
+            searchParams.get('error_description') ?? hashParams?.get('error_description');
+
+          const isRecoveryHint =
+            queryType === 'recovery' ||
+            hashType === 'recovery' ||
+            flow === 'recovery' ||
+            nextPath === RESET_PASSWORD_PATH ||
+            nextPath?.startsWith(`${RESET_PASSWORD_PATH}?`) ||
+            recoveryEventDetected;
+
+          if (authErrorDescription) {
+            console.error('Auth callback token exchange error', { authErrorDescription });
+            setError(authErrorDescription);
             return;
           }
 
-          await resolveUserRedirect(sessionData.user);
-          return;
-        }
+          if (accessToken && refreshToken) {
+            const { data: sessionData, error: setSessionError } = await withTimeout(
+              supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              }),
+              AUTH_CALLBACK_TIMEOUT_MS
+            );
+            if (setSessionError) {
+              console.error('Auth callback setSession failure', setSessionError);
+              throw new Error('Authentication session could not be established.');
+            }
 
-        const code = searchParams.get('code');
-        const tokenHash = searchParams.get('token_hash');
-        const type = searchParams.get('type');
-        const isRecoveryType = type === 'recovery';
+            if (hashType === 'recovery' || queryType === 'recovery' || recoveryEventDetected) {
+              markRecovery('callback-access-token');
+              router.replace(RESET_PASSWORD_PATH);
+              return;
+            }
 
-        if (code) {
-          const { data: exchangeData, error: exchangeError } = await withTimeout(
-            supabase.auth.exchangeCodeForSession(code),
-            AUTH_CALLBACK_TIMEOUT_MS
-          );
-          if (exchangeError) throw exchangeError;
-          if (isRecoveryType || isRecoveryHint) {
-            router.replace('/reset-password');
+            await resolveUserRedirect(sessionData.user);
             return;
           }
-          await resolveUserRedirect(exchangeData.user);
-          return;
-        }
 
-        if (tokenHash) {
-          const otpType =
-            type === 'signup' ||
-            type === 'email' ||
-            type === 'recovery' ||
-            type === 'invite' ||
-            type === 'email_change'
-              ? type
-              : 'recovery';
-          const { data: verifyData, error: verifyError } = await withTimeout(
-            supabase.auth.verifyOtp({
-              token_hash: tokenHash,
-              type: otpType,
-            }),
-            AUTH_CALLBACK_TIMEOUT_MS
-          );
-          if (verifyError) throw verifyError;
-          if (otpType === 'recovery' || isRecoveryHint) {
-            router.replace('/reset-password');
+          if (code) {
+            const { data: exchangeData, error: exchangeError } = await withTimeout(
+              supabase.auth.exchangeCodeForSession(code),
+              AUTH_CALLBACK_TIMEOUT_MS
+            );
+            if (exchangeError) {
+              console.error('Auth callback exchangeCodeForSession failure', exchangeError);
+              throw new Error('Authentication link exchange failed. Please request a new email link.');
+            }
+
+            if (queryType === 'recovery' || recoveryEventDetected) {
+              markRecovery('callback-code-exchange');
+              router.replace(RESET_PASSWORD_PATH);
+              return;
+            }
+
+            await resolveUserRedirect(exchangeData.user);
             return;
           }
-          await resolveUserRedirect(verifyData.user);
-          return;
-        }
 
-        router.replace('/login');
+          if (tokenHash) {
+            const otpType = getOtpType(queryType, isRecoveryHint);
+            const { data: verifyData, error: verifyError } = await withTimeout(
+              supabase.auth.verifyOtp({
+                token_hash: tokenHash,
+                type: otpType,
+              }),
+              AUTH_CALLBACK_TIMEOUT_MS
+            );
+            if (verifyError) {
+              console.error('Auth callback verifyOtp failure', verifyError);
+              throw new Error('Authentication link verification failed. Please request a new email link.');
+            }
+
+            if (otpType === 'recovery' || recoveryEventDetected) {
+              markRecovery('callback-otp-verify');
+              router.replace(RESET_PASSWORD_PATH);
+              return;
+            }
+
+            await resolveUserRedirect(verifyData.user);
+            return;
+          }
+
+          const { data: sessionData, error: sessionError } = await withTimeout(
+            supabase.auth.getSession(),
+            AUTH_CALLBACK_TIMEOUT_MS
+          );
+
+          if (sessionError) {
+            console.error('Auth callback getSession failure', sessionError);
+            throw new Error('Authentication session could not be loaded.');
+          }
+
+          if (sessionData.session?.user) {
+            if (isRecoveryHint || recoveryEventDetected) {
+              markRecovery('callback-existing-session');
+              router.replace(RESET_PASSWORD_PATH);
+              return;
+            }
+
+            await resolveUserRedirect(sessionData.session.user);
+            return;
+          }
+
+          console.warn('Auth callback token missing', {
+            pathname: AUTH_CALLBACK_PATH,
+            queryType,
+            hashType,
+            hasCode: Boolean(code),
+            hasTokenHash: Boolean(tokenHash),
+          });
+
+          if (isRecoveryHint) {
+            setError('Recovery link is missing required tokens or has expired. Please request a new password reset email.');
+            return;
+          }
+
+          if (queryType === 'signup' || queryType === 'invite' || queryType === 'email') {
+            setError('Authentication link is missing required tokens or has expired. Please request a new email link.');
+            return;
+          }
+
+          router.replace('/login');
+        } finally {
+          authListener.subscription.unsubscribe();
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Authentication callback failed.';
         setError(message);
       }
     };
 
-    completeAuth();
+    void completeAuth();
+
+    return () => {
+      // Cleanup
+    };
   }, [router, searchParams]);
 
   return (

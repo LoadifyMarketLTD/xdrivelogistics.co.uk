@@ -3,6 +3,18 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
+import {
+  AUTH_CALLBACK_PATH,
+  RESET_PASSWORD_PATH,
+  clearRecoverySession,
+  hasRecoverySessionMarker,
+  markRecoverySession,
+} from '../../lib/authFlow';
+
+const SESSION_RETRY_DELAY_MS = 400;
+const SESSION_RETRY_ATTEMPTS = 5;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -29,63 +41,83 @@ export default function ResetPasswordPage() {
           : null;
 
       const code = queryParams?.get('code');
+      const queryType = queryParams?.get('type');
+      const hashType = hashParams?.get('type');
+      const accessToken = hashParams?.get('access_token') ?? queryParams?.get('access_token');
+      const refreshToken = hashParams?.get('refresh_token') ?? queryParams?.get('refresh_token');
+      const tokenHash = queryParams?.get('token_hash');
+      const hasRecoveryHint =
+        queryType === 'recovery' ||
+        hashType === 'recovery' ||
+        Boolean(accessToken && refreshToken) ||
+        Boolean(tokenHash) ||
+        hasRecoverySessionMarker();
 
       if (code) {
-        router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
+        console.info('Reset password forwarding code flow to callback');
+        router.replace(`${AUTH_CALLBACK_PATH}${window.location.search}${window.location.hash}`);
         return;
       }
 
-      const { data, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) {
-        setError(sessionError.message);
-        setIsCheckingSession(false);
-        return;
-      }
-
-      if (!data.session?.user) {
-        const accessToken = hashParams?.get('access_token');
-        const refreshToken = hashParams?.get('refresh_token');
-        const tokenHash = queryParams?.get('token_hash');
-
-        if (accessToken && refreshToken) {
-          const { error: setSessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (setSessionError) {
-            setError(setSessionError.message);
-            setIsCheckingSession(false);
-            return;
-          }
-        } else {
-          if (!tokenHash) {
-            setError('Recovery link is invalid or expired. Please request a new password reset email.');
-            setHasRecoverySession(false);
-            setIsCheckingSession(false);
-            return;
-          }
-
-          const { error: verifyError } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: 'recovery',
-          });
-          if (verifyError) {
-            setError(verifyError.message);
-            setIsCheckingSession(false);
-            return;
-          }
+      if (accessToken && refreshToken) {
+        const { error: setSessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (setSessionError) {
+          console.error('Reset password setSession failure', setSessionError);
+          setError('Recovery session could not be established. Please request a new password reset email.');
+          setHasRecoverySession(false);
+          setIsCheckingSession(false);
+          return;
         }
+        markRecoverySession('reset-password-token-session');
+      } else if (tokenHash) {
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: 'recovery',
+        });
+        if (verifyError) {
+          console.error('Reset password verifyOtp failure', verifyError);
+          setError('Recovery link is invalid or expired. Please request a new password reset email.');
+          setHasRecoverySession(false);
+          setIsCheckingSession(false);
+          return;
+        }
+        markRecoverySession('reset-password-token-hash');
       }
 
-      const { data: checkedData, error: checkedSessionError } = await supabase.auth.getSession();
-      if (checkedSessionError || !checkedData.session?.user) {
-        setError('Recovery link is invalid or expired. Please request a new password reset email.');
-        setHasRecoverySession(false);
-        setIsCheckingSession(false);
-        return;
+      for (let attempt = 0; attempt < SESSION_RETRY_ATTEMPTS; attempt += 1) {
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          console.error('Reset password getSession failure', sessionError);
+          setError('Recovery session could not be loaded. Please request a new password reset email.');
+          setHasRecoverySession(false);
+          setIsCheckingSession(false);
+          return;
+        }
+
+        if (data.session?.user) {
+          console.info('Reset password recovery session detected');
+          markRecoverySession('reset-password-active-session');
+          setHasRecoverySession(true);
+          setIsCheckingSession(false);
+          return;
+        }
+
+        if (!hasRecoveryHint) {
+          break;
+        }
+
+        await wait(SESSION_RETRY_DELAY_MS);
       }
 
-      setHasRecoverySession(true);
+      console.warn('Reset password session missing after recovery landing', {
+        pathname: RESET_PASSWORD_PATH,
+        hasRecoveryHint,
+      });
+      setError('Recovery link is invalid or expired. Please request a new password reset email.');
+      setHasRecoverySession(false);
       setIsCheckingSession(false);
     };
 
@@ -116,6 +148,7 @@ export default function ResetPasswordPage() {
         return;
       }
 
+      clearRecoverySession();
       await supabase.auth.signOut();
       setSuccess('Password updated successfully. Redirecting to sign in…');
       setTimeout(() => router.replace('/login'), 1200);
@@ -267,17 +300,17 @@ export default function ResetPasswordPage() {
             disabled={isLoading}
             style={{
               width: '100%',
-              padding: '0.875rem',
-              backgroundColor: isLoading ? '#86efac' : '#1F7A3D',
+              padding: '0.85rem',
+              backgroundColor: isLoading ? '#93c5fd' : '#1E4E8C',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
               fontSize: '1rem',
-              fontWeight: '600',
+              fontWeight: 600,
               cursor: isLoading ? 'not-allowed' : 'pointer',
             }}
           >
-            {isLoading ? 'Updating...' : 'Update password'}
+            {isLoading ? 'Updating password…' : 'Update password'}
           </button>
         </form>
       </div>
