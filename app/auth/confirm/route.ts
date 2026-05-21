@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { AUTH_CALLBACK_PATH, RESET_PASSWORD_PATH } from '../../../lib/authFlow';
 
 export async function GET(request: NextRequest) {
   const sourceUrl = new URL(request.url);
@@ -8,15 +9,11 @@ export async function GET(request: NextRequest) {
   const isRecoveryFlow =
     type === 'recovery' ||
     flow === 'recovery' ||
-    nextPath === '/reset-password' ||
-    nextPath?.startsWith('/reset-password?') ||
+    nextPath === RESET_PASSWORD_PATH ||
+    nextPath?.startsWith(`${RESET_PASSWORD_PATH}?`) ||
     false;
-  const callbackUrl = new URL('/auth/callback', request.url);
 
-  if (isRecoveryFlow) {
-    sourceUrl.searchParams.set('type', 'recovery');
-  }
-
-  callbackUrl.search = sourceUrl.search;
-  return NextResponse.redirect(callbackUrl);
+  const destination = new URL(isRecoveryFlow ? RESET_PASSWORD_PATH : AUTH_CALLBACK_PATH, request.url);
+  destination.search = sourceUrl.search;
+  return NextResponse.redirect(destination);
 }
