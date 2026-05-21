@@ -155,6 +155,7 @@ export default function AuthCallbackPage() {
         ).data.session?.user ??
         null;
       if (!user) {
+        console.warn('[auth/callback] resolveUserRedirect: no session → /login');
         router.replace('/login');
         return;
       }
@@ -166,15 +167,18 @@ export default function AuthCallbackPage() {
             : typeof user.app_metadata?.role === 'string'
               ? user.app_metadata.role
             : null;
+      console.log('[auth/callback] resolveUserRedirect: userId', user.id, 'fallbackRole', fallbackRole);
       const redirectPath = await withTimeout(
         resolveRedirectPath(user.id, fallbackRole),
         AUTH_CALLBACK_TIMEOUT_MS
       );
       if (!redirectPath) {
+        console.warn('[auth/callback] resolveUserRedirect: no redirect path → /forbidden, signing out');
         await supabase.auth.signOut();
         router.replace('/forbidden');
         return;
       }
+      console.log('[auth/callback] resolveUserRedirect: redirecting to', redirectPath);
       router.replace(redirectPath);
     };
 
@@ -203,7 +207,17 @@ export default function AuthCallbackPage() {
           nextPath?.startsWith('/reset-password?') ||
           false;
 
+        console.log('[auth/callback] params', {
+          queryType,
+          hashType,
+          flow,
+          nextPath,
+          hasAccessToken: Boolean(accessToken),
+          isRecoveryHint,
+        });
+
         if (accessToken && refreshToken) {
+          console.log('[auth/callback] hash-token flow: calling setSession');
           const { data: sessionData, error: setSessionError } = await withTimeout(
             supabase.auth.setSession({
               access_token: accessToken,
@@ -211,13 +225,19 @@ export default function AuthCallbackPage() {
             }),
             AUTH_CALLBACK_TIMEOUT_MS
           );
-          if (setSessionError) throw setSessionError;
+          if (setSessionError) {
+            console.error('[auth/callback] setSession failed:', setSessionError.message);
+            throw setSessionError;
+          }
+          console.log('[auth/callback] setSession success, user:', sessionData.user?.id);
 
-          if (hashType === 'recovery' || isRecoveryHint || !hashType) {
+          if (hashType === 'recovery' || isRecoveryHint) {
+            console.log('[auth/callback] recovery detected via hashType/hint → /reset-password');
             router.replace('/reset-password');
             return;
           }
 
+          console.log('[auth/callback] non-recovery hash flow → role redirect');
           await resolveUserRedirect(sessionData.user);
           return;
         }
@@ -228,15 +248,22 @@ export default function AuthCallbackPage() {
         const isRecoveryType = type === 'recovery';
 
         if (code) {
+          console.log('[auth/callback] PKCE code flow: calling exchangeCodeForSession');
           const { data: exchangeData, error: exchangeError } = await withTimeout(
             supabase.auth.exchangeCodeForSession(code),
             AUTH_CALLBACK_TIMEOUT_MS
           );
-          if (exchangeError) throw exchangeError;
+          if (exchangeError) {
+            console.error('[auth/callback] exchangeCodeForSession failed:', exchangeError.message);
+            throw exchangeError;
+          }
+          console.log('[auth/callback] exchangeCodeForSession success, user:', exchangeData.user?.id);
           if (isRecoveryType || isRecoveryHint) {
+            console.log('[auth/callback] recovery detected via type/hint → /reset-password');
             router.replace('/reset-password');
             return;
           }
+          console.log('[auth/callback] non-recovery code flow → role redirect');
           await resolveUserRedirect(exchangeData.user);
           return;
         }
@@ -250,6 +277,7 @@ export default function AuthCallbackPage() {
             type === 'email_change'
               ? type
               : 'recovery';
+          console.log('[auth/callback] token_hash flow, otpType:', otpType);
           const { data: verifyData, error: verifyError } = await withTimeout(
             supabase.auth.verifyOtp({
               token_hash: tokenHash,
@@ -257,15 +285,22 @@ export default function AuthCallbackPage() {
             }),
             AUTH_CALLBACK_TIMEOUT_MS
           );
-          if (verifyError) throw verifyError;
+          if (verifyError) {
+            console.error('[auth/callback] verifyOtp failed:', verifyError.message);
+            throw verifyError;
+          }
+          console.log('[auth/callback] verifyOtp success, user:', verifyData.user?.id);
           if (otpType === 'recovery' || isRecoveryHint) {
+            console.log('[auth/callback] recovery OTP → /reset-password');
             router.replace('/reset-password');
             return;
           }
+          console.log('[auth/callback] non-recovery OTP → role redirect');
           await resolveUserRedirect(verifyData.user);
           return;
         }
 
+        console.warn('[auth/callback] no auth params found → /login');
         router.replace('/login');
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Authentication callback failed.';

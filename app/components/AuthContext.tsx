@@ -298,11 +298,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const isRecoveryAuthContext = (event?: string) => {
-    if (event === 'PASSWORD_RECOVERY') return true;
+    if (event === 'PASSWORD_RECOVERY') {
+      console.log('[AuthContext] recovery detected via PASSWORD_RECOVERY event');
+      return true;
+    }
     const { pathname, queryType, hashType, hasRecoveryTokens } = getAuthUrlSignals();
-    if (pathname === '/reset-password') return true;
-    if (queryType === 'recovery' || hashType === 'recovery') return true;
+    if (pathname === '/reset-password') {
+      console.log('[AuthContext] recovery detected via pathname /reset-password');
+      return true;
+    }
+    if (queryType === 'recovery' || hashType === 'recovery') {
+      console.log('[AuthContext] recovery detected via type param', { queryType, hashType });
+      return true;
+    }
     if (pathname === '/auth/callback' && hasRecoveryTokens) {
+      console.log('[AuthContext] recovery detected via /auth/callback + recovery tokens');
       return true;
     }
     return false;
@@ -324,6 +334,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasRecoveryTokens;
 
     if (hasRecoverySignal && pathname !== '/auth/callback') {
+      console.log('[AuthContext] recovery signal on non-callback page, forwarding to /auth/callback');
       router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
     }
 
@@ -336,6 +347,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (session?.user) {
           if (isRecoveryAuthContext()) {
+            console.log('[AuthContext] bootstrap: recovery session — skipping profile/role validation');
             setUser(null);
             setHasSupabaseSession(true);
           } else {
@@ -358,6 +370,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         if (session?.user) {
           if (isRecoveryAuthContext(event)) {
+            console.log('[AuthContext] onAuthStateChange: recovery session — skipping profile/role validation, event:', event);
             setUser(null);
             setHasSupabaseSession(true);
           } else {
@@ -428,7 +441,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback?type=recovery`,
+        redirectTo: 'https://xdrivelogistics.co.uk/auth/callback?type=recovery',
       });
       if (error) return { success: false, error: error.message };
       if (typeof window !== 'undefined') {
