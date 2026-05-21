@@ -231,14 +231,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
+    // SECURITY: Only use app_metadata.role as the fallback for role resolution.
+    // user_metadata is end-user writable via supabase.auth.updateUser, so trusting
+    // user_metadata.role for access decisions would allow privilege escalation.
+    // app_metadata is writable only by the service role and is safe as a hint.
     const fallbackRole =
-      typeof sessionUser.user_metadata?.role === 'string'
-        ? sessionUser.user_metadata.role
-        : typeof sessionUser.user_metadata?.requested_role === 'string'
-          ? sessionUser.user_metadata.requested_role
-          : typeof sessionUser.app_metadata?.role === 'string'
-            ? sessionUser.app_metadata.role
-          : null;
+      typeof sessionUser.app_metadata?.role === 'string'
+        ? sessionUser.app_metadata.role
+        : null;
     const roleData = await withTimeout(resolveRole(sessionUser.id, fallbackRole), LOGIN_TIMEOUT_MS);
     if (!roleData) {
       // Do NOT sign out here — the Supabase session is valid but profile/role is missing.
