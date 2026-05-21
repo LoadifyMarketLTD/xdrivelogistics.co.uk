@@ -159,14 +159,12 @@ export default function AuthCallbackPage() {
         router.replace('/login');
         return;
       }
+      // SECURITY: Only use app_metadata.role as the fallback for redirect resolution.
+      // user_metadata is end-user writable; app_metadata is service-role-only.
       const fallbackRole =
-        typeof user.user_metadata?.role === 'string'
-          ? user.user_metadata.role
-          : typeof user.user_metadata?.requested_role === 'string'
-            ? user.user_metadata.requested_role
-            : typeof user.app_metadata?.role === 'string'
-              ? user.app_metadata.role
-            : null;
+        typeof user.app_metadata?.role === 'string'
+          ? user.app_metadata.role
+          : null;
       console.log('[auth/callback] resolveUserRedirect: userId', user.id, 'fallbackRole', fallbackRole);
       const redirectPath = await withTimeout(
         resolveRedirectPath(user.id, fallbackRole),

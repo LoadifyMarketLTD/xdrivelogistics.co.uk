@@ -320,17 +320,16 @@ export async function proxy(request: NextRequest) {
     return redirectToLogin(request);
   }
 
-  const userMetadata =
-    payload && typeof payload.user_metadata === 'object' && payload.user_metadata !== null
-      ? (payload.user_metadata as Record<string, unknown>)
+  // SECURITY: Only use app_metadata.role as the fallback for route-access decisions.
+  // user_metadata is end-user writable (supabase.auth.updateUser can set it), so
+  // trusting user_metadata.role here would allow privilege escalation. app_metadata
+  // is writable only by the service role and is safe to use as a fallback hint.
+  const appMetadata =
+    payload && typeof payload.app_metadata === 'object' && payload.app_metadata !== null
+      ? (payload.app_metadata as Record<string, unknown>)
       : null;
 
-  const fallbackRole =
-    typeof userMetadata?.role === 'string'
-      ? userMetadata.role
-      : typeof userMetadata?.requested_role === 'string'
-        ? userMetadata.requested_role
-        : null;
+  const fallbackRole = typeof appMetadata?.role === 'string' ? appMetadata.role : null;
 
   const snapshot = await fetchRoleSnapshot(token, userId, fallbackRole);
   if (snapshot.status === 'unauthenticated') {
