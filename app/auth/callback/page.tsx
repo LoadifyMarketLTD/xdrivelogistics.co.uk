@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import {
   RESET_PASSWORD_PATH,
   getBrowserAuthSignals,
-  isInviteAuthFlow,
-  isRecoveryAuthFlow,
 } from '../../../lib/authFlow';
 import { getPostLoginRoute, resolveAuthenticatedUser, type SessionUser } from '../../../lib/authSession';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
@@ -125,12 +123,7 @@ export default function AuthCallbackPage() {
           clearBrowserTokens('/auth/callback');
         }
 
-        const routedFromPasswordSetupLink =
-          consumedBrowserTokens &&
-          Boolean(signals) &&
-          (isRecoveryAuthFlow(signals) || isInviteAuthFlow(signals));
-
-        if (verifiedOtpType === 'invite' || verifiedOtpType === 'recovery' || routedFromPasswordSetupLink) {
+        if (verifiedOtpType === 'invite' || verifiedOtpType === 'recovery') {
           router.replace(RESET_PASSWORD_PATH);
           return;
         }
