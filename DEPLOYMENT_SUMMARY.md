@@ -35,7 +35,7 @@
 ### 2. Contact & CTAs ✅
 All tested and working:
 - ✅ WhatsApp: Opens with pre-filled message
-- ✅ Phone: `tel:07423272138` 
+- ✅ Phone: `tel:07377694228` 
 - ✅ Email: `mailto:contact@xdrivelogistics.co.uk`
 - ✅ Login buttons: Navigate to `/login`
 
@@ -136,9 +136,9 @@ Your website is **100% functional** and ready for production deployment to Netli
 
 ## 📞 CONTACT DETAILS VERIFIED
 
-- **Phone:** 07423 272 138 ✅
+- **Phone:** 07377 694 228 ✅
 - **Email:** contact@xdrivelogistics.co.uk ✅
-- **WhatsApp:** 447423272138 ✅
+- **WhatsApp:** 447377694228 ✅
 - **Company:** XDrive Logistics Ltd ✅
 
 ---

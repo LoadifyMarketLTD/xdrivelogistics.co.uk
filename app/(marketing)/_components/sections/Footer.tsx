@@ -1,9 +1,11 @@
 'use client';
 
 import { COMPANY_CONFIG } from '../../../config/company';
+import { useCompanyContactLinks } from '../../../hooks/useCompanyContactLinks';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
+  const { phoneHref, whatsappHref } = useCompanyContactLinks();
 
   return (
     <footer
@@ -33,10 +35,10 @@ export function Footer() {
           }}
         >
           {[
-            { icon: '🔒', label: 'Secure Payments', sub: 'Stripe Protected' },
+            { icon: '🔒', label: 'Secure Platform', sub: 'TLS encrypted access' },
             { icon: '✅', label: 'Insurance Required', sub: 'Driver policy checks' },
             { icon: '🏢', label: 'Registered Company', sub: `No. ${COMPANY_CONFIG.companyNumber}` },
-            { icon: '📋', label: 'ICO Registered', sub: 'Data Protection' },
+            { icon: '📋', label: 'Data Protection', sub: 'Privacy-first operations' },
           ].map((badge) => (
             <div
               key={badge.label}
@@ -193,7 +195,7 @@ export function Footer() {
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
               <a
-                href={`tel:${COMPANY_CONFIG.phone}`}
+                href={phoneHref}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -228,7 +230,7 @@ export function Footer() {
                 <span>{COMPANY_CONFIG.email}</span>
               </a>
               <a
-                href={`https://wa.me/${COMPANY_CONFIG.whatsapp.number}`}
+                href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{

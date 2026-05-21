@@ -13,7 +13,7 @@ export default function Home() {
     // If user is authenticated, redirect to appropriate dashboard
     if (!isLoading && user) {
       if (user.role === 'driver') {
-        router.push('/driver/jobs');
+        router.push(user.mustChangePassword ? '/driver/change-password' : '/driver/jobs');
       } else if (user.role === 'company' || user.role === 'admin' || user.role === 'owner') {
         router.push('/admin');
       } else if (user.role === 'customer') {

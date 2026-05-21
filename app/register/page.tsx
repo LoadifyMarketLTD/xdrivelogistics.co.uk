@@ -60,12 +60,11 @@ export default function RegisterPage() {
       if (data.user?.id) {
         await supabase.from('profiles').upsert(
           [{
-            id: data.user.id,
-            email,
+            user_id: data.user.id,
             role,
             is_driver: role === 'driver',
           }],
-          { onConflict: 'id' }
+          { onConflict: 'user_id' }
         );
       }
 

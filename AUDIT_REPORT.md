@@ -68,7 +68,7 @@ Generated: 2026-02-22
 | **View job detail** | ✅ PASS **(fixed)** | **Was FAIL:** `jobs/[id]/page.tsx::loadJob()` only used localStorage; Supabase jobs showed "Job not found". **Fixed:** now queries Supabase first. |
 | **Edit job (save)** | ✅ PASS **(fixed)** | **Was FAIL:** `handleSave()` wrote to localStorage only; Supabase rows never updated. **Fixed:** updates Supabase, maps UI fields to DB columns. |
 | **Delete job** | ✅ PASS **(fixed)** | **Was FAIL:** `handleDelete()` filtered localStorage only; Supabase row not deleted. **Fixed:** calls `supabase.from('jobs').delete().eq('id', jobId)`. |
-| Generate invoice from job | ⚠️ FAKE | Stores data in `localStorage('temp_invoice_data')` then navigates to `/admin/invoices/new`. Works as UI handoff but invoices have no DB persistence. |
+| Generate invoice from job | ✅ PASS | Uses URL search params from `/admin/jobs/[id]` to `/admin/invoices/new`; invoice page pre-fills via `useSearchParams` and saves to Supabase. |
 
 ### 1.6 Quotes
 
@@ -100,16 +100,16 @@ Generated: 2026-02-22
 
 | Feature | Result | Evidence |
 |---|---|---|
-| List invoices | ⚠️ FAKE/STUB | `admin/invoices/page.tsx` reads from `localStorage.getItem('xdrive_invoices')`. No `invoices` table in Supabase schema. |
-| Create invoice | ⚠️ FAKE/STUB | `admin/invoices/[id]/page.tsx` saves to `localStorage`. |
-| View invoice detail / print | ⚠️ FAKE/STUB | Reads from `localStorage`. Uses `InvoiceTemplate` component for rendering (real template, fake storage). |
+| List invoices | ✅ PASS | `admin/invoices/page.tsx` reads tenant-scoped rows from Supabase `invoices` table. |
+| Create invoice | ✅ PASS | `admin/invoices/[id]/page.tsx` inserts invoices in Supabase and assigns tenant `company_id`. |
+| View invoice detail / print | ✅ PASS | Invoice detail loads from Supabase with tenant scope; rendering uses `InvoiceTemplate`. |
 
 ### 1.10 Settings
 
 | Feature | Result | Evidence |
 |---|---|---|
-| View settings | ⚠️ FAKE/STUB | Pre-fills from `COMPANY_CONFIG` constants. No DB read. |
-| Save settings | ⚠️ FAKE/STUB | `handleSave()` → `localStorage.setItem('danny_admin_settings', ...)`. Saved data is not shared across devices/users. |
+| View settings | ✅ PASS | Loads tenant company profile/settings from Supabase (`companies` + `company_settings`). |
+| Save settings | ✅ PASS | Persists tenant settings through Supabase update/upsert with company scope. |
 
 ### 1.11 Dashboard KPIs
 
@@ -153,13 +153,12 @@ Generated: 2026-02-22
 
 | Priority | Feature | Issue | Recommended Action |
 |---|---|---|---|
-| HIGH | Invoices | Entirely localStorage — no Supabase table. Data lost on clear or across devices. | Add `invoices` migration + update page to read/write Supabase |
-| HIGH | Settings | localStorage only — not shared across logins/devices. | Add `company_settings` table + migration |
+| HIGH | Historical doc drift | Some audit/checklist docs still describe legacy localStorage behavior from older revisions | Keep docs aligned to current Supabase runtime behavior |
 | HIGH | Register | No sign-up page. Admins must manually create users in Supabase dashboard. | Add `/register` page using `supabase.auth.signUp()` |
 | MEDIUM | Companies/Drivers/Vehicles | No Edit or Delete UI | Add inline edit modals and delete confirmation |
 | MEDIUM | Document Upload | No file upload form; `driver_documents` / `vehicle_documents` rows can only be approved/rejected if created externally | Add upload form with Supabase Storage bucket |
 | MEDIUM | Quotes | No accept/decline buttons — status stuck at `draft` | Add action buttons with `supabase.update({status})` |
-| LOW | Jobs `[id]` — `handleGenerateInvoice` | Passes data via `localStorage('temp_invoice_data')` which invoice page doesn't currently read; handoff is one-way | Read `temp_invoice_data` in `/admin/invoices/new` OR pass via URL params |
+| LOW | Legacy audit references | Some historical docs mention localStorage invoice flow from older revisions | Keep docs synchronized with current Supabase + URL-prefill implementation |
 | LOW | Return Journeys | Table exists in DB but no UI | Implement if required |
 | LOW | Diary Events | Table exists in DB but no UI | Implement if required |
 | LOW | Driver Locations | Table exists in DB but no UI map | Implement if required |

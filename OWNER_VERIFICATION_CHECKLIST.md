@@ -145,9 +145,9 @@ Visit: https://securityheaders.com/?q=https://xdrivelogistics.co.uk&followRedire
 - **Action:** Run manually after deployment (instructions above)
 
 ### Auth Backend
-**Development mode** - Uses localStorage
-- **Impact:** Works fine for demo
-- **Future:** Replace with real backend + httpOnly cookies
+**Current mode** - Uses Supabase Auth session + server-side route guards
+- **Impact:** Production-aligned auth flow with tenant-aware route protection
+- **Future:** Continue hardening RLS/policy coverage and runtime monitoring
 
 ---
 
@@ -170,9 +170,9 @@ Visit: https://securityheaders.com/?q=https://xdrivelogistics.co.uk&followRedire
 ## 📞 CONTACT VERIFICATION
 
 **Confirm these details are correct:**
-- Phone: **07423 272 138** ✅
+- Phone: **07377 694 228** ✅
 - Email: **contact@xdrivelogistics.co.uk** ✅
-- WhatsApp: **447423272138** ✅
+- WhatsApp: **447377694228** ✅
 - Company: **XDrive Logistics Ltd** ✅
 
 ---

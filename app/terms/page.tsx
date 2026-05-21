@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { COMPANY_CONFIG } from '../config/company';
 
 export const metadata: Metadata = {
   title: 'Terms & Conditions',
@@ -50,9 +51,9 @@ export default function TermsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: '1.7', color: 'rgba(255,255,255,0.82)' }}>
           <Section title="1. Introduction">
             These Terms and Conditions (&quot;Terms&quot;) govern your use of the XDrive Logistics platform and services
-            operated by XDrive Logistics Ltd, a company registered in England and Wales (Company Number 13171804),
-            with a registered office at 101 Cornelian Street, Blackburn, BB1 9QL, United Kingdom.
-            XDrive Logistics Ltd is an independent platform and is not affiliated with Courier Exchange or any
+            operated by {COMPANY_CONFIG.legalName}, a company registered in England and Wales (Company Number {COMPANY_CONFIG.companyNumber}),
+            with a registered office at {COMPANY_CONFIG.address.full}.
+            {COMPANY_CONFIG.legalName} is an independent platform and is not affiliated with Courier Exchange or any
             third-party courier exchange platform.
             <br /><br />
             By accessing or using our platform, you agree to be bound by these Terms. If you do not agree,
@@ -60,7 +61,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="2. Services">
-            XDrive Logistics Ltd provides an online platform connecting self-employed courier drivers with
+            {COMPANY_CONFIG.legalName} provides an online platform connecting self-employed courier drivers with
             businesses and individuals requiring freight and transport services. We act as an intermediary
             and are not a party to the contract between drivers and clients unless explicitly stated.
           </Section>
@@ -75,19 +76,19 @@ export default function TermsPage() {
             All drivers registered on the platform must hold valid and appropriate qualifications,
             including but not limited to: a Certificate of Professional Competence (CPC), a valid
             tachograph card, comprehensive goods-in-transit insurance, and any other licences
-            required by UK law. XDrive Logistics Ltd reserves the right to verify these documents
+            required by UK law. {COMPANY_CONFIG.legalName} reserves the right to verify these documents
             and to remove any driver who does not comply.
           </Section>
 
           <Section title="5. Payments & Fees">
-            Payment terms are agreed between clients and drivers through the platform. XDrive Logistics Ltd
+            Payment terms are agreed between clients and drivers through the platform. {COMPANY_CONFIG.legalName}
             may charge a service fee or commission as outlined at the time of booking. Invoices are
             issued for all transactions. Late payments may incur administrative charges of £25 per
             full week beyond the agreed due date.
           </Section>
 
           <Section title="6. Liability">
-            XDrive Logistics Ltd shall not be liable for any indirect, incidental, or consequential
+            {COMPANY_CONFIG.legalName} shall not be liable for any indirect, incidental, or consequential
             loss arising from the use of the platform. Our total liability to you shall not exceed
             the amount paid by you to us in the three months preceding the claim.
             <br /><br />
@@ -96,7 +97,7 @@ export default function TermsPage() {
 
           <Section title="7. Intellectual Property">
             All content, trademarks, and intellectual property on this platform are owned by or
-            licensed to XDrive Logistics Ltd. You may not reproduce, distribute, or create derivative
+            licensed to {COMPANY_CONFIG.legalName}. You may not reproduce, distribute, or create derivative
             works without our prior written consent.
           </Section>
 
@@ -113,10 +114,10 @@ export default function TermsPage() {
 
           <Section title="10. Contact">
             If you have any questions about these Terms, please contact us at:<br /><br />
-            XDrive Logistics Ltd<br />
-            101 Cornelian Street, Blackburn, BB1 9QL<br />
-            Email: contact@xdrivelogistics.co.uk<br />
-            Phone: 07377 694 228
+            {COMPANY_CONFIG.legalName}<br />
+            {COMPANY_CONFIG.address.street}, {COMPANY_CONFIG.address.city}, {COMPANY_CONFIG.address.postcode}<br />
+            Email: {COMPANY_CONFIG.email}<br />
+            Phone: {COMPANY_CONFIG.phoneDisplay}
           </Section>
         </div>
       </div>
