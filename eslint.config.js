@@ -29,6 +29,7 @@ export default defineConfig([
         varsIgnorePattern: '^_',
         caughtErrorsIgnorePattern: '^_',
       }],
+      '@typescript-eslint/triple-slash-reference': 'off',
     },
   },
 ])
