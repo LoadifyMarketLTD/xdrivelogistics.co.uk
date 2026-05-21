@@ -77,6 +77,7 @@ const authFailureReasonToMessage = (
         const codeSuffix = dbError.code ? ` [${dbError.code}]` : '';
         return `Account validation query failed${codeSuffix}: ${dbError.message}`;
       }
+      return 'Unable to validate account access. Please try again.';
     default:
       return 'Unable to validate account access. Please try again.';
   }
