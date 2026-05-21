@@ -60,7 +60,7 @@ export default function RegisterPage() {
           [{
             user_id: data.user.id,
             role,
-            is_driver: role === 'driver',
+            is_driver: false,
           }],
           { onConflict: 'user_id' }
         );
