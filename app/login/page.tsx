@@ -2,12 +2,13 @@
 
 import { useState, FormEvent, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { COMPANY_CONFIG } from '../config/company';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -18,28 +19,7 @@ export default function LoginPage() {
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const { login, resetPassword, user, isLoading: authLoading } = useAuth();
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const queryParams = new URLSearchParams(window.location.search);
-    const hashParams = window.location.hash
-      ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
-      : null;
-
-    const queryType = queryParams.get('type');
-    const hashType = hashParams?.get('type');
-    const hasRecoveryType = queryType === 'recovery' || hashType === 'recovery';
-    const hasRecoveryTokens =
-      Boolean(hashParams?.get('access_token') && hashParams?.get('refresh_token')) ||
-      Boolean(queryParams.get('code')) ||
-      Boolean(queryParams.get('token_hash'));
-
-    if (!hasRecoveryType && !hasRecoveryTokens) return;
-
-    const callbackUrl = `/auth/callback${window.location.search}${window.location.hash}`;
-    router.replace(callbackUrl);
-  }, [router]);
+  const resetSuccess = searchParams.get('reset') === 'success';
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -126,6 +106,19 @@ export default function LoginPage() {
           <p style={{ color: '#5B6B85', fontSize: '0.95rem' }}>
             {showReset ? 'Reset your password' : 'Sign in to your account'}
           </p>
+          {resetSuccess && !showReset && (
+            <div style={{
+              marginTop: '0.75rem',
+              padding: '0.75rem',
+              backgroundColor: '#dcfce7',
+              color: '#166534',
+              borderRadius: '6px',
+              fontSize: '0.9rem',
+              border: '1px solid #bbf7d0',
+            }}>
+              Password updated successfully. Please sign in.
+            </div>
+          )}
         </div>
 
         {!showReset ? (

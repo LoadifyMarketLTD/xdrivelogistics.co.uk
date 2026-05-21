@@ -19,10 +19,8 @@ export default function DriversPage() {
   const [createdCredentials, setCreatedCredentials] = useState<{
     displayName: string;
     email: string;
-    temporaryPassword: string;
-    sequenceNumber: number;
+    invited: boolean;
   } | null>(null);
-  const [copyStatus, setCopyStatus] = useState('');
 
   const loadCompanyId = async (userId: string) => {
     const { data } = await supabase.rpc('get_or_create_company_for_user');
@@ -104,7 +102,7 @@ export default function DriversPage() {
         }),
       });
 
-      const payload = await response.json().catch(() => ({} as { error?: string; temporaryPassword?: string; sequenceNumber?: number }));
+      const payload = await response.json().catch(() => ({} as { error?: string; invited?: boolean }));
       if (!response.ok) {
         setError(payload.error || 'Failed to create driver account.');
         return;
@@ -113,10 +111,8 @@ export default function DriversPage() {
       setCreatedCredentials({
         displayName: formData.display_name.trim(),
         email: formData.email.trim().toLowerCase(),
-        temporaryPassword: payload.temporaryPassword || '',
-        sequenceNumber: Number(payload.sequenceNumber) || 0,
+        invited: Boolean(payload.invited),
       });
-      setCopyStatus('');
       setFormData({ display_name: '', phone: '', email: '', company_id: companyId });
       setError('');
       loadDrivers();
@@ -128,18 +124,7 @@ export default function DriversPage() {
   const closeModal = () => {
     setShowModal(false);
     setError('');
-    setCopyStatus('');
     setCreatedCredentials(null);
-  };
-
-  const copyTemporaryPassword = async () => {
-    if (!createdCredentials?.temporaryPassword) return;
-    try {
-      await navigator.clipboard.writeText(createdCredentials.temporaryPassword);
-      setCopyStatus('Temporary password copied.');
-    } catch {
-      setCopyStatus('Could not copy automatically. Please copy manually.');
-    }
   };
 
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const };
@@ -155,7 +140,7 @@ export default function DriversPage() {
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Drivers</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage drivers for your company</p>
             </div>
-            <button onClick={() => { setCreatedCredentials(null); setCopyStatus(''); setError(''); setShowModal(true); }} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
+            <button onClick={() => { setCreatedCredentials(null); setError(''); setShowModal(true); }} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
               + Add Driver
             </button>
           </div>
@@ -210,22 +195,15 @@ export default function DriversPage() {
                 <>
                   <div style={{ padding: '1.5rem', display: 'grid', gap: '0.8rem' }}>
                     <div style={{ backgroundColor: '#ecfdf3', border: '1px solid #86efac', borderRadius: '8px', padding: '0.9rem', color: '#166534', fontSize: '0.9rem' }}>
-                      Driver account created. Copy this temporary password now — it will not be shown again.
+                      Driver invited successfully. A password setup email was sent.
                     </div>
                     <div style={{ fontSize: '0.88rem', color: '#334155' }}>
                       <strong>Driver:</strong> {createdCredentials.displayName}
                       <br />
                       <strong>Email:</strong> {createdCredentials.email}
-                      <br />
-                      <strong>Sequence:</strong> #{String(createdCredentials.sequenceNumber).padStart(3, '0')}
                     </div>
-                    <div style={{ backgroundColor: '#0f172a', color: '#f8fafc', borderRadius: '8px', padding: '0.9rem', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 700 }}>
-                      {createdCredentials.temporaryPassword}
-                    </div>
-                    {copyStatus && <div style={{ color: '#0f766e', fontSize: '0.85rem' }}>{copyStatus}</div>}
                   </div>
                   <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                    <button onClick={copyTemporaryPassword} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Copy Password</button>
                     <button onClick={closeModal} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Done</button>
                   </div>
                 </>
