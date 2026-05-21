@@ -296,7 +296,7 @@ const redirectToDriverPasswordChange = (request: NextRequest) => {
   return NextResponse.redirect(changeUrl);
 };
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const requiresAuth = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
