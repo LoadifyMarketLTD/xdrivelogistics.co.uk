@@ -30,46 +30,56 @@ export default function ResetPasswordPage() {
 
       const code = queryParams?.get('code');
 
+      console.log('[reset-password] session check, has code:', Boolean(code), 'has hash token:', Boolean(hashParams?.get('access_token')));
+
       if (code) {
+        console.log('[reset-password] code param present — forwarding to /auth/callback');
         router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
         return;
       }
 
       const { data, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) {
+        console.error('[reset-password] getSession error:', sessionError.message);
         setError(sessionError.message);
         setIsCheckingSession(false);
         return;
       }
 
       if (!data.session?.user) {
+        console.log('[reset-password] no active session, checking for hash tokens or token_hash');
         const accessToken = hashParams?.get('access_token');
         const refreshToken = hashParams?.get('refresh_token');
         const tokenHash = queryParams?.get('token_hash');
 
         if (accessToken && refreshToken) {
+          console.log('[reset-password] setting session from hash tokens');
           const { error: setSessionError } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
           if (setSessionError) {
+            console.error('[reset-password] setSession error:', setSessionError.message);
             setError(setSessionError.message);
             setIsCheckingSession(false);
             return;
           }
         } else {
           if (!tokenHash) {
+            console.warn('[reset-password] no tokens and no token_hash — link invalid/expired');
             setError('Recovery link is invalid or expired. Please request a new password reset email.');
             setHasRecoverySession(false);
             setIsCheckingSession(false);
             return;
           }
 
+          console.log('[reset-password] verifying token_hash OTP');
           const { error: verifyError } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
             type: 'recovery',
           });
           if (verifyError) {
+            console.error('[reset-password] verifyOtp error:', verifyError.message);
             setError(verifyError.message);
             setIsCheckingSession(false);
             return;
@@ -79,12 +89,14 @@ export default function ResetPasswordPage() {
 
       const { data: checkedData, error: checkedSessionError } = await supabase.auth.getSession();
       if (checkedSessionError || !checkedData.session?.user) {
+        console.warn('[reset-password] final session check failed — link invalid/expired');
         setError('Recovery link is invalid or expired. Please request a new password reset email.');
         setHasRecoverySession(false);
         setIsCheckingSession(false);
         return;
       }
 
+      console.log('[reset-password] recovery session confirmed, userId:', checkedData.session.user.id);
       setHasRecoverySession(true);
       setIsCheckingSession(false);
     };
