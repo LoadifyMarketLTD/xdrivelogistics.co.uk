@@ -4,10 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   RESET_PASSWORD_PATH,
-  buildPathWithAuthParams,
   getBrowserAuthSignals,
-  isInviteAuthFlow,
-  isRecoveryAuthFlow,
 } from '../../../lib/authFlow';
 import { getPostLoginRoute, resolveAuthenticatedUser, type SessionUser } from '../../../lib/authSession';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
@@ -25,6 +22,13 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<
   } finally {
     if (timeoutHandle) clearTimeout(timeoutHandle);
   }
+};
+
+type OtpType = 'invite' | 'recovery' | 'signup' | 'email' | 'email_change';
+
+const clearBrowserTokens = (pathname: string) => {
+  if (typeof window === 'undefined') return;
+  window.history.replaceState(null, '', pathname);
 };
 
 export default function AuthCallbackPage() {
@@ -60,56 +64,66 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        if (isRecoveryAuthFlow(signals)) {
-          router.replace(buildPathWithAuthParams(RESET_PASSWORD_PATH, signals));
-          return;
-        }
-
         let sessionUser: SessionUser | null = null;
+        let consumedBrowserTokens = false;
+        let verifiedOtpType: OtpType | null = null;
 
-        if (signals.hasHashSessionTokens && signals.accessToken && signals.refreshToken) {
-          const { data, error: setSessionError } = await withTimeout(
+        const {
+          data: { session: existingSession },
+          error: existingSessionError,
+        } = await withTimeout(supabase.auth.getSession(), AUTH_CALLBACK_TIMEOUT_MS);
+        if (existingSessionError) throw existingSessionError;
+        sessionUser = existingSession?.user ?? null;
+
+        if (!sessionUser) {
+          const { data: setSessionData } = await withTimeout(
             supabase.auth.setSession({
-              access_token: signals.accessToken,
-              refresh_token: signals.refreshToken,
+              access_token: signals.accessToken ?? '',
+              refresh_token: signals.refreshToken ?? '',
             }),
             AUTH_CALLBACK_TIMEOUT_MS
           );
-          if (setSessionError) throw setSessionError;
-          sessionUser = data.user ?? null;
-        } else if (signals.code) {
-          const { data, error: exchangeError } = await withTimeout(
-            supabase.auth.exchangeCodeForSession(signals.code),
-            AUTH_CALLBACK_TIMEOUT_MS
-          );
-          if (exchangeError) throw exchangeError;
-          sessionUser = data.user ?? null;
-        } else if (signals.tokenHash) {
-          const otpType = isInviteAuthFlow(signals)
-            ? 'invite'
-            : signals.queryType === 'signup' || signals.queryType === 'email' || signals.queryType === 'email_change'
-              ? signals.queryType
-              : 'email';
-
-          const { data, error: verifyError } = await withTimeout(
-            supabase.auth.verifyOtp({
-              token_hash: signals.tokenHash,
-              type: otpType,
-            }),
-            AUTH_CALLBACK_TIMEOUT_MS
-          );
-          if (verifyError) throw verifyError;
-          sessionUser = data.user ?? null;
-        } else {
-          const {
-            data: { session },
-            error: sessionError,
-          } = await withTimeout(supabase.auth.getSession(), AUTH_CALLBACK_TIMEOUT_MS);
-          if (sessionError) throw sessionError;
-          sessionUser = session?.user ?? null;
+          if (setSessionData.user) {
+            sessionUser = setSessionData.user;
+            consumedBrowserTokens = true;
+          }
         }
 
-        if (isInviteAuthFlow(signals)) {
+        if (!sessionUser) {
+          const { data: exchangeData } = await withTimeout(
+            supabase.auth.exchangeCodeForSession(signals.code ?? ''),
+            AUTH_CALLBACK_TIMEOUT_MS
+          );
+          if (exchangeData.user) {
+            sessionUser = exchangeData.user;
+            consumedBrowserTokens = true;
+          }
+        }
+
+        if (!sessionUser) {
+          const otpTypes: OtpType[] = ['invite', 'recovery', 'signup', 'email', 'email_change'];
+          for (const otpType of otpTypes) {
+            const { data: verifyData } = await withTimeout(
+              supabase.auth.verifyOtp({
+                token_hash: signals.tokenHash ?? '',
+                type: otpType,
+              }),
+              AUTH_CALLBACK_TIMEOUT_MS
+            );
+            if (verifyData.user) {
+              sessionUser = verifyData.user;
+              verifiedOtpType = otpType;
+              consumedBrowserTokens = true;
+              break;
+            }
+          }
+        }
+
+        if (consumedBrowserTokens) {
+          clearBrowserTokens('/auth/callback');
+        }
+
+        if (verifiedOtpType === 'invite' || verifiedOtpType === 'recovery') {
           router.replace(RESET_PASSWORD_PATH);
           return;
         }

@@ -3,12 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  AUTH_CALLBACK_PATH,
   RESET_PASSWORD_PATH,
-  getBrowserAuthSignals,
   getResetPasswordEmailRedirectTo,
-  isInviteAuthFlow,
-  isRecoveryAuthFlow,
 } from '../../lib/authFlow';
 import {
   type ResolvedAuthUser,
@@ -89,12 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isPasswordSetupContext = useCallback((event?: string) => {
     if (pathname === RESET_PASSWORD_PATH) return true;
     if (event === 'PASSWORD_RECOVERY') return true;
-
-    const signals = getBrowserAuthSignals();
-    if (!signals) return false;
-    if (pathname !== AUTH_CALLBACK_PATH) return false;
-
-    return isRecoveryAuthFlow(signals) || isInviteAuthFlow(signals);
+    return false;
   }, [pathname]);
 
   const hydrateUser = useCallback(async (sessionUser: SessionUser) => {
