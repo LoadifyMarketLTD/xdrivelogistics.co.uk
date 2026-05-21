@@ -112,14 +112,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hydrateUser = useCallback(async (sessionUser: SessionUser): Promise<AuthResolutionResult> => {
     const result = await withTimeout(resolveAuthenticatedUser(sessionUser), LOGIN_TIMEOUT_MS);
     if (!result.user) {
-      resetAuthState();
+      setUser(null);
+      setHasSupabaseSession(true);
       return result;
     }
 
     setUser(result.user);
     setHasSupabaseSession(true);
     return result;
-  }, [resetAuthState]);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -205,7 +206,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const result = await hydrateUser(data.user);
       if (!result.user) {
-        await supabase.auth.signOut();
         return { success: false, error: authFailureReasonToMessage(result.reason) };
       }
 
