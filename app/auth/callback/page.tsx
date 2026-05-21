@@ -192,6 +192,13 @@ export default function AuthCallbackPage() {
         const accessToken = hashParams?.get('access_token');
         const refreshToken = hashParams?.get('refresh_token');
         const hashType = hashParams?.get('type');
+        const flow = searchParams.get('flow');
+        const nextPath = searchParams.get('next');
+        const isRecoveryHint =
+          flow === 'recovery' ||
+          nextPath === '/reset-password' ||
+          nextPath?.startsWith('/reset-password?') ||
+          false;
 
         if (accessToken && refreshToken) {
           const { data: sessionData, error: setSessionError } = await withTimeout(
@@ -203,7 +210,7 @@ export default function AuthCallbackPage() {
           );
           if (setSessionError) throw setSessionError;
 
-          if (hashType === 'recovery') {
+          if (hashType === 'recovery' || isRecoveryHint) {
             router.replace('/reset-password');
             return;
           }
@@ -215,6 +222,7 @@ export default function AuthCallbackPage() {
         const code = searchParams.get('code');
         const tokenHash = searchParams.get('token_hash');
         const type = searchParams.get('type');
+        const isRecoveryType = type === 'recovery';
 
         if (code) {
           const { data: exchangeData, error: exchangeError } = await withTimeout(
@@ -222,7 +230,7 @@ export default function AuthCallbackPage() {
             AUTH_CALLBACK_TIMEOUT_MS
           );
           if (exchangeError) throw exchangeError;
-          if (type === 'recovery') {
+          if (isRecoveryType || isRecoveryHint) {
             router.replace('/reset-password');
             return;
           }
@@ -230,16 +238,24 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        if (tokenHash && type) {
+        if (tokenHash) {
+          const otpType =
+            type === 'signup' ||
+            type === 'email' ||
+            type === 'recovery' ||
+            type === 'invite' ||
+            type === 'email_change'
+              ? type
+              : 'recovery';
           const { data: verifyData, error: verifyError } = await withTimeout(
             supabase.auth.verifyOtp({
               token_hash: tokenHash,
-              type: type as 'signup' | 'email' | 'recovery' | 'invite' | 'email_change',
+              type: otpType,
             }),
             AUTH_CALLBACK_TIMEOUT_MS
           );
           if (verifyError) throw verifyError;
-          if (type === 'recovery') {
+          if (otpType === 'recovery' || isRecoveryHint) {
             router.replace('/reset-password');
             return;
           }

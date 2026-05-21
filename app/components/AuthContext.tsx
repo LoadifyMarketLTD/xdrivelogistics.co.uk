@@ -7,6 +7,8 @@ import type { Company, CompanyMembership, Driver, Profile } from '../../lib/type
 
 const LOGIN_TIMEOUT_MS = 10_000;
 const LOGIN_UNAVAILABLE_ERROR = 'Login service unavailable. Please try again.';
+const RESET_PASSWORD_COOLDOWN_MS = 60_000;
+const RESET_PASSWORD_COOLDOWN_KEY = 'xdrive:last-password-reset-request-at';
 
 class LoginTimeoutError extends Error {
   constructor() {
@@ -412,10 +414,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'Authentication is unavailable: Supabase is not configured.' };
     }
     try {
+      if (typeof window !== 'undefined') {
+        const lastRequestAtRaw = window.sessionStorage.getItem(RESET_PASSWORD_COOLDOWN_KEY);
+        const lastRequestAt = lastRequestAtRaw ? Number(lastRequestAtRaw) : 0;
+        const elapsed = Date.now() - lastRequestAt;
+        if (Number.isFinite(lastRequestAt) && elapsed >= 0 && elapsed < RESET_PASSWORD_COOLDOWN_MS) {
+          const remainingSeconds = Math.ceil((RESET_PASSWORD_COOLDOWN_MS - elapsed) / 1000);
+          return {
+            success: false,
+            error: `Please wait ${remainingSeconds}s before requesting another reset email.`,
+          };
+        }
+      }
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
+        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback?flow=recovery`,
       });
       if (error) return { success: false, error: error.message };
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(RESET_PASSWORD_COOLDOWN_KEY, String(Date.now()));
+      }
       return { success: true };
     } catch (err) {
       console.error('Reset password error:', err);
