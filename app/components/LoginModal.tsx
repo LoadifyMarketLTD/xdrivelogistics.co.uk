@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import Link from 'next/link';
+import { useState, type FormEvent } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useAuth } from './AuthContext';
 
@@ -120,7 +121,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           >
             {isResetMode
               ? 'Enter your account email to receive a password reset link'
-              : 'Sign in to access your dashboard'}
+              : 'Sign in to access your dashboard or create a new account.'}
           </Dialog.Description>
 
           <form onSubmit={handleSubmit}>
@@ -194,31 +195,31 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               </div>
             )}
 
-             {!isResetMode && (
-                <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsResetMode(true);
-                      setPassword('');
-                      setError('');
-                      setSuccessMessage('');
-                    }}
-                   disabled={loading}
-                   style={{
-                     color: '#1E4E8C',
-                     background: 'none',
-                     border: 'none',
-                     fontSize: '0.9rem',
-                     cursor: loading ? 'not-allowed' : 'pointer',
-                     textDecoration: 'underline',
-                     padding: 0,
-                   }}
-                 >
-                   Forgot password?
-                 </button>
-               </div>
-             )}
+            {!isResetMode && (
+              <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsResetMode(true);
+                    setPassword('');
+                    setError('');
+                    setSuccessMessage('');
+                  }}
+                  disabled={loading}
+                  style={{
+                    color: '#1E4E8C',
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '0.9rem',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0,
+                  }}
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
 
             {error && (
               <div
@@ -268,20 +269,12 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 transition: 'background-color 0.2s',
                 marginBottom: '1rem',
               }}
-              onMouseEnter={(e) => {
-                if (!loading)
-                  e.currentTarget.style.backgroundColor = '#166534';
-              }}
-              onMouseLeave={(e) => {
-                if (!loading)
-                  e.currentTarget.style.backgroundColor = '#1F7A3D';
-              }}
             >
               {loading
                 ? 'Please wait...'
                 : isResetMode
-                ? 'Send Reset Email'
-                : 'Sign In'}
+                  ? 'Send Reset Email'
+                  : 'Sign In'}
             </button>
 
             <div style={{ textAlign: 'center' }}>
@@ -307,7 +300,10 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 </button>
               ) : (
                 <p style={{ margin: 0, color: '#6B7280', fontSize: '0.85rem' }}>
-                  Account onboarding is managed by XDrive Logistics operations.
+                  Need access?{' '}
+                  <Link href="/register" onClick={onClose} style={{ color: '#1E4E8C', fontWeight: 600 }}>
+                    Create account
+                  </Link>
                 </p>
               )}
             </div>

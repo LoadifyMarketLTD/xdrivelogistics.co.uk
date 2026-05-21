@@ -1,12 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
 import { COMPANY_CONFIG } from '../../../config/company';
-import { LoginModal } from '../../../components/LoginModal';
 import { useCompanyContactLinks } from '../../../hooks/useCompanyContactLinks';
 
 export function Hero() {
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const { phoneHref, whatsappDefaultMessageHref } = useCompanyContactLinks();
 
   return (
@@ -152,6 +150,33 @@ export function Hero() {
             >
               🚀 Get Instant Quote
             </a>
+            <Link
+              href="/register"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '1rem 2rem',
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                borderRadius: '10px',
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                color: '#FFFFFF',
+                border: '2px solid rgba(255,255,255,0.25)',
+                textDecoration: 'none',
+                transition: 'all 0.3s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.16)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)';
+              }}
+            >
+              Create Account
+            </Link>
             <a
               href={phoneHref}
               style={{
@@ -425,10 +450,6 @@ export function Hero() {
         }
       `}</style>
 
-      <LoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-      />
     </section>
   );
 }

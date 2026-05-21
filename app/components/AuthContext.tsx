@@ -1,10 +1,23 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
-import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from '../../lib/authRole';
-import type { Company, CompanyMembership, Driver, Profile } from '../../lib/types/database';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  AUTH_CALLBACK_PATH,
+  RESET_PASSWORD_PATH,
+  getBrowserAuthSignals,
+  getResetPasswordEmailRedirectTo,
+  isInviteAuthFlow,
+  isRecoveryAuthFlow,
+} from '../../lib/authFlow';
+import {
+  type ResolvedAuthUser,
+  type SessionUser,
+  type UserRole,
+  getPostLoginRoute,
+  resolveAuthenticatedUser,
+} from '../../lib/authSession';
+import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
 const LOGIN_TIMEOUT_MS = 10_000;
 const LOGIN_UNAVAILABLE_ERROR = 'Login service unavailable. Please try again.';
@@ -45,21 +58,8 @@ const isServiceUnavailableError = (error: unknown): boolean => {
   );
 };
 
-interface User {
-  id: string;
-  email: string;
-  role: UserRole;
-  companyId: string | null;
-  driverId: string | null;
-  mustChangePassword: boolean;
-}
-
-type CreatorCompanySnapshot = Pick<Company, 'id' | 'company_type'>;
-
-export type UserRole = 'guest' | 'customer' | 'driver' | 'company' | 'admin' | 'owner';
-
 interface AuthContextType {
-  user: User | null;
+  user: ResolvedAuthUser | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
@@ -70,261 +70,65 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ResolvedAuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
-  const resetAuthState = () => {
+  const resetAuthState = useCallback(() => {
     setUser(null);
     setHasSupabaseSession(false);
-  };
+  }, []);
 
-  const resolveRole = async (
-    userId: string,
-    fallbackRole?: string | null
-  ): Promise<{ role: UserRole; companyId: string | null; driverId: string | null; mustChangePassword: boolean } | null> => {
-    const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('role, is_driver, company_id')
-        .eq('user_id', userId)
-        .maybeSingle(),
-      supabase
-        .from('company_memberships')
-        .select('company_id, role_in_company, status')
-        .eq('user_id', userId)
-        .neq('status', 'suspended')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from('drivers')
-        .select('id, company_id, user_id, app_access, must_change_password')
-        .eq('user_id', userId)
-        .eq('app_access', true)
-        .maybeSingle(),
-      supabase
-        .from('companies')
-        .select('id, company_type')
-        .eq('created_by', userId)
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    if (profileRes.error) {
-      console.error('AuthContext.resolveRole profiles query failed', {
-        userId,
-        error: profileRes.error,
-      });
-      return null;
-    }
-    if (membershipRes.error) {
-      console.error('AuthContext.resolveRole company_memberships query failed', {
-        userId,
-        error: membershipRes.error,
-      });
-      return null;
-    }
-    if (driverRes.error) {
-      console.error('AuthContext.resolveRole drivers query failed', {
-        userId,
-        error: driverRes.error,
-      });
-      return null;
-    }
-    if (creatorCompanyRes.error) {
-      console.error('AuthContext.resolveRole companies query failed', {
-        userId,
-        error: creatorCompanyRes.error,
-      });
-      return null;
-    }
-
-    const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
-    const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
-    const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null;
-    const creatorCompany = creatorCompanyRes.data as CreatorCompanySnapshot | null;
-    const driverId = driver?.id ?? null;
-    const mustChangePassword = Boolean(driver?.must_change_password);
-
-    let resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? creatorCompany?.id ?? null;
-
-    const shouldProvisionCompany =
-      !resolvedCompanyId &&
-      shouldAutoProvisionCompany({
-        fallbackRole,
-        profileRole: profile?.role,
-      });
-
-    if (shouldProvisionCompany) {
-      const { data: provisionedCompanyId } = await supabase.rpc('get_or_create_company_for_user');
-      if (typeof provisionedCompanyId === 'string' && provisionedCompanyId) {
-        resolvedCompanyId = provisionedCompanyId;
-      }
-    }
-
-    if (membership?.role_in_company === 'owner') {
-      return resolvedCompanyId ? { role: 'owner', companyId: resolvedCompanyId, driverId, mustChangePassword: false } : null;
-    }
-    if (membership?.role_in_company === 'admin') {
-      return resolvedCompanyId ? { role: 'admin', companyId: resolvedCompanyId, driverId, mustChangePassword: false } : null;
-    }
-    if (membership?.role_in_company === 'dispatcher') {
-      return resolvedCompanyId ? { role: 'company', companyId: resolvedCompanyId, driverId, mustChangePassword: false } : null;
-    }
-    if (driver || profile?.is_driver) {
-      return resolvedCompanyId ? { role: 'driver', companyId: resolvedCompanyId, driverId, mustChangePassword } : null;
-    }
-    if (membership?.role_in_company === 'viewer') {
-      return { role: 'customer', companyId: resolvedCompanyId, driverId, mustChangePassword: false };
-    }
-    if (creatorCompany && resolvedCompanyId) {
-      return {
-        role: creatorCompany.company_type === 'admin' ? 'admin' : 'owner',
-        companyId: resolvedCompanyId,
-        driverId,
-        mustChangePassword: false,
-      };
-    }
-
-    const profileRole = mapAppRole(profile?.role);
-    if (profileRole) {
-      if (roleRequiresCompanyContext(profileRole) && !resolvedCompanyId) {
-        return null;
-      }
-      return { role: profileRole, companyId: resolvedCompanyId, driverId, mustChangePassword: profileRole === 'driver' ? mustChangePassword : false };
-    }
-
-    const metadataRole = mapAppRole(fallbackRole);
-    if (metadataRole) {
-      if (roleRequiresCompanyContext(metadataRole) && !resolvedCompanyId) {
-        return null;
-      }
-      return { role: metadataRole, companyId: resolvedCompanyId, driverId, mustChangePassword: metadataRole === 'driver' ? mustChangePassword : false };
-    }
-
-    return null;
-  };
-
-  const hydrateUser = async (sessionUser: {
-    id: string;
-    email?: string | null;
-    user_metadata?: Record<string, unknown> | null;
-    app_metadata?: Record<string, unknown> | null;
-  }) => {
-    if (!sessionUser?.id) {
-      resetAuthState();
-      return null;
-    }
-
-    const fallbackRole =
-      typeof sessionUser.user_metadata?.role === 'string'
-        ? sessionUser.user_metadata.role
-        : typeof sessionUser.user_metadata?.requested_role === 'string'
-          ? sessionUser.user_metadata.requested_role
-          : typeof sessionUser.app_metadata?.role === 'string'
-            ? sessionUser.app_metadata.role
-          : null;
-    const roleData = await withTimeout(resolveRole(sessionUser.id, fallbackRole), LOGIN_TIMEOUT_MS);
-    if (!roleData) {
-      resetAuthState();
-      if (isSupabaseConfigured) {
-        await supabase.auth.signOut();
-      }
-      return null;
-    }
-
-    const userData: User = {
-      id: sessionUser.id,
-      email: sessionUser.email ?? '',
-      role: roleData.role,
-      companyId: roleData.companyId,
-      driverId: roleData.driverId,
-      mustChangePassword: roleData.mustChangePassword,
-    };
-    setUser(userData);
+  const setPasswordSetupSessionState = useCallback(() => {
+    setUser(null);
     setHasSupabaseSession(true);
-    return userData;
-  };
+  }, []);
 
-  const getPostLoginRoute = (currentUser: User) => {
-    if (currentUser.role === 'driver') return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
-    if (currentUser.role === 'customer') return '/customer';
-    return '/admin';
-  };
-
-  const getAuthUrlSignals = () => {
-    if (typeof window === 'undefined') {
-      return {
-        pathname: '',
-        queryType: null as string | null,
-        hashType: null as string | null,
-        hasRecoveryTokens: false,
-      };
-    }
-
-    const queryParams = new URLSearchParams(window.location.search);
-    const hashParams = window.location.hash
-      ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
-      : null;
-
-    const queryType = queryParams.get('type');
-    const hashType = hashParams?.get('type') ?? null;
-    const hasRecoveryTokens =
-      Boolean(hashParams?.get('access_token') && hashParams?.get('refresh_token')) ||
-      Boolean(queryParams.get('code')) ||
-      Boolean(queryParams.get('token_hash'));
-
-    return {
-      pathname: window.location.pathname,
-      queryType,
-      hashType,
-      hasRecoveryTokens,
-    };
-  };
-
-  const isRecoveryAuthContext = (event?: string) => {
+  const isPasswordSetupContext = useCallback((event?: string) => {
+    if (pathname === RESET_PASSWORD_PATH) return true;
     if (event === 'PASSWORD_RECOVERY') return true;
-    const { pathname, queryType, hashType, hasRecoveryTokens } = getAuthUrlSignals();
-    if (pathname === '/reset-password') return true;
-    if (queryType === 'recovery' || hashType === 'recovery') return true;
-    if (pathname === '/auth/callback' && hasRecoveryTokens) {
-      return true;
+
+    const signals = getBrowserAuthSignals();
+    if (!signals) return false;
+    if (pathname !== AUTH_CALLBACK_PATH) return false;
+
+    return isRecoveryAuthFlow(signals) || isInviteAuthFlow(signals);
+  }, [pathname]);
+
+  const hydrateUser = useCallback(async (sessionUser: SessionUser) => {
+    const resolvedUser = await withTimeout(resolveAuthenticatedUser(sessionUser), LOGIN_TIMEOUT_MS);
+    if (!resolvedUser) {
+      resetAuthState();
+      return null;
     }
-    return false;
-  };
+
+    setUser(resolvedUser);
+    setHasSupabaseSession(true);
+    return resolvedUser;
+  }, [resetAuthState]);
 
   useEffect(() => {
     let isMounted = true;
 
     if (!isSupabaseConfigured) {
       resetAuthState();
-      if (isMounted) setIsLoading(false);
+      setIsLoading(false);
       return;
-    }
-
-    const { pathname, queryType, hashType, hasRecoveryTokens } = getAuthUrlSignals();
-    const hasRecoverySignal =
-      queryType === 'recovery' ||
-      hashType === 'recovery' ||
-      hasRecoveryTokens;
-
-    if (hasRecoverySignal && pathname !== '/auth/callback') {
-      router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
     }
 
     const bootstrapAuth = async () => {
       try {
-        const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
-        if (error) {
-          throw error;
-        }
+        const {
+          data: { session },
+          error,
+        } = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
+        if (error) throw error;
 
         if (session?.user) {
-          if (isRecoveryAuthContext()) {
-            setUser(null);
-            setHasSupabaseSession(true);
+          if (isPasswordSetupContext()) {
+            setPasswordSetupSessionState();
           } else {
             await hydrateUser(session.user);
           }
@@ -333,7 +137,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('AuthContext bootstrap failed', error);
-        resetAuthState();
+        if (!isPasswordSetupContext()) {
+          resetAuthState();
+        }
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -341,21 +147,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void bootstrapAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (session?.user) {
-          if (isRecoveryAuthContext(event)) {
-            setUser(null);
-            setHasSupabaseSession(true);
+          if (isPasswordSetupContext(event)) {
+            setPasswordSetupSessionState();
           } else {
             await hydrateUser(session.user);
           }
-        } else {
+        } else if (!isPasswordSetupContext(event)) {
           resetAuthState();
         }
       } catch (error) {
         console.error('AuthContext auth state handling failed', error);
-        resetAuthState();
+        if (!isPasswordSetupContext(event)) {
+          resetAuthState();
+        }
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -365,8 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isMounted = false;
       subscription.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hydrateUser, isPasswordSetupContext, resetAuthState, setPasswordSetupSessionState]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -381,10 +189,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) return { success: false, error: error.message };
       if (!data.user) return { success: false, error: 'Login failed' };
 
-      const hydrated = await withTimeout(hydrateUser(data.user), LOGIN_TIMEOUT_MS);
+      const hydrated = await hydrateUser(data.user);
       if (!hydrated) {
+        await supabase.auth.signOut();
         return { success: false, error: 'Unable to validate account access.' };
       }
+
       router.push(getPostLoginRoute(hydrated));
       return { success: true };
     } catch (error) {
@@ -400,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured) {
       return { success: false, error: 'Authentication is unavailable: Supabase is not configured.' };
     }
+
     try {
       if (typeof window !== 'undefined') {
         const lastRequestAtRaw = window.sessionStorage.getItem(RESET_PASSWORD_COOLDOWN_KEY);
@@ -415,9 +226,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback?type=recovery`,
+        redirectTo: getResetPasswordEmailRedirectTo(),
       });
       if (error) return { success: false, error: error.message };
+
       if (typeof window !== 'undefined') {
         window.sessionStorage.setItem(RESET_PASSWORD_COOLDOWN_KEY, String(Date.now()));
       }
@@ -448,3 +260,5 @@ export function useAuth() {
   }
   return context;
 }
+
+export type { UserRole };
