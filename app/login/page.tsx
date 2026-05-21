@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { COMPANY_CONFIG } from '../config/company';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -15,7 +17,42 @@ export default function LoginPage() {
   const [resetMessage, setResetMessage] = useState('');
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
-  const { login, resetPassword } = useAuth();
+  const { login, resetPassword, user, isLoading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const queryParams = new URLSearchParams(window.location.search);
+    const hashParams = window.location.hash
+      ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      : null;
+
+    const queryType = queryParams.get('type');
+    const hashType = hashParams?.get('type');
+    const hasRecoveryType = queryType === 'recovery' || hashType === 'recovery';
+    const hasRecoveryTokens =
+      Boolean(hashParams?.get('access_token') && hashParams?.get('refresh_token')) ||
+      Boolean(queryParams.get('code')) ||
+      Boolean(queryParams.get('token_hash'));
+
+    if (!hasRecoveryType && !hasRecoveryTokens) return;
+
+    const callbackUrl = `/auth/callback${window.location.search}${window.location.hash}`;
+    router.replace(callbackUrl);
+  }, [router]);
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    if (user.role === 'driver') {
+      router.replace(user.mustChangePassword ? '/driver/change-password' : '/driver/jobs');
+    } else if (user.role === 'customer') {
+      router.replace('/customer');
+    } else if (user.role === 'company' || user.role === 'admin' || user.role === 'owner') {
+      router.replace('/admin');
+    } else {
+      router.replace('/forbidden');
+    }
+  }, [authLoading, user, router]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -23,12 +60,12 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      // Authenticate with email and password only
       const result = await login(email, password);
+
       if (!result.success) {
         setError(result.error || 'Login failed');
       }
-    } catch {
-      setError('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

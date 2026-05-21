@@ -60,7 +60,7 @@ export default function InvoicesPage() {
     }
     const { data, error } = await supabase
       .from('invoices')
-      .select('*')
+      .select('id, company_id, created_by, invoice_number, job_ref, job_id, invoice_date, due_date, status, client_name, client_address, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, amount, net_amount, vat_amount, vat_rate, currency, payment_terms, late_fee, pod_photos, signature, recipient_name, created_at, updated_at')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
     if (!error && data) {

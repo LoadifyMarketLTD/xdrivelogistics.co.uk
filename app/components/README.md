@@ -12,7 +12,7 @@ Authentication context provider that manages user state and authentication logic
 - Login with email/password
 - Logout functionality
 - Role-based user detection (mobile vs desktop)
-- Persistent sessions via localStorage
+- Persistent sessions via Supabase Auth session handling
 
 **Usage:**
 ```tsx
@@ -63,29 +63,26 @@ Desktop-optimized admin dashboard with:
 
 ## Security Considerations
 
-### Current Implementation (Development Only)
+### Current Implementation
 
 ⚠️ **IMPORTANT**: The current implementation is for development/demonstration purposes only.
 
 **Known Limitations:**
-1. **Client-side authentication**: Credentials are validated in the browser
-2. **localStorage usage**: Session data stored in localStorage (vulnerable to XSS)
-3. **No token expiration**: Sessions don't expire
-4. **No backend validation**: Authentication happens entirely client-side
+1. **Frontend Supabase client auth**: Authentication and role hydration run in the web app via Supabase SDK
+2. **RLS/policy dependency**: Data safety depends on correct Supabase RLS and membership policies
+3. **Legacy backend divergence**: `backend/*` exists but is deprecated and not in production path
 
 ### Production Recommendations
 
 Before deploying to production, implement:
 
-1. **Backend Authentication API**
-   - Move credential validation to server
-   - Use secure password hashing (bcrypt, argon2)
-   - Implement JWT or session tokens
+1. **Role and tenant policy hardening**
+   - Keep membership and role resolution consistent across proxy and app layers
+   - Maintain strict tenant scoping for all reads/writes
 
-2. **Secure Session Management**
-   - Use httpOnly cookies instead of localStorage
-   - Implement session expiration and refresh tokens
-   - Add CSRF protection
+2. **Session and route hardening**
+   - Keep server-side route protection (`proxy.ts`) authoritative
+   - Ensure expired sessions and invalid roles are denied consistently
 
 3. **Two-Factor Authentication (2FA)**
    - Implement TOTP or SMS-based 2FA

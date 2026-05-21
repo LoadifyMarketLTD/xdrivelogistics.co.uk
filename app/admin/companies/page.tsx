@@ -36,7 +36,7 @@ export default function CompaniesPage() {
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
     const { data, error } = await supabase
       .from('companies')
-      .select('*')
+      .select('id, name, company_number, vat_number, email, phone, address_line1, city, postcode, created_at')
       .eq('id', companyId)
       .order('created_at', { ascending: false });
     if (!error && data) setCompanies(data as Company[]);
@@ -52,7 +52,7 @@ export default function CompaniesPage() {
   useEffect(() => {
     if (!companyId) return;
     loadCompanies();
-  }, [companyId]);
+  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!formData.name.trim()) { setError('Company name is required'); return; }

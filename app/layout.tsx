@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import './globals.css'
 import { AuthProvider } from './components/AuthContext'
+import { COMPANY_CONFIG } from './config/company'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -20,7 +21,6 @@ export const metadata: Metadata = {
     'XDrive Logistics',
     'courier jobs UK',
     'self employed driver',
-    'haulage exchange UK',
     'transport platform UK',
     'owner driver jobs UK',
     'courier driver app UK',
@@ -31,9 +31,9 @@ export const metadata: Metadata = {
     'pallet transport',
     'logistics Blackburn',
   ],
-  authors: [{ name: 'XDrive Logistics Ltd' }],
-  creator: 'XDrive Logistics Ltd',
-  publisher: 'XDrive Logistics Ltd',
+  authors: [{ name: COMPANY_CONFIG.legalName }],
+  creator: COMPANY_CONFIG.legalName,
+  publisher: COMPANY_CONFIG.legalName,
   metadataBase: new URL('https://www.xdrivelogistics.co.uk'),
   alternates: {
     canonical: 'https://www.xdrivelogistics.co.uk',
@@ -46,13 +46,13 @@ export const metadata: Metadata = {
     locale: 'en_GB',
     url: 'https://www.xdrivelogistics.co.uk',
     title: 'XDrive Logistics - Premium Transport Services',
-    description: 'Independent transport platform by XDrive Logistics Ltd for UK and EU courier operations.',
+    description: `Independent transport platform by ${COMPANY_CONFIG.legalName} for UK and EU courier operations.`,
     siteName: 'XDrive Logistics',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'XDrive Logistics - Premium Transport Services',
-    description: 'Independent transport platform by XDrive Logistics Ltd for UK and EU courier operations.',
+    description: `Independent transport platform by ${COMPANY_CONFIG.legalName} for UK and EU courier operations.`,
   },
   robots: {
     index: true,
@@ -71,14 +71,14 @@ const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: 'XDrive Logistics',
-  legalName: 'XDrive Logistics Ltd',
+  legalName: COMPANY_CONFIG.legalName,
   url: 'https://www.xdrivelogistics.co.uk',
   logo: 'https://www.xdrivelogistics.co.uk/icon-512.png',
   address: {
     '@type': 'PostalAddress',
-    streetAddress: '101 Cornelian Street',
-    addressLocality: 'Blackburn',
-    postalCode: 'BB1 9QL',
+    streetAddress: COMPANY_CONFIG.address.street,
+    addressLocality: COMPANY_CONFIG.address.city,
+    postalCode: COMPANY_CONFIG.address.postcode,
     addressCountry: 'GB',
   },
 }

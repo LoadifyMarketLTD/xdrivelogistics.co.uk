@@ -58,15 +58,23 @@ export default function RegisterPage() {
       }
 
       if (data.user?.id) {
-        await supabase.from('profiles').upsert(
+        const { error: profileError } = await supabase.from('profiles').upsert(
           [{
-            id: data.user.id,
-            email,
+            user_id: data.user.id,
             role,
             is_driver: role === 'driver',
           }],
-          { onConflict: 'id' }
+          { onConflict: 'user_id' }
         );
+
+        if (profileError) {
+          console.error('RegisterPage profile upsert failed', {
+            role,
+            message: profileError.message,
+          });
+          setError(`Account created, but profile setup failed: ${profileError.message}`);
+          return;
+        }
       }
 
       setMessage(

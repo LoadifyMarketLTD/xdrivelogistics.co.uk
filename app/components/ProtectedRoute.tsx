@@ -19,8 +19,11 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     if (pathname.startsWith('/admin') || pathname.startsWith('/m')) {
       return ['company', 'admin', 'owner'];
     }
-    if (pathname.startsWith('/driver/jobs')) {
-      return ['driver', 'admin', 'owner'];
+    if (pathname.startsWith('/driver')) {
+      return ['driver'];
+    }
+    if (pathname.startsWith('/customer')) {
+      return ['customer'];
     }
     return null;
   };
@@ -29,13 +32,19 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/login');
+      const loginPath = pathname ? `/login?next=${encodeURIComponent(pathname)}` : '/login';
+      if (pathname !== '/login') {
+        router.replace(loginPath);
+      }
+      return;
     }
 
     if (!isLoading && user && effectiveAllowedRoles && !effectiveAllowedRoles.includes(user.role)) {
-      router.push('/forbidden');
+      if (pathname !== '/forbidden') {
+        router.replace('/forbidden');
+      }
     }
-  }, [user, isLoading, router, effectiveAllowedRoles]);
+  }, [user, isLoading, router, effectiveAllowedRoles, pathname]);
 
   if (isLoading) {
     return (

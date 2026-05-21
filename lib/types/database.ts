@@ -7,11 +7,11 @@ export type VehicleType = 'bicycle' | 'motorbike' | 'car' | 'van_small' | 'van_l
 export type TrackingEventType = 'created' | 'allocated' | 'driver_en_route' | 'arrived_pickup' | 'collected' | 'in_transit' | 'arrived_delivery' | 'delivered' | 'failed' | 'cancelled' | 'note';
 
 export interface Profile {
-  id: string;
+  user_id: string;
   full_name: string | null;
   phone: string | null;
-  email: string | null;
   role: string | null;
+  status: string;
   company_id: string | null;
   is_driver: boolean;
   created_at: string;
@@ -57,6 +57,9 @@ export interface Driver {
   status: string;
   login_pin: string | null;
   app_access: boolean;
+  temporary_password_seq: number | null;
+  must_change_password: boolean;
+  temp_password_generated_at: string | null;
   last_app_login: string | null;
   device_token: string | null;
   created_at: string;
@@ -134,6 +137,9 @@ export interface DbJob {
   currency: string;
   budget_amount: number | null;
   is_fixed_price: boolean;
+  client_name: string | null;
+  client_email: string | null;
+  client_phone: string | null;
   load_details: string | null;
   special_requirements: string | null;
   access_restrictions: string | null;

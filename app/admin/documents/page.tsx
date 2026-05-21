@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DriverDocument, VehicleDocument, DocStatus } from '../../../lib/types/database';
 
@@ -13,35 +14,124 @@ const STATUS_COLORS: Record<DocStatus, { bg: string; text: string }> = {
   rejected: { bg: '#fee2e2', text: '#991b1b' },
   expired: { bg: '#f3f4f6', text: '#6b7280' },
 };
+const ALLOWED_DOC_STATUS = new Set<DocStatus>(['pending', 'approved', 'rejected', 'expired']);
 
 export default function DocumentsPage() {
+  const { user } = useAuth();
+  const companyId = user?.companyId ?? null;
   const [docs, setDocs] = useState<AnyDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'driver' | 'vehicle'>('driver');
+  const [error, setError] = useState('');
 
   const loadDocs = async () => {
     setLoading(true);
+    setError('');
     if (!isSupabaseConfigured) { setLoading(false); return; }
+    if (!companyId) {
+      setDocs([]);
+      setError('Company profile not loaded. Document data is hidden until company access resolves.');
+      setLoading(false);
+      return;
+    }
     if (tab === 'driver') {
-      const { data } = await supabase.from('driver_documents').select('*, drivers(display_name)').order('created_at', { ascending: false });
-      if (data) setDocs(data.map((d: DriverDocument & { drivers?: { display_name: string } }) => ({ ...d, kind: 'driver' as const, subject_name: d.drivers?.display_name })));
+      const { data, error: driverError } = await supabase
+        .from('driver_documents')
+        .select('id, driver_id, doc_type, file_path, issued_date, expiry_date, status, rejection_reason, verified_by, verified_at, created_at, drivers!inner(display_name, company_id)')
+        .eq('drivers.company_id', companyId)
+        .order('created_at', { ascending: false });
+      if (driverError) {
+        setDocs([]);
+        setError(`Failed to load driver documents: ${driverError.message}`);
+      } else if (data) {
+        setDocs(data.map((d: DriverDocument & { drivers?: Array<{ display_name: string }> }) => ({
+          ...d,
+          kind: 'driver' as const,
+          subject_name: Array.isArray(d.drivers) ? d.drivers[0]?.display_name : undefined,
+        })));
+      }
     } else {
-      const { data } = await supabase.from('vehicle_documents').select('*, vehicles(reg_plate)').order('created_at', { ascending: false });
-      if (data) setDocs(data.map((d: VehicleDocument & { vehicles?: { reg_plate: string } }) => ({ ...d, kind: 'vehicle' as const, subject_name: d.vehicles?.reg_plate })));
+      const { data, error: vehicleError } = await supabase
+        .from('vehicle_documents')
+        .select('id, vehicle_id, doc_type, file_path, issued_date, expiry_date, status, rejection_reason, verified_by, verified_at, created_at, vehicles!inner(reg_plate, company_id)')
+        .eq('vehicles.company_id', companyId)
+        .order('created_at', { ascending: false });
+      if (vehicleError) {
+        setDocs([]);
+        setError(`Failed to load vehicle documents: ${vehicleError.message}`);
+      } else if (data) {
+        setDocs(data.map((d: VehicleDocument & { vehicles?: Array<{ reg_plate: string }> }) => ({
+          ...d,
+          kind: 'vehicle' as const,
+          subject_name: Array.isArray(d.vehicles) ? d.vehicles[0]?.reg_plate : undefined,
+        })));
+      }
     }
     setLoading(false);
   };
 
-  useEffect(() => { loadDocs(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadDocs(); }, [tab, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateStatus = async (id: string, status: DocStatus) => {
-    if (!isSupabaseConfigured) return;
-    const table = tab === 'driver' ? 'driver_documents' : 'vehicle_documents';
-    const { error } = await supabase.from(table).update({ status }).eq('id', id);
-    if (error) {
-      console.error('Failed to update document status:', error.message);
+    if (!isSupabaseConfigured || !companyId) return;
+    if (!ALLOWED_DOC_STATUS.has(status)) {
+      setError('Invalid document status update request.');
       return;
     }
+
+    if (tab === 'driver') {
+      const { data: verifiedDoc, error: verifyError } = await supabase
+        .from('driver_documents')
+        .select('id, driver_id, drivers!inner(company_id)')
+        .eq('id', id)
+        .eq('drivers.company_id', companyId)
+        .limit(1)
+        .maybeSingle();
+
+      if (verifyError || !verifiedDoc) {
+        setError('Driver document not found for the current company.');
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from('driver_documents')
+        .update({ status })
+        .eq('id', id)
+        .eq('driver_id', verifiedDoc.driver_id as string);
+
+      if (updateError) {
+        console.error('Failed to update document status:', updateError.message);
+        setError(`Failed to update document status: ${updateError.message}`);
+        return;
+      }
+    } else {
+      const { data: verifiedDoc, error: verifyError } = await supabase
+        .from('vehicle_documents')
+        .select('id, vehicle_id, vehicles!inner(company_id)')
+        .eq('id', id)
+        .eq('vehicles.company_id', companyId)
+        .limit(1)
+        .maybeSingle();
+
+      if (verifyError || !verifiedDoc) {
+        setError('Vehicle document not found for the current company.');
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from('vehicle_documents')
+        .update({ status })
+        .eq('id', id)
+        .eq('vehicle_id', verifiedDoc.vehicle_id as string);
+
+      if (updateError) {
+        console.error('Failed to update document status:', updateError.message);
+        setError(`Failed to update document status: ${updateError.message}`);
+        return;
+      }
+    }
+
+    setError('');
     loadDocs();
   };
 
@@ -62,6 +152,12 @@ export default function DocumentsPage() {
           {!isSupabaseConfigured && (
             <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
               ⚠️ Supabase is not configured. Database features are disabled.
+            </div>
+          )}
+
+          {error && (
+            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#991b1b' }}>
+              {error}
             </div>
           )}
 

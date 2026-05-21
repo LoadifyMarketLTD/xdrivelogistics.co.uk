@@ -20,7 +20,7 @@ router.post('/login', async (req, res) => {
   const { data: profile } = await supabase
     .from('profiles')
     .select('company_id, role, full_name')
-    .eq('id', data.user.id)
+    .eq('user_id', data.user.id)
     .maybeSingle();
 
   const token = jwt.sign(

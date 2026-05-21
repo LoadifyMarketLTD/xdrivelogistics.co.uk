@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { COMPANY_CONFIG } from '../../../config/company';
 import { LoginModal } from '../../../components/LoginModal';
-
-const WHATSAPP_URL = `https://wa.me/${COMPANY_CONFIG.whatsapp.number}?text=${encodeURIComponent(COMPANY_CONFIG.whatsapp.defaultMessage)}`;
+import { useCompanyContactLinks } from '../../../hooks/useCompanyContactLinks';
 
 export function Hero() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const { phoneHref, whatsappDefaultMessageHref } = useCompanyContactLinks();
 
   return (
     <section
@@ -82,7 +82,7 @@ export function Hero() {
               display: 'inline-block',
             }} />
             <span style={{ fontSize: '0.875rem', color: '#81C784', fontWeight: 600 }}>
-              Platform online · service requests monitored
+              Platform available · operations support active
             </span>
           </div>
 
@@ -124,7 +124,7 @@ export function Hero() {
             }}
           >
             <a
-              href={WHATSAPP_URL}
+              href={whatsappDefaultMessageHref}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -153,7 +153,7 @@ export function Hero() {
               🚀 Get Instant Quote
             </a>
             <a
-              href={`tel:${COMPANY_CONFIG.phone}`}
+              href={phoneHref}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -247,7 +247,7 @@ export function Hero() {
                   backgroundColor: '#4CAF50',
                   display: 'inline-block',
                 }} />
-                <span style={{ fontSize: '0.75rem', color: '#81C784', fontWeight: 600 }}>LIVE</span>
+                <span style={{ fontSize: '0.75rem', color: '#81C784', fontWeight: 600 }}>STATUS</span>
               </div>
             </div>
 
@@ -354,10 +354,10 @@ export function Hero() {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#FFFFFF', marginBottom: '0.2rem' }}>
-                  Driver Available
+                  Driver Support
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>
-                  Response time: {'<'}5 min
+                  Operational updates available
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>

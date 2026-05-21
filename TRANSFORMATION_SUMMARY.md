@@ -5,7 +5,7 @@
 ### Company Branding
 - ✅ Company name: "XDrive Logistics Ltd" (exact spelling)
 - ✅ Email: contact@xdrivelogistics.co.uk
-- ✅ Phone: 07423 272 138 / +447423272138
+- ✅ Phone: 07377 694 228 / +447377694228
 - ✅ WhatsApp pre-filled message: "Hello, I'd like to inquire about your transport services"
 
 ### Color Scheme (Premium Clean - LOCKED)
@@ -32,7 +32,7 @@
 - H1 line 2: "Across the UK & Europe"
 - Subtitle: "Fast, Secure & On-Time Deliveries 24/7"
 - Primary CTA (Green): "Get a Free Quote" → scroll to quote section
-- Secondary CTA: "Call Us: 07423 272 138" → tel link
+- Secondary CTA: "Call Us: 07377 694 228" → tel link
 
 #### 3. BENEFITS STRIP (3 items, light cards) ✅
 - 24/7 Service
