@@ -203,8 +203,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
       }
 
+      const normalizedEmail = email.trim().toLowerCase();
       const { data, error } = await withTimeout(
-        supabase.auth.signInWithPassword({ email, password }),
+        supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
         LOGIN_TIMEOUT_MS
       );
       if (error) return { success: false, error: error.message };
