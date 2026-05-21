@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { COMPANY_CONFIG } from '../../../config/company';
 import { LoginModal } from '../../../components/LoginModal';
 import { useCompanyContactLinks } from '../../../hooks/useCompanyContactLinks';
@@ -152,6 +153,23 @@ export function Navbar() {
               <span>{COMPANY_CONFIG.phoneDisplay}</span>
             </a>
 
+            <Link
+              href="/register"
+              style={{
+                padding: '0.5rem 1rem',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                borderRadius: '8px',
+                border: `1.5px solid ${isLight ? '#2E7D32' : '#81C784'}`,
+                backgroundColor: 'transparent',
+                color: isLight ? '#2E7D32' : '#81C784',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Create account
+            </Link>
+
             <button
               onClick={() => setIsLoginModalOpen(true)}
               style={{
@@ -228,6 +246,24 @@ export function Navbar() {
                 {link.label}
               </a>
             ))}
+            <Link
+              href="/register"
+              onClick={() => setMenuOpen(false)}
+              style={{
+                display: 'block',
+                marginTop: '1rem',
+                padding: '0.75rem 1.5rem',
+                fontSize: '1rem',
+                fontWeight: 600,
+                color: '#FFFFFF',
+                backgroundColor: '#2E7D32',
+                textDecoration: 'none',
+                borderRadius: '8px',
+                textAlign: 'center',
+              }}
+            >
+              Create account
+            </Link>
             <a
               href={phoneHref}
               style={{
