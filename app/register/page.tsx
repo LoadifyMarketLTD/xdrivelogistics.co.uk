@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
+import { buildAuthCallbackUrl } from '../../lib/authFlow';
 
 type RegisterRole = 'customer' | 'driver' | 'company';
 
@@ -38,8 +39,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const redirectTo =
-        typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined;
+      const redirectTo = buildAuthCallbackUrl('signup');
 
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,

@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from '../../lib/authRole';
+import { buildAuthCallbackUrl, clearRecoverySession, hasRecoverySessionMarker, markRecoverySession } from '../../lib/authFlow';
 import type { Company, CompanyMembership, Driver, Profile } from '../../lib/types/database';
 
 const LOGIN_TIMEOUT_MS = 10_000;
@@ -228,6 +229,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : null;
     const roleData = await withTimeout(resolveRole(sessionUser.id, fallbackRole), LOGIN_TIMEOUT_MS);
     if (!roleData) {
+      console.warn('AuthContext profile validation failure', {
+        userId: sessionUser.id,
+        fallbackRole,
+      });
       resetAuthState();
       if (isSupabaseConfigured) {
         await supabase.auth.signOut();
@@ -286,6 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isRecoveryAuthContext = (event?: string) => {
     if (event === 'PASSWORD_RECOVERY') return true;
+    if (hasRecoverySessionMarker()) return true;
     const { pathname, queryType, hashType, hasRecoveryTokens } = getAuthUrlSignals();
     if (pathname === '/reset-password') return true;
     if (queryType === 'recovery' || hashType === 'recovery') return true;
@@ -318,17 +324,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
         if (error) {
+          console.error('AuthContext getSession failure', error);
           throw error;
         }
 
         if (session?.user) {
           if (isRecoveryAuthContext()) {
+            console.info('AuthContext recovery session detected during bootstrap');
+            markRecoverySession('auth-bootstrap');
             setUser(null);
             setHasSupabaseSession(true);
           } else {
+            clearRecoverySession();
             await hydrateUser(session.user);
           }
         } else {
+          clearRecoverySession();
           resetAuthState();
         }
       } catch (error) {
@@ -345,12 +356,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         if (session?.user) {
           if (isRecoveryAuthContext(event)) {
+            console.info('AuthContext recovery session detected', { event });
+            markRecoverySession(event || 'auth-state-change');
             setUser(null);
             setHasSupabaseSession(true);
           } else {
+            clearRecoverySession();
             await hydrateUser(session.user);
           }
         } else {
+          clearRecoverySession();
           resetAuthState();
         }
       } catch (error) {
@@ -415,7 +430,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback?type=recovery`,
+        redirectTo: buildAuthCallbackUrl('recovery'),
       });
       if (error) return { success: false, error: error.message };
       if (typeof window !== 'undefined') {
@@ -430,6 +445,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
+    clearRecoverySession();
     resetAuthState();
     router.push('/login');
   };
