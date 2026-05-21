@@ -7,7 +7,6 @@ import { ForDrivers } from './sections/ForDrivers';
 import { ForCompanies } from './sections/ForCompanies';
 import { HowItWorks } from './sections/HowItWorks';
 import { Benefits } from './sections/Benefits';
-import { Testimonials } from './sections/Testimonials';
 import { FAQ } from './sections/FAQ';
 import { Footer } from './sections/Footer';
 
@@ -35,7 +34,6 @@ export function LandingPage() {
         <HowItWorks />
       </div>
       <Benefits />
-      <Testimonials />
       <FAQ />
       <div id="contact">
         <Footer />

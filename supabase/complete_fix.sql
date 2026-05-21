@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS public.companies (
 );
 
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id         uuid        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id    uuid        NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name  text,
   phone      text,
   email      text,
@@ -577,10 +577,10 @@ DO $$
 BEGIN
   -- profiles
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='profiles_select_own') THEN
-    CREATE POLICY "profiles_select_own" ON public.profiles FOR SELECT USING (id = auth.uid());
+    CREATE POLICY "profiles_select_own" ON public.profiles FOR SELECT USING (user_id = auth.uid());
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='profiles_update_own') THEN
-    CREATE POLICY "profiles_update_own" ON public.profiles FOR UPDATE USING (id = auth.uid());
+    CREATE POLICY "profiles_update_own" ON public.profiles FOR UPDATE USING (user_id = auth.uid());
   END IF;
 
   -- companies

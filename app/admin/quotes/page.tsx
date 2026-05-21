@@ -52,7 +52,7 @@ export default function QuotesPage() {
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
     const { data, error } = await supabase
       .from('quotes')
-      .select('*')
+      .select('id, company_id, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
     if (!error && data) setQuotes(data as Quote[]);
@@ -81,7 +81,7 @@ export default function QuotesPage() {
     setFormData((prev) => ({ ...prev, company_id: companyId }));
     loadQuotes();
     loadCompanies();
-  }, [companyId]);
+  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!companyId) { setError('Company profile is required'); return; }

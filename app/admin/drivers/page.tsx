@@ -15,6 +15,14 @@ export default function DriversPage() {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ display_name: '', phone: '', email: '', company_id: '' });
   const [error, setError] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    displayName: string;
+    email: string;
+    temporaryPassword: string;
+    sequenceNumber: number;
+  } | null>(null);
+  const [copyStatus, setCopyStatus] = useState('');
 
   const loadCompanyId = async (userId: string) => {
     const { data } = await supabase.rpc('get_or_create_company_for_user');
@@ -37,7 +45,7 @@ export default function DriversPage() {
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
     const { data, error } = await supabase
       .from('drivers')
-      .select('*')
+      .select('id, company_id, user_id, display_name, phone, email, status, app_access, temporary_password_seq, must_change_password, temp_password_generated_at, last_app_login, created_at')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
     if (!error && data) setDrivers(data as Driver[]);
@@ -66,18 +74,72 @@ export default function DriversPage() {
     setFormData((prev) => ({ ...prev, company_id: companyId }));
     loadDrivers();
     loadCompanies();
-  }, [companyId]);
+  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!formData.display_name.trim()) { setError('Driver name is required'); return; }
+    if (!formData.email.trim()) { setError('Driver email is required'); return; }
     if (!companyId) { setError('Company profile is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { error } = await supabase.from('drivers').insert([{ ...formData, company_id: companyId }]);
-    if (error) { setError(error.message); return; }
+    setCreating(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        setError('Session not found. Please sign in again.');
+        return;
+      }
+
+      const response = await fetch('/api/admin/drivers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          companyId,
+          displayName: formData.display_name,
+          email: formData.email,
+          phone: formData.phone || null,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({} as { error?: string; temporaryPassword?: string; sequenceNumber?: number }));
+      if (!response.ok) {
+        setError(payload.error || 'Failed to create driver account.');
+        return;
+      }
+
+      setCreatedCredentials({
+        displayName: formData.display_name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        temporaryPassword: payload.temporaryPassword || '',
+        sequenceNumber: Number(payload.sequenceNumber) || 0,
+      });
+      setCopyStatus('');
+      setFormData({ display_name: '', phone: '', email: '', company_id: companyId });
+      setError('');
+      loadDrivers();
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const closeModal = () => {
     setShowModal(false);
-    setFormData({ display_name: '', phone: '', email: '', company_id: '' });
     setError('');
-    loadDrivers();
+    setCopyStatus('');
+    setCreatedCredentials(null);
+  };
+
+  const copyTemporaryPassword = async () => {
+    if (!createdCredentials?.temporaryPassword) return;
+    try {
+      await navigator.clipboard.writeText(createdCredentials.temporaryPassword);
+      setCopyStatus('Temporary password copied.');
+    } catch {
+      setCopyStatus('Could not copy automatically. Please copy manually.');
+    }
   };
 
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const };
@@ -93,7 +155,7 @@ export default function DriversPage() {
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Drivers</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage drivers for your company</p>
             </div>
-            <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
+            <button onClick={() => { setCreatedCredentials(null); setCopyStatus(''); setError(''); setShowModal(true); }} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
               + Add Driver
             </button>
           </div>
@@ -142,25 +204,52 @@ export default function DriversPage() {
             <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '500px' }}>
               <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Add Driver</h2>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+                <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
               </div>
-              <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
-                <div><label style={labelStyle}>Full Name *</label><input style={inputStyle} value={formData.display_name} onChange={e => setFormData({...formData, display_name: e.target.value})} placeholder="John Smith" /></div>
-                <div>
-                  <label style={labelStyle}>Company *</label>
-                  <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})}>
-                    <option value="">Select a company…</option>
-                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="driver@email.com" /></div>
-                <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="07123456789" /></div>
-              </div>
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleCreate} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Add Driver</button>
-              </div>
+              {createdCredentials ? (
+                <>
+                  <div style={{ padding: '1.5rem', display: 'grid', gap: '0.8rem' }}>
+                    <div style={{ backgroundColor: '#ecfdf3', border: '1px solid #86efac', borderRadius: '8px', padding: '0.9rem', color: '#166534', fontSize: '0.9rem' }}>
+                      Driver account created. Copy this temporary password now — it will not be shown again.
+                    </div>
+                    <div style={{ fontSize: '0.88rem', color: '#334155' }}>
+                      <strong>Driver:</strong> {createdCredentials.displayName}
+                      <br />
+                      <strong>Email:</strong> {createdCredentials.email}
+                      <br />
+                      <strong>Sequence:</strong> #{String(createdCredentials.sequenceNumber).padStart(3, '0')}
+                    </div>
+                    <div style={{ backgroundColor: '#0f172a', color: '#f8fafc', borderRadius: '8px', padding: '0.9rem', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 700 }}>
+                      {createdCredentials.temporaryPassword}
+                    </div>
+                    {copyStatus && <div style={{ color: '#0f766e', fontSize: '0.85rem' }}>{copyStatus}</div>}
+                  </div>
+                  <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                    <button onClick={copyTemporaryPassword} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Copy Password</button>
+                    <button onClick={closeModal} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Done</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
+                    {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
+                    <div><label style={labelStyle}>Full Name *</label><input style={inputStyle} value={formData.display_name} onChange={e => setFormData({...formData, display_name: e.target.value})} placeholder="John Smith" /></div>
+                    <div>
+                      <label style={labelStyle}>Company *</label>
+                      <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})}>
+                        <option value="">Select a company…</option>
+                        {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div><label style={labelStyle}>Email *</label><input style={inputStyle} type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="driver@email.com" /></div>
+                    <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="07123456789" /></div>
+                  </div>
+                  <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                    <button onClick={closeModal} disabled={creating} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: creating ? 'not-allowed' : 'pointer' }}>Cancel</button>
+                    <button onClick={handleCreate} disabled={creating} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: creating ? 'not-allowed' : 'pointer' }}>{creating ? 'Creating...' : 'Add Driver'}</button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

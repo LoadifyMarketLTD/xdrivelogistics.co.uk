@@ -175,28 +175,28 @@ These are click-by-click steps for each dashboard feature. Run after deploying w
 
 ---
 
-## INVOICES (FAKE/STUB — localStorage only)
+## INVOICES (SUPABASE)
 
-> ⚠️ Invoices are stored in browser localStorage. Data is not shared across devices or persisted in Supabase.
+> ✅ Invoices are stored in Supabase (`invoices`), tenant-scoped by `company_id`.
 
 ### Create Invoice
 1. Navigate to `/admin/invoices`
 2. Click **+ Create New Invoice**
 3. Fill invoice fields, click **Save**
-4. **Expected:** Invoice appears in list on this device/browser only
+4. **Expected:** Invoice appears in list for the same tenant across sessions/devices
 
 ---
 
-## SETTINGS (FAKE/STUB — localStorage only)
+## SETTINGS (SUPABASE)
 
-> ⚠️ Settings are saved to browser localStorage. Not persisted to DB.
+> ✅ Settings are saved to Supabase (`companies` + `company_settings`) for the current tenant.
 
 ### Save Settings
 1. Navigate to `/admin/settings`
 2. Modify Company Name or VAT rate
 3. Click **Save Settings**
 4. **Expected:** Green "Settings saved successfully!" banner appears
-5. Reload page — fields pre-fill from `COMPANY_CONFIG` defaults (localStorage-saved values not re-loaded; this is a known limitation)
+5. Reload page — fields re-load from Supabase for the same tenant
 
 ---
 

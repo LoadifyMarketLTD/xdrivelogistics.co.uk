@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { getJobClientFields } from '../../../../lib/jobClientFields';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
 import type { DbJob } from '../../../../lib/types/database';
 import ProtectedRoute from '../../../components/ProtectedRoute';
@@ -172,7 +173,7 @@ export default function DriverJobDetailPage() {
   };
 
   const updateJobStatus = async (newStatus: string, extraFields: Record<string, unknown> = {}) => {
-    if (!job || !isSupabaseConfigured) return;
+    if (!job || !driverId || !isSupabaseConfigured) return;
     setActionLoading(true);
     setError('');
 
@@ -185,7 +186,8 @@ export default function DriverJobDetailPage() {
         driver_notes: driverNotes || null,
         ...extraFields,
       })
-      .eq('id', job.id);
+      .eq('id', job.id)
+      .eq('assigned_driver_id', driverId);
 
     if (dbError) {
       setError(dbError.message);
@@ -230,9 +232,10 @@ export default function DriverJobDetailPage() {
 
   const canCollect = job.status === 'allocated';
   const canDeliver = job.status === 'in_transit';
+  const clientFields = getJobClientFields(job);
 
   return (
-    <ProtectedRoute allowedRoles={['driver', 'admin', 'owner']}>
+    <ProtectedRoute allowedRoles={['driver']}>
     <div style={{ minHeight: '100dvh', backgroundColor: '#f3f4f6', paddingBottom: '5rem' }}>
       {/* Header */}
       <header
@@ -302,10 +305,13 @@ export default function DriverJobDetailPage() {
 
         {/* Cargo */}
         <Section title="Cargo">
+          <InfoRow icon="👤" label="Client" value={clientFields.name} />
+          {clientFields.phone && <InfoRow icon="📞" label="Client phone" value={clientFields.phone} />}
+          {clientFields.email && <InfoRow icon="✉️" label="Client email" value={clientFields.email} />}
           {job.cargo_type && <InfoRow icon="📋" label="Type" value={job.cargo_type} />}
-          {job.load_details && <InfoRow icon="📝" label="Details" value={job.load_details} />}
-          {job.special_requirements && (
-            <InfoRow icon="⚠️" label="Special requirements" value={job.special_requirements} />
+          {job.load_details && <InfoRow icon="📝" label="Client / load reference" value={job.load_details} />}
+          {clientFields.cargoNotes && (
+            <InfoRow icon="⚠️" label="Special requirements" value={clientFields.cargoNotes} />
           )}
           {job.weight_kg != null && <InfoRow icon="⚖️" label="Weight" value={`${job.weight_kg} kg`} />}
         </Section>

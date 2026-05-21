@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { COMPANY_CONFIG, JOB_STATUS } from '../../config/company';
+import { JOB_STATUS } from '../../config/company';
 import { generateTimeOptions } from '../../utils/timeUtils';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../lib/jobClientFields';
 import { useAuth } from '../../components/AuthContext';
 
 interface Job {
@@ -105,12 +106,15 @@ export default function JobsPage() {
   };
 
   useEffect(() => {
-    loadJobs();
-    if (hasSupabaseSession && user?.id) {
+    if (hasSupabaseSession && user?.id && !companyId) {
       loadCompanyId(user.id);
     }
+  }, [user?.id, hasSupabaseSession, companyId]);
+
+  useEffect(() => {
+    loadJobs();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, hasSupabaseSession]);
+  }, [hasSupabaseSession, companyId]);
 
   useEffect(() => {
     filterJobs();
@@ -118,108 +122,65 @@ export default function JobsPage() {
   }, [jobs, searchTerm, statusFilter]);
 
   const loadJobs = async () => {
+    setDbError(null);
     if (hasSupabaseSession) {
-      const { data, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
+      if (!companyId) {
+        setJobs([]);
+        setFilteredJobs([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, created_at, updated_at')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+
       if (error) {
         console.error('Failed to load jobs from Supabase:', error.message);
+        setJobs([]);
+        setFilteredJobs([]);
         setDbError(`Failed to load jobs: ${error.message}`);
+        return;
       }
-      if (!error && data) {
-        const mapped = data.map((row: Record<string, unknown>) => ({
-          id: row.id as string,
-          jobRef: (row.id as string).slice(0, 13).toUpperCase(),
-          client: {
-            name: (row.load_details as string) || 'Unknown',
-            email: '',
-            phone: '',
-          },
-          pickup: {
-            location: (row.pickup_location as string) || '',
-            date: row.pickup_datetime ? (row.pickup_datetime as string).slice(0, 10) : '',
-            time: row.pickup_datetime ? (row.pickup_datetime as string).slice(11, 16) : '',
-          },
-          delivery: {
-            location: (row.delivery_location as string) || '',
-            date: row.delivery_datetime ? (row.delivery_datetime as string).slice(0, 10) : '',
-            time: row.delivery_datetime ? (row.delivery_datetime as string).slice(11, 16) : '',
-          },
-          cargo: {
-            type: (row.cargo_type as string) || 'Other',
-            quantity: (row.items as number) || 1,
-            notes: (row.special_requirements as string) || '',
-          },
-          status: (row.status as string) || JOB_STATUS.RECEIVED,
-          createdAt: row.created_at as string,
-          updatedAt: row.updated_at as string,
-        }));
+      if (data) {
+        const mapped = data.map((row: Record<string, unknown>) => {
+          const clientFields = getJobClientFields(row);
+
+          return {
+            id: row.id as string,
+            jobRef: (row.id as string).slice(0, 13).toUpperCase(),
+            client: {
+              name: clientFields.name,
+              email: clientFields.email,
+              phone: clientFields.phone,
+            },
+            pickup: {
+              location: (row.pickup_location as string) || '',
+              date: row.pickup_datetime ? (row.pickup_datetime as string).slice(0, 10) : '',
+              time: row.pickup_datetime ? (row.pickup_datetime as string).slice(11, 16) : '',
+            },
+            delivery: {
+              location: (row.delivery_location as string) || '',
+              date: row.delivery_datetime ? (row.delivery_datetime as string).slice(0, 10) : '',
+              time: row.delivery_datetime ? (row.delivery_datetime as string).slice(11, 16) : '',
+            },
+            cargo: {
+              type: (row.cargo_type as string) || 'Other',
+              quantity: (row.items as number) || 1,
+              notes: clientFields.cargoNotes,
+            },
+            status: (row.status as string) || JOB_STATUS.RECEIVED,
+            createdAt: row.created_at as string,
+            updatedAt: row.updated_at as string,
+          };
+        });
         setJobs(mapped);
         return;
       }
     }
-    // Fallback to localStorage
-    const stored = localStorage.getItem('xdrive_jobs');
-    if (stored) {
-      setJobs(JSON.parse(stored));
-    } else {
-      const sampleJobs: Job[] = [
-        {
-          id: '1',
-          jobRef: 'XD-250214-0001',
-          client: {
-            name: 'ABC Corporation',
-            email: 'contact@abc.com',
-            phone: '07123456789'
-          },
-          pickup: {
-            location: 'London, SW1A 1AA',
-            date: '2025-02-15',
-            time: '09:00'
-          },
-          delivery: {
-            location: 'Manchester, M1 1AE',
-            date: '2025-02-15',
-            time: '14:00'
-          },
-          cargo: {
-            type: 'Packages',
-            quantity: 5,
-            notes: 'Fragile items - handle with care'
-          },
-          status: JOB_STATUS.RECEIVED,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          jobRef: 'XD-250214-0002',
-          client: {
-            name: 'Tech Solutions Ltd',
-            email: 'info@techsolutions.com',
-            phone: '07987654321'
-          },
-          pickup: {
-            location: 'Birmingham, B1 1AA',
-            date: '2025-02-16',
-            time: '10:00'
-          },
-          delivery: {
-            location: 'Leeds, LS1 1AA',
-            date: '2025-02-16',
-            time: '15:00'
-          },
-          cargo: {
-            type: 'Equipment',
-            quantity: 2,
-            notes: 'Server equipment - urgent delivery'
-          },
-          status: JOB_STATUS.ALLOCATED,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-      localStorage.setItem('xdrive_jobs', JSON.stringify(sampleJobs));
-      setJobs(sampleJobs);
-    }
+    setJobs([]);
+    setFilteredJobs([]);
   };
 
   const filterJobs = () => {
@@ -240,25 +201,6 @@ export default function JobsPage() {
     }
 
     setFilteredJobs(filtered);
-  };
-
-  const generateJobRef = () => {
-    const now = new Date();
-    const year = now.getFullYear().toString().slice(-2);
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const datePrefix = `${COMPANY_CONFIG.invoice.jobRefPrefix}-${year}${month}${day}`;
-    
-    const existingRefsForToday = jobs
-      .filter(job => job.jobRef.startsWith(datePrefix))
-      .map(job => parseInt(job.jobRef.split('-')[2]))
-      .filter(num => !isNaN(num));
-    
-    const nextSequence = existingRefsForToday.length > 0 
-      ? Math.max(...existingRefsForToday) + 1 
-      : 1;
-    
-    return `${datePrefix}-${String(nextSequence).padStart(4, '0')}`;
   };
 
   const validateForm = () => {
@@ -290,35 +232,6 @@ export default function JobsPage() {
     setModalError(null);
     setDbError(null);
 
-    const newJob: Job = {
-      id: Date.now().toString(),
-      jobRef: generateJobRef(),
-      client: {
-        name: formData.clientName,
-        email: formData.clientEmail,
-        phone: formData.clientPhone
-      },
-      pickup: {
-        location: formData.pickupLocation,
-        date: formData.pickupDate,
-        time: formData.pickupTime
-      },
-      delivery: {
-        location: formData.deliveryLocation,
-        date: formData.deliveryDate,
-        time: formData.deliveryTime
-      },
-      cargo: {
-        type: formData.cargoType,
-        quantity: parseInt(formData.cargoQuantity),
-        notes: formData.cargoNotes
-      },
-      status: JOB_STATUS.RECEIVED,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    const updatedJobs = [...jobs, newJob];
     if (hasSupabaseSession) {
       // Resolve companyId — use state value or re-fetch if missing
       let resolvedCompanyId = companyId;
@@ -337,6 +250,9 @@ export default function JobsPage() {
       const { error: insertError } = await supabase.from('jobs').insert([{
         company_id: resolvedCompanyId,
         created_by: user?.id ?? null,
+        client_name: formData.clientName,
+        client_email: formData.clientEmail || null,
+        client_phone: formData.clientPhone || null,
         load_details: formData.clientName,
         pickup_location: formData.pickupLocation,
         pickup_datetime: `${formData.pickupDate}T${formData.pickupTime}:00`,
@@ -344,7 +260,11 @@ export default function JobsPage() {
         delivery_datetime: `${formData.deliveryDate}T${formData.deliveryTime}:00`,
         cargo_type: formData.cargoType.toLowerCase() as string,
         items: parseInt(formData.cargoQuantity),
-        special_requirements: [formData.clientName, formData.clientPhone, formData.clientEmail, formData.cargoNotes].filter(Boolean).join(' | '),
+        special_requirements: buildLegacyJobSpecialRequirements({
+          clientPhone: formData.clientPhone,
+          clientEmail: formData.clientEmail,
+          cargoNotes: formData.cargoNotes,
+        }),
         status: JOB_STATUS.POSTED,
       }]);
       if (insertError) {
@@ -363,8 +283,9 @@ export default function JobsPage() {
       setStatusFilter('All');
       await loadJobs();
     } else {
-      localStorage.setItem('xdrive_jobs', JSON.stringify(updatedJobs));
-      setJobs(updatedJobs);
+      setModalError('A live Supabase session is required to create jobs safely.');
+      setIsSubmitting(false);
+      return;
     }
     setIsSubmitting(false);
     closeModal();
@@ -372,7 +293,15 @@ export default function JobsPage() {
 
   const handleStatusChange = async (jobId: string, newStatus: string) => {
     if (hasSupabaseSession) {
-      const { error } = await supabase.from('jobs').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', jobId);
+      if (!companyId) {
+        setDbError('Company profile not loaded. Job status cannot be updated safely.');
+        return;
+      }
+      const { error } = await supabase
+        .from('jobs')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', jobId)
+        .eq('company_id', companyId);
       if (error) {
         console.error('Failed to update job status:', error.message);
         setDbError(`Failed to update job status: ${error.message}`);
@@ -382,13 +311,7 @@ export default function JobsPage() {
       await loadJobs();
       return;
     }
-    const updatedJobs = jobs.map(job =>
-      job.id === jobId
-        ? { ...job, status: newStatus, updatedAt: new Date().toISOString() }
-        : job
-    );
-    localStorage.setItem('xdrive_jobs', JSON.stringify(updatedJobs));
-    setJobs(updatedJobs);
+    setDbError('A live Supabase session is required to update job status safely.');
   };
 
   const handlePostJob = async (jobId: string) => {
