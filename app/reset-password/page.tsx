@@ -2,11 +2,7 @@
 
 import { type FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  LOGIN_RESET_SUCCESS_PATH,
-  getBrowserAuthSignals,
-  isInviteAuthFlow,
-} from '../../lib/authFlow';
+import { LOGIN_RESET_SUCCESS_PATH, getBrowserAuthSignals } from '../../lib/authFlow';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
 export default function ResetPasswordPage() {
@@ -16,7 +12,6 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [hasPasswordSetupSession, setHasPasswordSetupSession] = useState(false);
-  const [isInviteFlow, setIsInviteFlow] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -35,31 +30,43 @@ export default function ResetPasswordPage() {
 
       try {
         const signals = getBrowserAuthSignals();
-        if (signals) {
-          setIsInviteFlow(isInviteAuthFlow(signals));
-        }
 
         const { data: initialSession, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError;
 
-        if (!initialSession.session?.user && signals?.hasHashSessionTokens && signals.accessToken && signals.refreshToken) {
-          const { error: setSessionError } = await supabase.auth.setSession({
-            access_token: signals.accessToken,
-            refresh_token: signals.refreshToken,
+        let handoffSucceeded = false;
+
+        if (!initialSession.session?.user && signals) {
+          const { data: setSessionData } = await supabase.auth.setSession({
+            access_token: signals.accessToken ?? '',
+            refresh_token: signals.refreshToken ?? '',
           });
-          if (setSessionError) throw setSessionError;
-          clearBrowserTokens();
-        } else if (!initialSession.session?.user && signals?.code) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(signals.code);
-          if (exchangeError) throw exchangeError;
-          clearBrowserTokens();
-        } else if (!initialSession.session?.user && signals?.tokenHash) {
-          const otpType = isInviteAuthFlow(signals) ? 'invite' : 'recovery';
-          const { error: verifyError } = await supabase.auth.verifyOtp({
-            token_hash: signals.tokenHash,
-            type: otpType,
-          });
-          if (verifyError) throw verifyError;
+          if (setSessionData.user) {
+            handoffSucceeded = true;
+          }
+
+          if (!handoffSucceeded) {
+            const { data: exchangeData } = await supabase.auth.exchangeCodeForSession(signals.code ?? '');
+            if (exchangeData.user) {
+              handoffSucceeded = true;
+            }
+          }
+
+          if (!handoffSucceeded) {
+            for (const otpType of ['recovery', 'invite'] as const) {
+              const { data: verifyData } = await supabase.auth.verifyOtp({
+                token_hash: signals.tokenHash ?? '',
+                type: otpType,
+              });
+              if (verifyData.user) {
+                handoffSucceeded = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (handoffSucceeded) {
           clearBrowserTokens();
         }
 
@@ -173,12 +180,10 @@ export default function ResetPasswordPage() {
         }}
       >
         <h1 style={{ marginTop: 0, marginBottom: '0.75rem', color: '#0A2239' }}>
-          {isInviteFlow ? 'Set your password' : 'Set a new password'}
+          Set a new password
         </h1>
         <p style={{ marginTop: 0, marginBottom: '1.5rem', color: '#5B6B85' }}>
-          {isInviteFlow
-            ? 'Choose your password to finish account setup.'
-            : 'Enter your new password to complete account recovery.'}
+          Enter your new password to complete password setup.
         </p>
 
         <form onSubmit={handleSubmit}>
