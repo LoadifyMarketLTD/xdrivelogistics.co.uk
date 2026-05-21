@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import type { CompanyMembership, Driver, Profile } from '../../../lib/types/database';
+import type { Company, CompanyMembership, Driver, Profile } from '../../../lib/types/database';
+
+type CreatorCompanySnapshot = Pick<Company, 'id' | 'company_type'>;
 
 const AUTH_CALLBACK_TIMEOUT_MS = 10_000;
 
@@ -34,7 +36,7 @@ const resolveRedirectPath = async (
   userId: string,
   fallbackRole?: string | null
 ) => {
-  const [profileRes, membershipRes, driverRes] = await Promise.all([
+  const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
     supabase
       .from('profiles')
       .select('role, is_driver, company_id')
@@ -44,7 +46,7 @@ const resolveRedirectPath = async (
       .from('company_memberships')
       .select('company_id, role_in_company, status')
       .eq('user_id', userId)
-      .eq('status', 'active')
+      .neq('status', 'suspended')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -54,17 +56,24 @@ const resolveRedirectPath = async (
       .eq('user_id', userId)
       .eq('app_access', true)
       .maybeSingle(),
+    supabase
+      .from('companies')
+      .select('id, company_type')
+      .eq('created_by', userId)
+      .limit(1)
+      .maybeSingle(),
   ]);
 
-  if (profileRes.error || membershipRes.error || driverRes.error) {
+  if (profileRes.error || membershipRes.error || driverRes.error || creatorCompanyRes.error) {
     return null;
   }
 
   const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
   const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
   const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null;
+  const creatorCompany = creatorCompanyRes.data as CreatorCompanySnapshot | null;
   const mustChangePassword = Boolean(driver?.must_change_password);
-  let resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null;
+  let resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? creatorCompany?.id ?? null;
 
   const fallbackMappedRole = mapRole(fallbackRole);
   const profileMappedRole = mapRole(profile?.role);
@@ -96,6 +105,9 @@ const resolveRedirectPath = async (
   if (membership?.role_in_company === 'viewer') {
     return '/customer';
   }
+  if (creatorCompany && resolvedCompanyId) {
+    return '/admin';
+  }
 
   const profileRole = mapRole(profile?.role);
   if (profileRole === 'driver') {
@@ -122,10 +134,8 @@ const resolveRedirectPath = async (
 
 type SessionUser = {
   id: string;
-  user_metadata?: {
-    role?: string;
-    requested_role?: string;
-  } | null;
+  user_metadata?: Record<string, unknown> | null;
+  app_metadata?: Record<string, unknown> | null;
 };
 
 export default function AuthCallbackPage() {
@@ -153,6 +163,8 @@ export default function AuthCallbackPage() {
           ? user.user_metadata.role
           : typeof user.user_metadata?.requested_role === 'string'
             ? user.user_metadata.requested_role
+            : typeof user.app_metadata?.role === 'string'
+              ? user.app_metadata.role
             : null;
       const redirectPath = await withTimeout(
         resolveRedirectPath(user.id, fallbackRole),
@@ -180,6 +192,16 @@ export default function AuthCallbackPage() {
         const accessToken = hashParams?.get('access_token');
         const refreshToken = hashParams?.get('refresh_token');
         const hashType = hashParams?.get('type');
+        const queryType = searchParams.get('type');
+        const flow = searchParams.get('flow');
+        const nextPath = searchParams.get('next');
+        const isRecoveryHint =
+          queryType === 'recovery' ||
+          hashType === 'recovery' ||
+          flow === 'recovery' ||
+          nextPath === '/reset-password' ||
+          nextPath?.startsWith('/reset-password?') ||
+          false;
 
         if (accessToken && refreshToken) {
           const { data: sessionData, error: setSessionError } = await withTimeout(
@@ -191,7 +213,7 @@ export default function AuthCallbackPage() {
           );
           if (setSessionError) throw setSessionError;
 
-          if (hashType === 'recovery') {
+          if (hashType === 'recovery' || isRecoveryHint || !hashType) {
             router.replace('/reset-password');
             return;
           }
@@ -203,6 +225,7 @@ export default function AuthCallbackPage() {
         const code = searchParams.get('code');
         const tokenHash = searchParams.get('token_hash');
         const type = searchParams.get('type');
+        const isRecoveryType = type === 'recovery';
 
         if (code) {
           const { data: exchangeData, error: exchangeError } = await withTimeout(
@@ -210,7 +233,7 @@ export default function AuthCallbackPage() {
             AUTH_CALLBACK_TIMEOUT_MS
           );
           if (exchangeError) throw exchangeError;
-          if (type === 'recovery') {
+          if (isRecoveryType || isRecoveryHint) {
             router.replace('/reset-password');
             return;
           }
@@ -218,16 +241,24 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        if (tokenHash && type) {
+        if (tokenHash) {
+          const otpType =
+            type === 'signup' ||
+            type === 'email' ||
+            type === 'recovery' ||
+            type === 'invite' ||
+            type === 'email_change'
+              ? type
+              : 'recovery';
           const { data: verifyData, error: verifyError } = await withTimeout(
             supabase.auth.verifyOtp({
               token_hash: tokenHash,
-              type: type as 'signup' | 'email' | 'recovery' | 'invite' | 'email_change',
+              type: otpType,
             }),
             AUTH_CALLBACK_TIMEOUT_MS
           );
           if (verifyError) throw verifyError;
-          if (type === 'recovery') {
+          if (otpType === 'recovery' || isRecoveryHint) {
             router.replace('/reset-password');
             return;
           }

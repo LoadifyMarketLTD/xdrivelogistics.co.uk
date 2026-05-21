@@ -110,11 +110,15 @@ const resolveRole = ({
   membershipRole,
   profileRole,
   isDriver,
+  hasCreatedCompany,
+  creatorCompanyType,
   fallbackRole,
 }: {
   membershipRole?: string | null;
   profileRole?: string | null;
   isDriver: boolean;
+  hasCreatedCompany: boolean;
+  creatorCompanyType?: string | null;
   fallbackRole?: string | null;
 }): UserRole | null => {
   if (membershipRole === 'owner') return 'owner';
@@ -122,6 +126,7 @@ const resolveRole = ({
   if (membershipRole === 'dispatcher') return 'company';
   if (isDriver) return 'driver';
   if (membershipRole === 'viewer') return 'customer';
+  if (hasCreatedCompany) return creatorCompanyType === 'admin' ? 'admin' : 'owner';
 
   const resolvedProfileRole = mapRole(profileRole);
   if (resolvedProfileRole) return resolvedProfileRole;
@@ -208,28 +213,32 @@ const fetchRoleSnapshot = async (
     }
   };
 
-  const [profileRes, membershipRes, driverRes] = await Promise.all([
+  const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
     fetchRows(`profiles?select=role,is_driver,company_id&user_id=eq.${userId}&limit=1`),
-    fetchRows(`company_memberships?select=company_id,role_in_company,status&user_id=eq.${userId}&status=eq.active&order=updated_at.desc&limit=1`),
+    fetchRows(`company_memberships?select=company_id,role_in_company,status&user_id=eq.${userId}&status=neq.suspended&order=updated_at.desc&limit=1`),
     fetchRows(`drivers?select=id,company_id,user_id,app_access,must_change_password&user_id=eq.${userId}&app_access=eq.true&limit=1`),
+    fetchRows(`companies?select=id,company_type&created_by=eq.${userId}&limit=1`),
   ]);
 
-  if ([profileRes, membershipRes, driverRes].some((result) => result.type === 'unauthenticated')) {
+  if ([profileRes, membershipRes, driverRes, creatorCompanyRes].some((result) => result.type === 'unauthenticated')) {
     return { status: 'unauthenticated', role: null, companyId: null, mustChangePassword: false };
   }
-  if ([profileRes, membershipRes, driverRes].some((result) => result.type !== 'ok')) {
+  if ([profileRes, membershipRes, driverRes, creatorCompanyRes].some((result) => result.type !== 'ok')) {
     return { status: 'error', role: null, companyId: null, mustChangePassword: false };
   }
 
   const profile = profileRes.rows?.[0] ?? null;
   const membership = membershipRes.rows?.[0] ?? null;
   const driver = driverRes.rows?.[0] ?? null;
+  const creatorCompany = creatorCompanyRes.rows?.[0] ?? null;
   const mustChangePassword = driver?.must_change_password === true;
 
   const role = resolveRole({
     membershipRole: typeof membership?.role_in_company === 'string' ? membership.role_in_company : null,
     profileRole: typeof profile?.role === 'string' ? profile.role : null,
     isDriver: Boolean(driver) || profile?.is_driver === true,
+    hasCreatedCompany: Boolean(creatorCompany),
+    creatorCompanyType: typeof creatorCompany?.company_type === 'string' ? creatorCompany.company_type : null,
     fallbackRole,
   });
 
@@ -237,6 +246,7 @@ const fetchRoleSnapshot = async (
     (typeof driver?.company_id === 'string' && driver.company_id) ||
     (typeof profile?.company_id === 'string' && profile.company_id) ||
     (typeof membership?.company_id === 'string' && membership.company_id) ||
+    (typeof creatorCompany?.id === 'string' && creatorCompany.id) ||
     null;
 
   if (!companyId && (role === 'company' || role === 'admin' || role === 'owner')) {

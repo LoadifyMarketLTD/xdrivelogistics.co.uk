@@ -3,10 +3,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
-import type { CompanyMembership, Driver, Profile } from '../../lib/types/database';
+import type { Company, CompanyMembership, Driver, Profile } from '../../lib/types/database';
 
 const LOGIN_TIMEOUT_MS = 10_000;
 const LOGIN_UNAVAILABLE_ERROR = 'Login service unavailable. Please try again.';
+const RESET_PASSWORD_COOLDOWN_MS = 60_000;
+const RESET_PASSWORD_COOLDOWN_KEY = 'xdrive:last-password-reset-request-at';
 
 class LoginTimeoutError extends Error {
   constructor() {
@@ -51,6 +53,8 @@ interface User {
   mustChangePassword: boolean;
 }
 
+type CreatorCompanySnapshot = Pick<Company, 'id' | 'company_type'>;
+
 export type UserRole = 'guest' | 'customer' | 'driver' | 'company' | 'admin' | 'owner';
 
 interface AuthContextType {
@@ -89,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userId: string,
     fallbackRole?: string | null
   ): Promise<{ role: UserRole; companyId: string | null; driverId: string | null; mustChangePassword: boolean } | null> => {
-    const [profileRes, membershipRes, driverRes] = await Promise.all([
+    const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
       supabase
         .from('profiles')
         .select('role, is_driver, company_id')
@@ -99,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('company_memberships')
         .select('company_id, role_in_company, status')
         .eq('user_id', userId)
-        .eq('status', 'active')
+        .neq('status', 'suspended')
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -108,6 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select('id, company_id, user_id, app_access, must_change_password')
         .eq('user_id', userId)
         .eq('app_access', true)
+        .maybeSingle(),
+      supabase
+        .from('companies')
+        .select('id, company_type')
+        .eq('created_by', userId)
+        .limit(1)
         .maybeSingle(),
     ]);
 
@@ -132,14 +142,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       return null;
     }
+    if (creatorCompanyRes.error) {
+      console.error('AuthContext.resolveRole companies query failed', {
+        userId,
+        error: creatorCompanyRes.error,
+      });
+      return null;
+    }
 
     const profile = profileRes.data as Pick<Profile, 'role' | 'is_driver' | 'company_id'> | null;
     const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
     const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null;
+    const creatorCompany = creatorCompanyRes.data as CreatorCompanySnapshot | null;
     const driverId = driver?.id ?? null;
     const mustChangePassword = Boolean(driver?.must_change_password);
 
-    let resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null;
+    let resolvedCompanyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? creatorCompany?.id ?? null;
 
     const fallbackMappedRole = mapRole(fallbackRole);
     const profileMappedRole = mapRole(profile?.role);
@@ -174,6 +192,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (membership?.role_in_company === 'viewer') {
       return { role: 'customer', companyId: resolvedCompanyId, driverId, mustChangePassword: false };
     }
+    if (creatorCompany && resolvedCompanyId) {
+      return {
+        role: creatorCompany.company_type === 'admin' ? 'admin' : 'owner',
+        companyId: resolvedCompanyId,
+        driverId,
+        mustChangePassword: false,
+      };
+    }
 
     const profileRole = mapRole(profile?.role);
     if (profileRole) {
@@ -194,7 +220,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
-  const hydrateUser = async (sessionUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> | null }) => {
+  const hydrateUser = async (sessionUser: {
+    id: string;
+    email?: string | null;
+    user_metadata?: Record<string, unknown> | null;
+    app_metadata?: Record<string, unknown> | null;
+  }) => {
     if (!sessionUser?.id) {
       resetAuthState();
       return null;
@@ -205,6 +236,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ? sessionUser.user_metadata.role
         : typeof sessionUser.user_metadata?.requested_role === 'string'
           ? sessionUser.user_metadata.requested_role
+          : typeof sessionUser.app_metadata?.role === 'string'
+            ? sessionUser.app_metadata.role
           : null;
     const roleData = await withTimeout(resolveRole(sessionUser.id, fallbackRole), LOGIN_TIMEOUT_MS);
     if (!roleData) {
@@ -381,10 +414,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'Authentication is unavailable: Supabase is not configured.' };
     }
     try {
+      if (typeof window !== 'undefined') {
+        const lastRequestAtRaw = window.sessionStorage.getItem(RESET_PASSWORD_COOLDOWN_KEY);
+        const lastRequestAt = lastRequestAtRaw ? Number(lastRequestAtRaw) : 0;
+        const elapsed = Date.now() - lastRequestAt;
+        if (Number.isFinite(lastRequestAt) && elapsed >= 0 && elapsed < RESET_PASSWORD_COOLDOWN_MS) {
+          const remainingSeconds = Math.ceil((RESET_PASSWORD_COOLDOWN_MS - elapsed) / 1000);
+          return {
+            success: false,
+            error: `Please wait ${remainingSeconds}s before requesting another reset email.`,
+          };
+        }
+      }
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
+        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback?type=recovery`,
       });
       if (error) return { success: false, error: error.message };
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(RESET_PASSWORD_COOLDOWN_KEY, String(Date.now()));
+      }
       return { success: true };
     } catch (err) {
       console.error('Reset password error:', err);
