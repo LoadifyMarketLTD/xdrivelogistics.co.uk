@@ -11,10 +11,10 @@ export async function GET(request: NextRequest) {
     nextPath === '/reset-password' ||
     nextPath?.startsWith('/reset-password?') ||
     false;
-  const callbackUrl = new URL(isRecoveryFlow ? '/reset-password' : '/auth/callback', request.url);
+  const callbackUrl = new URL('/auth/callback', request.url);
 
-  if (isRecoveryFlow && !sourceUrl.searchParams.has('flow')) {
-    sourceUrl.searchParams.set('flow', 'recovery');
+  if (isRecoveryFlow) {
+    sourceUrl.searchParams.set('type', 'recovery');
   }
 
   callbackUrl.search = sourceUrl.search;
