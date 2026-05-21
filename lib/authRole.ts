@@ -3,7 +3,7 @@ export type AppUserRole = 'customer' | 'driver' | 'company' | 'admin' | 'owner';
 export const mapAppRole = (value: string | null | undefined): AppUserRole | null => {
   const normalized = (value ?? '').toLowerCase();
   if (normalized === 'owner') return 'owner';
-  if (normalized === 'admin') return 'admin';
+  if (normalized === 'admin' || normalized === 'admin_staff' || normalized === 'company_admin') return 'admin';
   if (normalized === 'company' || normalized === 'dispatcher') return 'company';
   if (normalized === 'driver') return 'driver';
   if (normalized === 'customer' || normalized === 'client' || normalized === 'viewer') return 'customer';
