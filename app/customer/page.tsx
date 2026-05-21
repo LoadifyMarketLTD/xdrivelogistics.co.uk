@@ -44,11 +44,6 @@ export default function CustomerPage() {
         if (!cancelled) setResolvedCompanyId(user.companyId);
         return;
       }
-      const { data, error } = await supabase.rpc('get_or_create_company_for_user');
-      if (!cancelled && !error && data) {
-        setResolvedCompanyId(data as string);
-        return;
-      }
       const { data: membership } = await supabase
         .from('company_memberships')
         .select('company_id')
@@ -72,7 +67,7 @@ export default function CustomerPage() {
     if (!isSupabaseConfigured || !user?.email) { setLoading(false); return; }
     if (!resolvedCompanyId) {
       setQuotes([]);
-      setPageMessage('Your account is not linked to a company yet, so quote data is hidden.');
+      setPageMessage('Your customer account is not linked to a company yet. Quote history and quote requests stay disabled until a company invites you.');
       setLoading(false);
       return;
     }
@@ -167,7 +162,8 @@ export default function CustomerPage() {
             </div>
             <button
               onClick={() => setShowModal(true)}
-              style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}
+              disabled={!resolvedCompanyId}
+              style={{ padding: '0.75rem 1.5rem', backgroundColor: resolvedCompanyId ? '#1F7A3D' : '#9ca3af', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: resolvedCompanyId ? 'pointer' : 'not-allowed' }}
             >
               + Request a Quote
             </button>

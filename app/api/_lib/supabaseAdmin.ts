@@ -7,8 +7,8 @@ const supabaseUrl =
   '';
 
 const supabaseServiceKey =
-  process.env.SUPABASE_SERVICE_KEY?.trim() ||
   process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+  process.env.SUPABASE_SERVICE_KEY?.trim() ||
   '';
 
 export const isSupabaseAdminConfigured = Boolean(supabaseUrl && supabaseServiceKey);

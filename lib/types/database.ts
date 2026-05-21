@@ -11,6 +11,7 @@ export interface Profile {
   full_name: string | null;
   phone: string | null;
   role: string | null;
+  status: string;
   company_id: string | null;
   is_driver: boolean;
   created_at: string;
@@ -136,6 +137,9 @@ export interface DbJob {
   currency: string;
   budget_amount: number | null;
   is_fixed_price: boolean;
+  client_name: string | null;
+  client_email: string | null;
+  client_phone: string | null;
   load_details: string | null;
   special_requirements: string | null;
   access_restrictions: string | null;
