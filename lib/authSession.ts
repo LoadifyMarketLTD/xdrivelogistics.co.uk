@@ -38,8 +38,15 @@ export type ResolvedAuthUser = {
   mustChangePassword: boolean;
 };
 
+const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, key: string) => {
+  const value = metadata?.[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value : null;
+};
+
 export const getFallbackRole = (sessionUser: SessionUser) =>
-  typeof sessionUser.app_metadata?.role === 'string' ? sessionUser.app_metadata.role : null;
+  readMetadataRole(sessionUser.app_metadata, 'role') ??
+  readMetadataRole(sessionUser.user_metadata, 'role') ??
+  readMetadataRole(sessionUser.user_metadata, 'requested_role');
 
 export const resolveAuthenticatedUser = async (
   sessionUser: SessionUser
@@ -75,7 +82,7 @@ export const resolveAuthenticatedUser = async (
       .maybeSingle(),
   ]);
 
-  if (profileRes.error || membershipRes.error || driverRes.error || creatorCompanyRes.error) {
+  if (profileRes.error) {
     console.debug('[XDrive Auth] profile lookup db_error', {
       userId: sessionUser.id,
       profileErr: profileRes.error?.message,
@@ -86,10 +93,47 @@ export const resolveAuthenticatedUser = async (
     return { user: null, reason: 'db_error' };
   }
 
+  if (membershipRes.error || driverRes.error || creatorCompanyRes.error) {
+    console.debug('[XDrive Auth] profile lookup partial_error', {
+      userId: sessionUser.id,
+      membershipErr: membershipRes.error?.message,
+      driverErr: driverRes.error?.message,
+      creatorErr: creatorCompanyRes.error?.message,
+    });
+  }
+
   const profile = profileRes.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'> | null;
-  const membership = membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
-  const driver = driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null;
-  const creatorCompany = creatorCompanyRes.data as CreatorCompanySnapshot | null;
+  let membership = membershipRes.error
+    ? null
+    : (membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null);
+  const driver = driverRes.error
+    ? null
+    : (driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null);
+  const creatorCompany = creatorCompanyRes.error ? null : (creatorCompanyRes.data as CreatorCompanySnapshot | null);
+
+  if (!membership) {
+    const inviteEmail = typeof sessionUser.email === 'string' ? sessionUser.email.trim().toLowerCase() : '';
+    if (inviteEmail) {
+      const invitedMembershipRes = await supabase
+        .from('company_memberships')
+        .select('company_id, role_in_company, status')
+        .eq('invited_email', inviteEmail)
+        .neq('status', 'suspended')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (invitedMembershipRes.error) {
+        console.debug('[XDrive Auth] invited membership lookup error', {
+          userId: sessionUser.id,
+          invitedEmail: inviteEmail,
+          membershipErr: invitedMembershipRes.error.message,
+        });
+      } else {
+        membership = invitedMembershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
+      }
+    }
+  }
   const driverId = driver?.id ?? null;
   const mustChangePassword = Boolean(driver?.must_change_password);
 
