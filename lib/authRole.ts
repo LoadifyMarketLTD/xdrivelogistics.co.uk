@@ -35,8 +35,13 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
   // ── Owner aliases ─────────────────────────────────────────────────────────
   if (normalized === 'superadmin' || normalized === 'super_admin' || normalized === 'platform_owner') return 'owner';
 
-  // ── Admin aliases (incl. company_admin) ───────────────────────────────────
-  if (normalized === 'company_admin' || normalized === 'org_admin' || normalized === 'platform_admin') return 'admin';
+  // ── Admin aliases (incl. company_admin, admin_staff) ─────────────────────
+  if (
+    normalized === 'admin_staff' ||
+    normalized === 'company_admin' ||
+    normalized === 'org_admin' ||
+    normalized === 'platform_admin'
+  ) return 'admin';
 
   // ── Company/dispatcher aliases (incl. broker) ─────────────────────────────
   if (
