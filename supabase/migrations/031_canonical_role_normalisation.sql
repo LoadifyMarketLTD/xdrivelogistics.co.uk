@@ -6,13 +6,26 @@
 -- LIVE DATABASE STATE (runtime-confirmed)
 -- ──────────────────────────────────────────────────────────────
 -- • public.user_role enum: EXISTS in the live DB despite being absent
---   from all migration files.  The column profiles.role uses this enum,
---   causing LOWER(role) to fail: "function lower(user_role) does not exist".
--- • This migration detects the enum condition and converts profiles.role
---   to plain TEXT first (USING role::text preserves all string values),
---   then performs backfill and constraint work with standard text operations.
--- • public.company_role enum: ('owner','admin','dispatcher','viewer')
---   used only for company_memberships.role_in_company — NOT changed here.
+--   from all migration files.  The column profiles.role is typed as this
+--   enum, which causes LOWER(role) to fail at plan time:
+--     "function lower(user_role) does not exist"
+--
+-- HOW THIS MIGRATION HANDLES IT
+-- ──────────────────────────────────────────────────────────────
+-- Step 0  — Detects the enum via pg_catalog (more reliable than
+--            information_schema) and converts the column to plain TEXT
+--            using EXECUTE (dynamic SQL) so PostgreSQL cannot plan-time
+--            reject it.  Uses USING role::text to preserve every existing
+--            label.  No-op if the column is already TEXT.
+--
+-- Steps 1-6 — Every WHERE clause uses role::text so the statement is
+--              valid at plan time regardless of whether the column is
+--              still an enum or has been converted to TEXT by Step 0.
+--              This makes the migration re-entrant and safe to re-run.
+--
+-- Step 7  — CHECK constraint (idempotent DO block).
+-- Step 8  — Replaces the auth.users INSERT trigger to normalise any
+--            future legacy role values at ingestion time.
 --
 -- CANONICAL APP ROLES  (profiles.role, TEXT after this migration)
 -- ──────────────────────────────────────────────────────────────────
@@ -28,14 +41,13 @@
 --     On a Courier Exchange platform a freight broker is a company-level operator
 --     who posts loads, manages carrier assignments, and handles invoicing.
 --     This is identical to the company/dispatcher access model: full job
---     management dashboard access within a company context.  NOT a passive
---     customer who only submits delivery requests.
+--     management dashboard within a company context.  NOT a passive customer.
 --
 --   company_admin → admin
---     A company administrator requires full admin dashboard access to manage
---     drivers, jobs, invoices, company settings, and memberships.
+--     A company administrator needs full admin dashboard access: drivers,
+--     jobs, invoices, company settings, memberships.
 --
---   dispatcher    → company  (already handled in app code; normalised here)
+--   dispatcher    → company  (also handled in app code; normalised here)
 --   company_staff → company
 --   freight_broker→ company
 --   carrier       → company
@@ -53,72 +65,81 @@
 --   correct individual profiles via the admin UI if needed).
 -- ============================================================
 
--- ── 0. Convert profiles.role to TEXT if it is currently an enum type ──────────
---    USING role::text preserves the string label of every existing enum value.
---    This is a no-op on databases where the column is already TEXT.
+-- ── 0. Convert profiles.role to TEXT if it is currently any non-text type ─────
+--
+--    Uses pg_catalog (not information_schema) for reliable type detection.
+--    Uses EXECUTE (dynamic SQL) so PostgreSQL cannot reject the ALTER TABLE
+--    at plan time when the column is still an enum type.
+--    No-op on databases where the column is already TEXT.
 DO $$
+DECLARE
+  v_typname text;
 BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM   information_schema.columns
-    WHERE  table_schema = 'public'
-      AND  table_name   = 'profiles'
-      AND  column_name  = 'role'
-      AND  data_type    = 'USER-DEFINED'
-  ) THEN
-    ALTER TABLE public.profiles
-      ALTER COLUMN role TYPE text
-      USING role::text;
+  SELECT t.typname INTO v_typname
+  FROM   pg_attribute  a
+  JOIN   pg_class      c ON c.oid = a.attrelid
+  JOIN   pg_namespace  n ON n.oid = c.relnamespace
+  JOIN   pg_type       t ON t.oid = a.atttypid
+  WHERE  n.nspname = 'public'
+    AND  c.relname  = 'profiles'
+    AND  a.attname  = 'role'
+    AND  NOT a.attisdropped;
+
+  IF v_typname IS NOT NULL AND v_typname <> 'text' THEN
+    -- USING role::text converts every enum label to its text representation.
+    EXECUTE 'ALTER TABLE public.profiles ALTER COLUMN role TYPE text USING role::text';
+    -- Update the column default to the canonical equivalent of the old 'viewer'.
+    EXECUTE 'ALTER TABLE public.profiles ALTER COLUMN role SET DEFAULT ''customer''';
   END IF;
 END $$;
 
--- ── 1. Backfill: owner aliases ────────────────────────────────────────────────
+-- ── 1. Backfill: owner aliases ─────────────────────────────────────────────────
+-- role::text in WHERE makes this statement plan-safe whether role is enum or
+-- text at the time PostgreSQL parses this UPDATE.
 UPDATE public.profiles
 SET    role       = 'owner',
        updated_at = NOW()
-WHERE  LOWER(role) IN ('superadmin', 'super_admin', 'platform_owner')
-  AND  role <> 'owner';
+WHERE  LOWER(role::text) IN ('superadmin', 'super_admin', 'platform_owner')
+  AND  role::text <> 'owner';
 
--- ── 2. Backfill: admin aliases (incl. company_admin) ─────────────────────────
+-- ── 2. Backfill: admin aliases (incl. company_admin) ──────────────────────────
 UPDATE public.profiles
 SET    role       = 'admin',
        updated_at = NOW()
-WHERE  LOWER(role) IN ('company_admin', 'org_admin', 'platform_admin')
-  AND  role <> 'admin';
+WHERE  LOWER(role::text) IN ('company_admin', 'org_admin', 'platform_admin')
+  AND  role::text <> 'admin';
 
--- ── 3. Backfill: company aliases (incl. broker) ───────────────────────────────
+-- ── 3. Backfill: company aliases (incl. broker) ────────────────────────────────
 UPDATE public.profiles
 SET    role       = 'company',
        updated_at = NOW()
-WHERE  LOWER(role) IN ('broker', 'freight_broker', 'carrier', 'dispatcher', 'company_staff')
-  AND  role <> 'company';
+WHERE  LOWER(role::text) IN ('broker', 'freight_broker', 'carrier', 'dispatcher', 'company_staff')
+  AND  role::text <> 'company';
 
--- ── 4. Backfill: driver aliases ───────────────────────────────────────────────
+-- ── 4. Backfill: driver aliases ────────────────────────────────────────────────
 UPDATE public.profiles
 SET    role       = 'driver',
        updated_at = NOW()
-WHERE  LOWER(role) IN ('owner_driver')
-  AND  role <> 'driver';
+WHERE  LOWER(role::text) IN ('owner_driver')
+  AND  role::text <> 'driver';
 
--- ── 5. Backfill: customer aliases ─────────────────────────────────────────────
+-- ── 5. Backfill: customer aliases ──────────────────────────────────────────────
 UPDATE public.profiles
 SET    role       = 'customer',
        updated_at = NOW()
-WHERE  LOWER(role) IN ('shipper', 'client', 'viewer')
-  AND  role <> 'customer';
+WHERE  LOWER(role::text) IN ('shipper', 'client', 'viewer')
+  AND  role::text <> 'customer';
 
--- ── 6. Catch-all: any remaining non-canonical value → customer ────────────────
---    Safest fallback: user lands on /customer dashboard.
---    A company admin can correct the profile role via the admin UI if needed.
+-- ── 6. Catch-all: any remaining non-canonical value → customer ─────────────────
+--    role::text NOT IN (...) is safe regardless of column type.
 UPDATE public.profiles
 SET    role       = 'customer',
        updated_at = NOW()
-WHERE  role NOT IN ('owner', 'admin', 'company', 'driver', 'customer')
+WHERE  role::text NOT IN ('owner', 'admin', 'company', 'driver', 'customer')
   AND  role IS NOT NULL;
 
--- ── 7. Add CHECK constraint documenting the canonical role set ────────────────
---    Now safe because the column is TEXT and all rows contain canonical values.
---    DO block keeps this idempotent on repeated runs.
+-- ── 7. Add CHECK constraint documenting the canonical role set ─────────────────
+--    role::text inside the CHECK expression works for both TEXT and enum columns.
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -130,14 +151,13 @@ BEGIN
   ) THEN
     ALTER TABLE public.profiles
       ADD CONSTRAINT profiles_role_canonical
-      CHECK (role IS NULL OR role IN ('owner', 'admin', 'company', 'driver', 'customer'));
+      CHECK (role IS NULL OR role::text IN ('owner', 'admin', 'company', 'driver', 'customer'));
   END IF;
 END $$;
 
--- ── 8. Update trigger to normalise role at ingestion time ─────────────────────
---    Replaces the trigger installed by migration 026 with one that converts
---    any legacy or alias role value to a canonical TEXT value before inserting.
---    Because profiles.role is now TEXT, the text assignment is type-safe.
+-- ── 8. Update trigger to normalise role at ingestion time ──────────────────────
+--    Replaces the trigger installed by migration 026.  Because profiles.role is
+--    TEXT after Step 0, inserting the text variable v_role is type-safe.
 CREATE OR REPLACE FUNCTION public.handle_auth_user_profile_sync()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -158,8 +178,6 @@ BEGIN
   ));
 
   -- Map incoming raw role to canonical app role.
-  -- Aliases are listed here so any future auth.admin.createUser call
-  -- using a legacy role value is silently normalised at DB level.
   v_role := CASE v_raw_role
     WHEN 'owner'          THEN 'owner'
     WHEN 'superadmin'     THEN 'owner'
@@ -181,7 +199,7 @@ BEGIN
     WHEN 'shipper'        THEN 'customer'
     WHEN 'client'         THEN 'customer'
     WHEN 'viewer'         THEN 'customer'
-    ELSE                       'customer'   -- safe fallback
+    ELSE                       'customer'
   END;
 
   v_full_name := COALESCE(
