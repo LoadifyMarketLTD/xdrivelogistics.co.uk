@@ -295,7 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { pathname, queryType, hashType, hasRecoveryTokens } = getAuthUrlSignals();
     if (pathname === '/reset-password') return true;
     if (queryType === 'recovery' || hashType === 'recovery') return true;
-    if (pathname === '/auth/callback' && hasRecoveryTokens) {
+    if (pathname === '/auth/callback' && hasRecoveryTokens && (queryType === 'recovery' || hashType === 'recovery')) {
       return true;
     }
     return false;
