@@ -36,7 +36,7 @@ const nextConfig = {
           },
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()'
+            value: 'camera=(), microphone=(), geolocation=(self)'
           },
           {
             key: 'Cross-Origin-Opener-Policy',
@@ -46,11 +46,12 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline'",
+              "script-src 'self'",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https://images.unsplash.com",
               "font-src 'self'",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+              "form-action 'self'",
               "object-src 'none'",
               "base-uri 'self'",
               "frame-ancestors 'self'"

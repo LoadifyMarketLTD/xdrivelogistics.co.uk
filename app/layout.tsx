@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import Script from 'next/script'
 import './globals.css'
 import { AuthProvider } from './components/AuthContext'
 import { COMPANY_CONFIG } from './config/company'
@@ -67,22 +66,6 @@ export const metadata: Metadata = {
   },
 }
 
-const jsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: 'XDrive Logistics',
-  legalName: COMPANY_CONFIG.legalName,
-  url: 'https://www.xdrivelogistics.co.uk',
-  logo: 'https://www.xdrivelogistics.co.uk/icon-512.png',
-  address: {
-    '@type': 'PostalAddress',
-    streetAddress: COMPANY_CONFIG.address.street,
-    addressLocality: COMPANY_CONFIG.address.city,
-    postalCode: COMPANY_CONFIG.address.postcode,
-    addressCountry: 'GB',
-  },
-}
-
 export default function RootLayout({
   children,
 }: {
@@ -90,12 +73,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* JSON-LD structured data — loaded from static file to avoid unsafe-inline */}
+        {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document */}
+        <script src="/org-schema.jsonld" type="application/ld+json" />
+      </head>
       <body>
-        <Script
-          id="org-jsonld"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
         <AuthProvider>
           {children}
         </AuthProvider>
