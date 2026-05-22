@@ -825,7 +825,7 @@ export default function InvoiceDetailPage() {
                       Invoice Preview
                     </h2>
                   </div>
-                  <div style={{ padding: '1rem', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+                  <div style={{ padding: '1rem', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }} id="invoice-print-area">
                     <InvoiceTemplate invoice={formData} showPreview={true} companySettings={companySettings} />
                   </div>
                 </div>

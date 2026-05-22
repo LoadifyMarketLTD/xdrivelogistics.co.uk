@@ -11,6 +11,7 @@ import { useAuth } from '../../../components/AuthContext';
 interface Job {
   id: string;
   jobRef: string;
+  assignedDriverId: string | null;
   client: {
     name: string;
     email: string;
@@ -47,6 +48,12 @@ interface Job {
   };
 }
 
+interface DriverOption {
+  id: string;
+  display_name: string;
+  email: string | null;
+}
+
 const CARGO_TYPES = [
   'Documents',
   'Packages',
@@ -70,11 +77,24 @@ export default function JobDetailPage() {
   const [formData, setFormData] = useState<Job | null>(null);
   const [saveMessage, setSaveMessage] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [drivers, setDrivers] = useState<DriverOption[]>([]);
 
   useEffect(() => {
     loadJob();
+    if (companyId) loadDrivers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, hasSupabaseSession, companyId]);
+
+  const loadDrivers = async () => {
+    if (!companyId) return;
+    const { data } = await supabase
+      .from('drivers')
+      .select('id, display_name, email')
+      .eq('company_id', companyId)
+      .eq('status', 'active')
+      .order('display_name');
+    if (data) setDrivers(data as DriverOption[]);
+  };
 
   const loadJob = async () => {
     try {
@@ -88,7 +108,7 @@ export default function JobDetailPage() {
 
         const { data, error } = await supabase
           .from('jobs')
-          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, created_at, updated_at')
+          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, assigned_driver_id, created_at, updated_at')
           .eq('id', jobId)
           .eq('company_id', companyId)
           .single();
@@ -103,6 +123,7 @@ export default function JobDetailPage() {
           const mapped: Job = {
             id: row.id as string,
             jobRef: (row.id as string).slice(0, 13).toUpperCase(),
+            assignedDriverId: (row.assigned_driver_id as string | null) ?? null,
             client: {
               name: clientFields.name,
               email: clientFields.email,
@@ -176,6 +197,7 @@ export default function JobDetailPage() {
           cargo_type: formData.cargo.type.toLowerCase(),
           items: formData.cargo.quantity,
           status: formData.status,
+          assigned_driver_id: formData.assignedDriverId || null,
           updated_at: new Date().toISOString(),
         }).eq('id', jobId).eq('company_id', companyId);
         if (error) {
@@ -571,7 +593,7 @@ export default function JobDetailPage() {
                   Last Updated: {new Date(formData.updatedAt).toLocaleString('en-GB')}
                 </p>
               </div>
-              <div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-end' }}>
                 {editMode ? (
                   <div>
                     <label style={labelStyle}>Status</label>
@@ -593,6 +615,31 @@ export default function JobDetailPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Driver Assignment */}
+            <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #e5e7eb' }}>
+              <label style={labelStyle}>🚗 Assigned Driver</label>
+              {editMode ? (
+                <select
+                  value={formData.assignedDriverId ?? ''}
+                  onChange={(e) => setFormData({ ...formData, assignedDriverId: e.target.value || null })}
+                  style={{ ...inputStyle, maxWidth: '320px' }}
+                >
+                  <option value="">— Unassigned —</option>
+                  {drivers.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.display_name}{d.email ? ` (${d.email})` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ fontSize: '0.95rem', color: formData.assignedDriverId ? '#1f2937' : '#9ca3af' }}>
+                  {formData.assignedDriverId
+                    ? (drivers.find((d) => d.id === formData.assignedDriverId)?.display_name ?? 'Unknown driver')
+                    : 'No driver assigned'}
+                </div>
+              )}
             </div>
           </div>
 
