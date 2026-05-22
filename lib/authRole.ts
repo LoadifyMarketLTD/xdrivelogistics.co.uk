@@ -74,3 +74,34 @@ export const shouldAutoProvisionCompany = ({
 
 export const roleRequiresCompanyContext = (role: AppUserRole | null) =>
   role === 'company' || role === 'admin' || role === 'owner' || role === 'driver';
+
+export const resolveAuthoritativeRole = ({
+  membershipRole,
+  profileRole,
+  isDriver,
+  hasCreatedCompany,
+  creatorCompanyType,
+  fallbackRole,
+}: {
+  membershipRole?: string | null;
+  profileRole?: string | null;
+  isDriver: boolean;
+  hasCreatedCompany: boolean;
+  creatorCompanyType?: string | null;
+  fallbackRole?: string | null;
+}): AppUserRole | null => {
+  if (membershipRole === 'owner') return 'owner';
+  if (membershipRole === 'admin') return 'admin';
+  if (membershipRole === 'dispatcher') return 'company';
+  if (isDriver) return 'driver';
+  if (membershipRole === 'viewer') return 'customer';
+  if (hasCreatedCompany) return creatorCompanyType === 'admin' ? 'admin' : 'owner';
+
+  const resolvedProfileRole = mapAppRole(profileRole);
+  if (resolvedProfileRole) return resolvedProfileRole;
+
+  const resolvedFallbackRole = mapAppRole(fallbackRole);
+  if (resolvedFallbackRole) return resolvedFallbackRole;
+
+  return null;
+};

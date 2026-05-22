@@ -1,4 +1,4 @@
-import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './authRole';
+import { resolveAuthoritativeRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './authRole';
 import { supabase } from './supabaseClient';
 import type { CompanyMembership, Driver, Profile } from './types/database';
 
@@ -51,9 +51,7 @@ const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, 
 };
 
 export const getFallbackRole = (sessionUser: SessionUser) =>
-  readMetadataRole(sessionUser.app_metadata, 'role') ??
-  readMetadataRole(sessionUser.user_metadata, 'role') ??
-  readMetadataRole(sessionUser.user_metadata, 'requested_role');
+  readMetadataRole(sessionUser.app_metadata, 'role');
 
 export const resolveAuthenticatedUser = async (
   sessionUser: SessionUser
@@ -78,7 +76,9 @@ export const resolveAuthenticatedUser = async (
     `company_memberships.select(company_id,role_in_company,status).eq(user_id,${sessionUser.id}).neq(status,suspended).order(created_at desc).limit(1).maybeSingle()`;
   const driverLookupQuery =
     `drivers.select(id,company_id,user_id).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
-  const [profileRes, membershipRes, driverRes] = await Promise.all([
+  const creatorCompanyLookupQuery =
+    `companies.select(id,company_type).eq(created_by,${sessionUser.id}).limit(1).maybeSingle()`;
+  const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
     supabase
       .from('profiles')
       .select('role, status, is_driver, company_id')
@@ -96,6 +96,12 @@ export const resolveAuthenticatedUser = async (
       .from('drivers')
       .select('id, company_id, user_id')
       .eq('user_id', sessionUser.id)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('companies')
+      .select('id, company_type')
+      .eq('created_by', sessionUser.id)
       .limit(1)
       .maybeSingle(),
   ]);
@@ -124,13 +130,15 @@ export const resolveAuthenticatedUser = async (
     return { user: null, reason: 'db_error', dbError: profileDbError };
   }
 
-  if (membershipRes.error || driverRes.error) {
+  if (membershipRes.error || driverRes.error || creatorCompanyRes.error) {
     console.debug('[XDrive Auth] profile lookup partial_error', {
       userId: sessionUser.id,
       membershipQuery: membershipLookupQuery,
       membershipErr: membershipRes.error?.message,
       driverQuery: driverLookupQuery,
       driverErr: driverRes.error?.message,
+      creatorCompanyQuery: creatorCompanyLookupQuery,
+      creatorCompanyErr: creatorCompanyRes.error?.message,
     });
   }
 
@@ -141,6 +149,9 @@ export const resolveAuthenticatedUser = async (
   const driver = driverRes.error
     ? null
     : (driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id'> | null);
+  const creatorCompany = creatorCompanyRes.error
+    ? null
+    : (creatorCompanyRes.data as { id: string; company_type: string | null } | null);
 
   const driverId = driver?.id ?? null;
   const mustChangePassword = false;
@@ -151,6 +162,7 @@ export const resolveAuthenticatedUser = async (
     profileStatus: profile?.status ?? null,
     membershipRole: membership?.role_in_company ?? null,
     hasDriver: Boolean(driver),
+    hasCreatedCompany: Boolean(creatorCompany),
     fallbackRole,
   });
 
@@ -169,7 +181,7 @@ export const resolveAuthenticatedUser = async (
     }
   }
 
-  let companyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null;
+  let companyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? creatorCompany?.id ?? null;
 
   if (
     !companyId &&
@@ -184,62 +196,21 @@ export const resolveAuthenticatedUser = async (
     }
   }
 
-  // ── Role resolution — priority order ──────────────────────────────────────
-  // 1. Company membership role (most authoritative for multi-tenant access)
-  if (membership?.role_in_company === 'owner') {
-    if (!companyId) {
-      console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', membershipRole: 'owner', userId: sessionUser.id });
-      return { user: null, reason: 'company_context_missing' };
-    }
-    return ok(sessionUser, 'owner', companyId, driverId, false);
-  }
-  if (membership?.role_in_company === 'admin') {
-    if (!companyId) {
-      console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', membershipRole: 'admin', userId: sessionUser.id });
-      return { user: null, reason: 'company_context_missing' };
-    }
-    return ok(sessionUser, 'admin', companyId, driverId, false);
-  }
-  if (membership?.role_in_company === 'dispatcher') {
-    if (!companyId) {
-      console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', membershipRole: 'dispatcher', userId: sessionUser.id });
-      return { user: null, reason: 'company_context_missing' };
-    }
-    return ok(sessionUser, 'company', companyId, driverId, false);
-  }
+  const resolvedRole = resolveAuthoritativeRole({
+    membershipRole: membership?.role_in_company ?? null,
+    profileRole: profile?.role ?? null,
+    isDriver: Boolean(driver) || profile?.is_driver === true,
+    hasCreatedCompany: Boolean(creatorCompany),
+    creatorCompanyType: creatorCompany?.company_type ?? null,
+    fallbackRole,
+  });
 
-  // 2. Driver record
-  if (driver || profile?.is_driver) {
-    if (!companyId) {
-      console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', source: 'driver', userId: sessionUser.id });
+  if (resolvedRole) {
+    if (roleRequiresCompanyContext(resolvedRole) && !companyId) {
+      console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', resolvedRole, userId: sessionUser.id });
       return { user: null, reason: 'company_context_missing' };
     }
-    return ok(sessionUser, 'driver', companyId, driverId, mustChangePassword);
-  }
-
-  // 3. Company membership viewer
-  if (membership?.role_in_company === 'viewer') {
-    return ok(sessionUser, 'customer', companyId, driverId, false);
-  }
-
-  // 4. Profile role (canonical or legacy alias via mapAppRole)
-  const profileRole = mapAppRole(profile?.role);
-  if (profileRole) {
-    if (roleRequiresCompanyContext(profileRole) && !companyId) {
-      console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', profileRole: profile?.role, userId: sessionUser.id });
-      return { user: null, reason: 'company_context_missing' };
-    }
-    return ok(sessionUser, profileRole, companyId, driverId, profileRole === 'driver' ? mustChangePassword : false);
-  }
-
-  // 5. app_metadata.role fallback (canonical or legacy alias)
-  const metadataRole = mapAppRole(fallbackRole);
-  if (metadataRole) {
-    if (roleRequiresCompanyContext(metadataRole) && !companyId) {
-      console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', fallbackRole, userId: sessionUser.id });
-      return { user: null, reason: 'company_context_missing' };
-    }
-    return ok(sessionUser, metadataRole, companyId, driverId, metadataRole === 'driver' ? mustChangePassword : false);
+    return ok(sessionUser, resolvedRole, companyId, driverId, resolvedRole === 'driver' ? mustChangePassword : false);
   }
 
   // 6. No profile at all and no other resolution path
