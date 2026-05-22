@@ -15,12 +15,15 @@
 -- - Keep *_non_driver helpers on SELECT policies (viewers may still read).
 -- - Set DEFAULT auth.uid() on created_by / uploaded_by on all six tables so the column
 --   is always populated at insert time without requiring the caller to supply it.
+-- - Replace remaining broad job_bids / driver_locations write policies with
+--   per-command least-privilege rules.
+-- - Block hard deletes of active / allocated drivers at the database layer.
 --
 -- Resilience:
 -- ADD COLUMN IF NOT EXISTS guards are applied before every ALTER COLUMN SET DEFAULT so
 -- this migration is safe regardless of whether the live schema already has the column.
--- Policy drops use IF EXISTS; CREATE POLICY blocks use exception-swallowing DO wrappers
--- so the migration is fully idempotent on re-runs.
+-- Policy drops use IF EXISTS before recreation so the migration is fully
+-- idempotent on re-runs.
 
 BEGIN;
 
@@ -60,6 +63,47 @@ AS $$
   );
 $$;
 
+CREATE OR REPLACE FUNCTION public.is_current_driver(did uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.drivers d
+    WHERE d.id = did
+      AND d.user_id = auth.uid()
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.prevent_unsafe_driver_delete()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF COALESCE(OLD.status, 'active') = 'active' THEN
+    RAISE EXCEPTION 'Cannot hard delete an active driver. Deactivate the driver first.'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.jobs j
+    WHERE (j.assigned_driver_id = OLD.id OR j.driver_id = OLD.id)
+      AND (
+        j.status IS NULL
+        OR j.status::text NOT IN ('delivered', 'cancelled', 'disputed')
+      )
+  ) THEN
+    RAISE EXCEPTION 'Cannot hard delete a driver allocated to an open or active job.'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+
+  RETURN OLD;
+END;
+$$;
+
 -- ─── Column defaults ──────────────────────────────────────────────────────────
 -- ADD COLUMN IF NOT EXISTS guards make this safe for live schemas where the column
 -- may be absent (e.g. jobs.created_by missing due to migration sequencing gap).
@@ -94,6 +138,12 @@ ALTER TABLE public.job_documents
   ADD COLUMN IF NOT EXISTS uploaded_by uuid REFERENCES auth.users(id);
 ALTER TABLE public.job_documents
   ALTER COLUMN uploaded_by SET DEFAULT auth.uid();
+
+DROP TRIGGER IF EXISTS trg_prevent_unsafe_driver_delete ON public.drivers;
+CREATE TRIGGER trg_prevent_unsafe_driver_delete
+  BEFORE DELETE ON public.drivers
+  FOR EACH ROW
+  EXECUTE FUNCTION public.prevent_unsafe_driver_delete();
 
 -- ─── jobs ─────────────────────────────────────────────────────────────────────
 -- Drop both 034 names and any 035 names left by a prior partial run.
@@ -381,6 +431,158 @@ CREATE POLICY "invoices_delete_creator_or_admin"
     AND (
       created_by = auth.uid()
       OR public.is_company_admin(company_id)
+    )
+  );
+
+-- ─── job_bids ───────────────────────────────────────────────────────────────────
+
+DROP POLICY IF EXISTS "bids_all_member"               ON public.job_bids;
+DROP POLICY IF EXISTS "job_bids_select_member"        ON public.job_bids;
+DROP POLICY IF EXISTS "job_bids_insert_bidder_or_admin" ON public.job_bids;
+DROP POLICY IF EXISTS "job_bids_update_bidder_or_admin" ON public.job_bids;
+DROP POLICY IF EXISTS "job_bids_delete_admin"         ON public.job_bids;
+
+CREATE POLICY "job_bids_select_member"
+  ON public.job_bids FOR SELECT
+  USING (
+    company_id IS NOT NULL
+    AND public.is_company_member(company_id)
+  );
+
+CREATE POLICY "job_bids_insert_bidder_or_admin"
+  ON public.job_bids FOR INSERT
+  WITH CHECK (
+    company_id IS NOT NULL
+    AND (
+      public.is_company_admin(company_id)
+      OR (
+        public.is_company_member(company_id)
+        AND (bidder_user_id = auth.uid() OR bidder_id = auth.uid())
+        AND (
+          bidder_driver_id IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM public.drivers d
+            WHERE d.id = bidder_driver_id
+              AND d.user_id = auth.uid()
+              AND d.company_id = job_bids.company_id
+          )
+        )
+      )
+    )
+  );
+
+CREATE POLICY "job_bids_update_bidder_or_admin"
+  ON public.job_bids FOR UPDATE
+  USING (
+    company_id IS NOT NULL
+    AND (
+      public.is_company_admin(company_id)
+      OR (bidder_user_id = auth.uid() OR bidder_id = auth.uid())
+    )
+  )
+  WITH CHECK (
+    company_id IS NOT NULL
+    AND (
+      public.is_company_admin(company_id)
+      OR (
+        public.is_company_member(company_id)
+        AND (bidder_user_id = auth.uid() OR bidder_id = auth.uid())
+        AND (
+          bidder_driver_id IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM public.drivers d
+            WHERE d.id = bidder_driver_id
+              AND d.user_id = auth.uid()
+              AND d.company_id = job_bids.company_id
+          )
+        )
+      )
+    )
+  );
+
+CREATE POLICY "job_bids_delete_admin"
+  ON public.job_bids FOR DELETE
+  USING (
+    company_id IS NOT NULL
+    AND public.is_company_admin(company_id)
+  );
+
+-- ─── driver_locations ───────────────────────────────────────────────────────────
+
+DROP POLICY IF EXISTS "driver_locations_all_member"       ON public.driver_locations;
+DROP POLICY IF EXISTS "driver_locations_select_member_or_self" ON public.driver_locations;
+DROP POLICY IF EXISTS "driver_locations_insert_self_or_admin" ON public.driver_locations;
+DROP POLICY IF EXISTS "driver_locations_update_self_or_admin" ON public.driver_locations;
+DROP POLICY IF EXISTS "driver_locations_delete_admin"     ON public.driver_locations;
+
+CREATE POLICY "driver_locations_select_member_or_self"
+  ON public.driver_locations FOR SELECT
+  USING (
+    (company_id IS NOT NULL AND public.is_company_member(company_id))
+    OR public.is_current_driver(driver_id)
+  );
+
+CREATE POLICY "driver_locations_insert_self_or_admin"
+  ON public.driver_locations FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.drivers d
+      WHERE d.id = driver_locations.driver_id
+        AND (
+          public.is_company_admin(d.company_id)
+          OR (
+            d.user_id = auth.uid()
+            AND (
+              driver_locations.company_id IS NULL
+              OR driver_locations.company_id = d.company_id
+            )
+          )
+        )
+    )
+  );
+
+CREATE POLICY "driver_locations_update_self_or_admin"
+  ON public.driver_locations FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.drivers d
+      WHERE d.id = driver_locations.driver_id
+        AND (
+          public.is_company_admin(d.company_id)
+          OR d.user_id = auth.uid()
+        )
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.drivers d
+      WHERE d.id = driver_locations.driver_id
+        AND (
+          public.is_company_admin(d.company_id)
+          OR (
+            d.user_id = auth.uid()
+            AND (
+              driver_locations.company_id IS NULL
+              OR driver_locations.company_id = d.company_id
+            )
+          )
+        )
+    )
+  );
+
+CREATE POLICY "driver_locations_delete_admin"
+  ON public.driver_locations FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.drivers d
+      WHERE d.id = driver_locations.driver_id
+        AND public.is_company_admin(d.company_id)
     )
   );
 
