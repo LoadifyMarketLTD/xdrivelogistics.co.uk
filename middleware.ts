@@ -266,28 +266,87 @@ const redirectToDriverPasswordChange = (request: NextRequest) => {
   return NextResponse.redirect(changeUrl);
 };
 
+const createNonce = () => {
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(16));
+  let binary = '';
+  for (const byte of nonceBytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+};
+
+const buildCspHeader = (nonce: string) =>
+  [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https://images.unsplash.com",
+    "font-src 'self'",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+    "form-action 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'self'",
+  ].join('; ');
+
+const withSecurityHeaders = (response: NextResponse, nonce: string, cspHeader: string) => {
+  response.headers.set('Content-Security-Policy', cspHeader);
+  response.headers.set('x-nonce', nonce);
+  return response;
+};
+
 export async function middleware(request: NextRequest) {
+  const nonce = createNonce();
+  const cspHeader = buildCspHeader(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', cspHeader);
+
   const { pathname } = request.nextUrl;
   const requiresAuth = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
-  if (!requiresAuth) return NextResponse.next();
+  if (!requiresAuth) {
+    return withSecurityHeaders(
+      NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      }),
+      nonce,
+      cspHeader
+    );
+  }
 
   if (!hasSupabaseAuthCookie(request)) {
-    return NextResponse.next();
+    return withSecurityHeaders(
+      NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      }),
+      nonce,
+      cspHeader
+    );
   }
 
   const token = extractAccessToken(request);
   if (!token) {
-    return NextResponse.next();
+    return withSecurityHeaders(
+      NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      }),
+      nonce,
+      cspHeader
+    );
   }
 
   const payload = decodeJwtPayload(token);
   const userId = typeof payload?.sub === 'string' ? payload.sub : null;
   if (!userId) {
-    return redirectToLogin(request);
+    return withSecurityHeaders(redirectToLogin(request), nonce, cspHeader);
   }
   if (isJwtExpired(payload)) {
-    return redirectToLogin(request);
+    return withSecurityHeaders(redirectToLogin(request), nonce, cspHeader);
   }
 
   const appMetadata =
@@ -302,30 +361,48 @@ export async function middleware(request: NextRequest) {
 
   const snapshot = await fetchRoleSnapshot(token, userId, fallbackRole);
   if (snapshot.status === 'unauthenticated') {
-    return redirectToLogin(request);
+    return withSecurityHeaders(redirectToLogin(request), nonce, cspHeader);
   }
 
   if (snapshot.status === 'error') {
-    return NextResponse.next();
+    return withSecurityHeaders(
+      NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      }),
+      nonce,
+      cspHeader
+    );
   }
 
   if (!isAllowedForRoute(pathname, snapshot.role)) {
-    return redirectToForbidden(request);
+    return withSecurityHeaders(redirectToForbidden(request), nonce, cspHeader);
   }
 
   if (snapshot.role === 'driver') {
     if (snapshot.mustChangePassword && pathname !== '/driver/change-password') {
-      return redirectToDriverPasswordChange(request);
+      return withSecurityHeaders(redirectToDriverPasswordChange(request), nonce, cspHeader);
     }
     if (!snapshot.mustChangePassword && pathname === '/driver/change-password') {
       const jobsUrl = new URL('/driver/jobs', request.url);
-      return NextResponse.redirect(jobsUrl);
+      return withSecurityHeaders(NextResponse.redirect(jobsUrl), nonce, cspHeader);
     }
   }
 
-  return NextResponse.next();
+  return withSecurityHeaders(
+    NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    }),
+    nonce,
+    cspHeader
+  );
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/m/:path*', '/driver/:path*', '/customer/:path*'],
+  matcher: [
+    '/((?!api|_next/static|_next/image|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map|txt|xml|webmanifest)$).*)',
+  ],
 };
