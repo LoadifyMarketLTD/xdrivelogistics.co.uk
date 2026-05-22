@@ -1,10 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DriverDocument, VehicleDocument, DocStatus } from '../../../lib/types/database';
+
+interface DriverOption { id: string; display_name: string; }
+interface VehicleOption { id: string; reg_plate: string; }
+
+const DRIVER_DOC_TYPES = ['Driving Licence', 'CPC Card', 'Tacho Card', 'DBS Certificate', 'Medical Certificate', 'Insurance', 'Other'];
+const VEHICLE_DOC_TYPES = ['MOT', 'Road Tax', 'Insurance', 'Operator Licence', 'Goods Vehicle Test', 'Other'];
 
 type AnyDoc = (DriverDocument & { kind: 'driver'; subject_name?: string }) | (VehicleDocument & { kind: 'vehicle'; subject_name?: string });
 
@@ -16,6 +22,17 @@ const STATUS_COLORS: Record<DocStatus, { bg: string; text: string }> = {
 };
 const ALLOWED_DOC_STATUS = new Set<DocStatus>(['pending', 'approved', 'rejected', 'expired']);
 
+interface UploadForm {
+  kind: 'driver' | 'vehicle';
+  subjectId: string;
+  docType: string;
+  issuedDate: string;
+  expiryDate: string;
+  file: File | null;
+}
+
+const DEFAULT_UPLOAD: UploadForm = { kind: 'driver', subjectId: '', docType: '', issuedDate: '', expiryDate: '', file: null };
+
 export default function DocumentsPage() {
   const { user } = useAuth();
   const companyId = user?.companyId ?? null;
@@ -23,6 +40,13 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'driver' | 'vehicle'>('driver');
   const [error, setError] = useState('');
+  const [showUpload, setShowUpload] = useState(false);
+  const [form, setForm] = useState<UploadForm>(DEFAULT_UPLOAD);
+  const [drivers, setDrivers] = useState<DriverOption[]>([]);
+  const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const loadDocs = async () => {
     setLoading(true);
@@ -71,6 +95,53 @@ export default function DocumentsPage() {
   };
 
   useEffect(() => { loadDocs(); }, [tab, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!companyId || !isSupabaseConfigured) return;
+    supabase.from('drivers').select('id, display_name').eq('company_id', companyId).eq('status', 'active')
+      .then(({ data }) => setDrivers((data ?? []) as DriverOption[]));
+    supabase.from('vehicles').select('id, reg_plate').eq('company_id', companyId)
+      .then(({ data }) => setVehicles((data ?? []) as VehicleOption[]));
+  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleUpload = async () => {
+    if (!companyId || !form.subjectId || !form.docType || !form.file) {
+      setUploadError('Please fill in all required fields and select a file.');
+      return;
+    }
+    setUploading(true);
+    setUploadError('');
+    const bucket = form.kind === 'driver' ? 'driver-docs' : 'vehicle-docs';
+    const ext = form.file.name.split('.').pop() ?? 'bin';
+    const filePath = `${companyId}/${form.subjectId}/${Date.now()}.${ext}`;
+    const { error: storageError } = await supabase.storage.from(bucket).upload(filePath, form.file, { upsert: false });
+    if (storageError) {
+      setUploadError(`Upload failed: ${storageError.message}`);
+      setUploading(false);
+      return;
+    }
+    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+    const publicUrl = urlData?.publicUrl ?? filePath;
+    if (form.kind === 'driver') {
+      const { error: dbError } = await supabase.from('driver_documents').insert({
+        driver_id: form.subjectId, doc_type: form.docType, file_path: publicUrl,
+        issued_date: form.issuedDate || null, expiry_date: form.expiryDate || null, status: 'pending',
+      });
+      if (dbError) { setUploadError(`Database error: ${dbError.message}`); setUploading(false); return; }
+    } else {
+      const { error: dbError } = await supabase.from('vehicle_documents').insert({
+        vehicle_id: form.subjectId, doc_type: form.docType, file_path: publicUrl,
+        issued_date: form.issuedDate || null, expiry_date: form.expiryDate || null, status: 'pending',
+      });
+      if (dbError) { setUploadError(`Database error: ${dbError.message}`); setUploading(false); return; }
+    }
+    setForm(DEFAULT_UPLOAD);
+    if (fileRef.current) fileRef.current.value = '';
+    setShowUpload(false);
+    setTab(form.kind);
+    await loadDocs();
+    setUploading(false);
+  };
 
   const updateStatus = async (id: string, status: DocStatus) => {
     if (!isSupabaseConfigured || !companyId) return;
@@ -161,10 +232,84 @@ export default function DocumentsPage() {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-            <button style={tabStyle(tab === 'driver')} onClick={() => setTab('driver')}>🪪 Driver Documents</button>
-            <button style={tabStyle(tab === 'vehicle')} onClick={() => setTab('vehicle')}>🚛 Vehicle Documents</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button style={tabStyle(tab === 'driver')} onClick={() => setTab('driver')}>🪪 Driver Documents</button>
+              <button style={tabStyle(tab === 'vehicle')} onClick={() => setTab('vehicle')}>🚛 Vehicle Documents</button>
+            </div>
+            <button
+              onClick={() => { setShowUpload(true); setForm({ ...DEFAULT_UPLOAD, kind: tab }); setUploadError(''); }}
+              style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}
+            >
+              + Upload Document
+            </button>
           </div>
+
+          {/* Upload modal */}
+          {showUpload && (
+            <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: '520px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+                <h2 style={{ margin: '0 0 1.5rem', fontSize: '1.4rem', fontWeight: '700', color: '#1f2937' }}>Upload Document</h2>
+                {uploadError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', color: '#991b1b', fontSize: '0.9rem' }}>{uploadError}</div>}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Document Type *</label>
+                    <select value={form.kind} onChange={e => setForm(f => ({ ...f, kind: e.target.value as 'driver' | 'vehicle', subjectId: '', docType: '' }))}
+                      style={{ width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem' }}>
+                      <option value="driver">Driver Document</option>
+                      <option value="vehicle">Vehicle Document</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>{form.kind === 'driver' ? 'Driver' : 'Vehicle'} *</label>
+                    <select value={form.subjectId} onChange={e => setForm(f => ({ ...f, subjectId: e.target.value }))}
+                      style={{ width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem' }}>
+                      <option value="">— Select —</option>
+                      {form.kind === 'driver'
+                        ? drivers.map(d => <option key={d.id} value={d.id}>{d.display_name}</option>)
+                        : vehicles.map(v => <option key={v.id} value={v.id}>{v.reg_plate}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Document Category *</label>
+                    <select value={form.docType} onChange={e => setForm(f => ({ ...f, docType: e.target.value }))}
+                      style={{ width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem' }}>
+                      <option value="">— Select —</option>
+                      {(form.kind === 'driver' ? DRIVER_DOC_TYPES : VEHICLE_DOC_TYPES).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Issued Date</label>
+                      <input type="date" value={form.issuedDate} onChange={e => setForm(f => ({ ...f, issuedDate: e.target.value }))}
+                        style={{ width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Expiry Date</label>
+                      <input type="date" value={form.expiryDate} onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))}
+                        style={{ width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>File * (PDF, JPG, PNG — max 10 MB)</label>
+                    <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"
+                      onChange={e => setForm(f => ({ ...f, file: e.target.files?.[0] ?? null }))}
+                      style={{ width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem' }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                  <button onClick={() => { setShowUpload(false); setForm(DEFAULT_UPLOAD); setUploadError(''); }}
+                    style={{ padding: '0.75rem 1.5rem', border: '1px solid #d1d5db', borderRadius: '8px', backgroundColor: 'white', color: '#374151', fontWeight: '600', cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                  <button onClick={handleUpload} disabled={uploading}
+                    style={{ padding: '0.75rem 1.5rem', backgroundColor: uploading ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: uploading ? 'not-allowed' : 'pointer' }}>
+                    {uploading ? 'Uploading…' : 'Upload'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
             {loading ? (
@@ -194,7 +339,11 @@ export default function DocumentsPage() {
                         <td style={{ padding: '1rem', color: '#6b7280' }}>{d.expiry_date || '—'}</td>
                         <td style={{ padding: '1rem' }}><span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{d.status}</span></td>
                         <td style={{ padding: '1rem' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {d.file_path && (
+                              <a href={d.file_path} target="_blank" rel="noopener noreferrer"
+                                style={{ padding: '0.375rem 0.75rem', backgroundColor: '#eff6ff', color: '#1d4ed8', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', textDecoration: 'none' }}>View</a>
+                            )}
                             {d.status !== 'approved' && <button onClick={() => updateStatus(d.id, 'approved')} style={{ padding: '0.375rem 0.75rem', backgroundColor: '#d1fae5', color: '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>Approve</button>}
                             {d.status !== 'rejected' && <button onClick={() => updateStatus(d.id, 'rejected')} style={{ padding: '0.375rem 0.75rem', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>Reject</button>}
                           </div>
