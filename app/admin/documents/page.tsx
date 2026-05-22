@@ -102,7 +102,7 @@ export default function DocumentsPage() {
       .then(({ data }) => setDrivers((data ?? []) as DriverOption[]));
     supabase.from('vehicles').select('id, reg_plate').eq('company_id', companyId)
       .then(({ data }) => setVehicles((data ?? []) as VehicleOption[]));
-  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
   const handleUpload = async () => {
     if (!companyId || !form.subjectId || !form.docType || !form.file) {
