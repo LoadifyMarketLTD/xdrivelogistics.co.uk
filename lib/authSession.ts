@@ -1,6 +1,6 @@
 import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './authRole';
 import { supabase } from './supabaseClient';
-import type { Company, CompanyMembership, Driver, Profile } from './types/database';
+import type { CompanyMembership, Driver, Profile } from './types/database';
 
 export type UserRole = 'guest' | 'customer' | 'driver' | 'company' | 'admin' | 'owner';
 
@@ -28,8 +28,6 @@ export type AuthResolutionResult =
   | { user: ResolvedAuthUser; reason: null }
   | { user: null; reason: Exclude<AuthFailureReason, 'db_error'> }
   | { user: null; reason: 'db_error'; dbError: AuthDbError };
-
-type CreatorCompanySnapshot = Pick<Company, 'id' | 'company_type'>;
 
 export type SessionUser = {
   id: string;
@@ -77,12 +75,10 @@ export const resolveAuthenticatedUser = async (
   const fallbackRole = getFallbackRole(sessionUser);
   const profileLookupQuery = `profiles.select(role,status,is_driver,company_id).eq(user_id,${sessionUser.id}).maybeSingle()`;
   const membershipLookupQuery =
-    `company_memberships.select(company_id,role_in_company,status).eq(user_id,${sessionUser.id}).neq(status,suspended).order(updated_at desc).limit(1).maybeSingle()`;
+    `company_memberships.select(company_id,role_in_company,status).eq(user_id,${sessionUser.id}).neq(status,suspended).order(created_at desc).limit(1).maybeSingle()`;
   const driverLookupQuery =
-    `drivers.select(id,company_id,user_id,app_access,must_change_password).eq(user_id,${sessionUser.id}).eq(app_access,true).maybeSingle()`;
-  const creatorCompanyLookupQuery =
-    `companies.select(id,company_type).eq(created_by,${sessionUser.id}).limit(1).maybeSingle()`;
-  const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
+    `drivers.select(id,company_id,user_id).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
+  const [profileRes, membershipRes, driverRes] = await Promise.all([
     supabase
       .from('profiles')
       .select('role, status, is_driver, company_id')
@@ -93,19 +89,13 @@ export const resolveAuthenticatedUser = async (
       .select('company_id, role_in_company, status')
       .eq('user_id', sessionUser.id)
       .neq('status', 'suspended')
-      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase
       .from('drivers')
-      .select('id, company_id, user_id, app_access, must_change_password')
+      .select('id, company_id, user_id')
       .eq('user_id', sessionUser.id)
-      .eq('app_access', true)
-      .maybeSingle(),
-    supabase
-      .from('companies')
-      .select('id, company_type')
-      .eq('created_by', sessionUser.id)
       .limit(1)
       .maybeSingle(),
   ]);
@@ -130,57 +120,30 @@ export const resolveAuthenticatedUser = async (
       profileErrHint: profileDbError.hint,
       membershipErr: membershipRes.error?.message,
       driverErr: driverRes.error?.message,
-      creatorErr: creatorCompanyRes.error?.message,
     });
     return { user: null, reason: 'db_error', dbError: profileDbError };
   }
 
-  if (membershipRes.error || driverRes.error || creatorCompanyRes.error) {
+  if (membershipRes.error || driverRes.error) {
     console.debug('[XDrive Auth] profile lookup partial_error', {
       userId: sessionUser.id,
       membershipQuery: membershipLookupQuery,
       membershipErr: membershipRes.error?.message,
       driverQuery: driverLookupQuery,
       driverErr: driverRes.error?.message,
-      creatorCompanyQuery: creatorCompanyLookupQuery,
-      creatorErr: creatorCompanyRes.error?.message,
     });
   }
 
   const profile = profileRes.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'> | null;
-  let membership = membershipRes.error
+  const membership = membershipRes.error
     ? null
     : (membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null);
   const driver = driverRes.error
     ? null
-    : (driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'app_access' | 'must_change_password'> | null);
-  const creatorCompany = creatorCompanyRes.error ? null : (creatorCompanyRes.data as CreatorCompanySnapshot | null);
+    : (driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id'> | null);
 
-  if (!membership) {
-    const inviteEmail = typeof sessionUser.email === 'string' ? sessionUser.email.trim().toLowerCase() : '';
-    if (inviteEmail) {
-      const invitedMembershipRes = await supabase
-        .from('company_memberships')
-        .select('company_id, role_in_company, status')
-        .eq('invited_email', inviteEmail)
-        .neq('status', 'suspended')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (invitedMembershipRes.error) {
-        console.debug('[XDrive Auth] invited membership lookup error', {
-          userId: sessionUser.id,
-          invitedEmail: inviteEmail,
-          membershipErr: invitedMembershipRes.error.message,
-        });
-      } else {
-        membership = invitedMembershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null;
-      }
-    }
-  }
   const driverId = driver?.id ?? null;
-  const mustChangePassword = Boolean(driver?.must_change_password);
+  const mustChangePassword = false;
 
   console.debug('[XDrive Auth] profile lookup', {
     userId: sessionUser.id,
@@ -188,7 +151,6 @@ export const resolveAuthenticatedUser = async (
     profileStatus: profile?.status ?? null,
     membershipRole: membership?.role_in_company ?? null,
     hasDriver: Boolean(driver),
-    hasCreatorCompany: Boolean(creatorCompany),
     fallbackRole,
   });
 
@@ -207,7 +169,7 @@ export const resolveAuthenticatedUser = async (
     }
   }
 
-  let companyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? creatorCompany?.id ?? null;
+  let companyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? null;
 
   if (
     !companyId &&
@@ -260,13 +222,7 @@ export const resolveAuthenticatedUser = async (
     return ok(sessionUser, 'customer', companyId, driverId, false);
   }
 
-  // 4. Company creator
-  if (creatorCompany && companyId) {
-    const role: UserRole = creatorCompany.company_type === 'admin' ? 'admin' : 'owner';
-    return ok(sessionUser, role, companyId, driverId, false);
-  }
-
-  // 5. Profile role (canonical or legacy alias via mapAppRole)
+  // 4. Profile role (canonical or legacy alias via mapAppRole)
   const profileRole = mapAppRole(profile?.role);
   if (profileRole) {
     if (roleRequiresCompanyContext(profileRole) && !companyId) {
@@ -276,7 +232,7 @@ export const resolveAuthenticatedUser = async (
     return ok(sessionUser, profileRole, companyId, driverId, profileRole === 'driver' ? mustChangePassword : false);
   }
 
-  // 6. app_metadata.role fallback (canonical or legacy alias)
+  // 5. app_metadata.role fallback (canonical or legacy alias)
   const metadataRole = mapAppRole(fallbackRole);
   if (metadataRole) {
     if (roleRequiresCompanyContext(metadataRole) && !companyId) {
@@ -286,13 +242,13 @@ export const resolveAuthenticatedUser = async (
     return ok(sessionUser, metadataRole, companyId, driverId, metadataRole === 'driver' ? mustChangePassword : false);
   }
 
-  // 7. No profile at all and no other resolution path
+  // 6. No profile at all and no other resolution path
   if (!profile) {
     console.debug('[XDrive Auth] auth resolution failed', { reason: 'profile_missing', userId: sessionUser.id });
     return { user: null, reason: 'profile_missing' };
   }
 
-  // 8. Profile exists but role value is genuinely unrecognised
+  // 7. Profile exists but role value is genuinely unrecognised
   console.debug('[XDrive Auth] auth resolution failed', { reason: 'role_unsupported', profileRole: profile?.role, userId: sessionUser.id });
   return { user: null, reason: 'role_unsupported' };
 };
