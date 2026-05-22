@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next'
-import Script from 'next/script'
+import { headers } from 'next/headers'
 import './globals.css'
 import { AuthProvider } from './components/AuthContext'
 import { COMPANY_CONFIG } from './config/company'
+import ServiceWorkerRegistration from './components/ServiceWorkerRegistration'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -13,7 +14,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'XDrive Logistics | Transport Platform UK | Loads for Drivers & Businesses',
+    default: 'XDrive Logistics | Courier & Delivery Management Platform',
     template: '%s | XDrive Logistics',
   },
   description: 'XDrive Logistics connects self-employed courier drivers with businesses across the UK and Europe. Find loads, manage deliveries, and grow your transport business. 24/7 reliable freight services.',
@@ -38,6 +39,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.xdrivelogistics.co.uk',
   },
+  manifest: '/manifest.webmanifest',
   icons: {
     icon: ['/favicon.ico', '/favicon.svg'],
     apple: '/apple-touch-icon.png',
@@ -68,25 +70,28 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const nonce = (await headers()).get('x-nonce') ?? undefined
+
   return (
     <html lang="en">
       <head>
-        <Script
+        <script
           id="organization-schema"
           src="/org-schema.jsonld"
           type="application/ld+json"
-          strategy="beforeInteractive"
+          nonce={nonce}
         />
       </head>
       <body>
         <AuthProvider>
           {children}
         </AuthProvider>
+        <ServiceWorkerRegistration />
       </body>
     </html>
   )
