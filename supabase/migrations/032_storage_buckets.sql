@@ -14,9 +14,12 @@ on conflict (id) do nothing;
 
 -- =========================================================================
 -- 2. Helper: resolve authenticated user's company_id from profiles
+-- NOTE: Created in public schema (not storage) because managed Supabase
+-- does not allow CREATE FUNCTION in the storage schema (42501 permission denied).
+-- All storage policies reference public.auth_company_id() accordingly.
 -- =========================================================================
 
-create or replace function storage.auth_company_id()
+create or replace function public.auth_company_id()
 returns uuid
 language sql stable security definer
 as $$
@@ -37,7 +40,7 @@ on storage.objects for insert
 to authenticated
 with check (
   bucket_id = 'driver-docs'
-  and (storage.foldername(name))[1]::uuid = storage.auth_company_id()
+  and (storage.foldername(name))[1]::uuid = public.auth_company_id()
   and (
     select role from profiles where user_id = auth.uid() limit 1
   ) in ('owner', 'admin', 'company')
@@ -49,7 +52,7 @@ on storage.objects for select
 to authenticated
 using (
   bucket_id = 'driver-docs'
-  and (storage.foldername(name))[1]::uuid = storage.auth_company_id()
+  and (storage.foldername(name))[1]::uuid = public.auth_company_id()
   and (
     select role from profiles where user_id = auth.uid() limit 1
   ) in ('owner', 'admin', 'company')
@@ -72,7 +75,7 @@ on storage.objects for delete
 to authenticated
 using (
   bucket_id = 'driver-docs'
-  and (storage.foldername(name))[1]::uuid = storage.auth_company_id()
+  and (storage.foldername(name))[1]::uuid = public.auth_company_id()
   and (
     select role from profiles where user_id = auth.uid() limit 1
   ) in ('owner', 'admin', 'company')
@@ -88,7 +91,7 @@ on storage.objects for insert
 to authenticated
 with check (
   bucket_id = 'vehicle-docs'
-  and (storage.foldername(name))[1]::uuid = storage.auth_company_id()
+  and (storage.foldername(name))[1]::uuid = public.auth_company_id()
   and (
     select role from profiles where user_id = auth.uid() limit 1
   ) in ('owner', 'admin', 'company')
@@ -99,7 +102,7 @@ on storage.objects for select
 to authenticated
 using (
   bucket_id = 'vehicle-docs'
-  and (storage.foldername(name))[1]::uuid = storage.auth_company_id()
+  and (storage.foldername(name))[1]::uuid = public.auth_company_id()
   and (
     select role from profiles where user_id = auth.uid() limit 1
   ) in ('owner', 'admin', 'company')
@@ -110,7 +113,7 @@ on storage.objects for delete
 to authenticated
 using (
   bucket_id = 'vehicle-docs'
-  and (storage.foldername(name))[1]::uuid = storage.auth_company_id()
+  and (storage.foldername(name))[1]::uuid = public.auth_company_id()
   and (
     select role from profiles where user_id = auth.uid() limit 1
   ) in ('owner', 'admin', 'company')
@@ -127,12 +130,12 @@ on storage.objects for insert
 to authenticated
 with check (
   bucket_id = 'pod-photos'
-  and (storage.foldername(name))[1]::uuid = storage.auth_company_id()
+  and (storage.foldername(name))[1]::uuid = public.auth_company_id()
   and exists (
     select 1 from drivers
     where user_id = auth.uid()
     and app_access = true
-    and company_id::uuid = storage.auth_company_id()
+    and company_id::uuid = public.auth_company_id()
   )
 );
 
@@ -142,7 +145,7 @@ on storage.objects for select
 to authenticated
 using (
   bucket_id = 'pod-photos'
-  and (storage.foldername(name))[1]::uuid = storage.auth_company_id()
+  and (storage.foldername(name))[1]::uuid = public.auth_company_id()
   and (
     select role from profiles where user_id = auth.uid() limit 1
   ) in ('owner', 'admin', 'company')
@@ -154,11 +157,11 @@ on storage.objects for select
 to authenticated
 using (
   bucket_id = 'pod-photos'
-  and (storage.foldername(name))[1]::uuid = storage.auth_company_id()
+  and (storage.foldername(name))[1]::uuid = public.auth_company_id()
   and exists (
     select 1 from drivers
     where user_id = auth.uid()
     and app_access = true
-    and company_id::uuid = storage.auth_company_id()
+    and company_id::uuid = public.auth_company_id()
   )
 );
