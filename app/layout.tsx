@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import Script from 'next/script'
+import { headers } from 'next/headers'
 import './globals.css'
 import { AuthProvider } from './components/AuthContext'
 import { COMPANY_CONFIG } from './config/company'
@@ -75,14 +75,16 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const nonce = headers().get('x-nonce') ?? undefined
+
   return (
     <html lang="en">
       <head>
-        <Script
+        <script
           id="organization-schema"
           src="/org-schema.jsonld"
           type="application/ld+json"
-          strategy="beforeInteractive"
+          nonce={nonce}
         />
       </head>
       <body>
