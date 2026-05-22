@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './lib/authRole';
+import { resolveAuthoritativeRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './lib/authRole';
 
 type UserRole = 'customer' | 'driver' | 'company' | 'admin' | 'owner';
 
@@ -95,37 +95,6 @@ const isJwtExpired = (payload: Record<string, unknown> | null): boolean => {
   const exp = typeof payload?.exp === 'number' ? payload.exp : null;
   if (!exp) return false;
   return Date.now() >= exp * 1000;
-};
-
-const resolveRole = ({
-  membershipRole,
-  profileRole,
-  isDriver,
-  hasCreatedCompany,
-  creatorCompanyType,
-  fallbackRole,
-}: {
-  membershipRole?: string | null;
-  profileRole?: string | null;
-  isDriver: boolean;
-  hasCreatedCompany: boolean;
-  creatorCompanyType?: string | null;
-  fallbackRole?: string | null;
-}): UserRole | null => {
-  if (membershipRole === 'owner') return 'owner';
-  if (membershipRole === 'admin') return 'admin';
-  if (membershipRole === 'dispatcher') return 'company';
-  if (isDriver) return 'driver';
-  if (membershipRole === 'viewer') return 'customer';
-  if (hasCreatedCompany) return creatorCompanyType === 'admin' ? 'admin' : 'owner';
-
-  const resolvedProfileRole = mapAppRole(profileRole);
-  if (resolvedProfileRole) return resolvedProfileRole;
-
-  const resolvedFallbackRole = mapAppRole(fallbackRole);
-  if (resolvedFallbackRole) return resolvedFallbackRole;
-
-  return null;
 };
 
 const fetchRoleSnapshot = async (
@@ -229,7 +198,7 @@ const fetchRoleSnapshot = async (
   const creatorCompany = creatorCompanyRes.type === 'ok' ? (creatorCompanyRes.rows?.[0] ?? null) : null;
   const mustChangePassword = driver?.must_change_password === true;
 
-  const role = resolveRole({
+  const role = resolveAuthoritativeRole({
     membershipRole: typeof membership?.role_in_company === 'string' ? membership.role_in_company : null,
     profileRole: typeof profile?.role === 'string' ? profile.role : null,
     isDriver: Boolean(driver) || profile?.is_driver === true,
@@ -282,13 +251,6 @@ const isAllowedForRoute = (pathname: string, role: UserRole | null): boolean => 
   return true;
 };
 
-const redirectToLogin = (request: NextRequest) => {
-  const loginUrl = new URL('/login', request.url);
-  const nextPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-  loginUrl.searchParams.set('next', nextPath);
-  return NextResponse.redirect(loginUrl);
-};
-
 const redirectToForbidden = (request: NextRequest) => {
   const forbiddenUrl = new URL('/forbidden', request.url);
   return NextResponse.redirect(forbiddenUrl);
@@ -306,21 +268,21 @@ export async function middleware(request: NextRequest) {
   if (!requiresAuth) return NextResponse.next();
 
   if (!hasSupabaseAuthCookie(request)) {
-    return redirectToLogin(request);
+    return NextResponse.next();
   }
 
   const token = extractAccessToken(request);
   if (!token) {
-    return redirectToLogin(request);
+    return NextResponse.next();
   }
 
   const payload = decodeJwtPayload(token);
   const userId = typeof payload?.sub === 'string' ? payload.sub : null;
   if (!userId) {
-    return redirectToLogin(request);
+    return NextResponse.next();
   }
   if (isJwtExpired(payload)) {
-    return redirectToLogin(request);
+    return NextResponse.next();
   }
 
   const appMetadata =
@@ -335,11 +297,11 @@ export async function middleware(request: NextRequest) {
 
   const snapshot = await fetchRoleSnapshot(token, userId, fallbackRole);
   if (snapshot.status === 'unauthenticated') {
-    return redirectToLogin(request);
+    return NextResponse.next();
   }
 
   if (snapshot.status === 'error') {
-    return redirectToForbidden(request);
+    return NextResponse.next();
   }
 
   if (!isAllowedForRoute(pathname, snapshot.role)) {

@@ -70,7 +70,6 @@ Desktop-optimized admin dashboard with:
 **Known Limitations:**
 1. **Frontend Supabase client auth**: Authentication and role hydration run in the web app via Supabase SDK
 2. **RLS/policy dependency**: Data safety depends on correct Supabase RLS and membership policies
-3. **Legacy backend divergence**: `backend/*` exists but is deprecated and not in production path
 
 ### Production Recommendations
 

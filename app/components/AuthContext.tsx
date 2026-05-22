@@ -85,7 +85,10 @@ const authFailureReasonToMessage = (
 
 interface AuthContextType {
   user: ResolvedAuthUser | null;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<{ success: boolean; error?: string; route?: ReturnType<typeof getPostLoginRoute> }>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
@@ -197,7 +200,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [hydrateUser, isPasswordSetupContext, resetAuthState, setPasswordSetupSessionState]);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<{ success: boolean; error?: string; route?: ReturnType<typeof getPostLoginRoute> }> => {
     try {
       if (!isSupabaseConfigured) {
         return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
@@ -232,8 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const route = getPostLoginRoute(result.user);
       console.debug('[XDrive Auth] redirect decision', { role: result.user.role, route });
-      router.push(route);
-      return { success: true };
+      return { success: true, route };
     } catch (error) {
       console.error('Login error:', error);
       if (isServiceUnavailableError(error)) {
