@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Quote, VehicleType, CargoType, Company } from '../../../lib/types/database';
@@ -18,11 +19,13 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 
 export default function QuotesPage() {
   const { user, hasSupabaseSession } = useAuth();
+  const router = useRouter();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [companies, setCompanies] = useState<Pick<Company, 'id' | 'name'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [convertingId, setConvertingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     company_id: '', customer_name: '', customer_email: '', customer_phone: '',
     pickup_location: '', delivery_location: '',
@@ -99,6 +102,56 @@ export default function QuotesPage() {
     loadQuotes();
   };
 
+  const handleUpdateStatus = async (quoteId: string, status: string) => {
+    if (!isSupabaseConfigured || !companyId) return;
+    const { error } = await supabase
+      .from('quotes')
+      .update({ status })
+      .eq('id', quoteId)
+      .eq('company_id', companyId);
+    if (!error) loadQuotes();
+  };
+
+  const handleConvertToJob = async (quote: Quote) => {
+    if (!companyId || !isSupabaseConfigured || !hasSupabaseSession) return;
+    setConvertingId(quote.id);
+    try {
+      const { data: jobData, error: jobError } = await supabase
+        .from('jobs')
+        .insert([{
+          company_id: companyId,
+          created_by: user?.id ?? null,
+          status: 'posted',
+          client_name: quote.customer_name,
+          client_email: quote.customer_email ?? null,
+          client_phone: quote.customer_phone ?? null,
+          load_details: quote.customer_name,
+          pickup_location: quote.pickup_location ?? null,
+          delivery_location: quote.delivery_location ?? null,
+          vehicle_type: quote.vehicle_type ?? null,
+          cargo_type: quote.cargo_type ?? null,
+        }])
+        .select('id')
+        .single();
+      if (jobError) {
+        console.error('Failed to create job from quote:', jobError.message);
+        return;
+      }
+      // Mark quote as accepted
+      await supabase
+        .from('quotes')
+        .update({ status: 'accepted' })
+        .eq('id', quote.id)
+        .eq('company_id', companyId);
+      loadQuotes();
+      if (jobData?.id) {
+        router.push(`/admin/jobs/${jobData.id}`);
+      }
+    } finally {
+      setConvertingId(null);
+    }
+  };
+
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
   const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
 
@@ -134,7 +187,7 @@ export default function QuotesPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                    {['Customer', 'Pickup', 'Delivery', 'Vehicle', 'Amount', 'Status', 'Created'].map(h => (
+                    {['Customer', 'Pickup', 'Delivery', 'Vehicle', 'Amount', 'Status', 'Created', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                     ))}
                   </tr>
@@ -151,6 +204,43 @@ export default function QuotesPage() {
                         <td style={{ padding: '1rem', fontWeight: '700', color: '#1f2937' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
                         <td style={{ padding: '1rem' }}><span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{q.status}</span></td>
                         <td style={{ padding: '1rem', color: '#6b7280' }}>{new Date(q.created_at).toLocaleDateString()}</td>
+                        <td style={{ padding: '1rem' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {q.status === 'draft' && (
+                              <button
+                                onClick={() => handleUpdateStatus(q.id, 'sent')}
+                                style={{ padding: '0.35rem 0.75rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                              >
+                                Mark Sent
+                              </button>
+                            )}
+                            {(q.status === 'draft' || q.status === 'sent') && (
+                              <>
+                                <button
+                                  onClick={() => handleUpdateStatus(q.id, 'accepted')}
+                                  style={{ padding: '0.35rem 0.75rem', backgroundColor: '#d1fae5', color: '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  onClick={() => handleUpdateStatus(q.id, 'declined')}
+                                  style={{ padding: '0.35rem 0.75rem', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                                >
+                                  Decline
+                                </button>
+                              </>
+                            )}
+                            {q.status === 'accepted' && (
+                              <button
+                                onClick={() => handleConvertToJob(q)}
+                                disabled={convertingId === q.id}
+                                style={{ padding: '0.35rem 0.75rem', backgroundColor: '#0A2239', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: convertingId === q.id ? 'not-allowed' : 'pointer', opacity: convertingId === q.id ? 0.7 : 1 }}
+                              >
+                                {convertingId === q.id ? 'Converting…' : '→ Convert to Job'}
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
