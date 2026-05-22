@@ -32,7 +32,15 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (authLoading || !user) return;
-    router.replace(safeNextPath ?? getPostLoginRoute(user));
+    const canonicalRoute = getPostLoginRoute(user);
+    const roleAllowsPath = (role: string, path: string) => {
+      if (path.startsWith('/admin') || path.startsWith('/m')) return role === 'owner' || role === 'admin' || role === 'company';
+      if (path.startsWith('/driver')) return role === 'driver';
+      if (path.startsWith('/customer')) return role === 'customer';
+      return true;
+    };
+    const destination = safeNextPath && roleAllowsPath(user.role, safeNextPath) ? safeNextPath : canonicalRoute;
+    router.replace(destination);
   }, [authLoading, user, router, safeNextPath]);
 
   const handleSubmit = async (e: FormEvent) => {
