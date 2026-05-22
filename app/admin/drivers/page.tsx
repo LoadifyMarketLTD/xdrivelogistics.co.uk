@@ -13,9 +13,13 @@ export default function DriversPage() {
   const [companies, setCompanies] = useState<Pick<Company, 'id' | 'name'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [formData, setFormData] = useState({ display_name: '', phone: '', email: '', company_id: '' });
+  const [editData, setEditData] = useState({ display_name: '', phone: '', status: 'active', app_access: true });
   const [error, setError] = useState('');
+  const [editError, setEditError] = useState('');
   const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{
     displayName: string;
     email: string;
@@ -121,6 +125,48 @@ export default function DriversPage() {
     }
   };
 
+  const openEditModal = (driver: Driver) => {
+    setEditingDriver(driver);
+    setEditData({
+      display_name: driver.display_name,
+      phone: driver.phone ?? '',
+      status: driver.status,
+      app_access: driver.app_access ?? false,
+    });
+    setEditError('');
+  };
+
+  const handleUpdate = async () => {
+    if (!editingDriver || !companyId || !isSupabaseConfigured) return;
+    if (!editData.display_name.trim()) { setEditError('Name is required'); return; }
+    setSaving(true);
+    const { error } = await supabase
+      .from('drivers')
+      .update({
+        display_name: editData.display_name.trim(),
+        phone: editData.phone.trim() || null,
+        status: editData.status,
+        app_access: editData.app_access,
+      })
+      .eq('id', editingDriver.id)
+      .eq('company_id', companyId);
+    setSaving(false);
+    if (error) { setEditError(error.message); return; }
+    setEditingDriver(null);
+    loadDrivers();
+  };
+
+  const handleToggleStatus = async (driver: Driver) => {
+    if (!companyId || !isSupabaseConfigured) return;
+    const newStatus = driver.status === 'active' ? 'inactive' : 'active';
+    await supabase
+      .from('drivers')
+      .update({ status: newStatus })
+      .eq('id', driver.id)
+      .eq('company_id', companyId);
+    loadDrivers();
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setError('');
@@ -163,7 +209,7 @@ export default function DriversPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                    {['Name', 'Email', 'Phone', 'Status', 'Created'].map(h => (
+                    {['Name', 'Email', 'Phone', 'Status', 'App Access', 'Created', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                     ))}
                   </tr>
@@ -174,8 +220,29 @@ export default function DriversPage() {
                       <td style={{ padding: '1rem', fontWeight: '600', color: '#1f2937' }}>{d.display_name}</td>
                       <td style={{ padding: '1rem', color: '#6b7280' }}>{d.email || '—'}</td>
                       <td style={{ padding: '1rem', color: '#6b7280' }}>{d.phone || '—'}</td>
-                      <td style={{ padding: '1rem' }}><span style={{ backgroundColor: d.status === 'active' ? '#d1fae5' : '#fee2e2', color: statusColor(d.status), padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{d.status}</span></td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{ backgroundColor: d.status === 'active' ? '#d1fae5' : '#fee2e2', color: statusColor(d.status), padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{d.status}</span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{ color: d.app_access ? '#1F7A3D' : '#9ca3af', fontWeight: '600', fontSize: '0.875rem' }}>{d.app_access ? '✓ Yes' : '✗ No'}</span>
+                      </td>
                       <td style={{ padding: '1rem', color: '#6b7280' }}>{new Date(d.created_at).toLocaleDateString()}</td>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            onClick={() => openEditModal(d)}
+                            style={{ padding: '0.35rem 0.75rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatus(d)}
+                            style={{ padding: '0.35rem 0.75rem', backgroundColor: d.status === 'active' ? '#fee2e2' : '#d1fae5', color: d.status === 'active' ? '#991b1b' : '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                          >
+                            {d.status === 'active' ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -184,6 +251,7 @@ export default function DriversPage() {
           </div>
         </div>
 
+        {/* Create Driver Modal */}
         {showModal && (
           <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
             <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '500px' }}>
@@ -228,6 +296,44 @@ export default function DriversPage() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Edit Driver Modal */}
+        {editingDriver && (
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '480px' }}>
+              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Edit Driver</h2>
+                <button onClick={() => setEditingDriver(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+              </div>
+              <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
+                {editError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{editError}</div>}
+                <div><label style={labelStyle}>Full Name *</label><input style={inputStyle} value={editData.display_name} onChange={e => setEditData({...editData, display_name: e.target.value})} /></div>
+                <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={editData.phone} onChange={e => setEditData({...editData, phone: e.target.value})} /></div>
+                <div>
+                  <label style={labelStyle}>Status</label>
+                  <select style={inputStyle} value={editData.status} onChange={e => setEditData({...editData, status: e.target.value})}>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <input
+                    type="checkbox"
+                    id="app_access"
+                    checked={editData.app_access}
+                    onChange={e => setEditData({...editData, app_access: e.target.checked})}
+                    style={{ width: '1.1rem', height: '1.1rem', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="app_access" style={{ fontSize: '0.9rem', fontWeight: '500', color: '#374151', cursor: 'pointer' }}>App Access (driver can log in to driver portal)</label>
+                </div>
+              </div>
+              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                <button onClick={() => setEditingDriver(null)} disabled={saving} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: saving ? 'not-allowed' : 'pointer' }}>Cancel</button>
+                <button onClick={handleUpdate} disabled={saving} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
+              </div>
             </div>
           </div>
         )}
