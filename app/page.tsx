@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './components/AuthContext';
 import { LandingPage } from './(marketing)/_components/LandingPage';
+import { getPostLoginRoute } from '../lib/authSession';
 
 const AUTH_TIMEOUT_MS = 5000;
 
@@ -20,15 +21,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      if (user.role === 'driver') {
-        router.push(user.mustChangePassword ? '/driver/change-password' : '/driver/jobs');
-      } else if (user.role === 'company' || user.role === 'admin' || user.role === 'owner') {
-        router.push('/admin');
-      } else if (user.role === 'customer') {
-        router.push('/customer');
-      } else {
-        router.push('/forbidden');
-      }
+      router.push(getPostLoginRoute(user));
     }
   }, [user, isLoading, router]);
 

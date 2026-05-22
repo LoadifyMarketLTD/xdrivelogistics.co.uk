@@ -282,13 +282,6 @@ const isAllowedForRoute = (pathname: string, role: UserRole | null): boolean => 
   return true;
 };
 
-const redirectToLogin = (request: NextRequest) => {
-  const loginUrl = new URL('/login', request.url);
-  const nextPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-  loginUrl.searchParams.set('next', nextPath);
-  return NextResponse.redirect(loginUrl);
-};
-
 const redirectToForbidden = (request: NextRequest) => {
   const forbiddenUrl = new URL('/forbidden', request.url);
   return NextResponse.redirect(forbiddenUrl);
@@ -306,21 +299,21 @@ export async function middleware(request: NextRequest) {
   if (!requiresAuth) return NextResponse.next();
 
   if (!hasSupabaseAuthCookie(request)) {
-    return redirectToLogin(request);
+    return NextResponse.next();
   }
 
   const token = extractAccessToken(request);
   if (!token) {
-    return redirectToLogin(request);
+    return NextResponse.next();
   }
 
   const payload = decodeJwtPayload(token);
   const userId = typeof payload?.sub === 'string' ? payload.sub : null;
   if (!userId) {
-    return redirectToLogin(request);
+    return NextResponse.next();
   }
   if (isJwtExpired(payload)) {
-    return redirectToLogin(request);
+    return NextResponse.next();
   }
 
   const appMetadata =
@@ -335,11 +328,11 @@ export async function middleware(request: NextRequest) {
 
   const snapshot = await fetchRoleSnapshot(token, userId, fallbackRole);
   if (snapshot.status === 'unauthenticated') {
-    return redirectToLogin(request);
+    return NextResponse.next();
   }
 
   if (snapshot.status === 'error') {
-    return redirectToForbidden(request);
+    return NextResponse.next();
   }
 
   if (!isAllowedForRoute(pathname, snapshot.role)) {
