@@ -42,13 +42,6 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - `/hooks` - Custom React hooks
 - `/lib` - Utility functions and shared code
 - `/public` - Static assets
-- `/backend` - **Deprecated legacy Express API** (not part of current production runtime)
-
-## Backend Status
-
-- Current production path is Next.js + Supabase (frontend direct Supabase access).
-- `backend/*` is retained only for temporary legacy reference/testing.
-- See `/backend/README_DEPRECATED.md` for guardrails and explicit opt-in behavior.
 
 ## Configuration
 
