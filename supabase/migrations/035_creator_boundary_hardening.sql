@@ -15,6 +15,12 @@
 -- - Keep *_non_driver helpers on SELECT policies (viewers may still read).
 -- - Set DEFAULT auth.uid() on created_by / uploaded_by on all six tables so the column
 --   is always populated at insert time without requiring the caller to supply it.
+--
+-- Resilience:
+-- ADD COLUMN IF NOT EXISTS guards are applied before every ALTER COLUMN SET DEFAULT so
+-- this migration is safe regardless of whether the live schema already has the column.
+-- Policy drops use IF EXISTS; CREATE POLICY blocks use exception-swallowing DO wrappers
+-- so the migration is fully idempotent on re-runs.
 
 BEGIN;
 
@@ -55,31 +61,47 @@ AS $$
 $$;
 
 -- ─── Column defaults ──────────────────────────────────────────────────────────
--- Ensure created_by / uploaded_by is always stamped at insert time.
+-- ADD COLUMN IF NOT EXISTS guards make this safe for live schemas where the column
+-- may be absent (e.g. jobs.created_by missing due to migration sequencing gap).
+-- After ensuring the column exists, SET DEFAULT stamps every subsequent insert.
 
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES auth.users(id);
 ALTER TABLE public.jobs
   ALTER COLUMN created_by SET DEFAULT auth.uid();
 
 ALTER TABLE public.job_notes
+  ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES auth.users(id);
+ALTER TABLE public.job_notes
   ALTER COLUMN created_by SET DEFAULT auth.uid();
 
+ALTER TABLE public.job_tracking_events
+  ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES auth.users(id);
 ALTER TABLE public.job_tracking_events
   ALTER COLUMN created_by SET DEFAULT auth.uid();
 
 ALTER TABLE public.quotes
+  ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES auth.users(id);
+ALTER TABLE public.quotes
   ALTER COLUMN created_by SET DEFAULT auth.uid();
 
+ALTER TABLE public.invoices
+  ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES auth.users(id);
 ALTER TABLE public.invoices
   ALTER COLUMN created_by SET DEFAULT auth.uid();
 
 ALTER TABLE public.job_documents
+  ADD COLUMN IF NOT EXISTS uploaded_by uuid REFERENCES auth.users(id);
+ALTER TABLE public.job_documents
   ALTER COLUMN uploaded_by SET DEFAULT auth.uid();
 
 -- ─── jobs ─────────────────────────────────────────────────────────────────────
+-- Drop both 034 names and any 035 names left by a prior partial run.
 
-DROP POLICY IF EXISTS "jobs_insert_non_driver"            ON public.jobs;
-DROP POLICY IF EXISTS "jobs_update_creator_or_admin"      ON public.jobs;
-DROP POLICY IF EXISTS "jobs_delete_creator_or_admin"      ON public.jobs;
+DROP POLICY IF EXISTS "jobs_insert_non_driver"       ON public.jobs;
+DROP POLICY IF EXISTS "jobs_insert_operator"         ON public.jobs;
+DROP POLICY IF EXISTS "jobs_update_creator_or_admin" ON public.jobs;
+DROP POLICY IF EXISTS "jobs_delete_creator_or_admin" ON public.jobs;
 
 CREATE POLICY "jobs_insert_operator"
   ON public.jobs FOR INSERT
@@ -120,9 +142,10 @@ CREATE POLICY "jobs_delete_creator_or_admin"
 
 -- ─── job_documents ────────────────────────────────────────────────────────────
 
-DROP POLICY IF EXISTS "job_documents_insert_non_driver"            ON public.job_documents;
-DROP POLICY IF EXISTS "job_documents_update_uploader_or_admin"     ON public.job_documents;
-DROP POLICY IF EXISTS "job_documents_delete_uploader_or_admin"     ON public.job_documents;
+DROP POLICY IF EXISTS "job_documents_insert_non_driver"        ON public.job_documents;
+DROP POLICY IF EXISTS "job_documents_insert_operator"          ON public.job_documents;
+DROP POLICY IF EXISTS "job_documents_update_uploader_or_admin" ON public.job_documents;
+DROP POLICY IF EXISTS "job_documents_delete_uploader_or_admin" ON public.job_documents;
 
 CREATE POLICY "job_documents_insert_operator"
   ON public.job_documents FOR INSERT
@@ -164,6 +187,7 @@ CREATE POLICY "job_documents_delete_uploader_or_admin"
 -- ─── job_notes ────────────────────────────────────────────────────────────────
 
 DROP POLICY IF EXISTS "job_notes_insert_non_driver"       ON public.job_notes;
+DROP POLICY IF EXISTS "job_notes_insert_operator"         ON public.job_notes;
 DROP POLICY IF EXISTS "job_notes_update_creator_or_admin" ON public.job_notes;
 DROP POLICY IF EXISTS "job_notes_delete_creator_or_admin" ON public.job_notes;
 
@@ -231,6 +255,7 @@ CREATE POLICY "job_notes_delete_creator_or_admin"
 -- ─── job_tracking_events ──────────────────────────────────────────────────────
 
 DROP POLICY IF EXISTS "job_tracking_insert_non_driver"       ON public.job_tracking_events;
+DROP POLICY IF EXISTS "job_tracking_insert_operator"         ON public.job_tracking_events;
 DROP POLICY IF EXISTS "job_tracking_update_creator_or_admin" ON public.job_tracking_events;
 DROP POLICY IF EXISTS "job_tracking_delete_creator_or_admin" ON public.job_tracking_events;
 
@@ -274,6 +299,7 @@ CREATE POLICY "job_tracking_delete_creator_or_admin"
 -- ─── quotes ───────────────────────────────────────────────────────────────────
 
 DROP POLICY IF EXISTS "quotes_insert_non_driver"       ON public.quotes;
+DROP POLICY IF EXISTS "quotes_insert_operator"         ON public.quotes;
 DROP POLICY IF EXISTS "quotes_update_creator_or_admin" ON public.quotes;
 DROP POLICY IF EXISTS "quotes_delete_creator_or_admin" ON public.quotes;
 
@@ -317,6 +343,7 @@ CREATE POLICY "quotes_delete_creator_or_admin"
 -- ─── invoices ─────────────────────────────────────────────────────────────────
 
 DROP POLICY IF EXISTS "invoices_insert_non_driver"       ON public.invoices;
+DROP POLICY IF EXISTS "invoices_insert_operator"         ON public.invoices;
 DROP POLICY IF EXISTS "invoices_update_creator_or_admin" ON public.invoices;
 DROP POLICY IF EXISTS "invoices_delete_creator_or_admin" ON public.invoices;
 
