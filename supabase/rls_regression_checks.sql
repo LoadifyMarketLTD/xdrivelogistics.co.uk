@@ -44,7 +44,7 @@ WHERE schemaname = 'public'
   )
   AND policyname LIKE ANY (ARRAY[
     '%_select_non_driver',
-    '%_insert_non_driver',
+    '%_insert_operator',
     '%_update_creator_or_admin',
     '%_delete_creator_or_admin'
   ]);
@@ -54,5 +54,41 @@ SELECT n.nspname AS schema_name, p.proname AS function_name
 FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public'
-  AND p.proname IN ('is_company_non_driver', 'is_company_admin', 'can_non_driver_access_job', 'can_admin_manage_job')
+  AND p.proname IN (
+    'is_company_non_driver',
+    'is_company_admin',
+    'is_company_operator',
+    'can_non_driver_access_job',
+    'can_operator_access_job',
+    'can_admin_manage_job'
+  )
+ORDER BY p.proname;
+
+-- 5) Ensure no broad FOR ALL policies remain on 035 blocker tables.
+SELECT schemaname, tablename, policyname, cmd
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename IN ('job_bids', 'driver_locations')
+  AND cmd = 'ALL'
+ORDER BY tablename, policyname;
+
+-- 6) Full policy matrix for 035 blocker tables.
+SELECT tablename, policyname, cmd, qual, with_check
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename IN ('job_bids', 'driver_locations')
+ORDER BY tablename, policyname;
+
+-- 7) Driver delete guard trigger + helper function should exist.
+SELECT tgname AS trigger_name
+FROM pg_trigger
+WHERE tgrelid = 'public.drivers'::regclass
+  AND NOT tgisinternal
+  AND tgname = 'trg_prevent_unsafe_driver_delete';
+
+SELECT n.nspname AS schema_name, p.proname AS function_name
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname IN ('is_current_driver', 'prevent_unsafe_driver_delete')
 ORDER BY p.proname;
