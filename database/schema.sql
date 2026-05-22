@@ -23,10 +23,12 @@ CREATE TABLE public.profiles (
   phone         text,
   email         text,
   role          text,
+  status        text        NOT NULL DEFAULT 'active',
   company_id    uuid,
   is_driver     boolean     DEFAULT false,
   created_at    timestamptz DEFAULT now(),
-  updated_at    timestamptz DEFAULT now()
+  updated_at    timestamptz DEFAULT now(),
+  CONSTRAINT profiles_role_canonical CHECK (role IS NULL OR role IN ('owner', 'admin', 'company', 'driver', 'customer'))
 );
 
 -- ── Companies ─────────────────────────────────────────
@@ -159,6 +161,7 @@ CREATE TABLE public.jobs (
   id                        uuid               PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id                uuid               NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   created_by                uuid               REFERENCES auth.users(id),
+  assigned_driver_id        uuid               REFERENCES public.drivers(id) ON DELETE SET NULL,
   driver_id                 uuid               REFERENCES public.drivers(id) ON DELETE SET NULL,
   vehicle_id                uuid               REFERENCES public.vehicles(id) ON DELETE SET NULL,
   status                    public.job_status  DEFAULT 'draft',
@@ -398,7 +401,7 @@ CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
 RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.company_memberships
-    WHERE company_id = cid AND user_id = auth.uid() AND status = 'active'
+    WHERE company_id = cid AND user_id = auth.uid() AND status <> 'suspended'
   );
 $$;
 
@@ -406,10 +409,138 @@ CREATE OR REPLACE FUNCTION public.is_company_admin(cid uuid)
 RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.company_memberships
-    WHERE company_id = cid AND user_id = auth.uid() AND status = 'active'
+    WHERE company_id = cid AND user_id = auth.uid() AND status <> 'suspended'
       AND role_in_company IN ('owner', 'admin')
   );
 $$;
+
+CREATE OR REPLACE FUNCTION public.get_or_create_company_for_user()
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_company_id uuid;
+  v_user_id    uuid := auth.uid();
+  v_user_email text;
+BEGIN
+  SELECT company_id INTO v_company_id
+  FROM public.company_memberships
+  WHERE user_id = v_user_id
+    AND status <> 'suspended'
+  LIMIT 1;
+  IF v_company_id IS NOT NULL THEN
+    RETURN v_company_id;
+  END IF;
+
+  SELECT id INTO v_company_id
+  FROM public.companies
+  WHERE created_by = v_user_id
+  LIMIT 1;
+  IF v_company_id IS NOT NULL THEN
+    INSERT INTO public.company_memberships (company_id, user_id, role_in_company, status)
+    VALUES (v_company_id, v_user_id, 'owner', 'active')
+    ON CONFLICT (company_id, user_id) DO UPDATE
+      SET status = 'active',
+          role_in_company = 'owner';
+    RETURN v_company_id;
+  END IF;
+
+  SELECT email INTO v_user_email FROM auth.users WHERE id = v_user_id;
+
+  INSERT INTO public.companies (name, email, created_by)
+  VALUES (COALESCE(v_user_email, 'My Company'), v_user_email, v_user_id)
+  RETURNING id INTO v_company_id;
+
+  INSERT INTO public.company_memberships (company_id, user_id, role_in_company, status)
+  VALUES (v_company_id, v_user_id, 'owner', 'active');
+
+  RETURN v_company_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_or_create_company_for_user() TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.handle_auth_user_profile_sync()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_raw_role  text;
+  v_role      text;
+  v_full_name text;
+  v_phone     text;
+  v_is_driver boolean;
+BEGIN
+  v_raw_role := LOWER(COALESCE(
+    NEW.raw_user_meta_data ->> 'role',
+    NEW.raw_user_meta_data ->> 'requested_role',
+    'customer'
+  ));
+
+  v_role := CASE v_raw_role
+    WHEN 'owner'          THEN 'owner'
+    WHEN 'superadmin'     THEN 'owner'
+    WHEN 'super_admin'    THEN 'owner'
+    WHEN 'platform_owner' THEN 'owner'
+    WHEN 'admin'          THEN 'admin'
+    WHEN 'company_admin'  THEN 'admin'
+    WHEN 'org_admin'      THEN 'admin'
+    WHEN 'platform_admin' THEN 'admin'
+    WHEN 'company'        THEN 'company'
+    WHEN 'dispatcher'     THEN 'company'
+    WHEN 'company_staff'  THEN 'company'
+    WHEN 'broker'         THEN 'company'
+    WHEN 'freight_broker' THEN 'company'
+    WHEN 'carrier'        THEN 'company'
+    WHEN 'driver'         THEN 'driver'
+    WHEN 'owner_driver'   THEN 'driver'
+    WHEN 'customer'       THEN 'customer'
+    WHEN 'shipper'        THEN 'customer'
+    WHEN 'client'         THEN 'customer'
+    WHEN 'viewer'         THEN 'customer'
+    ELSE 'customer'
+  END;
+
+  v_full_name := COALESCE(
+    NEW.raw_user_meta_data ->> 'full_name',
+    NEW.raw_user_meta_data ->> 'name'
+  );
+  v_phone := NEW.raw_user_meta_data ->> 'phone';
+  v_is_driver := v_role = 'driver';
+
+  INSERT INTO public.profiles (user_id, role, status, full_name, phone, is_driver, created_at, updated_at)
+  VALUES (
+    NEW.id,
+    v_role,
+    COALESCE(NEW.raw_user_meta_data ->> 'status', 'active'),
+    v_full_name,
+    v_phone,
+    v_is_driver,
+    NOW(),
+    NOW()
+  )
+  ON CONFLICT (user_id)
+  DO UPDATE
+    SET role       = COALESCE(EXCLUDED.role, public.profiles.role),
+        status     = COALESCE(EXCLUDED.status, public.profiles.status),
+        full_name  = COALESCE(EXCLUDED.full_name, public.profiles.full_name),
+        phone      = COALESCE(EXCLUDED.phone, public.profiles.phone),
+        is_driver  = EXCLUDED.is_driver,
+        updated_at = NOW();
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_profile_sync ON auth.users;
+CREATE TRIGGER on_auth_user_profile_sync
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_auth_user_profile_sync();
 
 CREATE OR REPLACE FUNCTION public.next_driver_temp_password_seq()
 RETURNS integer
@@ -426,6 +557,7 @@ GRANT EXECUTE ON FUNCTION public.next_driver_temp_password_seq() TO service_role
 -- ── RLS Policies ──────────────────────────────────────
 
 -- Profiles
+CREATE POLICY "profiles_insert_own"  ON public.profiles FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY "profiles_select_own"  ON public.profiles FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY "profiles_update_own"  ON public.profiles FOR UPDATE USING (user_id = auth.uid());
 
@@ -467,6 +599,32 @@ CREATE POLICY "vehicle_docs_all_admin" ON public.vehicle_documents FOR ALL
 
 -- Jobs
 CREATE POLICY "jobs_all_member" ON public.jobs FOR ALL USING (public.is_company_member(company_id));
+CREATE POLICY "jobs_select_assigned_driver" ON public.jobs FOR SELECT
+  USING (
+    assigned_driver_id = (
+      SELECT id
+      FROM public.drivers
+      WHERE user_id = auth.uid()
+      LIMIT 1
+    )
+  );
+CREATE POLICY "jobs_update_assigned_driver" ON public.jobs FOR UPDATE
+  USING (
+    assigned_driver_id = (
+      SELECT id
+      FROM public.drivers
+      WHERE user_id = auth.uid()
+      LIMIT 1
+    )
+  )
+  WITH CHECK (
+    assigned_driver_id = (
+      SELECT id
+      FROM public.drivers
+      WHERE user_id = auth.uid()
+      LIMIT 1
+    )
+  );
 
 -- Job bids
 CREATE POLICY "bids_all_member" ON public.job_bids FOR ALL
