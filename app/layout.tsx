@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 import './globals.css'
 import { AuthProvider } from './components/AuthContext'
 import { COMPANY_CONFIG } from './config/company'
@@ -38,6 +39,7 @@ export const metadata: Metadata = {
     canonical: 'https://www.xdrivelogistics.co.uk',
   },
   icons: {
+    icon: ['/favicon.ico', '/favicon.svg'],
     apple: '/apple-touch-icon.png',
   },
   openGraph: {
@@ -74,8 +76,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* JSON-LD structured data — loaded from static file to avoid unsafe-inline */}
-        <script src="/org-schema.jsonld" type="application/ld+json" />
+        <Script
+          id="organization-schema"
+          src="/org-schema.jsonld"
+          type="application/ld+json"
+          strategy="beforeInteractive"
+        />
       </head>
       <body>
         <AuthProvider>
