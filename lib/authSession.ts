@@ -75,7 +75,7 @@ export const resolveAuthenticatedUser = async (
   const membershipLookupQuery =
     `company_memberships.select(company_id,role_in_company,status).eq(user_id,${sessionUser.id}).neq(status,suspended).order(created_at desc).limit(1).maybeSingle()`;
   const driverLookupQuery =
-    `drivers.select(id,company_id,user_id).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
+    `drivers.select(id,company_id,user_id,must_change_password).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
   const creatorCompanyLookupQuery =
     `companies.select(id,company_type).eq(created_by,${sessionUser.id}).limit(1).maybeSingle()`;
   const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
@@ -94,7 +94,7 @@ export const resolveAuthenticatedUser = async (
       .maybeSingle(),
     supabase
       .from('drivers')
-      .select('id, company_id, user_id')
+      .select('id, company_id, user_id, must_change_password')
       .eq('user_id', sessionUser.id)
       .limit(1)
       .maybeSingle(),
@@ -148,13 +148,13 @@ export const resolveAuthenticatedUser = async (
     : (membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null);
   const driver = driverRes.error
     ? null
-    : (driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id'> | null);
+    : (driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password'> | null);
   const creatorCompany = creatorCompanyRes.error
     ? null
     : (creatorCompanyRes.data as { id: string; company_type: string | null } | null);
 
   const driverId = driver?.id ?? null;
-  const mustChangePassword = false;
+  const mustChangePassword = driver?.must_change_password === true;
 
   console.debug('[XDrive Auth] profile lookup', {
     userId: sessionUser.id,
