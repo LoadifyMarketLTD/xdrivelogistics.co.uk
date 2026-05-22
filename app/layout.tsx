@@ -75,7 +75,6 @@ export default function RootLayout({
     <html lang="en">
       <head>
         {/* JSON-LD structured data — loaded from static file to avoid unsafe-inline */}
-        {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document */}
         <script src="/org-schema.jsonld" type="application/ld+json" />
       </head>
       <body>
