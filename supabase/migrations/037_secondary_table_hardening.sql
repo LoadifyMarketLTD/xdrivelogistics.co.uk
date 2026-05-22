@@ -17,8 +17,14 @@ BEGIN;
 
 -- ─── loads ────────────────────────────────────────────────────────────────────
 
-DROP POLICY IF EXISTS "loads_all_member" ON public.loads;
+DROP POLICY IF EXISTS "loads_all_member"          ON public.loads;
+DROP POLICY IF EXISTS "loads_select_non_driver"   ON public.loads;
+DROP POLICY IF EXISTS "loads_insert_operator"     ON public.loads;
+DROP POLICY IF EXISTS "loads_update_creator_or_admin" ON public.loads;
+DROP POLICY IF EXISTS "loads_delete_creator_or_admin" ON public.loads;
 
+ALTER TABLE public.loads
+  ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES auth.users(id);
 ALTER TABLE public.loads
   ALTER COLUMN created_by SET DEFAULT auth.uid();
 
@@ -66,7 +72,11 @@ CREATE POLICY "loads_delete_creator_or_admin"
 -- ─── payments ─────────────────────────────────────────────────────────────────
 -- No creator column — write operations are admin-only.
 
-DROP POLICY IF EXISTS "payments_all_member" ON public.payments;
+DROP POLICY IF EXISTS "payments_all_member"     ON public.payments;
+DROP POLICY IF EXISTS "payments_select_non_driver" ON public.payments;
+DROP POLICY IF EXISTS "payments_insert_admin"   ON public.payments;
+DROP POLICY IF EXISTS "payments_update_admin"   ON public.payments;
+DROP POLICY IF EXISTS "payments_delete_admin"   ON public.payments;
 
 CREATE POLICY "payments_select_non_driver"
   ON public.payments FOR SELECT
@@ -88,7 +98,11 @@ CREATE POLICY "payments_delete_admin"
 -- ─── subscriptions ────────────────────────────────────────────────────────────
 -- No creator column — write operations are admin-only.
 
-DROP POLICY IF EXISTS "subscriptions_all_member" ON public.subscriptions;
+DROP POLICY IF EXISTS "subscriptions_all_member"        ON public.subscriptions;
+DROP POLICY IF EXISTS "subscriptions_select_non_driver" ON public.subscriptions;
+DROP POLICY IF EXISTS "subscriptions_insert_admin"      ON public.subscriptions;
+DROP POLICY IF EXISTS "subscriptions_update_admin"      ON public.subscriptions;
+DROP POLICY IF EXISTS "subscriptions_delete_admin"      ON public.subscriptions;
 
 CREATE POLICY "subscriptions_select_non_driver"
   ON public.subscriptions FOR SELECT
@@ -109,8 +123,14 @@ CREATE POLICY "subscriptions_delete_admin"
 
 -- ─── documents ────────────────────────────────────────────────────────────────
 
-DROP POLICY IF EXISTS "documents_all_member" ON public.documents;
+DROP POLICY IF EXISTS "documents_all_member"          ON public.documents;
+DROP POLICY IF EXISTS "documents_select_non_driver"   ON public.documents;
+DROP POLICY IF EXISTS "documents_insert_operator"     ON public.documents;
+DROP POLICY IF EXISTS "documents_update_creator_or_admin" ON public.documents;
+DROP POLICY IF EXISTS "documents_delete_creator_or_admin" ON public.documents;
 
+ALTER TABLE public.documents
+  ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES auth.users(id);
 ALTER TABLE public.documents
   ALTER COLUMN created_by SET DEFAULT auth.uid();
 
@@ -158,7 +178,11 @@ CREATE POLICY "documents_delete_creator_or_admin"
 -- ─── reviews ──────────────────────────────────────────────────────────────────
 -- reviewer_user_id is the creator equivalent; any company member may read.
 
-DROP POLICY IF EXISTS "reviews_all_member" ON public.reviews;
+DROP POLICY IF EXISTS "reviews_all_member"               ON public.reviews;
+DROP POLICY IF EXISTS "reviews_select_member"            ON public.reviews;
+DROP POLICY IF EXISTS "reviews_insert_non_driver"        ON public.reviews;
+DROP POLICY IF EXISTS "reviews_update_reviewer_or_admin" ON public.reviews;
+DROP POLICY IF EXISTS "reviews_delete_reviewer_or_admin" ON public.reviews;
 
 CREATE POLICY "reviews_select_member"
   ON public.reviews FOR SELECT
@@ -202,7 +226,11 @@ CREATE POLICY "reviews_delete_reviewer_or_admin"
 -- Personal rows: users access only their own notifications.
 -- Admins may INSERT notifications for company users.
 
-DROP POLICY IF EXISTS "notifications_all_member" ON public.notifications;
+DROP POLICY IF EXISTS "notifications_all_member"    ON public.notifications;
+DROP POLICY IF EXISTS "notifications_select_own"    ON public.notifications;
+DROP POLICY IF EXISTS "notifications_insert_admin"  ON public.notifications;
+DROP POLICY IF EXISTS "notifications_update_own"    ON public.notifications;
+DROP POLICY IF EXISTS "notifications_delete_own"    ON public.notifications;
 
 CREATE POLICY "notifications_select_own"
   ON public.notifications FOR SELECT
@@ -228,7 +256,10 @@ CREATE POLICY "notifications_delete_own"
 -- Participant SELECT; sender INSERT; sender/admin DELETE.
 -- No UPDATE: messages are immutable once sent.
 
-DROP POLICY IF EXISTS "messages_all_member" ON public.messages;
+DROP POLICY IF EXISTS "messages_all_member"           ON public.messages;
+DROP POLICY IF EXISTS "messages_select_participant"   ON public.messages;
+DROP POLICY IF EXISTS "messages_insert_sender"        ON public.messages;
+DROP POLICY IF EXISTS "messages_delete_sender_or_admin" ON public.messages;
 
 CREATE POLICY "messages_select_participant"
   ON public.messages FOR SELECT
