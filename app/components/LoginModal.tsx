@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useAuth } from './AuthContext';
 
@@ -17,6 +18,7 @@ const getErrorMessage = (err: unknown, fallback: string) => {
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const { login, resetPassword } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isResetMode, setIsResetMode] = useState(false);
@@ -36,9 +38,10 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         throw new Error(result.error ?? 'Failed to login');
       }
       setSuccessMessage('Successfully logged in!');
-      setTimeout(() => {
-        onClose();
-      }, 1000);
+      onClose();
+      if (result.route) {
+        router.push(result.route);
+      }
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to login'));
     } finally {

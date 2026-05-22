@@ -428,3 +428,17 @@ ul li::before {
 html {
   scroll-behavior: smooth;
 }
+
+/* Print styles — hide admin chrome, show only invoice */
+@media print {
+  body * { visibility: hidden; }
+  #invoice-print-area,
+  #invoice-print-area * { visibility: visible; }
+  #invoice-print-area {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+  }
+}
+
