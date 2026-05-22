@@ -3,6 +3,7 @@ import Script from 'next/script'
 import './globals.css'
 import { AuthProvider } from './components/AuthContext'
 import { COMPANY_CONFIG } from './config/company'
+import ServiceWorkerRegistration from './components/ServiceWorkerRegistration'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -13,7 +14,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'XDrive Logistics | Transport Platform UK | Loads for Drivers & Businesses',
+    default: 'XDrive Logistics | Courier & Delivery Management Platform',
     template: '%s | XDrive Logistics',
   },
   description: 'XDrive Logistics connects self-employed courier drivers with businesses across the UK and Europe. Find loads, manage deliveries, and grow your transport business. 24/7 reliable freight services.',
@@ -38,6 +39,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.xdrivelogistics.co.uk',
   },
+  manifest: '/manifest.webmanifest',
   icons: {
     icon: ['/favicon.ico', '/favicon.svg'],
     apple: '/apple-touch-icon.png',
@@ -87,6 +89,7 @@ export default function RootLayout({
         <AuthProvider>
           {children}
         </AuthProvider>
+        <ServiceWorkerRegistration />
       </body>
     </html>
   )
