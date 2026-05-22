@@ -46,7 +46,6 @@ export default function LoginPage() {
         setError(result.error || 'Login failed');
         return;
       }
-      router.replace(safeNextPath ?? result.route ?? '/admin');
     } finally {
       setIsLoading(false);
     }

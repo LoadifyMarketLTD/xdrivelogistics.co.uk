@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './lib/authRole';
+import { resolveAuthoritativeRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './lib/authRole';
 
 type UserRole = 'customer' | 'driver' | 'company' | 'admin' | 'owner';
 
@@ -95,37 +95,6 @@ const isJwtExpired = (payload: Record<string, unknown> | null): boolean => {
   const exp = typeof payload?.exp === 'number' ? payload.exp : null;
   if (!exp) return false;
   return Date.now() >= exp * 1000;
-};
-
-const resolveRole = ({
-  membershipRole,
-  profileRole,
-  isDriver,
-  hasCreatedCompany,
-  creatorCompanyType,
-  fallbackRole,
-}: {
-  membershipRole?: string | null;
-  profileRole?: string | null;
-  isDriver: boolean;
-  hasCreatedCompany: boolean;
-  creatorCompanyType?: string | null;
-  fallbackRole?: string | null;
-}): UserRole | null => {
-  if (membershipRole === 'owner') return 'owner';
-  if (membershipRole === 'admin') return 'admin';
-  if (membershipRole === 'dispatcher') return 'company';
-  if (isDriver) return 'driver';
-  if (membershipRole === 'viewer') return 'customer';
-  if (hasCreatedCompany) return creatorCompanyType === 'admin' ? 'admin' : 'owner';
-
-  const resolvedProfileRole = mapAppRole(profileRole);
-  if (resolvedProfileRole) return resolvedProfileRole;
-
-  const resolvedFallbackRole = mapAppRole(fallbackRole);
-  if (resolvedFallbackRole) return resolvedFallbackRole;
-
-  return null;
 };
 
 const fetchRoleSnapshot = async (
@@ -229,7 +198,7 @@ const fetchRoleSnapshot = async (
   const creatorCompany = creatorCompanyRes.type === 'ok' ? (creatorCompanyRes.rows?.[0] ?? null) : null;
   const mustChangePassword = driver?.must_change_password === true;
 
-  const role = resolveRole({
+  const role = resolveAuthoritativeRole({
     membershipRole: typeof membership?.role_in_company === 'string' ? membership.role_in_company : null,
     profileRole: typeof profile?.role === 'string' ? profile.role : null,
     isDriver: Boolean(driver) || profile?.is_driver === true,
