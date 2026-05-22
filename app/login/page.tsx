@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { buildPathWithAuthParams, getBrowserAuthSignals, isRecoveryAuthFlow, RESET_PASSWORD_PATH } from '../../lib/authFlow';
+import { getPostLoginRoute } from '../../lib/authSession';
 import { COMPANY_CONFIG } from '../config/company';
 
 export default function LoginPage() {
@@ -20,6 +21,8 @@ export default function LoginPage() {
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const { login, resetPassword, user, isLoading: authLoading } = useAuth();
+  const nextPath = searchParams.get('next');
+  const safeNextPath = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : null;
 
   useEffect(() => {
     const signals = getBrowserAuthSignals();
@@ -29,16 +32,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (authLoading || !user) return;
-    if (user.role === 'driver') {
-      router.replace(user.mustChangePassword ? '/driver/change-password' : '/driver/jobs');
-    } else if (user.role === 'customer') {
-      router.replace('/customer');
-    } else if (user.role === 'company' || user.role === 'admin' || user.role === 'owner') {
-      router.replace('/admin');
-    } else {
-      router.replace('/forbidden');
-    }
-  }, [authLoading, user, router]);
+    router.replace(safeNextPath ?? getPostLoginRoute(user));
+  }, [authLoading, user, router, safeNextPath]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -49,7 +44,9 @@ export default function LoginPage() {
       const result = await login(email, password);
       if (!result.success) {
         setError(result.error || 'Login failed');
+        return;
       }
+      router.replace(safeNextPath ?? result.route ?? '/admin');
     } finally {
       setIsLoading(false);
     }
