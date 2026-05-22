@@ -256,6 +256,11 @@ const redirectToForbidden = (request: NextRequest) => {
   return NextResponse.redirect(forbiddenUrl);
 };
 
+const redirectToLogin = (request: NextRequest) => {
+  const loginUrl = new URL('/login', request.url);
+  return NextResponse.redirect(loginUrl);
+};
+
 const redirectToDriverPasswordChange = (request: NextRequest) => {
   const changeUrl = new URL('/driver/change-password', request.url);
   return NextResponse.redirect(changeUrl);
@@ -279,10 +284,10 @@ export async function middleware(request: NextRequest) {
   const payload = decodeJwtPayload(token);
   const userId = typeof payload?.sub === 'string' ? payload.sub : null;
   if (!userId) {
-    return NextResponse.next();
+    return redirectToLogin(request);
   }
   if (isJwtExpired(payload)) {
-    return NextResponse.next();
+    return redirectToLogin(request);
   }
 
   const appMetadata =
@@ -297,7 +302,7 @@ export async function middleware(request: NextRequest) {
 
   const snapshot = await fetchRoleSnapshot(token, userId, fallbackRole);
   if (snapshot.status === 'unauthenticated') {
-    return NextResponse.next();
+    return redirectToLogin(request);
   }
 
   if (snapshot.status === 'error') {

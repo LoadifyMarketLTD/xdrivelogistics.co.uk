@@ -4,7 +4,8 @@ This is a Next.js project for XDrive Logistics Ltd, built with modern web techno
 
 ## Tech Stack
 
-- **Next.js 16** - React framework with App Router
+- **Next.js 15** - React framework with App Router
+- **React 19** - UI library
 - **TypeScript** - Type-safe JavaScript
 - **Tailwind CSS** - Utility-first CSS framework
 - **Radix UI** - Accessible component primitives
@@ -33,14 +34,15 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - `npm run build` - Build the application for production
 - `npm run start` - Start the production server
 - `npm run lint` - Run ESLint to check code quality
+- `npm run typecheck` - Run TypeScript checks without emitting files
 
 ## Project Structure
 
 - `/app` - Next.js App Router pages and layouts
-- `/components` - Reusable React components
-- `/sections` - Page-specific sections
-- `/hooks` - Custom React hooks
 - `/lib` - Utility functions and shared code
+- `/database` - Consolidated SQL schema reference
+- `/supabase/migrations` - Ordered Supabase migration history
+- `/middleware.ts` - Route protection middleware
 - `/public` - Static assets
 
 ## Configuration
