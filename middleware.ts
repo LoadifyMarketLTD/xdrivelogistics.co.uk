@@ -180,19 +180,15 @@ const fetchRoleSnapshot = async (
     fetchRows(`companies?select=id,company_type&created_by=eq.${userId}&limit=1`),
   ]);
 
-  // Any query returning 401/403 means the session token is invalid — redirect to login.
-  if ([profileRes, membershipRes, driverRes, creatorCompanyRes].some((result) => result.type === 'unauthenticated')) {
+  const queryResults = [profileRes, membershipRes, driverRes, creatorCompanyRes];
+  const profileLookupFailed = profileRes.type !== 'ok';
+
+  // If every lookup is unauthenticated the token is invalid — redirect to login.
+  if (queryResults.every((result) => result.type === 'unauthenticated')) {
     return { status: 'unauthenticated', role: null, companyId: null, mustChangePassword: false };
   }
 
-  // The profiles query is authoritative: a DB error there is a hard failure.
-  // Secondary tables (memberships, drivers, companies) degrade gracefully on schema-drift
-  // errors (e.g. missing columns from unapplied migrations) rather than blocking all logins.
-  if (profileRes.type !== 'ok') {
-    return { status: 'error', role: null, companyId: null, mustChangePassword: false };
-  }
-
-  const profile = profileRes.rows?.[0] ?? null;
+  const profile = profileRes.type === 'ok' ? (profileRes.rows?.[0] ?? null) : null;
   const membership = membershipRes.type === 'ok' ? (membershipRes.rows?.[0] ?? null) : null;
   const driver = driverRes.type === 'ok' ? (driverRes.rows?.[0] ?? null) : null;
   const creatorCompany = creatorCompanyRes.type === 'ok' ? (creatorCompanyRes.rows?.[0] ?? null) : null;
@@ -232,6 +228,9 @@ const fetchRoleSnapshot = async (
   }
 
   if (!role) {
+    if (profileLookupFailed) {
+      return { status: 'error', role: null, companyId, mustChangePassword: false };
+    }
     return { status: 'ok', role: null, companyId, mustChangePassword: false };
   }
 

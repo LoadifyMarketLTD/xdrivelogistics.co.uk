@@ -127,7 +127,6 @@ export const resolveAuthenticatedUser = async (
       membershipErr: membershipRes.error?.message,
       driverErr: driverRes.error?.message,
     });
-    return { user: null, reason: 'db_error', dbError: profileDbError };
   }
 
   if (membershipRes.error || driverRes.error || creatorCompanyRes.error) {
@@ -142,7 +141,9 @@ export const resolveAuthenticatedUser = async (
     });
   }
 
-  const profile = profileRes.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'> | null;
+  const profile = profileDbError
+    ? null
+    : (profileRes.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'> | null);
   const membership = membershipRes.error
     ? null
     : (membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null);
@@ -211,6 +212,10 @@ export const resolveAuthenticatedUser = async (
       return { user: null, reason: 'company_context_missing' };
     }
     return ok(sessionUser, resolvedRole, companyId, driverId, resolvedRole === 'driver' ? mustChangePassword : false);
+  }
+
+  if (profileDbError) {
+    return { user: null, reason: 'db_error', dbError: profileDbError };
   }
 
   // 6. No profile at all and no other resolution path
