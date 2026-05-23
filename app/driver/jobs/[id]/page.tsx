@@ -73,21 +73,9 @@ export default function DriverJobDetailPage() {
   }, [jobId, driverId]);
 
   useEffect(() => {
-    if (!user?.id || !isSupabaseConfigured) return;
-    (async () => {
-      const { data } = await supabase
-        .from('drivers')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('app_access', true)
-        .maybeSingle();
-      if (!data) {
-        router.replace('/forbidden');
-        return;
-      }
-      setDriverId(data.id as string);
-    })();
-  }, [router, user?.id]);
+    if (!user?.driverId) return;
+    setDriverId(user.driverId);
+  }, [user?.driverId]);
 
   useEffect(() => {
     if (!driverId) return;

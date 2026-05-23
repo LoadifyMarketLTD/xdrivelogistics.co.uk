@@ -56,23 +56,18 @@ export default function DriverJobsPage() {
   }, [searchParams, tab]);
 
   useEffect(() => {
-    if (!user?.id || !isSupabaseConfigured) return;
+    if (!user?.driverId) return;
+    setDriverId(user.driverId);
+    if (!isSupabaseConfigured) return;
     (async () => {
       const { data } = await supabase
         .from('drivers')
-        .select('id, display_name')
-        .eq('user_id', user.id)
-        .eq('app_access', true)
+        .select('display_name')
+        .eq('id', user.driverId!)
         .maybeSingle();
-
-      if (!data) {
-        router.replace('/forbidden');
-        return;
-      }
-      setDriverId(data.id as string);
-      setDriverName((data.display_name as string) ?? '');
+      if (data?.display_name) setDriverName(data.display_name as string);
     })();
-  }, [router, user?.id]);
+  }, [user?.driverId]);
 
   const loadJobs = useCallback(async () => {
     if (!driverId || !isSupabaseConfigured) {
