@@ -32,11 +32,11 @@ const nextConfig = {
           },
           {
             key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin'
+            value: 'strict-origin-when-cross-origin'
           },
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(self)'
+            value: 'camera=(), microphone=(), geolocation=()'
           },
           {
             key: 'Cross-Origin-Opener-Policy',

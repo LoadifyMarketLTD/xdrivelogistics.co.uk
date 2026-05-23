@@ -278,7 +278,7 @@ const buildCspHeader = (nonce: string) =>
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https://images.unsplash.com",
+    "img-src 'self' data: https://images.unsplash.com https://*.supabase.co",
     "font-src 'self'",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
     "form-action 'self'",
@@ -365,15 +365,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (snapshot.status === 'error') {
-    return withSecurityHeaders(
-      NextResponse.next({
-        request: {
-          headers: requestHeaders,
-        },
-      }),
-      nonce,
-      cspHeader
-    );
+    return withSecurityHeaders(redirectToLogin(request), nonce, cspHeader);
   }
 
   if (!isAllowedForRoute(pathname, snapshot.role)) {

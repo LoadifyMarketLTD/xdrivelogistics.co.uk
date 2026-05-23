@@ -120,17 +120,22 @@ export default function DocumentsPage() {
       setUploading(false);
       return;
     }
-    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
-    const publicUrl = urlData?.publicUrl ?? filePath;
+    const { data: urlData, error: signedError } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
+    if (signedError || !urlData?.signedUrl) {
+      setUploadError(`Failed to generate secure file URL: ${signedError?.message ?? 'unknown error'}`);
+      setUploading(false);
+      return;
+    }
+    const fileUrl = urlData.signedUrl;
     if (form.kind === 'driver') {
       const { error: dbError } = await supabase.from('driver_documents').insert({
-        driver_id: form.subjectId, doc_type: form.docType, file_path: publicUrl,
+        driver_id: form.subjectId, doc_type: form.docType, file_path: fileUrl,
         issued_date: form.issuedDate || null, expiry_date: form.expiryDate || null, status: 'pending',
       });
       if (dbError) { setUploadError(`Database error: ${dbError.message}`); setUploading(false); return; }
     } else {
       const { error: dbError } = await supabase.from('vehicle_documents').insert({
-        vehicle_id: form.subjectId, doc_type: form.docType, file_path: publicUrl,
+        vehicle_id: form.subjectId, doc_type: form.docType, file_path: fileUrl,
         issued_date: form.issuedDate || null, expiry_date: form.expiryDate || null, status: 'pending',
       });
       if (dbError) { setUploadError(`Database error: ${dbError.message}`); setUploading(false); return; }
