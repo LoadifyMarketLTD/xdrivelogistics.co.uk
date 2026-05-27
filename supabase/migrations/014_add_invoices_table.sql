@@ -135,6 +135,20 @@ $$;
 -- ── Unique constraint on invoice number per company ──────────
 -- Prevents duplicate invoice numbers at the database level as a
 -- safety net in addition to the advisory lock above.
-ALTER TABLE public.invoices
-  ADD CONSTRAINT IF NOT EXISTS invoices_company_invoice_number_unique
-  UNIQUE (company_id, invoice_number);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE c.conname = 'invoices_company_invoice_number_unique'
+      AND n.nspname = 'public'
+      AND t.relname = 'invoices'
+  ) THEN
+    ALTER TABLE public.invoices
+      ADD CONSTRAINT invoices_company_invoice_number_unique
+      UNIQUE (company_id, invoice_number);
+  END IF;
+END;
+$$;
