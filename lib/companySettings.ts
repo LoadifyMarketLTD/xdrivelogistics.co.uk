@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { COMPANY_CONFIG, type PaymentTerm, type VATRate } from '../app/config/company';
-import { isMissingColumnError } from './supabaseSchemaCompat';
+import { getMissingColumnFromError } from './supabaseSchemaCompat';
 
 export interface CompanySettingsValues {
   companyName: string;
@@ -85,51 +85,35 @@ export async function loadCompanySettings(
   supabase: SupabaseClient,
   companyId: string
 ): Promise<CompanySettingsValues> {
-  const companyRes = await supabase
-    .from('companies')
-    .select('name, company_number, email, phone, address_line1, city, postcode')
-    .eq('id', companyId)
-    .maybeSingle();
+  const requestedCompanyColumns = ['name', 'company_number', 'email', 'phone', 'address_line1', 'city', 'postcode'];
+  const activeCompanyColumns = [...requestedCompanyColumns];
+  const missingCompanyColumns = new Set<string>();
+  let companyData: Record<string, string | null> | null = null;
+  let companyError: { code?: string | null; message?: string | null } | null = null;
 
-  let companyData = companyRes.data as {
-    name: string | null;
-    company_number: string | null;
-    email: string | null;
-    phone: string | null;
-    address_line1: string | null;
-    city: string | null;
-    postcode: string | null;
-  } | null;
-  let companyError = companyRes.error;
-
-  if (isMissingColumnError(companyError, 'companies', 'email')) {
-    const fallbackRes = await supabase
+  while (activeCompanyColumns.length > 0) {
+    const companyRes = await supabase
       .from('companies')
-      .select('name, company_number, phone, address_line1, city, postcode')
+      .select(activeCompanyColumns.join(', '))
       .eq('id', companyId)
       .maybeSingle();
-    companyData = fallbackRes.data
-      ? {
-          ...fallbackRes.data,
-          email: null,
-        }
-      : null;
-    companyError = fallbackRes.error;
-  }
 
-  if (isMissingColumnError(companyError, 'companies', 'phone')) {
-    const fallbackRes = await supabase
-      .from('companies')
-      .select('name, company_number, email, address_line1, city, postcode')
-      .eq('id', companyId)
-      .maybeSingle();
-    companyData = fallbackRes.data
-      ? {
-          ...fallbackRes.data,
-          phone: null,
-        }
-      : null;
-    companyError = fallbackRes.error;
+    if (!companyRes.error) {
+      companyData = (companyRes.data as Record<string, string | null> | null) ?? null;
+      companyError = null;
+      break;
+    }
+
+    const missingColumn = getMissingColumnFromError(companyRes.error, 'companies');
+    if (missingColumn && activeCompanyColumns.includes(missingColumn)) {
+      missingCompanyColumns.add(missingColumn);
+      activeCompanyColumns.splice(activeCompanyColumns.indexOf(missingColumn), 1);
+      companyError = companyRes.error;
+      continue;
+    }
+
+    companyError = companyRes.error;
+    break;
   }
 
   const settingsRes = await supabase
@@ -169,8 +153,12 @@ export async function loadCompanySettings(
     ...DEFAULT_COMPANY_SETTINGS,
     companyName: company?.name ?? DEFAULT_COMPANY_SETTINGS.companyName,
     companyNumber: company?.company_number ?? DEFAULT_COMPANY_SETTINGS.companyNumber,
-    email: company?.email ?? DEFAULT_COMPANY_SETTINGS.email,
-    phone: company?.phone ?? DEFAULT_COMPANY_SETTINGS.phone,
+    email: missingCompanyColumns.has('email')
+      ? DEFAULT_COMPANY_SETTINGS.email
+      : company?.email ?? DEFAULT_COMPANY_SETTINGS.email,
+    phone: missingCompanyColumns.has('phone')
+      ? DEFAULT_COMPANY_SETTINGS.phone
+      : company?.phone ?? DEFAULT_COMPANY_SETTINGS.phone,
     street: company?.address_line1 ?? DEFAULT_COMPANY_SETTINGS.street,
     city: company?.city ?? DEFAULT_COMPANY_SETTINGS.city,
     postcode: company?.postcode ?? DEFAULT_COMPANY_SETTINGS.postcode,
