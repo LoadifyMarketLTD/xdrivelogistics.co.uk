@@ -42,29 +42,29 @@ export default function CompaniesPage() {
   const loadCompanies = async () => {
     setLoading(true);
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
-    let companyRes = await supabase
+    const companyRes = await supabase
       .from('companies')
       .select('id, name, company_number, vat_number, email, phone, address_line1, city, postcode, created_at')
       .eq('id', companyId)
       .order('created_at', { ascending: false });
 
-    if (isMissingColumnError(companyRes.error, 'companies', 'email')) {
+    let rows = (companyRes.data ?? []) as Company[];
+    let companyError = companyRes.error;
+
+    if (isMissingColumnError(companyError, 'companies', 'email')) {
       const fallbackRes = await supabase
         .from('companies')
         .select('id, name, company_number, vat_number, phone, address_line1, city, postcode, created_at')
         .eq('id', companyId)
         .order('created_at', { ascending: false });
-
-      companyRes = {
-        ...fallbackRes,
-        data: (fallbackRes.data ?? []).map((row: Record<string, unknown>) => ({
-          ...row,
-          email: null,
-        })),
-      };
+      rows = (fallbackRes.data ?? []).map((row: Record<string, unknown>) => ({
+        ...row,
+        email: null,
+      })) as Company[];
+      companyError = fallbackRes.error;
     }
 
-    if (!companyRes.error && companyRes.data) setCompanies(companyRes.data as Company[]);
+    if (!companyError) setCompanies(rows);
     setLoading(false);
   };
 
