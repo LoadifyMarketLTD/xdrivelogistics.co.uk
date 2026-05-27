@@ -73,7 +73,7 @@ export const resolveAuthenticatedUser = async (
   const fallbackRole = getFallbackRole(sessionUser);
   const profileLookupQuery = `profiles.select(role,status,is_driver,company_id).eq(user_id,${sessionUser.id}).maybeSingle()`;
   const membershipLookupQuery =
-    `company_memberships.select(company_id,role_in_company,status).eq(user_id,${sessionUser.id}).neq(status,suspended).order(created_at desc).limit(1).maybeSingle()`;
+    `company_memberships.select(company_id,role_in_company,status).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc).limit(1).maybeSingle()`;
   const driverLookupQuery =
     `drivers.select(id,company_id,user_id,must_change_password).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
   const creatorCompanyLookupQuery =
@@ -88,7 +88,7 @@ export const resolveAuthenticatedUser = async (
       .from('company_memberships')
       .select('company_id, role_in_company, status')
       .eq('user_id', sessionUser.id)
-      .neq('status', 'suspended')
+      .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
