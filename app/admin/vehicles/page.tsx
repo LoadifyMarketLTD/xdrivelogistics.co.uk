@@ -26,6 +26,22 @@ export default function VehiclesPage() {
   const [editError, setEditError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const loadCompanyId = async (userId: string) => {
+    const { data } = await supabase.rpc('get_or_create_company_for_user');
+    if (data) {
+      setCompanyId(data as string);
+      return;
+    }
+    const { data: membership } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle();
+    setCompanyId((membership?.company_id as string) ?? null);
+  };
+
   const loadVehicles = async () => {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
@@ -337,18 +353,3 @@ export default function VehiclesPage() {
     </ProtectedRoute>
   );
 }
-  const loadCompanyId = async (userId: string) => {
-    const { data } = await supabase.rpc('get_or_create_company_for_user');
-    if (data) {
-      setCompanyId(data as string);
-      return;
-    }
-    const { data: membership } = await supabase
-      .from('company_memberships')
-      .select('company_id')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .limit(1)
-      .maybeSingle();
-    setCompanyId((membership?.company_id as string) ?? null);
-  };
