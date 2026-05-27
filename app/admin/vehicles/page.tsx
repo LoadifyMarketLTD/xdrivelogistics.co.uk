@@ -11,8 +11,8 @@ const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small'
 interface DriverOption { id: string; display_name: string; }
 
 export default function VehiclesPage() {
-  const { user } = useAuth();
-  const companyId = user?.companyId ?? null;
+  const { user, hasSupabaseSession } = useAuth();
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
@@ -20,7 +20,7 @@ export default function VehiclesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ company_id: companyId ?? '', type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
+  const [formData, setFormData] = useState({ company_id: '', type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
   const [editData, setEditData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
   const [error, setError] = useState('');
   const [editError, setEditError] = useState('');
@@ -57,17 +57,51 @@ export default function VehiclesPage() {
     if (data) setDrivers(data as DriverOption[]);
   };
 
-  useEffect(() => { loadVehicles(); loadCompanies(); loadDrivers(); }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (hasSupabaseSession && user?.id) {
+      loadCompanyId(user.id);
+    }
+  }, [hasSupabaseSession, user?.id]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    setFormData((prev) => ({ ...prev, company_id: companyId }));
+    loadVehicles();
+    loadCompanies();
+    loadDrivers();
+  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!formData.company_id) { setError('Company is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { error } = await supabase.from('vehicles').insert([{
+    const { data: authCtx } = await supabase.auth.getUser();
+    const insertPayload = {
       ...formData,
       payload_kg: formData.payload_kg ? parseFloat(formData.payload_kg) : null,
       assigned_driver_id: formData.assigned_driver_id || null,
-    }]);
-    if (error) { setError(error.message); return; }
+    };
+    console.debug('[XDrive Vehicles] insert attempt', {
+      authUid: authCtx.user?.id ?? null,
+      resolvedCompanyId: companyId,
+      userRole: user?.role ?? null,
+      payloadCompanyId: insertPayload.company_id,
+      payloadAssignedDriverId: insertPayload.assigned_driver_id,
+    });
+    const { error } = await supabase.from('vehicles').insert([insertPayload]);
+    if (error) {
+      console.error('[XDrive Vehicles] insert failed', {
+        authUid: authCtx.user?.id ?? null,
+        resolvedCompanyId: companyId,
+        userRole: user?.role ?? null,
+        payloadCompanyId: insertPayload.company_id,
+        payloadAssignedDriverId: insertPayload.assigned_driver_id,
+        errorCode: error.code ?? null,
+        errorMessage: error.message,
+        errorDetails: error.details ?? null,
+      });
+      setError(error.message);
+      return;
+    }
     setShowModal(false);
     setFormData({ company_id: companyId ?? '', type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
     setError('');
@@ -303,3 +337,18 @@ export default function VehiclesPage() {
     </ProtectedRoute>
   );
 }
+  const loadCompanyId = async (userId: string) => {
+    const { data } = await supabase.rpc('get_or_create_company_for_user');
+    if (data) {
+      setCompanyId(data as string);
+      return;
+    }
+    const { data: membership } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle();
+    setCompanyId((membership?.company_id as string) ?? null);
+  };
