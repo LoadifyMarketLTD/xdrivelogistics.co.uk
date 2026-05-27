@@ -10,6 +10,9 @@ BEGIN;
 ALTER TABLE public.companies
   ADD COLUMN IF NOT EXISTS email text;
 
+-- Keep function signature unchanged and replace body in place so existing
+-- RLS policies that depend on these helpers are not dropped.
+
 CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
 RETURNS boolean
 LANGUAGE sql

@@ -544,9 +544,23 @@ CREATE TRIGGER trg_invoices_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_invoices_updated_at();
 
 -- ── 7. UNIQUE constraint on invoice number per company ────────
-ALTER TABLE public.invoices
-  ADD CONSTRAINT IF NOT EXISTS invoices_company_invoice_number_unique
-  UNIQUE (company_id, invoice_number);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE c.conname = 'invoices_company_invoice_number_unique'
+      AND n.nspname = 'public'
+      AND t.relname = 'invoices'
+  ) THEN
+    ALTER TABLE public.invoices
+      ADD CONSTRAINT invoices_company_invoice_number_unique
+      UNIQUE (company_id, invoice_number);
+  END IF;
+END;
+$$;
 
 -- ── 8. RLS ENABLE ─────────────────────────────────────────────
 DO $$
