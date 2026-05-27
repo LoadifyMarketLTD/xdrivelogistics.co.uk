@@ -96,7 +96,9 @@ export default function CompaniesPage() {
   const handleCreate = async () => {
     if (!formData.name.trim()) { setError('Company name is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const payload: Record<string, string> = { ...formData };
+    const { data: authCtx } = await supabase.auth.getUser();
+    if (!authCtx.user?.id) { setError('Session expired. Please sign in again.'); return; }
+    const payload: Record<string, string> = { ...formData, created_by: authCtx.user.id };
     let error: { message?: string | null } | null = null;
     while (Object.keys(payload).length > 0) {
       const insertRes = await supabase.from('companies').insert([payload]);
