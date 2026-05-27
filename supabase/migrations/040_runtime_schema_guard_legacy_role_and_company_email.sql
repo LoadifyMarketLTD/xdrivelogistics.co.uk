@@ -10,17 +10,10 @@ BEGIN;
 ALTER TABLE public.companies
   ADD COLUMN IF NOT EXISTS email text;
 
--- PostgreSQL does not allow renaming parameters via CREATE OR REPLACE.
--- Production functions may already exist with a different parameter name.
--- DROP first (no CASCADE — RLS policies reference by name and are re-bound
--- automatically when the function is recreated with the same signature).
+-- Keep function signature unchanged and replace body in place so existing
+-- RLS policies that depend on these helpers are not dropped.
 
-DROP FUNCTION IF EXISTS public.is_company_member(uuid);
-DROP FUNCTION IF EXISTS public.is_company_admin(uuid);
-DROP FUNCTION IF EXISTS public.is_company_non_driver(uuid);
-DROP FUNCTION IF EXISTS public.is_company_operator(uuid);
-
-CREATE FUNCTION public.is_company_member(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_member(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -35,7 +28,7 @@ AS $$
   );
 $$;
 
-CREATE FUNCTION public.is_company_admin(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_admin(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -51,7 +44,7 @@ AS $$
   );
 $$;
 
-CREATE FUNCTION public.is_company_non_driver(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_non_driver(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -68,7 +61,7 @@ AS $$
   );
 $$;
 
-CREATE FUNCTION public.is_company_operator(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_operator(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
