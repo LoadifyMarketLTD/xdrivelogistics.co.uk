@@ -34,7 +34,7 @@ CREATE INDEX IF NOT EXISTS idx_vehicles_driver_id
 -- RLS policies that depend on these helpers are not dropped.
 
 --  is_company_member: any non-suspended membership for this company
-CREATE OR REPLACE FUNCTION public.is_company_member(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -43,14 +43,14 @@ AS $$
   SELECT EXISTS (
     SELECT 1
     FROM public.company_memberships cm
-    WHERE cm.company_id = _company_id
+    WHERE cm.company_id = cid
       AND cm.user_id    = auth.uid()
       AND cm.status    <> 'suspended'
   );
 $$;
 
 --  is_company_admin: owner or admin role_in_company
-CREATE OR REPLACE FUNCTION public.is_company_admin(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_admin(cid uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -59,7 +59,7 @@ AS $$
   SELECT EXISTS (
     SELECT 1
     FROM public.company_memberships cm
-    WHERE cm.company_id      = _company_id
+    WHERE cm.company_id      = cid
       AND cm.user_id         = auth.uid()
       AND cm.status         <> 'suspended'
       AND cm.role_in_company IN ('owner', 'admin')
@@ -67,7 +67,7 @@ AS $$
 $$;
 
 --  is_company_non_driver: member whose profile role is not 'driver'
-CREATE OR REPLACE FUNCTION public.is_company_non_driver(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_non_driver(cid uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -77,7 +77,7 @@ AS $$
     SELECT 1
     FROM public.company_memberships cm
     JOIN public.profiles p ON p.user_id = cm.user_id
-    WHERE cm.company_id = _company_id
+    WHERE cm.company_id = cid
       AND cm.user_id    = auth.uid()
       AND cm.status    <> 'suspended'
       AND p.role       <> 'driver'
@@ -85,7 +85,7 @@ AS $$
 $$;
 
 --  is_company_operator: non-driver member with a non-viewer role_in_company
-CREATE OR REPLACE FUNCTION public.is_company_operator(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_operator(cid uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -95,7 +95,7 @@ AS $$
     SELECT 1
     FROM public.company_memberships cm
     JOIN public.profiles p ON p.user_id = cm.user_id
-    WHERE cm.company_id        = _company_id
+    WHERE cm.company_id        = cid
       AND cm.user_id           = auth.uid()
       AND cm.status           <> 'suspended'
       AND p.role              <> 'driver'
