@@ -76,30 +76,33 @@ export default function DocumentsPage() {
         })));
       }
     } else {
-      let vehicleRes = await supabase
+      const primaryVehicleRes = await supabase
         .from('vehicle_documents')
         .select('id, vehicle_id, doc_type, file_path, issued_date, expiry_date, status, rejection_reason, verified_by, verified_at, created_at, vehicles!inner(reg_plate, company_id)')
         .eq('vehicles.company_id', companyId)
         .order('created_at', { ascending: false });
-      const missingColumn = getMissingColumnFromError(vehicleRes.error, 'vehicle_documents');
-      if (missingColumn === 'doc_type') {
-        vehicleRes = await supabase
+      const missingColumn = getMissingColumnFromError(primaryVehicleRes.error, 'vehicle_documents');
+      const vehicleRes = missingColumn === 'doc_type'
+        ? await supabase
           .from('vehicle_documents')
           .select('id, vehicle_id, file_path, issued_date, expiry_date, status, rejection_reason, verified_by, verified_at, created_at, vehicles!inner(reg_plate, company_id)')
           .eq('vehicles.company_id', companyId)
-          .order('created_at', { ascending: false });
-      }
+          .order('created_at', { ascending: false })
+        : primaryVehicleRes;
 
       if (vehicleRes.error) {
         setDocs([]);
         setError(`Failed to load vehicle documents: ${vehicleRes.error.message}`);
       } else if (vehicleRes.data) {
-        setDocs(vehicleRes.data.map((d: VehicleDocument & { vehicles?: Array<{ reg_plate: string }> }) => ({
+        setDocs((vehicleRes.data as Array<Record<string, unknown>>).map((row) => {
+          const d = (row as unknown) as VehicleDocument & { vehicles?: Array<{ reg_plate: string }> };
+          return ({
           ...d,
           doc_type: d.doc_type ?? 'Document',
           kind: 'vehicle' as const,
           subject_name: Array.isArray(d.vehicles) ? d.vehicles[0]?.reg_plate : undefined,
-        })));
+          });
+        }));
       }
     }
     setLoading(false);
