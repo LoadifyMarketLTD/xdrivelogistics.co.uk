@@ -85,27 +85,36 @@ export async function loadCompanySettings(
   supabase: SupabaseClient,
   companyId: string
 ): Promise<CompanySettingsValues> {
-  let companyRes = await supabase
+  const companyRes = await supabase
     .from('companies')
     .select('name, company_number, email, phone, address_line1, city, postcode')
     .eq('id', companyId)
     .maybeSingle();
 
-  if (isMissingColumnError(companyRes.error, 'companies', 'email')) {
+  let companyData = companyRes.data as {
+    name: string | null;
+    company_number: string | null;
+    email: string | null;
+    phone: string | null;
+    address_line1: string | null;
+    city: string | null;
+    postcode: string | null;
+  } | null;
+  let companyError = companyRes.error;
+
+  if (isMissingColumnError(companyError, 'companies', 'email')) {
     const fallbackRes = await supabase
       .from('companies')
       .select('name, company_number, phone, address_line1, city, postcode')
       .eq('id', companyId)
       .maybeSingle();
-    companyRes = {
-      ...fallbackRes,
-      data: fallbackRes.data
-        ? {
-            ...fallbackRes.data,
-            email: null,
-          }
-        : null,
-    };
+    companyData = fallbackRes.data
+      ? {
+          ...fallbackRes.data,
+          email: null,
+        }
+      : null;
+    companyError = fallbackRes.error;
   }
 
   const settingsRes = await supabase
@@ -130,23 +139,15 @@ export async function loadCompanySettings(
     .eq('company_id', companyId)
     .maybeSingle();
 
-  if (companyRes.error && !MISSING_RESOURCE_CODES.has(companyRes.error.code ?? '')) {
-    console.error('Failed to load company profile settings:', companyRes.error.message);
+  if (companyError && !MISSING_RESOURCE_CODES.has(companyError.code ?? '')) {
+    console.error('Failed to load company profile settings:', companyError.message);
   }
 
   if (settingsRes.error && !MISSING_RESOURCE_CODES.has(settingsRes.error.code ?? '')) {
     console.error('Failed to load company settings:', settingsRes.error.message);
   }
 
-  const company = companyRes.data as {
-    name: string | null;
-    company_number: string | null;
-    email: string | null;
-    phone: string | null;
-    address_line1: string | null;
-    city: string | null;
-    postcode: string | null;
-  } | null;
+  const company = companyData;
   const settings = settingsRes.data as CompanySettingsRow | null;
 
   return {
