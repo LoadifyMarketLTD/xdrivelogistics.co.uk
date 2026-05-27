@@ -10,6 +10,7 @@ import {
   DEFAULT_COMPANY_SETTINGS,
   loadCompanySettings,
 } from '../../../lib/companySettings';
+import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 
 const TABS = [
   { id: 'company', label: 'Company Info', icon: '🏢' },
@@ -157,7 +158,7 @@ export default function SettingsPage() {
     setSaveError('');
     setSaved(false);
 
-    const { error: companyError } = await supabase
+    let companyError = (await supabase
       .from('companies')
       .update({
         name: companyForm.name,
@@ -168,7 +169,21 @@ export default function SettingsPage() {
         city: companyForm.city || null,
         postcode: companyForm.postcode || null,
       })
-      .eq('id', companyId);
+      .eq('id', companyId)).error;
+
+    if (isMissingColumnError(companyError, 'companies', 'email')) {
+      companyError = (await supabase
+        .from('companies')
+        .update({
+          name: companyForm.name,
+          company_number: companyForm.companyNumber || null,
+          phone: companyForm.phone || null,
+          address_line1: companyForm.street || null,
+          city: companyForm.city || null,
+          postcode: companyForm.postcode || null,
+        })
+        .eq('id', companyId)).error;
+    }
 
     if (companyError) {
       setSaveError(`Company details could not be saved: ${companyError.message}`);
