@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { COMPANY_CONFIG, type PaymentTerm, type VATRate } from '../app/config/company';
+import { isMissingColumnError } from './supabaseSchemaCompat';
 
 export interface CompanySettingsValues {
   companyName: string;
@@ -84,34 +85,50 @@ export async function loadCompanySettings(
   supabase: SupabaseClient,
   companyId: string
 ): Promise<CompanySettingsValues> {
-  const [companyRes, settingsRes] = await Promise.all([
-    supabase
+  let companyRes = await supabase
+    .from('companies')
+    .select('name, company_number, email, phone, address_line1, city, postcode')
+    .eq('id', companyId)
+    .maybeSingle();
+
+  if (isMissingColumnError(companyRes.error, 'companies', 'email')) {
+    const fallbackRes = await supabase
       .from('companies')
-      .select('name, company_number, email, phone, address_line1, city, postcode')
+      .select('name, company_number, phone, address_line1, city, postcode')
       .eq('id', companyId)
-      .maybeSingle(),
-    supabase
-      .from('company_settings')
-      .select([
-        'legal_name',
-        'job_ref_prefix',
-        'invoice_prefix',
-        'default_vat_rate',
-        'default_payment_terms',
-        'currency',
-        'date_format',
-        'bank_account_name',
-        'bank_sort_code',
-        'bank_account_number',
-        'paypal_email',
-        'notify_email_new_job',
-        'notify_email_status_change',
-        'notify_email_invoice_paid',
-        'notify_email_bid_received',
-      ].join(', '))
-      .eq('company_id', companyId)
-      .maybeSingle(),
-  ]);
+      .maybeSingle();
+    companyRes = {
+      ...fallbackRes,
+      data: fallbackRes.data
+        ? {
+            ...fallbackRes.data,
+            email: null,
+          }
+        : null,
+    };
+  }
+
+  const settingsRes = await supabase
+    .from('company_settings')
+    .select([
+      'legal_name',
+      'job_ref_prefix',
+      'invoice_prefix',
+      'default_vat_rate',
+      'default_payment_terms',
+      'currency',
+      'date_format',
+      'bank_account_name',
+      'bank_sort_code',
+      'bank_account_number',
+      'paypal_email',
+      'notify_email_new_job',
+      'notify_email_status_change',
+      'notify_email_invoice_paid',
+      'notify_email_bid_received',
+    ].join(', '))
+    .eq('company_id', companyId)
+    .maybeSingle();
 
   if (companyRes.error && !MISSING_RESOURCE_CODES.has(companyRes.error.code ?? '')) {
     console.error('Failed to load company profile settings:', companyRes.error.message);

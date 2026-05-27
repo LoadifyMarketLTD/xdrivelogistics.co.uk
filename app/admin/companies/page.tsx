@@ -5,6 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
+import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 
 export default function CompaniesPage() {
   const { user, hasSupabaseSession } = useAuth();
@@ -41,12 +42,29 @@ export default function CompaniesPage() {
   const loadCompanies = async () => {
     setLoading(true);
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
-    const { data, error } = await supabase
+    let companyRes = await supabase
       .from('companies')
       .select('id, name, company_number, vat_number, email, phone, address_line1, city, postcode, created_at')
       .eq('id', companyId)
       .order('created_at', { ascending: false });
-    if (!error && data) setCompanies(data as Company[]);
+
+    if (isMissingColumnError(companyRes.error, 'companies', 'email')) {
+      const fallbackRes = await supabase
+        .from('companies')
+        .select('id, name, company_number, vat_number, phone, address_line1, city, postcode, created_at')
+        .eq('id', companyId)
+        .order('created_at', { ascending: false });
+
+      companyRes = {
+        ...fallbackRes,
+        data: (fallbackRes.data ?? []).map((row: Record<string, unknown>) => ({
+          ...row,
+          email: null,
+        })),
+      };
+    }
+
+    if (!companyRes.error && companyRes.data) setCompanies(companyRes.data as Company[]);
     setLoading(false);
   };
 
@@ -64,7 +82,11 @@ export default function CompaniesPage() {
   const handleCreate = async () => {
     if (!formData.name.trim()) { setError('Company name is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { error } = await supabase.from('companies').insert([formData]);
+    let error = (await supabase.from('companies').insert([formData])).error;
+    if (isMissingColumnError(error, 'companies', 'email')) {
+      const { email: _email, ...fallbackPayload } = formData;
+      error = (await supabase.from('companies').insert([fallbackPayload])).error;
+    }
     if (error) { setError(error.message); return; }
     setShowModal(false);
     setFormData({ name: '', company_number: '', vat_number: '', email: '', phone: '', address_line1: '', city: '', postcode: '' });
@@ -91,7 +113,7 @@ export default function CompaniesPage() {
     if (!editingCompany || !isSupabaseConfigured) return;
     if (!editData.name.trim()) { setEditError('Company name is required'); return; }
     setSaving(true);
-    const { error } = await supabase
+    let error = (await supabase
       .from('companies')
       .update({
         name: editData.name.trim(),
@@ -103,7 +125,22 @@ export default function CompaniesPage() {
         city: editData.city.trim() || null,
         postcode: editData.postcode.trim() || null,
       })
-      .eq('id', editingCompany.id);
+      .eq('id', editingCompany.id)).error;
+
+    if (isMissingColumnError(error, 'companies', 'email')) {
+      error = (await supabase
+        .from('companies')
+        .update({
+          name: editData.name.trim(),
+          company_number: editData.company_number.trim() || null,
+          vat_number: editData.vat_number.trim() || null,
+          phone: editData.phone.trim() || null,
+          address_line1: editData.address_line1.trim() || null,
+          city: editData.city.trim() || null,
+          postcode: editData.postcode.trim() || null,
+        })
+        .eq('id', editingCompany.id)).error;
+    }
     setSaving(false);
     if (error) { setEditError(error.message); return; }
     setEditingCompany(null);
