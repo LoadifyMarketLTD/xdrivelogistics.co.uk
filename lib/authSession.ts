@@ -182,7 +182,7 @@ export const resolveAuthenticatedUser = async (
     }
   }
 
-  let companyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? creatorCompany?.id ?? null;
+  let companyId = membership?.company_id ?? driver?.company_id ?? profile?.company_id ?? creatorCompany?.id ?? null;
 
   if (
     !companyId &&
