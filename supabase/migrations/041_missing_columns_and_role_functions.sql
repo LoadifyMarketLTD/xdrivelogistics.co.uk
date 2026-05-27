@@ -30,20 +30,11 @@ CREATE INDEX IF NOT EXISTS idx_vehicles_driver_id
 
 -- ── 3. Fix helper functions — use cm.role_in_company, not cm.role ─────────
 --
--- PostgreSQL does not allow renaming parameters via CREATE OR REPLACE.
--- The existing production functions use the parameter name "_company_id"
--- whereas the new definitions use "cid".  We must DROP first to clear
--- the old signature, then CREATE with the correct body.
--- CASCADE is NOT used — we drop only the function itself; dependent RLS
--- policies reference it by name/signature which is preserved on re-create.
-
-DROP FUNCTION IF EXISTS public.is_company_member(uuid);
-DROP FUNCTION IF EXISTS public.is_company_admin(uuid);
-DROP FUNCTION IF EXISTS public.is_company_non_driver(uuid);
-DROP FUNCTION IF EXISTS public.is_company_operator(uuid);
+-- Keep function signature unchanged and replace body in place so existing
+-- RLS policies that depend on these helpers are not dropped.
 
 --  is_company_member: any non-suspended membership for this company
-CREATE FUNCTION public.is_company_member(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_member(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -59,7 +50,7 @@ AS $$
 $$;
 
 --  is_company_admin: owner or admin role_in_company
-CREATE FUNCTION public.is_company_admin(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_admin(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -76,7 +67,7 @@ AS $$
 $$;
 
 --  is_company_non_driver: member whose profile role is not 'driver'
-CREATE FUNCTION public.is_company_non_driver(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_non_driver(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -94,7 +85,7 @@ AS $$
 $$;
 
 --  is_company_operator: non-driver member with a non-viewer role_in_company
-CREATE FUNCTION public.is_company_operator(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_operator(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
