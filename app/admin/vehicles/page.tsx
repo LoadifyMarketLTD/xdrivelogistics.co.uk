@@ -26,20 +26,32 @@ export default function VehiclesPage() {
   const [editError, setEditError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const loadCompanyId = async (userId: string) => {
-    const { data } = await supabase.rpc('get_or_create_company_for_user');
-    if (data) {
-      setCompanyId(data as string);
-      return;
+  const loadCompanyId = async (userId: string, authCompanyId: string | null) => {
+    let resolvedCompanyId = authCompanyId;
+
+    // Refresh auth user to ensure session context is up to date before fallback queries.
+    await supabase.auth.getUser();
+
+    if (!resolvedCompanyId) {
+      const { data: membership } = await supabase
+        .from('company_memberships')
+        .select('company_id')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      resolvedCompanyId = (membership?.company_id as string) ?? null;
     }
-    const { data: membership } = await supabase
-      .from('company_memberships')
-      .select('company_id')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .limit(1)
-      .maybeSingle();
-    setCompanyId((membership?.company_id as string) ?? null);
+
+    if (!resolvedCompanyId) {
+      const { data } = await supabase.rpc('get_or_create_company_for_user');
+      if (data) {
+        resolvedCompanyId = data as string;
+      }
+    }
+
+    setCompanyId(resolvedCompanyId);
   };
 
   const loadVehicles = async () => {
@@ -75,9 +87,9 @@ export default function VehiclesPage() {
 
   useEffect(() => {
     if (hasSupabaseSession && user?.id) {
-      loadCompanyId(user.id);
+      loadCompanyId(user.id, user.companyId);
     }
-  }, [hasSupabaseSession, user?.id]);
+  }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   useEffect(() => {
     if (!companyId) return;
@@ -88,17 +100,19 @@ export default function VehiclesPage() {
   }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
-    if (!formData.company_id) { setError('Company is required'); return; }
+    if (!companyId) { setError('Company is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     const { data: authCtx } = await supabase.auth.getUser();
+    const resolvedCompanyId = companyId;
     const insertPayload = {
       ...formData,
+      company_id: resolvedCompanyId,
       payload_kg: formData.payload_kg ? parseFloat(formData.payload_kg) : null,
       assigned_driver_id: formData.assigned_driver_id || null,
     };
     console.debug('[XDrive Vehicles] insert attempt', {
       authUid: authCtx.user?.id ?? null,
-      resolvedCompanyId: companyId,
+      resolvedCompanyId,
       userRole: user?.role ?? null,
       payloadCompanyId: insertPayload.company_id,
       payloadAssignedDriverId: insertPayload.assigned_driver_id,
@@ -107,7 +121,7 @@ export default function VehiclesPage() {
     if (error) {
       console.error('[XDrive Vehicles] insert failed', {
         authUid: authCtx.user?.id ?? null,
-        resolvedCompanyId: companyId,
+        resolvedCompanyId,
         userRole: user?.role ?? null,
         payloadCompanyId: insertPayload.company_id,
         payloadAssignedDriverId: insertPayload.assigned_driver_id,
@@ -256,7 +270,7 @@ export default function VehiclesPage() {
                 {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
                 <div>
                   <label style={labelStyle}>Company *</label>
-                  <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})}>
+                  <select style={inputStyle} value={companyId ?? ''} disabled>
                     <option value="">Select a company…</option>
                     {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
