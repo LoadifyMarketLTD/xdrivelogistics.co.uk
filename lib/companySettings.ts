@@ -117,6 +117,21 @@ export async function loadCompanySettings(
     companyError = fallbackRes.error;
   }
 
+  if (isMissingColumnError(companyError, 'companies', 'phone')) {
+    const fallbackRes = await supabase
+      .from('companies')
+      .select('name, company_number, email, address_line1, city, postcode')
+      .eq('id', companyId)
+      .maybeSingle();
+    companyData = fallbackRes.data
+      ? {
+          ...fallbackRes.data,
+          phone: null,
+        }
+      : null;
+    companyError = fallbackRes.error;
+  }
+
   const settingsRes = await supabase
     .from('company_settings')
     .select([

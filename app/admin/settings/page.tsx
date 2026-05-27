@@ -185,6 +185,20 @@ export default function SettingsPage() {
         .eq('id', companyId)).error;
     }
 
+    if (isMissingColumnError(companyError, 'companies', 'phone')) {
+      companyError = (await supabase
+        .from('companies')
+        .update({
+          name: companyForm.name,
+          company_number: companyForm.companyNumber || null,
+          email: companyForm.email || null,
+          address_line1: companyForm.street || null,
+          city: companyForm.city || null,
+          postcode: companyForm.postcode || null,
+        })
+        .eq('id', companyId)).error;
+    }
+
     if (companyError) {
       setSaveError(`Company details could not be saved: ${companyError.message}`);
       setSaving(false);
