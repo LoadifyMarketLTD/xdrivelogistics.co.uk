@@ -30,8 +30,20 @@ CREATE INDEX IF NOT EXISTS idx_vehicles_driver_id
 
 -- ── 3. Fix helper functions — use cm.role_in_company, not cm.role ─────────
 --
+-- PostgreSQL does not allow renaming parameters via CREATE OR REPLACE.
+-- The existing production functions use the parameter name "_company_id"
+-- whereas the new definitions use "cid".  We must DROP first to clear
+-- the old signature, then CREATE with the correct body.
+-- CASCADE is NOT used — we drop only the function itself; dependent RLS
+-- policies reference it by name/signature which is preserved on re-create.
+
+DROP FUNCTION IF EXISTS public.is_company_member(uuid);
+DROP FUNCTION IF EXISTS public.is_company_admin(uuid);
+DROP FUNCTION IF EXISTS public.is_company_non_driver(uuid);
+DROP FUNCTION IF EXISTS public.is_company_operator(uuid);
+
 --  is_company_member: any non-suspended membership for this company
-CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
+CREATE FUNCTION public.is_company_member(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -40,14 +52,14 @@ AS $$
   SELECT EXISTS (
     SELECT 1
     FROM public.company_memberships cm
-    WHERE cm.company_id = cid
+    WHERE cm.company_id = _company_id
       AND cm.user_id    = auth.uid()
       AND cm.status    <> 'suspended'
   );
 $$;
 
 --  is_company_admin: owner or admin role_in_company
-CREATE OR REPLACE FUNCTION public.is_company_admin(cid uuid)
+CREATE FUNCTION public.is_company_admin(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -56,7 +68,7 @@ AS $$
   SELECT EXISTS (
     SELECT 1
     FROM public.company_memberships cm
-    WHERE cm.company_id      = cid
+    WHERE cm.company_id      = _company_id
       AND cm.user_id         = auth.uid()
       AND cm.status         <> 'suspended'
       AND cm.role_in_company IN ('owner', 'admin')
@@ -64,7 +76,7 @@ AS $$
 $$;
 
 --  is_company_non_driver: member whose profile role is not 'driver'
-CREATE OR REPLACE FUNCTION public.is_company_non_driver(cid uuid)
+CREATE FUNCTION public.is_company_non_driver(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -74,7 +86,7 @@ AS $$
     SELECT 1
     FROM public.company_memberships cm
     JOIN public.profiles p ON p.user_id = cm.user_id
-    WHERE cm.company_id = cid
+    WHERE cm.company_id = _company_id
       AND cm.user_id    = auth.uid()
       AND cm.status    <> 'suspended'
       AND p.role       <> 'driver'
@@ -82,7 +94,7 @@ AS $$
 $$;
 
 --  is_company_operator: non-driver member with a non-viewer role_in_company
-CREATE OR REPLACE FUNCTION public.is_company_operator(cid uuid)
+CREATE FUNCTION public.is_company_operator(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -92,7 +104,7 @@ AS $$
     SELECT 1
     FROM public.company_memberships cm
     JOIN public.profiles p ON p.user_id = cm.user_id
-    WHERE cm.company_id        = cid
+    WHERE cm.company_id        = _company_id
       AND cm.user_id           = auth.uid()
       AND cm.status           <> 'suspended'
       AND p.role              <> 'driver'
