@@ -76,32 +76,50 @@ export default function DocumentsPage() {
         })));
       }
     } else {
-      const primaryVehicleRes = await supabase
-        .from('vehicle_documents')
-        .select('id, vehicle_id, doc_type, file_path, issued_date, expiry_date, status, rejection_reason, verified_by, verified_at, created_at, vehicles!inner(reg_plate, company_id)')
-        .eq('vehicles.company_id', companyId)
-        .order('created_at', { ascending: false });
-      const missingColumn = getMissingColumnFromError(primaryVehicleRes.error, 'vehicle_documents');
-      const vehicleRes = missingColumn === 'doc_type'
-        ? await supabase
-          .from('vehicle_documents')
-          .select('id, vehicle_id, file_path, issued_date, expiry_date, status, rejection_reason, verified_by, verified_at, created_at, vehicles!inner(reg_plate, company_id)')
-          .eq('vehicles.company_id', companyId)
-          .order('created_at', { ascending: false })
-        : primaryVehicleRes;
+      const requestedColumns = ['id', 'vehicle_id', 'doc_type', 'file_path', 'issued_date', 'expiry_date', 'status', 'rejection_reason', 'verified_by', 'verified_at', 'created_at'];
+      const activeColumns = [...requestedColumns];
+      const missingColumns = new Set<string>();
+      let rows: Array<Record<string, unknown>> = [];
+      let vehicleError: { message?: string | null } | null = null;
 
-      if (vehicleRes.error) {
+      while (activeColumns.length > 0) {
+        const vehicleRes = await supabase
+          .from('vehicle_documents')
+          .select(`${activeColumns.join(', ')}, vehicles!inner(reg_plate, company_id)`)
+          .eq('vehicles.company_id', companyId)
+          .order('created_at', { ascending: false });
+
+        if (!vehicleRes.error) {
+          rows = ((vehicleRes.data ?? []) as unknown) as Array<Record<string, unknown>>;
+          vehicleError = null;
+          break;
+        }
+
+        const missingColumn = getMissingColumnFromError(vehicleRes.error, 'vehicle_documents');
+        if (missingColumn && activeColumns.includes(missingColumn)) {
+          missingColumns.add(missingColumn);
+          activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
+          vehicleError = vehicleRes.error;
+          continue;
+        }
+
+        vehicleError = vehicleRes.error;
+        break;
+      }
+
+      if (vehicleError) {
         setDocs([]);
-        setError(`Failed to load vehicle documents: ${vehicleRes.error.message}`);
-      } else if (vehicleRes.data) {
-        setDocs((vehicleRes.data as Array<Record<string, unknown>>).map((row) => {
+        setError(`Failed to load vehicle documents: ${vehicleError.message}`);
+      } else {
+        setDocs(rows.map((row) => {
           const d = (row as unknown) as VehicleDocument & { vehicles?: Array<{ reg_plate: string }> };
-          return ({
-          ...d,
-          doc_type: d.doc_type ?? 'Document',
-          kind: 'vehicle' as const,
-          subject_name: Array.isArray(d.vehicles) ? d.vehicles[0]?.reg_plate : undefined,
-          });
+          return {
+            ...d,
+            doc_type: missingColumns.has('doc_type') ? 'Document' : (d.doc_type ?? 'Document'),
+            file_path: missingColumns.has('file_path') ? null : (d.file_path ?? null),
+            kind: 'vehicle' as const,
+            subject_name: Array.isArray(d.vehicles) ? d.vehicles[0]?.reg_plate : undefined,
+          };
         }));
       }
     }
