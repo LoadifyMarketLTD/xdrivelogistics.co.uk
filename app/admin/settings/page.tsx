@@ -10,7 +10,7 @@ import {
   DEFAULT_COMPANY_SETTINGS,
   loadCompanySettings,
 } from '../../../lib/companySettings';
-import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
+import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 
 const TABS = [
   { id: 'company', label: 'Company Info', icon: '🏢' },
@@ -158,45 +158,37 @@ export default function SettingsPage() {
     setSaveError('');
     setSaved(false);
 
-    let companyError = (await supabase
-      .from('companies')
-      .update({
-        name: companyForm.name,
-        company_number: companyForm.companyNumber || null,
-        email: companyForm.email || null,
-        phone: companyForm.phone || null,
-        address_line1: companyForm.street || null,
-        city: companyForm.city || null,
-        postcode: companyForm.postcode || null,
-      })
-      .eq('id', companyId)).error;
+    const companyUpdatePayload: Record<string, string | null> = {
+      name: companyForm.name,
+      company_number: companyForm.companyNumber || null,
+      email: companyForm.email || null,
+      phone: companyForm.phone || null,
+      address_line1: companyForm.street || null,
+      city: companyForm.city || null,
+      postcode: companyForm.postcode || null,
+    };
 
-    if (isMissingColumnError(companyError, 'companies', 'email')) {
-      companyError = (await supabase
+    let companyError: { message?: string | null } | null = null;
+    while (Object.keys(companyUpdatePayload).length > 0) {
+      const { error } = await supabase
         .from('companies')
-        .update({
-          name: companyForm.name,
-          company_number: companyForm.companyNumber || null,
-          phone: companyForm.phone || null,
-          address_line1: companyForm.street || null,
-          city: companyForm.city || null,
-          postcode: companyForm.postcode || null,
-        })
-        .eq('id', companyId)).error;
-    }
+        .update(companyUpdatePayload)
+        .eq('id', companyId);
 
-    if (isMissingColumnError(companyError, 'companies', 'phone')) {
-      companyError = (await supabase
-        .from('companies')
-        .update({
-          name: companyForm.name,
-          company_number: companyForm.companyNumber || null,
-          email: companyForm.email || null,
-          address_line1: companyForm.street || null,
-          city: companyForm.city || null,
-          postcode: companyForm.postcode || null,
-        })
-        .eq('id', companyId)).error;
+      if (!error) {
+        companyError = null;
+        break;
+      }
+
+      const missingColumn = getMissingColumnFromError(error, 'companies');
+      if (missingColumn && Object.prototype.hasOwnProperty.call(companyUpdatePayload, missingColumn)) {
+        delete companyUpdatePayload[missingColumn];
+        companyError = error;
+        continue;
+      }
+
+      companyError = error;
+      break;
     }
 
     if (companyError) {

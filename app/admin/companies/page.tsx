@@ -5,7 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
-import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
+import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 
 export default function CompaniesPage() {
   const { user, hasSupabaseSession } = useAuth();
@@ -42,29 +42,43 @@ export default function CompaniesPage() {
   const loadCompanies = async () => {
     setLoading(true);
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
-    const companyRes = await supabase
-      .from('companies')
-      .select('id, name, company_number, vat_number, email, phone, address_line1, city, postcode, created_at')
-      .eq('id', companyId)
-      .order('created_at', { ascending: false });
+    const requestedColumns = ['id', 'name', 'company_number', 'vat_number', 'email', 'phone', 'address_line1', 'city', 'postcode', 'created_at'];
+    const activeColumns = [...requestedColumns];
+    const missingColumns = new Set<string>();
+    let rows: Record<string, unknown>[] = [];
+    let companyError: { message?: string | null } | null = null;
 
-    let rows = (companyRes.data ?? []) as Company[];
-    let companyError = companyRes.error;
-
-    if (isMissingColumnError(companyError, 'companies', 'email')) {
-      const fallbackRes = await supabase
+    while (activeColumns.length > 0) {
+      const companyRes = await supabase
         .from('companies')
-        .select('id, name, company_number, vat_number, phone, address_line1, city, postcode, created_at')
+        .select(activeColumns.join(', '))
         .eq('id', companyId)
         .order('created_at', { ascending: false });
-      rows = (fallbackRes.data ?? []).map((row: Record<string, unknown>) => ({
-        ...row,
-        email: null,
-      })) as Company[];
-      companyError = fallbackRes.error;
+      if (!companyRes.error) {
+        rows = (companyRes.data ?? []) as Record<string, unknown>[];
+        companyError = null;
+        break;
+      }
+
+      const missingColumn = getMissingColumnFromError(companyRes.error, 'companies');
+      if (missingColumn && activeColumns.includes(missingColumn)) {
+        missingColumns.add(missingColumn);
+        activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
+        companyError = companyRes.error;
+        continue;
+      }
+
+      companyError = companyRes.error;
+      break;
     }
 
-    if (!companyError) setCompanies(rows);
+    if (!companyError) {
+      setCompanies(rows.map((row) => ({
+        ...row,
+        email: missingColumns.has('email') ? null : (row.email as string | null | undefined) ?? null,
+        phone: missingColumns.has('phone') ? null : (row.phone as string | null | undefined) ?? null,
+      })) as Company[]);
+    }
     setLoading(false);
   };
 
@@ -82,10 +96,19 @@ export default function CompaniesPage() {
   const handleCreate = async () => {
     if (!formData.name.trim()) { setError('Company name is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    let error = (await supabase.from('companies').insert([formData])).error;
-    if (isMissingColumnError(error, 'companies', 'email')) {
-      const { email: _email, ...fallbackPayload } = formData;
-      error = (await supabase.from('companies').insert([fallbackPayload])).error;
+    const payload: Record<string, string> = { ...formData };
+    let error: { message?: string | null } | null = null;
+    while (Object.keys(payload).length > 0) {
+      const insertRes = await supabase.from('companies').insert([payload]);
+      if (!insertRes.error) { error = null; break; }
+      const missingColumn = getMissingColumnFromError(insertRes.error, 'companies');
+      if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
+        delete payload[missingColumn];
+        error = insertRes.error;
+        continue;
+      }
+      error = insertRes.error;
+      break;
     }
     if (error) { setError(error.message); return; }
     setShowModal(false);
@@ -113,33 +136,31 @@ export default function CompaniesPage() {
     if (!editingCompany || !isSupabaseConfigured) return;
     if (!editData.name.trim()) { setEditError('Company name is required'); return; }
     setSaving(true);
-    let error = (await supabase
-      .from('companies')
-      .update({
-        name: editData.name.trim(),
-        company_number: editData.company_number.trim() || null,
-        vat_number: editData.vat_number.trim() || null,
-        email: editData.email.trim() || null,
-        phone: editData.phone.trim() || null,
-        address_line1: editData.address_line1.trim() || null,
-        city: editData.city.trim() || null,
-        postcode: editData.postcode.trim() || null,
-      })
-      .eq('id', editingCompany.id)).error;
-
-    if (isMissingColumnError(error, 'companies', 'email')) {
-      error = (await supabase
+    const updatePayload: Record<string, string | null> = {
+      name: editData.name.trim(),
+      company_number: editData.company_number.trim() || null,
+      vat_number: editData.vat_number.trim() || null,
+      email: editData.email.trim() || null,
+      phone: editData.phone.trim() || null,
+      address_line1: editData.address_line1.trim() || null,
+      city: editData.city.trim() || null,
+      postcode: editData.postcode.trim() || null,
+    };
+    let error: { message?: string | null } | null = null;
+    while (Object.keys(updatePayload).length > 0) {
+      const updateRes = await supabase
         .from('companies')
-        .update({
-          name: editData.name.trim(),
-          company_number: editData.company_number.trim() || null,
-          vat_number: editData.vat_number.trim() || null,
-          phone: editData.phone.trim() || null,
-          address_line1: editData.address_line1.trim() || null,
-          city: editData.city.trim() || null,
-          postcode: editData.postcode.trim() || null,
-        })
-        .eq('id', editingCompany.id)).error;
+        .update(updatePayload)
+        .eq('id', editingCompany.id);
+      if (!updateRes.error) { error = null; break; }
+      const missingColumn = getMissingColumnFromError(updateRes.error, 'companies');
+      if (missingColumn && Object.prototype.hasOwnProperty.call(updatePayload, missingColumn)) {
+        delete updatePayload[missingColumn];
+        error = updateRes.error;
+        continue;
+      }
+      error = updateRes.error;
+      break;
     }
     setSaving(false);
     if (error) { setEditError(error.message); return; }

@@ -1,12 +1,16 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../components/AuthContext';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 export default function DriverEntryPage() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const [stats, setStats] = useState({ active: 0, history: 0 });
+  const [loadingStats, setLoadingStats] = useState(true);
   const quickActions = [
     {
       label: 'Active Jobs',
@@ -32,7 +36,40 @@ export default function DriverEntryPage() {
       emoji: '📦',
       href: '/driver/jobs',
     },
+    {
+      label: 'Account Security',
+      description: 'Change login password',
+      emoji: '🔒',
+      href: '/driver/change-password',
+    },
   ] as const;
+
+  useEffect(() => {
+    if (!user?.driverId || !isSupabaseConfigured) {
+      setLoadingStats(false);
+      return;
+    }
+    const loadStats = async () => {
+      const [activeRes, historyRes] = await Promise.all([
+        supabase
+          .from('jobs')
+          .select('id', { count: 'exact', head: true })
+          .eq('assigned_driver_id', user.driverId)
+          .in('status', ['allocated', 'in_transit']),
+        supabase
+          .from('jobs')
+          .select('id', { count: 'exact', head: true })
+          .eq('assigned_driver_id', user.driverId)
+          .in('status', ['delivered', 'cancelled', 'disputed']),
+      ]);
+      setStats({
+        active: activeRes.count ?? 0,
+        history: historyRes.count ?? 0,
+      });
+      setLoadingStats(false);
+    };
+    loadStats();
+  }, [user?.driverId]);
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
@@ -53,6 +90,25 @@ export default function DriverEntryPage() {
         <p style={{ marginBottom: '1.5rem', color: '#cbd5e1' }}>
           Signed in as {user?.email}
         </p>
+        <div
+          style={{
+            width: '100%',
+            maxWidth: '560px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, minmax(120px, 1fr))',
+            gap: '0.75rem',
+            marginBottom: '0.75rem',
+          }}
+        >
+          <div style={{ backgroundColor: '#123556', border: '1px solid #2f4f6f', borderRadius: '12px', padding: '0.75rem', textAlign: 'left' }}>
+            <div style={{ fontSize: '0.72rem', color: '#93c5fd' }}>Active</div>
+            <div style={{ fontSize: '1.15rem', fontWeight: '700' }}>{loadingStats ? '…' : stats.active}</div>
+          </div>
+          <div style={{ backgroundColor: '#123556', border: '1px solid #2f4f6f', borderRadius: '12px', padding: '0.75rem', textAlign: 'left' }}>
+            <div style={{ fontSize: '0.72rem', color: '#93c5fd' }}>Completed / Closed</div>
+            <div style={{ fontSize: '1.15rem', fontWeight: '700' }}>{loadingStats ? '…' : stats.history}</div>
+          </div>
+        </div>
         <div
           style={{
             width: '100%',
