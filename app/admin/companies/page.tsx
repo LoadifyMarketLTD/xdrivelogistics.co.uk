@@ -45,7 +45,7 @@ export default function CompaniesPage() {
     const requestedColumns = ['id', 'name', 'company_number', 'vat_number', 'email', 'phone', 'address_line1', 'city', 'postcode', 'created_at'];
     const activeColumns = [...requestedColumns];
     const missingColumns = new Set<string>();
-    let rows: Record<string, unknown>[] = [];
+    let rows: Array<Record<string, unknown>> = [];
     let companyError: { message?: string | null } | null = null;
 
     while (activeColumns.length > 0) {
@@ -55,7 +55,7 @@ export default function CompaniesPage() {
         .eq('id', companyId)
         .order('created_at', { ascending: false });
       if (!companyRes.error) {
-        rows = (companyRes.data ?? []) as Record<string, unknown>[];
+        rows = ((companyRes.data ?? []) as unknown) as Array<Record<string, unknown>>;
         companyError = null;
         break;
       }
@@ -110,7 +110,7 @@ export default function CompaniesPage() {
       error = insertRes.error;
       break;
     }
-    if (error) { setError(error.message); return; }
+    if (error) { setError(error.message ?? 'Failed to create company.'); return; }
     setShowModal(false);
     setFormData({ name: '', company_number: '', vat_number: '', email: '', phone: '', address_line1: '', city: '', postcode: '' });
     setError('');
@@ -163,7 +163,7 @@ export default function CompaniesPage() {
       break;
     }
     setSaving(false);
-    if (error) { setEditError(error.message); return; }
+    if (error) { setEditError(error.message ?? 'Failed to update company.'); return; }
     setEditingCompany(null);
     loadCompanies();
   };
