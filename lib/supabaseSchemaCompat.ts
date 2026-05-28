@@ -30,7 +30,8 @@ export const isMissingColumnError = (
     message.includes(signature) || details.includes(signature) || hint.includes(signature)
   );
 
-  if (code === '42703') return mentionsRequestedColumn;
+  // 42703 = PostgreSQL undefined_column; PGRST204 = PostgREST schema-cache miss
+  if (code === '42703' || code === 'pgrst204') return mentionsRequestedColumn;
 
   const signatures = [
     `could not find the '${columnName}' column`,
