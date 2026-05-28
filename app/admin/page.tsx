@@ -7,6 +7,7 @@ import { useAuth } from '../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { COMPANY_CONFIG } from '../config/company';
 import { resolveActiveCompanyId } from '../../lib/activeCompany';
+import { getMissingColumnFromError } from '../../lib/supabaseSchemaCompat';
 
 type DashboardOverview = {
   activeJobs: number;
@@ -213,6 +214,89 @@ const rowsQuery = async <T,>(promise: PromiseLike<{ data: T[] | null; error: { m
   return data ?? [];
 };
 
+const loadInvoicesWithCompat = async (companyId: string): Promise<InvoiceRow[]> => {
+  const activeColumns = ['id', 'invoice_number', 'status', 'due_date', 'amount', 'client_name', 'created_at'];
+  const missingColumns = new Set<string>();
+
+  while (activeColumns.length > 0) {
+    const result = await supabase
+      .from('invoices')
+      .select(activeColumns.join(', '))
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+
+    if (!result.error) {
+      const rows = ((result.data ?? []) as unknown) as Array<Record<string, unknown>>;
+      return rows.map((row, index) => ({
+        id: String(row.id ?? `invoice-${index}`),
+        invoice_number: missingColumns.has('invoice_number') ? 'Invoice' : String(row.invoice_number ?? 'Invoice'),
+        status: missingColumns.has('status') ? 'Pending' : String(row.status ?? 'Pending'),
+        due_date: missingColumns.has('due_date')
+          ? String(row.created_at ?? new Date().toISOString())
+          : String(row.due_date ?? row.created_at ?? new Date().toISOString()),
+        amount: missingColumns.has('amount')
+          ? null
+          : typeof row.amount === 'number'
+            ? row.amount
+            : row.amount == null
+              ? null
+              : Number(row.amount),
+        client_name: missingColumns.has('client_name') ? null : (row.client_name == null ? null : String(row.client_name)),
+        created_at: String(row.created_at ?? new Date().toISOString()),
+      }));
+    }
+
+    const missingColumn = getMissingColumnFromError(result.error, 'invoices');
+    if (missingColumn && activeColumns.includes(missingColumn)) {
+      missingColumns.add(missingColumn);
+      activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
+      continue;
+    }
+
+    throw new Error(result.error.message);
+  }
+
+  return [];
+};
+
+const loadVehicleDocumentsWithCompat = async (companyId: string): Promise<DocRow[]> => {
+  const vehiclesRes = await supabase.from('vehicles').select('id').eq('company_id', companyId);
+  if (vehiclesRes.error) throw new Error(vehiclesRes.error.message);
+
+  const vehicleIds = (vehiclesRes.data ?? []).map((vehicle) => vehicle.id).filter(Boolean);
+  if (vehicleIds.length === 0) return [];
+
+  const activeColumns = ['id', 'status', 'expiry_date', 'vehicle_id'];
+  const missingColumns = new Set<string>();
+
+  while (activeColumns.length > 0) {
+    const result = await supabase
+      .from('vehicle_documents')
+      .select(activeColumns.join(', '))
+      .in('vehicle_id', vehicleIds);
+
+    if (!result.error) {
+      const rows = ((result.data ?? []) as unknown) as Array<Record<string, unknown>>;
+      return rows.map((row, index) => ({
+        id: String(row.id ?? `vehicle-doc-${index}`),
+        status: missingColumns.has('status') ? 'pending' : String(row.status ?? 'pending'),
+        expiry_date: missingColumns.has('expiry_date') ? null : (row.expiry_date == null ? null : String(row.expiry_date)),
+      }));
+    }
+
+    const missingColumn = getMissingColumnFromError(result.error, 'vehicle_documents');
+    if (missingColumn && activeColumns.includes(missingColumn)) {
+      missingColumns.add(missingColumn);
+      activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
+      continue;
+    }
+
+    throw new Error(result.error.message);
+  }
+
+  return [];
+};
+
 const getInvoiceStatus = (dueDate: string, currentStatus: string) => {
   if (currentStatus === 'Paid') return 'Paid';
   return new Date() > new Date(dueDate) ? 'Overdue' : 'Pending';
@@ -406,13 +490,7 @@ export default function AdminPage() {
         },
         {
           label: 'invoices list',
-          run: rowsQuery<InvoiceRow>(
-          supabase
-            .from('invoices')
-            .select('id, invoice_number, status, due_date, amount, client_name, created_at')
-            .eq('company_id', resolvedCompanyId)
-            .order('created_at', { ascending: false })
-          ),
+          run: loadInvoicesWithCompat(resolvedCompanyId),
         },
         {
           label: 'job bids list',
@@ -435,12 +513,7 @@ export default function AdminPage() {
         },
         {
           label: 'vehicle documents list',
-          run: rowsQuery<DocRow>(
-          supabase
-            .from('vehicle_documents')
-            .select('id, status, expiry_date, vehicles!inner(company_id)')
-            .eq('vehicles.company_id', resolvedCompanyId)
-          ),
+          run: loadVehicleDocumentsWithCompat(resolvedCompanyId),
         },
       ];
       const results = await Promise.allSettled(dashboardModules.map((module) => module.run));
