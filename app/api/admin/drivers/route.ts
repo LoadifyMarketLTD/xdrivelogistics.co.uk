@@ -27,25 +27,53 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = (await request.json()) as CreateDriverPayload;
-  const companyId = payload.companyId?.trim();
+  const requestedCompanyId = payload.companyId?.trim();
   const displayName = payload.displayName?.trim();
   const email = payload.email?.trim().toLowerCase();
   const phone = payload.phone?.trim() || null;
 
-  if (!companyId || !displayName || !email) {
-    return NextResponse.json({ error: 'companyId, displayName and email are required.' }, { status: 400 });
+  if (!displayName || !email) {
+    return NextResponse.json({ error: 'displayName and email are required.' }, { status: 400 });
   }
 
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('id, role_in_company')
-    .eq('company_id', companyId)
+  const { data: actorProfile, error: actorProfileError } = await supabaseAdmin
+    .from('profiles')
+    .select('company_id')
     .eq('user_id', authData.user.id)
-    .eq('status', 'active')
     .limit(1)
     .maybeSingle();
 
-  if (membershipError || !membership || !ADMIN_ROLES.has(String(membership.role_in_company))) {
+  if (actorProfileError) {
+    return NextResponse.json({ error: actorProfileError.message }, { status: 500 });
+  }
+
+  const authCompanyId =
+    typeof actorProfile?.company_id === 'string' && actorProfile.company_id.length > 0
+      ? actorProfile.company_id
+      : null;
+
+  const { data: memberships, error: membershipError } = await supabaseAdmin
+    .from('company_memberships')
+    .select('company_id, role_in_company')
+    .eq('user_id', authData.user.id)
+    .eq('status', 'active')
+    .in('role_in_company', Array.from(ADMIN_ROLES));
+
+  if (membershipError) {
+    return NextResponse.json({ error: membershipError.message }, { status: 500 });
+  }
+
+  const allowedCompanyIds = (memberships ?? [])
+    .map((membership) => membership.company_id)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+  const resolvedCompanyId =
+    (authCompanyId && allowedCompanyIds.includes(authCompanyId) && authCompanyId) ||
+    (requestedCompanyId && allowedCompanyIds.includes(requestedCompanyId) && requestedCompanyId) ||
+    allowedCompanyIds[0] ||
+    null;
+
+  if (!resolvedCompanyId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -93,7 +121,7 @@ export async function POST(request: NextRequest) {
         full_name: displayName,
         phone,
         role: 'driver',
-        company_id: companyId,
+        company_id: resolvedCompanyId,
         is_driver: true,
         updated_at: new Date().toISOString(),
       },
@@ -108,7 +136,7 @@ export async function POST(request: NextRequest) {
     .from('drivers')
     .insert([
       {
-        company_id: companyId,
+        company_id: resolvedCompanyId,
         user_id: userId,
         display_name: displayName,
         phone,
