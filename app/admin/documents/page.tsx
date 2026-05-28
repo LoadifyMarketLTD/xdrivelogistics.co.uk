@@ -5,6 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DriverDocument, VehicleDocument, DocStatus } from '../../../lib/types/database';
+import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 
 interface DriverOption { id: string; display_name: string; }
 interface VehicleOption { id: string; reg_plate: string; }
@@ -75,20 +76,51 @@ export default function DocumentsPage() {
         })));
       }
     } else {
-      const { data, error: vehicleError } = await supabase
-        .from('vehicle_documents')
-        .select('id, vehicle_id, doc_type, file_path, issued_date, expiry_date, status, rejection_reason, verified_by, verified_at, created_at, vehicles!inner(reg_plate, company_id)')
-        .eq('vehicles.company_id', companyId)
-        .order('created_at', { ascending: false });
+      const requestedColumns = ['id', 'vehicle_id', 'doc_type', 'file_path', 'issued_date', 'expiry_date', 'status', 'rejection_reason', 'verified_by', 'verified_at', 'created_at'];
+      const activeColumns = [...requestedColumns];
+      const missingColumns = new Set<string>();
+      let rows: Array<Record<string, unknown>> = [];
+      let vehicleError: { message?: string | null } | null = null;
+
+      while (activeColumns.length > 0) {
+        const vehicleRes = await supabase
+          .from('vehicle_documents')
+          .select(`${activeColumns.join(', ')}, vehicles!inner(reg_plate, company_id)`)
+          .eq('vehicles.company_id', companyId)
+          .order('created_at', { ascending: false });
+
+        if (!vehicleRes.error) {
+          rows = ((vehicleRes.data ?? []) as unknown) as Array<Record<string, unknown>>;
+          vehicleError = null;
+          break;
+        }
+
+        const missingColumn = getMissingColumnFromError(vehicleRes.error, 'vehicle_documents');
+        if (missingColumn && activeColumns.includes(missingColumn)) {
+          missingColumns.add(missingColumn);
+          activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
+          vehicleError = vehicleRes.error;
+          continue;
+        }
+
+        vehicleError = vehicleRes.error;
+        break;
+      }
+
       if (vehicleError) {
         setDocs([]);
         setError(`Failed to load vehicle documents: ${vehicleError.message}`);
-      } else if (data) {
-        setDocs(data.map((d: VehicleDocument & { vehicles?: Array<{ reg_plate: string }> }) => ({
-          ...d,
-          kind: 'vehicle' as const,
-          subject_name: Array.isArray(d.vehicles) ? d.vehicles[0]?.reg_plate : undefined,
-        })));
+      } else {
+        setDocs(rows.map((row) => {
+          const d = (row as unknown) as VehicleDocument & { vehicles?: Array<{ reg_plate: string }> };
+          return {
+            ...d,
+            doc_type: missingColumns.has('doc_type') ? 'Document' : (d.doc_type ?? 'Document'),
+            file_path: missingColumns.has('file_path') ? null : (d.file_path ?? null),
+            kind: 'vehicle' as const,
+            subject_name: Array.isArray(d.vehicles) ? d.vehicles[0]?.reg_plate : undefined,
+          };
+        }));
       }
     }
     setLoading(false);
@@ -134,10 +166,27 @@ export default function DocumentsPage() {
       });
       if (dbError) { setUploadError(`Database error: ${dbError.message}`); setUploading(false); return; }
     } else {
-      const { error: dbError } = await supabase.from('vehicle_documents').insert({
-        vehicle_id: form.subjectId, doc_type: form.docType, file_path: fileUrl,
-        issued_date: form.issuedDate || null, expiry_date: form.expiryDate || null, status: 'pending',
-      });
+      const payload: Record<string, string | null> = {
+        vehicle_id: form.subjectId,
+        doc_type: form.docType,
+        file_path: fileUrl,
+        issued_date: form.issuedDate || null,
+        expiry_date: form.expiryDate || null,
+        status: 'pending',
+      };
+      let dbError: { message?: string | null } | null = null;
+      while (Object.keys(payload).length > 0) {
+        const insertRes = await supabase.from('vehicle_documents').insert(payload);
+        if (!insertRes.error) { dbError = null; break; }
+        const missingColumn = getMissingColumnFromError(insertRes.error, 'vehicle_documents');
+        if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
+          delete payload[missingColumn];
+          dbError = insertRes.error;
+          continue;
+        }
+        dbError = insertRes.error;
+        break;
+      }
       if (dbError) { setUploadError(`Database error: ${dbError.message}`); setUploading(false); return; }
     }
     setForm(DEFAULT_UPLOAD);

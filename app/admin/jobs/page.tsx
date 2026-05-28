@@ -94,7 +94,7 @@ export default function JobsPage() {
       .from('company_memberships')
       .select('company_id')
       .eq('user_id', userId)
-      .neq('status', 'suspended')
+      .eq('status', 'active')
       .limit(1)
       .single();
     if (mbData) {

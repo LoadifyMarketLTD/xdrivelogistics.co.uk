@@ -10,6 +10,7 @@ import {
   DEFAULT_COMPANY_SETTINGS,
   loadCompanySettings,
 } from '../../../lib/companySettings';
+import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 
 const TABS = [
   { id: 'company', label: 'Company Info', icon: '🏢' },
@@ -86,7 +87,7 @@ export default function SettingsPage() {
           .from('company_memberships')
           .select('company_id')
           .eq('user_id', user.id)
-          .neq('status', 'suspended')
+          .eq('status', 'active')
           .limit(1)
           .maybeSingle();
         resolvedCompanyId = (membership?.company_id as string) ?? null;
@@ -157,18 +158,38 @@ export default function SettingsPage() {
     setSaveError('');
     setSaved(false);
 
-    const { error: companyError } = await supabase
-      .from('companies')
-      .update({
-        name: companyForm.name,
-        company_number: companyForm.companyNumber || null,
-        email: companyForm.email || null,
-        phone: companyForm.phone || null,
-        address_line1: companyForm.street || null,
-        city: companyForm.city || null,
-        postcode: companyForm.postcode || null,
-      })
-      .eq('id', companyId);
+    const companyUpdatePayload: Record<string, string | null> = {
+      name: companyForm.name,
+      company_number: companyForm.companyNumber || null,
+      email: companyForm.email || null,
+      phone: companyForm.phone || null,
+      address_line1: companyForm.street || null,
+      city: companyForm.city || null,
+      postcode: companyForm.postcode || null,
+    };
+
+    let companyError: { message?: string | null } | null = null;
+    while (Object.keys(companyUpdatePayload).length > 0) {
+      const { error } = await supabase
+        .from('companies')
+        .update(companyUpdatePayload)
+        .eq('id', companyId);
+
+      if (!error) {
+        companyError = null;
+        break;
+      }
+
+      const missingColumn = getMissingColumnFromError(error, 'companies');
+      if (missingColumn && Object.prototype.hasOwnProperty.call(companyUpdatePayload, missingColumn)) {
+        delete companyUpdatePayload[missingColumn];
+        companyError = error;
+        continue;
+      }
+
+      companyError = error;
+      break;
+    }
 
     if (companyError) {
       setSaveError(`Company details could not be saved: ${companyError.message}`);

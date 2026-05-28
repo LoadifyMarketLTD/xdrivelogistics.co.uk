@@ -1,4 +1,4 @@
-import { resolveAuthoritativeRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './authRole';
+import { mapAppRole, resolveAuthoritativeRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './authRole';
 import { supabase } from './supabaseClient';
 import type { CompanyMembership, Driver, Profile } from './types/database';
 
@@ -73,7 +73,7 @@ export const resolveAuthenticatedUser = async (
   const fallbackRole = getFallbackRole(sessionUser);
   const profileLookupQuery = `profiles.select(role,status,is_driver,company_id).eq(user_id,${sessionUser.id}).maybeSingle()`;
   const membershipLookupQuery =
-    `company_memberships.select(company_id,role_in_company,status).eq(user_id,${sessionUser.id}).neq(status,suspended).order(created_at desc).limit(1).maybeSingle()`;
+    `company_memberships.select(company_id,role_in_company,status).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc).limit(1).maybeSingle()`;
   const driverLookupQuery =
     `drivers.select(id,company_id,user_id,must_change_password).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
   const creatorCompanyLookupQuery =
@@ -88,7 +88,7 @@ export const resolveAuthenticatedUser = async (
       .from('company_memberships')
       .select('company_id, role_in_company, status')
       .eq('user_id', sessionUser.id)
-      .neq('status', 'suspended')
+      .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -141,7 +141,7 @@ export const resolveAuthenticatedUser = async (
     });
   }
 
-  const profile = profileDbError
+  let profile = profileDbError
     ? null
     : (profileRes.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'> | null);
   const membership = membershipRes.error
@@ -182,7 +182,7 @@ export const resolveAuthenticatedUser = async (
     }
   }
 
-  let companyId = driver?.company_id ?? profile?.company_id ?? membership?.company_id ?? creatorCompany?.id ?? null;
+  let companyId = profile?.company_id ?? membership?.company_id ?? driver?.company_id ?? creatorCompany?.id ?? null;
 
   if (
     !companyId &&
@@ -194,6 +194,30 @@ export const resolveAuthenticatedUser = async (
     const { data: provisionedCompanyId } = await supabase.rpc('get_or_create_company_for_user');
     if (typeof provisionedCompanyId === 'string' && provisionedCompanyId) {
       companyId = provisionedCompanyId;
+    }
+  }
+
+  if (!profile) {
+    const metadataRole = readMetadataRole(sessionUser.user_metadata, 'role')
+      ?? readMetadataRole(sessionUser.user_metadata, 'requested_role')
+      ?? fallbackRole;
+    const mappedRole = mapAppRole(metadataRole) ?? 'customer';
+    const profileBootstrap = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          user_id: sessionUser.id,
+          role: mappedRole,
+          status: 'active',
+          is_driver: mappedRole === 'driver',
+        },
+        { onConflict: 'user_id' }
+      )
+      .select('role, status, is_driver, company_id')
+      .maybeSingle();
+
+    if (!profileBootstrap.error && profileBootstrap.data) {
+      profile = profileBootstrap.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'>;
     }
   }
 

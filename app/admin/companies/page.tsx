@@ -5,6 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
+import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 
 export default function CompaniesPage() {
   const { user, hasSupabaseSession } = useAuth();
@@ -23,9 +24,14 @@ export default function CompaniesPage() {
   });
   const [error, setError] = useState('');
   const [editError, setEditError] = useState('');
+  const [switchError, setSwitchError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const loadCompanyId = async (userId: string) => {
+    if (user?.companyId) {
+      setCompanyId(user.companyId);
+      return;
+    }
     const { data } = await supabase.rpc('get_or_create_company_for_user');
     if (data) { setCompanyId(data as string); return; }
     const { data: membership } = await supabase
@@ -41,12 +47,57 @@ export default function CompaniesPage() {
   const loadCompanies = async () => {
     setLoading(true);
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
-    const { data, error } = await supabase
-      .from('companies')
-      .select('id, name, company_number, vat_number, email, phone, address_line1, city, postcode, created_at')
-      .eq('id', companyId)
-      .order('created_at', { ascending: false });
-    if (!error && data) setCompanies(data as Company[]);
+    const { data: memberships } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', user?.id ?? '')
+      .eq('status', 'active');
+
+    const membershipCompanyIds = ((memberships ?? []) as Array<{ company_id: string | null }>)
+      .map((m) => m.company_id)
+      .filter((id): id is string => typeof id === 'string');
+
+    const companyIds = membershipCompanyIds.length > 0
+      ? membershipCompanyIds
+      : [companyId];
+
+    const requestedColumns = ['id', 'name', 'company_number', 'vat_number', 'email', 'phone', 'address_line1', 'city', 'postcode', 'created_at'];
+    const activeColumns = [...requestedColumns];
+    const missingColumns = new Set<string>();
+    let rows: Array<Record<string, unknown>> = [];
+    let companyError: { message?: string | null } | null = null;
+
+    while (activeColumns.length > 0) {
+      const companyRes = await supabase
+        .from('companies')
+        .select(activeColumns.join(', '))
+        .in('id', companyIds)
+        .order('created_at', { ascending: false });
+      if (!companyRes.error) {
+        rows = ((companyRes.data ?? []) as unknown) as Array<Record<string, unknown>>;
+        companyError = null;
+        break;
+      }
+
+      const missingColumn = getMissingColumnFromError(companyRes.error, 'companies');
+      if (missingColumn && activeColumns.includes(missingColumn)) {
+        missingColumns.add(missingColumn);
+        activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
+        companyError = companyRes.error;
+        continue;
+      }
+
+      companyError = companyRes.error;
+      break;
+    }
+
+    if (!companyError) {
+      setCompanies(rows.map((row) => ({
+        ...row,
+        email: missingColumns.has('email') ? null : (row.email as string | null | undefined) ?? null,
+        phone: missingColumns.has('phone') ? null : (row.phone as string | null | undefined) ?? null,
+      })) as Company[]);
+    }
     setLoading(false);
   };
 
@@ -54,7 +105,7 @@ export default function CompaniesPage() {
     if (hasSupabaseSession && user?.id) {
       loadCompanyId(user.id);
     }
-  }, [hasSupabaseSession, user?.id]);
+  }, [hasSupabaseSession, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!companyId) return;
@@ -64,11 +115,67 @@ export default function CompaniesPage() {
   const handleCreate = async () => {
     if (!formData.name.trim()) { setError('Company name is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { error } = await supabase.from('companies').insert([formData]);
-    if (error) { setError(error.message); return; }
+    const { data: authCtx } = await supabase.auth.getUser();
+    if (!authCtx.user?.id) { setError('Session expired. Please sign in again.'); return; }
+    const payload: Record<string, string> = { ...formData, created_by: authCtx.user.id };
+    let error: { message?: string | null } | null = null;
+    let createdCompanyId: string | null = null;
+    while (Object.keys(payload).length > 0) {
+      const insertRes = await supabase.from('companies').insert([payload]).select('id').single();
+      if (!insertRes.error) {
+        createdCompanyId = (insertRes.data?.id as string | undefined) ?? null;
+        error = null;
+        break;
+      }
+      const missingColumn = getMissingColumnFromError(insertRes.error, 'companies');
+      if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
+        delete payload[missingColumn];
+        error = insertRes.error;
+        continue;
+      }
+      error = insertRes.error;
+      break;
+    }
+    if (error) { setError(error.message ?? 'Failed to create company.'); return; }
+    if (!createdCompanyId) { setError('Failed to resolve newly created company.'); return; }
+
+    const { error: membershipError } = await supabase
+      .from('company_memberships')
+      .upsert(
+        {
+          company_id: createdCompanyId,
+          user_id: authCtx.user.id,
+          role_in_company: 'owner',
+          status: 'active',
+        },
+        { onConflict: 'company_id,user_id' }
+      );
+    if (membershipError) { setError(membershipError.message ?? 'Failed to attach owner membership.'); return; }
+
+    await supabase
+      .from('profiles')
+      .update({ company_id: createdCompanyId })
+      .eq('user_id', authCtx.user.id);
+
+    setCompanyId(createdCompanyId);
     setShowModal(false);
     setFormData({ name: '', company_number: '', vat_number: '', email: '', phone: '', address_line1: '', city: '', postcode: '' });
     setError('');
+    loadCompanies();
+  };
+
+  const handleSwitchCompany = async (nextCompanyId: string) => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    setSwitchError('');
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ company_id: nextCompanyId })
+      .eq('user_id', user.id);
+    if (updateError) {
+      setSwitchError(updateError.message);
+      return;
+    }
+    setCompanyId(nextCompanyId);
     loadCompanies();
   };
 
@@ -91,21 +198,34 @@ export default function CompaniesPage() {
     if (!editingCompany || !isSupabaseConfigured) return;
     if (!editData.name.trim()) { setEditError('Company name is required'); return; }
     setSaving(true);
-    const { error } = await supabase
-      .from('companies')
-      .update({
-        name: editData.name.trim(),
-        company_number: editData.company_number.trim() || null,
-        vat_number: editData.vat_number.trim() || null,
-        email: editData.email.trim() || null,
-        phone: editData.phone.trim() || null,
-        address_line1: editData.address_line1.trim() || null,
-        city: editData.city.trim() || null,
-        postcode: editData.postcode.trim() || null,
-      })
-      .eq('id', editingCompany.id);
+    const updatePayload: Record<string, string | null> = {
+      name: editData.name.trim(),
+      company_number: editData.company_number.trim() || null,
+      vat_number: editData.vat_number.trim() || null,
+      email: editData.email.trim() || null,
+      phone: editData.phone.trim() || null,
+      address_line1: editData.address_line1.trim() || null,
+      city: editData.city.trim() || null,
+      postcode: editData.postcode.trim() || null,
+    };
+    let error: { message?: string | null } | null = null;
+    while (Object.keys(updatePayload).length > 0) {
+      const updateRes = await supabase
+        .from('companies')
+        .update(updatePayload)
+        .eq('id', editingCompany.id);
+      if (!updateRes.error) { error = null; break; }
+      const missingColumn = getMissingColumnFromError(updateRes.error, 'companies');
+      if (missingColumn && Object.prototype.hasOwnProperty.call(updatePayload, missingColumn)) {
+        delete updatePayload[missingColumn];
+        error = updateRes.error;
+        continue;
+      }
+      error = updateRes.error;
+      break;
+    }
     setSaving(false);
-    if (error) { setEditError(error.message); return; }
+    if (error) { setEditError(error.message ?? 'Failed to update company.'); return; }
     setEditingCompany(null);
     loadCompanies();
   };
@@ -124,6 +244,22 @@ export default function CompaniesPage() {
             <div>
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Companies</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage companies and memberships</p>
+              {companies.length > 1 && (
+                <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <label htmlFor="active-company" style={{ fontSize: '0.85rem', color: '#374151', fontWeight: '600' }}>Active company</label>
+                  <select
+                    id="active-company"
+                    value={companyId ?? ''}
+                    onChange={(e) => handleSwitchCompany(e.target.value)}
+                    style={{ padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem' }}
+                  >
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {switchError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0 0', fontSize: '0.85rem' }}>{switchError}</p>}
             </div>
             <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
               + Create Company
