@@ -46,10 +46,10 @@ export default function VehiclesPage() {
         .select(legacySelectColumns)
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
-      data = (legacyResult.data ?? []).map((row) => ({
+      data = ((legacyResult.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
         ...row,
-        type: (row as { vehicle_type?: VehicleType }).vehicle_type ?? 'van_large',
-      })) as Vehicle[];
+        type: (row.vehicle_type as VehicleType | undefined) ?? 'van_large',
+      })) as unknown as Vehicle[];
       error = legacyResult.error;
     }
     if (!error && data) setVehicles(data as Vehicle[]);
@@ -195,7 +195,7 @@ export default function VehiclesPage() {
       break;
     }
     setSaving(false);
-    if (error) { setEditError(error.message); return; }
+    if (error) { setEditError(error.message ?? 'Failed to update vehicle.'); return; }
     setEditingVehicle(null);
     loadVehicles();
   };
