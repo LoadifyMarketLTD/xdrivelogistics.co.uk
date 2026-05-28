@@ -50,6 +50,17 @@ export default function DocumentsPage() {
   const [uploadError, setUploadError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!user?.id) {
+      setCompanyId(null);
+      return;
+    }
+    resolveActiveCompanyId({
+      userId: user.id,
+      fallbackCompanyId: user.companyId ?? null,
+    }).then((id) => setCompanyId(id));
+  }, [user?.id, user?.companyId]);
+
   const loadDocs = async () => {
     setLoading(true);
     setError('');
@@ -415,13 +426,3 @@ export default function DocumentsPage() {
     </ProtectedRoute>
   );
 }
-  useEffect(() => {
-    if (!user?.id) {
-      setCompanyId(null);
-      return;
-    }
-    resolveActiveCompanyId({
-      userId: user.id,
-      fallbackCompanyId: user.companyId ?? null,
-    }).then((id) => setCompanyId(id));
-  }, [user?.id, user?.companyId]);
