@@ -85,10 +85,13 @@ export default function QuotesPage() {
   };
 
   useEffect(() => {
-    if (hasSupabaseSession && user?.id) {
+    if (user?.companyId) {
+      // Fast path: company already resolved in auth context — no RPC needed.
+      setCompanyId(user.companyId);
+    } else if (hasSupabaseSession && user?.id) {
       loadCompanyId(user.id);
     }
-  }, [hasSupabaseSession, user?.id]);
+  }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   useEffect(() => {
     if (!companyId) return;
