@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   RESET_PASSWORD_PATH,
@@ -103,6 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  // Prevents onAuthStateChange from firing a concurrent hydrateUser while
+  // login() is already resolving the same SIGNED_IN event, which would cause
+  // parallel exclusive LockManager lock acquisitions and a 10-second timeout.
+  const loginHydrating = useRef(false);
 
   const resetAuthState = useCallback(() => {
     setUser(null);
@@ -178,6 +182,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           if (isPasswordSetupContext(event)) {
             setPasswordSetupSessionState();
+          } else if (loginHydrating.current) {
+            // login() is already resolving this session — skip to avoid concurrent
+            // LockManager lock acquisition that causes auth-token lock timeout.
           } else {
             await hydrateUser(session.user);
           }
@@ -210,16 +217,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const normalizedEmail = email.trim().toLowerCase();
+      // Set flag before signInWithPassword — onAuthStateChange('SIGNED_IN') may
+      // fire during or immediately after this call; the flag prevents it from
+      // running a concurrent hydrateUser that would contend the LockManager lock.
+      loginHydrating.current = true;
       const { data, error } = await withTimeout(
         supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
         LOGIN_TIMEOUT_MS
       );
-      if (error) return { success: false, error: error.message };
-      if (!data.user) return { success: false, error: 'Login failed' };
+      if (error) { loginHydrating.current = false; return { success: false, error: error.message }; }
+      if (!data.user) { loginHydrating.current = false; return { success: false, error: 'Login failed' }; }
 
       console.debug('[XDrive Auth] signInWithPassword ok', { userId: data.user.id });
 
-      const result = await hydrateUser(data.user);
+      let result: AuthResolutionResult;
+      try {
+        result = await hydrateUser(data.user);
+      } finally {
+        loginHydrating.current = false;
+      }
       if (!result.user) {
         if (result.reason === 'db_error') {
           console.error('[XDrive Auth] account validation db_error', {

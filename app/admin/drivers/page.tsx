@@ -142,10 +142,6 @@ export default function DriversPage() {
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     setCreating(true);
     try {
-      // Call getUser() first — this validates the token and triggers a silent
-      // refresh if the access token is about to expire, ensuring getSession()
-      // below returns a fresh, valid token for the server-side auth check.
-      await supabase.auth.getUser();
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) {
