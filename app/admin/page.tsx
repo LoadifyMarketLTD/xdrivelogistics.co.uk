@@ -6,6 +6,7 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { COMPANY_CONFIG } from '../config/company';
+import { resolveActiveCompanyId } from '../../lib/activeCompany';
 
 type DashboardOverview = {
   activeJobs: number;
@@ -250,44 +251,29 @@ export default function AdminPage() {
   const [dashboard, setDashboard] = useState<DashboardState>(DEFAULT_DASHBOARD);
   const [dashboardError, setDashboardError] = useState('');
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
+    const updateIsMobile = () => setIsMobile(window.innerWidth <= 1024);
+    updateIsMobile();
+    window.addEventListener('resize', updateIsMobile);
+    return () => window.removeEventListener('resize', updateIsMobile);
+  }, []);
 
-    const resolveCompanyId = async () => {
-      if (!isSupabaseConfigured || !user?.id) {
-        if (!cancelled) setResolvedCompanyId(user?.companyId ?? null);
-        return;
-      }
+  useEffect(() => {
+    if (!isMobile) setSidebarOpen(false);
+  }, [isMobile]);
 
-      if (user.companyId) {
-        if (!cancelled) setResolvedCompanyId(user.companyId);
-        return;
-      }
-
-      const { data, error } = await supabase.rpc('get_or_create_company_for_user');
-      if (!cancelled && !error && data) {
-        setResolvedCompanyId(data as string);
-        return;
-      }
-
-      const { data: membership } = await supabase
-        .from('company_memberships')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .neq('status', 'suspended')
-        .limit(1)
-        .maybeSingle();
-
-      if (!cancelled) {
-        setResolvedCompanyId((membership?.company_id as string) ?? null);
-      }
-    };
-
-    resolveCompanyId();
-    return () => {
-      cancelled = true;
-    };
+  useEffect(() => {
+    if (!user?.id) {
+      setResolvedCompanyId(user?.companyId ?? null);
+      return;
+    }
+    resolveActiveCompanyId({
+      userId: user.id,
+      fallbackCompanyId: user.companyId ?? null,
+    }).then((companyId) => setResolvedCompanyId(companyId));
   }, [user?.id, user?.companyId]);
 
   useEffect(() => {
@@ -315,106 +301,149 @@ export default function AdminPage() {
       }
 
       const todayUtc = new Date().toISOString().slice(0, 10);
-      const results = await Promise.allSettled([
-        countQuery(
+      const dashboardModules = [
+        {
+          label: 'jobs counts',
+          run: countQuery(
           supabase
             .from('jobs')
             .select('id', { count: 'exact', head: true })
             .eq('company_id', resolvedCompanyId)
             .in('status', ['posted', 'allocated', 'in_transit'])
-        ),
-        countQuery(
+          ),
+        },
+        {
+          label: 'completed jobs today',
+          run: countQuery(
           supabase
             .from('jobs')
             .select('id', { count: 'exact', head: true })
             .eq('company_id', resolvedCompanyId)
             .eq('status', 'delivered')
             .gte('updated_at', todayUtc)
-        ),
-        countQuery(
+          ),
+        },
+        {
+          label: 'drivers count',
+          run: countQuery(
           supabase
             .from('drivers')
             .select('id', { count: 'exact', head: true })
             .eq('company_id', resolvedCompanyId)
             .eq('status', 'active')
-        ),
-        countQuery(
+          ),
+        },
+        {
+          label: 'quotes count',
+          run: countQuery(
           supabase
             .from('quotes')
             .select('id', { count: 'exact', head: true })
             .eq('company_id', resolvedCompanyId)
             .in('status', ['draft', 'sent'])
-        ),
-        countQuery(
+          ),
+        },
+        {
+          label: 'posted jobs count',
+          run: countQuery(
           supabase
             .from('jobs')
             .select('id', { count: 'exact', head: true })
             .eq('company_id', resolvedCompanyId)
             .eq('status', 'posted')
-        ),
-        countQuery(
+          ),
+        },
+        {
+          label: 'allocated jobs count',
+          run: countQuery(
           supabase
             .from('jobs')
             .select('id', { count: 'exact', head: true })
             .eq('company_id', resolvedCompanyId)
             .eq('status', 'allocated')
-        ),
-        countQuery(
+          ),
+        },
+        {
+          label: 'in transit jobs count',
+          run: countQuery(
           supabase
             .from('jobs')
             .select('id', { count: 'exact', head: true })
             .eq('company_id', resolvedCompanyId)
             .eq('status', 'in_transit')
-        ),
-        countQuery(
+          ),
+        },
+        {
+          label: 'delivered jobs count',
+          run: countQuery(
           supabase
             .from('jobs')
             .select('id', { count: 'exact', head: true })
             .eq('company_id', resolvedCompanyId)
             .eq('status', 'delivered')
-        ),
-        rowsQuery<JobRow>(
+          ),
+        },
+        {
+          label: 'recent jobs',
+          run: rowsQuery<JobRow>(
           supabase
             .from('jobs')
             .select('id, status, pickup_location, delivery_location, created_at, updated_at')
             .eq('company_id', resolvedCompanyId)
             .order('updated_at', { ascending: false })
             .limit(5)
-        ),
-        rowsQuery<QuoteRow>(
+          ),
+        },
+        {
+          label: 'quotes list',
+          run: rowsQuery<QuoteRow>(
           supabase
             .from('quotes')
             .select('id, status, customer_name, amount, created_at')
             .eq('company_id', resolvedCompanyId)
             .order('created_at', { ascending: false })
-        ),
-        rowsQuery<InvoiceRow>(
+          ),
+        },
+        {
+          label: 'invoices list',
+          run: rowsQuery<InvoiceRow>(
           supabase
             .from('invoices')
             .select('id, invoice_number, status, due_date, amount, client_name, created_at')
             .eq('company_id', resolvedCompanyId)
             .order('created_at', { ascending: false })
-        ),
-        rowsQuery<BidRow>(
+          ),
+        },
+        {
+          label: 'job bids list',
+          run: rowsQuery<BidRow>(
           supabase
             .from('job_bids')
             .select('id, status, amount, created_at, jobs!inner(company_id)')
             .eq('jobs.company_id', resolvedCompanyId)
             .order('created_at', { ascending: false })
-        ),
-        rowsQuery<DocRow>(
+          ),
+        },
+        {
+          label: 'driver documents list',
+          run: rowsQuery<DocRow>(
           supabase
             .from('driver_documents')
             .select('id, status, expiry_date, drivers!inner(company_id)')
             .eq('drivers.company_id', resolvedCompanyId)
-        ),
-        rowsQuery<DocRow>(
+          ),
+        },
+        {
+          label: 'vehicle documents list',
+          run: rowsQuery<DocRow>(
           supabase
             .from('vehicle_documents')
             .select('id, status, expiry_date, vehicles!inner(company_id)')
             .eq('vehicles.company_id', resolvedCompanyId)
-        ),
-      ]);
+          ),
+        },
+      ];
+      const results = await Promise.allSettled(dashboardModules.map((module) => module.run));
 
       if (cancelled) return;
 
@@ -423,7 +452,9 @@ export default function AdminPage() {
         return result.status === 'fulfilled' ? result.value as T : fallback;
       };
 
-      const queryErrors = results.filter((result) => result.status === 'rejected');
+      const failedModules = results
+        .map((result, index) => (result.status === 'rejected' ? dashboardModules[index].label : null))
+        .filter((value): value is string => Boolean(value));
       const recentJobs = getValue<JobRow[]>(8, []);
       const quotes = getValue<QuoteRow[]>(9, []);
       const invoices = getValue<InvoiceRow[]>(10, []);
@@ -506,7 +537,11 @@ export default function AdminPage() {
         },
         activity,
       });
-      setDashboardError(queryErrors.length > 0 ? 'Some dashboard modules could not be loaded. Showing the data that is available.' : '');
+      setDashboardError(
+        failedModules.length > 0
+          ? `Some dashboard modules could not be loaded. Failed: ${failedModules.join(', ')}.`
+          : ''
+      );
       setDashboardLoading(false);
     };
 
@@ -601,18 +636,29 @@ export default function AdminPage() {
   return (
     <ProtectedRoute>
       <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
+        {isMobile && sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.5)', zIndex: 30 }}
+          />
+        )}
         <aside
           style={{
-            width: '250px',
+            width: isMobile ? '280px' : '250px',
             backgroundColor: '#0A2239',
             color: 'white',
             display: 'flex',
             flexDirection: 'column',
             boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
+            position: isMobile ? 'fixed' : 'relative',
+            inset: isMobile ? '0 auto 0 0' : undefined,
+            zIndex: isMobile ? 40 : undefined,
+            transform: isMobile ? (sidebarOpen ? 'translateX(0)' : 'translateX(-100%)') : 'translateX(0)',
+            transition: 'transform 0.2s ease',
           }}
         >
           <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: 'white' }}>XDrive Logistics</h1>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: 'white' }}>{COMPANY_CONFIG.legalName}</h1>
             <p style={{ fontSize: '0.85rem', margin: '0.5rem 0 0 0', opacity: 0.7 }}>Company Portal</p>
           </div>
 
@@ -622,7 +668,10 @@ export default function AdminPage() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => router.push(item.href)}
+                  onClick={() => {
+                    router.push(item.href);
+                    if (isMobile) setSidebarOpen(false);
+                  }}
                   style={{
                     width: '100%',
                     padding: '0.875rem 1.5rem',
@@ -669,7 +718,24 @@ export default function AdminPage() {
           </div>
         </aside>
 
-        <main style={{ flex: 1, padding: '2rem' }}>
+        <main style={{ flex: 1, padding: isMobile ? '1rem' : '2rem', marginLeft: isMobile ? 0 : undefined }}>
+          {isMobile && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              style={{
+                padding: '0.65rem 0.9rem',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                backgroundColor: 'white',
+                color: '#0A2239',
+                fontWeight: '700',
+                marginBottom: '1rem',
+                cursor: 'pointer',
+              }}
+            >
+              ☰ Menu
+            </button>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
             <div>
               <h2 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>Dashboard</h2>

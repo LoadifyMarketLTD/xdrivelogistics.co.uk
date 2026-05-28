@@ -6,6 +6,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Driver, Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
+import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 
 export default function DriversPage() {
   const { user, hasSupabaseSession } = useAuth();
@@ -26,26 +27,6 @@ export default function DriversPage() {
     email: string;
     invited: boolean;
   } | null>(null);
-
-  const loadCompanyId = async (userId: string) => {
-    if (user?.companyId) {
-      setCompanyId(user.companyId);
-      return;
-    }
-    const { data } = await supabase.rpc('get_or_create_company_for_user');
-    if (data) {
-      setCompanyId(data as string);
-      return;
-    }
-    const { data: membership } = await supabase
-      .from('company_memberships')
-      .select('company_id')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .limit(1)
-      .maybeSingle();
-    setCompanyId((membership?.company_id as string) ?? null);
-  };
 
   const loadDrivers = async () => {
     setLoading(true);
@@ -123,9 +104,12 @@ export default function DriversPage() {
 
   useEffect(() => {
     if (hasSupabaseSession && user?.id) {
-      loadCompanyId(user.id);
+      resolveActiveCompanyId({
+        userId: user.id,
+        fallbackCompanyId: user.companyId ?? null,
+      }).then((id) => setCompanyId(id));
     }
-  }, [hasSupabaseSession, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   useEffect(() => {
     if (!companyId) return;
