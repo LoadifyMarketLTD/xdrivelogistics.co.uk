@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
+import { getMissingColumnFromError } from '../../lib/supabaseSchemaCompat';
 
 type AvailabilityStatus = 'available' | 'busy' | 'offline';
 
@@ -40,14 +41,26 @@ export default function DriverEntryPage() {
 
   const loadDriverProfile = useCallback(async () => {
     if (!user?.driverId || !isSupabaseConfigured) return;
-    const { data: driver } = await supabase
+    let driver: { phone?: string | null; status?: string | null; availability_status?: string | null } | null = null;
+    const driverRes = await supabase
       .from('drivers')
-      .select('phone, status')
+      .select('phone, status, availability_status')
       .eq('id', user.driverId)
       .maybeSingle();
+    if (driverRes.error && getMissingColumnFromError(driverRes.error, 'drivers') === 'availability_status') {
+      const fallbackRes = await supabase
+        .from('drivers')
+        .select('phone, status')
+        .eq('id', user.driverId)
+        .maybeSingle();
+      if (!fallbackRes.error) driver = fallbackRes.data as { phone?: string | null; status?: string | null } | null;
+    } else if (!driverRes.error) {
+      driver = driverRes.data as { phone?: string | null; status?: string | null; availability_status?: string | null } | null;
+    }
+
     if (driver) {
       if (driver.phone) setDriverPhone(driver.phone as string);
-      const s = driver.status as string;
+      const s = (driver.availability_status ?? driver.status) as string;
       if (s === 'available' || s === 'busy' || s === 'offline') setAvailability(s);
     }
     const { data: veh } = await supabase
@@ -87,7 +100,13 @@ export default function DriverEntryPage() {
     if (!user?.driverId || !isSupabaseConfigured || availabilityLoading) return;
     setAvailabilityLoading(true);
     setAvailability(next);
-    await supabase.from('drivers').update({ status: next }).eq('id', user.driverId);
+    const updateRes = await supabase
+      .from('drivers')
+      .update({ availability_status: next })
+      .eq('id', user.driverId);
+    if (updateRes.error && getMissingColumnFromError(updateRes.error, 'drivers') === 'availability_status') {
+      await supabase.from('drivers').update({ status: next }).eq('id', user.driverId);
+    }
     setAvailabilityLoading(false);
   };
 
