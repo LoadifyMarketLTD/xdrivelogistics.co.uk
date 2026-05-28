@@ -8,9 +8,28 @@ import { useAuth } from '../../components/AuthContext';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 
+const DRIVER_SELECT_COLUMNS = [
+  'id',
+  'company_id',
+  'user_id',
+  'display_name',
+  'phone',
+  'email',
+  'status',
+  'app_access',
+  'temporary_password_seq',
+  'must_change_password',
+  'temp_password_generated_at',
+  'last_app_login',
+  'created_at',
+];
+const ACCESS_TOKEN_REFRESH_BUFFER_MS = 60_000;
+
 export default function DriversPage() {
   const { user, hasSupabaseSession } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companyResolved, setCompanyResolved] = useState(false);
+  const [companyError, setCompanyError] = useState('');
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [companies, setCompanies] = useState<Pick<Company, 'id' | 'name'>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,20 +47,48 @@ export default function DriversPage() {
     invited: boolean;
   } | null>(null);
 
-  const loadDrivers = async () => {
+  const loadDrivers = async (resolvedCompanyId: string) => {
     setLoading(true);
-    if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
-    const { data, error } = await supabase
-      .from('drivers')
-      .select('id, company_id, user_id, display_name, phone, email, status, app_access, temporary_password_seq, must_change_password, temp_password_generated_at, last_app_login, created_at')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
-    if (!error && data) setDrivers(data as Driver[]);
+    if (!isSupabaseConfigured) { setLoading(false); return; }
+
+    const activeColumns = [...DRIVER_SELECT_COLUMNS];
+    let data: Driver[] | null = null;
+    let queryError: { message?: string | null } | null = null;
+
+    while (activeColumns.length > 0) {
+      const result = await supabase
+        .from('drivers')
+        .select(activeColumns.join(', '))
+        .eq('company_id', resolvedCompanyId)
+        .order('created_at', { ascending: false });
+
+      if (!result.error) {
+        data = (result.data ?? []) as unknown as Driver[];
+        queryError = null;
+        break;
+      }
+
+      const missingColumn = getMissingColumnFromError(result.error, 'drivers');
+      if (missingColumn && activeColumns.includes(missingColumn)) {
+        activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
+        queryError = result.error;
+        continue;
+      }
+
+      queryError = result.error;
+      break;
+    }
+
+    if (queryError) {
+      console.error('Failed to load drivers:', queryError.message);
+    } else if (data) {
+      setDrivers(data);
+    }
     setLoading(false);
   };
 
-  const loadCompanies = async () => {
-    if (!isSupabaseConfigured || !companyId || !user?.id) return;
+  const loadCompanies = async (resolvedCompanyId: string) => {
+    if (!isSupabaseConfigured || !user?.id) return;
     const { data: memberships } = await supabase
       .from('company_memberships')
       .select('company_id')
@@ -51,7 +98,7 @@ export default function DriversPage() {
     const membershipCompanyIds = ((memberships ?? []) as Array<{ company_id: string | null }>)
       .map((m) => m.company_id)
       .filter((id): id is string => typeof id === 'string');
-    const companyIds = membershipCompanyIds.length > 0 ? membershipCompanyIds : [companyId];
+    const companyIds = membershipCompanyIds.length > 0 ? membershipCompanyIds : [resolvedCompanyId];
 
     const requestedColumns = ['id', 'name'];
     const activeColumns = [...requestedColumns];
@@ -95,28 +142,104 @@ export default function DriversPage() {
 
     setCompanies(normalizedCompanies);
     if (normalizedCompanies.length > 0) {
-      const defaultCompanyId = normalizedCompanies.some((company) => company.id === companyId)
-        ? companyId
+      const defaultCompanyId = normalizedCompanies.some((company) => company.id === resolvedCompanyId)
+        ? resolvedCompanyId
         : normalizedCompanies[0].id;
       setFormData((prev) => ({ ...prev, company_id: prev.company_id || defaultCompanyId }));
     }
   };
 
   useEffect(() => {
-    if (hasSupabaseSession && user?.id) {
-      resolveActiveCompanyId({
-        userId: user.id,
-        fallbackCompanyId: user.companyId ?? null,
-      }).then((id) => setCompanyId(id));
+    let cancelled = false;
+
+    if (!hasSupabaseSession || !user?.id) {
+      setCompanyId(null);
+      setCompanyResolved(false);
+      setCompanyError('');
+      setDrivers([]);
+      setCompanies([]);
+      setLoading(true);
+      return;
     }
+
+    setCompanyError('');
+    if (user.companyId) {
+      setCompanyId(user.companyId);
+      setCompanyResolved(true);
+      return;
+    }
+
+    setCompanyResolved(false);
+    resolveActiveCompanyId({
+      userId: user.id,
+      fallbackCompanyId: user.companyId ?? null,
+    }).then((id) => {
+      if (cancelled) return;
+      setCompanyId(id);
+      setCompanyResolved(true);
+      if (!id) {
+        setCompanyError('Company profile not available. Drivers are hidden until company access resolves.');
+      }
+    }).catch((error) => {
+      if (cancelled) return;
+      console.error('Failed to resolve driver company context:', error);
+      setCompanyId(null);
+      setCompanyResolved(true);
+      setCompanyError('Company profile not available. Drivers are hidden until company access resolves.');
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyResolved) return;
+    if (!companyId) {
+      setDrivers([]);
+      setCompanies([]);
+      setLoading(false);
+      return;
+    }
     setFormData((prev) => ({ ...prev, company_id: companyId }));
-    loadDrivers();
-    loadCompanies();
-  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+    void Promise.all([loadDrivers(companyId), loadCompanies(companyId)]);
+  }, [companyResolved, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getFreshAccessToken = async (): Promise<{ accessToken: string | null; error: string | null }> => {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      return { accessToken: null, error: sessionError.message };
+    }
+
+    const session = sessionData.session;
+    const expiresAtMs = typeof session?.expires_at === 'number' ? session.expires_at * 1000 : 0;
+    const tokenStillFresh = Boolean(
+      session?.access_token &&
+      expiresAtMs > Date.now() + ACCESS_TOKEN_REFRESH_BUFFER_MS
+    );
+
+    if (tokenStillFresh) {
+      return { accessToken: session?.access_token ?? null, error: null };
+    }
+
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) {
+      return { accessToken: null, error: refreshError.message };
+    }
+
+    const refreshedToken = refreshData.session?.access_token ?? null;
+    if (refreshedToken) {
+      return { accessToken: refreshedToken, error: null };
+    }
+
+    const fallbackToken = session?.access_token ?? null;
+    const tokenStillValid = Boolean(fallbackToken && expiresAtMs > Date.now());
+    if (tokenStillValid) {
+      return { accessToken: fallbackToken, error: null };
+    }
+
+    return { accessToken: null, error: 'Session expired. Please sign in again.' };
+  };
 
   const handleCreate = async () => {
     if (!formData.display_name.trim()) { setError('Driver name is required'); return; }
@@ -126,15 +249,9 @@ export default function DriversPage() {
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     setCreating(true);
     try {
-      // refreshSession forces the Supabase client to exchange the refresh token
-      // for a new access token. getSession() only reads the local cache and can
-      // return an expired JWT when the background auto-refresh hasn't fired yet
-      // (e.g. after a long idle period), causing supabaseAdmin.auth.getUser() to
-      // reject the token with "invalid or expired token".
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      const accessToken = refreshData?.session?.access_token;
-      if (refreshError || !accessToken) {
-        setError('Session expired. Please sign in again.');
+      const { accessToken, error: accessTokenError } = await getFreshAccessToken();
+      if (accessTokenError || !accessToken) {
+        setError(accessTokenError ?? 'Session expired. Please sign in again.');
         return;
       }
 
@@ -154,7 +271,7 @@ export default function DriversPage() {
 
       const payload = await response.json().catch(() => ({} as { error?: string; invited?: boolean }));
       if (!response.ok) {
-        setError(payload.error || 'Failed to create driver account.');
+        setError(response.status === 401 ? 'Session expired. Please sign in again.' : (payload.error || 'Failed to create driver account.'));
         return;
       }
 
@@ -165,7 +282,7 @@ export default function DriversPage() {
       });
       setFormData({ display_name: '', phone: '', email: '', company_id: selectedCompanyId });
       setError('');
-      loadDrivers();
+      await loadDrivers(selectedCompanyId);
     } finally {
       setCreating(false);
     }
@@ -199,7 +316,7 @@ export default function DriversPage() {
     setSaving(false);
     if (error) { setEditError(error.message); return; }
     setEditingDriver(null);
-    loadDrivers();
+    await loadDrivers(companyId);
   };
 
   const handleToggleStatus = async (driver: Driver) => {
@@ -210,7 +327,7 @@ export default function DriversPage() {
       .update({ status: newStatus })
       .eq('id', driver.id)
       .eq('company_id', companyId);
-    loadDrivers();
+    await loadDrivers(companyId);
   };
 
   const closeModal = () => {
@@ -232,10 +349,20 @@ export default function DriversPage() {
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Drivers</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage drivers for your company</p>
             </div>
-            <button onClick={() => { setCreatedCredentials(null); setError(''); setShowModal(true); }} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
+            <button
+              onClick={() => { setCreatedCredentials(null); setError(''); setShowModal(true); }}
+              disabled={!companyResolved || !companyId}
+              style={{ padding: '0.75rem 1.5rem', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}
+            >
               + Add Driver
             </button>
           </div>
+
+          {companyError && (
+            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
+              {companyError}
+            </div>
+          )}
 
           {!isSupabaseConfigured && (
             <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
@@ -244,8 +371,12 @@ export default function DriversPage() {
           )}
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            {loading ? (
+            {!companyResolved || loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+            ) : !companyId ? (
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+                <p>Company profile not available. Drivers are hidden until company access resolves.</p>
+              </div>
             ) : drivers.length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚚</div>
