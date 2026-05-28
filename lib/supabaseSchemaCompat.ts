@@ -19,8 +19,18 @@ export const isMissingColumnError = (
   const hint = normalize(error.hint);
   const tableName = table.toLowerCase();
   const columnName = column.toLowerCase();
+  const mentionsRequestedColumn = [
+    `could not find the '${columnName}' column`,
+    `column "${columnName}" does not exist`,
+    `${tableName}.${columnName}`,
+    `${tableName}"."${columnName}`,
+    `"${columnName}"`,
+    `'${columnName}'`,
+  ].some((signature) =>
+    message.includes(signature) || details.includes(signature) || hint.includes(signature)
+  );
 
-  if (code === '42703') return true;
+  if (code === '42703') return mentionsRequestedColumn;
 
   const signatures = [
     `could not find the '${columnName}' column`,

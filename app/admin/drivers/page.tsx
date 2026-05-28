@@ -216,7 +216,10 @@ export default function DriversPage() {
     void Promise.all([loadDrivers(companyId), loadCompanies(companyId)]);
   }, [companyResolved, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getFreshAccessToken = async (): Promise<{ accessToken: string | null; error: string | null }> => {
+  const getFreshAccessToken = async (
+    options?: { forceRefresh?: boolean }
+  ): Promise<{ accessToken: string | null; error: string | null }> => {
+    const forceRefresh = options?.forceRefresh === true;
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) {
       return { accessToken: null, error: sessionError.message };
@@ -229,7 +232,7 @@ export default function DriversPage() {
       expiresAtMs > Date.now() + ACCESS_TOKEN_REFRESH_BUFFER_MS
     );
 
-    if (tokenStillFresh) {
+    if (tokenStillFresh && !forceRefresh) {
       return { accessToken: session?.access_token ?? null, error: null };
     }
 
@@ -252,6 +255,23 @@ export default function DriversPage() {
     return { accessToken: null, error: 'Session expired. Please sign in again.' };
   };
 
+  const createDriverWithToken = async (
+    accessToken: string,
+    payload: {
+      companyId: string;
+      displayName: string;
+      email: string;
+      phone: string | null;
+    }
+  ) => fetch('/api/admin/drivers', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+
   const handleCreate = async () => {
     if (!formData.display_name.trim()) { setError('Driver name is required'); return; }
     if (!formData.email.trim()) { setError('Driver email is required'); return; }
@@ -266,23 +286,30 @@ export default function DriversPage() {
         return;
       }
 
-      const response = await fetch('/api/admin/drivers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          companyId: selectedCompanyId,
-          displayName: formData.display_name,
-          email: formData.email,
-          phone: formData.phone || null,
-        }),
-      });
+      const requestPayload = {
+        companyId: selectedCompanyId,
+        displayName: formData.display_name,
+        email: formData.email,
+        phone: formData.phone || null,
+      };
+
+      let response = await createDriverWithToken(accessToken, requestPayload);
+      if (response.status === 401) {
+        const refreshed = await getFreshAccessToken({ forceRefresh: true });
+        if (!refreshed.accessToken) {
+          setError(refreshed.error ?? 'Session expired. Please sign in again.');
+          return;
+        }
+        response = await createDriverWithToken(refreshed.accessToken, requestPayload);
+      }
 
       const payload = await response.json().catch(() => ({} as { error?: string; invited?: boolean }));
       if (!response.ok) {
-        setError(response.status === 401 ? 'Session expired. Please sign in again.' : (payload.error || 'Failed to create driver account.'));
+        setError(
+          response.status === 401
+            ? 'Session expired. Please sign in again.'
+            : (payload.error || 'Failed to create driver account.')
+        );
         return;
       }
 

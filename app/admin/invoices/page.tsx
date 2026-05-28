@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
@@ -74,8 +74,11 @@ export default function InvoicesPage() {
   const { user } = useAuth();
   const companyId = user?.companyId ?? null;
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Paid' | 'Pending' | 'Overdue'>('All');
+  const loadRequestRef = useRef(0);
 
   const calculateStatus = (dueDate: string, currentStatus: string): 'Paid' | 'Pending' | 'Overdue' => {
     if (currentStatus === 'Paid') return 'Paid';
@@ -85,8 +88,15 @@ export default function InvoicesPage() {
   };
 
   const loadInvoices = async () => {
+    const requestId = ++loadRequestRef.current;
+    setLoading(true);
+    setLoadError('');
+
     if (!isSupabaseConfigured || !companyId) {
-      setInvoices([]);
+      if (requestId === loadRequestRef.current) {
+        setInvoices([]);
+        setLoading(false);
+      }
       return;
     }
     const activeColumns = [
@@ -100,8 +110,20 @@ export default function InvoicesPage() {
     let rows: Array<Record<string, unknown>> = [];
     let queryError: { message?: string | null } | null = null;
     let useClientsRelation = false;
+    let clientsRelationDisabled = false;
+    const seenStates = new Set<string>();
+    const maxAttempts = Math.max(12, activeColumns.length * 3);
+    let attempts = 0;
 
-    while (activeColumns.length > 0) {
+    while (activeColumns.length > 0 && attempts < maxAttempts) {
+      attempts += 1;
+      const stateKey = `${useClientsRelation ? 'clients' : 'direct'}::${activeColumns.join(',')}`;
+      if (seenStates.has(stateKey)) {
+        queryError = { message: 'Invoice query fallback loop detected and stopped.' };
+        break;
+      }
+      seenStates.add(stateKey);
+
       const selectColumns = useClientsRelation
         ? [...activeColumns.filter((column) => column !== 'client_name'), 'clients(name)']
         : activeColumns;
@@ -125,7 +147,7 @@ export default function InvoicesPage() {
         if (activeColumns.includes('client_name')) {
           activeColumns.splice(activeColumns.indexOf('client_name'), 1);
         }
-        useClientsRelation = true;
+        useClientsRelation = !clientsRelationDisabled;
         queryError = result.error;
         continue;
       }
@@ -134,6 +156,7 @@ export default function InvoicesPage() {
         useClientsRelation &&
         isMissingRelationshipError(result.error, 'invoices', 'clients')
       ) {
+        clientsRelationDisabled = true;
         useClientsRelation = false;
         queryError = result.error;
         continue;
@@ -150,15 +173,24 @@ export default function InvoicesPage() {
       break;
     }
 
+    if (!queryError && attempts >= maxAttempts) {
+      queryError = { message: 'Invoice query retry limit reached.' };
+    }
+
+    if (requestId !== loadRequestRef.current) return;
+
     if (!queryError) {
       const mapped = rows.map((row, index) => {
         const inv = dbToInvoiceData(row, `invoice-${index}`);
         return { ...inv, status: calculateStatus(inv.dueDate, inv.status) };
       });
       setInvoices(mapped);
+      setLoadError('');
     } else {
       console.error('Failed to load invoices from Supabase:', queryError.message);
+      setLoadError(queryError.message ?? 'Failed to load invoices.');
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -242,6 +274,12 @@ export default function InvoicesPage() {
 
         {/* Main Content */}
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+          {loadError && (
+            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.9rem 1rem', marginBottom: '1rem', color: '#b91c1c' }}>
+              {loadError}
+            </div>
+          )}
+
           {/* Controls */}
           <div style={{
             backgroundColor: 'white',
@@ -323,7 +361,11 @@ export default function InvoicesPage() {
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
             overflow: 'hidden'
           }}>
-            {filteredInvoices.length === 0 ? (
+            {loading ? (
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2.5rem', textAlign: 'center', color: '#6b7280', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}>
+                Loading invoices...
+              </div>
+            ) : filteredInvoices.length === 0 ? (
               <div style={{
                 padding: '3rem 2rem',
                 textAlign: 'center'
