@@ -6,9 +6,28 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import type { InvoiceData } from '../../components/InvoiceTemplate';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
+import {
+  getMissingColumnFromError,
+  isMissingColumnError,
+  isMissingRelationshipError,
+} from '../../../lib/supabaseSchemaCompat';
 
 /** Map a Supabase Invoice row → InvoiceData used by the UI */
+function readInvoiceClientName(row: Record<string, unknown>): string | null {
+  if (typeof row.client_name === 'string' && row.client_name.trim().length > 0) return row.client_name;
+  const related = row.clients;
+  if (related && typeof related === 'object' && !Array.isArray(related)) {
+    const relationName = (related as { name?: unknown }).name;
+    if (typeof relationName === 'string' && relationName.trim().length > 0) return relationName;
+  }
+  if (Array.isArray(related)) {
+    const first = related[0];
+    const relationName = first && typeof first === 'object' ? (first as { name?: unknown }).name : null;
+    if (typeof relationName === 'string' && relationName.trim().length > 0) return relationName;
+  }
+  return null;
+}
+
 function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): InvoiceData {
   const invoiceDate =
     typeof row.invoice_date === 'string'
@@ -29,7 +48,7 @@ function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): Invo
     date: invoiceDate,
     dueDate,
     status,
-    clientName: typeof row.client_name === 'string' ? row.client_name : 'Client pending',
+    clientName: readInvoiceClientName(row) ?? 'Client pending',
     clientAddress: typeof row.client_address === 'string' ? row.client_address : '',
     clientEmail: typeof row.client_email === 'string' ? row.client_email : '',
     pickupLocation: typeof row.pickup_location === 'string' ? row.pickup_location : '',
@@ -80,11 +99,16 @@ export default function InvoicesPage() {
 
     let rows: Array<Record<string, unknown>> = [];
     let queryError: { message?: string | null } | null = null;
+    let useClientsRelation = false;
 
     while (activeColumns.length > 0) {
+      const selectColumns = useClientsRelation
+        ? [...activeColumns.filter((column) => column !== 'client_name'), 'clients(name)']
+        : activeColumns;
+
       const result = await supabase
         .from('invoices')
-        .select(activeColumns.join(', '))
+        .select(selectColumns.join(', '))
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
@@ -92,6 +116,27 @@ export default function InvoicesPage() {
         rows = ((result.data ?? []) as unknown) as Array<Record<string, unknown>>;
         queryError = null;
         break;
+      }
+
+      if (
+        !useClientsRelation &&
+        isMissingColumnError(result.error, 'invoices', 'client_name')
+      ) {
+        if (activeColumns.includes('client_name')) {
+          activeColumns.splice(activeColumns.indexOf('client_name'), 1);
+        }
+        useClientsRelation = true;
+        queryError = result.error;
+        continue;
+      }
+
+      if (
+        useClientsRelation &&
+        isMissingRelationshipError(result.error, 'invoices', 'clients')
+      ) {
+        useClientsRelation = false;
+        queryError = result.error;
+        continue;
       }
 
       const missingColumn = getMissingColumnFromError(result.error, 'invoices');

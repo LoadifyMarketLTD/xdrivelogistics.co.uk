@@ -65,3 +65,26 @@ export const getMissingColumnFromError = (
 
   return null;
 };
+
+export const isMissingRelationshipError = (
+  error: ErrorLike | null | undefined,
+  sourceTable: string,
+  relationshipName: string
+) => {
+  if (!error) return false;
+  const message = normalize(error.message);
+  const details = normalize(error.details);
+  const hint = normalize(error.hint);
+  const source = sourceTable.toLowerCase();
+  const relation = relationshipName.toLowerCase();
+  const signatures = [
+    `could not find a relationship between '${source}' and '${relation}'`,
+    `could not find a relationship between "${source}" and "${relation}"`,
+    `relationship between '${source}' and '${relation}'`,
+    `relationship between "${source}" and "${relation}"`,
+  ];
+
+  return signatures.some((signature) =>
+    message.includes(signature) || details.includes(signature) || hint.includes(signature)
+  );
+};
