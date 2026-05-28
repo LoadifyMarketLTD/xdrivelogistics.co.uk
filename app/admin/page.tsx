@@ -1,36 +1,276 @@
 'use client';
 
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../components/AuthContext';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { COMPANY_CONFIG } from '../config/company';
+
+type DashboardOverview = {
+  activeJobs: number;
+  pendingQuotes: number;
+  activeDrivers: number;
+  completedToday: number;
+};
+
+type JobsByStatus = {
+  posted: number;
+  allocated: number;
+  inTransit: number;
+  delivered: number;
+};
+
+type FinanceSnapshot = {
+  outstandingInvoices: number;
+  overdueInvoices: number;
+  outstandingRevenue: number;
+};
+
+type ComplianceSnapshot = {
+  pendingDocs: number;
+  expiringSoon: number;
+  attentionRequired: number;
+};
+
+type MarketSnapshot = {
+  incomingBids: number;
+  acceptedQuotes: number;
+  recentInvoiceValue: number;
+  deliveryBacklog: number;
+};
+
+type ActivityItem = {
+  id: string;
+  icon: string;
+  title: string;
+  meta: string;
+  date: string;
+  href: string;
+};
+
+type DashboardState = {
+  overview: DashboardOverview;
+  jobsByStatus: JobsByStatus;
+  finance: FinanceSnapshot;
+  compliance: ComplianceSnapshot;
+  market: MarketSnapshot;
+  activity: ActivityItem[];
+};
+
+type InvoiceRow = {
+  id: string;
+  invoice_number: string;
+  status: string;
+  due_date: string;
+  amount: number | null;
+  client_name: string | null;
+  created_at: string;
+};
+
+type QuoteRow = {
+  id: string;
+  status: string;
+  customer_name: string | null;
+  amount: number | null;
+  created_at: string;
+};
+
+type BidRow = {
+  id: string;
+  status: string;
+  amount: number | null;
+  created_at: string;
+};
+
+type JobRow = {
+  id: string;
+  status: string;
+  pickup_location: string | null;
+  delivery_location: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type DocRow = {
+  id: string;
+  status: string;
+  expiry_date: string | null;
+};
+
+const DEFAULT_DASHBOARD: DashboardState = {
+  overview: {
+    activeJobs: 0,
+    pendingQuotes: 0,
+    activeDrivers: 0,
+    completedToday: 0,
+  },
+  jobsByStatus: {
+    posted: 0,
+    allocated: 0,
+    inTransit: 0,
+    delivered: 0,
+  },
+  finance: {
+    outstandingInvoices: 0,
+    overdueInvoices: 0,
+    outstandingRevenue: 0,
+  },
+  compliance: {
+    pendingDocs: 0,
+    expiringSoon: 0,
+    attentionRequired: 0,
+  },
+  market: {
+    incomingBids: 0,
+    acceptedQuotes: 0,
+    recentInvoiceValue: 0,
+    deliveryBacklog: 0,
+  },
+  activity: [],
+};
+
+const menuItems = [
+  { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/admin' },
+  { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
+  { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
+  { id: 'companies', label: 'Companies', icon: '🏢', href: '/admin/companies' },
+  { id: 'drivers', label: 'Drivers', icon: '🚚', href: '/admin/drivers' },
+  { id: 'vehicles', label: 'Vehicles', icon: '🚛', href: '/admin/vehicles' },
+  { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
+  { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
+  { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
+  { id: 'settings', label: 'Settings', icon: '⚙️', href: '/admin/settings' },
+];
+
+const quickActionTiles = [
+  {
+    title: 'Post a new job',
+    description: 'Create new delivery work and allocate it faster.',
+    href: '/admin/jobs',
+    icon: '📦',
+    background: '#1F7A3D',
+    color: 'white',
+    border: '#1F7A3D',
+  },
+  {
+    title: 'Review incoming bids',
+    description: 'Compare subcontractor prices and award the best fit.',
+    href: '/admin/bids',
+    icon: '💼',
+    background: '#eff6ff',
+    color: '#1d4ed8',
+    border: '#bfdbfe',
+  },
+  {
+    title: 'Chase pending quotes',
+    description: 'Follow up open pricing requests before they go stale.',
+    href: '/admin/quotes',
+    icon: '💬',
+    background: '#fff7ed',
+    color: '#c2410c',
+    border: '#fed7aa',
+  },
+  {
+    title: 'Protect compliance',
+    description: 'Check driver and vehicle documents needing attention.',
+    href: '/admin/documents',
+    icon: '📄',
+    background: '#fdf2f8',
+    color: '#be185d',
+    border: '#fbcfe8',
+  },
+  {
+    title: 'Collect faster',
+    description: 'See invoices and act on overdue payments.',
+    href: '/admin/invoices',
+    icon: '💰',
+    background: '#ecfdf5',
+    color: '#047857',
+    border: '#a7f3d0',
+  },
+  {
+    title: 'Manage fleet',
+    description: 'Review drivers, vehicles, and resource coverage.',
+    href: '/admin/vehicles',
+    icon: '🚛',
+    background: '#eef2ff',
+    color: '#4338ca',
+    border: '#c7d2fe',
+  },
+];
+
+const countQuery = async (promise: PromiseLike<{ count: number | null; error: { message: string } | null }>) => {
+  const { count, error } = await promise;
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+};
+
+const rowsQuery = async <T,>(promise: PromiseLike<{ data: T[] | null; error: { message: string } | null }>) => {
+  const { data, error } = await promise;
+  if (error) throw new Error(error.message);
+  return data ?? [];
+};
+
+const getInvoiceStatus = (dueDate: string, currentStatus: string) => {
+  if (currentStatus === 'Paid') return 'Paid';
+  return new Date() > new Date(dueDate) ? 'Overdue' : 'Pending';
+};
+
+const isExpiringSoon = (expiryDate: string | null, days: number) => {
+  if (!expiryDate) return false;
+  const expiry = new Date(expiryDate);
+  if (Number.isNaN(expiry.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  expiry.setHours(0, 0, 0, 0);
+  const diff = expiry.getTime() - today.getTime();
+  return diff >= 0 && diff <= days * 24 * 60 * 60 * 1000;
+};
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: 'GBP',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
+const formatTimestamp = (value: string) => new Date(value).toLocaleString('en-GB', {
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 export default function AdminPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState('dashboard');
-  const [stats, setStats] = useState({ activeJobs: '—', pendingQuotes: '—', activeDrivers: '—', completedToday: '—' });
-  const [statsError, setStatsError] = useState('');
+  const [dashboard, setDashboard] = useState<DashboardState>(DEFAULT_DASHBOARD);
+  const [dashboardError, setDashboardError] = useState('');
+  const [dashboardLoading, setDashboardLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+
     const resolveCompanyId = async () => {
       if (!isSupabaseConfigured || !user?.id) {
         if (!cancelled) setResolvedCompanyId(user?.companyId ?? null);
         return;
       }
+
       if (user.companyId) {
         if (!cancelled) setResolvedCompanyId(user.companyId);
         return;
       }
+
       const { data, error } = await supabase.rpc('get_or_create_company_for_user');
       if (!cancelled && !error && data) {
         setResolvedCompanyId(data as string);
         return;
       }
+
       const { data: membership } = await supabase
         .from('company_memberships')
         .select('company_id')
@@ -38,181 +278,376 @@ export default function AdminPage() {
         .neq('status', 'suspended')
         .limit(1)
         .maybeSingle();
+
       if (!cancelled) {
         setResolvedCompanyId((membership?.company_id as string) ?? null);
       }
     };
+
     resolveCompanyId();
     return () => {
       cancelled = true;
     };
   }, [user?.id, user?.companyId]);
 
-  const generateReport = () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDashboard = async () => {
+      setDashboardLoading(true);
+
+      if (!isSupabaseConfigured) {
+        if (!cancelled) {
+          setDashboard(DEFAULT_DASHBOARD);
+          setDashboardError('Supabase is not configured. Dashboard insights are unavailable.');
+          setDashboardLoading(false);
+        }
+        return;
+      }
+
+      if (!resolvedCompanyId) {
+        if (!cancelled) {
+          setDashboard(DEFAULT_DASHBOARD);
+          setDashboardError('Company profile not available. Dashboard insights are hidden until company access resolves.');
+          setDashboardLoading(false);
+        }
+        return;
+      }
+
+      const todayUtc = new Date().toISOString().slice(0, 10);
+      const results = await Promise.allSettled([
+        countQuery(
+          supabase
+            .from('jobs')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', resolvedCompanyId)
+            .in('status', ['posted', 'allocated', 'in_transit'])
+        ),
+        countQuery(
+          supabase
+            .from('jobs')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', resolvedCompanyId)
+            .eq('status', 'delivered')
+            .gte('updated_at', todayUtc)
+        ),
+        countQuery(
+          supabase
+            .from('drivers')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', resolvedCompanyId)
+            .eq('status', 'active')
+        ),
+        countQuery(
+          supabase
+            .from('quotes')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', resolvedCompanyId)
+            .in('status', ['draft', 'sent'])
+        ),
+        countQuery(
+          supabase
+            .from('jobs')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', resolvedCompanyId)
+            .eq('status', 'posted')
+        ),
+        countQuery(
+          supabase
+            .from('jobs')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', resolvedCompanyId)
+            .eq('status', 'allocated')
+        ),
+        countQuery(
+          supabase
+            .from('jobs')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', resolvedCompanyId)
+            .eq('status', 'in_transit')
+        ),
+        countQuery(
+          supabase
+            .from('jobs')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', resolvedCompanyId)
+            .eq('status', 'delivered')
+        ),
+        rowsQuery<JobRow>(
+          supabase
+            .from('jobs')
+            .select('id, status, pickup_location, delivery_location, created_at, updated_at')
+            .eq('company_id', resolvedCompanyId)
+            .order('updated_at', { ascending: false })
+            .limit(5)
+        ),
+        rowsQuery<QuoteRow>(
+          supabase
+            .from('quotes')
+            .select('id, status, customer_name, amount, created_at')
+            .eq('company_id', resolvedCompanyId)
+            .order('created_at', { ascending: false })
+        ),
+        rowsQuery<InvoiceRow>(
+          supabase
+            .from('invoices')
+            .select('id, invoice_number, status, due_date, amount, client_name, created_at')
+            .eq('company_id', resolvedCompanyId)
+            .order('created_at', { ascending: false })
+        ),
+        rowsQuery<BidRow>(
+          supabase
+            .from('job_bids')
+            .select('id, status, amount, created_at, jobs!inner(company_id)')
+            .eq('jobs.company_id', resolvedCompanyId)
+            .order('created_at', { ascending: false })
+        ),
+        rowsQuery<DocRow>(
+          supabase
+            .from('driver_documents')
+            .select('id, status, expiry_date, drivers!inner(company_id)')
+            .eq('drivers.company_id', resolvedCompanyId)
+        ),
+        rowsQuery<DocRow>(
+          supabase
+            .from('vehicle_documents')
+            .select('id, status, expiry_date, vehicles!inner(company_id)')
+            .eq('vehicles.company_id', resolvedCompanyId)
+        ),
+      ]);
+
+      if (cancelled) return;
+
+      const getValue = <T,>(index: number, fallback: T): T => {
+        const result = results[index];
+        return result.status === 'fulfilled' ? result.value as T : fallback;
+      };
+
+      const queryErrors = results.filter((result) => result.status === 'rejected');
+      const recentJobs = getValue<JobRow[]>(8, []);
+      const quotes = getValue<QuoteRow[]>(9, []);
+      const invoices = getValue<InvoiceRow[]>(10, []);
+      const bids = getValue<BidRow[]>(11, []);
+      const driverDocs = getValue<DocRow[]>(12, []);
+      const vehicleDocs = getValue<DocRow[]>(13, []);
+      const documentRows = [...driverDocs, ...vehicleDocs];
+      const openInvoices = invoices.filter((invoice) => {
+        const status = getInvoiceStatus(invoice.due_date, invoice.status);
+        return status !== 'Paid';
+      });
+      const overdueInvoices = invoices.filter((invoice) => getInvoiceStatus(invoice.due_date, invoice.status) === 'Overdue');
+      const attentionDocs = documentRows.filter((doc) => doc.status === 'expired' || doc.status === 'rejected');
+      const expiringDocs = documentRows.filter((doc) => doc.status !== 'expired' && isExpiringSoon(doc.expiry_date, 30));
+      const activity = [
+        ...recentJobs.map((job) => ({
+          id: `job-${job.id}`,
+          icon: '📦',
+          title: `Job ${job.status.replace(/_/g, ' ')}`,
+          meta: `${job.pickup_location || 'Pickup TBD'} → ${job.delivery_location || 'Delivery TBD'}`,
+          date: job.updated_at || job.created_at,
+          href: '/admin/jobs',
+        })),
+        ...quotes.slice(0, 4).map((quote) => ({
+          id: `quote-${quote.id}`,
+          icon: '💬',
+          title: `${quote.status === 'accepted' ? 'Accepted' : quote.status === 'sent' ? 'Sent' : 'Quote draft'} quote`,
+          meta: `${quote.customer_name || 'Customer pending'}${typeof quote.amount === 'number' ? ` • ${formatCurrency(quote.amount)}` : ''}`,
+          date: quote.created_at,
+          href: '/admin/quotes',
+        })),
+        ...invoices.slice(0, 4).map((invoice) => ({
+          id: `invoice-${invoice.id}`,
+          icon: '💰',
+          title: `${getInvoiceStatus(invoice.due_date, invoice.status)} invoice ${invoice.invoice_number}`,
+          meta: `${invoice.client_name || 'Client pending'}${typeof invoice.amount === 'number' ? ` • ${formatCurrency(invoice.amount)}` : ''}`,
+          date: invoice.created_at,
+          href: '/admin/invoices',
+        })),
+        ...bids.slice(0, 4).map((bid) => ({
+          id: `bid-${bid.id}`,
+          icon: '💼',
+          title: `${bid.status === 'submitted' ? 'Incoming' : bid.status} bid`,
+          meta: typeof bid.amount === 'number' ? formatCurrency(bid.amount) : 'Bid amount pending',
+          date: bid.created_at,
+          href: '/admin/bids',
+        })),
+      ]
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 8);
+
+      setDashboard({
+        overview: {
+          activeJobs: getValue<number>(0, 0),
+          completedToday: getValue<number>(1, 0),
+          activeDrivers: getValue<number>(2, 0),
+          pendingQuotes: getValue<number>(3, 0),
+        },
+        jobsByStatus: {
+          posted: getValue<number>(4, 0),
+          allocated: getValue<number>(5, 0),
+          inTransit: getValue<number>(6, 0),
+          delivered: getValue<number>(7, 0),
+        },
+        finance: {
+          outstandingInvoices: openInvoices.length,
+          overdueInvoices: overdueInvoices.length,
+          outstandingRevenue: openInvoices.reduce((total, invoice) => total + Number(invoice.amount ?? 0), 0),
+        },
+        compliance: {
+          pendingDocs: documentRows.filter((doc) => doc.status === 'pending').length,
+          expiringSoon: expiringDocs.length,
+          attentionRequired: attentionDocs.length,
+        },
+        market: {
+          incomingBids: bids.filter((bid) => bid.status === 'submitted').length,
+          acceptedQuotes: quotes.filter((quote) => quote.status === 'accepted').length,
+          recentInvoiceValue: invoices.slice(0, 5).reduce((total, invoice) => total + Number(invoice.amount ?? 0), 0),
+          deliveryBacklog: getValue<number>(0, 0) + getValue<number>(3, 0),
+        },
+        activity,
+      });
+      setDashboardError(queryErrors.length > 0 ? 'Some dashboard modules could not be loaded. Showing the data that is available.' : '');
+      setDashboardLoading(false);
+    };
+
+    loadDashboard();
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedCompanyId]);
+
+  const reportRows = useMemo(() => {
     const now = new Date();
-    const dateStr = now.toLocaleDateString('en-GB');
-    const timeStr = now.toLocaleTimeString('en-GB');
-    const rows: string[][] = [
-      [`${COMPANY_CONFIG.legalName} \u2014 Operations Report`],
-      [`Date: ${dateStr}`, `Time: ${timeStr}`],
+    return [
+      [`${COMPANY_CONFIG.legalName} — Company Dashboard Report`],
+      [`Date: ${now.toLocaleDateString('en-GB')}`, `Time: ${now.toLocaleTimeString('en-GB')}`],
       [''],
-      ['DASHBOARD SUMMARY'],
+      ['OVERVIEW'],
       ['Metric', 'Value'],
-      ['Active Jobs', stats.activeJobs],
-      ['Pending Quotes', stats.pendingQuotes],
-      ['Active Drivers', stats.activeDrivers],
-      ['Completed Today', stats.completedToday],
+      ['Active Jobs', String(dashboard.overview.activeJobs)],
+      ['Pending Quotes', String(dashboard.overview.pendingQuotes)],
+      ['Active Drivers', String(dashboard.overview.activeDrivers)],
+      ['Completed Today', String(dashboard.overview.completedToday)],
+      [''],
+      ['OPERATIONS'],
+      ['Posted', String(dashboard.jobsByStatus.posted)],
+      ['Allocated', String(dashboard.jobsByStatus.allocated)],
+      ['In Transit', String(dashboard.jobsByStatus.inTransit)],
+      ['Delivered', String(dashboard.jobsByStatus.delivered)],
+      [''],
+      ['FINANCE'],
+      ['Outstanding Invoices', String(dashboard.finance.outstandingInvoices)],
+      ['Overdue Invoices', String(dashboard.finance.overdueInvoices)],
+      ['Outstanding Revenue', formatCurrency(dashboard.finance.outstandingRevenue)],
+      [''],
+      ['COMPLIANCE'],
+      ['Pending Verification', String(dashboard.compliance.pendingDocs)],
+      ['Expiring in 30 Days', String(dashboard.compliance.expiringSoon)],
+      ['Attention Required', String(dashboard.compliance.attentionRequired)],
     ];
-    const csv = rows.map(r => r.map(cell => `"${cell}"`).join(',')).join('\r\n');
+  }, [dashboard]);
+
+  const generateReport = () => {
+    const csv = reportRows.map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `xdrive-report-${now.toISOString().slice(0, 10)}.csv`;
+    link.download = `xdrive-dashboard-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
-  useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setStats({ activeJobs: '0', pendingQuotes: '0', activeDrivers: '0', completedToday: '0' });
-      setStatsError('');
-      return;
-    }
-
-    if (!resolvedCompanyId) {
-      setStats({ activeJobs: '0', pendingQuotes: '0', activeDrivers: '0', completedToday: '0' });
-      setStatsError('Company profile not available. Dashboard stats are hidden until company access resolves.');
-      return;
-    }
-
-    // Use start-of-UTC-day so "today" is consistent with the timestamps stored by Supabase
-    const todayUtc = new Date().toISOString().slice(0, 10);
-    setStatsError('');
-    Promise.all([
-      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('company_id', resolvedCompanyId).in('status', ['posted', 'allocated', 'in_transit']),
-      supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('company_id', resolvedCompanyId).eq('status', 'delivered').gte('updated_at', todayUtc),
-      supabase.from('drivers').select('id', { count: 'exact', head: true }).eq('company_id', resolvedCompanyId).eq('status', 'active'),
-      supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('company_id', resolvedCompanyId).in('status', ['draft', 'sent']),
-    ]).then(([activeJobsRes, completedRes, driversRes, quotesRes]) => {
-      setStats({
-        activeJobs: String(activeJobsRes.count ?? 0),
-        pendingQuotes: String(quotesRes.count ?? 0),
-        activeDrivers: String(driversRes.count ?? 0),
-        completedToday: String(completedRes.count ?? 0),
-      });
-    }).catch(() => {
-      setStats({ activeJobs: '0', pendingQuotes: '0', activeDrivers: '0', completedToday: '0' });
-      setStatsError('Dashboard data is temporarily unavailable.');
-    });
-  }, [resolvedCompanyId]);
-
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'invoices', label: 'Invoices', icon: '💰' },
-    { id: 'jobs', label: 'Jobs', icon: '📦' },
-    { id: 'companies', label: 'Companies', icon: '🏢' },
-    { id: 'drivers', label: 'Drivers', icon: '🚚' },
-    { id: 'vehicles', label: 'Vehicles', icon: '🚛' },
-    { id: 'documents', label: 'Documents', icon: '📄' },
-    { id: 'bids', label: 'Bids', icon: '💼' },
-    { id: 'quotes', label: 'Quotes', icon: '💬' },
-    { id: 'settings', label: 'Settings', icon: '⚙️' },
+  const overviewCards = [
+    {
+      label: 'Active Jobs',
+      value: dashboard.overview.activeJobs,
+      icon: '🚚',
+      color: '#1F7A3D',
+      subtitle: 'Posted, allocated and in transit',
+    },
+    {
+      label: 'Pending Quotes',
+      value: dashboard.overview.pendingQuotes,
+      icon: '💬',
+      color: '#f59e0b',
+      subtitle: 'Draft or sent pricing still open',
+    },
+    {
+      label: 'Active Drivers',
+      value: dashboard.overview.activeDrivers,
+      icon: '👤',
+      color: '#0A2239',
+      subtitle: 'Drivers ready for current work',
+    },
+    {
+      label: 'Completed Today',
+      value: dashboard.overview.completedToday,
+      icon: '✅',
+      color: '#5C9FD8',
+      subtitle: 'Jobs marked delivered today',
+    },
   ];
+
+  const sectionCardStyle: CSSProperties = {
+    backgroundColor: 'white',
+    padding: '1.5rem',
+    borderRadius: '12px',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+  };
 
   return (
     <ProtectedRoute>
-      <div style={{
-        display: 'flex',
-        minHeight: '100vh',
-        backgroundColor: '#f3f4f6'
-      }}>
-        {/* Sidebar */}
-        <aside style={{
-          width: '250px',
-          backgroundColor: '#0A2239',
-          color: 'white',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)'
-        }}>
-          {/* Logo/Brand */}
-          <div style={{
-            padding: '1.5rem',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <h1 style={{
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              margin: 0,
-              color: 'white'
-            }}>
-              XDrive Logistics
-            </h1>
-            <p style={{
-              fontSize: '0.85rem',
-              margin: '0.5rem 0 0 0',
-              opacity: 0.7
-            }}>
-              Admin Portal
-            </p>
+      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
+        <aside
+          style={{
+            width: '250px',
+            backgroundColor: '#0A2239',
+            color: 'white',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
+          }}
+        >
+          <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: 'white' }}>XDrive Logistics</h1>
+            <p style={{ fontSize: '0.85rem', margin: '0.5rem 0 0 0', opacity: 0.7 }}>Company Portal</p>
           </div>
 
-          {/* Navigation */}
-          <nav style={{
-            flex: 1,
-            padding: '1rem 0'
-          }}>
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => item.id === 'dashboard' ? setActiveSection('dashboard') : router.push(`/admin/${item.id}`)}
-                style={{
-                  width: '100%',
-                  padding: '0.875rem 1.5rem',
-                  backgroundColor: activeSection === item.id ? 'rgba(31, 122, 61, 0.5)' : 'transparent',
-                  color: 'white',
-                  border: 'none',
-                  borderLeft: activeSection === item.id ? '4px solid #1F7A3D' : '4px solid transparent',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  fontSize: '1rem',
-                  transition: 'all 0.2s',
-                  fontWeight: activeSection === item.id ? '600' : '400'
-                }}
-                onMouseEnter={(e) => {
-                  if (activeSection !== item.id) {
-                    e.currentTarget.style.backgroundColor = 'rgba(10, 34, 57, 0.5)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (activeSection !== item.id) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }
-                }}
-              >
-                <span style={{ fontSize: '1.25rem' }}>{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
+          <nav style={{ flex: 1, padding: '1rem 0' }}>
+            {menuItems.map((item) => {
+              const isActive = item.id === 'dashboard';
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => router.push(item.href)}
+                  style={{
+                    width: '100%',
+                    padding: '0.875rem 1.5rem',
+                    backgroundColor: isActive ? 'rgba(31, 122, 61, 0.5)' : 'transparent',
+                    color: 'white',
+                    border: 'none',
+                    borderLeft: isActive ? '4px solid #1F7A3D' : '4px solid transparent',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    fontSize: '1rem',
+                    fontWeight: isActive ? '600' : '400',
+                  }}
+                >
+                  <span style={{ fontSize: '1.25rem' }}>{item.icon}</span>
+                  {item.label}
+                </button>
+              );
+            })}
           </nav>
 
-          {/* User Info & Logout */}
-          <div style={{
-            padding: '1rem',
-            borderTop: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <div style={{
-              fontSize: '0.85rem',
-              opacity: 0.8,
-              marginBottom: '0.75rem',
-              wordBreak: 'break-word'
-            }}>
+          <div style={{ padding: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            <div style={{ fontSize: '0.85rem', opacity: 0.8, marginBottom: '0.75rem', wordBreak: 'break-word' }}>
               {user?.email}
             </div>
             <button
@@ -227,397 +662,262 @@ export default function AdminPage() {
                 fontSize: '0.9rem',
                 fontWeight: '600',
                 cursor: 'pointer',
-                transition: 'background-color 0.2s'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 1)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.8)'}
             >
               Logout
             </button>
           </div>
         </aside>
 
-        {/* Main Content */}
-        <main style={{
-          flex: 1,
-          padding: '2rem'
-        }}>
-          {/* Header */}
-          <div style={{
-            marginBottom: '2rem'
-          }}>
-            <h2 style={{
-              fontSize: '2rem',
-              fontWeight: '700',
-              color: '#1f2937',
-              margin: '0 0 0.5rem 0'
-            }}>
-              {menuItems.find(item => item.id === activeSection)?.label}
-            </h2>
-            <p style={{
-              color: '#6b7280',
-              margin: 0
-            }}>
-              {activeSection === 'dashboard' && 'Overview of your courier operations'}
-              {activeSection === 'invoices' && 'Manage and view all invoices'}
-              {activeSection === 'jobs' && 'View and manage all delivery jobs'}
-              {activeSection === 'companies' && 'Manage companies and memberships'}
-              {activeSection === 'drivers' && 'Manage driver information'}
-              {activeSection === 'vehicles' && 'Manage fleet vehicles'}
-              {activeSection === 'documents' && 'Review and verify documents'}
-              {activeSection === 'bids' && 'Review and manage job bids'}
-              {activeSection === 'quotes' && 'Create and manage price quotes'}
-              {activeSection === 'settings' && 'Configure system settings (coming soon)'}
-            </p>
+        <main style={{ flex: 1, padding: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
+            <div>
+              <h2 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>Dashboard</h2>
+              <p style={{ color: '#6b7280', margin: 0, maxWidth: '760px' }}>
+                Courier Exchange-style control centre for operations, finance, compliance and exchange activity.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => router.push('/admin/jobs')}
+                style={{
+                  padding: '0.85rem 1.25rem',
+                  backgroundColor: '#1F7A3D',
+                  border: '1px solid #1F7A3D',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  color: 'white',
+                }}
+              >
+                📦 Manage Jobs
+              </button>
+              <button
+                onClick={generateReport}
+                style={{
+                  padding: '0.85rem 1.25rem',
+                  backgroundColor: '#e0f2fe',
+                  border: '1px solid #7dd3fc',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  color: '#075985',
+                }}
+              >
+                📊 Export Report
+              </button>
+            </div>
           </div>
 
-          {statsError && (
-            <div style={{
-              backgroundColor: '#fef3c7',
-              border: '1px solid #f59e0b',
-              borderRadius: '8px',
-              padding: '1rem 1.5rem',
-              marginBottom: '1.5rem',
-              color: '#92400e',
-              fontWeight: '600',
-            }}>
-              {statsError}
+          {dashboardError && (
+            <div
+              style={{
+                backgroundColor: '#fef3c7',
+                border: '1px solid #f59e0b',
+                borderRadius: '8px',
+                padding: '1rem 1.5rem',
+                marginBottom: '1.5rem',
+                color: '#92400e',
+                fontWeight: '600',
+              }}
+            >
+              {dashboardError}
             </div>
           )}
 
-          {/* Dashboard Content */}
-          {activeSection === 'dashboard' && (
-            <div>
-              {/* Stats Cards */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                gap: '1.5rem',
-                marginBottom: '2rem'
-              }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+            {overviewCards.map((stat) => (
+              <div
+                key={stat.label}
+                style={{
+                  backgroundColor: 'white',
+                  padding: '1.5rem',
+                  borderRadius: '12px',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                  borderLeft: `4px solid ${stat.color}`,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.9rem', color: '#6b7280', fontWeight: '500' }}>{stat.label}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.35rem' }}>{stat.subtitle}</div>
+                  </div>
+                  <span style={{ fontSize: '1.5rem' }}>{stat.icon}</span>
+                </div>
+                <div style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937' }}>{dashboardLoading ? '…' : stat.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+            <section style={sectionCardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>Operations board</h3>
+                  <p style={{ color: '#6b7280', margin: '0.35rem 0 0 0', fontSize: '0.9rem' }}>Track work in the live delivery pipeline.</p>
+                </div>
+                <button onClick={() => router.push('/admin/jobs')} style={{ background: 'none', border: 'none', color: '#1F7A3D', fontWeight: '600', cursor: 'pointer' }}>View jobs</button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.85rem' }}>
                 {[
-                  { label: 'Active Jobs', value: stats.activeJobs, icon: '🚚', color: '#1F7A3D' },
-                  { label: 'Pending Quotes', value: stats.pendingQuotes, icon: '💬', color: '#f59e0b' },
-                  { label: 'Active Drivers', value: stats.activeDrivers, icon: '👤', color: '#0A2239' },
-                  { label: 'Completed Today', value: stats.completedToday, icon: '✅', color: '#5C9FD8' },
-                ].map((stat, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      backgroundColor: 'white',
-                      padding: '1.5rem',
-                      borderRadius: '12px',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                      borderLeft: `4px solid ${stat.color}`
-                    }}
-                  >
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      marginBottom: '0.75rem'
-                    }}>
-                      <div style={{
-                        fontSize: '0.9rem',
-                        color: '#6b7280',
-                        fontWeight: '500'
-                      }}>
-                        {stat.label}
+                  { label: 'Posted', value: dashboard.jobsByStatus.posted, color: '#1d4ed8' },
+                  { label: 'Allocated', value: dashboard.jobsByStatus.allocated, color: '#7c3aed' },
+                  { label: 'In transit', value: dashboard.jobsByStatus.inTransit, color: '#ea580c' },
+                  { label: 'Delivered', value: dashboard.jobsByStatus.delivered, color: '#15803d' },
+                ].map((item) => (
+                  <div key={item.label} style={{ backgroundColor: '#f8fafc', borderRadius: '10px', padding: '1rem' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>{item.label}</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '700', color: item.color }}>{dashboardLoading ? '…' : item.value}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section style={sectionCardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>Finance overview</h3>
+                  <p style={{ color: '#6b7280', margin: '0.35rem 0 0 0', fontSize: '0.9rem' }}>Surface revenue at risk and payment pressure.</p>
+                </div>
+                <button onClick={() => router.push('/admin/invoices')} style={{ background: 'none', border: 'none', color: '#1F7A3D', fontWeight: '600', cursor: 'pointer' }}>View invoices</button>
+              </div>
+              <div style={{ display: 'grid', gap: '0.85rem' }}>
+                <div style={{ backgroundColor: '#ecfdf5', borderRadius: '10px', padding: '1rem' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#047857' }}>Outstanding revenue</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: '700', color: '#065f46', marginTop: '0.25rem' }}>{dashboardLoading ? '…' : formatCurrency(dashboard.finance.outstandingRevenue)}</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.85rem' }}>
+                  <div style={{ backgroundColor: '#fff7ed', borderRadius: '10px', padding: '1rem' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#c2410c' }}>Outstanding invoices</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '700', color: '#9a3412', marginTop: '0.25rem' }}>{dashboardLoading ? '…' : dashboard.finance.outstandingInvoices}</div>
+                  </div>
+                  <div style={{ backgroundColor: '#fef2f2', borderRadius: '10px', padding: '1rem' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#b91c1c' }}>Overdue invoices</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '700', color: '#991b1b', marginTop: '0.25rem' }}>{dashboardLoading ? '…' : dashboard.finance.overdueInvoices}</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section style={sectionCardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>Compliance watchlist</h3>
+                  <p style={{ color: '#6b7280', margin: '0.35rem 0 0 0', fontSize: '0.9rem' }}>Keep driver and vehicle documents audit-ready.</p>
+                </div>
+                <button onClick={() => router.push('/admin/documents')} style={{ background: 'none', border: 'none', color: '#1F7A3D', fontWeight: '600', cursor: 'pointer' }}>View documents</button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.85rem' }}>
+                {[
+                  { label: 'Pending', value: dashboard.compliance.pendingDocs, bg: '#eff6ff', color: '#1d4ed8' },
+                  { label: 'Expiring soon', value: dashboard.compliance.expiringSoon, bg: '#fff7ed', color: '#c2410c' },
+                  { label: 'Attention', value: dashboard.compliance.attentionRequired, bg: '#fef2f2', color: '#b91c1c' },
+                ].map((item) => (
+                  <div key={item.label} style={{ backgroundColor: item.bg, borderRadius: '10px', padding: '1rem' }}>
+                    <div style={{ fontSize: '0.85rem', color: item.color }}>{item.label}</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '700', color: item.color, marginTop: '0.25rem' }}>{dashboardLoading ? '…' : item.value}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(320px, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+            <section style={sectionCardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>Live activity feed</h3>
+                  <p style={{ color: '#6b7280', margin: '0.35rem 0 0 0', fontSize: '0.9rem' }}>Recent jobs, quotes, invoices and bids in one stream.</p>
+                </div>
+              </div>
+              {dashboard.activity.length === 0 ? (
+                <div style={{ padding: '1rem 0', color: '#6b7280' }}>No recent activity yet.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                  {dashboard.activity.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => router.push(item.href)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '0.85rem',
+                        width: '100%',
+                        padding: '1rem',
+                        borderRadius: '10px',
+                        border: '1px solid #e5e7eb',
+                        backgroundColor: '#f8fafc',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ fontSize: '1.35rem' }}>{item.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '0.2rem' }}>{item.title}</div>
+                        <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{item.meta}</div>
                       </div>
-                      <span style={{ fontSize: '1.5rem' }}>{stat.icon}</span>
-                    </div>
-                    <div style={{
-                      fontSize: '2rem',
-                      fontWeight: '700',
-                      color: '#1f2937'
-                    }}>
-                      {stat.value}
+                      <div style={{ color: '#94a3b8', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatTimestamp(item.date)}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section style={sectionCardStyle}>
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>Exchange snapshot</h3>
+                <p style={{ color: '#6b7280', margin: '0.35rem 0 0 0', fontSize: '0.9rem' }}>Operational pressure points inspired by Courier Exchange.</p>
+              </div>
+              <div style={{ display: 'grid', gap: '0.85rem' }}>
+                {[
+                  { label: 'Incoming bids', value: dashboard.market.incomingBids, detail: 'New subcontractor responses', bg: '#eff6ff', color: '#1d4ed8' },
+                  { label: 'Accepted quotes', value: dashboard.market.acceptedQuotes, detail: 'Won work ready for fulfilment', bg: '#ecfdf5', color: '#047857' },
+                  { label: 'Recent invoice value', value: formatCurrency(dashboard.market.recentInvoiceValue), detail: 'Latest billing generated', bg: '#fefce8', color: '#a16207' },
+                  { label: 'Delivery backlog', value: dashboard.market.deliveryBacklog, detail: 'Active jobs plus open quotes', bg: '#fff7ed', color: '#c2410c' },
+                ].map((item) => (
+                  <div key={item.label} style={{ backgroundColor: item.bg, borderRadius: '10px', padding: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                      <div>
+                        <div style={{ fontSize: '0.9rem', color: item.color, fontWeight: '600' }}>{item.label}</div>
+                        <div style={{ fontSize: '0.8rem', color: item.color, opacity: 0.8, marginTop: '0.3rem' }}>{item.detail}</div>
+                      </div>
+                      <div style={{ fontSize: '1.25rem', color: item.color, fontWeight: '700' }}>{dashboardLoading ? '…' : item.value}</div>
                     </div>
                   </div>
                 ))}
               </div>
+            </section>
+          </div>
 
-              {/* Quick Actions */}
-              <div style={{
-                backgroundColor: 'white',
-                padding: '1.5rem',
-                borderRadius: '12px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
-              }}>
-                <h3 style={{
-                  fontSize: '1.25rem',
-                  fontWeight: '600',
-                  color: '#1f2937',
-                  marginBottom: '1rem'
-                }}>
-                  Quick Actions
-                </h3>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                  gap: '1rem'
-                }}>
-                  <button
-                    onClick={() => router.push('/admin/invoices')}
-                    style={{
-                      padding: '1rem',
-                      backgroundColor: '#f0fdf4',
-                      border: '1px solid #86efac',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.95rem',
-                      fontWeight: '600',
-                      color: '#15803d',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#dcfce7';
-                      e.currentTarget.style.borderColor = '#1F7A3D';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f0fdf4';
-                      e.currentTarget.style.borderColor = '#86efac';
-                    }}
-                  >
-                    💰 View Invoices
-                  </button>
-                  <button
-                    onClick={() => router.push('/admin/jobs')}
-                    style={{
-                      padding: '1rem',
-                      backgroundColor: '#1F7A3D',
-                      border: '1px solid #1F7A3D',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.95rem',
-                      fontWeight: '600',
-                      color: 'white',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#166534';
-                      e.currentTarget.style.borderColor = '#166534';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#1F7A3D';
-                      e.currentTarget.style.borderColor = '#1F7A3D';
-                    }}
-                  >
-                    📦 Manage Jobs
-                  </button>
-                  <button
-                    onClick={generateReport}
-                    style={{
-                      padding: '1rem',
-                      backgroundColor: '#e0f2fe',
-                      border: '1px solid #7dd3fc',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.95rem',
-                      fontWeight: '600',
-                      color: '#075985',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#bae6fd';
-                      e.currentTarget.style.borderColor = '#5C9FD8';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#e0f2fe';
-                      e.currentTarget.style.borderColor = '#7dd3fc';
-                    }}
-                  >
-                    📊 Generate Report
-                  </button>
-                </div>
-              </div>
+          <section style={sectionCardStyle}>
+            <div style={{ marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>Action hub</h3>
+              <p style={{ color: '#6b7280', margin: '0.35rem 0 0 0', fontSize: '0.9rem' }}>Quick access to the core company workflows used most often.</p>
             </div>
-          )}
-
-          {/* Other sections */}
-          {activeSection === 'invoices' && (
-            <div style={{
-              backgroundColor: 'white',
-              padding: '3rem 2rem',
-              borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-              textAlign: 'center'
-            }}>
-              <div style={{
-                fontSize: '4rem',
-                marginBottom: '1rem'
-              }}>
-                💰
-              </div>
-              <h3 style={{
-                fontSize: '1.5rem',
-                color: '#1f2937',
-                marginBottom: '0.5rem'
-              }}>
-                Invoice Management
-              </h3>
-              <p style={{
-                color: '#6b7280',
-                fontSize: '1rem',
-                marginBottom: '1.5rem'
-              }}>
-                Manage all your invoices in the dedicated invoice section.
-              </p>
-              <button
-                onClick={() => router.push('/admin/invoices')}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  backgroundColor: '#1F7A3D',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '0.95rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}
-              >
-                Go to Invoices
-              </button>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+              {quickActionTiles.map((tile) => (
+                <button
+                  key={tile.title}
+                  onClick={() => router.push(tile.href)}
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '10px',
+                    border: `1px solid ${tile.border}`,
+                    backgroundColor: tile.background,
+                    color: tile.color,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ fontSize: '1.5rem', marginBottom: '0.65rem' }}>{tile.icon}</div>
+                  <div style={{ fontWeight: '700', marginBottom: '0.35rem' }}>{tile.title}</div>
+                  <div style={{ fontSize: '0.88rem', lineHeight: 1.5, opacity: 0.9 }}>{tile.description}</div>
+                </button>
+              ))}
             </div>
-          )}
-          
-          {activeSection === 'jobs' && (
-            <div style={{
-              backgroundColor: 'white',
-              padding: '3rem 2rem',
-              borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-              textAlign: 'center'
-            }}>
-              <div style={{
-                fontSize: '4rem',
-                marginBottom: '1rem'
-              }}>
-                📦
-              </div>
-              <h3 style={{
-                fontSize: '1.5rem',
-                color: '#1f2937',
-                marginBottom: '0.5rem'
-              }}>
-                Job Management
-              </h3>
-              <p style={{
-                color: '#6b7280',
-                fontSize: '1rem',
-                marginBottom: '1.5rem'
-              }}>
-                View and manage all your delivery jobs.
-              </p>
-              <button
-                onClick={() => router.push('/admin/jobs')}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  backgroundColor: '#1F7A3D',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '0.95rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}
-              >
-                Go to Jobs
-              </button>
-            </div>
-          )}
-          
-          {activeSection === 'companies' && (
-            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🏢</div>
-              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Company Management</h3>
-              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Manage companies and memberships.</p>
-              <button onClick={() => router.push('/admin/companies')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Companies</button>
-            </div>
-          )}
-          {activeSection === 'drivers' && (
-            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚚</div>
-              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Driver Management</h3>
-              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Manage your drivers.</p>
-              <button onClick={() => router.push('/admin/drivers')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Drivers</button>
-            </div>
-          )}
-          {activeSection === 'vehicles' && (
-            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚛</div>
-              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Vehicle Management</h3>
-              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Manage your fleet vehicles.</p>
-              <button onClick={() => router.push('/admin/vehicles')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Vehicles</button>
-            </div>
-          )}
-          {activeSection === 'documents' && (
-            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📄</div>
-              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Document Management</h3>
-              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Review and verify driver & vehicle documents.</p>
-              <button onClick={() => router.push('/admin/documents')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Documents</button>
-            </div>
-          )}
-          {activeSection === 'bids' && (
-            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💼</div>
-              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Bid Management</h3>
-              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Review and manage job bids.</p>
-              <button onClick={() => router.push('/admin/bids')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Bids</button>
-            </div>
-          )}
-          {activeSection === 'quotes' && (
-            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💬</div>
-              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>Quote Management</h3>
-              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Create and manage price quotes.</p>
-              <button onClick={() => router.push('/admin/quotes')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Quotes</button>
-            </div>
-          )}
-          {activeSection === 'settings' && (
-            <div style={{ backgroundColor: 'white', padding: '3rem 2rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⚙️</div>
-              <h3 style={{ fontSize: '1.5rem', color: '#1f2937', marginBottom: '0.5rem' }}>System Settings</h3>
-              <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '1.5rem' }}>Configure company information, notifications, and system preferences.</p>
-              <button onClick={() => router.push('/admin/settings')} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#166534'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1F7A3D'}>Go to Settings</button>
-            </div>
-          )}
-          {activeSection !== 'dashboard' && activeSection !== 'invoices' && activeSection !== 'jobs' && activeSection !== 'companies' && activeSection !== 'drivers' && activeSection !== 'vehicles' && activeSection !== 'documents' && activeSection !== 'bids' && activeSection !== 'quotes' && activeSection !== 'settings' && (
-            <div style={{
-              backgroundColor: 'white',
-              padding: '3rem 2rem',
-              borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-              textAlign: 'center'
-            }}>
-              <div style={{
-                fontSize: '4rem',
-                marginBottom: '1rem'
-              }}>
-                {menuItems.find(item => item.id === activeSection)?.icon}
-              </div>
-              <h3 style={{
-                fontSize: '1.5rem',
-                color: '#1f2937',
-                marginBottom: '0.5rem'
-              }}>
-                {menuItems.find(item => item.id === activeSection)?.label}
-              </h3>
-              <p style={{
-                color: '#6b7280',
-                fontSize: '1rem'
-              }}>
-                This section is under development and will be available soon.
-              </p>
-            </div>
-          )}
+          </section>
         </main>
       </div>
     </ProtectedRoute>
