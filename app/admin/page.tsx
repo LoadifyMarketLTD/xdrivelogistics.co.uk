@@ -237,8 +237,19 @@ const loadInvoicesWithCompat = async (companyId: string): Promise<InvoiceRow[]> 
   const activeColumns = ['id', 'invoice_number', 'status', 'due_date', 'amount', 'client_name', 'created_at'];
   const missingColumns = new Set<string>();
   let useClientsRelation = false;
+  let clientsRelationDisabled = false;
+  const seenStates = new Set<string>();
+  const maxAttempts = Math.max(12, activeColumns.length * 3);
+  let attempts = 0;
 
-  while (activeColumns.length > 0) {
+  while (activeColumns.length > 0 && attempts < maxAttempts) {
+    attempts += 1;
+    const stateKey = `${useClientsRelation ? 'clients' : 'direct'}::${activeColumns.join(',')}`;
+    if (seenStates.has(stateKey)) {
+      throw new Error('Invoice compatibility fallback loop detected and stopped.');
+    }
+    seenStates.add(stateKey);
+
     const selectColumns = useClientsRelation
       ? [...activeColumns.filter((column) => column !== 'client_name'), 'clients(name)']
       : activeColumns;
@@ -278,7 +289,7 @@ const loadInvoicesWithCompat = async (companyId: string): Promise<InvoiceRow[]> 
       if (activeColumns.includes('client_name')) {
         activeColumns.splice(activeColumns.indexOf('client_name'), 1);
       }
-      useClientsRelation = true;
+      useClientsRelation = !clientsRelationDisabled;
       continue;
     }
 
@@ -286,6 +297,7 @@ const loadInvoicesWithCompat = async (companyId: string): Promise<InvoiceRow[]> 
       useClientsRelation &&
       isMissingRelationshipError(result.error, 'invoices', 'clients')
     ) {
+      clientsRelationDisabled = true;
       useClientsRelation = false;
       continue;
     }
@@ -298,6 +310,10 @@ const loadInvoicesWithCompat = async (companyId: string): Promise<InvoiceRow[]> 
     }
 
     throw new Error(result.error.message);
+  }
+
+  if (attempts >= maxAttempts) {
+    throw new Error('Invoice compatibility retry limit reached.');
   }
 
   return [];
