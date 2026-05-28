@@ -179,6 +179,8 @@ export default function VehiclesPage() {
         type: formData.type,
         vehicle_type: formData.type,
         reg_plate: formData.reg_plate.trim() || null,
+        // legacy alias used by some production DB builds — kept in sync with reg_plate
+        registration: formData.reg_plate.trim() || null,
         make: formData.make.trim() || null,
         model: formData.model.trim() || null,
         payload_kg: payloadKg,
@@ -251,6 +253,8 @@ export default function VehiclesPage() {
       type: editData.type,
       vehicle_type: editData.type,
       reg_plate: editData.reg_plate.trim() || null,
+      // legacy alias used by some production DB builds — kept in sync with reg_plate
+      registration: editData.reg_plate.trim() || null,
       make: editData.make.trim() || null,
       model: editData.model.trim() || null,
       payload_kg: editData.payload_kg ? parseFloat(editData.payload_kg) : null,
