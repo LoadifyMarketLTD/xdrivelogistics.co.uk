@@ -45,6 +45,7 @@ export default function RegisterPage() {
         options: {
           emailRedirectTo: getAuthCallbackEmailRedirectTo(),
           data: {
+            role,
             requested_role: role,
           },
         },

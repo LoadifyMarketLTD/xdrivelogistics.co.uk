@@ -24,9 +24,14 @@ export default function CompaniesPage() {
   });
   const [error, setError] = useState('');
   const [editError, setEditError] = useState('');
+  const [switchError, setSwitchError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const loadCompanyId = async (userId: string) => {
+    if (user?.companyId) {
+      setCompanyId(user.companyId);
+      return;
+    }
     const { data } = await supabase.rpc('get_or_create_company_for_user');
     if (data) { setCompanyId(data as string); return; }
     const { data: membership } = await supabase
@@ -42,6 +47,20 @@ export default function CompaniesPage() {
   const loadCompanies = async () => {
     setLoading(true);
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
+    const { data: memberships } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', user?.id ?? '')
+      .eq('status', 'active');
+
+    const membershipCompanyIds = ((memberships ?? []) as Array<{ company_id: string | null }>)
+      .map((m) => m.company_id)
+      .filter((id): id is string => typeof id === 'string');
+
+    const companyIds = membershipCompanyIds.length > 0
+      ? membershipCompanyIds
+      : [companyId];
+
     const requestedColumns = ['id', 'name', 'company_number', 'vat_number', 'email', 'phone', 'address_line1', 'city', 'postcode', 'created_at'];
     const activeColumns = [...requestedColumns];
     const missingColumns = new Set<string>();
@@ -52,7 +71,7 @@ export default function CompaniesPage() {
       const companyRes = await supabase
         .from('companies')
         .select(activeColumns.join(', '))
-        .eq('id', companyId)
+        .in('id', companyIds)
         .order('created_at', { ascending: false });
       if (!companyRes.error) {
         rows = ((companyRes.data ?? []) as unknown) as Array<Record<string, unknown>>;
@@ -100,9 +119,14 @@ export default function CompaniesPage() {
     if (!authCtx.user?.id) { setError('Session expired. Please sign in again.'); return; }
     const payload: Record<string, string> = { ...formData, created_by: authCtx.user.id };
     let error: { message?: string | null } | null = null;
+    let createdCompanyId: string | null = null;
     while (Object.keys(payload).length > 0) {
-      const insertRes = await supabase.from('companies').insert([payload]);
-      if (!insertRes.error) { error = null; break; }
+      const insertRes = await supabase.from('companies').insert([payload]).select('id').single();
+      if (!insertRes.error) {
+        createdCompanyId = (insertRes.data?.id as string | undefined) ?? null;
+        error = null;
+        break;
+      }
       const missingColumn = getMissingColumnFromError(insertRes.error, 'companies');
       if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
         delete payload[missingColumn];
@@ -113,9 +137,45 @@ export default function CompaniesPage() {
       break;
     }
     if (error) { setError(error.message ?? 'Failed to create company.'); return; }
+    if (!createdCompanyId) { setError('Failed to resolve newly created company.'); return; }
+
+    const { error: membershipError } = await supabase
+      .from('company_memberships')
+      .upsert(
+        {
+          company_id: createdCompanyId,
+          user_id: authCtx.user.id,
+          role_in_company: 'owner',
+          status: 'active',
+        },
+        { onConflict: 'company_id,user_id' }
+      );
+    if (membershipError) { setError(membershipError.message ?? 'Failed to attach owner membership.'); return; }
+
+    await supabase
+      .from('profiles')
+      .update({ company_id: createdCompanyId })
+      .eq('user_id', authCtx.user.id);
+
+    setCompanyId(createdCompanyId);
     setShowModal(false);
     setFormData({ name: '', company_number: '', vat_number: '', email: '', phone: '', address_line1: '', city: '', postcode: '' });
     setError('');
+    loadCompanies();
+  };
+
+  const handleSwitchCompany = async (nextCompanyId: string) => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    setSwitchError('');
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ company_id: nextCompanyId })
+      .eq('user_id', user.id);
+    if (updateError) {
+      setSwitchError(updateError.message);
+      return;
+    }
+    setCompanyId(nextCompanyId);
     loadCompanies();
   };
 
@@ -184,6 +244,22 @@ export default function CompaniesPage() {
             <div>
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Companies</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage companies and memberships</p>
+              {companies.length > 1 && (
+                <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <label htmlFor="active-company" style={{ fontSize: '0.85rem', color: '#374151', fontWeight: '600' }}>Active company</label>
+                  <select
+                    id="active-company"
+                    value={companyId ?? ''}
+                    onChange={(e) => handleSwitchCompany(e.target.value)}
+                    style={{ padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem' }}
+                  >
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {switchError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0 0', fontSize: '0.85rem' }}>{switchError}</p>}
             </div>
             <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
               + Create Company
