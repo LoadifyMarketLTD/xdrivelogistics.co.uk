@@ -197,6 +197,17 @@ export const resolveAuthenticatedUser = async (
     }
   }
 
+  // If we resolved a company from profiles.company_id but there is no matching
+  // company_memberships row, RLS policies that call is_company_member() will
+  // silently return 0 rows on every subsequent query (drivers, quotes, docs).
+  // bootstrap_company_membership() creates the missing row safely.
+  if (companyId && !membership?.company_id) {
+    const { data: bootstrappedId } = await supabase.rpc('bootstrap_company_membership');
+    if (typeof bootstrappedId === 'string' && bootstrappedId.length > 0) {
+      companyId = bootstrappedId;
+    }
+  }
+
   if (!profile) {
     const metadataRole = readMetadataRole(sessionUser.user_metadata, 'role')
       ?? readMetadataRole(sessionUser.user_metadata, 'requested_role')
