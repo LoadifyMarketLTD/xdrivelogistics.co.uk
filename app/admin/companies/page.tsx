@@ -105,7 +105,7 @@ export default function CompaniesPage() {
     if (hasSupabaseSession && user?.id) {
       loadCompanyId(user.id);
     }
-  }, [hasSupabaseSession, user?.id]);
+  }, [hasSupabaseSession, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!companyId) return;
