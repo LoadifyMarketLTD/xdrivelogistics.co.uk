@@ -23,7 +23,6 @@ const DRIVER_SELECT_COLUMNS = [
   'last_app_login',
   'created_at',
 ];
-const ACCESS_TOKEN_REFRESH_BUFFER_MS = 60_000;
 
 export default function DriversPage() {
   const { user, hasSupabaseSession } = useAuth();
@@ -216,42 +215,17 @@ export default function DriversPage() {
     void Promise.all([loadDrivers(companyId), loadCompanies(companyId)]);
   }, [companyResolved, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getFreshAccessToken = async (
-    options?: { forceRefresh?: boolean }
-  ): Promise<{ accessToken: string | null; error: string | null }> => {
-    const forceRefresh = options?.forceRefresh === true;
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-      return { accessToken: null, error: sessionError.message };
-    }
-
-    const session = sessionData.session;
-    const expiresAtMs = typeof session?.expires_at === 'number' ? session.expires_at * 1000 : 0;
-    const tokenStillFresh = Boolean(
-      session?.access_token &&
-      expiresAtMs > Date.now() + ACCESS_TOKEN_REFRESH_BUFFER_MS
-    );
-
-    if (tokenStillFresh && !forceRefresh) {
-      return { accessToken: session?.access_token ?? null, error: null };
-    }
-
+  // Always call refreshSession() so the API receives a server-validated token.
+  // getSession() only reads from local storage and may return a stale or
+  // server-invalidated JWT; refreshSession() guarantees freshness.
+  const getFreshAccessToken = async (): Promise<{ accessToken: string | null; error: string | null }> => {
     const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshData?.session?.access_token) {
+      return { accessToken: refreshData.session.access_token, error: null };
+    }
     if (refreshError) {
       return { accessToken: null, error: refreshError.message };
     }
-
-    const refreshedToken = refreshData.session?.access_token ?? null;
-    if (refreshedToken) {
-      return { accessToken: refreshedToken, error: null };
-    }
-
-    const fallbackToken = session?.access_token ?? null;
-    const tokenStillValid = Boolean(fallbackToken && expiresAtMs > Date.now());
-    if (tokenStillValid) {
-      return { accessToken: fallbackToken, error: null };
-    }
-
     return { accessToken: null, error: 'Session expired. Please sign in again.' };
   };
 
@@ -295,12 +269,13 @@ export default function DriversPage() {
 
       let response = await createDriverWithToken(accessToken, requestPayload);
       if (response.status === 401) {
-        const refreshed = await getFreshAccessToken({ forceRefresh: true });
-        if (!refreshed.accessToken) {
-          setError(refreshed.error ?? 'Session expired. Please sign in again.');
+        // Unexpected 401 after a fresh token — retry once with another refresh.
+        const retried = await getFreshAccessToken();
+        if (!retried.accessToken) {
+          setError(retried.error ?? 'Session expired. Please sign in again.');
           return;
         }
-        response = await createDriverWithToken(refreshed.accessToken, requestPayload);
+        response = await createDriverWithToken(retried.accessToken, requestPayload);
       }
 
       const payload = await response.json().catch(() => ({} as { error?: string; invited?: boolean }));
