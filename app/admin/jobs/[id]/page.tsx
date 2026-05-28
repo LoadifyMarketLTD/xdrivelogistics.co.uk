@@ -108,7 +108,7 @@ export default function JobDetailPage() {
 
         const { data, error } = await supabase
           .from('jobs')
-          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, assigned_driver_id, created_at, updated_at')
+          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, assigned_driver_id, collection_photo_url, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at')
           .eq('id', jobId)
           .eq('company_id', companyId)
           .single();
@@ -147,6 +147,38 @@ export default function JobDetailPage() {
             status: (row.status as string) || JOB_STATUS.RECEIVED,
             createdAt: row.created_at as string,
             updatedAt: row.updated_at as string,
+            statusHistory: Array.isArray(row.status_history)
+              ? (row.status_history as Array<{ status: string; timestamp: string }>)
+              : undefined,
+            pod: (() => {
+              const pickupPhotos = typeof row.collection_photo_url === 'string' && row.collection_photo_url.length > 0
+                ? [row.collection_photo_url]
+                : [];
+              const deliveryPhotos = Array.isArray(row.delivery_photos)
+                ? (row.delivery_photos as string[]).filter((photo) => typeof photo === 'string' && photo.length > 0)
+                : [];
+              const signature = typeof row.delivery_signature_data === 'string' && row.delivery_signature_data.length > 0
+                ? row.delivery_signature_data
+                : undefined;
+              const recipientName = typeof row.client_signature_name === 'string' && row.client_signature_name.length > 0
+                ? row.client_signature_name
+                : undefined;
+              const historyTimestamp = Array.isArray(row.status_history) && row.status_history.length > 0
+                ? (row.status_history[row.status_history.length - 1] as { timestamp?: string }).timestamp
+                : undefined;
+
+              if (!pickupPhotos.length && !deliveryPhotos.length && !signature && !recipientName && !historyTimestamp) {
+                return undefined;
+              }
+
+              return {
+                pickupPhotos,
+                deliveryPhotos,
+                signature,
+                recipientName,
+                timestamp: historyTimestamp ?? (row.updated_at as string | undefined),
+              };
+            })(),
           };
           setJob(mapped);
           setFormData(mapped);

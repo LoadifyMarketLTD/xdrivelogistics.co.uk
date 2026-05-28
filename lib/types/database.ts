@@ -55,6 +55,7 @@ export interface Driver {
   phone: string | null;
   email: string | null;
   status: string;
+  availability_status: 'available' | 'busy' | 'offline' | null;
   login_pin: string | null;
   app_access: boolean;
   temporary_password_seq: number | null;

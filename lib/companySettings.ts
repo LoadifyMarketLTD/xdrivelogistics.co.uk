@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { COMPANY_CONFIG, type PaymentTerm, type VATRate } from '../app/config/company';
+import { getMissingColumnFromError } from './supabaseSchemaCompat';
 
 export interface CompanySettingsValues {
   companyName: string;
@@ -84,60 +85,80 @@ export async function loadCompanySettings(
   supabase: SupabaseClient,
   companyId: string
 ): Promise<CompanySettingsValues> {
-  const [companyRes, settingsRes] = await Promise.all([
-    supabase
-      .from('companies')
-      .select('name, company_number, email, phone, address_line1, city, postcode')
-      .eq('id', companyId)
-      .maybeSingle(),
-    supabase
-      .from('company_settings')
-      .select([
-        'legal_name',
-        'job_ref_prefix',
-        'invoice_prefix',
-        'default_vat_rate',
-        'default_payment_terms',
-        'currency',
-        'date_format',
-        'bank_account_name',
-        'bank_sort_code',
-        'bank_account_number',
-        'paypal_email',
-        'notify_email_new_job',
-        'notify_email_status_change',
-        'notify_email_invoice_paid',
-        'notify_email_bid_received',
-      ].join(', '))
-      .eq('company_id', companyId)
-      .maybeSingle(),
-  ]);
+  const requestedCompanyColumns = ['name', 'company_number', 'email', 'phone', 'address_line1', 'city', 'postcode'];
+  const activeCompanyColumns = [...requestedCompanyColumns];
+  const missingCompanyColumns = new Set<string>();
+  let companyData: Record<string, string | null> | null = null;
+  let companyError: { code?: string | null; message?: string | null } | null = null;
 
-  if (companyRes.error && !MISSING_RESOURCE_CODES.has(companyRes.error.code ?? '')) {
-    console.error('Failed to load company profile settings:', companyRes.error.message);
+  while (activeCompanyColumns.length > 0) {
+    const companyRes = await supabase
+      .from('companies')
+      .select(activeCompanyColumns.join(', '))
+      .eq('id', companyId)
+      .maybeSingle();
+
+    if (!companyRes.error) {
+      companyData = (companyRes.data as Record<string, string | null> | null) ?? null;
+      companyError = null;
+      break;
+    }
+
+    const missingColumn = getMissingColumnFromError(companyRes.error, 'companies');
+    if (missingColumn && activeCompanyColumns.includes(missingColumn)) {
+      missingCompanyColumns.add(missingColumn);
+      activeCompanyColumns.splice(activeCompanyColumns.indexOf(missingColumn), 1);
+      companyError = companyRes.error;
+      continue;
+    }
+
+    companyError = companyRes.error;
+    break;
+  }
+
+  const settingsRes = await supabase
+    .from('company_settings')
+    .select([
+      'legal_name',
+      'job_ref_prefix',
+      'invoice_prefix',
+      'default_vat_rate',
+      'default_payment_terms',
+      'currency',
+      'date_format',
+      'bank_account_name',
+      'bank_sort_code',
+      'bank_account_number',
+      'paypal_email',
+      'notify_email_new_job',
+      'notify_email_status_change',
+      'notify_email_invoice_paid',
+      'notify_email_bid_received',
+    ].join(', '))
+    .eq('company_id', companyId)
+    .maybeSingle();
+
+  if (companyError && !MISSING_RESOURCE_CODES.has(companyError.code ?? '')) {
+    console.error('Failed to load company profile settings:', companyError.message);
   }
 
   if (settingsRes.error && !MISSING_RESOURCE_CODES.has(settingsRes.error.code ?? '')) {
     console.error('Failed to load company settings:', settingsRes.error.message);
   }
 
-  const company = companyRes.data as {
-    name: string | null;
-    company_number: string | null;
-    email: string | null;
-    phone: string | null;
-    address_line1: string | null;
-    city: string | null;
-    postcode: string | null;
-  } | null;
+  const company = companyData;
   const settings = settingsRes.data as CompanySettingsRow | null;
 
   return {
     ...DEFAULT_COMPANY_SETTINGS,
     companyName: company?.name ?? DEFAULT_COMPANY_SETTINGS.companyName,
     companyNumber: company?.company_number ?? DEFAULT_COMPANY_SETTINGS.companyNumber,
-    email: company?.email ?? DEFAULT_COMPANY_SETTINGS.email,
-    phone: company?.phone ?? DEFAULT_COMPANY_SETTINGS.phone,
+    email: missingCompanyColumns.has('email')
+      ? DEFAULT_COMPANY_SETTINGS.email
+      : company?.email ?? DEFAULT_COMPANY_SETTINGS.email,
+    phone: missingCompanyColumns.has('phone')
+      ? DEFAULT_COMPANY_SETTINGS.phone
+      : company?.phone ?? DEFAULT_COMPANY_SETTINGS.phone,
     street: company?.address_line1 ?? DEFAULT_COMPANY_SETTINGS.street,
     city: company?.city ?? DEFAULT_COMPANY_SETTINGS.city,
     postcode: company?.postcode ?? DEFAULT_COMPANY_SETTINGS.postcode,

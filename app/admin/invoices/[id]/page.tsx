@@ -16,11 +16,11 @@ import {
 import type { Invoice } from '../../../../lib/types/database';
 
 /** Map InvoiceData (UI shape) → Supabase invoice row (DB shape) */
-function invoiceDataToDb(inv: InvoiceData, companyId: string): Omit<Invoice, 'created_at' | 'updated_at'> {
+function invoiceDataToDb(inv: InvoiceData, companyId: string, userId?: string | null): Omit<Invoice, 'created_at' | 'updated_at'> {
   return {
     id: inv.id,
     company_id: companyId,
-    created_by: null,
+    created_by: userId ?? null,
     invoice_number: inv.invoiceNumber,
     job_ref: inv.jobRef,
     job_id: null,
@@ -144,7 +144,7 @@ export default function InvoiceDetailPage() {
         .from('company_memberships')
         .select('company_id')
         .eq('user_id', user.id)
-        .neq('status', 'suspended')
+        .eq('status', 'active')
         .limit(1)
         .maybeSingle();
       if (mbData) setCompanyId(mbData.company_id as string);
@@ -303,7 +303,7 @@ export default function InvoiceDetailPage() {
   const handleSave = async () => {
     // Save to Supabase when available
     if (isSupabaseConfigured && companyId) {
-      const row = invoiceDataToDb(formData, companyId);
+      const row = invoiceDataToDb(formData, companyId, user?.id);
       const { id: _id, company_id: _companyId, created_by: _createdBy, ...updateFields } = row;
       const { error } = isNew
         ? await supabase.from('invoices').insert([row])
