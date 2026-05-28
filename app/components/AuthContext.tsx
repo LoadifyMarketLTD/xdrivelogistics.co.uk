@@ -17,7 +17,7 @@ import {
 } from '../../lib/authSession';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
-const LOGIN_TIMEOUT_MS = 20_000;
+const LOGIN_TIMEOUT_MS = 45_000;
 const LOGIN_UNAVAILABLE_ERROR = 'Login service unavailable. Please try again.';
 const RESET_PASSWORD_COOLDOWN_MS = 60_000;
 const RESET_PASSWORD_COOLDOWN_KEY = 'xdrive:last-password-reset-request-at';
