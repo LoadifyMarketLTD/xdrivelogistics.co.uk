@@ -126,9 +126,14 @@ export default function DriversPage() {
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     setCreating(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) {
+      // refreshSession forces the Supabase client to exchange the refresh token
+      // for a new access token. getSession() only reads the local cache and can
+      // return an expired JWT when the background auto-refresh hasn't fired yet
+      // (e.g. after a long idle period), causing supabaseAdmin.auth.getUser() to
+      // reject the token with "invalid or expired token".
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      const accessToken = refreshData?.session?.access_token;
+      if (refreshError || !accessToken) {
         setError('Session expired. Please sign in again.');
         return;
       }

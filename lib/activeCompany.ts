@@ -12,6 +12,19 @@ export const resolveActiveCompanyId = async ({
   if (!isSupabaseConfigured) return fallbackCompanyId;
   if (!userId) return fallbackCompanyId;
 
+  // bootstrap_company_membership() is a SECURITY DEFINER function that:
+  //   1. Reads profiles.company_id for the current user.
+  //   2. Ensures a company_memberships row exists for that company (so
+  //      is_company_member() RLS policies pass for drivers / quotes / docs).
+  //   3. Falls back to get_or_create_company_for_user() if profile has no company.
+  // Calling this first guarantees RLS passes for all subsequent queries.
+  const { data: bootstrappedId } = await supabase.rpc('bootstrap_company_membership');
+  if (typeof bootstrappedId === 'string' && bootstrappedId.length > 0) {
+    return bootstrappedId;
+  }
+
+  // Fallback path: bootstrap_company_membership not yet deployed or returned null.
+  // Use profile → membership → driver → creator company → provided fallback.
   const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
     supabase
       .from('profiles')
@@ -57,3 +70,4 @@ export const resolveActiveCompanyId = async ({
 
   return companyId ?? null;
 };
+
