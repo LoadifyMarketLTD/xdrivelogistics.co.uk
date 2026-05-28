@@ -90,10 +90,13 @@ export default function JobsPage() {
   };
 
   useEffect(() => {
-    if (hasSupabaseSession && user?.id && !companyId) {
+    if (user?.companyId) {
+      // Fast path: company already resolved in auth context — no RPC needed.
+      setCompanyId(user.companyId);
+    } else if (hasSupabaseSession && user?.id && !companyId) {
       loadCompanyId(user.id);
     }
-  }, [user?.id, hasSupabaseSession, companyId]);
+  }, [user?.id, user?.companyId, hasSupabaseSession, companyId]);
 
   useEffect(() => {
     loadJobs();
