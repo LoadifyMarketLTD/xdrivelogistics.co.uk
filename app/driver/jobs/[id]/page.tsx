@@ -16,7 +16,18 @@ const STATUS_LABEL: Record<string, string> = {
   delivered: 'Delivered',
   cancelled: 'Cancelled',
   disputed: 'Disputed',
+  // milestone events (stored in status_history only)
+  driver_en_route: 'En Route to Pickup',
+  arrived_pickup: 'Arrived at Pickup',
+  arrived_delivery: 'Arrived at Delivery',
 };
+
+function buildMapsUrl(app: 'google' | 'waze' | 'apple', address: string, postcode?: string | null): string {
+  const q = encodeURIComponent(postcode ? `${address}, ${postcode}` : address);
+  if (app === 'google') return `https://www.google.com/maps/dir/?api=1&destination=${q}`;
+  if (app === 'waze')   return `https://waze.com/ul?q=${q}&navigate=yes`;
+  return `maps://maps.apple.com/?daddr=${q}`;
+}
 
 export default function DriverJobDetailPage() {
   const router = useRouter();
@@ -47,6 +58,8 @@ export default function DriverJobDetailPage() {
   const [isSigning, setIsSigning] = useState(false);
 
   const [driverId, setDriverId] = useState('');
+  // Track which milestone events have been recorded for this job session
+  const [milestones, setMilestones] = useState<Set<string>>(new Set());
 
   const loadJob = useCallback(async () => {
     if (!jobId || !driverId || !isSupabaseConfigured) {
@@ -68,6 +81,9 @@ export default function DriverJobDetailPage() {
       setCollectionPhotoPreview(data.collection_photo_url ?? null);
       setDeliveryPhotoPreviews(data.delivery_photos ?? []);
       setSigClientName(data.client_signature_name ?? '');
+      // Restore milestones already recorded in status_history
+      const history = Array.isArray(data.status_history) ? data.status_history : [];
+      setMilestones(new Set(history.map((e: { status: string }) => e.status)));
     }
     setLoading(false);
   }, [jobId, driverId]);
@@ -187,6 +203,28 @@ export default function DriverJobDetailPage() {
     setActionLoading(false);
   };
 
+  // Record a milestone event in status_history WITHOUT changing jobs.status
+  const recordMilestone = async (event: string) => {
+    if (!job || !driverId || !isSupabaseConfigured || milestones.has(event)) return;
+    setActionLoading(true);
+    setError('');
+    const newHistory = appendStatusHistory(job.status_history, event);
+    const { error: dbError } = await supabase
+      .from('jobs')
+      .update({ status_history: newHistory })
+      .eq('id', job.id)
+      .eq('assigned_driver_id', driverId);
+    if (dbError) {
+      setError(dbError.message);
+    } else {
+      setMilestones(prev => new Set<string>([...prev, event]));
+      setSuccessMsg(`✅ ${STATUS_LABEL[event] ?? event} recorded`);
+      await loadJob();
+      setTimeout(() => setSuccessMsg(''), 3000);
+    }
+    setActionLoading(false);
+  };
+
   const handleCollect = () =>
     updateJobStatus('in_transit', {
       collection_photo_url: collectionPhotoPreview ?? null,
@@ -221,6 +259,9 @@ export default function DriverJobDetailPage() {
   const canCollect = job.status === 'allocated';
   const canDeliver = job.status === 'in_transit';
   const clientFields = getJobClientFields(job);
+  const hasEnRoute = milestones.has('driver_en_route');
+  const hasArrivedPickup = milestones.has('arrived_pickup');
+  const hasArrivedDelivery = milestones.has('arrived_delivery');
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
@@ -284,12 +325,64 @@ export default function DriverJobDetailPage() {
           {job.pickup_datetime && (
             <InfoRow icon="🕐" label="Pickup time" value={new Date(job.pickup_datetime).toLocaleString('en-GB')} />
           )}
+          {/* Navigate to pickup */}
+          {job.pickup_location && (
+            <NavButtons address={job.pickup_location} postcode={job.pickup_postcode} label="Pickup" />
+          )}
           <div style={{ borderTop: '1px dashed #e5e7eb', margin: '0.5rem 0' }} />
           <InfoRow icon="📍" label="Delivery" value={job.delivery_location ?? 'TBC'} />
           {job.delivery_datetime && (
             <InfoRow icon="🕐" label="Delivery time" value={new Date(job.delivery_datetime).toLocaleString('en-GB')} />
           )}
+          {/* Navigate to delivery */}
+          {job.delivery_location && (
+            <NavButtons address={job.delivery_location} postcode={job.delivery_postcode} label="Delivery" />
+          )}
+          {/* Distance / duration */}
+          {(job.job_distance_miles != null || job.job_distance_minutes != null) && (
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.82rem', color: '#6b7280' }}>
+              {job.job_distance_miles != null && <span>📏 {job.job_distance_miles.toFixed(1)} mi</span>}
+              {job.job_distance_minutes != null && <span>⏱ {Math.round(job.job_distance_minutes)} min</span>}
+            </div>
+          )}
         </Section>
+
+        {/* Milestone buttons for allocated job */}
+        {canCollect && (
+          <Section title="Journey Milestones">
+            <p style={{ fontSize: '0.82rem', color: '#6b7280', margin: '0 0 0.75rem' }}>
+              Tap each milestone as you progress. These are visible to your dispatcher.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <MilestoneButton
+                label="🚗 En Route to Pickup"
+                done={hasEnRoute}
+                disabled={actionLoading}
+                onTap={() => recordMilestone('driver_en_route')}
+              />
+              <MilestoneButton
+                label="📍 Arrived at Pickup"
+                done={hasArrivedPickup}
+                disabled={actionLoading || !hasEnRoute}
+                onTap={() => recordMilestone('arrived_pickup')}
+              />
+            </div>
+          </Section>
+        )}
+
+        {/* Milestone button for in_transit job */}
+        {canDeliver && (
+          <Section title="Journey Milestones">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <MilestoneButton
+                label="📍 Arrived at Delivery"
+                done={hasArrivedDelivery}
+                disabled={actionLoading}
+                onTap={() => recordMilestone('arrived_delivery')}
+              />
+            </div>
+          </Section>
+        )}
 
         {/* Cargo */}
         <Section title="Cargo">
@@ -508,6 +601,82 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
     </div>
   );
 }
+
+function NavButtons({ address, postcode, label }: { address: string; postcode?: string | null; label: string }) {
+  return (
+    <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+      <a
+        href={buildMapsUrl('google', address, postcode)}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={navLinkStyle('#4285F4')}
+      >
+        🗺 Google Maps
+      </a>
+      <a
+        href={buildMapsUrl('waze', address, postcode)}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={navLinkStyle('#33ccff')}
+      >
+        🚦 Waze
+      </a>
+      <a
+        href={buildMapsUrl('apple', address, postcode)}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={navLinkStyle('#555')}
+      >
+        🍎 Apple Maps
+      </a>
+      <span style={{ fontSize: '0.7rem', color: '#9ca3af', alignSelf: 'center' }}>Navigate to {label}</span>
+    </div>
+  );
+}
+
+function MilestoneButton({ label, done, disabled, onTap }: {
+  label: string;
+  done: boolean;
+  disabled: boolean;
+  onTap: () => void;
+}) {
+  return (
+    <button
+      onClick={onTap}
+      disabled={done || disabled}
+      style={{
+        width: '100%',
+        padding: '0.7rem 1rem',
+        borderRadius: '10px',
+        border: done ? '1px solid #86efac' : '1px solid #d1d5db',
+        backgroundColor: done ? '#f0fdf4' : disabled ? '#f3f4f6' : '#eff6ff',
+        color: done ? '#15803d' : disabled ? '#9ca3af' : '#1d4ed8',
+        fontSize: '0.9rem',
+        fontWeight: '600',
+        cursor: done || disabled ? 'default' : 'pointer',
+        textAlign: 'left',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+      }}
+    >
+      {done ? '✅' : '⬜'} {label}
+      {done && <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#6b7280' }}>Recorded</span>}
+    </button>
+  );
+}
+
+const navLinkStyle = (color: string): React.CSSProperties => ({
+  padding: '0.3rem 0.6rem',
+  borderRadius: '6px',
+  border: `1px solid ${color}22`,
+  backgroundColor: `${color}11`,
+  color,
+  fontSize: '0.78rem',
+  fontWeight: '600',
+  textDecoration: 'none',
+  display: 'inline-block',
+});
 
 const photoBtn: React.CSSProperties = {
   width: '100%',
