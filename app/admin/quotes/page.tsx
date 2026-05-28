@@ -35,9 +35,20 @@ export default function QuotesPage() {
   const [error, setError] = useState('');
 
   const loadCompanyId = async (userId: string) => {
-    const { data } = await supabase.rpc('get_or_create_company_for_user');
-    if (data) {
-      setCompanyId(data as string);
+    // bootstrap_company_membership() returns profiles.company_id and ensures
+    // a company_memberships row exists for RLS is_company_member() checks.
+    // Unlike get_or_create_company_for_user(), it does NOT auto-provision a new
+    // company when profiles.company_id is already set — preventing the orphaned
+    // company bug where each page load creates a fresh empty company.
+    const { data: bootstrappedId } = await supabase.rpc('bootstrap_company_membership');
+    if (typeof bootstrappedId === 'string' && bootstrappedId.length > 0) {
+      setCompanyId(bootstrappedId);
+      return;
+    }
+    // Fallback: bootstrap function not yet deployed — use legacy path.
+    const { data: rpcId } = await supabase.rpc('get_or_create_company_for_user');
+    if (rpcId) {
+      setCompanyId(rpcId as string);
       return;
     }
     const { data: membership } = await supabase

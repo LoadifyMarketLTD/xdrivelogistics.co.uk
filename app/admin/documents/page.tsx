@@ -6,6 +6,7 @@ import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DriverDocument, VehicleDocument, DocStatus } from '../../../lib/types/database';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
+import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 
 interface DriverOption { id: string; display_name: string; }
 interface VehicleOption { id: string; reg_plate: string; }
@@ -36,7 +37,7 @@ const DEFAULT_UPLOAD: UploadForm = { kind: 'driver', subjectId: '', docType: '',
 
 export default function DocumentsPage() {
   const { user } = useAuth();
-  const companyId = user?.companyId ?? null;
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [docs, setDocs] = useState<AnyDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'driver' | 'vehicle'>('driver');
@@ -48,6 +49,17 @@ export default function DocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setCompanyId(null);
+      return;
+    }
+    resolveActiveCompanyId({
+      userId: user.id,
+      fallbackCompanyId: user.companyId ?? null,
+    }).then((id) => setCompanyId(id));
+  }, [user?.id, user?.companyId]);
 
   const loadDocs = async () => {
     setLoading(true);
@@ -332,7 +344,7 @@ export default function DocumentsPage() {
                       {(form.kind === 'driver' ? DRIVER_DOC_TYPES : VEHICLE_DOC_TYPES).map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Issued Date</label>
                       <input type="date" value={form.issuedDate} onChange={e => setForm(f => ({ ...f, issuedDate: e.target.value }))}

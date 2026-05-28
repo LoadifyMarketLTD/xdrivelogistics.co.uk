@@ -204,9 +204,9 @@ const fetchRoleSnapshot = async (
   });
 
   let companyId =
-    (typeof driver?.company_id === 'string' && driver.company_id) ||
     (typeof profile?.company_id === 'string' && profile.company_id) ||
     (typeof membership?.company_id === 'string' && membership.company_id) ||
+    (typeof driver?.company_id === 'string' && driver.company_id) ||
     (typeof creatorCompany?.id === 'string' && creatorCompany.id) ||
     null;
 

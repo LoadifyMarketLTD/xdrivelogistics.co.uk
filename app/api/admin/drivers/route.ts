@@ -18,12 +18,29 @@ export async function POST(request: NextRequest) {
 
   const token = getBearerToken(request);
   if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      {
+        error: 'Unauthorized: missing bearer token.',
+        code: 'auth_missing_bearer_token',
+      },
+      { status: 401 }
+    );
   }
 
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('[admin/drivers] auth token validation failed', {
+      error: authError?.message ?? null,
+      code: authError?.code ?? null,
+      status: authError?.status ?? null,
+    });
+    return NextResponse.json(
+      {
+        error: 'Unauthorized: invalid or expired token.',
+        code: 'auth_invalid_bearer_token',
+      },
+      { status: 401 }
+    );
   }
 
   const payload = (await request.json()) as CreateDriverPayload;
