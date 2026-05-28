@@ -208,6 +208,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // TOKEN_REFRESHED: the Supabase client silently rotated the JWT.
+      // Profile, role, and company context are unchanged — re-running the full
+      // database hydration would fire 4+ unnecessary Supabase queries and can
+      // cascade into repeated dashboard/driver page reloads.
+      if (event === 'TOKEN_REFRESHED' && userRef.current) {
+        return;
+      }
+
       try {
         if (session?.user) {
           if (isPasswordSetupContext(event)) {
