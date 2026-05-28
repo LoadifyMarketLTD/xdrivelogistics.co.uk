@@ -5,6 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Driver, Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
+import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 
 export default function DriversPage() {
   const { user, hasSupabaseSession } = useAuth();
@@ -27,6 +28,10 @@ export default function DriversPage() {
   } | null>(null);
 
   const loadCompanyId = async (userId: string) => {
+    if (user?.companyId) {
+      setCompanyId(user.companyId);
+      return;
+    }
     const { data } = await supabase.rpc('get_or_create_company_for_user');
     if (data) {
       setCompanyId(data as string);
@@ -55,21 +60,72 @@ export default function DriversPage() {
   };
 
   const loadCompanies = async () => {
-    if (!isSupabaseConfigured || !companyId) return;
-    const { data, error } = await supabase
-      .from('companies')
-      .select('id, name')
-      .eq('id', companyId)
-      .order('name');
-    if (error) { console.error('Failed to load companies:', error.message); return; }
-    if (data) setCompanies(data as Pick<Company, 'id' | 'name'>[]);
+    if (!isSupabaseConfigured || !companyId || !user?.id) return;
+    const { data: memberships } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active');
+
+    const membershipCompanyIds = ((memberships ?? []) as Array<{ company_id: string | null }>)
+      .map((m) => m.company_id)
+      .filter((id): id is string => typeof id === 'string');
+    const companyIds = membershipCompanyIds.length > 0 ? membershipCompanyIds : [companyId];
+
+    const requestedColumns = ['id', 'name'];
+    const activeColumns = [...requestedColumns];
+    let rows: Array<Record<string, unknown>> = [];
+    let queryError: { message?: string | null } | null = null;
+
+    while (activeColumns.length > 0) {
+      const companiesRes = await supabase
+        .from('companies')
+        .select(activeColumns.join(', '))
+        .in('id', companyIds)
+        .order('name');
+      if (!companiesRes.error) {
+        rows = ((companiesRes.data ?? []) as unknown) as Array<Record<string, unknown>>;
+        queryError = null;
+        break;
+      }
+      const missingColumn = getMissingColumnFromError(companiesRes.error, 'companies');
+      if (missingColumn && activeColumns.includes(missingColumn)) {
+        activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
+        queryError = companiesRes.error;
+        continue;
+      }
+      queryError = companiesRes.error;
+      break;
+    }
+
+    if (queryError) {
+      console.error('Failed to load companies:', queryError.message);
+      return;
+    }
+
+    const normalizedCompanies = rows
+      .map((row) => {
+        const id = row.id as string | undefined;
+        if (!id) return null;
+        const name = (row.name as string | null | undefined)?.trim();
+        return { id, name: name && name.length > 0 ? name : `Company ${id.slice(0, 8)}` };
+      })
+      .filter((company): company is Pick<Company, 'id' | 'name'> => Boolean(company));
+
+    setCompanies(normalizedCompanies);
+    if (normalizedCompanies.length > 0) {
+      const defaultCompanyId = normalizedCompanies.some((company) => company.id === companyId)
+        ? companyId
+        : normalizedCompanies[0].id;
+      setFormData((prev) => ({ ...prev, company_id: prev.company_id || defaultCompanyId }));
+    }
   };
 
   useEffect(() => {
     if (hasSupabaseSession && user?.id) {
       loadCompanyId(user.id);
     }
-  }, [hasSupabaseSession, user?.id]);
+  }, [hasSupabaseSession, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!companyId) return;
@@ -81,7 +137,8 @@ export default function DriversPage() {
   const handleCreate = async () => {
     if (!formData.display_name.trim()) { setError('Driver name is required'); return; }
     if (!formData.email.trim()) { setError('Driver email is required'); return; }
-    if (!companyId) { setError('Company profile is required'); return; }
+    const selectedCompanyId = formData.company_id || companyId;
+    if (!selectedCompanyId) { setError('Company profile is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     setCreating(true);
     try {
@@ -103,7 +160,7 @@ export default function DriversPage() {
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          companyId,
+          companyId: selectedCompanyId,
           displayName: formData.display_name,
           email: formData.email,
           phone: formData.phone || null,
@@ -121,7 +178,7 @@ export default function DriversPage() {
         email: formData.email.trim().toLowerCase(),
         invited: Boolean(payload.invited),
       });
-      setFormData({ display_name: '', phone: '', email: '', company_id: companyId });
+      setFormData({ display_name: '', phone: '', email: '', company_id: selectedCompanyId });
       setError('');
       loadDrivers();
     } finally {
@@ -284,13 +341,25 @@ export default function DriversPage() {
                   <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
                     {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
                     <div><label style={labelStyle}>Full Name *</label><input style={inputStyle} value={formData.display_name} onChange={e => setFormData({...formData, display_name: e.target.value})} placeholder="John Smith" /></div>
-                    <div>
-                      <label style={labelStyle}>Company *</label>
-                      <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})}>
-                        <option value="">Select a company…</option>
-                        {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
+                    {companies.length <= 1 ? (
+                      <div>
+                        <label style={labelStyle}>Company</label>
+                        <input
+                          style={{ ...inputStyle, backgroundColor: '#f9fafb', color: '#6b7280' }}
+                          value={companies[0]?.name ?? 'Company linked to your account'}
+                          disabled
+                          readOnly
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <label style={labelStyle}>Company *</label>
+                        <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})}>
+                          <option value="">Select a company…</option>
+                          {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </div>
+                    )}
                     <div><label style={labelStyle}>Email *</label><input style={inputStyle} type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="driver@email.com" /></div>
                     <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="07123456789" /></div>
                   </div>
