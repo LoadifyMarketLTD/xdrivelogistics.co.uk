@@ -19,8 +19,19 @@ export const isMissingColumnError = (
   const hint = normalize(error.hint);
   const tableName = table.toLowerCase();
   const columnName = column.toLowerCase();
+  const mentionsRequestedColumn = [
+    `could not find the '${columnName}' column`,
+    `column "${columnName}" does not exist`,
+    `${tableName}.${columnName}`,
+    `${tableName}"."${columnName}`,
+    `"${columnName}"`,
+    `'${columnName}'`,
+  ].some((signature) =>
+    message.includes(signature) || details.includes(signature) || hint.includes(signature)
+  );
 
-  if (code === '42703') return true;
+  // 42703 = PostgreSQL undefined_column; PGRST204 = PostgREST schema-cache miss
+  if (code === '42703' || code === 'pgrst204') return mentionsRequestedColumn;
 
   const signatures = [
     `could not find the '${columnName}' column`,
@@ -64,4 +75,27 @@ export const getMissingColumnFromError = (
   }
 
   return null;
+};
+
+export const isMissingRelationshipError = (
+  error: ErrorLike | null | undefined,
+  sourceTable: string,
+  relationshipName: string
+) => {
+  if (!error) return false;
+  const message = normalize(error.message);
+  const details = normalize(error.details);
+  const hint = normalize(error.hint);
+  const source = sourceTable.toLowerCase();
+  const relation = relationshipName.toLowerCase();
+  const signatures = [
+    `could not find a relationship between '${source}' and '${relation}'`,
+    `could not find a relationship between "${source}" and "${relation}"`,
+    `relationship between '${source}' and '${relation}'`,
+    `relationship between "${source}" and "${relation}"`,
+  ];
+
+  return signatures.some((signature) =>
+    message.includes(signature) || details.includes(signature) || hint.includes(signature)
+  );
 };

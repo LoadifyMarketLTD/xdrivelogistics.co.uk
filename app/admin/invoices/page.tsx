@@ -1,40 +1,71 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import type { InvoiceData } from '../../components/InvoiceTemplate';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import type { Invoice } from '../../../lib/types/database';
+import {
+  getMissingColumnFromError,
+  isMissingColumnError,
+  isMissingRelationshipError,
+} from '../../../lib/supabaseSchemaCompat';
 
 /** Map a Supabase Invoice row → InvoiceData used by the UI */
-function dbToInvoiceData(row: Invoice): InvoiceData {
+function readInvoiceClientName(row: Record<string, unknown>): string | null {
+  if (typeof row.client_name === 'string' && row.client_name.trim().length > 0) return row.client_name;
+  const related = row.clients;
+  if (related && typeof related === 'object' && !Array.isArray(related)) {
+    const relationName = (related as { name?: unknown }).name;
+    if (typeof relationName === 'string' && relationName.trim().length > 0) return relationName;
+  }
+  if (Array.isArray(related)) {
+    const first = related[0];
+    const relationName = first && typeof first === 'object' ? (first as { name?: unknown }).name : null;
+    if (typeof relationName === 'string' && relationName.trim().length > 0) return relationName;
+  }
+  return null;
+}
+
+function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): InvoiceData {
+  const invoiceDate =
+    typeof row.invoice_date === 'string'
+      ? row.invoice_date
+      : typeof row.created_at === 'string'
+        ? row.created_at
+        : new Date().toISOString();
+  const dueDate = typeof row.due_date === 'string' ? row.due_date : invoiceDate;
+  const paymentTerms = row.payment_terms === 'Pay now' || row.payment_terms === '30 days' ? row.payment_terms : '14 days';
+  const status =
+    row.status === 'Paid' || row.status === 'Overdue' || row.status === 'Pending'
+      ? row.status
+      : 'Pending';
   return {
-    id: row.id,
-    invoiceNumber: row.invoice_number,
-    jobRef: row.job_ref,
-    date: row.invoice_date,
-    dueDate: row.due_date,
-    status: row.status,
-    clientName: row.client_name,
-    clientAddress: row.client_address ?? '',
-    clientEmail: row.client_email ?? '',
-    pickupLocation: row.pickup_location ?? '',
-    pickupDateTime: row.pickup_datetime ?? '',
-    deliveryLocation: row.delivery_location ?? '',
-    deliveryDateTime: row.delivery_datetime ?? '',
-    deliveryRecipient: row.delivery_recipient ?? '',
-    serviceDescription: row.service_description ?? '',
-    amount: Number(row.amount),
-    netAmount: Number(row.net_amount),
-    vatAmount: Number(row.vat_amount),
-    vatRate: row.vat_rate as 0 | 5 | 20,
-    paymentTerms: (row.payment_terms as 'Pay now' | '14 days' | '30 days') ?? '14 days',
-    lateFee: row.late_fee ?? '',
-    podPhotos: row.pod_photos ?? undefined,
-    signature: row.signature ?? undefined,
-    recipientName: row.recipient_name ?? undefined,
+    id: typeof row.id === 'string' ? row.id : fallbackId,
+    invoiceNumber: typeof row.invoice_number === 'string' ? row.invoice_number : `Invoice-${fallbackId.slice(0, 8)}`,
+    jobRef: typeof row.job_ref === 'string' ? row.job_ref : '',
+    date: invoiceDate,
+    dueDate,
+    status,
+    clientName: readInvoiceClientName(row) ?? 'Client pending',
+    clientAddress: typeof row.client_address === 'string' ? row.client_address : '',
+    clientEmail: typeof row.client_email === 'string' ? row.client_email : '',
+    pickupLocation: typeof row.pickup_location === 'string' ? row.pickup_location : '',
+    pickupDateTime: typeof row.pickup_datetime === 'string' ? row.pickup_datetime : '',
+    deliveryLocation: typeof row.delivery_location === 'string' ? row.delivery_location : '',
+    deliveryDateTime: typeof row.delivery_datetime === 'string' ? row.delivery_datetime : '',
+    deliveryRecipient: typeof row.delivery_recipient === 'string' ? row.delivery_recipient : '',
+    serviceDescription: typeof row.service_description === 'string' ? row.service_description : '',
+    amount: Number(row.amount ?? 0),
+    netAmount: Number(row.net_amount ?? row.amount ?? 0),
+    vatAmount: Number(row.vat_amount ?? 0),
+    vatRate: row.vat_rate === 5 || row.vat_rate === 20 ? row.vat_rate : 0,
+    paymentTerms,
+    lateFee: typeof row.late_fee === 'string' ? row.late_fee : '',
+    podPhotos: Array.isArray(row.pod_photos) ? row.pod_photos as string[] : undefined,
+    signature: typeof row.signature === 'string' ? row.signature : undefined,
+    recipientName: typeof row.recipient_name === 'string' ? row.recipient_name : undefined,
   };
 }
 
@@ -43,8 +74,11 @@ export default function InvoicesPage() {
   const { user } = useAuth();
   const companyId = user?.companyId ?? null;
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Paid' | 'Pending' | 'Overdue'>('All');
+  const loadRequestRef = useRef(0);
 
   const calculateStatus = (dueDate: string, currentStatus: string): 'Paid' | 'Pending' | 'Overdue' => {
     if (currentStatus === 'Paid') return 'Paid';
@@ -54,24 +88,109 @@ export default function InvoicesPage() {
   };
 
   const loadInvoices = async () => {
+    const requestId = ++loadRequestRef.current;
+    setLoading(true);
+    setLoadError('');
+
     if (!isSupabaseConfigured || !companyId) {
-      setInvoices([]);
+      if (requestId === loadRequestRef.current) {
+        setInvoices([]);
+        setLoading(false);
+      }
       return;
     }
-    const { data, error } = await supabase
-      .from('invoices')
-      .select('id, company_id, created_by, invoice_number, job_ref, job_id, invoice_date, due_date, status, client_name, client_address, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, amount, net_amount, vat_amount, vat_rate, currency, payment_terms, late_fee, pod_photos, signature, recipient_name, created_at, updated_at')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
-    if (!error && data) {
-      const mapped = (data as Invoice[]).map(row => {
-        const inv = dbToInvoiceData(row);
+    const activeColumns = [
+      'id', 'company_id', 'created_by', 'invoice_number', 'job_ref', 'job_id', 'invoice_date', 'due_date', 'status',
+      'client_name', 'client_address', 'client_email', 'pickup_location', 'pickup_datetime', 'delivery_location',
+      'delivery_datetime', 'delivery_recipient', 'service_description', 'amount', 'net_amount', 'vat_amount',
+      'vat_rate', 'currency', 'payment_terms', 'late_fee', 'pod_photos', 'signature', 'recipient_name', 'created_at',
+      'updated_at',
+    ];
+
+    let rows: Array<Record<string, unknown>> = [];
+    let queryError: { message?: string | null } | null = null;
+    let useClientsRelation = false;
+    let clientsRelationDisabled = false;
+    const seenStates = new Set<string>();
+    const maxAttempts = Math.max(12, activeColumns.length * 3);
+    let attempts = 0;
+
+    while (activeColumns.length > 0 && attempts < maxAttempts) {
+      attempts += 1;
+      const stateKey = `${useClientsRelation ? 'clients' : 'direct'}::${activeColumns.join(',')}`;
+      if (seenStates.has(stateKey)) {
+        queryError = { message: 'Invoice query fallback loop detected and stopped.' };
+        break;
+      }
+      seenStates.add(stateKey);
+
+      const selectColumns = useClientsRelation
+        ? [...activeColumns.filter((column) => column !== 'client_name'), 'clients(name)']
+        : activeColumns;
+
+      const result = await supabase
+        .from('invoices')
+        .select(selectColumns.join(', '))
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+
+      if (!result.error) {
+        rows = ((result.data ?? []) as unknown) as Array<Record<string, unknown>>;
+        queryError = null;
+        break;
+      }
+
+      if (
+        !useClientsRelation &&
+        isMissingColumnError(result.error, 'invoices', 'client_name')
+      ) {
+        if (activeColumns.includes('client_name')) {
+          activeColumns.splice(activeColumns.indexOf('client_name'), 1);
+        }
+        useClientsRelation = !clientsRelationDisabled;
+        queryError = result.error;
+        continue;
+      }
+
+      if (
+        useClientsRelation &&
+        isMissingRelationshipError(result.error, 'invoices', 'clients')
+      ) {
+        clientsRelationDisabled = true;
+        useClientsRelation = false;
+        queryError = result.error;
+        continue;
+      }
+
+      const missingColumn = getMissingColumnFromError(result.error, 'invoices');
+      if (missingColumn && activeColumns.includes(missingColumn)) {
+        activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
+        queryError = result.error;
+        continue;
+      }
+
+      queryError = result.error;
+      break;
+    }
+
+    if (!queryError && attempts >= maxAttempts) {
+      queryError = { message: 'Invoice query retry limit reached.' };
+    }
+
+    if (requestId !== loadRequestRef.current) return;
+
+    if (!queryError) {
+      const mapped = rows.map((row, index) => {
+        const inv = dbToInvoiceData(row, `invoice-${index}`);
         return { ...inv, status: calculateStatus(inv.dueDate, inv.status) };
       });
       setInvoices(mapped);
-    } else if (error) {
-      console.error('Failed to load invoices from Supabase:', error.message);
+      setLoadError('');
+    } else {
+      console.error('Failed to load invoices from Supabase:', queryError.message);
+      setLoadError(queryError.message ?? 'Failed to load invoices.');
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -155,6 +274,12 @@ export default function InvoicesPage() {
 
         {/* Main Content */}
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+          {loadError && (
+            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.9rem 1rem', marginBottom: '1rem', color: '#b91c1c' }}>
+              {loadError}
+            </div>
+          )}
+
           {/* Controls */}
           <div style={{
             backgroundColor: 'white',
@@ -236,7 +361,11 @@ export default function InvoicesPage() {
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
             overflow: 'hidden'
           }}>
-            {filteredInvoices.length === 0 ? (
+            {loading ? (
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2.5rem', textAlign: 'center', color: '#6b7280', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}>
+                Loading invoices...
+              </div>
+            ) : filteredInvoices.length === 0 ? (
               <div style={{
                 padding: '3rem 2rem',
                 textAlign: 'center'

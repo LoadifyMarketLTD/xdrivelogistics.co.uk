@@ -280,6 +280,7 @@ const buildCspHeader = (nonce: string) =>
     "img-src 'self' data: https://images.unsplash.com https://*.supabase.co",
     "font-src 'self'",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+    "frame-src 'self' https://app.netlify.com",
     "form-action 'self'",
     "object-src 'none'",
     "base-uri 'self'",
