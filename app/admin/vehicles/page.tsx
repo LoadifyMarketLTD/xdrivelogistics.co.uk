@@ -5,6 +5,8 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Vehicle, VehicleType, Company } from '../../../lib/types/database';
+import { getMissingColumnFromError, isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
+import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
@@ -26,40 +28,30 @@ export default function VehiclesPage() {
   const [editError, setEditError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const loadCompanyId = async (userId: string, authCompanyId: string | null) => {
-    let resolvedCompanyId = authCompanyId;
-
-    if (!resolvedCompanyId) {
-      const { data: membership } = await supabase
-        .from('company_memberships')
-        .select('company_id')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      resolvedCompanyId = (membership?.company_id as string) ?? null;
-    }
-
-    if (!resolvedCompanyId) {
-      const { data } = await supabase.rpc('get_or_create_company_for_user');
-      if (data) {
-        resolvedCompanyId = data as string;
-      }
-    }
-
-    setCompanyId(resolvedCompanyId);
-  };
-
   const loadVehicles = async () => {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
     if (!companyId) { setVehicles([]); setLoading(false); return; }
-    const { data, error } = await supabase
+    const selectColumns = 'id, company_id, type, reg_plate, make, model, payload_kg, has_tail_lift, assigned_driver_id, created_at';
+    const legacySelectColumns = 'id, company_id, vehicle_type, reg_plate, make, model, payload_kg, has_tail_lift, assigned_driver_id, created_at';
+    const query = supabase
       .from('vehicles')
-      .select('id, company_id, type, reg_plate, make, model, payload_kg, has_tail_lift, assigned_driver_id, created_at')
+      .select(selectColumns)
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
+    let { data, error } = await query;
+    if (error && isMissingColumnError(error, 'vehicles', 'type')) {
+      const legacyResult = await supabase
+        .from('vehicles')
+        .select(legacySelectColumns)
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+      data = ((legacyResult.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+        ...row,
+        type: (row.vehicle_type as VehicleType | undefined) ?? 'van_large',
+      })) as unknown as Vehicle[];
+      error = legacyResult.error;
+    }
     if (!error && data) setVehicles(data as Vehicle[]);
     setLoading(false);
   };
@@ -84,7 +76,10 @@ export default function VehiclesPage() {
 
   useEffect(() => {
     if (hasSupabaseSession && user?.id) {
-      loadCompanyId(user.id, user.companyId);
+      resolveActiveCompanyId({
+        userId: user.id,
+        fallbackCompanyId: user.companyId ?? null,
+      }).then((id) => setCompanyId(id));
     }
   }, [hasSupabaseSession, user?.id, user?.companyId]);
 
@@ -101,9 +96,11 @@ export default function VehiclesPage() {
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     const { data: authCtx } = await supabase.auth.getUser();
     const resolvedCompanyId = companyId;
-    const insertPayload = {
+    const insertPayload: Record<string, string | number | boolean | null> = {
       ...formData,
       company_id: resolvedCompanyId,
+      type: formData.type,
+      vehicle_type: formData.type,
       payload_kg: formData.payload_kg ? parseFloat(formData.payload_kg) : null,
       assigned_driver_id: formData.assigned_driver_id || null,
     };
@@ -114,19 +111,34 @@ export default function VehiclesPage() {
       payloadCompanyId: insertPayload.company_id,
       payloadAssignedDriverId: insertPayload.assigned_driver_id,
     });
-    const { error } = await supabase.from('vehicles').insert([insertPayload]);
-    if (error) {
+    let createError: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null = null;
+    while (Object.keys(insertPayload).length > 0) {
+      const { error } = await supabase.from('vehicles').insert([insertPayload]);
+      if (!error) {
+        createError = null;
+        break;
+      }
+      const missingColumn = getMissingColumnFromError(error, 'vehicles');
+      if (missingColumn && Object.prototype.hasOwnProperty.call(insertPayload, missingColumn)) {
+        delete insertPayload[missingColumn];
+        createError = error;
+        continue;
+      }
+      createError = error;
+      break;
+    }
+    if (createError) {
       console.error('[XDrive Vehicles] insert failed', {
         authUid: authCtx.user?.id ?? null,
         resolvedCompanyId,
         userRole: user?.role ?? null,
         payloadCompanyId: insertPayload.company_id,
         payloadAssignedDriverId: insertPayload.assigned_driver_id,
-        errorCode: error.code ?? null,
-        errorMessage: error.message,
-        errorDetails: error.details ?? null,
+        errorCode: createError.code ?? null,
+        errorMessage: createError.message,
+        errorDetails: createError.details ?? null,
       });
-      setError(error.message);
+      setError(createError.message ?? 'Failed to create vehicle.');
       return;
     }
     setShowModal(false);
@@ -152,21 +164,38 @@ export default function VehiclesPage() {
   const handleUpdate = async () => {
     if (!editingVehicle || !companyId || !isSupabaseConfigured) return;
     setSaving(true);
-    const { error } = await supabase
-      .from('vehicles')
-      .update({
-        type: editData.type,
-        reg_plate: editData.reg_plate.trim() || null,
-        make: editData.make.trim() || null,
-        model: editData.model.trim() || null,
-        payload_kg: editData.payload_kg ? parseFloat(editData.payload_kg) : null,
-        has_tail_lift: editData.has_tail_lift,
-        assigned_driver_id: editData.assigned_driver_id || null,
-      })
-      .eq('id', editingVehicle.id)
-      .eq('company_id', companyId);
+    const updatePayload: Record<string, string | number | boolean | null> = {
+      type: editData.type,
+      vehicle_type: editData.type,
+      reg_plate: editData.reg_plate.trim() || null,
+      make: editData.make.trim() || null,
+      model: editData.model.trim() || null,
+      payload_kg: editData.payload_kg ? parseFloat(editData.payload_kg) : null,
+      has_tail_lift: editData.has_tail_lift,
+      assigned_driver_id: editData.assigned_driver_id || null,
+    };
+    let error: { message?: string | null } | null = null;
+    while (Object.keys(updatePayload).length > 0) {
+      const updateRes = await supabase
+        .from('vehicles')
+        .update(updatePayload)
+        .eq('id', editingVehicle.id)
+        .eq('company_id', companyId);
+      if (!updateRes.error) {
+        error = null;
+        break;
+      }
+      const missingColumn = getMissingColumnFromError(updateRes.error, 'vehicles');
+      if (missingColumn && Object.prototype.hasOwnProperty.call(updatePayload, missingColumn)) {
+        delete updatePayload[missingColumn];
+        error = updateRes.error;
+        continue;
+      }
+      error = updateRes.error;
+      break;
+    }
     setSaving(false);
-    if (error) { setEditError(error.message); return; }
+    if (error) { setEditError(error.message ?? 'Failed to update vehicle.'); return; }
     setEditingVehicle(null);
     loadVehicles();
   };
@@ -279,7 +308,7 @@ export default function VehiclesPage() {
                   </select>
                 </div>
                 <div><label style={labelStyle}>Reg Plate</label><input style={inputStyle} value={formData.reg_plate} onChange={e => setFormData({...formData, reg_plate: e.target.value})} placeholder="AB12 CDE" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div><label style={labelStyle}>Make</label><input style={inputStyle} value={formData.make} onChange={e => setFormData({...formData, make: e.target.value})} placeholder="Ford" /></div>
                   <div><label style={labelStyle}>Model</label><input style={inputStyle} value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} placeholder="Transit" /></div>
                 </div>
@@ -321,7 +350,7 @@ export default function VehiclesPage() {
                   </select>
                 </div>
                 <div><label style={labelStyle}>Reg Plate</label><input style={inputStyle} value={editData.reg_plate} onChange={e => setEditData({...editData, reg_plate: e.target.value})} /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div><label style={labelStyle}>Make</label><input style={inputStyle} value={editData.make} onChange={e => setEditData({...editData, make: e.target.value})} /></div>
                   <div><label style={labelStyle}>Model</label><input style={inputStyle} value={editData.model} onChange={e => setEditData({...editData, model: e.target.value})} /></div>
                 </div>

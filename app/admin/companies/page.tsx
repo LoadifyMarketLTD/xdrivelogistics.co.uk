@@ -152,11 +152,6 @@ export default function CompaniesPage() {
       );
     if (membershipError) { setError(membershipError.message ?? 'Failed to attach owner membership.'); return; }
 
-    await supabase
-      .from('profiles')
-      .update({ company_id: createdCompanyId })
-      .eq('user_id', authCtx.user.id);
-
     setCompanyId(createdCompanyId);
     setShowModal(false);
     setFormData({ name: '', company_number: '', vat_number: '', email: '', phone: '', address_line1: '', city: '', postcode: '' });
@@ -325,16 +320,16 @@ export default function CompaniesPage() {
               <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
                 {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
                 <div><label style={labelStyle}>Company Name *</label><input style={inputStyle} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Acme Ltd" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div><label style={labelStyle}>Company Number</label><input style={inputStyle} value={formData.company_number} onChange={e => setFormData({...formData, company_number: e.target.value})} placeholder="12345678" /></div>
                   <div><label style={labelStyle}>VAT Number</label><input style={inputStyle} value={formData.vat_number} onChange={e => setFormData({...formData, vat_number: e.target.value})} placeholder="GB123456789" /></div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="info@company.com" /></div>
                   <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="07123456789" /></div>
                 </div>
                 <div><label style={labelStyle}>Address</label><input style={inputStyle} value={formData.address_line1} onChange={e => setFormData({...formData, address_line1: e.target.value})} placeholder="123 High Street" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div><label style={labelStyle}>City</label><input style={inputStyle} value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} placeholder="London" /></div>
                   <div><label style={labelStyle}>Postcode</label><input style={inputStyle} value={formData.postcode} onChange={e => setFormData({...formData, postcode: e.target.value})} placeholder="SW1A 1AA" /></div>
                 </div>
@@ -358,7 +353,7 @@ export default function CompaniesPage() {
               <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
                 {editError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{editError}</div>}
                 <div><label style={labelStyle}>Company Name *</label><input style={inputStyle} value={editData.name} onChange={e => setEditData({...editData, name: e.target.value})} /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div><label style={labelStyle}>Company Number</label><input style={inputStyle} value={editData.company_number} onChange={e => setEditData({...editData, company_number: e.target.value})} /></div>
                   <div><label style={labelStyle}>VAT Number</label><input style={inputStyle} value={editData.vat_number} onChange={e => setEditData({...editData, vat_number: e.target.value})} /></div>
                 </div>
