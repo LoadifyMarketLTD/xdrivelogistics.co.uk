@@ -29,9 +29,6 @@ export default function VehiclesPage() {
   const loadCompanyId = async (userId: string, authCompanyId: string | null) => {
     let resolvedCompanyId = authCompanyId;
 
-    // Refresh auth user to ensure session context is up to date before fallback queries.
-    await supabase.auth.getUser();
-
     if (!resolvedCompanyId) {
       const { data: membership } = await supabase
         .from('company_memberships')
