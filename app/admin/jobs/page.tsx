@@ -7,6 +7,7 @@ import { JOB_STATUS } from '../../config/company';
 import { generateTimeOptions } from '../../utils/timeUtils';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../lib/jobClientFields';
+import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
 
 interface Job {
@@ -79,26 +80,9 @@ export default function JobsPage() {
   const loadCompanyId = async (userId: string) => {
     setCompanyLoading(true);
     setCompanyError(null);
-    // Use get_or_create_company_for_user() which fixes the RLS circular
-    // dependency (old memberships_select_member policy blocked 'invited'
-    // status users) and auto-provisions a company when none exists.
-    const { data, error } = await supabase.rpc('get_or_create_company_for_user');
-    if (!error && data) {
-      setCompanyId(data as string);
-      setCompanyLoading(false);
-      return;
-    }
-    if (error) console.error('get_or_create_company_for_user failed:', error.message);
-    // Fallback: direct membership query (works after migration 010)
-    const { data: mbData } = await supabase
-      .from('company_memberships')
-      .select('company_id')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .limit(1)
-      .single();
-    if (mbData) {
-      setCompanyId(mbData.company_id as string);
+    const resolvedCompanyId = await resolveActiveCompanyId({ userId, fallbackCompanyId: null });
+    if (resolvedCompanyId) {
+      setCompanyId(resolvedCompanyId);
     } else {
       setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
     }
@@ -235,17 +219,21 @@ export default function JobsPage() {
     if (hasSupabaseSession) {
       // Resolve companyId — use state value or re-fetch if missing
       let resolvedCompanyId = companyId;
-      if (!resolvedCompanyId) {
-        const { data: rpcData, error: rpcError } = await supabase.rpc('get_or_create_company_for_user');
-        if (rpcData) {
-          resolvedCompanyId = rpcData as string;
+      if (!resolvedCompanyId && user?.id) {
+        const fallbackCompanyId = await resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: null });
+        if (fallbackCompanyId) {
+          resolvedCompanyId = fallbackCompanyId;
           setCompanyId(resolvedCompanyId);
         } else {
-          console.error('Failed to provision company:', rpcError?.message);
           setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
           setIsSubmitting(false);
           return;
         }
+      }
+      if (!resolvedCompanyId) {
+        setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
+        setIsSubmitting(false);
+        return;
       }
       const { error: insertError } = await supabase.from('jobs').insert([{
         company_id: resolvedCompanyId,
