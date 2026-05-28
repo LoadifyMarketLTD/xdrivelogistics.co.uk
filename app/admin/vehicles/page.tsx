@@ -15,6 +15,8 @@ interface DriverOption { id: string; display_name: string; }
 export default function VehiclesPage() {
   const { user, hasSupabaseSession } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companyResolved, setCompanyResolved] = useState(false);
+  const [companyError, setCompanyError] = useState('');
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
@@ -75,21 +77,64 @@ export default function VehiclesPage() {
   };
 
   useEffect(() => {
-    if (hasSupabaseSession && user?.id) {
-      resolveActiveCompanyId({
-        userId: user.id,
-        fallbackCompanyId: user.companyId ?? null,
-      }).then((id) => setCompanyId(id));
+    let cancelled = false;
+
+    if (!hasSupabaseSession || !user?.id) {
+      setCompanyId(null);
+      setCompanyResolved(false);
+      setCompanyError('');
+      setVehicles([]);
+      setDrivers([]);
+      setCompanies([]);
+      setLoading(true);
+      return;
     }
+
+    setCompanyError('');
+    if (user.companyId) {
+      setCompanyId(user.companyId);
+      setCompanyResolved(true);
+      return;
+    }
+
+    setCompanyResolved(false);
+    resolveActiveCompanyId({
+      userId: user.id,
+      fallbackCompanyId: user.companyId ?? null,
+    }).then((id) => {
+      if (cancelled) return;
+      setCompanyId(id);
+      setCompanyResolved(true);
+      if (!id) {
+        setCompanyError('Company profile not available. Vehicles are hidden until company access resolves.');
+      }
+    }).catch((error) => {
+      if (cancelled) return;
+      console.error('Failed to resolve vehicle company context:', error);
+      setCompanyId(null);
+      setCompanyResolved(true);
+      setCompanyError('Company profile not available. Vehicles are hidden until company access resolves.');
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyResolved) return;
+    if (!companyId) {
+      setVehicles([]);
+      setDrivers([]);
+      setCompanies([]);
+      setLoading(false);
+      return;
+    }
     setFormData((prev) => ({ ...prev, company_id: companyId }));
     loadVehicles();
     loadCompanies();
     loadDrivers();
-  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [companyResolved, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!companyId) { setError('Company is required'); return; }
@@ -219,10 +264,16 @@ export default function VehiclesPage() {
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Vehicles</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage fleet vehicles</p>
             </div>
-            <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
+            <button onClick={() => setShowModal(true)} disabled={!companyResolved || !companyId} style={{ padding: '0.75rem 1.5rem', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}>
               + Add Vehicle
             </button>
           </div>
+
+          {companyError && (
+            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
+              {companyError}
+            </div>
+          )}
 
           {!isSupabaseConfigured && (
             <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
@@ -231,8 +282,12 @@ export default function VehiclesPage() {
           )}
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            {loading ? (
+            {!companyResolved || loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+            ) : !companyId ? (
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+                <p>Company profile not available. Vehicles are hidden until company access resolves.</p>
+              </div>
             ) : vehicles.length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚛</div>

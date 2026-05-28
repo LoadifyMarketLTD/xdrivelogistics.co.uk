@@ -184,6 +184,16 @@ export const resolveAuthenticatedUser = async (
 
   let companyId = profile?.company_id ?? membership?.company_id ?? driver?.company_id ?? creatorCompany?.id ?? null;
 
+  const isMissingCompanyProvisionRpc = (error: { message?: string | null; details?: string | null; hint?: string | null } | null | undefined) => {
+    if (!error) return false;
+    const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+    return text.includes('get_or_create_company_for_user') && (
+      text.includes('schema cache') ||
+      text.includes('could not find the function') ||
+      text.includes('not found')
+    );
+  };
+
   if (
     !companyId &&
     shouldAutoProvisionCompany({
@@ -191,9 +201,16 @@ export const resolveAuthenticatedUser = async (
       profileRole: profile?.role,
     })
   ) {
-    const { data: provisionedCompanyId } = await supabase.rpc('get_or_create_company_for_user');
+    const { data: provisionedCompanyId, error: provisionError } = await supabase.rpc('get_or_create_company_for_user');
     if (typeof provisionedCompanyId === 'string' && provisionedCompanyId) {
       companyId = provisionedCompanyId;
+    } else if (provisionError && !isMissingCompanyProvisionRpc(provisionError)) {
+      console.debug('[XDrive Auth] get_or_create_company_for_user failed', {
+        userId: sessionUser.id,
+        message: provisionError.message,
+        details: provisionError.details,
+        hint: provisionError.hint,
+      });
     }
   }
 

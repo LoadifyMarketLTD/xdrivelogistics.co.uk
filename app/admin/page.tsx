@@ -332,6 +332,7 @@ export default function AdminPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(null);
+  const [companyResolved, setCompanyResolved] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardState>(DEFAULT_DASHBOARD);
   const [dashboardError, setDashboardError] = useState('');
   const [dashboardLoading, setDashboardLoading] = useState(true);
@@ -350,20 +351,43 @@ export default function AdminPage() {
   }, [isMobile]);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!user?.id) {
-      setResolvedCompanyId(user?.companyId ?? null);
+      setResolvedCompanyId(null);
+      setCompanyResolved(false);
       return;
     }
+
+    if (user.companyId) {
+      setResolvedCompanyId(user.companyId);
+      setCompanyResolved(true);
+      return;
+    }
+
+    setCompanyResolved(false);
     resolveActiveCompanyId({
       userId: user.id,
       fallbackCompanyId: user.companyId ?? null,
-    }).then((companyId) => setResolvedCompanyId(companyId));
+    }).then((companyId) => {
+      if (cancelled) return;
+      setResolvedCompanyId(companyId);
+      setCompanyResolved(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id, user?.companyId]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadDashboard = async () => {
+      if (!companyResolved) {
+        return;
+      }
+
       setDashboardLoading(true);
 
       if (!isSupabaseConfigured) {
@@ -622,7 +646,7 @@ export default function AdminPage() {
     return () => {
       cancelled = true;
     };
-  }, [resolvedCompanyId]);
+  }, [companyResolved, resolvedCompanyId]);
 
   const reportRows = useMemo(() => {
     const now = new Date();
