@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
@@ -46,6 +46,12 @@ type MarketSnapshot = {
   deliveryBacklog: number;
 };
 
+type ResourceSnapshot = {
+  fleetUnits: number;
+  pendingQuoteApprovals: number;
+  driverCoverageGap: number;
+};
+
 type ActivityItem = {
   id: string;
   icon: string;
@@ -61,6 +67,7 @@ type DashboardState = {
   finance: FinanceSnapshot;
   compliance: ComplianceSnapshot;
   market: MarketSnapshot;
+  resources: ResourceSnapshot;
   activity: ActivityItem[];
 };
 
@@ -132,6 +139,11 @@ const DEFAULT_DASHBOARD: DashboardState = {
     acceptedQuotes: 0,
     recentInvoiceValue: 0,
     deliveryBacklog: 0,
+  },
+  resources: {
+    fleetUnits: 0,
+    pendingQuoteApprovals: 0,
+    driverCoverageGap: 0,
   },
   activity: [],
 };
@@ -205,6 +217,33 @@ const quickActionTiles = [
     border: '#c7d2fe',
   },
 ];
+
+const ENTERPRISE_THEME = {
+  pageBg: '#eef2f6',
+  shellBg: '#0b1c2f',
+  shellMuted: '#9fb4cb',
+  cardBg: '#ffffff',
+  cardBorder: '#d7e0ea',
+  cardShadow: '0 6px 16px rgba(15, 23, 42, 0.08)',
+  radius: '10px',
+  spacing: {
+    xxs: '0.35rem',
+    xs: '0.5rem',
+    sm: '0.75rem',
+    md: '1rem',
+    lg: '1.25rem',
+    xl: '1.5rem',
+  },
+  colors: {
+    success: '#15803d',
+    warning: '#c2410c',
+    danger: '#b91c1c',
+    live: '#1d4ed8',
+    driverQuote: '#7c3aed',
+    text: '#0f172a',
+    muted: '#475569',
+  },
+};
 
 const countQuery = async (promise: PromiseLike<{ count: number | null; error: { message: string } | null }>) => {
   const { count, error } = await promise;
@@ -391,6 +430,7 @@ const formatTimestamp = (value: string) => new Date(value).toLocaleString('en-GB
 export default function AdminPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(null);
   const [companyResolved, setCompanyResolved] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardState>(DEFAULT_DASHBOARD);
@@ -541,6 +581,15 @@ export default function AdminPage() {
           label: 'vehicle documents list',
           run: loadVehicleDocumentsWithCompat(resolvedCompanyId),
         },
+        {
+          label: 'fleet units count',
+          run: countQuery(
+          supabase
+            .from('vehicles')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', resolvedCompanyId)
+          ),
+        },
       ];
       const results = await Promise.allSettled(dashboardModules.map((module) => module.run));
 
@@ -568,6 +617,7 @@ export default function AdminPage() {
       const bids = getValue<BidRow[]>(5, []);
       const driverDocs = getValue<DocRow[]>(6, []);
       const vehicleDocs = getValue<DocRow[]>(7, []);
+      const fleetUnits = getValue<number>(8, 0);
       // Derive quotes count from list (no separate count query needed).
       const pendingQuotes = quotes.filter((q) => ['draft', 'sent'].includes(q.status)).length;
       const documentRows = [...driverDocs, ...vehicleDocs];
@@ -644,6 +694,11 @@ export default function AdminPage() {
           recentInvoiceValue: invoices.slice(0, 5).reduce((total, invoice) => total + Number(invoice.amount ?? 0), 0),
           deliveryBacklog: activeJobs + pendingQuotes,
         },
+        resources: {
+          fleetUnits,
+          pendingQuoteApprovals: quotes.filter((quote) => quote.status === 'sent').length,
+          driverCoverageGap: Math.max(activeJobs - getValue<number>(1, 0), 0),
+        },
         activity,
       });
       setDashboardError(
@@ -709,42 +764,78 @@ export default function AdminPage() {
       label: 'Active Jobs',
       value: dashboard.overview.activeJobs,
       icon: '🚚',
-      color: '#1F7A3D',
-      subtitle: 'Posted, allocated and in transit',
+      color: ENTERPRISE_THEME.colors.live,
+      subtitle: 'Live jobs in posted, allocated and in-transit states',
     },
     {
       label: 'Pending Quotes',
       value: dashboard.overview.pendingQuotes,
       icon: '💬',
-      color: '#f59e0b',
-      subtitle: 'Draft or sent pricing still open',
+      color: ENTERPRISE_THEME.colors.driverQuote,
+      subtitle: 'Pricing requests waiting for conversion',
     },
     {
       label: 'Active Drivers',
       value: dashboard.overview.activeDrivers,
       icon: '👤',
-      color: '#0A2239',
-      subtitle: 'Drivers ready for current work',
+      color: ENTERPRISE_THEME.colors.success,
+      subtitle: 'Drivers currently available for dispatch',
     },
     {
       label: 'Completed Today',
       value: dashboard.overview.completedToday,
       icon: '✅',
-      color: '#5C9FD8',
-      subtitle: 'Jobs marked delivered today',
+      color: ENTERPRISE_THEME.colors.success,
+      subtitle: 'Delivery confirmations closed today',
     },
   ];
 
   const sectionCardStyle: CSSProperties = {
-    backgroundColor: 'white',
-    padding: '1.5rem',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    backgroundColor: ENTERPRISE_THEME.cardBg,
+    padding: ENTERPRISE_THEME.spacing.lg,
+    borderRadius: ENTERPRISE_THEME.radius,
+    border: `1px solid ${ENTERPRISE_THEME.cardBorder}`,
+    boxShadow: ENTERPRISE_THEME.cardShadow,
   };
+
+  const invoicePressureLevel =
+    dashboard.finance.overdueInvoices >= 5
+      ? { label: 'Critical', color: ENTERPRISE_THEME.colors.danger, bg: '#fef2f2' }
+      : dashboard.finance.overdueInvoices >= 2
+        ? { label: 'Monitor', color: ENTERPRISE_THEME.colors.warning, bg: '#fff7ed' }
+        : { label: 'Stable', color: ENTERPRISE_THEME.colors.success, bg: '#ecfdf5' };
+
+  const quotePressureLevel =
+    dashboard.overview.pendingQuotes >= 8
+      ? { label: 'High queue', color: ENTERPRISE_THEME.colors.warning, bg: '#fff7ed' }
+      : dashboard.overview.pendingQuotes >= 3
+        ? { label: 'Normal queue', color: ENTERPRISE_THEME.colors.live, bg: '#eff6ff' }
+        : { label: 'Low queue', color: ENTERPRISE_THEME.colors.success, bg: '#ecfdf5' };
+
+  const operationalAlerts = [
+    {
+      id: 'alert-overdue',
+      title: 'Overdue invoices',
+      state: dashboard.finance.overdueInvoices > 0 ? 'Attention required' : 'No overdue debt',
+      color: dashboard.finance.overdueInvoices > 0 ? ENTERPRISE_THEME.colors.danger : ENTERPRISE_THEME.colors.success,
+    },
+    {
+      id: 'alert-compliance',
+      title: 'Compliance watchlist',
+      state: dashboard.compliance.attentionRequired > 0 ? 'Documents blocked/expired' : 'No blocked docs',
+      color: dashboard.compliance.attentionRequired > 0 ? ENTERPRISE_THEME.colors.warning : ENTERPRISE_THEME.colors.success,
+    },
+    {
+      id: 'alert-coverage',
+      title: 'Driver coverage',
+      state: dashboard.resources.driverCoverageGap > 0 ? `${dashboard.resources.driverCoverageGap} jobs above active driver pool` : 'Coverage balanced',
+      color: dashboard.resources.driverCoverageGap > 0 ? ENTERPRISE_THEME.colors.driverQuote : ENTERPRISE_THEME.colors.success,
+    },
+  ];
 
   return (
     <ProtectedRoute>
-      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
+      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: ENTERPRISE_THEME.pageBg }}>
         {isMobile && sidebarOpen && (
           <div
             onClick={() => setSidebarOpen(false)}
@@ -753,12 +844,12 @@ export default function AdminPage() {
         )}
         <aside
           style={{
-            width: isMobile ? '280px' : '250px',
-            backgroundColor: '#0A2239',
+            width: isMobile ? '270px' : '228px',
+            backgroundColor: ENTERPRISE_THEME.shellBg,
             color: 'white',
             display: 'flex',
             flexDirection: 'column',
-            boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)',
+            boxShadow: '2px 0 14px rgba(2, 6, 23, 0.24)',
             position: isMobile ? 'fixed' : 'relative',
             inset: isMobile ? '0 auto 0 0' : undefined,
             zIndex: isMobile ? 40 : undefined,
@@ -766,16 +857,19 @@ export default function AdminPage() {
             transition: 'transform 0.2s ease',
           }}
         >
-          <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: 'white' }}>{COMPANY_CONFIG.legalName}</h1>
-            <p style={{ fontSize: '0.85rem', margin: '0.5rem 0 0 0', opacity: 0.7 }}>Company Portal</p>
+          <div style={{ padding: '1.1rem 1rem', borderBottom: '1px solid rgba(159, 180, 203, 0.22)' }}>
+            <h1 style={{ fontSize: '1.02rem', fontWeight: '700', margin: 0, color: 'white', lineHeight: 1.35 }}>{COMPANY_CONFIG.legalName}</h1>
+            <p style={{ fontSize: '0.74rem', margin: '0.3rem 0 0 0', color: ENTERPRISE_THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Operations Console
+            </p>
           </div>
 
-          <nav style={{ flex: 1, padding: '1rem 0' }}>
+          <nav style={{ flex: 1, padding: '0.6rem' }}>
             {menuItems.map((item) => {
-              const isActive = item.id === 'dashboard';
+              const isActive = pathname === item.href;
               return (
                 <button
+                  className="nav-item"
                   key={item.id}
                   onClick={() => {
                     router.push(item.href);
@@ -783,105 +877,124 @@ export default function AdminPage() {
                   }}
                   style={{
                     width: '100%',
-                    padding: '0.875rem 1.5rem',
-                    backgroundColor: isActive ? 'rgba(31, 122, 61, 0.5)' : 'transparent',
+                    padding: '0.58rem 0.72rem',
+                    backgroundColor: isActive ? 'rgba(63, 131, 248, 0.18)' : 'transparent',
                     color: 'white',
                     border: 'none',
-                    borderLeft: isActive ? '4px solid #1F7A3D' : '4px solid transparent',
+                    borderLeft: isActive ? `3px solid ${ENTERPRISE_THEME.colors.live}` : '3px solid transparent',
                     textAlign: 'left',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.75rem',
-                    fontSize: '1rem',
-                    fontWeight: isActive ? '600' : '400',
+                    gap: '0.55rem',
+                    fontSize: '0.84rem',
+                    fontWeight: isActive ? '600' : '500',
+                    borderRadius: '8px',
+                    transition: 'background-color 0.15s ease',
                   }}
                 >
-                  <span style={{ fontSize: '1.25rem' }}>{item.icon}</span>
+                  <span
+                    style={{
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '6px',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontSize: '0.88rem',
+                      backgroundColor: 'rgba(159, 180, 203, 0.2)',
+                    }}
+                  >
+                    {item.icon}
+                  </span>
                   {item.label}
                 </button>
               );
             })}
           </nav>
 
-          <div style={{ padding: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
-            <div style={{ fontSize: '0.85rem', opacity: 0.8, marginBottom: '0.75rem', wordBreak: 'break-word' }}>
+          <div style={{ padding: '0.9rem', borderTop: '1px solid rgba(159, 180, 203, 0.22)' }}>
+            <div style={{ fontSize: '0.74rem', color: ENTERPRISE_THEME.shellMuted, marginBottom: '0.6rem', wordBreak: 'break-word' }}>
               {user?.email}
             </div>
             <button
+              className="panel-button"
               onClick={logout}
               style={{
                 width: '100%',
-                padding: '0.625rem',
+                padding: '0.52rem',
                 backgroundColor: 'rgba(239, 68, 68, 0.8)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
-                fontSize: '0.9rem',
+                fontSize: '0.8rem',
                 fontWeight: '600',
                 cursor: 'pointer',
               }}
             >
-              Logout
+              Sign out
             </button>
           </div>
         </aside>
 
-        <main style={{ flex: 1, padding: isMobile ? '1rem' : '2rem', marginLeft: isMobile ? 0 : undefined }}>
+        <main style={{ flex: 1, padding: isMobile ? '0.9rem' : '1.2rem', marginLeft: isMobile ? 0 : undefined }}>
           {isMobile && (
             <button
+              className="panel-button"
               onClick={() => setSidebarOpen(true)}
               style={{
-                padding: '0.65rem 0.9rem',
+                padding: '0.5rem 0.72rem',
                 borderRadius: '8px',
-                border: '1px solid #cbd5e1',
+                border: `1px solid ${ENTERPRISE_THEME.cardBorder}`,
                 backgroundColor: 'white',
-                color: '#0A2239',
+                color: ENTERPRISE_THEME.colors.text,
                 fontWeight: '700',
-                marginBottom: '1rem',
+                marginBottom: '0.85rem',
                 cursor: 'pointer',
+                fontSize: '0.83rem',
               }}
             >
               ☰ Menu
             </button>
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
             <div>
-              <h2 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>Dashboard</h2>
-              <p style={{ color: '#6b7280', margin: 0, maxWidth: '760px' }}>
-                Courier Exchange-style control centre for operations, finance, compliance and exchange activity.
+              <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Operations Control Centre</h2>
+              <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: 0, maxWidth: '760px', fontSize: '0.86rem' }}>
+                Live dispatch, finance and compliance command board aligned to courier exchange workflows.
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
               <button
+                className="panel-button"
                 onClick={() => router.push('/admin/jobs')}
                 style={{
-                  padding: '0.85rem 1.25rem',
-                  backgroundColor: '#1F7A3D',
-                  border: '1px solid #1F7A3D',
+                  padding: '0.58rem 0.95rem',
+                  backgroundColor: ENTERPRISE_THEME.colors.success,
+                  border: `1px solid ${ENTERPRISE_THEME.colors.success}`,
                   borderRadius: '8px',
                   cursor: 'pointer',
-                  fontSize: '0.95rem',
+                  fontSize: '0.83rem',
                   fontWeight: '600',
                   color: 'white',
                 }}
               >
-                📦 Manage Jobs
+                📦 Open Dispatch Board
               </button>
               <button
+                className="panel-button"
                 onClick={generateReport}
                 style={{
-                  padding: '0.85rem 1.25rem',
+                  padding: '0.58rem 0.95rem',
                   backgroundColor: '#e0f2fe',
                   border: '1px solid #7dd3fc',
                   borderRadius: '8px',
                   cursor: 'pointer',
-                  fontSize: '0.95rem',
+                  fontSize: '0.83rem',
                   fontWeight: '600',
                   color: '#075985',
                 }}
               >
-                📊 Export Report
+                📊 Export Ops Report
               </button>
             </div>
           </div>
@@ -892,148 +1005,190 @@ export default function AdminPage() {
                 backgroundColor: '#fef3c7',
                 border: '1px solid #f59e0b',
                 borderRadius: '8px',
-                padding: '1rem 1.5rem',
-                marginBottom: '1.5rem',
+                padding: '0.75rem 0.9rem',
+                marginBottom: '0.9rem',
                 color: '#92400e',
                 fontWeight: '600',
+                fontSize: '0.83rem',
               }}
             >
               {dashboardError}
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
             {overviewCards.map((stat) => (
               <div
                 key={stat.label}
                 style={{
-                  backgroundColor: 'white',
-                  padding: '1.5rem',
-                  borderRadius: '12px',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                  borderLeft: `4px solid ${stat.color}`,
+                  backgroundColor: ENTERPRISE_THEME.cardBg,
+                  padding: '0.75rem',
+                  borderRadius: ENTERPRISE_THEME.radius,
+                  border: `1px solid ${ENTERPRISE_THEME.cardBorder}`,
+                  boxShadow: ENTERPRISE_THEME.cardShadow,
+                  borderLeft: `3px solid ${stat.color}`,
+                  minHeight: '110px',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.45rem' }}>
                   <div>
-                    <div style={{ fontSize: '0.9rem', color: '#6b7280', fontWeight: '500' }}>{stat.label}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.35rem' }}>{stat.subtitle}</div>
+                    <div style={{ fontSize: '0.8rem', color: ENTERPRISE_THEME.colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{stat.label}</div>
+                    <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.12rem', lineHeight: 1.4 }}>{stat.subtitle}</div>
                   </div>
-                  <span style={{ fontSize: '1.5rem' }}>{stat.icon}</span>
+                  <span style={{ fontSize: '1.1rem', width: '26px', height: '26px', borderRadius: '8px', backgroundColor: '#f1f5f9', display: 'grid', placeItems: 'center' }}>{stat.icon}</span>
                 </div>
-                <div style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937' }}>{dashboardLoading ? '…' : stat.value}</div>
+                <div style={{ fontSize: '1.52rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text }}>{dashboardLoading ? '…' : stat.value}</div>
               </div>
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
             <section style={sectionCardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' }}>
                 <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>Operations board</h3>
-                  <p style={{ color: '#6b7280', margin: '0.35rem 0 0 0', fontSize: '0.9rem' }}>Track work in the live delivery pipeline.</p>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Operations board</h3>
+                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Dispatch state by live status lane.</p>
                 </div>
-                <button onClick={() => router.push('/admin/jobs')} style={{ background: 'none', border: 'none', color: '#1F7A3D', fontWeight: '600', cursor: 'pointer' }}>View jobs</button>
+                <button className="link-button" onClick={() => router.push('/admin/jobs')} style={{ background: 'none', border: 'none', color: ENTERPRISE_THEME.colors.live, fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}>View jobs</button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.85rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.55rem', marginBottom: '0.7rem' }}>
                 {[
-                  { label: 'Posted', value: dashboard.jobsByStatus.posted, color: '#1d4ed8' },
-                  { label: 'Allocated', value: dashboard.jobsByStatus.allocated, color: '#7c3aed' },
-                  { label: 'In transit', value: dashboard.jobsByStatus.inTransit, color: '#ea580c' },
-                  { label: 'Delivered', value: dashboard.jobsByStatus.delivered, color: '#15803d' },
+                  { label: 'Posted', value: dashboard.jobsByStatus.posted, color: ENTERPRISE_THEME.colors.live },
+                  { label: 'Allocated', value: dashboard.jobsByStatus.allocated, color: ENTERPRISE_THEME.colors.driverQuote },
+                  { label: 'In transit', value: dashboard.jobsByStatus.inTransit, color: ENTERPRISE_THEME.colors.warning },
+                  { label: 'Delivered', value: dashboard.jobsByStatus.delivered, color: ENTERPRISE_THEME.colors.success },
                 ].map((item) => (
-                  <div key={item.label} style={{ backgroundColor: '#f8fafc', borderRadius: '10px', padding: '1rem' }}>
-                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>{item.label}</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: '700', color: item.color }}>{dashboardLoading ? '…' : item.value}</div>
+                  <div key={item.label} style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '0.58rem', minHeight: '69px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.74rem', color: '#64748b', marginBottom: '0.18rem' }}>{item.label}</div>
+                    <div style={{ fontSize: '1.16rem', fontWeight: '700', color: item.color }}>{dashboardLoading ? '…' : item.value}</div>
                   </div>
                 ))}
               </div>
-            </section>
-
-            <section style={sectionCardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>Finance overview</h3>
-                  <p style={{ color: '#6b7280', margin: '0.35rem 0 0 0', fontSize: '0.9rem' }}>Surface revenue at risk and payment pressure.</p>
-                </div>
-                <button onClick={() => router.push('/admin/invoices')} style={{ background: 'none', border: 'none', color: '#1F7A3D', fontWeight: '600', cursor: 'pointer' }}>View invoices</button>
-              </div>
-              <div style={{ display: 'grid', gap: '0.85rem' }}>
-                <div style={{ backgroundColor: '#ecfdf5', borderRadius: '10px', padding: '1rem' }}>
-                  <div style={{ fontSize: '0.85rem', color: '#047857' }}>Outstanding revenue</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: '700', color: '#065f46', marginTop: '0.25rem' }}>{dashboardLoading ? '…' : formatCurrency(dashboard.finance.outstandingRevenue)}</div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.85rem' }}>
-                  <div style={{ backgroundColor: '#fff7ed', borderRadius: '10px', padding: '1rem' }}>
-                    <div style={{ fontSize: '0.85rem', color: '#c2410c' }}>Outstanding invoices</div>
-                    <div style={{ fontSize: '1.35rem', fontWeight: '700', color: '#9a3412', marginTop: '0.25rem' }}>{dashboardLoading ? '…' : dashboard.finance.outstandingInvoices}</div>
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.6rem', display: 'grid', gap: '0.45rem' }}>
+                <div style={{ fontSize: '0.76rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.text }}>Driver / vehicle quick states</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.45rem' }}>
+                  <div style={{ backgroundColor: '#eff6ff', borderRadius: '8px', padding: '0.45rem' }}>
+                    <div style={{ fontSize: '0.68rem', color: ENTERPRISE_THEME.colors.live }}>Active drivers</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.live }}>{dashboardLoading ? '…' : dashboard.overview.activeDrivers}</div>
                   </div>
-                  <div style={{ backgroundColor: '#fef2f2', borderRadius: '10px', padding: '1rem' }}>
-                    <div style={{ fontSize: '0.85rem', color: '#b91c1c' }}>Overdue invoices</div>
-                    <div style={{ fontSize: '1.35rem', fontWeight: '700', color: '#991b1b', marginTop: '0.25rem' }}>{dashboardLoading ? '…' : dashboard.finance.overdueInvoices}</div>
+                  <div style={{ backgroundColor: '#eef2ff', borderRadius: '8px', padding: '0.45rem' }}>
+                    <div style={{ fontSize: '0.68rem', color: ENTERPRISE_THEME.colors.driverQuote }}>Fleet units</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.driverQuote }}>{dashboardLoading ? '…' : dashboard.resources.fleetUnits}</div>
+                  </div>
+                  <div style={{ backgroundColor: '#fff7ed', borderRadius: '8px', padding: '0.45rem' }}>
+                    <div style={{ fontSize: '0.68rem', color: ENTERPRISE_THEME.colors.warning }}>Coverage gap</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.warning }}>{dashboardLoading ? '…' : dashboard.resources.driverCoverageGap}</div>
                   </div>
                 </div>
               </div>
             </section>
 
             <section style={sectionCardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' }}>
                 <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>Compliance watchlist</h3>
-                  <p style={{ color: '#6b7280', margin: '0.35rem 0 0 0', fontSize: '0.9rem' }}>Keep driver and vehicle documents audit-ready.</p>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Finance overview</h3>
+                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Cashflow exposure and billing pressure.</p>
                 </div>
-                <button onClick={() => router.push('/admin/documents')} style={{ background: 'none', border: 'none', color: '#1F7A3D', fontWeight: '600', cursor: 'pointer' }}>View documents</button>
+                <button className="link-button" onClick={() => router.push('/admin/invoices')} style={{ background: 'none', border: 'none', color: ENTERPRISE_THEME.colors.live, fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}>View invoices</button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.85rem' }}>
+              <div style={{ display: 'grid', gap: '0.55rem' }}>
+                <div style={{ backgroundColor: '#ecfdf5', borderRadius: '8px', padding: '0.62rem', border: '1px solid #bbf7d0' }}>
+                  <div style={{ fontSize: '0.73rem', color: '#047857' }}>Outstanding revenue</div>
+                  <div style={{ fontSize: '1.24rem', fontWeight: '700', color: '#065f46', marginTop: '0.12rem' }}>{dashboardLoading ? '…' : formatCurrency(dashboard.finance.outstandingRevenue)}</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.55rem' }}>
+                  <div style={{ backgroundColor: '#fff7ed', borderRadius: '8px', padding: '0.62rem', border: '1px solid #fed7aa' }}>
+                    <div style={{ fontSize: '0.73rem', color: '#c2410c' }}>Outstanding invoices</div>
+                    <div style={{ fontSize: '1.08rem', fontWeight: '700', color: '#9a3412', marginTop: '0.1rem' }}>{dashboardLoading ? '…' : dashboard.finance.outstandingInvoices}</div>
+                  </div>
+                  <div style={{ backgroundColor: '#fef2f2', borderRadius: '8px', padding: '0.62rem', border: '1px solid #fecaca' }}>
+                    <div style={{ fontSize: '0.73rem', color: '#b91c1c' }}>Overdue invoices</div>
+                    <div style={{ fontSize: '1.08rem', fontWeight: '700', color: '#991b1b', marginTop: '0.1rem' }}>{dashboardLoading ? '…' : dashboard.finance.overdueInvoices}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.55rem' }}>
+                  <div style={{ borderRadius: '8px', backgroundColor: invoicePressureLevel.bg, padding: '0.62rem', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.7rem', color: ENTERPRISE_THEME.colors.muted }}>Invoice pressure</div>
+                    <div style={{ marginTop: '0.12rem', fontWeight: 700, color: invoicePressureLevel.color, fontSize: '0.95rem' }}>{invoicePressureLevel.label}</div>
+                  </div>
+                  <div style={{ borderRadius: '8px', backgroundColor: quotePressureLevel.bg, padding: '0.62rem', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.7rem', color: ENTERPRISE_THEME.colors.muted }}>Quote pressure</div>
+                    <div style={{ marginTop: '0.12rem', fontWeight: 700, color: quotePressureLevel.color, fontSize: '0.95rem' }}>{quotePressureLevel.label}</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section style={sectionCardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Compliance watchlist</h3>
+                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Audit readiness and expiry signals.</p>
+                </div>
+                <button className="link-button" onClick={() => router.push('/admin/documents')} style={{ background: 'none', border: 'none', color: ENTERPRISE_THEME.colors.live, fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}>View documents</button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.55rem', marginBottom: '0.65rem' }}>
                 {[
                   { label: 'Pending', value: dashboard.compliance.pendingDocs, bg: '#eff6ff', color: '#1d4ed8' },
                   { label: 'Expiring soon', value: dashboard.compliance.expiringSoon, bg: '#fff7ed', color: '#c2410c' },
                   { label: 'Attention', value: dashboard.compliance.attentionRequired, bg: '#fef2f2', color: '#b91c1c' },
                 ].map((item) => (
-                  <div key={item.label} style={{ backgroundColor: item.bg, borderRadius: '10px', padding: '1rem' }}>
-                    <div style={{ fontSize: '0.85rem', color: item.color }}>{item.label}</div>
-                    <div style={{ fontSize: '1.35rem', fontWeight: '700', color: item.color, marginTop: '0.25rem' }}>{dashboardLoading ? '…' : item.value}</div>
+                  <div key={item.label} style={{ backgroundColor: item.bg, borderRadius: '8px', padding: '0.58rem', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.72rem', color: item.color }}>{item.label}</div>
+                    <div style={{ fontSize: '1.02rem', fontWeight: '700', color: item.color, marginTop: '0.1rem' }}>{dashboardLoading ? '…' : item.value}</div>
                   </div>
                 ))}
+              </div>
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.58rem' }}>
+                <div style={{ fontSize: '0.76rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.text, marginBottom: '0.44rem' }}>Operational alerts</div>
+                <div style={{ display: 'grid', gap: '0.35rem' }}>
+                  {operationalAlerts.map((alert) => (
+                    <div key={alert.id} style={{ borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', padding: '0.45rem 0.56rem', display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.72rem', color: ENTERPRISE_THEME.colors.muted }}>{alert.title}</span>
+                      <span style={{ fontSize: '0.72rem', color: alert.color, fontWeight: 700, textAlign: 'right' }}>{dashboardLoading ? '…' : alert.state}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </section>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(320px, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(300px, 1fr)', gap: '0.75rem', marginBottom: '0.75rem' }}>
             <section style={sectionCardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.68rem' }}>
                 <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>Live activity feed</h3>
-                  <p style={{ color: '#6b7280', margin: '0.35rem 0 0 0', fontSize: '0.9rem' }}>Recent jobs, quotes, invoices and bids in one stream.</p>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Live activity feed</h3>
+                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Recent operational activity across jobs, quotes, invoices and bids.</p>
                 </div>
               </div>
               {dashboard.activity.length === 0 ? (
-                <div style={{ padding: '1rem 0', color: '#6b7280' }}>No recent activity yet.</div>
+                <div style={{ padding: '0.6rem 0', color: ENTERPRISE_THEME.colors.muted, fontSize: '0.8rem' }}>No recent activity yet.</div>
               ) : (
-                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                <div style={{ display: 'grid', gap: '0.5rem' }}>
                   {dashboard.activity.map((item) => (
                     <button
+                      className="activity-row"
                       key={item.id}
                       onClick={() => router.push(item.href)}
                       style={{
                         display: 'flex',
                         alignItems: 'flex-start',
-                        gap: '0.85rem',
+                        gap: '0.6rem',
                         width: '100%',
-                        padding: '1rem',
-                        borderRadius: '10px',
-                        border: '1px solid #e5e7eb',
+                        padding: '0.58rem',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
                         backgroundColor: '#f8fafc',
                         cursor: 'pointer',
                         textAlign: 'left',
                       }}
                     >
-                      <span style={{ fontSize: '1.35rem' }}>{item.icon}</span>
+                      <span style={{ fontSize: '1rem', width: '24px', display: 'grid', placeItems: 'center' }}>{item.icon}</span>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '0.2rem' }}>{item.title}</div>
-                        <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{item.meta}</div>
+                        <div style={{ fontWeight: '700', color: ENTERPRISE_THEME.colors.text, marginBottom: '0.15rem', fontSize: '0.82rem' }}>{item.title}</div>
+                        <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.76rem' }}>{item.meta}</div>
                       </div>
-                      <div style={{ color: '#94a3b8', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatTimestamp(item.date)}</div>
+                      <div style={{ color: '#94a3b8', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>{formatTimestamp(item.date)}</div>
                     </button>
                   ))}
                 </div>
@@ -1041,24 +1196,25 @@ export default function AdminPage() {
             </section>
 
             <section style={sectionCardStyle}>
-              <div style={{ marginBottom: '1rem' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>Exchange snapshot</h3>
-                <p style={{ color: '#6b7280', margin: '0.35rem 0 0 0', fontSize: '0.9rem' }}>Operational pressure points inspired by Courier Exchange.</p>
+              <div style={{ marginBottom: '0.68rem' }}>
+                <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Exchange snapshot</h3>
+                <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Operational pressure and commercial conversion view.</p>
               </div>
-              <div style={{ display: 'grid', gap: '0.85rem' }}>
+              <div style={{ display: 'grid', gap: '0.5rem' }}>
                 {[
                   { label: 'Incoming bids', value: dashboard.market.incomingBids, detail: 'New subcontractor responses', bg: '#eff6ff', color: '#1d4ed8' },
                   { label: 'Accepted quotes', value: dashboard.market.acceptedQuotes, detail: 'Won work ready for fulfilment', bg: '#ecfdf5', color: '#047857' },
                   { label: 'Recent invoice value', value: formatCurrency(dashboard.market.recentInvoiceValue), detail: 'Latest billing generated', bg: '#fefce8', color: '#a16207' },
                   { label: 'Delivery backlog', value: dashboard.market.deliveryBacklog, detail: 'Active jobs plus open quotes', bg: '#fff7ed', color: '#c2410c' },
+                  { label: 'Quotes awaiting approval', value: dashboard.resources.pendingQuoteApprovals, detail: 'Sent quotes pending customer decision', bg: '#f5f3ff', color: '#7c3aed' },
                 ].map((item) => (
-                  <div key={item.label} style={{ backgroundColor: item.bg, borderRadius: '10px', padding: '1rem' }}>
+                  <div key={item.label} style={{ backgroundColor: item.bg, borderRadius: '8px', padding: '0.58rem', border: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
                       <div>
-                        <div style={{ fontSize: '0.9rem', color: item.color, fontWeight: '600' }}>{item.label}</div>
-                        <div style={{ fontSize: '0.8rem', color: item.color, opacity: 0.8, marginTop: '0.3rem' }}>{item.detail}</div>
+                        <div style={{ fontSize: '0.76rem', color: item.color, fontWeight: '700' }}>{item.label}</div>
+                        <div style={{ fontSize: '0.69rem', color: item.color, opacity: 0.82, marginTop: '0.1rem' }}>{item.detail}</div>
                       </div>
-                      <div style={{ fontSize: '1.25rem', color: item.color, fontWeight: '700' }}>{dashboardLoading ? '…' : item.value}</div>
+                      <div style={{ fontSize: '1.02rem', color: item.color, fontWeight: '700' }}>{dashboardLoading ? '…' : item.value}</div>
                     </div>
                   </div>
                 ))}
@@ -1067,32 +1223,48 @@ export default function AdminPage() {
           </div>
 
           <section style={sectionCardStyle}>
-            <div style={{ marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>Action hub</h3>
-              <p style={{ color: '#6b7280', margin: '0.35rem 0 0 0', fontSize: '0.9rem' }}>Quick access to the core company workflows used most often.</p>
+            <div style={{ marginBottom: '0.7rem' }}>
+              <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Action hub</h3>
+              <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Operational shortcuts for dispatch, bids, compliance and cash collection.</p>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(195px, 1fr))', gap: '0.55rem' }}>
               {quickActionTiles.map((tile) => (
                 <button
+                  className="panel-button"
                   key={tile.title}
                   onClick={() => router.push(tile.href)}
                   style={{
-                    padding: '1rem',
-                    borderRadius: '10px',
+                    padding: '0.66rem',
+                    borderRadius: '8px',
                     border: `1px solid ${tile.border}`,
                     backgroundColor: tile.background,
                     color: tile.color,
                     textAlign: 'left',
                     cursor: 'pointer',
+                    minHeight: '115px',
                   }}
                 >
-                  <div style={{ fontSize: '1.5rem', marginBottom: '0.65rem' }}>{tile.icon}</div>
-                  <div style={{ fontWeight: '700', marginBottom: '0.35rem' }}>{tile.title}</div>
-                  <div style={{ fontSize: '0.88rem', lineHeight: 1.5, opacity: 0.9 }}>{tile.description}</div>
+                  <div style={{ fontSize: '1.05rem', marginBottom: '0.3rem' }}>{tile.icon}</div>
+                  <div style={{ fontWeight: '700', marginBottom: '0.2rem', fontSize: '0.82rem' }}>{tile.title}</div>
+                  <div style={{ fontSize: '0.73rem', lineHeight: 1.35, opacity: 0.92 }}>{tile.description}</div>
                 </button>
               ))}
             </div>
           </section>
+          <style jsx>{`
+            .nav-item:hover {
+              background-color: rgba(159, 180, 203, 0.18);
+            }
+            .panel-button:hover {
+              filter: brightness(0.97);
+            }
+            .activity-row:hover {
+              background-color: #f1f5f9 !important;
+            }
+            .link-button:hover {
+              text-decoration: underline;
+            }
+          `}</style>
         </main>
       </div>
     </ProtectedRoute>
