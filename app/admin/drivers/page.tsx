@@ -54,13 +54,19 @@ export default function DriversPage() {
     const activeColumns = [...DRIVER_SELECT_COLUMNS];
     let data: Driver[] | null = null;
     let queryError: { message?: string | null } | null = null;
+    let orderByCreatedAt = true;
 
     while (activeColumns.length > 0) {
-      const result = await supabase
+      let query = supabase
         .from('drivers')
         .select(activeColumns.join(', '))
-        .eq('company_id', resolvedCompanyId)
-        .order('created_at', { ascending: false });
+        .eq('company_id', resolvedCompanyId);
+
+      if (orderByCreatedAt) {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      const result = await query;
 
       if (!result.error) {
         data = (result.data ?? []) as unknown as Driver[];
@@ -69,6 +75,11 @@ export default function DriversPage() {
       }
 
       const missingColumn = getMissingColumnFromError(result.error, 'drivers');
+      if (missingColumn === 'created_at' && orderByCreatedAt) {
+        orderByCreatedAt = false;
+        queryError = result.error;
+        continue;
+      }
       if (missingColumn && activeColumns.includes(missingColumn)) {
         activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
         queryError = result.error;
@@ -339,6 +350,11 @@ export default function DriversPage() {
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const };
   const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
   const statusColor = (s: string) => s === 'active' ? '#1F7A3D' : '#ef4444';
+  const formatDate = (value: string | null | undefined) => {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleDateString();
+  };
 
   return (
     <ProtectedRoute>
@@ -403,7 +419,7 @@ export default function DriversPage() {
                       <td style={{ padding: '1rem' }}>
                         <span style={{ color: d.app_access ? '#1F7A3D' : '#9ca3af', fontWeight: '600', fontSize: '0.875rem' }}>{d.app_access ? '✓ Yes' : '✗ No'}</span>
                       </td>
-                      <td style={{ padding: '1rem', color: '#6b7280' }}>{new Date(d.created_at).toLocaleDateString()}</td>
+                      <td style={{ padding: '1rem', color: '#6b7280' }}>{formatDate(d.created_at)}</td>
                       <td style={{ padding: '1rem' }}>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           <button
