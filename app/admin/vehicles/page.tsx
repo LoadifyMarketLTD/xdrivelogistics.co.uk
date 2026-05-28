@@ -15,6 +15,8 @@ interface DriverOption { id: string; display_name: string; }
 export default function VehiclesPage() {
   const { user, hasSupabaseSession } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companyResolved, setCompanyResolved] = useState(false);
+  const [companyError, setCompanyError] = useState('');
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
@@ -26,6 +28,7 @@ export default function VehiclesPage() {
   const [editData, setEditData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
   const [error, setError] = useState('');
   const [editError, setEditError] = useState('');
+  const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const loadVehicles = async () => {
@@ -65,86 +68,168 @@ export default function VehiclesPage() {
 
   const loadDrivers = async () => {
     if (!isSupabaseConfigured || !companyId) return;
-    const { data } = await supabase
+    let query = supabase
       .from('drivers')
       .select('id, display_name')
       .eq('company_id', companyId)
       .eq('status', 'active')
       .order('display_name');
+    let { data, error } = await query;
+
+    if (error && isMissingColumnError(error, 'drivers', 'status')) {
+      query = supabase
+        .from('drivers')
+        .select('id, display_name')
+        .eq('company_id', companyId)
+        .order('display_name');
+      ({ data, error } = await query);
+    }
+
+    if (error) {
+      console.error('Failed to load vehicle drivers:', error.message);
+      return;
+    }
     if (data) setDrivers(data as DriverOption[]);
   };
 
   useEffect(() => {
-    if (hasSupabaseSession && user?.id) {
-      resolveActiveCompanyId({
-        userId: user.id,
-        fallbackCompanyId: user.companyId ?? null,
-      }).then((id) => setCompanyId(id));
+    let cancelled = false;
+
+    if (!hasSupabaseSession || !user?.id) {
+      setCompanyId(null);
+      setCompanyResolved(false);
+      setCompanyError('');
+      setVehicles([]);
+      setDrivers([]);
+      setCompanies([]);
+      setLoading(true);
+      return;
     }
+
+    setCompanyError('');
+    if (user.companyId) {
+      setCompanyId(user.companyId);
+      setCompanyResolved(true);
+      return;
+    }
+
+    setCompanyResolved(false);
+    resolveActiveCompanyId({
+      userId: user.id,
+      fallbackCompanyId: user.companyId ?? null,
+    }).then((id) => {
+      if (cancelled) return;
+      setCompanyId(id);
+      setCompanyResolved(true);
+      if (!id) {
+        setCompanyError('Company profile not available. Vehicles are hidden until company access resolves.');
+      }
+    }).catch((error) => {
+      if (cancelled) return;
+      console.error('Failed to resolve vehicle company context:', error);
+      setCompanyId(null);
+      setCompanyResolved(true);
+      setCompanyError('Company profile not available. Vehicles are hidden until company access resolves.');
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyResolved) return;
+    if (!companyId) {
+      setVehicles([]);
+      setDrivers([]);
+      setCompanies([]);
+      setLoading(false);
+      return;
+    }
     setFormData((prev) => ({ ...prev, company_id: companyId }));
     loadVehicles();
     loadCompanies();
     loadDrivers();
-  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [companyResolved, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!formData.assigned_driver_id) return;
+    if (drivers.some((driver) => driver.id === formData.assigned_driver_id)) return;
+    setFormData((prev) => ({ ...prev, assigned_driver_id: '' }));
+  }, [drivers, formData.assigned_driver_id]);
 
   const handleCreate = async () => {
-    if (!companyId) { setError('Company is required'); return; }
+    const resolvedCompanyId = formData.company_id || companyId;
+    if (!resolvedCompanyId) { setError('Company is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { data: authCtx } = await supabase.auth.getUser();
-    const resolvedCompanyId = companyId;
-    const insertPayload: Record<string, string | number | boolean | null> = {
-      ...formData,
-      company_id: resolvedCompanyId,
-      type: formData.type,
-      vehicle_type: formData.type,
-      payload_kg: formData.payload_kg ? parseFloat(formData.payload_kg) : null,
-      assigned_driver_id: formData.assigned_driver_id || null,
-    };
-    console.debug('[XDrive Vehicles] insert attempt', {
-      authUid: authCtx.user?.id ?? null,
-      resolvedCompanyId,
-      userRole: user?.role ?? null,
-      payloadCompanyId: insertPayload.company_id,
-      payloadAssignedDriverId: insertPayload.assigned_driver_id,
-    });
-    let createError: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null = null;
-    while (Object.keys(insertPayload).length > 0) {
-      const { error } = await supabase.from('vehicles').insert([insertPayload]);
-      if (!error) {
-        createError = null;
-        break;
-      }
-      const missingColumn = getMissingColumnFromError(error, 'vehicles');
-      if (missingColumn && Object.prototype.hasOwnProperty.call(insertPayload, missingColumn)) {
-        delete insertPayload[missingColumn];
-        createError = error;
-        continue;
-      }
-      createError = error;
-      break;
+    const payloadKg = formData.payload_kg ? Number.parseFloat(formData.payload_kg) : null;
+    if (payloadKg !== null && (!Number.isFinite(payloadKg) || payloadKg < 0)) {
+      setError('Payload must be a valid positive number.');
+      return;
     }
-    if (createError) {
-      console.error('[XDrive Vehicles] insert failed', {
+    setCreating(true);
+    try {
+      const { data: authCtx } = await supabase.auth.getUser();
+      const assignedDriverId = drivers.some((driver) => driver.id === formData.assigned_driver_id)
+        ? formData.assigned_driver_id
+        : '';
+      const insertPayload: Record<string, string | number | boolean | null> = {
+        ...formData,
+        company_id: resolvedCompanyId,
+        type: formData.type,
+        vehicle_type: formData.type,
+        reg_plate: formData.reg_plate.trim() || null,
+        // legacy alias used by some production DB builds — kept in sync with reg_plate
+        registration: formData.reg_plate.trim() || null,
+        make: formData.make.trim() || null,
+        model: formData.model.trim() || null,
+        payload_kg: payloadKg,
+        assigned_driver_id: assignedDriverId || null,
+      };
+      console.debug('[XDrive Vehicles] insert attempt', {
         authUid: authCtx.user?.id ?? null,
         resolvedCompanyId,
         userRole: user?.role ?? null,
         payloadCompanyId: insertPayload.company_id,
         payloadAssignedDriverId: insertPayload.assigned_driver_id,
-        errorCode: createError.code ?? null,
-        errorMessage: createError.message,
-        errorDetails: createError.details ?? null,
       });
-      setError(createError.message ?? 'Failed to create vehicle.');
-      return;
+      let createError: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null = null;
+      while (Object.keys(insertPayload).length > 0) {
+        const { error } = await supabase.from('vehicles').insert([insertPayload]);
+        if (!error) {
+          createError = null;
+          break;
+        }
+        const missingColumn = getMissingColumnFromError(error, 'vehicles');
+        if (missingColumn && Object.prototype.hasOwnProperty.call(insertPayload, missingColumn)) {
+          delete insertPayload[missingColumn];
+          createError = error;
+          continue;
+        }
+        createError = error;
+        break;
+      }
+      if (createError) {
+        console.error('[XDrive Vehicles] insert failed', {
+          authUid: authCtx.user?.id ?? null,
+          resolvedCompanyId,
+          userRole: user?.role ?? null,
+          payloadCompanyId: insertPayload.company_id,
+          payloadAssignedDriverId: insertPayload.assigned_driver_id,
+          errorCode: createError.code ?? null,
+          errorMessage: createError.message,
+          errorDetails: createError.details ?? null,
+        });
+        setError(createError.message ?? 'Failed to create vehicle.');
+        return;
+      }
+      setShowModal(false);
+      setFormData({ company_id: resolvedCompanyId, type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
+      setError('');
+      loadVehicles();
+    } finally {
+      setCreating(false);
     }
-    setShowModal(false);
-    setFormData({ company_id: companyId ?? '', type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
-    setError('');
-    loadVehicles();
   };
 
   const openEditModal = (vehicle: Vehicle) => {
@@ -168,6 +253,8 @@ export default function VehiclesPage() {
       type: editData.type,
       vehicle_type: editData.type,
       reg_plate: editData.reg_plate.trim() || null,
+      // legacy alias used by some production DB builds — kept in sync with reg_plate
+      registration: editData.reg_plate.trim() || null,
       make: editData.make.trim() || null,
       model: editData.model.trim() || null,
       payload_kg: editData.payload_kg ? parseFloat(editData.payload_kg) : null,
@@ -209,6 +296,11 @@ export default function VehiclesPage() {
 
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
   const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
+  const formatDate = (value: string | null | undefined) => {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleDateString();
+  };
 
   return (
     <ProtectedRoute>
@@ -219,10 +311,16 @@ export default function VehiclesPage() {
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Vehicles</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage fleet vehicles</p>
             </div>
-            <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
+            <button onClick={() => { setError(''); setShowModal(true); }} disabled={!companyResolved || !companyId} style={{ padding: '0.75rem 1.5rem', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}>
               + Add Vehicle
             </button>
           </div>
+
+          {companyError && (
+            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
+              {companyError}
+            </div>
+          )}
 
           {!isSupabaseConfigured && (
             <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
@@ -231,8 +329,12 @@ export default function VehiclesPage() {
           )}
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            {loading ? (
+            {!companyResolved || loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+            ) : !companyId ? (
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+                <p>Company profile not available. Vehicles are hidden until company access resolves.</p>
+              </div>
             ) : vehicles.length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚛</div>
@@ -258,7 +360,7 @@ export default function VehiclesPage() {
                         <td style={{ padding: '1rem', color: '#6b7280' }}>{v.payload_kg ?? '—'}</td>
                         <td style={{ padding: '1rem' }}>{v.has_tail_lift ? '✅' : '—'}</td>
                         <td style={{ padding: '1rem', color: '#6b7280' }}>{assignedDriver?.display_name ?? '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{new Date(v.created_at).toLocaleDateString()}</td>
+                        <td style={{ padding: '1rem', color: '#6b7280' }}>{formatDate(v.created_at)}</td>
                         <td style={{ padding: '1rem' }}>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
@@ -296,7 +398,7 @@ export default function VehiclesPage() {
                 {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
                 <div>
                   <label style={labelStyle}>Company *</label>
-                  <select style={inputStyle} value={companyId ?? ''} disabled>
+                  <select style={inputStyle} value={formData.company_id || companyId || ''} disabled>
                     <option value="">Select a company…</option>
                     {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
@@ -327,7 +429,7 @@ export default function VehiclesPage() {
               </div>
               <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
                 <button onClick={() => { setShowModal(false); setError(''); }} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleCreate} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Add Vehicle</button>
+                <button onClick={handleCreate} disabled={creating} style={{ padding: '0.75rem 1.5rem', backgroundColor: creating ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: creating ? 'not-allowed' : 'pointer' }}>{creating ? 'Adding...' : 'Add Vehicle'}</button>
               </div>
             </div>
           </div>

@@ -5,26 +5,33 @@ type ResolveActiveCompanyOptions = {
   fallbackCompanyId?: string | null;
 };
 
-export const resolveActiveCompanyId = async ({
+type RpcErrorLike = {
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+};
+
+const inflightCompanyResolution = new Map<string, Promise<string | null>>();
+
+const isMissingRpcError = (error: RpcErrorLike | null | undefined, rpcName: string) => {
+  if (!error) return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  const normalizedRpcName = rpcName.toLowerCase();
+  return (
+    text.includes(`function public.${normalizedRpcName}`) ||
+    text.includes(`function ${normalizedRpcName}`) ||
+    text.includes(`${normalizedRpcName}()`)
+  ) && (
+    text.includes('schema cache') ||
+    text.includes('could not find the function') ||
+    text.includes('not found')
+  );
+};
+
+const resolveCompanyIdFromRelations = async ({
   userId,
   fallbackCompanyId = null,
 }: ResolveActiveCompanyOptions): Promise<string | null> => {
-  if (!isSupabaseConfigured) return fallbackCompanyId;
-  if (!userId) return fallbackCompanyId;
-
-  // bootstrap_company_membership() is a SECURITY DEFINER function that:
-  //   1. Reads profiles.company_id for the current user.
-  //   2. Ensures a company_memberships row exists for that company (so
-  //      is_company_member() RLS policies pass for drivers / quotes / docs).
-  //   3. Falls back to get_or_create_company_for_user() if profile has no company.
-  // Calling this first guarantees RLS passes for all subsequent queries.
-  const { data: bootstrappedId } = await supabase.rpc('bootstrap_company_membership');
-  if (typeof bootstrappedId === 'string' && bootstrappedId.length > 0) {
-    return bootstrappedId;
-  }
-
-  // Fallback path: bootstrap_company_membership not yet deployed or returned null.
-  // Use profile → membership → driver → creator company → provided fallback.
   const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
     supabase
       .from('profiles')
@@ -54,20 +61,62 @@ export const resolveActiveCompanyId = async ({
       .maybeSingle(),
   ]);
 
-  let companyId =
+  return (
     (profileRes.data?.company_id as string | null | undefined) ??
     (membershipRes.data?.company_id as string | null | undefined) ??
     (driverRes.data?.company_id as string | null | undefined) ??
     (creatorCompanyRes.data?.id as string | null | undefined) ??
-    fallbackCompanyId;
-
-  if (companyId) return companyId;
-
-  const { data: provisionedCompanyId } = await supabase.rpc('get_or_create_company_for_user');
-  if (typeof provisionedCompanyId === 'string' && provisionedCompanyId.length > 0) {
-    companyId = provisionedCompanyId;
-  }
-
-  return companyId ?? null;
+    fallbackCompanyId
+  ) ?? null;
 };
 
+export const resolveActiveCompanyId = async ({
+  userId,
+  fallbackCompanyId = null,
+}: ResolveActiveCompanyOptions): Promise<string | null> => {
+  if (!isSupabaseConfigured) return fallbackCompanyId;
+  if (!userId) return fallbackCompanyId;
+
+  const existingResolution = inflightCompanyResolution.get(userId);
+  if (existingResolution) return existingResolution;
+
+  const resolutionPromise = (async (): Promise<string | null> => {
+    const { data: bootstrappedId, error: bootstrapError } = await supabase.rpc('bootstrap_company_membership');
+    if (typeof bootstrappedId === 'string' && bootstrappedId.length > 0) {
+      return bootstrappedId;
+    }
+
+    if (
+      bootstrapError &&
+      !isMissingRpcError(bootstrapError, 'bootstrap_company_membership') &&
+      !isMissingRpcError(bootstrapError, 'get_or_create_company_for_user')
+    ) {
+      console.error('bootstrap_company_membership failed:', bootstrapError.message);
+    }
+
+    const resolvedFromRelations = await resolveCompanyIdFromRelations({
+      userId,
+      fallbackCompanyId,
+    });
+    if (resolvedFromRelations) return resolvedFromRelations;
+
+    const { data: provisionedCompanyId, error: provisionError } = await supabase.rpc('get_or_create_company_for_user');
+    if (typeof provisionedCompanyId === 'string' && provisionedCompanyId.length > 0) {
+      return provisionedCompanyId;
+    }
+    if (provisionError && !isMissingRpcError(provisionError, 'get_or_create_company_for_user')) {
+      console.error('get_or_create_company_for_user failed:', provisionError.message);
+    }
+
+    return fallbackCompanyId ?? null;
+  })();
+
+  inflightCompanyResolution.set(userId, resolutionPromise);
+  try {
+    return await resolutionPromise;
+  } finally {
+    if (inflightCompanyResolution.get(userId) === resolutionPromise) {
+      inflightCompanyResolution.delete(userId);
+    }
+  }
+};

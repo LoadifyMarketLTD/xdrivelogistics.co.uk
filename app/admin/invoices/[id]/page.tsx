@@ -13,6 +13,7 @@ import {
   loadCompanySettings,
   type CompanySettingsValues,
 } from '../../../../lib/companySettings';
+import { resolveActiveCompanyId } from '../../../../lib/activeCompany';
 import type { Invoice } from '../../../../lib/types/database';
 
 /** Map InvoiceData (UI shape) → Supabase invoice row (DB shape) */
@@ -129,27 +130,26 @@ export default function InvoiceDetailPage() {
   // Load the company ID for the current user (needed to write invoices to Supabase)
   useEffect(() => {
     if (!isSupabaseConfigured || !user?.id) return;
+    let cancelled = false;
     const fetchCompanyId = async () => {
       if (user.companyId) {
         setCompanyId(user.companyId);
         return;
       }
-      const { data, error } = await supabase.rpc('get_or_create_company_for_user');
-      if (!error && data) {
-        setCompanyId(data as string);
+      const resolvedCompanyId = await resolveActiveCompanyId({
+        userId: user.id,
+        fallbackCompanyId: null,
+      });
+      if (cancelled) return;
+      if (resolvedCompanyId) {
+        setCompanyId(resolvedCompanyId);
         return;
       }
-      // Fallback: direct membership query
-      const { data: mbData } = await supabase
-        .from('company_memberships')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .limit(1)
-        .maybeSingle();
-      if (mbData) setCompanyId(mbData.company_id as string);
     };
-    fetchCompanyId();
+    void fetchCompanyId();
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id, user?.companyId]);
 
   useEffect(() => {

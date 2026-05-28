@@ -17,7 +17,7 @@ import {
 } from '../../lib/authSession';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
-const LOGIN_TIMEOUT_MS = 10_000;
+const LOGIN_TIMEOUT_MS = 45_000;
 const LOGIN_UNAVAILABLE_ERROR = 'Login service unavailable. Please try again.';
 const RESET_PASSWORD_COOLDOWN_MS = 60_000;
 const RESET_PASSWORD_COOLDOWN_KEY = 'xdrive:last-password-reset-request-at';
@@ -107,6 +107,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // login() is already resolving the same SIGNED_IN event, which would cause
   // parallel exclusive LockManager lock acquisitions and a 10-second timeout.
   const loginHydrating = useRef(false);
+  const userRef = useRef<ResolvedAuthUser | null>(null);
+  const hasSupabaseSessionRef = useRef(false);
+  const hydrationRef = useRef<{ userId: string; promise: Promise<AuthResolutionResult> } | null>(null);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
+    hasSupabaseSessionRef.current = hasSupabaseSession;
+  }, [hasSupabaseSession]);
 
   const resetAuthState = useCallback(() => {
     setUser(null);
@@ -125,16 +136,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   const hydrateUser = useCallback(async (sessionUser: SessionUser): Promise<AuthResolutionResult> => {
-    const result = await withTimeout(resolveAuthenticatedUser(sessionUser), LOGIN_TIMEOUT_MS);
-    if (!result.user) {
-      setUser(null);
-      setHasSupabaseSession(true);
-      return result;
+    if (hydrationRef.current?.userId === sessionUser.id) {
+      return hydrationRef.current.promise;
     }
 
-    setUser(result.user);
-    setHasSupabaseSession(true);
-    return result;
+    const hydrationPromise = (async () => {
+      const result = await withTimeout(resolveAuthenticatedUser(sessionUser), LOGIN_TIMEOUT_MS);
+      if (!result.user) {
+        setUser(null);
+        setHasSupabaseSession(true);
+        return result;
+      }
+
+      setUser(result.user);
+      setHasSupabaseSession(true);
+      return result;
+    })();
+
+    hydrationRef.current = { userId: sessionUser.id, promise: hydrationPromise };
+    try {
+      return await hydrationPromise;
+    } finally {
+      if (hydrationRef.current?.promise === hydrationPromise) {
+        hydrationRef.current = null;
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -166,7 +192,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error('AuthContext bootstrap failed', error);
         if (!isPasswordSetupContext()) {
-          resetAuthState();
+          if (isServiceUnavailableError(error) && (userRef.current || hasSupabaseSessionRef.current)) {
+            setHasSupabaseSession(true);
+          } else {
+            resetAuthState();
+          }
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -193,7 +223,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('AuthContext auth state handling failed', error);
-        if (!isPasswordSetupContext(event)) {
+        if (session?.user && isServiceUnavailableError(error)) {
+          setHasSupabaseSession(true);
+        } else if (!isPasswordSetupContext(event)) {
           resetAuthState();
         }
       } finally {
@@ -211,31 +243,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string
   ): Promise<{ success: boolean; error?: string; route?: ReturnType<typeof getPostLoginRoute> }> => {
+    loginHydrating.current = true;
     try {
       if (!isSupabaseConfigured) {
         return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
       }
 
       const normalizedEmail = email.trim().toLowerCase();
-      // Set flag before signInWithPassword — onAuthStateChange('SIGNED_IN') may
-      // fire during or immediately after this call; the flag prevents it from
-      // running a concurrent hydrateUser that would contend the LockManager lock.
-      loginHydrating.current = true;
       const { data, error } = await withTimeout(
         supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
         LOGIN_TIMEOUT_MS
       );
-      if (error) { loginHydrating.current = false; return { success: false, error: error.message }; }
-      if (!data.user) { loginHydrating.current = false; return { success: false, error: 'Login failed' }; }
+      if (error) { return { success: false, error: error.message }; }
+      if (!data.user) { return { success: false, error: 'Login failed' }; }
 
       console.debug('[XDrive Auth] signInWithPassword ok', { userId: data.user.id });
 
-      let result: AuthResolutionResult;
-      try {
-        result = await hydrateUser(data.user);
-      } finally {
-        loginHydrating.current = false;
-      }
+      const result = await hydrateUser(data.user);
       if (!result.user) {
         if (result.reason === 'db_error') {
           console.error('[XDrive Auth] account validation db_error', {
@@ -261,6 +285,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
       }
       return { success: false, error: 'An error occurred during login' };
+    } finally {
+      loginHydrating.current = false;
     }
   };
 

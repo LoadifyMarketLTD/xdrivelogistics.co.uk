@@ -7,7 +7,11 @@ import { useAuth } from '../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { COMPANY_CONFIG } from '../config/company';
 import { resolveActiveCompanyId } from '../../lib/activeCompany';
-import { getMissingColumnFromError } from '../../lib/supabaseSchemaCompat';
+import {
+  getMissingColumnFromError,
+  isMissingColumnError,
+  isMissingRelationshipError,
+} from '../../lib/supabaseSchemaCompat';
 
 type DashboardOverview = {
   activeJobs: number;
@@ -214,14 +218,45 @@ const rowsQuery = async <T,>(promise: PromiseLike<{ data: T[] | null; error: { m
   return data ?? [];
 };
 
+const readInvoiceClientName = (row: Record<string, unknown>): string | null => {
+  if (typeof row.client_name === 'string' && row.client_name.trim().length > 0) return row.client_name;
+  const related = row.clients;
+  if (related && typeof related === 'object' && !Array.isArray(related)) {
+    const relationName = (related as { name?: unknown }).name;
+    if (typeof relationName === 'string' && relationName.trim().length > 0) return relationName;
+  }
+  if (Array.isArray(related)) {
+    const first = related[0];
+    const relationName = first && typeof first === 'object' ? (first as { name?: unknown }).name : null;
+    if (typeof relationName === 'string' && relationName.trim().length > 0) return relationName;
+  }
+  return null;
+};
+
 const loadInvoicesWithCompat = async (companyId: string): Promise<InvoiceRow[]> => {
   const activeColumns = ['id', 'invoice_number', 'status', 'due_date', 'amount', 'client_name', 'created_at'];
   const missingColumns = new Set<string>();
+  let useClientsRelation = false;
+  let clientsRelationDisabled = false;
+  const seenStates = new Set<string>();
+  const maxAttempts = Math.max(12, activeColumns.length * 3);
+  let attempts = 0;
 
-  while (activeColumns.length > 0) {
+  while (activeColumns.length > 0 && attempts < maxAttempts) {
+    attempts += 1;
+    const stateKey = `${useClientsRelation ? 'clients' : 'direct'}::${activeColumns.join(',')}`;
+    if (seenStates.has(stateKey)) {
+      throw new Error('Invoice compatibility fallback loop detected and stopped.');
+    }
+    seenStates.add(stateKey);
+
+    const selectColumns = useClientsRelation
+      ? [...activeColumns.filter((column) => column !== 'client_name'), 'clients(name)']
+      : activeColumns;
+
     const result = await supabase
       .from('invoices')
-      .select(activeColumns.join(', '))
+      .select(selectColumns.join(', '))
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
 
@@ -241,9 +276,30 @@ const loadInvoicesWithCompat = async (companyId: string): Promise<InvoiceRow[]> 
             : row.amount == null
               ? null
               : Number(row.amount),
-        client_name: missingColumns.has('client_name') ? null : (row.client_name == null ? null : String(row.client_name)),
+        client_name: missingColumns.has('client_name') && !useClientsRelation ? null : readInvoiceClientName(row),
         created_at: String(row.created_at ?? new Date().toISOString()),
       }));
+    }
+
+    if (
+      !useClientsRelation &&
+      isMissingColumnError(result.error, 'invoices', 'client_name')
+    ) {
+      missingColumns.add('client_name');
+      if (activeColumns.includes('client_name')) {
+        activeColumns.splice(activeColumns.indexOf('client_name'), 1);
+      }
+      useClientsRelation = !clientsRelationDisabled;
+      continue;
+    }
+
+    if (
+      useClientsRelation &&
+      isMissingRelationshipError(result.error, 'invoices', 'clients')
+    ) {
+      clientsRelationDisabled = true;
+      useClientsRelation = false;
+      continue;
     }
 
     const missingColumn = getMissingColumnFromError(result.error, 'invoices');
@@ -254,6 +310,10 @@ const loadInvoicesWithCompat = async (companyId: string): Promise<InvoiceRow[]> 
     }
 
     throw new Error(result.error.message);
+  }
+
+  if (attempts >= maxAttempts) {
+    throw new Error('Invoice compatibility retry limit reached.');
   }
 
   return [];
@@ -332,6 +392,7 @@ export default function AdminPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(null);
+  const [companyResolved, setCompanyResolved] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardState>(DEFAULT_DASHBOARD);
   const [dashboardError, setDashboardError] = useState('');
   const [dashboardLoading, setDashboardLoading] = useState(true);
@@ -350,20 +411,43 @@ export default function AdminPage() {
   }, [isMobile]);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!user?.id) {
-      setResolvedCompanyId(user?.companyId ?? null);
+      setResolvedCompanyId(null);
+      setCompanyResolved(false);
       return;
     }
+
+    if (user.companyId) {
+      setResolvedCompanyId(user.companyId);
+      setCompanyResolved(true);
+      return;
+    }
+
+    setCompanyResolved(false);
     resolveActiveCompanyId({
       userId: user.id,
       fallbackCompanyId: user.companyId ?? null,
-    }).then((companyId) => setResolvedCompanyId(companyId));
+    }).then((companyId) => {
+      if (cancelled) return;
+      setResolvedCompanyId(companyId);
+      setCompanyResolved(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id, user?.companyId]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadDashboard = async () => {
+      if (!companyResolved) {
+        return;
+      }
+
       setDashboardLoading(true);
 
       if (!isSupabaseConfigured) {
@@ -622,7 +706,7 @@ export default function AdminPage() {
     return () => {
       cancelled = true;
     };
-  }, [resolvedCompanyId]);
+  }, [companyResolved, resolvedCompanyId]);
 
   const reportRows = useMemo(() => {
     const now = new Date();
