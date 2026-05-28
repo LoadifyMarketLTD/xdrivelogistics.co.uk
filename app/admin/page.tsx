@@ -469,26 +469,18 @@ export default function AdminPage() {
       }
 
       const todayUtc = new Date().toISOString().slice(0, 10);
+      // Six separate job-count queries (indices 0,1,4,5,6,7) were replaced with
+      // a single status fetch (index 0); counts are computed client-side.
+      // Quotes count query (index 3) was removed; count is derived from the list.
+      // 14 → 9 parallel Supabase queries on dashboard load.
       const dashboardModules = [
         {
-          label: 'jobs counts',
-          run: countQuery(
+          label: 'job statuses',
+          run: rowsQuery<{ status: string; updated_at: string }>(
           supabase
             .from('jobs')
-            .select('id', { count: 'exact', head: true })
+            .select('status, updated_at')
             .eq('company_id', resolvedCompanyId)
-            .in('status', ['posted', 'allocated', 'in_transit'])
-          ),
-        },
-        {
-          label: 'completed jobs today',
-          run: countQuery(
-          supabase
-            .from('jobs')
-            .select('id', { count: 'exact', head: true })
-            .eq('company_id', resolvedCompanyId)
-            .eq('status', 'delivered')
-            .gte('updated_at', todayUtc)
           ),
         },
         {
@@ -499,56 +491,6 @@ export default function AdminPage() {
             .select('id', { count: 'exact', head: true })
             .eq('company_id', resolvedCompanyId)
             .eq('status', 'active')
-          ),
-        },
-        {
-          label: 'quotes count',
-          run: countQuery(
-          supabase
-            .from('quotes')
-            .select('id', { count: 'exact', head: true })
-            .eq('company_id', resolvedCompanyId)
-            .in('status', ['draft', 'sent'])
-          ),
-        },
-        {
-          label: 'posted jobs count',
-          run: countQuery(
-          supabase
-            .from('jobs')
-            .select('id', { count: 'exact', head: true })
-            .eq('company_id', resolvedCompanyId)
-            .eq('status', 'posted')
-          ),
-        },
-        {
-          label: 'allocated jobs count',
-          run: countQuery(
-          supabase
-            .from('jobs')
-            .select('id', { count: 'exact', head: true })
-            .eq('company_id', resolvedCompanyId)
-            .eq('status', 'allocated')
-          ),
-        },
-        {
-          label: 'in transit jobs count',
-          run: countQuery(
-          supabase
-            .from('jobs')
-            .select('id', { count: 'exact', head: true })
-            .eq('company_id', resolvedCompanyId)
-            .eq('status', 'in_transit')
-          ),
-        },
-        {
-          label: 'delivered jobs count',
-          run: countQuery(
-          supabase
-            .from('jobs')
-            .select('id', { count: 'exact', head: true })
-            .eq('company_id', resolvedCompanyId)
-            .eq('status', 'delivered')
           ),
         },
         {
@@ -612,12 +554,22 @@ export default function AdminPage() {
       const failedModules = results
         .map((result, index) => (result.status === 'rejected' ? dashboardModules[index].label : null))
         .filter((value): value is string => Boolean(value));
-      const recentJobs = getValue<JobRow[]>(8, []);
-      const quotes = getValue<QuoteRow[]>(9, []);
-      const invoices = getValue<InvoiceRow[]>(10, []);
-      const bids = getValue<BidRow[]>(11, []);
-      const driverDocs = getValue<DocRow[]>(12, []);
-      const vehicleDocs = getValue<DocRow[]>(13, []);
+      // Derive job counts client-side from the single job-statuses query (index 0).
+      const jobStatuses = getValue<{ status: string; updated_at: string }[]>(0, []);
+      const activeJobs = jobStatuses.filter((j) => ['posted', 'allocated', 'in_transit'].includes(j.status)).length;
+      const completedToday = jobStatuses.filter((j) => j.status === 'delivered' && (j.updated_at ?? '').slice(0, 10) >= todayUtc).length;
+      const postedCount = jobStatuses.filter((j) => j.status === 'posted').length;
+      const allocatedCount = jobStatuses.filter((j) => j.status === 'allocated').length;
+      const inTransitCount = jobStatuses.filter((j) => j.status === 'in_transit').length;
+      const deliveredCount = jobStatuses.filter((j) => j.status === 'delivered').length;
+      const recentJobs = getValue<JobRow[]>(2, []);
+      const quotes = getValue<QuoteRow[]>(3, []);
+      const invoices = getValue<InvoiceRow[]>(4, []);
+      const bids = getValue<BidRow[]>(5, []);
+      const driverDocs = getValue<DocRow[]>(6, []);
+      const vehicleDocs = getValue<DocRow[]>(7, []);
+      // Derive quotes count from list (no separate count query needed).
+      const pendingQuotes = quotes.filter((q) => ['draft', 'sent'].includes(q.status)).length;
       const documentRows = [...driverDocs, ...vehicleDocs];
       const openInvoices = invoices.filter((invoice) => {
         const status = getInvoiceStatus(invoice.due_date, invoice.status);
@@ -665,16 +617,16 @@ export default function AdminPage() {
 
       setDashboard({
         overview: {
-          activeJobs: getValue<number>(0, 0),
-          completedToday: getValue<number>(1, 0),
-          activeDrivers: getValue<number>(2, 0),
-          pendingQuotes: getValue<number>(3, 0),
+          activeJobs: activeJobs,
+          completedToday: completedToday,
+          activeDrivers: getValue<number>(1, 0),
+          pendingQuotes: pendingQuotes,
         },
         jobsByStatus: {
-          posted: getValue<number>(4, 0),
-          allocated: getValue<number>(5, 0),
-          inTransit: getValue<number>(6, 0),
-          delivered: getValue<number>(7, 0),
+          posted: postedCount,
+          allocated: allocatedCount,
+          inTransit: inTransitCount,
+          delivered: deliveredCount,
         },
         finance: {
           outstandingInvoices: openInvoices.length,
@@ -690,7 +642,7 @@ export default function AdminPage() {
           incomingBids: bids.filter((bid) => bid.status === 'submitted').length,
           acceptedQuotes: quotes.filter((quote) => quote.status === 'accepted').length,
           recentInvoiceValue: invoices.slice(0, 5).reduce((total, invoice) => total + Number(invoice.amount ?? 0), 0),
-          deliveryBacklog: getValue<number>(0, 0) + getValue<number>(3, 0),
+          deliveryBacklog: activeJobs + pendingQuotes,
         },
         activity,
       });
