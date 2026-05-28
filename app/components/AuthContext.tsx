@@ -103,6 +103,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  // Keep a ref so isPasswordSetupContext does not need pathname in its deps array.
+  // Without this, every SPA navigation changes pathname → new isPasswordSetupContext
+  // reference → useEffect re-runs → bootstrapAuth() fires → 4–6 Supabase queries.
+  const pathnameRef = useRef(pathname);
+  useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
   // Prevents onAuthStateChange from firing a concurrent hydrateUser while
   // login() is already resolving the same SIGNED_IN event, which would cause
   // parallel exclusive LockManager lock acquisitions and a 10-second timeout.
@@ -130,12 +135,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isPasswordSetupContext = useCallback((event?: string) => {
-    if (pathname === RESET_PASSWORD_PATH) return true;
+    if (pathnameRef.current === RESET_PASSWORD_PATH) return true;
     if (event === 'PASSWORD_RECOVERY') return true;
     return false;
-  }, [pathname]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // stable — uses ref, never needs to be recreated
 
   const hydrateUser = useCallback(async (sessionUser: SessionUser): Promise<AuthResolutionResult> => {
+    // If the same user is already fully resolved, return immediately without re-running
+    // resolveAuthenticatedUser() (which fires 4–6 Supabase queries). This prevents
+    // re-hydration when the auth subscription re-fires for the same identity.
+    const existing = userRef.current;
+    if (existing && existing.id === sessionUser.id) {
+      return { user: existing, reason: null } as AuthResolutionResult;
+    }
+
     if (hydrationRef.current?.userId === sessionUser.id) {
       return hydrationRef.current.promise;
     }
@@ -208,6 +222,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // TOKEN_REFRESHED: the Supabase client silently rotated the JWT.
+      // Profile, role, and company context are unchanged — re-running the full
+      // database hydration would fire 4+ unnecessary Supabase queries and can
+      // cascade into repeated dashboard/driver page reloads.
+      if (event === 'TOKEN_REFRESHED' && userRef.current) {
+        return;
+      }
+
       try {
         if (session?.user) {
           if (isPasswordSetupContext(event)) {
