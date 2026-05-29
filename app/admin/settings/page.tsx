@@ -13,16 +13,20 @@ import {
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 
 const TABS = [
-  { id: 'company', label: 'Company Info', icon: '🏢' },
-  { id: 'account', label: 'Account', icon: '👤' },
-  { id: 'notifications', label: 'Notifications', icon: '🔔' },
-  { id: 'system', label: 'System', icon: '⚙️' },
+  { id: 'memberCompany', label: 'Member / Company Info', icon: '🏢' },
+  { id: 'help', label: 'Help', icon: '❓' },
+  { id: 'contact', label: 'Contact', icon: '☎️' },
+  { id: 'userProfile', label: 'User Profile', icon: '👤' },
+  { id: 'companyProfile', label: 'Company Profile', icon: '🏭' },
+  { id: 'documents', label: 'Documents', icon: '📄' },
+  { id: 'usersDrivers', label: 'Users / Drivers', icon: '🚚' },
+  { id: 'other', label: 'Other', icon: '⚙️' },
 ];
 
 export default function SettingsPage() {
   const router = useRouter();
   const { user, hasSupabaseSession } = useAuth();
-  const [activeTab, setActiveTab] = useState('company');
+  const [activeTab, setActiveTab] = useState('memberCompany');
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -430,7 +434,7 @@ export default function SettingsPage() {
             </div>
 
             <div style={{ flex: 1, backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '2rem' }}>
-              {activeTab === 'company' && (
+              {activeTab === 'memberCompany' && (
                 <div>
                   <h2 style={sectionTitleStyle}>Company Information</h2>
                   <div style={fieldGroupStyle}>
@@ -530,7 +534,7 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {activeTab === 'account' && (
+              {activeTab === 'userProfile' && (
                 <div>
                   <h2 style={sectionTitleStyle}>Account Details</h2>
                   <div style={{
@@ -597,7 +601,7 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {activeTab === 'notifications' && (
+              {activeTab === 'other' && (
                 <div>
                   <h2 style={sectionTitleStyle}>Email Notifications</h2>
                   <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
@@ -636,7 +640,7 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {activeTab === 'system' && (
+              {activeTab === 'companyProfile' && (
                 <div>
                   <h2 style={sectionTitleStyle}>System Settings</h2>
                   <div style={fieldGroupStyle}>
@@ -724,7 +728,69 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>
+              {activeTab === 'help' && (
+                <div>
+                  <h2 style={sectionTitleStyle}>Help</h2>
+                  <div style={{ display: 'grid', gap: '0.8rem' }}>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb' }}>
+                      <div style={{ fontWeight: 700, color: '#111827', marginBottom: '0.25rem' }}>Need operational help?</div>
+                      <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>Use Diary for live jobs, Fleet for locations, and Drivers & Vehicles for admin management.</div>
+                    </div>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb' }}>
+                      <div style={{ fontWeight: 700, color: '#111827', marginBottom: '0.25rem' }}>Support flow</div>
+                      <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>Collect screen details and route, then contact your internal support owner.</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'contact' && (
+                <div>
+                  <h2 style={sectionTitleStyle}>Contact</h2>
+                  <div style={{ display: 'grid', gap: '0.8rem' }}>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Company Email</div>
+                      <div style={{ color: '#111827', fontWeight: 600 }}>{companyForm.email || 'Not set'}</div>
+                    </div>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Company Phone</div>
+                      <div style={{ color: '#111827', fontWeight: 600 }}>{companyForm.phone || 'Not set'}</div>
+                    </div>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Address</div>
+                      <div style={{ color: '#111827', fontWeight: 600 }}>{[companyForm.street, companyForm.city, companyForm.postcode].filter(Boolean).join(', ') || 'Not set'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'documents' && (
+                <div>
+                  <h2 style={sectionTitleStyle}>Documents</h2>
+                  <p style={{ color: '#6b7280', marginBottom: '1rem' }}>Document management is available in the dedicated Documents page.</p>
+                  <button onClick={() => router.push('/admin/documents')} style={{ padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+                    Open Documents
+                  </button>
+                </div>
+              )}
+
+              {activeTab === 'usersDrivers' && (
+                <div>
+                  <h2 style={sectionTitleStyle}>Users / Drivers</h2>
+                  <p style={{ color: '#6b7280', marginBottom: '1rem' }}>Driver management and assignment are handled in the Drivers & Vehicles area.</p>
+                  <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                    <button onClick={() => router.push('/admin/drivers-vehicles')} style={{ padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+                      Open Drivers & Vehicles
+                    </button>
+                    <button onClick={() => router.push('/admin/drivers')} style={{ padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+                      Open Drivers Manager
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {['memberCompany', 'companyProfile', 'other'].includes(activeTab) && (
+                <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>
                 <button
                   onClick={handleSave}
                   disabled={saving || !isSupabaseConfigured}
@@ -748,7 +814,8 @@ export default function SettingsPage() {
                 >
                   {saving ? 'Saving…' : 'Save Settings'}
                 </button>
-              </div>
+                </div>
+              )}
             </div>
           </div>
         )}
