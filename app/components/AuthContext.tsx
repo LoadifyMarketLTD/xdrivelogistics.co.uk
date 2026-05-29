@@ -138,7 +138,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (pathnameRef.current === RESET_PASSWORD_PATH) return true;
     if (event === 'PASSWORD_RECOVERY') return true;
     return false;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // stable — uses ref, never needs to be recreated
 
   const hydrateUser = useCallback(async (sessionUser: SessionUser): Promise<AuthResolutionResult> => {
@@ -279,8 +278,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) { return { success: false, error: error.message }; }
       if (!data.user) { return { success: false, error: 'Login failed' }; }
 
-      console.debug('[XDrive Auth] signInWithPassword ok', { userId: data.user.id });
-
       const result = await hydrateUser(data.user);
       if (!result.user) {
         if (result.reason === 'db_error') {
@@ -299,7 +296,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const route = getPostLoginRoute(result.user);
-      console.debug('[XDrive Auth] redirect decision', { role: result.user.role, route });
       return { success: true, route };
     } catch (error) {
       console.error('Login error:', error);

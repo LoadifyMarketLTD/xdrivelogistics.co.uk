@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'displayName and email are required.' }, { status: 400 });
   }
 
-  if (!requestedCompanyId || !requestedMembershipId) {
+  if (!requestedCompanyId) {
     return NextResponse.json(
       {
         error: 'Forbidden: missing company or membership context.',
@@ -74,26 +74,50 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('id, company_id, role_in_company')
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .eq('id', requestedMembershipId)
-    .eq('company_id', requestedCompanyId)
-    .in('role_in_company', Array.from(ADMIN_ROLES))
-    .maybeSingle();
+  let resolvedMembership: { id: string; company_id: string; role_in_company: string } | null = null;
 
-  if (membershipError) {
-    return NextResponse.json({ error: membershipError.message }, { status: 500 });
+  if (requestedMembershipId) {
+    const { data: membership, error: membershipError } = await supabaseAdmin
+      .from('company_memberships')
+      .select('id, company_id, role_in_company')
+      .eq('user_id', authData.user.id)
+      .eq('status', 'active')
+      .eq('id', requestedMembershipId)
+      .eq('company_id', requestedCompanyId)
+      .in('role_in_company', Array.from(ADMIN_ROLES))
+      .maybeSingle();
+
+    if (membershipError) {
+      return NextResponse.json({ error: membershipError.message }, { status: 500 });
+    }
+    resolvedMembership = membership ?? null;
   }
 
-  if (!membership?.id || !membership.company_id) {
+  // Profile-based fallback: handles users who have a valid profile + company but
+  // no company_memberships row (e.g. owner provisioned before the membership
+  // bootstrap RPC existed, or if the membership query failed during auth).
+  if (!resolvedMembership) {
+    const { data: profileData, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('company_id, role')
+      .eq('user_id', authData.user.id)
+      .eq('company_id', requestedCompanyId)
+      .maybeSingle();
+
+    if (!profileError && profileData?.company_id && ADMIN_ROLES.has(profileData.role ?? '')) {
+      resolvedMembership = {
+        id: authData.user.id,
+        company_id: profileData.company_id,
+        role_in_company: profileData.role ?? 'admin',
+      };
+    }
+  }
+
+  if (!resolvedMembership?.id || !resolvedMembership.company_id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const resolvedMembership = membership;
-  const resolvedCompanyId = membership.company_id;
+  const resolvedCompanyId = resolvedMembership.company_id;
 
   logRuntimeProof({
     flow: 'Add Driver',

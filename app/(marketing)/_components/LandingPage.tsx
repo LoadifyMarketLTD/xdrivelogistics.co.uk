@@ -1,14 +1,16 @@
-'use client';
-
+import dynamic from 'next/dynamic';
 import { Navbar } from './sections/Navbar';
 import { Hero } from './sections/Hero';
-import { KPIStats } from './sections/KPIStats';
-import { ForDrivers } from './sections/ForDrivers';
-import { ForCompanies } from './sections/ForCompanies';
-import { HowItWorks } from './sections/HowItWorks';
-import { Benefits } from './sections/Benefits';
-import { FAQ } from './sections/FAQ';
-import { Footer } from './sections/Footer';
+
+// Below-the-fold sections: split into separate JS chunks so the browser
+// can defer parsing them until after the initial paint is complete.
+const KPIStats = dynamic(() => import('./sections/KPIStats').then((m) => ({ default: m.KPIStats })));
+const ForDrivers = dynamic(() => import('./sections/ForDrivers').then((m) => ({ default: m.ForDrivers })));
+const ForCompanies = dynamic(() => import('./sections/ForCompanies').then((m) => ({ default: m.ForCompanies })));
+const HowItWorks = dynamic(() => import('./sections/HowItWorks').then((m) => ({ default: m.HowItWorks })));
+const Benefits = dynamic(() => import('./sections/Benefits').then((m) => ({ default: m.Benefits })));
+const FAQ = dynamic(() => import('./sections/FAQ').then((m) => ({ default: m.FAQ })));
+const Footer = dynamic(() => import('./sections/Footer').then((m) => ({ default: m.Footer })));
 
 export function LandingPage() {
   return (

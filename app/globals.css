@@ -44,7 +44,7 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   }
 }
 
@@ -76,7 +76,7 @@
   --color-text-dark: #0A2239;
   
   /* Typography (Inter font) */
-  --font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-family: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
   --font-size-hero: clamp(2rem, 5vw, 3rem);
   --font-size-h1: clamp(2rem, 5vw, 3rem);
   --font-size-h2: 14px;

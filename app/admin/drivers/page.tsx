@@ -206,7 +206,6 @@ export default function DriversPage() {
     if (!formData.display_name.trim()) { setError('Driver name is required'); return; }
     if (!formData.email.trim()) { setError('Driver email is required'); return; }
     if (!companyId) { setError('Company profile is required'); return; }
-    if (!user?.membershipId) { setError('Membership context is required. Please sign in again.'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     setCreating(true);
     try {
@@ -218,7 +217,7 @@ export default function DriversPage() {
 
       const requestPayload = {
         companyId,
-        membershipId: user.membershipId,
+        membershipId: user?.membershipId ?? null,
         displayName: formData.display_name,
         email: formData.email,
         phone: formData.phone || null,
@@ -226,7 +225,7 @@ export default function DriversPage() {
       logRuntimeProof({
         flow: 'Add Driver',
         authUid: user?.id ?? null,
-        membershipId: user.membershipId,
+        membershipId: user?.membershipId ?? null,
         companyId,
         payload: requestPayload,
         table: 'drivers',
