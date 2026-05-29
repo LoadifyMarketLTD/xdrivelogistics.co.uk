@@ -278,8 +278,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) { return { success: false, error: error.message }; }
       if (!data.user) { return { success: false, error: 'Login failed' }; }
 
-      console.debug('[XDrive Auth] signInWithPassword ok', { userId: data.user.id });
-
       const result = await hydrateUser(data.user);
       if (!result.user) {
         if (result.reason === 'db_error') {
@@ -298,7 +296,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const route = getPostLoginRoute(result.user);
-      console.debug('[XDrive Auth] redirect decision', { role: result.user.role, route });
       return { success: true, route };
     } catch (error) {
       console.error('Login error:', error);
