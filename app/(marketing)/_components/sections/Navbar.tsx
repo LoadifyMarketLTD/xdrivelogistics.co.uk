@@ -154,6 +154,32 @@ export function Navbar() {
             </a>
 
             <Link
+              href="/request-quote"
+              style={{
+                padding: '0.5rem 1.25rem',
+                fontSize: '0.875rem',
+                fontWeight: 700,
+                borderRadius: '8px',
+                backgroundColor: '#2E7D32',
+                color: '#FFFFFF',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 10px rgba(46,125,50,0.3)',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#1B5E20';
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(46,125,50,0.45)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#2E7D32';
+                e.currentTarget.style.boxShadow = '0 2px 10px rgba(46,125,50,0.3)';
+              }}
+            >
+              🚀 Get Quote
+            </Link>
+
+            <Link
               href="/register"
               style={{
                 padding: '0.5rem 1rem',
@@ -247,16 +273,35 @@ export function Navbar() {
               </a>
             ))}
             <Link
-              href="/register"
+              href="/request-quote"
               onClick={() => setMenuOpen(false)}
               style={{
                 display: 'block',
                 marginTop: '1rem',
                 padding: '0.75rem 1.5rem',
                 fontSize: '1rem',
-                fontWeight: 600,
+                fontWeight: 700,
                 color: '#FFFFFF',
                 backgroundColor: '#2E7D32',
+                textDecoration: 'none',
+                borderRadius: '8px',
+                textAlign: 'center',
+                boxShadow: '0 2px 10px rgba(46,125,50,0.35)',
+              }}
+            >
+              🚀 Get Quote
+            </Link>
+            <Link
+              href="/register"
+              onClick={() => setMenuOpen(false)}
+              style={{
+                display: 'block',
+                marginTop: '0.75rem',
+                padding: '0.75rem 1.5rem',
+                fontSize: '1rem',
+                fontWeight: 600,
+                color: '#FFFFFF',
+                backgroundColor: '#1F3A5F',
                 textDecoration: 'none',
                 borderRadius: '8px',
                 textAlign: 'center',
