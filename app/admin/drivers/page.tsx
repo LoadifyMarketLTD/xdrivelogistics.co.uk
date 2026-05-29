@@ -44,6 +44,8 @@ export default function DriversPage() {
     displayName: string;
     email: string;
     invited: boolean;
+    temporaryPassword: string | null;
+    inviteFallbackReason: string | null;
   } | null>(null);
 
   const loadDrivers = async (resolvedCompanyId: string) => {
@@ -234,7 +236,12 @@ export default function DriversPage() {
 
       const response = await createDriverWithToken(accessToken, requestPayload);
 
-      const payload = await response.json().catch(() => ({} as { error?: string; invited?: boolean }));
+      const payload = await response.json().catch(() => ({} as {
+        error?: string;
+        invited?: boolean;
+        temporaryPassword?: string | null;
+        inviteFallbackReason?: string | null;
+      }));
       if (!response.ok) {
         setError(
           response.status === 401
@@ -250,6 +257,8 @@ export default function DriversPage() {
         displayName: formData.display_name.trim(),
         email: formData.email.trim().toLowerCase(),
         invited: Boolean(payload.invited),
+        temporaryPassword: payload.temporaryPassword ?? null,
+        inviteFallbackReason: payload.inviteFallbackReason ?? null,
       });
       setFormData({ display_name: '', phone: '', email: '' });
       setError('');
@@ -416,13 +425,27 @@ export default function DriversPage() {
                 <>
                   <div style={{ padding: '1.5rem', display: 'grid', gap: '0.8rem' }}>
                     <div style={{ backgroundColor: '#ecfdf3', border: '1px solid #86efac', borderRadius: '8px', padding: '0.9rem', color: '#166534', fontSize: '0.9rem' }}>
-                      Driver invited successfully. A password setup email was sent.
+                      {createdCredentials.invited
+                        ? 'Driver invited successfully. A password setup email was sent.'
+                        : 'Driver created. Temporary password shown once.'}
                     </div>
                     <div style={{ fontSize: '0.88rem', color: '#334155' }}>
                       <strong>Driver:</strong> {createdCredentials.displayName}
                       <br />
                       <strong>Email:</strong> {createdCredentials.email}
+                      {!createdCredentials.invited && createdCredentials.temporaryPassword ? (
+                        <>
+                          <br />
+                          <strong>Temporary password:</strong> {createdCredentials.temporaryPassword}
+                        </>
+                      ) : null}
                     </div>
+                    {!createdCredentials.invited ? (
+                      <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px', padding: '0.9rem', color: '#9a3412', fontSize: '0.85rem' }}>
+                        {createdCredentials.inviteFallbackReason ?? 'Invite email provider failed with Invalid API key.'}
+                        {' '}Supabase Auth SMTP/Resend provider key must be corrected to restore invite emails.
+                      </div>
+                    ) : null}
                   </div>
                   <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
                     <button onClick={closeModal} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Done</button>
