@@ -282,7 +282,9 @@ export default function DriversPage() {
       if (!response.ok) {
         setError(
           response.status === 401
-            ? 'Session expired. Please sign in again.'
+            ? (payload.error || 'Authentication failed. Please sign out and sign in again.')
+            : response.status === 403
+            ? (payload.error || 'You do not have permission to create drivers.')
             : (payload.error || 'Failed to create driver account.')
         );
         return;
