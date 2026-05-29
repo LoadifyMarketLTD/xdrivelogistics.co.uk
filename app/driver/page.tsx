@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
@@ -24,7 +25,7 @@ const VEHICLE_TYPE_LABEL: Record<string, string> = {
 export default function DriverEntryPage() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [stats, setStats] = useState({ active: 0, history: 0 });
+  const [stats, setStats] = useState({ active: 0, history: 0, weekEarnings: 0 });
   const [loadingStats, setLoadingStats] = useState(true);
   const [driverPhone, setDriverPhone] = useState('');
   const [vehicle, setVehicle] = useState<{ type: string; reg_plate: string | null } | null>(null);
@@ -32,11 +33,10 @@ export default function DriverEntryPage() {
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
   const quickActions = [
-    { label: 'Active Jobs',     description: 'Open current deliveries',    emoji: '🚚', href: '/driver/jobs?tab=active' },
-    { label: 'History',         description: 'Review completed jobs',       emoji: '📋', href: '/driver/jobs?tab=history' },
-    { label: 'Earnings',        description: 'View totals and weekly income', emoji: '💷', href: '/driver/jobs?tab=earnings' },
-    { label: 'All Jobs',        description: 'Go to the full jobs view',    emoji: '📦', href: '/driver/jobs' },
-    { label: 'Account Security', description: 'Change login password',      emoji: '🔒', href: '/driver/change-password' },
+    { label: 'Active Jobs',     description: 'Open current deliveries',      emoji: '🚚', href: '/driver/jobs?tab=active',   highlight: true },
+    { label: 'History',         description: 'Review completed jobs',         emoji: '📋', href: '/driver/jobs?tab=history',  highlight: false },
+    { label: 'Earnings',        description: 'View totals and weekly income', emoji: '💷', href: '/driver/jobs?tab=earnings', highlight: false },
+    { label: 'Account Security', description: 'Change login password',        emoji: '🔒', href: '/driver/change-password',   highlight: false },
   ] as const;
 
   const loadDriverProfile = useCallback(async () => {
@@ -77,7 +77,8 @@ export default function DriverEntryPage() {
       return;
     }
     const loadStats = async () => {
-      const [activeRes, historyRes] = await Promise.all([
+      const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const [activeRes, historyRes, earningsRes] = await Promise.all([
         supabase
           .from('jobs')
           .select('id', { count: 'exact', head: true })
@@ -88,8 +89,17 @@ export default function DriverEntryPage() {
           .select('id', { count: 'exact', head: true })
           .eq('assigned_driver_id', user.driverId)
           .in('status', ['delivered', 'cancelled', 'disputed']),
+        supabase
+          .from('jobs')
+          .select('budget_amount, updated_at')
+          .eq('assigned_driver_id', user.driverId)
+          .eq('status', 'delivered')
+          .gte('updated_at', oneWeekAgo),
       ]);
-      setStats({ active: activeRes.count ?? 0, history: historyRes.count ?? 0 });
+      const weekEarnings = (earningsRes.data ?? []).reduce(
+        (s: number, j: { budget_amount?: number | null }) => s + (j.budget_amount ?? 0), 0
+      );
+      setStats({ active: activeRes.count ?? 0, history: historyRes.count ?? 0, weekEarnings });
       setLoadingStats(false);
     };
     loadStats();
@@ -188,26 +198,36 @@ export default function DriverEntryPage() {
         <div style={{
           width: '100%', maxWidth: '560px',
           display: 'grid',
-          gridTemplateColumns: 'repeat(2, minmax(120px, 1fr))',
+          gridTemplateColumns: 'repeat(3, 1fr)',
           gap: '0.75rem',
           marginBottom: '0.75rem',
         }}>
-          <div style={{ backgroundColor: '#123556', border: '1px solid #2f4f6f', borderRadius: '12px', padding: '0.75rem' }}>
-            <div style={{ fontSize: '0.72rem', color: '#93c5fd' }}>Active</div>
-            <div style={{ fontSize: '1.15rem', fontWeight: '700' }}>{loadingStats ? '…' : stats.active}</div>
-          </div>
-          <div style={{ backgroundColor: '#123556', border: '1px solid #2f4f6f', borderRadius: '12px', padding: '0.75rem' }}>
-            <div style={{ fontSize: '0.72rem', color: '#93c5fd' }}>Completed / Closed</div>
-            <div style={{ fontSize: '1.15rem', fontWeight: '700' }}>{loadingStats ? '…' : stats.history}</div>
-          </div>
+          <Link href="/driver/jobs?tab=active" style={{ textDecoration: 'none' }}>
+            <div style={{ backgroundColor: stats.active > 0 ? '#0f3460' : '#123556', border: stats.active > 0 ? '1px solid #3b82f6' : '1px solid #2f4f6f', borderRadius: '12px', padding: '0.75rem', cursor: 'pointer' }}>
+              <div style={{ fontSize: '0.72rem', color: '#93c5fd' }}>Active</div>
+              <div style={{ fontSize: '1.35rem', fontWeight: '700', color: stats.active > 0 ? '#60a5fa' : '#fff' }}>{loadingStats ? '…' : stats.active}</div>
+            </div>
+          </Link>
+          <Link href="/driver/jobs?tab=history" style={{ textDecoration: 'none' }}>
+            <div style={{ backgroundColor: '#123556', border: '1px solid #2f4f6f', borderRadius: '12px', padding: '0.75rem', cursor: 'pointer' }}>
+              <div style={{ fontSize: '0.72rem', color: '#93c5fd' }}>Completed</div>
+              <div style={{ fontSize: '1.35rem', fontWeight: '700' }}>{loadingStats ? '…' : stats.history}</div>
+            </div>
+          </Link>
+          <Link href="/driver/jobs?tab=earnings" style={{ textDecoration: 'none' }}>
+            <div style={{ backgroundColor: '#123556', border: '1px solid #2f4f6f', borderRadius: '12px', padding: '0.75rem', cursor: 'pointer' }}>
+              <div style={{ fontSize: '0.72rem', color: '#93c5fd' }}>This Week</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: '700', color: '#4ade80' }}>{loadingStats ? '…' : `£${stats.weekEarnings.toFixed(0)}`}</div>
+            </div>
+          </Link>
         </div>
 
         {/* Quick actions */}
         <div style={{
           width: '100%', maxWidth: '560px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '0.75rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.65rem',
           marginBottom: '0.75rem',
         }}>
           {quickActions.map((action) => (
@@ -217,18 +237,30 @@ export default function DriverEntryPage() {
               style={{
                 width: '100%',
                 textAlign: 'left',
-                padding: '0.9rem 1rem',
-                backgroundColor: '#0f2f4f',
+                padding: '1rem 1.1rem',
+                backgroundColor: action.highlight ? '#1a4a7a' : '#0f2f4f',
                 color: '#ffffff',
-                border: '1px solid #2f4f6f',
+                border: action.highlight ? '1px solid #3b82f6' : '1px solid #2f4f6f',
                 borderRadius: '12px',
                 cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.85rem',
               }}
             >
-              <div style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.2rem' }}>
-                {action.emoji} {action.label}
+              <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{action.emoji}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '0.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {action.label}
+                  {action.label === 'Active Jobs' && !loadingStats && stats.active > 0 && (
+                    <span style={{ backgroundColor: '#3b82f6', color: '#fff', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: '800', padding: '0.1rem 0.5rem', lineHeight: 1.5 }}>
+                      {stats.active}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#bfdbfe' }}>{action.description}</div>
               </div>
-              <div style={{ fontSize: '0.82rem', color: '#bfdbfe' }}>{action.description}</div>
+              <span style={{ color: '#60a5fa', fontSize: '1.1rem', flexShrink: 0 }}>›</span>
             </button>
           ))}
         </div>
