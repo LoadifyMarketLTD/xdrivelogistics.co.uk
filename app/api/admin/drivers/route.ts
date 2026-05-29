@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import { getResetPasswordEmailRedirectTo } from '../../../../lib/authFlow';
 
-const ADMIN_ROLES = new Set(['owner', 'admin', 'dispatcher']);
+// Canonical roles + legacy aliases used in company_memberships.role_in_company
+const ADMIN_ROLES = new Set(['owner', 'admin', 'dispatcher', 'company_admin', 'admin_staff', 'company']);
 
 type CreateDriverPayload = {
   companyId?: string;
@@ -27,7 +28,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  // Use the anon-key validator so JWT verification never depends on the
+  // service-role key being correct in non-production environments.
+  const validatorClient = supabaseValidator ?? supabaseAdmin;
+  if (!validatorClient) {
+    return NextResponse.json({ error: 'Server auth is not configured.' }, { status: 503 });
+  }
+
+  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
   if (authError || !authData.user) {
     console.error('[admin/drivers] auth token validation failed', {
       error: authError?.message ?? null,
