@@ -5,7 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Vehicle, VehicleType, Company } from '../../../lib/types/database';
-import { getMissingColumnFromError, isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
+import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
@@ -148,7 +148,6 @@ export default function VehiclesPage() {
 
   const handleCreate = async () => {
     if (!companyId) { setError('Company is required'); return; }
-    if (!user?.membershipId) { setError('Membership context is required. Please sign in again.'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     const payloadKg = formData.payload_kg ? Number.parseFloat(formData.payload_kg) : null;
     if (payloadKg !== null && (!Number.isFinite(payloadKg) || payloadKg < 0)) {
@@ -177,28 +176,13 @@ export default function VehiclesPage() {
       logRuntimeProof({
         flow: 'Add Vehicle',
         authUid: user?.id ?? null,
-        membershipId: user.membershipId,
+        membershipId: user?.membershipId ?? null,
         companyId,
         payload: insertPayload,
         table: 'vehicles',
         rlsPolicy: 'vehicles_insert_operator',
       });
-      let createError: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null = null;
-      while (Object.keys(insertPayload).length > 0) {
-        const { error } = await supabase.from('vehicles').insert([insertPayload]);
-        if (!error) {
-          createError = null;
-          break;
-        }
-        const missingColumn = getMissingColumnFromError(error, 'vehicles');
-        if (missingColumn && Object.prototype.hasOwnProperty.call(insertPayload, missingColumn)) {
-          delete insertPayload[missingColumn];
-          createError = error;
-          continue;
-        }
-        createError = error;
-        break;
-      }
+      const { error: createError } = await supabase.from('vehicles').insert([insertPayload]);
       if (createError) {
         console.error('[XDrive Vehicles] insert failed', {
           authUid: user?.id ?? null,
@@ -253,26 +237,11 @@ export default function VehiclesPage() {
       has_tail_lift: editData.has_tail_lift,
       assigned_driver_id: editData.assigned_driver_id || null,
     };
-    let error: { message?: string | null } | null = null;
-    while (Object.keys(updatePayload).length > 0) {
-      const updateRes = await supabase
-        .from('vehicles')
-        .update(updatePayload)
-        .eq('id', editingVehicle.id)
-        .eq('company_id', companyId);
-      if (!updateRes.error) {
-        error = null;
-        break;
-      }
-      const missingColumn = getMissingColumnFromError(updateRes.error, 'vehicles');
-      if (missingColumn && Object.prototype.hasOwnProperty.call(updatePayload, missingColumn)) {
-        delete updatePayload[missingColumn];
-        error = updateRes.error;
-        continue;
-      }
-      error = updateRes.error;
-      break;
-    }
+    const { error } = await supabase
+      .from('vehicles')
+      .update(updatePayload)
+      .eq('id', editingVehicle.id)
+      .eq('company_id', companyId);
     setSaving(false);
     if (error) { setEditError(error.message ?? 'Failed to update vehicle.'); return; }
     setEditingVehicle(null);

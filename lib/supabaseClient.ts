@@ -30,7 +30,7 @@ const unconfiguredFetch: typeof fetch = async () =>
     }
   );
 
-if (!isConfigured && typeof window !== 'undefined') {
+if (!isConfigured && typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
   console.warn(
     '⚠️ Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable database features.'
   );

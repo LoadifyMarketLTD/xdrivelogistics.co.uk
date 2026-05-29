@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 
 type DriverRow = {
   id: string;
@@ -73,15 +74,30 @@ export default function DriversVehiclesPage() {
         return;
       }
 
-      const [driversRes, vehiclesRes, trackingRes] = await Promise.all([
+      const [driversRes, vehiclesRes] = await Promise.all([
         supabase.from('drivers').select('id, display_name, status, created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(30),
         supabase.from('vehicles').select('id, reg_plate, type, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id, created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(50),
-        supabase.from('driver_locations').select('id, driver_id, lat, lng, recorded_at').eq('company_id', companyId).order('recorded_at', { ascending: false }).limit(50),
       ]);
+      let trackingRes = await supabase
+        .from('driver_locations')
+        .select('id, driver_id, lat, lng, recorded_at')
+        .eq('company_id', companyId)
+        .order('recorded_at', { ascending: false })
+        .limit(50);
+
+      if (isMissingColumnError(trackingRes.error, 'driver_locations', 'company_id')) {
+        trackingRes = await supabase
+          .from('driver_locations')
+          .select('id, driver_id, lat, lng, recorded_at')
+          .order('recorded_at', { ascending: false })
+          .limit(50);
+      }
 
       setDrivers((driversRes.data as DriverRow[]) ?? []);
       setVehicles((vehiclesRes.data as VehicleRow[]) ?? []);
-      setTracking((trackingRes.data as TrackingRow[]) ?? []);
+      const driverIds = new Set(((driversRes.data as DriverRow[] | null) ?? []).map((row) => row.id));
+      const trackingRows = ((trackingRes.data as TrackingRow[]) ?? []).filter((row) => driverIds.has(row.driver_id));
+      setTracking(trackingRows);
       setLoading(false);
     };
     void load();
@@ -134,13 +150,17 @@ export default function DriversVehiclesPage() {
                 </tr>
               </thead>
               <tbody>
-                {drivers.map((driver, idx) => (
-                  <tr key={driver.id} style={{ borderBottom: idx < drivers.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                    <td style={{ padding: '0.8rem', color: '#111827', fontWeight: 600 }}>{driver.display_name || '—'}</td>
-                    <td style={{ padding: '0.8rem', color: '#374151' }}>{driver.status || '—'}</td>
-                    <td style={{ padding: '0.8rem', color: '#6b7280' }}>{new Date(driver.created_at).toLocaleDateString('en-GB')}</td>
-                  </tr>
-                ))}
+                {drivers.length === 0 ? (
+                  <tr><td colSpan={3} style={{ padding: '1rem', color: '#6b7280' }}>No drivers found for this company. Use the <strong>Open Drivers Manager</strong> button above to add drivers.</td></tr>
+                ) : (
+                  drivers.map((driver, idx) => (
+                    <tr key={driver.id} style={{ borderBottom: idx < drivers.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                      <td style={{ padding: '0.8rem', color: '#111827', fontWeight: 600 }}>{driver.display_name || '—'}</td>
+                      <td style={{ padding: '0.8rem', color: '#374151' }}>{driver.status || '—'}</td>
+                      <td style={{ padding: '0.8rem', color: '#6b7280' }}>{new Date(driver.created_at).toLocaleDateString('en-GB')}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           ) : activeTab === 'vehicles' ? (
@@ -173,6 +193,11 @@ export default function DriversVehiclesPage() {
               </tbody>
             </table>
           ) : (
+            <div>
+              <div style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.8rem', fontWeight: 700 }}>⚠️ NOT IMPLEMENTED</span>
+                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>Live vehicle tracking via GPS is not yet active. Rows below require data from the <code>driver_locations</code> table.</span>
+              </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
@@ -181,7 +206,7 @@ export default function DriversVehiclesPage() {
               </thead>
               <tbody>
                 {tracking.length === 0 ? (
-                  <tr><td colSpan={3} style={{ padding: '1rem', color: '#6b7280' }}>No tracking rows found.</td></tr>
+                  <tr><td colSpan={3} style={{ padding: '1rem', color: '#6b7280' }}>No tracking data available. GPS tracking integration required.</td></tr>
                 ) : (
                   tracking.map((row, idx) => (
                     <tr key={row.id} style={{ borderBottom: idx < tracking.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
@@ -193,6 +218,7 @@ export default function DriversVehiclesPage() {
                 )}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
