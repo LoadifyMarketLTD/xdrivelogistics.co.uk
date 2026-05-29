@@ -48,8 +48,8 @@ export const resolveAuthContext = ({
   });
 
   const companyId =
-    normalizeId(profileCompanyId) ??
     normalizeId(membershipCompanyId) ??
+    normalizeId(profileCompanyId) ??
     normalizeId(driverCompanyId) ??
     normalizeId(creatorCompanyId) ??
     null;
