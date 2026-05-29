@@ -2,7 +2,6 @@
 
 import { Section } from '../ui/Section';
 import { PrimaryButton } from '../ui/PrimaryButton';
-import { useCompanyContactLinks } from '../../../hooks/useCompanyContactLinks';
 
 const FEATURES = [
   {
@@ -28,8 +27,6 @@ const FEATURES = [
 ];
 
 export function ForCompanies() {
-  const { companyQuoteWhatsappHref } = useCompanyContactLinks();
-
   return (
     <Section>
       <div style={{ paddingTop: '4rem', paddingBottom: '4rem' }}>
@@ -119,7 +116,7 @@ export function ForCompanies() {
 
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <PrimaryButton 
-                href={companyQuoteWhatsappHref}
+                href="/request-quote"
                 variant="primary" 
                 size="lg"
               >
