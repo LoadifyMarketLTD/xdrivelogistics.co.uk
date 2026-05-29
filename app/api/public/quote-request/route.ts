@@ -63,10 +63,15 @@ export async function POST(request: Request) {
     status: 'draft',
     currency: 'GBP',
     amount: null,
+    notes: [
+      data.quantity ? `Qty: ${data.quantity}` : null,
+      data.notes || null,
+    ].filter(Boolean).join(' | ') || null,
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[quote-request] insert failed', { code: error.code });
+    return NextResponse.json({ error: 'Failed to submit quote request. Please try again.' }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true }, { status: 201 });
