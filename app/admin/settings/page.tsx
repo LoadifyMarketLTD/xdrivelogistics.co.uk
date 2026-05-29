@@ -18,8 +18,6 @@ const TABS = [
   { id: 'contact', label: 'Contact', icon: '☎️' },
   { id: 'userProfile', label: 'User Profile', icon: '👤' },
   { id: 'companyProfile', label: 'Company Profile', icon: '🏭' },
-  { id: 'documents', label: 'Documents', icon: '📄' },
-  { id: 'usersDrivers', label: 'Users / Drivers', icon: '🚚' },
   { id: 'other', label: 'Other', icon: '⚙️' },
 ];
 
@@ -759,31 +757,6 @@ export default function SettingsPage() {
                       <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Address</div>
                       <div style={{ color: '#111827', fontWeight: 600 }}>{[companyForm.street, companyForm.city, companyForm.postcode].filter(Boolean).join(', ') || 'Not set'}</div>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'documents' && (
-                <div>
-                  <h2 style={sectionTitleStyle}>Documents</h2>
-                  <p style={{ color: '#6b7280', marginBottom: '1rem' }}>Document management is available in the dedicated Documents page.</p>
-                  <button onClick={() => router.push('/admin/documents')} style={{ padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 600 }}>
-                    Open Documents
-                  </button>
-                </div>
-              )}
-
-              {activeTab === 'usersDrivers' && (
-                <div>
-                  <h2 style={sectionTitleStyle}>Users / Drivers</h2>
-                  <p style={{ color: '#6b7280', marginBottom: '1rem' }}>Driver management and assignment are handled in the Drivers & Vehicles area.</p>
-                  <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-                    <button onClick={() => router.push('/admin/drivers-vehicles')} style={{ padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 600 }}>
-                      Open Drivers & Vehicles
-                    </button>
-                    <button onClick={() => router.push('/admin/drivers')} style={{ padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 600 }}>
-                      Open Drivers Manager
-                    </button>
                   </div>
                 </div>
               )}

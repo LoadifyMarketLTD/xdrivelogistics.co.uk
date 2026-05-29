@@ -134,13 +134,17 @@ export default function DriversVehiclesPage() {
                 </tr>
               </thead>
               <tbody>
-                {drivers.map((driver, idx) => (
-                  <tr key={driver.id} style={{ borderBottom: idx < drivers.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                    <td style={{ padding: '0.8rem', color: '#111827', fontWeight: 600 }}>{driver.display_name || '—'}</td>
-                    <td style={{ padding: '0.8rem', color: '#374151' }}>{driver.status || '—'}</td>
-                    <td style={{ padding: '0.8rem', color: '#6b7280' }}>{new Date(driver.created_at).toLocaleDateString('en-GB')}</td>
-                  </tr>
-                ))}
+                {drivers.length === 0 ? (
+                  <tr><td colSpan={3} style={{ padding: '1rem', color: '#6b7280' }}>No drivers found for this company. Use the <strong>Open Drivers Manager</strong> button above to add drivers.</td></tr>
+                ) : (
+                  drivers.map((driver, idx) => (
+                    <tr key={driver.id} style={{ borderBottom: idx < drivers.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                      <td style={{ padding: '0.8rem', color: '#111827', fontWeight: 600 }}>{driver.display_name || '—'}</td>
+                      <td style={{ padding: '0.8rem', color: '#374151' }}>{driver.status || '—'}</td>
+                      <td style={{ padding: '0.8rem', color: '#6b7280' }}>{new Date(driver.created_at).toLocaleDateString('en-GB')}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           ) : activeTab === 'vehicles' ? (
@@ -173,6 +177,11 @@ export default function DriversVehiclesPage() {
               </tbody>
             </table>
           ) : (
+            <div>
+              <div style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.8rem', fontWeight: 700 }}>⚠️ NOT IMPLEMENTED</span>
+                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>Live vehicle tracking via GPS is not yet active. Rows below require data from the <code>driver_locations</code> table.</span>
+              </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
@@ -181,7 +190,7 @@ export default function DriversVehiclesPage() {
               </thead>
               <tbody>
                 {tracking.length === 0 ? (
-                  <tr><td colSpan={3} style={{ padding: '1rem', color: '#6b7280' }}>No tracking rows found.</td></tr>
+                  <tr><td colSpan={3} style={{ padding: '1rem', color: '#6b7280' }}>No tracking data available. GPS tracking integration required.</td></tr>
                 ) : (
                   tracking.map((row, idx) => (
                     <tr key={row.id} style={{ borderBottom: idx < tracking.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
@@ -193,6 +202,7 @@ export default function DriversVehiclesPage() {
                 )}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
