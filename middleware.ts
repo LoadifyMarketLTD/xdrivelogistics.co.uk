@@ -207,7 +207,7 @@ const fetchRoleSnapshot = async (
     mustChangePassword,
   });
 
-  let role = resolvedContext.role;
+  const role = resolvedContext.role;
   let companyId = resolvedContext.companyId;
 
   if (
