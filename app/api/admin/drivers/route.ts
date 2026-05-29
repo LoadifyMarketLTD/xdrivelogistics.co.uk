@@ -14,6 +14,11 @@ type CreateDriverPayload = {
   phone?: string;
 };
 
+const isInvalidApiKeyError = (message?: string | null, code?: string | null) => {
+  const value = `${message ?? ''} ${code ?? ''}`.toLowerCase();
+  return value.includes('invalid api key');
+};
+
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return NextResponse.json({ error: 'Server auth is not configured.' }, { status: 503 });
@@ -135,6 +140,10 @@ export async function POST(request: NextRequest) {
     rlsPolicy: 'drivers_insert_operator',
   });
 
+  let userId: string | null = null;
+  let invited = true;
+  let temporaryPassword: string | null = null;
+
   const { data: invitedUserData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${getResetPasswordEmailRedirectTo()}?type=invite`,
     data: {
@@ -143,11 +152,39 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  if (inviteError || !invitedUserData.user) {
+  if (!inviteError && invitedUserData.user) {
+    userId = invitedUserData.user.id;
+  } else if (isInvalidApiKeyError(inviteError?.message, inviteError?.code)) {
+    invited = false;
+    temporaryPassword = `Drv-${crypto.randomUUID()}!A1`;
+    const { data: createdUserData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: temporaryPassword,
+      email_confirm: true,
+      user_metadata: {
+        role: 'driver',
+        requested_role: 'driver',
+      },
+      app_metadata: {
+        role: 'driver',
+      },
+    });
+
+    if (createUserError || !createdUserData.user) {
+      return NextResponse.json(
+        { error: createUserError?.message || 'Failed to create driver auth user.' },
+        { status: 400 }
+      );
+    }
+
+    userId = createdUserData.user.id;
+  } else {
     return NextResponse.json({ error: inviteError?.message || 'Failed to invite driver auth user.' }, { status: 400 });
   }
 
-  const userId = invitedUserData.user.id;
+  if (!userId) {
+    return NextResponse.json({ error: 'Failed to resolve driver auth user.' }, { status: 500 });
+  }
 
   const { error: updateUserMetadataError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
     user_metadata: {
@@ -201,8 +238,8 @@ export async function POST(request: NextRequest) {
         email,
         status: 'active',
         app_access: true,
-        must_change_password: false,
-        temp_password_generated_at: null,
+        must_change_password: !invited,
+        temp_password_generated_at: invited ? null : new Date().toISOString(),
       },
     ])
     .select('id, company_id, user_id, display_name, phone, email, status, app_access, temporary_password_seq, must_change_password, created_at')
@@ -215,7 +252,8 @@ export async function POST(request: NextRequest) {
   return NextResponse.json(
     {
       driver: driverRow,
-      invited: true,
+      invited,
+      temporaryPassword,
     },
     { status: 201 }
   );
