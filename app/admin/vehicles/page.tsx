@@ -6,7 +6,7 @@ import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Vehicle, VehicleType, Company } from '../../../lib/types/database';
 import { getMissingColumnFromError, isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
-import { resolveActiveCompanyId } from '../../../lib/activeCompany';
+import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
@@ -24,7 +24,7 @@ export default function VehiclesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ company_id: '', type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
+  const [formData, setFormData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
   const [editData, setEditData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
   const [error, setError] = useState('');
   const [editError, setEditError] = useState('');
@@ -103,8 +103,6 @@ export default function VehiclesPage() {
   };
 
   useEffect(() => {
-    let cancelled = false;
-
     if (!hasSupabaseSession || !user?.id) {
       setCompanyId(null);
       setCompanyResolved(false);
@@ -123,28 +121,9 @@ export default function VehiclesPage() {
       return;
     }
 
-    setCompanyResolved(false);
-    resolveActiveCompanyId({
-      userId: user.id,
-      fallbackCompanyId: user.companyId ?? null,
-    }).then((id) => {
-      if (cancelled) return;
-      setCompanyId(id);
-      setCompanyResolved(true);
-      if (!id) {
-        setCompanyError('Company profile not available. Vehicles are hidden until company access resolves.');
-      }
-    }).catch((error) => {
-      if (cancelled) return;
-      console.error('Failed to resolve vehicle company context:', error);
-      setCompanyId(null);
-      setCompanyResolved(true);
-      setCompanyError('Company profile not available. Vehicles are hidden until company access resolves.');
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    setCompanyId(null);
+    setCompanyResolved(true);
+    setCompanyError('Company profile not available. Vehicles are hidden until company access resolves.');
   }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   useEffect(() => {
@@ -156,7 +135,6 @@ export default function VehiclesPage() {
       setLoading(false);
       return;
     }
-    setFormData((prev) => ({ ...prev, company_id: companyId }));
     loadVehicles();
     loadCompanies();
     loadDrivers();
@@ -169,8 +147,8 @@ export default function VehiclesPage() {
   }, [drivers, formData.assigned_driver_id]);
 
   const handleCreate = async () => {
-    const resolvedCompanyId = formData.company_id || companyId;
-    if (!resolvedCompanyId) { setError('Company is required'); return; }
+    if (!companyId) { setError('Company is required'); return; }
+    if (!user?.membershipId) { setError('Membership context is required. Please sign in again.'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     const payloadKg = formData.payload_kg ? Number.parseFloat(formData.payload_kg) : null;
     if (payloadKg !== null && (!Number.isFinite(payloadKg) || payloadKg < 0)) {
@@ -179,13 +157,12 @@ export default function VehiclesPage() {
     }
     setCreating(true);
     try {
-      const { data: authCtx } = await supabase.auth.getUser();
       const assignedDriverId = drivers.some((driver) => driver.id === formData.assigned_driver_id)
         ? formData.assigned_driver_id
         : '';
       const insertPayload: Record<string, string | number | boolean | null> = {
         ...formData,
-        company_id: resolvedCompanyId,
+        company_id: companyId,
         type: formData.type,
         vehicle_type: formData.type,
         reg_plate: formData.reg_plate.trim() || null,
@@ -197,12 +174,14 @@ export default function VehiclesPage() {
         payload_kg: payloadKg,
         assigned_driver_id: assignedDriverId || null,
       };
-      console.debug('[XDrive Vehicles] insert attempt', {
-        authUid: authCtx.user?.id ?? null,
-        resolvedCompanyId,
-        userRole: user?.role ?? null,
-        payloadCompanyId: insertPayload.company_id,
-        payloadAssignedDriverId: insertPayload.assigned_driver_id,
+      logRuntimeProof({
+        flow: 'Add Vehicle',
+        authUid: user?.id ?? null,
+        membershipId: user.membershipId,
+        companyId,
+        payload: insertPayload,
+        table: 'vehicles',
+        rlsPolicy: 'vehicles_insert_operator',
       });
       let createError: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null = null;
       while (Object.keys(insertPayload).length > 0) {
@@ -222,8 +201,8 @@ export default function VehiclesPage() {
       }
       if (createError) {
         console.error('[XDrive Vehicles] insert failed', {
-          authUid: authCtx.user?.id ?? null,
-          resolvedCompanyId,
+          authUid: user?.id ?? null,
+          resolvedCompanyId: companyId,
           userRole: user?.role ?? null,
           payloadCompanyId: insertPayload.company_id,
           payloadAssignedDriverId: insertPayload.assigned_driver_id,
@@ -235,7 +214,7 @@ export default function VehiclesPage() {
         return;
       }
       setShowModal(false);
-    setFormData({ company_id: resolvedCompanyId, type: 'van_large', reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
+      setFormData({ type: 'van_large', reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
       setError('');
       loadVehicles();
     } finally {
@@ -412,10 +391,12 @@ export default function VehiclesPage() {
                 {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
                 <div>
                   <label style={labelStyle}>Company *</label>
-                  <select style={inputStyle} value={formData.company_id || companyId || ''} disabled>
-                    <option value="">Select a company…</option>
-                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <input
+                    style={{ ...inputStyle, backgroundColor: '#f9fafb', color: '#6b7280' }}
+                    value={companies[0]?.name ?? 'Company linked to your account'}
+                    disabled
+                    readOnly
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>Vehicle Type *</label>

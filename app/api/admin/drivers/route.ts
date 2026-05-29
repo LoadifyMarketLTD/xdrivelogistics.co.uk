@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import { getResetPasswordEmailRedirectTo } from '../../../../lib/authFlow';
+import { logRuntimeProof } from '../../../../lib/runtimeProof';
 
 // Canonical roles + legacy aliases used in company_memberships.role_in_company
 const ADMIN_ROLES = new Set(['owner', 'admin', 'dispatcher', 'company_admin', 'admin_staff', 'company']);
 
 type CreateDriverPayload = {
   companyId?: string;
+  membershipId?: string | null;
   displayName?: string;
   email?: string;
   phone?: string;
@@ -53,6 +55,7 @@ export async function POST(request: NextRequest) {
 
   const payload = (await request.json()) as CreateDriverPayload;
   const requestedCompanyId = payload.companyId?.trim();
+  const requestedMembershipId = payload.membershipId?.trim();
   const displayName = payload.displayName?.trim();
   const email = payload.email?.trim().toLowerCase();
   const phone = payload.phone?.trim() || null;
@@ -61,46 +64,52 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'displayName and email are required.' }, { status: 400 });
   }
 
-  const { data: actorProfile, error: actorProfileError } = await supabaseAdmin
-    .from('profiles')
-    .select('company_id')
-    .eq('user_id', authData.user.id)
-    .limit(1)
-    .maybeSingle();
-
-  if (actorProfileError) {
-    return NextResponse.json({ error: actorProfileError.message }, { status: 500 });
+  if (!requestedCompanyId || !requestedMembershipId) {
+    return NextResponse.json(
+      {
+        error: 'Forbidden: missing company or membership context.',
+        code: 'auth_missing_membership_context',
+      },
+      { status: 403 }
+    );
   }
 
-  const authCompanyId =
-    typeof actorProfile?.company_id === 'string' && actorProfile.company_id.length > 0
-      ? actorProfile.company_id
-      : null;
-
-  const { data: memberships, error: membershipError } = await supabaseAdmin
+  const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
-    .select('company_id, role_in_company')
+    .select('id, company_id, role_in_company')
     .eq('user_id', authData.user.id)
     .eq('status', 'active')
-    .in('role_in_company', Array.from(ADMIN_ROLES));
+    .eq('id', requestedMembershipId)
+    .eq('company_id', requestedCompanyId)
+    .in('role_in_company', Array.from(ADMIN_ROLES))
+    .maybeSingle();
 
   if (membershipError) {
     return NextResponse.json({ error: membershipError.message }, { status: 500 });
   }
 
-  const allowedCompanyIds = (memberships ?? [])
-    .map((membership) => membership.company_id)
-    .filter((id): id is string => typeof id === 'string' && id.length > 0);
-
-  const resolvedCompanyId =
-    (authCompanyId && allowedCompanyIds.includes(authCompanyId) && authCompanyId) ||
-    (requestedCompanyId && allowedCompanyIds.includes(requestedCompanyId) && requestedCompanyId) ||
-    allowedCompanyIds[0] ||
-    null;
-
-  if (!resolvedCompanyId) {
+  if (!membership?.id || !membership.company_id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+
+  const resolvedMembership = membership;
+  const resolvedCompanyId = membership.company_id;
+
+  logRuntimeProof({
+    flow: 'Add Driver',
+    authUid: authData.user.id,
+    membershipId: resolvedMembership.id,
+    companyId: resolvedCompanyId,
+    payload: {
+      company_id: resolvedCompanyId,
+      display_name: displayName,
+      email,
+      phone,
+      role_in_company: resolvedMembership.role_in_company,
+    },
+    table: 'drivers',
+    rlsPolicy: 'drivers_insert_operator',
+  });
 
   const { data: invitedUserData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${getResetPasswordEmailRedirectTo()}?type=invite`,

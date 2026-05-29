@@ -105,3 +105,34 @@ export const resolveAuthoritativeRole = ({
 
   return null;
 };
+
+const ADMIN_ROUTE_ROLES = new Set<AppUserRole>(['company', 'admin', 'owner']);
+const MOBILE_ROUTE_ROLES = new Set<AppUserRole>(['company', 'admin', 'owner']);
+const DRIVER_ROUTE_ROLES = new Set<AppUserRole>(['driver']);
+const CUSTOMER_ROUTE_ROLES = new Set<AppUserRole>(['customer']);
+
+export const isRoleAllowedForPath = (pathname: string, role: AppUserRole | null): boolean => {
+  if (!role) return false;
+  if (pathname.startsWith('/admin')) return ADMIN_ROUTE_ROLES.has(role);
+  if (pathname.startsWith('/driver')) return DRIVER_ROUTE_ROLES.has(role);
+  if (pathname.startsWith('/m')) return MOBILE_ROUTE_ROLES.has(role);
+  if (pathname.startsWith('/customer')) return CUSTOMER_ROUTE_ROLES.has(role);
+  return true;
+};
+
+export const isRoleAllowedForRequiredRole = (
+  requiredRole: AppUserRole,
+  role: AppUserRole | null
+): boolean => {
+  if (!role) return false;
+  if (requiredRole === 'admin') {
+    return role === 'company' || role === 'admin' || role === 'owner';
+  }
+  if (requiredRole === 'company') {
+    return role === 'company' || role === 'admin' || role === 'owner';
+  }
+  if (requiredRole === 'owner') {
+    return role === 'owner';
+  }
+  return role === requiredRole;
+};
