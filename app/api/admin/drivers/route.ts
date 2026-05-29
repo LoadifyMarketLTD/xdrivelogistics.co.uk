@@ -301,6 +301,7 @@ export async function POST(request: NextRequest) {
         full_name: displayName,
         phone,
         role: 'driver',
+        status: 'active',
         company_id: resolvedCompanyId,
         is_driver: true,
         updated_at: new Date().toISOString(),
