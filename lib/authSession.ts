@@ -81,7 +81,7 @@ export const resolveAuthenticatedUser = async (
     `drivers.select(id,company_id,user_id,must_change_password).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
   const creatorCompanyLookupQuery =
     `companies.select(id,company_type).eq(created_by,${sessionUser.id}).limit(1).maybeSingle()`;
-  const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
+  const [profileRes, membershipResInitial, driverRes, creatorCompanyRes] = await Promise.all([
     supabase
       .from('profiles')
       .select('role, status, is_driver, company_id')
@@ -106,6 +106,16 @@ export const resolveAuthenticatedUser = async (
       .limit(1)
       .maybeSingle(),
   ]);
+
+  // If the membership query failed (e.g. created_at column missing → HTTP 400),
+  // retry without ORDER BY so transient schema mismatches don't zero out membershipId.
+  const membershipRes = membershipResInitial.error
+    ? await supabase
+        .from('company_memberships')
+        .select('id, company_id, role_in_company, status')
+        .eq('user_id', sessionUser.id)
+        .eq('status', 'active')
+    : membershipResInitial;
 
   const profileDbError = profileRes.error
     ? {
@@ -154,7 +164,7 @@ export const resolveAuthenticatedUser = async (
       profile.company_id.length > 0 &&
       membership.company_id === profile.company_id
   );
-  const membership = membershipFromProfile ?? memberships?.[0] ?? null;
+  let membership = membershipFromProfile ?? memberships?.[0] ?? null;
   const driver = driverRes.error
     ? null
     : (driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password'> | null);
@@ -232,6 +242,18 @@ export const resolveAuthenticatedUser = async (
     const { data: bootstrappedId } = await supabase.rpc('bootstrap_company_membership');
     if (typeof bootstrappedId === 'string' && bootstrappedId.length > 0) {
       companyId = bootstrappedId;
+      // Re-fetch the newly created membership so resolvedMembership and
+      // membershipId are populated for the rest of this auth resolution.
+      const freshMembershipRes = await supabase
+        .from('company_memberships')
+        .select('id, company_id, role_in_company, status')
+        .eq('user_id', sessionUser.id)
+        .eq('company_id', bootstrappedId)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (!freshMembershipRes.error && freshMembershipRes.data) {
+        membership = freshMembershipRes.data as Pick<CompanyMembership, 'id' | 'company_id' | 'role_in_company' | 'status'>;
+      }
     }
   }
 
