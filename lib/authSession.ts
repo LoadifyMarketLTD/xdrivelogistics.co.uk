@@ -42,6 +42,8 @@ export type ResolvedAuthUser = {
   email: string;
   role: UserRole;
   companyId: string | null;
+  membershipId: string | null;
+  membershipRole: CompanyMembership['role_in_company'] | null;
   driverId: string | null;
   mustChangePassword: boolean;
 };
@@ -74,7 +76,7 @@ export const resolveAuthenticatedUser = async (
   const fallbackRole = getFallbackRole(sessionUser);
   const profileLookupQuery = `profiles.select(role,status,is_driver,company_id).eq(user_id,${sessionUser.id}).maybeSingle()`;
   const membershipLookupQuery =
-    `company_memberships.select(company_id,role_in_company,status).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc).limit(1).maybeSingle()`;
+    `company_memberships.select(id,company_id,role_in_company,status).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc)`;
   const driverLookupQuery =
     `drivers.select(id,company_id,user_id,must_change_password).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
   const creatorCompanyLookupQuery =
@@ -87,12 +89,10 @@ export const resolveAuthenticatedUser = async (
       .maybeSingle(),
     supabase
       .from('company_memberships')
-      .select('company_id, role_in_company, status')
+      .select('id, company_id, role_in_company, status')
       .eq('user_id', sessionUser.id)
       .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .order('created_at', { ascending: false }),
     supabase
       .from('drivers')
       .select('id, company_id, user_id, must_change_password')
@@ -145,9 +145,16 @@ export const resolveAuthenticatedUser = async (
   let profile = profileDbError
     ? null
     : (profileRes.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'> | null);
-  const membership = membershipRes.error
+  const memberships = membershipRes.error
     ? null
-    : (membershipRes.data as Pick<CompanyMembership, 'company_id' | 'role_in_company' | 'status'> | null);
+    : (membershipRes.data as Pick<CompanyMembership, 'id' | 'company_id' | 'role_in_company' | 'status'>[] | null);
+  const membershipFromProfile = memberships?.find(
+    (membership) =>
+      typeof profile?.company_id === 'string' &&
+      profile.company_id.length > 0 &&
+      membership.company_id === profile.company_id
+  );
+  const membership = membershipFromProfile ?? memberships?.[0] ?? null;
   const driver = driverRes.error
     ? null
     : (driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password'> | null);
@@ -163,6 +170,8 @@ export const resolveAuthenticatedUser = async (
     profileRole: profile?.role ?? null,
     profileStatus: profile?.status ?? null,
     membershipRole: membership?.role_in_company ?? null,
+    membershipId: membership?.id ?? null,
+    membershipCompanyId: membership?.company_id ?? null,
     hasDriver: Boolean(driver),
     hasCreatedCompany: Boolean(creatorCompany),
     fallbackRole,
@@ -271,7 +280,15 @@ export const resolveAuthenticatedUser = async (
       console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', resolvedRole, userId: sessionUser.id });
       return { user: null, reason: 'company_context_missing' };
     }
-    return ok(sessionUser, resolvedRole, companyId, driverId, resolvedRole === 'driver' ? mustChangePassword : false);
+    return ok(
+      sessionUser,
+      resolvedRole,
+      companyId,
+      membership?.id ?? null,
+      membership?.role_in_company ?? null,
+      driverId,
+      resolvedRole === 'driver' ? mustChangePassword : false
+    );
   }
 
   if (profileDbError) {
@@ -294,6 +311,8 @@ const ok = (
   sessionUser: SessionUser,
   role: UserRole,
   companyId: string | null,
+  membershipId: string | null,
+  membershipRole: CompanyMembership['role_in_company'] | null,
   driverId: string | null,
   mustChangePassword: boolean
 ): AuthResolutionResult => {
@@ -302,6 +321,8 @@ const ok = (
     email: sessionUser.email ?? '',
     role,
     companyId,
+    membershipId,
+    membershipRole,
     driverId,
     mustChangePassword,
   };
