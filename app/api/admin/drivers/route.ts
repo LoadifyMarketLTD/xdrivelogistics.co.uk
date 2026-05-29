@@ -64,37 +64,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'displayName and email are required.' }, { status: 400 });
   }
 
-  const { data: memberships, error: membershipError } = await supabaseAdmin
+  if (!requestedCompanyId || !requestedMembershipId) {
+    return NextResponse.json(
+      {
+        error: 'Forbidden: missing company or membership context.',
+        code: 'auth_missing_membership_context',
+      },
+      { status: 403 }
+    );
+  }
+
+  const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
     .select('id, company_id, role_in_company')
     .eq('user_id', authData.user.id)
     .eq('status', 'active')
-    .in('role_in_company', Array.from(ADMIN_ROLES));
+    .eq('id', requestedMembershipId)
+    .eq('company_id', requestedCompanyId)
+    .in('role_in_company', Array.from(ADMIN_ROLES))
+    .maybeSingle();
 
   if (membershipError) {
     return NextResponse.json({ error: membershipError.message }, { status: 500 });
   }
 
-  const activeMemberships = (memberships ?? [])
-    .filter(
-      (membership): membership is { id: string; company_id: string; role_in_company: string } =>
-        typeof membership.id === 'string' &&
-        membership.id.length > 0 &&
-        typeof membership.company_id === 'string' &&
-        membership.company_id.length > 0
-    );
-  const membershipById = requestedMembershipId
-    ? activeMemberships.find((membership) => membership.id === requestedMembershipId)
-    : null;
-  const membershipByCompany = requestedCompanyId
-    ? activeMemberships.find((membership) => membership.company_id === requestedCompanyId)
-    : null;
-  const resolvedMembership = membershipById ?? membershipByCompany ?? activeMemberships[0] ?? null;
-  const resolvedCompanyId = resolvedMembership?.company_id ?? null;
-
-  if (!resolvedMembership || !resolvedCompanyId) {
+  if (!membership?.id || !membership.company_id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+
+  const resolvedMembership = membership;
+  const resolvedCompanyId = membership.company_id;
 
   logRuntimeProof({
     flow: 'Add Driver',

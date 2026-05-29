@@ -31,19 +31,7 @@ export default function CompaniesPage() {
   const loadCompanies = async () => {
     setLoading(true);
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
-    const { data: memberships } = await supabase
-      .from('company_memberships')
-      .select('company_id')
-      .eq('user_id', user?.id ?? '')
-      .eq('status', 'active');
-
-    const membershipCompanyIds = ((memberships ?? []) as Array<{ company_id: string | null }>)
-      .map((m) => m.company_id)
-      .filter((id): id is string => typeof id === 'string');
-
-    const companyIds = membershipCompanyIds.length > 0
-      ? membershipCompanyIds
-      : [companyId];
+    const companyIds = [companyId];
 
     const requestedColumns = ['id', 'name', 'company_number', 'vat_number', 'email', 'phone', 'address_line1', 'city', 'postcode', 'created_at'];
     const activeColumns = [...requestedColumns];

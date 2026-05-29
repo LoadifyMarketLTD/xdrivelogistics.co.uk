@@ -24,7 +24,7 @@ export default function VehiclesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ company_id: '', type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
+  const [formData, setFormData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
   const [editData, setEditData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
   const [error, setError] = useState('');
   const [editError, setEditError] = useState('');
@@ -135,7 +135,6 @@ export default function VehiclesPage() {
       setLoading(false);
       return;
     }
-    setFormData((prev) => ({ ...prev, company_id: companyId }));
     loadVehicles();
     loadCompanies();
     loadDrivers();
@@ -148,8 +147,8 @@ export default function VehiclesPage() {
   }, [drivers, formData.assigned_driver_id]);
 
   const handleCreate = async () => {
-    const resolvedCompanyId = formData.company_id || companyId;
-    if (!resolvedCompanyId) { setError('Company is required'); return; }
+    if (!companyId) { setError('Company is required'); return; }
+    if (!user?.membershipId) { setError('Membership context is required. Please sign in again.'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     const payloadKg = formData.payload_kg ? Number.parseFloat(formData.payload_kg) : null;
     if (payloadKg !== null && (!Number.isFinite(payloadKg) || payloadKg < 0)) {
@@ -163,7 +162,7 @@ export default function VehiclesPage() {
         : '';
       const insertPayload: Record<string, string | number | boolean | null> = {
         ...formData,
-        company_id: resolvedCompanyId,
+        company_id: companyId,
         type: formData.type,
         vehicle_type: formData.type,
         reg_plate: formData.reg_plate.trim() || null,
@@ -178,8 +177,8 @@ export default function VehiclesPage() {
       logRuntimeProof({
         flow: 'Add Vehicle',
         authUid: user?.id ?? null,
-        membershipId: user?.membershipId ?? null,
-        companyId: resolvedCompanyId,
+        membershipId: user.membershipId,
+        companyId,
         payload: insertPayload,
         table: 'vehicles',
         rlsPolicy: 'vehicles_insert_operator',
@@ -203,7 +202,7 @@ export default function VehiclesPage() {
       if (createError) {
         console.error('[XDrive Vehicles] insert failed', {
           authUid: user?.id ?? null,
-          resolvedCompanyId,
+          resolvedCompanyId: companyId,
           userRole: user?.role ?? null,
           payloadCompanyId: insertPayload.company_id,
           payloadAssignedDriverId: insertPayload.assigned_driver_id,
@@ -215,7 +214,7 @@ export default function VehiclesPage() {
         return;
       }
       setShowModal(false);
-    setFormData({ company_id: resolvedCompanyId, type: 'van_large', reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
+      setFormData({ type: 'van_large', reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
       setError('');
       loadVehicles();
     } finally {
@@ -392,10 +391,12 @@ export default function VehiclesPage() {
                 {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
                 <div>
                   <label style={labelStyle}>Company *</label>
-                  <select style={inputStyle} value={formData.company_id || companyId || ''} disabled>
-                    <option value="">Select a company…</option>
-                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <input
+                    style={{ ...inputStyle, backgroundColor: '#f9fafb', color: '#6b7280' }}
+                    value={companies[0]?.name ?? 'Company linked to your account'}
+                    disabled
+                    readOnly
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>Vehicle Type *</label>
