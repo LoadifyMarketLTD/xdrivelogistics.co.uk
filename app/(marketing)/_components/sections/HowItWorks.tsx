@@ -1,31 +1,36 @@
 'use client';
 
+import Link from 'next/link';
 import { Section } from '../ui/Section';
 
 const STEPS = [
   {
     number: '01',
-    title: 'Contact Us',
-    description: 'Reach out via WhatsApp, phone, or email with your requirements',
-    icon: '📞',
+    title: 'Request Quote',
+    description: 'Fill in your shipment details online and receive a tailored quote instantly',
+    icon: '📋',
+    href: '/request-quote',
   },
   {
     number: '02',
-    title: 'Get Quote',
-    description: 'Receive a competitive quote tailored to your specific needs',
+    title: 'Get Confirmed',
+    description: 'Our team reviews your request and confirms pricing within minutes',
     icon: '💰',
+    href: null,
   },
   {
     number: '03',
     title: 'Book Service',
     description: 'Confirm your booking and schedule pickup time',
     icon: '📅',
+    href: null,
   },
   {
     number: '04',
     title: 'Track Delivery',
     description: 'Receive status updates until safe delivery',
     icon: '📍',
+    href: null,
   },
 ];
 
@@ -65,81 +70,136 @@ export function HowItWorks() {
             gap: '2rem',
           }}
         >
-          {STEPS.map((step, index) => (
-            <div
-              key={step.number}
-              style={{
-                backgroundColor: 'var(--glass-bg)',
-                border: '1px solid var(--glass-border)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '2rem',
-                position: 'relative',
-                backdropFilter: 'blur(10px)',
-              }}
-            >
-              {/* Step Number Badge */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '-1rem',
-                  right: '1.5rem',
-                  backgroundColor: 'var(--color-gold-primary)',
-                  color: 'var(--color-primary-navy-dark)',
-                  width: '3rem',
-                  height: '3rem',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.25rem',
-                  fontWeight: 'var(--font-weight-bold)',
-                }}
-              >
-                {step.number}
-              </div>
+          {STEPS.map((step, index) => {
+            const isFirst = step.href !== null;
+            const cardStyle: React.CSSProperties = {
+              backgroundColor: isFirst ? 'rgba(46,125,50,0.12)' : 'var(--glass-bg)',
+              border: isFirst ? '1px solid rgba(46,125,50,0.35)' : '1px solid var(--glass-border)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '2rem',
+              position: 'relative',
+              backdropFilter: 'blur(10px)',
+              transition: 'transform 0.2s ease, border-color 0.2s ease',
+              textDecoration: 'none',
+              display: 'block',
+            };
 
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
-                {step.icon}
-              </div>
-
-              <h3
-                style={{
-                  fontSize: '1.25rem',
-                  fontWeight: 'var(--font-weight-semibold)',
-                  color: 'var(--color-text-white)',
-                  marginBottom: '0.75rem',
-                }}
-              >
-                {step.title}
-              </h3>
-
-              <p
-                style={{
-                  fontSize: '0.95rem',
-                  color: 'var(--color-text-white-transparent)',
-                  lineHeight: '1.5',
-                }}
-              >
-                {step.description}
-              </p>
-
-              {/* Connection Line (except last item) */}
-              {index < STEPS.length - 1 && (
+            const innerContent = (
+              <>
+                {/* Step Number Badge */}
                 <div
-                  className="connection-line"
                   style={{
                     position: 'absolute',
-                    right: '-1rem',
-                    top: '50%',
-                    width: '2rem',
-                    height: '2px',
+                    top: '-1rem',
+                    right: '1.5rem',
                     backgroundColor: 'var(--color-gold-primary)',
-                    opacity: 0.3,
+                    color: 'var(--color-primary-navy-dark)',
+                    width: '3rem',
+                    height: '3rem',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.25rem',
+                    fontWeight: 'var(--font-weight-bold)',
                   }}
-                />
-              )}
-            </div>
-          ))}
+                >
+                  {step.number}
+                </div>
+
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
+                  {step.icon}
+                </div>
+
+                <h3
+                  style={{
+                    fontSize: '1.25rem',
+                    fontWeight: 'var(--font-weight-semibold)',
+                    color: 'var(--color-text-white)',
+                    marginBottom: '0.75rem',
+                  }}
+                >
+                  {step.title}
+                </h3>
+
+                <p
+                  style={{
+                    fontSize: '0.95rem',
+                    color: 'var(--color-text-white-transparent)',
+                    lineHeight: '1.5',
+                  }}
+                >
+                  {step.description}
+                </p>
+
+                {isFirst && (
+                  <div style={{ marginTop: '1rem', fontSize: '0.875rem', fontWeight: 700, color: '#81C784' }}>
+                    Start here →
+                  </div>
+                )}
+
+                {/* Connection Line (except last item) */}
+                {index < STEPS.length - 1 && (
+                  <div
+                    className="connection-line"
+                    style={{
+                      position: 'absolute',
+                      right: '-1rem',
+                      top: '50%',
+                      width: '2rem',
+                      height: '2px',
+                      backgroundColor: 'var(--color-gold-primary)',
+                      opacity: 0.3,
+                    }}
+                  />
+                )}
+              </>
+            );
+
+            return step.href ? (
+              <Link
+                key={step.number}
+                href={step.href}
+                style={cardStyle}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.borderColor = 'rgba(46,125,50,0.65)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = 'rgba(46,125,50,0.35)';
+                }}
+              >
+                {innerContent}
+              </Link>
+            ) : (
+              <div key={step.number} style={cardStyle}>
+                {innerContent}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* CTA below steps */}
+        <div style={{ textAlign: 'center', marginTop: '2.5rem' }}>
+          <Link
+            href="/request-quote"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.9rem 2rem',
+              fontSize: '1rem',
+              fontWeight: 700,
+              borderRadius: '10px',
+              backgroundColor: '#2E7D32',
+              color: '#FFFFFF',
+              textDecoration: 'none',
+              boxShadow: '0 4px 20px rgba(46,125,50,0.3)',
+            }}
+          >
+            🚀 Start with a Quote
+          </Link>
         </div>
       </div>
 

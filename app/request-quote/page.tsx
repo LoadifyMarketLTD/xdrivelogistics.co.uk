@@ -53,6 +53,8 @@ export default function RequestQuotePage() {
       quantity: '',
       notes: '',
     });
+    // Scroll to top so the success card is visible
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const fieldStyle: React.CSSProperties = {
@@ -64,6 +66,100 @@ export default function RequestQuotePage() {
     color: '#fff',
     fontSize: '0.95rem',
   };
+
+  if (success) {
+    return (
+      <main
+        style={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #0A2239 0%, #1F3A5F 60%, #0A2239 100%)',
+          color: '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '2rem 1rem',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '520px',
+            width: '100%',
+            textAlign: 'center',
+            backgroundColor: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: '20px',
+            padding: '2.5rem 2rem',
+          }}
+        >
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
+          <h1 style={{ margin: '0 0 0.75rem', fontSize: '1.8rem', color: '#fff' }}>
+            Quote Request Received!
+          </h1>
+          <p style={{ margin: '0 0 1.5rem', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6' }}>
+            Thank you — our team will review your request and come back to you with a
+            competitive quote. This usually takes less than an hour during business hours.
+          </p>
+          <div
+            style={{
+              backgroundColor: 'rgba(46,125,50,0.15)',
+              border: '1px solid rgba(46,125,50,0.35)',
+              borderRadius: '12px',
+              padding: '1rem 1.25rem',
+              marginBottom: '1.75rem',
+              textAlign: 'left',
+              display: 'grid',
+              gap: '0.5rem',
+            }}
+          >
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#81C784', marginBottom: '0.25rem' }}>
+              ⏱ What happens next?
+            </div>
+            {[
+              '1. We review your shipment details',
+              '2. We confirm availability and pricing',
+              '3. You receive a quote via email or WhatsApp',
+              '4. Confirm booking and schedule pickup',
+            ].map((step) => (
+              <div key={step} style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.8)' }}>
+                {step}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <a
+              href={whatsappDefaultMessageHref}
+              style={{
+                padding: '0.75rem 1.25rem',
+                backgroundColor: '#25D366',
+                color: '#fff',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+              }}
+            >
+              WhatsApp Us
+            </a>
+            <a
+              href="/"
+              style={{
+                padding: '0.75rem 1.25rem',
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                color: '#fff',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                border: '1px solid rgba(255,255,255,0.2)',
+              }}
+            >
+              Back to Homepage
+            </a>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -98,11 +194,6 @@ export default function RequestQuotePage() {
               gap: '0.85rem',
             }}
           >
-            {success && (
-              <div style={{ backgroundColor: 'rgba(46,125,50,0.25)', border: '1px solid #4CAF50', borderRadius: '10px', padding: '0.75rem' }}>
-                ✅ Request sent successfully.
-              </div>
-            )}
             {error && (
               <div style={{ backgroundColor: 'rgba(185,28,28,0.25)', border: '1px solid #ef4444', borderRadius: '10px', padding: '0.75rem' }}>
                 {error}
