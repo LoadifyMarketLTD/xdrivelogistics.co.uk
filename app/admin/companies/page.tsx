@@ -110,7 +110,7 @@ export default function CompaniesPage() {
       companyId: user.companyId ?? null,
       payload,
       table: 'companies',
-      rlsPolicy: 'companies_insert_by_role',
+      rlsPolicy: 'companies_insert_authenticated',
     });
     let error: { message?: string | null } | null = null;
     let createdCompanyId: string | null = null;
@@ -156,7 +156,7 @@ export default function CompaniesPage() {
         status: 'active',
       },
       table: 'company_memberships',
-      rlsPolicy: 'company_memberships_upsert_owner',
+      rlsPolicy: 'memberships_insert_admin',
     });
     if (membershipError) { setError(membershipError.message ?? 'Failed to attach owner membership.'); return; }
 

@@ -183,7 +183,7 @@ export default function DocumentsPage() {
           status: 'pending',
         },
         table: 'driver_documents',
-        rlsPolicy: 'driver_documents_company_scope',
+        rlsPolicy: 'driver_docs_all_admin',
       });
       const { error: dbError } = await supabase.from('driver_documents').insert({
         driver_id: form.subjectId, doc_type: form.docType, file_path: fileUrl,
@@ -207,7 +207,7 @@ export default function DocumentsPage() {
         companyId,
         payload,
         table: 'vehicle_documents',
-        rlsPolicy: 'vehicle_documents_company_scope',
+        rlsPolicy: 'vehicle_docs_all_admin',
       });
       while (Object.keys(payload).length > 0) {
         const insertRes = await supabase.from('vehicle_documents').insert(payload);

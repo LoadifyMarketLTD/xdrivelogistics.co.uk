@@ -182,7 +182,7 @@ export default function VehiclesPage() {
         companyId: resolvedCompanyId,
         payload: insertPayload,
         table: 'vehicles',
-        rlsPolicy: 'vehicles_company_isolation',
+        rlsPolicy: 'vehicles_insert_operator',
       });
       let createError: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null = null;
       while (Object.keys(insertPayload).length > 0) {
