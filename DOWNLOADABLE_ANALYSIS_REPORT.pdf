@@ -1,0 +1,68 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [3 0 R] >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 1750 >>
+stream
+BT
+/F1 11 Tf
+1 0 0 1 50 782 Tm (# Raport desc?rcabil - XDrive Logistics) Tj
+1 0 0 1 50 766 Tm () Tj
+1 0 0 1 50 750 Tm (## Rezumat) Tj
+1 0 0 1 50 734 Tm (Acest document a fost creat ca versiune desc?rcabil? a unei analize scurte despre) Tj
+1 0 0 1 50 718 Tm (repository.) Tj
+1 0 0 1 50 702 Tm () Tj
+1 0 0 1 50 686 Tm (## Proiect) Tj
+1 0 0 1 50 670 Tm (- Nume: XDrive Logistics Ltd website) Tj
+1 0 0 1 50 654 Tm (- Framework principal: Next.js 15) Tj
+1 0 0 1 50 638 Tm (- UI: React 19) Tj
+1 0 0 1 50 622 Tm (- Limbaj: TypeScript) Tj
+1 0 0 1 50 606 Tm (- Stilizare: Tailwind CSS) Tj
+1 0 0 1 50 590 Tm (- Componente: Radix UI) Tj
+1 0 0 1 50 574 Tm (- Validare formulare: React Hook Form + Zod) Tj
+1 0 0 1 50 558 Tm (- Backend / date: Supabase) Tj
+1 0 0 1 50 542 Tm () Tj
+1 0 0 1 50 526 Tm (## Structur? principal?) Tj
+1 0 0 1 50 510 Tm (- `/app` - pagini ?i layout-uri Next.js App Router) Tj
+1 0 0 1 50 494 Tm (- `/lib` - utilitare ?i logic? partajat?) Tj
+1 0 0 1 50 478 Tm (- `/database` - referin?? SQL consolidat?) Tj
+1 0 0 1 50 462 Tm (- `/supabase/migrations` - istoric migr?ri Supabase) Tj
+1 0 0 1 50 446 Tm (- `/public` - fi?iere statice) Tj
+1 0 0 1 50 430 Tm (- `/middleware.ts` - middleware de securitate / request handling) Tj
+1 0 0 1 50 414 Tm () Tj
+1 0 0 1 50 398 Tm (## Scripturi disponibile) Tj
+1 0 0 1 50 382 Tm (- `npm run dev`) Tj
+1 0 0 1 50 366 Tm (- `npm run build`) Tj
+1 0 0 1 50 350 Tm (- `npm run start`) Tj
+1 0 0 1 50 334 Tm (- `npm run lint`) Tj
+1 0 0 1 50 318 Tm (- `npm run typecheck`) Tj
+1 0 0 1 50 302 Tm () Tj
+1 0 0 1 50 286 Tm (## Observa?ie) Tj
+1 0 0 1 50 270 Tm (Dac? vrei, la urm?torul mesaj pot genera un raport mult mai mare în acela?i format ?i îl) Tj
+1 0 0 1 50 254 Tm (pot salva din nou ca fi?ier desc?rcabil.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000002043 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+2113
+%%EOF
