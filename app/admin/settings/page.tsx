@@ -11,6 +11,7 @@ import {
   loadCompanySettings,
 } from '../../../lib/companySettings';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
+import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 const TABS = [
   { id: 'memberCompany', label: 'Member / Company Info', icon: '🏢' },
@@ -77,25 +78,7 @@ export default function SettingsPage() {
         return;
       }
 
-      let resolvedCompanyId = user.companyId;
-
-      if (!resolvedCompanyId) {
-        const { data, error } = await supabase.rpc('get_or_create_company_for_user');
-        if (!error && data) {
-          resolvedCompanyId = data as string;
-        }
-      }
-
-      if (!resolvedCompanyId) {
-        const { data: membership } = await supabase
-          .from('company_memberships')
-          .select('company_id')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .limit(1)
-          .maybeSingle();
-        resolvedCompanyId = (membership?.company_id as string) ?? null;
-      }
+      const resolvedCompanyId = user.companyId ?? null;
 
       if (cancelled) return;
 
@@ -173,6 +156,15 @@ export default function SettingsPage() {
     };
 
     let companyError: { message?: string | null } | null = null;
+    logRuntimeProof({
+      flow: 'Save Settings',
+      authUid: user.id,
+      membershipId: user.membershipId,
+      companyId,
+      payload: companyUpdatePayload,
+      table: 'companies',
+      rlsPolicy: 'companies_update_admin',
+    });
     while (Object.keys(companyUpdatePayload).length > 0) {
       const { error } = await supabase
         .from('companies')
@@ -222,6 +214,32 @@ export default function SettingsPage() {
         notify_email_bid_received: notifForm.emailBidReceived,
         updated_by: user.id,
       });
+    logRuntimeProof({
+      flow: 'Save Settings',
+      authUid: user.id,
+      membershipId: user.membershipId,
+      companyId,
+      payload: {
+        company_id: companyId,
+        legal_name: companyForm.legalName || null,
+        job_ref_prefix: companyForm.jobRefPrefix || null,
+        invoice_prefix: companyForm.invoicePrefix || null,
+        default_vat_rate: Number(systemForm.defaultVatRate),
+        default_payment_terms: systemForm.paymentTerms || null,
+        currency: systemForm.currency || null,
+        date_format: systemForm.dateFormat || null,
+        bank_account_name: systemForm.bankAccountName || null,
+        bank_sort_code: systemForm.bankSortCode || null,
+        bank_account_number: systemForm.bankAccountNumber || null,
+        notify_email_new_job: notifForm.emailNewJob,
+        notify_email_status_change: notifForm.emailStatusChange,
+        notify_email_invoice_paid: notifForm.emailInvoicePaid,
+        notify_email_bid_received: notifForm.emailBidReceived,
+        updated_by: user.id,
+      },
+      table: 'company_settings',
+      rlsPolicy: 'company_settings_insert_operator|company_settings_update_operator',
+    });
 
     if (settingsError) {
       const migrationHint =

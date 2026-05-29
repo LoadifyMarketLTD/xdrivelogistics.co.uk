@@ -6,7 +6,7 @@ import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DriverDocument, VehicleDocument, DocStatus } from '../../../lib/types/database';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
-import { resolveActiveCompanyId } from '../../../lib/activeCompany';
+import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 interface DriverOption { id: string; display_name: string; }
 interface VehicleOption { id: string; reg_plate: string; }
@@ -55,10 +55,7 @@ export default function DocumentsPage() {
       setCompanyId(null);
       return;
     }
-    resolveActiveCompanyId({
-      userId: user.id,
-      fallbackCompanyId: user.companyId ?? null,
-    }).then((id) => setCompanyId(id));
+    setCompanyId(user.companyId ?? null);
   }, [user?.id, user?.companyId]);
 
   const loadDocs = async () => {
@@ -172,6 +169,22 @@ export default function DocumentsPage() {
     }
     const fileUrl = urlData.signedUrl;
     if (form.kind === 'driver') {
+      logRuntimeProof({
+        flow: 'Upload Documents',
+        authUid: user?.id ?? null,
+        membershipId: user?.membershipId ?? null,
+        companyId,
+        payload: {
+          driver_id: form.subjectId,
+          doc_type: form.docType,
+          file_path: fileUrl,
+          issued_date: form.issuedDate || null,
+          expiry_date: form.expiryDate || null,
+          status: 'pending',
+        },
+        table: 'driver_documents',
+        rlsPolicy: 'driver_docs_all_admin',
+      });
       const { error: dbError } = await supabase.from('driver_documents').insert({
         driver_id: form.subjectId, doc_type: form.docType, file_path: fileUrl,
         issued_date: form.issuedDate || null, expiry_date: form.expiryDate || null, status: 'pending',
@@ -187,6 +200,15 @@ export default function DocumentsPage() {
         status: 'pending',
       };
       let dbError: { message?: string | null } | null = null;
+      logRuntimeProof({
+        flow: 'Upload Documents',
+        authUid: user?.id ?? null,
+        membershipId: user?.membershipId ?? null,
+        companyId,
+        payload,
+        table: 'vehicle_documents',
+        rlsPolicy: 'vehicle_docs_all_admin',
+      });
       while (Object.keys(payload).length > 0) {
         const insertRes = await supabase.from('vehicle_documents').insert(payload);
         if (!insertRes.error) { dbError = null; break; }

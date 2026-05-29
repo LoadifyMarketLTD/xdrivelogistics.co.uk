@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth, type UserRole } from './AuthContext';
+import { isRoleAllowedForPath, mapAppRole } from '../../lib/authRole';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -12,23 +13,7 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
-
-  const inferAllowedRoles = (): UserRole[] | null => {
-    if (allowedRoles?.length) return allowedRoles;
-    if (pathname.startsWith('/admin') || pathname.startsWith('/m')) {
-      return ['company', 'admin', 'owner'];
-    }
-    if (pathname.startsWith('/driver')) {
-      return ['driver'];
-    }
-    if (pathname.startsWith('/customer')) {
-      return ['customer'];
-    }
-    return null;
-  };
-
-  const effectiveAllowedRoles = inferAllowedRoles();
+  const pathname = usePathname() || '/';
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -39,12 +24,16 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       return;
     }
 
-    if (!isLoading && user && effectiveAllowedRoles && !effectiveAllowedRoles.includes(user.role)) {
-      if (pathname !== '/forbidden') {
+    if (!isLoading && user) {
+      const role = mapAppRole(user.role);
+      const hasAccess = allowedRoles?.length
+        ? allowedRoles.includes(user.role)
+        : isRoleAllowedForPath(pathname, role);
+      if (!hasAccess && pathname !== '/forbidden') {
         router.replace('/forbidden');
       }
     }
-  }, [user, isLoading, router, effectiveAllowedRoles, pathname]);
+  }, [user, isLoading, router, allowedRoles, pathname]);
 
   if (isLoading) {
     return (
@@ -65,7 +54,12 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     return null;
   }
 
-  if (effectiveAllowedRoles && !effectiveAllowedRoles.includes(user.role)) {
+  const role = mapAppRole(user.role);
+  const hasAccess = allowedRoles?.length
+    ? allowedRoles.includes(user.role)
+    : isRoleAllowedForPath(pathname, role);
+
+  if (!hasAccess) {
     return null;
   }
 

@@ -1,0 +1,72 @@
+import { resolveAuthoritativeRole, type AppUserRole } from '@/lib/authRole';
+
+type ResolveAuthContextInput = {
+  creatorCompanyId?: string | null;
+  creatorCompanyType?: string | null;
+  driverCompanyId?: string | null;
+  fallbackRole?: string | null;
+  isDriver: boolean;
+  membershipCompanyId?: string | null;
+  membershipRole?: string | null;
+  mustChangePassword?: boolean;
+  profileCompanyId?: string | null;
+  profileRole?: string | null;
+};
+
+type ResolveAuthContextResult = {
+  companyId: string | null;
+  mustChangePassword: boolean;
+  profileRole: string | null;
+  role: AppUserRole | null;
+};
+
+const normalizeId = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized || null;
+};
+
+export const resolveAuthContext = ({
+  creatorCompanyId,
+  creatorCompanyType,
+  driverCompanyId,
+  fallbackRole,
+  isDriver,
+  membershipCompanyId,
+  membershipRole,
+  mustChangePassword = false,
+  profileCompanyId,
+  profileRole,
+}: ResolveAuthContextInput): ResolveAuthContextResult => {
+  const resolvedRole = resolveAuthoritativeRole({
+    membershipRole,
+    profileRole,
+    isDriver,
+    hasCreatedCompany: Boolean(normalizeId(creatorCompanyId)),
+    creatorCompanyType,
+    fallbackRole,
+  });
+
+  const companyId =
+    normalizeId(profileCompanyId) ??
+    normalizeId(membershipCompanyId) ??
+    normalizeId(driverCompanyId) ??
+    normalizeId(creatorCompanyId) ??
+    null;
+
+  if (!resolvedRole) {
+    return {
+      role: null,
+      companyId,
+      mustChangePassword: false,
+      profileRole: typeof profileRole === 'string' ? profileRole : null,
+    };
+  }
+
+  return {
+    role: resolvedRole,
+    companyId,
+    mustChangePassword: resolvedRole === 'driver' ? mustChangePassword : false,
+    profileRole: typeof profileRole === 'string' ? profileRole : null,
+  };
+};
