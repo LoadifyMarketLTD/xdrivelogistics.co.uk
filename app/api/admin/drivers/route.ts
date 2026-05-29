@@ -19,6 +19,48 @@ const isInvalidApiKeyError = (message?: string | null, code?: string | null) => 
   return value.includes('invalid api key');
 };
 
+const TEMP_PASSWORD_CHARSETS = {
+  upper: 'ABCDEFGHJKLMNPQRSTUVWXYZ',
+  lower: 'abcdefghijkmnopqrstuvwxyz',
+  digits: '23456789',
+  symbols: '!@#$%^&*()-_=+',
+};
+
+const getRandomInt = (maxExclusive: number) => {
+  const bytes = new Uint32Array(1);
+  crypto.getRandomValues(bytes);
+  return bytes[0] % maxExclusive;
+};
+
+const shuffle = (chars: string[]) => {
+  for (let i = chars.length - 1; i > 0; i -= 1) {
+    const j = getRandomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars;
+};
+
+const generateStrongTemporaryPassword = (length = 20) => {
+  const all =
+    TEMP_PASSWORD_CHARSETS.upper +
+    TEMP_PASSWORD_CHARSETS.lower +
+    TEMP_PASSWORD_CHARSETS.digits +
+    TEMP_PASSWORD_CHARSETS.symbols;
+
+  const chars = [
+    TEMP_PASSWORD_CHARSETS.upper[getRandomInt(TEMP_PASSWORD_CHARSETS.upper.length)],
+    TEMP_PASSWORD_CHARSETS.lower[getRandomInt(TEMP_PASSWORD_CHARSETS.lower.length)],
+    TEMP_PASSWORD_CHARSETS.digits[getRandomInt(TEMP_PASSWORD_CHARSETS.digits.length)],
+    TEMP_PASSWORD_CHARSETS.symbols[getRandomInt(TEMP_PASSWORD_CHARSETS.symbols.length)],
+  ];
+
+  while (chars.length < length) {
+    chars.push(all[getRandomInt(all.length)]);
+  }
+
+  return shuffle(chars).join('');
+};
+
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return NextResponse.json({ error: 'Server auth is not configured.' }, { status: 503 });
@@ -143,6 +185,7 @@ export async function POST(request: NextRequest) {
   let userId: string | null = null;
   let invited = true;
   let temporaryPassword: string | null = null;
+  let inviteFallbackReason: string | null = null;
 
   const { data: invitedUserData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${getResetPasswordEmailRedirectTo()}?type=invite`,
@@ -156,7 +199,8 @@ export async function POST(request: NextRequest) {
     userId = invitedUserData.user.id;
   } else if (isInvalidApiKeyError(inviteError?.message, inviteError?.code)) {
     invited = false;
-    temporaryPassword = `Drv-${crypto.randomUUID()}!A1`;
+    inviteFallbackReason = 'Supabase Auth invite provider returned invalid API key.';
+    temporaryPassword = generateStrongTemporaryPassword();
     const { data: createdUserData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: temporaryPassword,
@@ -172,7 +216,9 @@ export async function POST(request: NextRequest) {
 
     if (createUserError || !createdUserData.user) {
       return NextResponse.json(
-        { error: createUserError?.message || 'Failed to create driver auth user.' },
+        {
+          error: `Invite email provider API key is invalid. Fallback user creation failed: ${createUserError?.message || 'Failed to create driver auth user.'}`,
+        },
         { status: 400 }
       );
     }
@@ -254,6 +300,7 @@ export async function POST(request: NextRequest) {
       driver: driverRow,
       invited,
       temporaryPassword,
+      inviteFallbackReason,
     },
     { status: 201 }
   );
