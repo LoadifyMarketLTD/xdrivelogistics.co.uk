@@ -1,14 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { resolveAuthoritativeRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './lib/authRole';
-
-type UserRole = 'customer' | 'driver' | 'company' | 'admin' | 'owner';
+import { isRoleAllowedForPath, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './lib/authRole';
+import { resolveAuthContext } from './lib/authContextResolver';
 
 const PROTECTED_PREFIXES = ['/admin', '/m', '/driver', '/customer'] as const;
-const ADMIN_ROLES = new Set<UserRole>(['company', 'admin', 'owner']);
-const MOBILE_ROLES = new Set<UserRole>(['company', 'admin', 'owner']);
-const DRIVER_ROLES = new Set<UserRole>(['driver']);
-const CUSTOMER_ROLES = new Set<UserRole>(['customer']);
 const SUPABASE_AUTH_TIMEOUT_MS = 5_000;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? '';
@@ -101,7 +96,12 @@ const fetchRoleSnapshot = async (
   token: string,
   userId: string,
   fallbackRole: string | null
-): Promise<{ status: 'ok' | 'unauthenticated' | 'error'; role: UserRole | null; companyId: string | null; mustChangePassword: boolean }> => {
+): Promise<{
+  status: 'ok' | 'unauthenticated' | 'error';
+  role: ReturnType<typeof resolveAuthContext>['role'];
+  companyId: string | null;
+  mustChangePassword: boolean;
+}> => {
   if (!supabaseUrl || !supabaseAnonKey) {
     return { status: 'error', role: null, companyId: null, mustChangePassword: false };
   }
@@ -194,28 +194,28 @@ const fetchRoleSnapshot = async (
   const creatorCompany = creatorCompanyRes.type === 'ok' ? (creatorCompanyRes.rows?.[0] ?? null) : null;
   const mustChangePassword = driver?.must_change_password === true;
 
-  const role = resolveAuthoritativeRole({
+  const resolvedContext = resolveAuthContext({
     membershipRole: typeof membership?.role_in_company === 'string' ? membership.role_in_company : null,
     profileRole: typeof profile?.role === 'string' ? profile.role : null,
     isDriver: Boolean(driver) || profile?.is_driver === true,
-    hasCreatedCompany: Boolean(creatorCompany),
     creatorCompanyType: typeof creatorCompany?.company_type === 'string' ? creatorCompany.company_type : null,
     fallbackRole,
+    profileCompanyId: typeof profile?.company_id === 'string' ? profile.company_id : null,
+    membershipCompanyId: typeof membership?.company_id === 'string' ? membership.company_id : null,
+    driverCompanyId: typeof driver?.company_id === 'string' ? driver.company_id : null,
+    creatorCompanyId: typeof creatorCompany?.id === 'string' ? creatorCompany.id : null,
+    mustChangePassword,
   });
 
-  let companyId =
-    (typeof profile?.company_id === 'string' && profile.company_id) ||
-    (typeof membership?.company_id === 'string' && membership.company_id) ||
-    (typeof driver?.company_id === 'string' && driver.company_id) ||
-    (typeof creatorCompany?.id === 'string' && creatorCompany.id) ||
-    null;
+  let role = resolvedContext.role;
+  let companyId = resolvedContext.companyId;
 
   if (
     !companyId &&
     role &&
     shouldAutoProvisionCompany({
       fallbackRole,
-      profileRole: typeof profile?.role === 'string' ? profile.role : null,
+      profileRole: resolvedContext.profileRole,
     })
   ) {
     const provisionRes = await callRpc('get_or_create_company_for_user');
@@ -238,16 +238,7 @@ const fetchRoleSnapshot = async (
     return { status: 'ok', role: null, companyId: null, mustChangePassword: false };
   }
 
-  return { status: 'ok', role, companyId, mustChangePassword: role === 'driver' ? mustChangePassword : false };
-};
-
-const isAllowedForRoute = (pathname: string, role: UserRole | null): boolean => {
-  if (!role) return false;
-  if (pathname.startsWith('/admin')) return ADMIN_ROLES.has(role);
-  if (pathname.startsWith('/driver')) return DRIVER_ROLES.has(role);
-  if (pathname.startsWith('/m')) return MOBILE_ROLES.has(role);
-  if (pathname.startsWith('/customer')) return CUSTOMER_ROLES.has(role);
-  return true;
+  return { status: 'ok', role, companyId, mustChangePassword: resolvedContext.mustChangePassword };
 };
 
 const redirectToForbidden = (request: NextRequest) => {
@@ -349,7 +340,7 @@ export async function middleware(request: NextRequest) {
     return allowRequest();
   }
 
-  if (!isAllowedForRoute(pathname, snapshot.role)) {
+  if (!isRoleAllowedForPath(pathname, snapshot.role)) {
     return withSecurityHeaders(redirectToForbidden(request), nonce, cspHeader);
   }
 

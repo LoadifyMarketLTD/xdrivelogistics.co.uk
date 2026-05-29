@@ -1,4 +1,5 @@
-import { mapAppRole, resolveAuthoritativeRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './authRole';
+import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './authRole';
+import { resolveAuthContext } from './authContextResolver';
 import { supabase } from './supabaseClient';
 import type { CompanyMembership, Driver, Profile } from './types/database';
 
@@ -249,14 +250,21 @@ export const resolveAuthenticatedUser = async (
     }
   }
 
-  const resolvedRole = resolveAuthoritativeRole({
+  const resolvedContext = resolveAuthContext({
     membershipRole: membership?.role_in_company ?? null,
     profileRole: profile?.role ?? null,
     isDriver: Boolean(driver) || profile?.is_driver === true,
-    hasCreatedCompany: Boolean(creatorCompany),
     creatorCompanyType: creatorCompany?.company_type ?? null,
     fallbackRole,
+    profileCompanyId: profile?.company_id ?? null,
+    membershipCompanyId: membership?.company_id ?? null,
+    driverCompanyId: driver?.company_id ?? null,
+    creatorCompanyId: creatorCompany?.id ?? null,
+    mustChangePassword,
   });
+
+  companyId = resolvedContext.companyId;
+  const resolvedRole = resolvedContext.role;
 
   if (resolvedRole) {
     if (roleRequiresCompanyContext(resolvedRole) && !companyId) {
