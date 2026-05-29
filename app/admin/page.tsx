@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../components/AuthContext';

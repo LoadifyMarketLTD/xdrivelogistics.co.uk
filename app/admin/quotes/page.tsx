@@ -17,7 +17,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   declined: { bg: '#fee2e2', text: '#991b1b' },
 };
 
-const QUOTE_TABS = [
+const QUOTE_TABS: Array<{ id: string; label: string; statuses: string[] }> = [
   { id: 'received', label: 'Received', statuses: ['draft'] },
   { id: 'submitted', label: 'Submitted', statuses: ['sent'] },
   { id: 'accepted', label: 'Accepted / Won', statuses: ['accepted'] },
@@ -40,7 +40,7 @@ export default function QuotesPage() {
     amount: '', currency: 'GBP',
   });
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<(typeof QUOTE_TABS)[number]['id']>('received');
+  const [activeTab, setActiveTab] = useState('received');
   const [searchTerm, setSearchTerm] = useState('');
   const [vehicleFilter, setVehicleFilter] = useState('all');
 
@@ -178,8 +178,8 @@ export default function QuotesPage() {
 
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
   const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
-  const activeStatuses = QUOTE_TABS.find((tab) => tab.id === activeTab)?.statuses ?? [];
   const filteredQuotes = useMemo(() => {
+    const activeStatuses = QUOTE_TABS.find((tab) => tab.id === activeTab)?.statuses ?? [];
     return quotes.filter((quote) => {
       if (!activeStatuses.includes((quote.status || '').toLowerCase())) return false;
       if (vehicleFilter !== 'all' && quote.vehicle_type !== vehicleFilter) return false;
@@ -194,7 +194,7 @@ export default function QuotesPage() {
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(term));
     });
-  }, [quotes, activeStatuses, vehicleFilter, searchTerm]);
+  }, [quotes, activeTab, vehicleFilter, searchTerm]);
 
   return (
     <ProtectedRoute>
