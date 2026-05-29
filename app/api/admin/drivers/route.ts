@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       role_in_company: resolvedMembership.role_in_company,
     },
     table: 'drivers',
-    rlsPolicy: 'drivers_insert_company_member',
+    rlsPolicy: 'drivers_insert_operator',
   });
 
   const { data: invitedUserData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {

@@ -163,7 +163,7 @@ export default function SettingsPage() {
       companyId,
       payload: companyUpdatePayload,
       table: 'companies',
-      rlsPolicy: 'companies_update_company_member',
+      rlsPolicy: 'companies_update_admin',
     });
     while (Object.keys(companyUpdatePayload).length > 0) {
       const { error } = await supabase
@@ -238,7 +238,7 @@ export default function SettingsPage() {
         updated_by: user.id,
       },
       table: 'company_settings',
-      rlsPolicy: 'company_settings_upsert_company_member',
+      rlsPolicy: 'company_settings_insert_operator|company_settings_update_operator',
     });
 
     if (settingsError) {

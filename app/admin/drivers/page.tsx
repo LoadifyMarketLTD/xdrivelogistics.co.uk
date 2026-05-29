@@ -182,7 +182,7 @@ export default function DriversPage() {
     }
     setFormData((prev) => ({ ...prev, company_id: companyId }));
     void Promise.all([loadDrivers(companyId), loadCompanies(companyId)]);
-  }, [companyResolved, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [companyResolved, companyId]);
 
   const getAccessToken = async (): Promise<{ accessToken: string | null; error: string | null }> => {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -250,7 +250,7 @@ export default function DriversPage() {
         companyId: selectedCompanyId,
         payload: requestPayload,
         table: 'drivers',
-        rlsPolicy: 'drivers_insert_company_member',
+        rlsPolicy: 'drivers_insert_operator',
       });
 
       let response = await createDriverWithToken(accessToken, requestPayload);
