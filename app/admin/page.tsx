@@ -150,39 +150,37 @@ const DEFAULT_DASHBOARD: DashboardState = {
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/admin' },
+  { id: 'diary', label: 'Diary / Operations', icon: '🗓️', href: '/admin/diary' },
+  { id: 'fleet', label: 'Fleet', icon: '🧭', href: '/admin/fleet' },
   { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
   { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
-  { id: 'companies', label: 'Companies', icon: '🏢', href: '/admin/companies' },
-  { id: 'drivers', label: 'Drivers', icon: '🚚', href: '/admin/drivers' },
-  { id: 'vehicles', label: 'Vehicles', icon: '🚛', href: '/admin/vehicles' },
-  { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
-  { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
   { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
+  { id: 'driversVehicles', label: 'Drivers & Vehicles', icon: '🚚', href: '/admin/drivers-vehicles' },
   { id: 'settings', label: 'Settings', icon: '⚙️', href: '/admin/settings' },
 ];
 
 const quickActionTiles = [
   {
-    title: 'Post a new job',
-    description: 'Create new delivery work and allocate it faster.',
-    href: '/admin/jobs',
-    icon: '📦',
-    background: '#1F7A3D',
-    color: 'white',
-    border: '#1F7A3D',
+    title: 'Open diary',
+    description: 'Work live allocations and in-progress jobs.',
+    href: '/admin/diary',
+    icon: '🗓️',
+    background: '#ecfdf5',
+    color: '#166534',
+    border: '#86efac',
   },
   {
-    title: 'Review incoming bids',
-    description: 'Compare subcontractor prices and award the best fit.',
-    href: '/admin/bids',
-    icon: '💼',
+    title: 'Manage loads',
+    description: 'Review pickup/delivery jobs and dispatch actions.',
+    href: '/admin/jobs',
+    icon: '📦',
     background: '#eff6ff',
     color: '#1d4ed8',
     border: '#bfdbfe',
   },
   {
-    title: 'Chase pending quotes',
-    description: 'Follow up open pricing requests before they go stale.',
+    title: 'Action quotes',
+    description: 'Review received, submitted and won quotes.',
     href: '/admin/quotes',
     icon: '💬',
     background: '#fff7ed',
@@ -190,17 +188,17 @@ const quickActionTiles = [
     border: '#fed7aa',
   },
   {
-    title: 'Protect compliance',
-    description: 'Check driver and vehicle documents needing attention.',
-    href: '/admin/documents',
-    icon: '📄',
-    background: '#fdf2f8',
-    color: '#be185d',
-    border: '#fbcfe8',
+    title: 'Track fleet',
+    description: 'See vehicle status and latest tracked positions.',
+    href: '/admin/fleet',
+    icon: '🧭',
+    background: '#eef2ff',
+    color: '#4338ca',
+    border: '#c7d2fe',
   },
   {
-    title: 'Collect faster',
-    description: 'See invoices and act on overdue payments.',
+    title: 'Review invoices',
+    description: 'Focus on outstanding and overdue finance items.',
     href: '/admin/invoices',
     icon: '💰',
     background: '#ecfdf5',
@@ -208,13 +206,13 @@ const quickActionTiles = [
     border: '#a7f3d0',
   },
   {
-    title: 'Manage fleet',
-    description: 'Review drivers, vehicles, and resource coverage.',
-    href: '/admin/vehicles',
-    icon: '🚛',
-    background: '#eef2ff',
-    color: '#4338ca',
-    border: '#c7d2fe',
+    title: 'Drivers & vehicles',
+    description: 'Manage users, company vehicles and tracking.',
+    href: '/admin/drivers-vehicles',
+    icon: '🚚',
+    background: '#f5f3ff',
+    color: '#6d28d9',
+    border: '#ddd6fe',
   },
 ];
 
@@ -715,50 +713,6 @@ export default function AdminPage() {
     };
   }, [companyResolved, resolvedCompanyId]);
 
-  const reportRows = useMemo(() => {
-    const now = new Date();
-    return [
-      [`${COMPANY_CONFIG.legalName} — Company Dashboard Report`],
-      [`Date: ${now.toLocaleDateString('en-GB')}`, `Time: ${now.toLocaleTimeString('en-GB')}`],
-      [''],
-      ['OVERVIEW'],
-      ['Metric', 'Value'],
-      ['Active Jobs', String(dashboard.overview.activeJobs)],
-      ['Pending Quotes', String(dashboard.overview.pendingQuotes)],
-      ['Active Drivers', String(dashboard.overview.activeDrivers)],
-      ['Completed Today', String(dashboard.overview.completedToday)],
-      [''],
-      ['OPERATIONS'],
-      ['Posted', String(dashboard.jobsByStatus.posted)],
-      ['Allocated', String(dashboard.jobsByStatus.allocated)],
-      ['In Transit', String(dashboard.jobsByStatus.inTransit)],
-      ['Delivered', String(dashboard.jobsByStatus.delivered)],
-      [''],
-      ['FINANCE'],
-      ['Outstanding Invoices', String(dashboard.finance.outstandingInvoices)],
-      ['Overdue Invoices', String(dashboard.finance.overdueInvoices)],
-      ['Outstanding Revenue', formatCurrency(dashboard.finance.outstandingRevenue)],
-      [''],
-      ['COMPLIANCE'],
-      ['Pending Verification', String(dashboard.compliance.pendingDocs)],
-      ['Expiring in 30 Days', String(dashboard.compliance.expiringSoon)],
-      ['Attention Required', String(dashboard.compliance.attentionRequired)],
-    ];
-  }, [dashboard]);
-
-  const generateReport = () => {
-    const csv = reportRows.map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `xdrive-dashboard-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
   const overviewCards = [
     {
       label: 'Active Jobs',
@@ -788,6 +742,20 @@ export default function AdminPage() {
       color: ENTERPRISE_THEME.colors.success,
       subtitle: 'Delivery confirmations closed today',
     },
+    {
+      label: 'Outstanding Revenue',
+      value: formatCurrency(dashboard.finance.outstandingRevenue),
+      icon: '💷',
+      color: ENTERPRISE_THEME.colors.warning,
+      subtitle: 'Open invoice value to collect',
+    },
+    {
+      label: 'Compliance Alerts',
+      value: dashboard.compliance.attentionRequired,
+      icon: '🛡️',
+      color: ENTERPRISE_THEME.colors.danger,
+      subtitle: 'Blocked or expired compliance documents',
+    },
   ];
 
   const sectionCardStyle: CSSProperties = {
@@ -797,41 +765,6 @@ export default function AdminPage() {
     border: `1px solid ${ENTERPRISE_THEME.cardBorder}`,
     boxShadow: ENTERPRISE_THEME.cardShadow,
   };
-
-  const invoicePressureLevel =
-    dashboard.finance.overdueInvoices >= 5
-      ? { label: 'Critical', color: ENTERPRISE_THEME.colors.danger, bg: '#fef2f2' }
-      : dashboard.finance.overdueInvoices >= 2
-        ? { label: 'Monitor', color: ENTERPRISE_THEME.colors.warning, bg: '#fff7ed' }
-        : { label: 'Stable', color: ENTERPRISE_THEME.colors.success, bg: '#ecfdf5' };
-
-  const quotePressureLevel =
-    dashboard.overview.pendingQuotes >= 8
-      ? { label: 'High queue', color: ENTERPRISE_THEME.colors.warning, bg: '#fff7ed' }
-      : dashboard.overview.pendingQuotes >= 3
-        ? { label: 'Normal queue', color: ENTERPRISE_THEME.colors.live, bg: '#eff6ff' }
-        : { label: 'Low queue', color: ENTERPRISE_THEME.colors.success, bg: '#ecfdf5' };
-
-  const operationalAlerts = [
-    {
-      id: 'alert-overdue',
-      title: 'Overdue invoices',
-      state: dashboard.finance.overdueInvoices > 0 ? 'Attention required' : 'No overdue debt',
-      color: dashboard.finance.overdueInvoices > 0 ? ENTERPRISE_THEME.colors.danger : ENTERPRISE_THEME.colors.success,
-    },
-    {
-      id: 'alert-compliance',
-      title: 'Compliance watchlist',
-      state: dashboard.compliance.attentionRequired > 0 ? 'Documents blocked/expired' : 'No blocked docs',
-      color: dashboard.compliance.attentionRequired > 0 ? ENTERPRISE_THEME.colors.warning : ENTERPRISE_THEME.colors.success,
-    },
-    {
-      id: 'alert-coverage',
-      title: 'Driver coverage',
-      state: dashboard.resources.driverCoverageGap > 0 ? `${dashboard.resources.driverCoverageGap} jobs above active driver pool` : 'Coverage balanced',
-      color: dashboard.resources.driverCoverageGap > 0 ? ENTERPRISE_THEME.colors.driverQuote : ENTERPRISE_THEME.colors.success,
-    },
-  ];
 
   return (
     <ProtectedRoute>
@@ -958,15 +891,15 @@ export default function AdminPage() {
           )}
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
             <div>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Operations Control Centre</h2>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Dashboard</h2>
               <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: 0, maxWidth: '760px', fontSize: '0.86rem' }}>
-                Live dispatch, finance and compliance command board aligned to courier exchange workflows.
+                Snapshot of today’s activity with quick links to operational pages.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
               <button
                 className="panel-button"
-                onClick={() => router.push('/admin/jobs')}
+                onClick={() => router.push('/admin/diary')}
                 style={{
                   padding: '0.58rem 0.95rem',
                   backgroundColor: ENTERPRISE_THEME.colors.success,
@@ -978,23 +911,7 @@ export default function AdminPage() {
                   color: 'white',
                 }}
               >
-                📦 Open Dispatch Board
-              </button>
-              <button
-                className="panel-button"
-                onClick={generateReport}
-                style={{
-                  padding: '0.58rem 0.95rem',
-                  backgroundColor: '#e0f2fe',
-                  border: '1px solid #7dd3fc',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '0.83rem',
-                  fontWeight: '600',
-                  color: '#075985',
-                }}
-              >
-                📊 Export Ops Report
+                🗓️ Open Diary
               </button>
             </div>
           </div>
@@ -1042,123 +959,12 @@ export default function AdminPage() {
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
-            <section style={sectionCardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Operations board</h3>
-                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Dispatch state by live status lane.</p>
-                </div>
-                <button className="link-button" onClick={() => router.push('/admin/jobs')} style={{ background: 'none', border: 'none', color: ENTERPRISE_THEME.colors.live, fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}>View jobs</button>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.55rem', marginBottom: '0.7rem' }}>
-                {[
-                  { label: 'Posted', value: dashboard.jobsByStatus.posted, color: ENTERPRISE_THEME.colors.live },
-                  { label: 'Allocated', value: dashboard.jobsByStatus.allocated, color: ENTERPRISE_THEME.colors.driverQuote },
-                  { label: 'In transit', value: dashboard.jobsByStatus.inTransit, color: ENTERPRISE_THEME.colors.warning },
-                  { label: 'Delivered', value: dashboard.jobsByStatus.delivered, color: ENTERPRISE_THEME.colors.success },
-                ].map((item) => (
-                  <div key={item.label} style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '0.58rem', minHeight: '69px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '0.74rem', color: '#64748b', marginBottom: '0.18rem' }}>{item.label}</div>
-                    <div style={{ fontSize: '1.16rem', fontWeight: '700', color: item.color }}>{dashboardLoading ? '…' : item.value}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.6rem', display: 'grid', gap: '0.45rem' }}>
-                <div style={{ fontSize: '0.76rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.text }}>Driver / vehicle quick states</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.45rem' }}>
-                  <div style={{ backgroundColor: '#eff6ff', borderRadius: '8px', padding: '0.45rem' }}>
-                    <div style={{ fontSize: '0.68rem', color: ENTERPRISE_THEME.colors.live }}>Active drivers</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.live }}>{dashboardLoading ? '…' : dashboard.overview.activeDrivers}</div>
-                  </div>
-                  <div style={{ backgroundColor: '#eef2ff', borderRadius: '8px', padding: '0.45rem' }}>
-                    <div style={{ fontSize: '0.68rem', color: ENTERPRISE_THEME.colors.driverQuote }}>Fleet units</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.driverQuote }}>{dashboardLoading ? '…' : dashboard.resources.fleetUnits}</div>
-                  </div>
-                  <div style={{ backgroundColor: '#fff7ed', borderRadius: '8px', padding: '0.45rem' }}>
-                    <div style={{ fontSize: '0.68rem', color: ENTERPRISE_THEME.colors.warning }}>Coverage gap</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.warning }}>{dashboardLoading ? '…' : dashboard.resources.driverCoverageGap}</div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section style={sectionCardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Finance overview</h3>
-                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Cashflow exposure and billing pressure.</p>
-                </div>
-                <button className="link-button" onClick={() => router.push('/admin/invoices')} style={{ background: 'none', border: 'none', color: ENTERPRISE_THEME.colors.live, fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}>View invoices</button>
-              </div>
-              <div style={{ display: 'grid', gap: '0.55rem' }}>
-                <div style={{ backgroundColor: '#ecfdf5', borderRadius: '8px', padding: '0.62rem', border: '1px solid #bbf7d0' }}>
-                  <div style={{ fontSize: '0.73rem', color: '#047857' }}>Outstanding revenue</div>
-                  <div style={{ fontSize: '1.24rem', fontWeight: '700', color: '#065f46', marginTop: '0.12rem' }}>{dashboardLoading ? '…' : formatCurrency(dashboard.finance.outstandingRevenue)}</div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.55rem' }}>
-                  <div style={{ backgroundColor: '#fff7ed', borderRadius: '8px', padding: '0.62rem', border: '1px solid #fed7aa' }}>
-                    <div style={{ fontSize: '0.73rem', color: '#c2410c' }}>Outstanding invoices</div>
-                    <div style={{ fontSize: '1.08rem', fontWeight: '700', color: '#9a3412', marginTop: '0.1rem' }}>{dashboardLoading ? '…' : dashboard.finance.outstandingInvoices}</div>
-                  </div>
-                  <div style={{ backgroundColor: '#fef2f2', borderRadius: '8px', padding: '0.62rem', border: '1px solid #fecaca' }}>
-                    <div style={{ fontSize: '0.73rem', color: '#b91c1c' }}>Overdue invoices</div>
-                    <div style={{ fontSize: '1.08rem', fontWeight: '700', color: '#991b1b', marginTop: '0.1rem' }}>{dashboardLoading ? '…' : dashboard.finance.overdueInvoices}</div>
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.55rem' }}>
-                  <div style={{ borderRadius: '8px', backgroundColor: invoicePressureLevel.bg, padding: '0.62rem', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '0.7rem', color: ENTERPRISE_THEME.colors.muted }}>Invoice pressure</div>
-                    <div style={{ marginTop: '0.12rem', fontWeight: 700, color: invoicePressureLevel.color, fontSize: '0.95rem' }}>{invoicePressureLevel.label}</div>
-                  </div>
-                  <div style={{ borderRadius: '8px', backgroundColor: quotePressureLevel.bg, padding: '0.62rem', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '0.7rem', color: ENTERPRISE_THEME.colors.muted }}>Quote pressure</div>
-                    <div style={{ marginTop: '0.12rem', fontWeight: 700, color: quotePressureLevel.color, fontSize: '0.95rem' }}>{quotePressureLevel.label}</div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section style={sectionCardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Compliance watchlist</h3>
-                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Audit readiness and expiry signals.</p>
-                </div>
-                <button className="link-button" onClick={() => router.push('/admin/documents')} style={{ background: 'none', border: 'none', color: ENTERPRISE_THEME.colors.live, fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}>View documents</button>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.55rem', marginBottom: '0.65rem' }}>
-                {[
-                  { label: 'Pending', value: dashboard.compliance.pendingDocs, bg: '#eff6ff', color: '#1d4ed8' },
-                  { label: 'Expiring soon', value: dashboard.compliance.expiringSoon, bg: '#fff7ed', color: '#c2410c' },
-                  { label: 'Attention', value: dashboard.compliance.attentionRequired, bg: '#fef2f2', color: '#b91c1c' },
-                ].map((item) => (
-                  <div key={item.label} style={{ backgroundColor: item.bg, borderRadius: '8px', padding: '0.58rem', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '0.72rem', color: item.color }}>{item.label}</div>
-                    <div style={{ fontSize: '1.02rem', fontWeight: '700', color: item.color, marginTop: '0.1rem' }}>{dashboardLoading ? '…' : item.value}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.58rem' }}>
-                <div style={{ fontSize: '0.76rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.text, marginBottom: '0.44rem' }}>Operational alerts</div>
-                <div style={{ display: 'grid', gap: '0.35rem' }}>
-                  {operationalAlerts.map((alert) => (
-                    <div key={alert.id} style={{ borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', padding: '0.45rem 0.56rem', display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.72rem', color: ENTERPRISE_THEME.colors.muted }}>{alert.title}</span>
-                      <span style={{ fontSize: '0.72rem', color: alert.color, fontWeight: 700, textAlign: 'right' }}>{dashboardLoading ? '…' : alert.state}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(300px, 1fr)', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          <div style={{ marginBottom: '0.75rem' }}>
             <section style={sectionCardStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.68rem' }}>
                 <div>
-                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Live activity feed</h3>
-                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Recent operational activity across jobs, quotes, invoices and bids.</p>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Latest activity</h3>
+                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Recent activity across jobs, quotes, invoices and bids.</p>
                 </div>
               </div>
               {dashboard.activity.length === 0 ? (
@@ -1193,32 +999,6 @@ export default function AdminPage() {
                   ))}
                 </div>
               )}
-            </section>
-
-            <section style={sectionCardStyle}>
-              <div style={{ marginBottom: '0.68rem' }}>
-                <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Exchange snapshot</h3>
-                <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Operational pressure and commercial conversion view.</p>
-              </div>
-              <div style={{ display: 'grid', gap: '0.5rem' }}>
-                {[
-                  { label: 'Incoming bids', value: dashboard.market.incomingBids, detail: 'New subcontractor responses', bg: '#eff6ff', color: '#1d4ed8' },
-                  { label: 'Accepted quotes', value: dashboard.market.acceptedQuotes, detail: 'Won work ready for fulfilment', bg: '#ecfdf5', color: '#047857' },
-                  { label: 'Recent invoice value', value: formatCurrency(dashboard.market.recentInvoiceValue), detail: 'Latest billing generated', bg: '#fefce8', color: '#a16207' },
-                  { label: 'Delivery backlog', value: dashboard.market.deliveryBacklog, detail: 'Active jobs plus open quotes', bg: '#fff7ed', color: '#c2410c' },
-                  { label: 'Quotes awaiting approval', value: dashboard.resources.pendingQuoteApprovals, detail: 'Sent quotes pending customer decision', bg: '#f5f3ff', color: '#7c3aed' },
-                ].map((item) => (
-                  <div key={item.label} style={{ backgroundColor: item.bg, borderRadius: '8px', padding: '0.58rem', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                      <div>
-                        <div style={{ fontSize: '0.76rem', color: item.color, fontWeight: '700' }}>{item.label}</div>
-                        <div style={{ fontSize: '0.69rem', color: item.color, opacity: 0.82, marginTop: '0.1rem' }}>{item.detail}</div>
-                      </div>
-                      <div style={{ fontSize: '1.02rem', color: item.color, fontWeight: '700' }}>{dashboardLoading ? '…' : item.value}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </section>
           </div>
 

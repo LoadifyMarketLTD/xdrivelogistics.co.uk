@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
@@ -16,6 +16,13 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   accepted: { bg: '#d1fae5', text: '#065f46' },
   declined: { bg: '#fee2e2', text: '#991b1b' },
 };
+
+const QUOTE_TABS = [
+  { id: 'received', label: 'Received', statuses: ['draft'] },
+  { id: 'submitted', label: 'Submitted', statuses: ['sent'] },
+  { id: 'accepted', label: 'Accepted / Won', statuses: ['accepted'] },
+  { id: 'rejected', label: 'Rejected / Archived', statuses: ['declined'] },
+] as const;
 
 export default function QuotesPage() {
   const { user, hasSupabaseSession } = useAuth();
@@ -33,6 +40,9 @@ export default function QuotesPage() {
     amount: '', currency: 'GBP',
   });
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<(typeof QUOTE_TABS)[number]['id']>('received');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [vehicleFilter, setVehicleFilter] = useState('all');
 
   const loadCompanyId = async (userId: string) => {
     // bootstrap_company_membership() returns profiles.company_id and ensures
@@ -168,6 +178,23 @@ export default function QuotesPage() {
 
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
   const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
+  const activeStatuses = QUOTE_TABS.find((tab) => tab.id === activeTab)?.statuses ?? [];
+  const filteredQuotes = useMemo(() => {
+    return quotes.filter((quote) => {
+      if (!activeStatuses.includes((quote.status || '').toLowerCase())) return false;
+      if (vehicleFilter !== 'all' && quote.vehicle_type !== vehicleFilter) return false;
+      if (!searchTerm.trim()) return true;
+      const term = searchTerm.trim().toLowerCase();
+      return [
+        quote.customer_name,
+        quote.pickup_location,
+        quote.delivery_location,
+        quote.customer_email,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
+    });
+  }, [quotes, activeStatuses, vehicleFilter, searchTerm]);
 
   return (
     <ProtectedRoute>
@@ -189,13 +216,53 @@ export default function QuotesPage() {
             </div>
           )}
 
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '1rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.85rem' }}>
+              {QUOTE_TABS.map((tab) => {
+                const count = quotes.filter((quote) => tab.statuses.includes((quote.status || '').toLowerCase())).length;
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    style={{
+                      padding: '0.5rem 0.8rem',
+                      borderRadius: '8px',
+                      border: active ? '1px solid #2563eb' : '1px solid #d1d5db',
+                      backgroundColor: active ? '#eff6ff' : '#fff',
+                      color: active ? '#1d4ed8' : '#374151',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {tab.label} ({count})
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.75rem' }}>
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search customer, pickup or delivery..."
+                style={{ ...inputStyle }}
+              />
+              <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={{ ...inputStyle }}>
+                <option value="all">All vehicle types</option>
+                {VEHICLE_TYPES.map((type) => (
+                  <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
             {loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
-            ) : quotes.length === 0 ? (
+            ) : filteredQuotes.length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💬</div>
-                <p>No quotes yet. Create your first quote.</p>
+                <p>No quotes in this tab yet.</p>
               </div>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -207,7 +274,7 @@ export default function QuotesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {quotes.map((q, i) => {
+                  {filteredQuotes.map((q, i) => {
                     const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
                     return (
                       <tr key={q.id} style={{ borderBottom: i < quotes.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
