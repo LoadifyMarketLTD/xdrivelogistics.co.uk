@@ -148,7 +148,6 @@ export default function VehiclesPage() {
 
   const handleCreate = async () => {
     if (!companyId) { setError('Company is required'); return; }
-    if (!user?.membershipId) { setError('Membership context is required. Please sign in again.'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     const payloadKg = formData.payload_kg ? Number.parseFloat(formData.payload_kg) : null;
     if (payloadKg !== null && (!Number.isFinite(payloadKg) || payloadKg < 0)) {
@@ -177,7 +176,7 @@ export default function VehiclesPage() {
       logRuntimeProof({
         flow: 'Add Vehicle',
         authUid: user?.id ?? null,
-        membershipId: user.membershipId,
+        membershipId: user?.membershipId ?? null,
         companyId,
         payload: insertPayload,
         table: 'vehicles',
