@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   let userId: string | null = existingDriverByEmail?.user_id ?? null;
-  let existingDriverId: string | null = existingDriverByEmail?.id ?? null;
+  const existingDriverId: string | null = existingDriverByEmail?.id ?? null;
   let invited = true;
   let temporaryPassword: string | null = null;
   let inviteFallbackReason: string | null = null;
