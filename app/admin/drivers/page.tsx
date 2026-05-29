@@ -34,7 +34,7 @@ export default function DriversPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
-  const [formData, setFormData] = useState({ display_name: '', phone: '', email: '', company_id: '' });
+  const [formData, setFormData] = useState({ display_name: '', phone: '', email: '' });
   const [editData, setEditData] = useState({ display_name: '', phone: '', status: 'active', app_access: true });
   const [error, setError] = useState('');
   const [editError, setEditError] = useState('');
@@ -141,12 +141,6 @@ export default function DriversPage() {
       .filter((company): company is Pick<Company, 'id' | 'name'> => Boolean(company));
 
     setCompanies(normalizedCompanies);
-    if (normalizedCompanies.length > 0) {
-      const defaultCompanyId = normalizedCompanies.some((company) => company.id === resolvedCompanyId)
-        ? resolvedCompanyId
-        : normalizedCompanies[0].id;
-      setFormData((prev) => ({ ...prev, company_id: prev.company_id || defaultCompanyId }));
-    }
   };
 
   useEffect(() => {
@@ -180,27 +174,13 @@ export default function DriversPage() {
       setLoading(false);
       return;
     }
-    setFormData((prev) => ({ ...prev, company_id: companyId }));
     void Promise.all([loadDrivers(companyId), loadCompanies(companyId)]);
   }, [companyResolved, companyId]);
 
   const getAccessToken = async (): Promise<{ accessToken: string | null; error: string | null }> => {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-      return { accessToken: null, error: sessionError.message };
-    }
-
-    if (sessionData.session?.access_token) {
-      return { accessToken: sessionData.session.access_token, error: null };
-    }
-
-    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-    if (refreshData?.session?.access_token) {
-      return { accessToken: refreshData.session.access_token, error: null };
-    }
-    if (refreshError) {
-      return { accessToken: null, error: refreshError.message };
-    }
+    if (sessionError) return { accessToken: null, error: sessionError.message };
+    if (sessionData.session?.access_token) return { accessToken: sessionData.session.access_token, error: null };
     return { accessToken: null, error: 'Session expired. Please sign in again.' };
   };
 
@@ -225,8 +205,8 @@ export default function DriversPage() {
   const handleCreate = async () => {
     if (!formData.display_name.trim()) { setError('Driver name is required'); return; }
     if (!formData.email.trim()) { setError('Driver email is required'); return; }
-    const selectedCompanyId = formData.company_id || companyId;
-    if (!selectedCompanyId) { setError('Company profile is required'); return; }
+    if (!companyId) { setError('Company profile is required'); return; }
+    if (!user?.membershipId) { setError('Membership context is required. Please sign in again.'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     setCreating(true);
     try {
@@ -237,8 +217,8 @@ export default function DriversPage() {
       }
 
       const requestPayload = {
-        companyId: selectedCompanyId,
-        membershipId: user?.membershipId ?? null,
+        companyId,
+        membershipId: user.membershipId,
         displayName: formData.display_name,
         email: formData.email,
         phone: formData.phone || null,
@@ -246,23 +226,14 @@ export default function DriversPage() {
       logRuntimeProof({
         flow: 'Add Driver',
         authUid: user?.id ?? null,
-        membershipId: user?.membershipId ?? null,
-        companyId: selectedCompanyId,
+        membershipId: user.membershipId,
+        companyId,
         payload: requestPayload,
         table: 'drivers',
         rlsPolicy: 'drivers_insert_operator',
       });
 
-      let response = await createDriverWithToken(accessToken, requestPayload);
-      if (response.status === 401) {
-        // Unexpected 401 after a fresh token — retry once with another refresh.
-        const retried = await getAccessToken();
-        if (!retried.accessToken) {
-          setError(retried.error ?? 'Session expired. Please sign in again.');
-          return;
-        }
-        response = await createDriverWithToken(retried.accessToken, requestPayload);
-      }
+      const response = await createDriverWithToken(accessToken, requestPayload);
 
       const payload = await response.json().catch(() => ({} as { error?: string; invited?: boolean }));
       if (!response.ok) {
@@ -281,9 +252,9 @@ export default function DriversPage() {
         email: formData.email.trim().toLowerCase(),
         invited: Boolean(payload.invited),
       });
-      setFormData({ display_name: '', phone: '', email: '', company_id: selectedCompanyId });
+      setFormData({ display_name: '', phone: '', email: '' });
       setError('');
-      await loadDrivers(selectedCompanyId);
+      await loadDrivers(companyId);
     } finally {
       setCreating(false);
     }
@@ -463,25 +434,15 @@ export default function DriversPage() {
                   <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
                     {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
                     <div><label style={labelStyle}>Full Name *</label><input style={inputStyle} value={formData.display_name} onChange={e => setFormData({...formData, display_name: e.target.value})} placeholder="John Smith" /></div>
-                    {companies.length <= 1 ? (
-                      <div>
-                        <label style={labelStyle}>Company</label>
-                        <input
-                          style={{ ...inputStyle, backgroundColor: '#f9fafb', color: '#6b7280' }}
-                          value={companies[0]?.name ?? 'Company linked to your account'}
-                          disabled
-                          readOnly
-                        />
-                      </div>
-                    ) : (
-                      <div>
-                        <label style={labelStyle}>Company *</label>
-                        <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})}>
-                          <option value="">Select a company…</option>
-                          {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                      </div>
-                    )}
+                    <div>
+                      <label style={labelStyle}>Company</label>
+                      <input
+                        style={{ ...inputStyle, backgroundColor: '#f9fafb', color: '#6b7280' }}
+                        value={companies[0]?.name ?? 'Company linked to your account'}
+                        disabled
+                        readOnly
+                      />
+                    </div>
                     <div><label style={labelStyle}>Email *</label><input style={inputStyle} type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="driver@email.com" /></div>
                     <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="07123456789" /></div>
                   </div>
