@@ -74,6 +74,7 @@ export interface Vehicle {
   reg_plate: string | null;
   make: string | null;
   model: string | null;
+  manufacture_year: number | null;
   payload_kg: number | null;
   pallets_capacity: number | null;
   has_tail_lift: boolean;
