@@ -24,8 +24,8 @@ export default function VehiclesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ company_id: '', type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
-  const [editData, setEditData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
+  const [formData, setFormData] = useState({ company_id: '', type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
+  const [editData, setEditData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
   const [error, setError] = useState('');
   const [editError, setEditError] = useState('');
   const [creating, setCreating] = useState(false);
@@ -35,8 +35,8 @@ export default function VehiclesPage() {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
     if (!companyId) { setVehicles([]); setLoading(false); return; }
-    const selectColumns = 'id, company_id, type, reg_plate, make, model, payload_kg, has_tail_lift, assigned_driver_id, created_at';
-    const legacySelectColumns = 'id, company_id, vehicle_type, reg_plate, make, model, payload_kg, has_tail_lift, assigned_driver_id, created_at';
+    const selectColumns = 'id, company_id, type, reg_plate, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id, created_at';
+    const legacySelectColumns = 'id, company_id, vehicle_type, reg_plate, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id, created_at';
     const query = supabase
       .from('vehicles')
       .select(selectColumns)
@@ -54,6 +54,16 @@ export default function VehiclesPage() {
         type: (row.vehicle_type as VehicleType | undefined) ?? 'van_large',
       })) as unknown as Vehicle[];
       error = legacyResult.error;
+    }
+    // If manufacture_year column not yet present, retry without it
+    if (error && isMissingColumnError(error, 'vehicles', 'manufacture_year')) {
+      const fallbackResult = await supabase
+        .from('vehicles')
+        .select('id, company_id, type, reg_plate, make, model, payload_kg, has_tail_lift, assigned_driver_id, created_at')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+      data = fallbackResult.data as Vehicle[] | null;
+      error = fallbackResult.error;
     }
     if (!error && data) setVehicles(data as Vehicle[]);
     setLoading(false);
@@ -183,6 +193,7 @@ export default function VehiclesPage() {
         registration: formData.reg_plate.trim() || null,
         make: formData.make.trim() || null,
         model: formData.model.trim() || null,
+        manufacture_year: formData.manufacture_year ? parseInt(formData.manufacture_year, 10) : null,
         payload_kg: payloadKg,
         assigned_driver_id: assignedDriverId || null,
       };
@@ -224,7 +235,7 @@ export default function VehiclesPage() {
         return;
       }
       setShowModal(false);
-      setFormData({ company_id: resolvedCompanyId, type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
+    setFormData({ company_id: resolvedCompanyId, type: 'van_large', reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
       setError('');
       loadVehicles();
     } finally {
@@ -239,6 +250,7 @@ export default function VehiclesPage() {
       reg_plate: vehicle.reg_plate ?? '',
       make: vehicle.make ?? '',
       model: vehicle.model ?? '',
+      manufacture_year: vehicle.manufacture_year != null ? String(vehicle.manufacture_year) : '',
       payload_kg: vehicle.payload_kg != null ? String(vehicle.payload_kg) : '',
       has_tail_lift: vehicle.has_tail_lift ?? false,
       assigned_driver_id: vehicle.assigned_driver_id ?? '',
@@ -257,6 +269,7 @@ export default function VehiclesPage() {
       registration: editData.reg_plate.trim() || null,
       make: editData.make.trim() || null,
       model: editData.model.trim() || null,
+      manufacture_year: editData.manufacture_year ? parseInt(editData.manufacture_year, 10) : null,
       payload_kg: editData.payload_kg ? parseFloat(editData.payload_kg) : null,
       has_tail_lift: editData.has_tail_lift,
       assigned_driver_id: editData.assigned_driver_id || null,
@@ -344,7 +357,7 @@ export default function VehiclesPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                    {['Reg Plate', 'Type', 'Make / Model', 'Payload (kg)', 'Tail Lift', 'Assigned Driver', 'Created', 'Actions'].map(h => (
+                    {['Reg Plate', 'Type', 'Make / Model', 'Year', 'Payload (kg)', 'Tail Lift', 'Assigned Driver', 'Created', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                     ))}
                   </tr>
@@ -357,6 +370,7 @@ export default function VehiclesPage() {
                         <td style={{ padding: '1rem', fontWeight: '600', color: '#1f2937' }}>{v.reg_plate || '—'}</td>
                         <td style={{ padding: '1rem', color: '#6b7280' }}>{v.type.replace(/_/g, ' ')}</td>
                         <td style={{ padding: '1rem', color: '#6b7280' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
+                        <td style={{ padding: '1rem', color: '#6b7280' }}>{v.manufacture_year ?? '—'}</td>
                         <td style={{ padding: '1rem', color: '#6b7280' }}>{v.payload_kg ?? '—'}</td>
                         <td style={{ padding: '1rem' }}>{v.has_tail_lift ? '✅' : '—'}</td>
                         <td style={{ padding: '1rem', color: '#6b7280' }}>{assignedDriver?.display_name ?? '—'}</td>
@@ -413,6 +427,7 @@ export default function VehiclesPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div><label style={labelStyle}>Make</label><input style={inputStyle} value={formData.make} onChange={e => setFormData({...formData, make: e.target.value})} placeholder="Ford" /></div>
                   <div><label style={labelStyle}>Model</label><input style={inputStyle} value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} placeholder="Transit" /></div>
+                  <div><label style={labelStyle}>Year</label><input style={inputStyle} type="number" min="1900" max="2100" value={formData.manufacture_year} onChange={e => setFormData({...formData, manufacture_year: e.target.value})} placeholder="2020" /></div>
                 </div>
                 <div><label style={labelStyle}>Payload (kg)</label><input style={inputStyle} type="number" value={formData.payload_kg} onChange={e => setFormData({...formData, payload_kg: e.target.value})} placeholder="1000" /></div>
                 <div>
@@ -455,6 +470,7 @@ export default function VehiclesPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div><label style={labelStyle}>Make</label><input style={inputStyle} value={editData.make} onChange={e => setEditData({...editData, make: e.target.value})} /></div>
                   <div><label style={labelStyle}>Model</label><input style={inputStyle} value={editData.model} onChange={e => setEditData({...editData, model: e.target.value})} /></div>
+                  <div><label style={labelStyle}>Year</label><input style={inputStyle} type="number" min="1900" max="2100" value={editData.manufacture_year} onChange={e => setEditData({...editData, manufacture_year: e.target.value})} placeholder="2020" /></div>
                 </div>
                 <div><label style={labelStyle}>Payload (kg)</label><input style={inputStyle} type="number" value={editData.payload_kg} onChange={e => setEditData({...editData, payload_kg: e.target.value})} /></div>
                 <div>
