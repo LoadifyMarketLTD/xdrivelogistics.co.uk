@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from './supabaseClient';
+import { resolveAuthContext } from './authContextResolver';
 
 type ResolveActiveCompanyOptions = {
   userId: string;
@@ -35,13 +36,13 @@ const resolveCompanyIdFromRelations = async ({
   const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
     supabase
       .from('profiles')
-      .select('company_id')
+      .select('role, is_driver, company_id')
       .eq('user_id', userId)
       .limit(1)
       .maybeSingle(),
     supabase
       .from('company_memberships')
-      .select('company_id')
+      .select('company_id, role_in_company')
       .eq('user_id', userId)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
@@ -55,19 +56,28 @@ const resolveCompanyIdFromRelations = async ({
       .maybeSingle(),
     supabase
       .from('companies')
-      .select('id')
+      .select('id, company_type')
       .eq('created_by', userId)
       .limit(1)
       .maybeSingle(),
   ]);
 
-  return (
-    (profileRes.data?.company_id as string | null | undefined) ??
-    (membershipRes.data?.company_id as string | null | undefined) ??
-    (driverRes.data?.company_id as string | null | undefined) ??
-    (creatorCompanyRes.data?.id as string | null | undefined) ??
-    fallbackCompanyId
-  ) ?? null;
+  const resolved = resolveAuthContext({
+    membershipRole: (membershipRes.data as { role_in_company?: string | null } | null)?.role_in_company ?? null,
+    profileRole: (profileRes.data as { role?: string | null } | null)?.role ?? null,
+    isDriver:
+      (profileRes.data as { is_driver?: boolean | null } | null)?.is_driver === true ||
+      Boolean(driverRes.data),
+    creatorCompanyType: (creatorCompanyRes.data as { company_type?: string | null } | null)?.company_type ?? null,
+    fallbackRole: null,
+    profileCompanyId: (profileRes.data as { company_id?: string | null } | null)?.company_id ?? null,
+    membershipCompanyId: (membershipRes.data as { company_id?: string | null } | null)?.company_id ?? null,
+    driverCompanyId: (driverRes.data as { company_id?: string | null } | null)?.company_id ?? null,
+    creatorCompanyId: (creatorCompanyRes.data as { id?: string | null } | null)?.id ?? null,
+    mustChangePassword: false,
+  });
+
+  return resolved.companyId ?? fallbackCompanyId ?? null;
 };
 
 export const resolveActiveCompanyId = async ({
