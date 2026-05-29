@@ -10,7 +10,6 @@ import {
   DEFAULT_COMPANY_SETTINGS,
   loadCompanySettings,
 } from '../../../lib/companySettings';
-import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 const TABS = [
@@ -155,7 +154,6 @@ export default function SettingsPage() {
       postcode: companyForm.postcode || null,
     };
 
-    let companyError: { message?: string | null } | null = null;
     logRuntimeProof({
       flow: 'Save Settings',
       authUid: user.id,
@@ -165,27 +163,10 @@ export default function SettingsPage() {
       table: 'companies',
       rlsPolicy: 'companies_update_admin',
     });
-    while (Object.keys(companyUpdatePayload).length > 0) {
-      const { error } = await supabase
-        .from('companies')
-        .update(companyUpdatePayload)
-        .eq('id', companyId);
-
-      if (!error) {
-        companyError = null;
-        break;
-      }
-
-      const missingColumn = getMissingColumnFromError(error, 'companies');
-      if (missingColumn && Object.prototype.hasOwnProperty.call(companyUpdatePayload, missingColumn)) {
-        delete companyUpdatePayload[missingColumn];
-        companyError = error;
-        continue;
-      }
-
-      companyError = error;
-      break;
-    }
+    const { error: companyError } = await supabase
+      .from('companies')
+      .update(companyUpdatePayload)
+      .eq('id', companyId);
 
     if (companyError) {
       setSaveError(`Company details could not be saved: ${companyError.message}`);
