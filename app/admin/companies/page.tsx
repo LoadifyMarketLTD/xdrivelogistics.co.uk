@@ -100,25 +100,11 @@ export default function CompaniesPage() {
       table: 'companies',
       rlsPolicy: 'companies_insert_authenticated',
     });
-    let error: { message?: string | null } | null = null;
-    let createdCompanyId: string | null = null;
-    while (Object.keys(payload).length > 0) {
-      const insertRes = await supabase.from('companies').insert([payload]).select('id').single();
-      if (!insertRes.error) {
-        createdCompanyId = (insertRes.data?.id as string | undefined) ?? null;
-        error = null;
-        break;
-      }
-      const missingColumn = getMissingColumnFromError(insertRes.error, 'companies');
-      if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
-        delete payload[missingColumn];
-        error = insertRes.error;
-        continue;
-      }
-      error = insertRes.error;
-      break;
-    }
-    if (error) { setError(error.message ?? 'Failed to create company.'); return; }
+    const insertRes = await supabase.from('companies').insert([payload]).select('id').single();
+    const createdCompanyId: string | null = insertRes.error
+      ? null
+      : ((insertRes.data?.id as string | undefined) ?? null);
+    if (insertRes.error) { setError(insertRes.error.message ?? 'Failed to create company.'); return; }
     if (!createdCompanyId) { setError('Failed to resolve newly created company.'); return; }
 
     const { error: membershipError } = await supabase
@@ -200,21 +186,11 @@ export default function CompaniesPage() {
       postcode: editData.postcode.trim() || null,
     };
     let error: { message?: string | null } | null = null;
-    while (Object.keys(updatePayload).length > 0) {
-      const updateRes = await supabase
-        .from('companies')
-        .update(updatePayload)
-        .eq('id', editingCompany.id);
-      if (!updateRes.error) { error = null; break; }
-      const missingColumn = getMissingColumnFromError(updateRes.error, 'companies');
-      if (missingColumn && Object.prototype.hasOwnProperty.call(updatePayload, missingColumn)) {
-        delete updatePayload[missingColumn];
-        error = updateRes.error;
-        continue;
-      }
-      error = updateRes.error;
-      break;
-    }
+    const updateRes = await supabase
+      .from('companies')
+      .update(updatePayload)
+      .eq('id', editingCompany.id);
+    if (updateRes.error) { error = updateRes.error; }
     setSaving(false);
     if (error) { setEditError(error.message ?? 'Failed to update company.'); return; }
     setEditingCompany(null);

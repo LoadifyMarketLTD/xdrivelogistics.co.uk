@@ -275,6 +275,15 @@ export const resolveAuthenticatedUser = async (
   companyId = resolvedContext.companyId;
   const resolvedRole = resolvedContext.role;
 
+  // Re-derive the membership that corresponds to the resolved companyId so that
+  // membershipId and companyId always point to the same company. The earlier
+  // selection of `membership` used profile.company_id as a hint which may differ
+  // from the final resolved value when multiple active memberships exist.
+  const resolvedMembership =
+    companyId != null
+      ? (memberships?.find((m) => m.company_id === companyId) ?? membership)
+      : membership;
+
   if (resolvedRole) {
     if (roleRequiresCompanyContext(resolvedRole) && !companyId) {
       console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', resolvedRole, userId: sessionUser.id });
@@ -284,8 +293,8 @@ export const resolveAuthenticatedUser = async (
       sessionUser,
       resolvedRole,
       companyId,
-      membership?.id ?? null,
-      membership?.role_in_company ?? null,
+      resolvedMembership?.id ?? null,
+      resolvedMembership?.role_in_company ?? null,
       driverId,
       resolvedRole === 'driver' ? mustChangePassword : false
     );

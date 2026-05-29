@@ -199,7 +199,6 @@ export default function DocumentsPage() {
         expiry_date: form.expiryDate || null,
         status: 'pending',
       };
-      let dbError: { message?: string | null } | null = null;
       logRuntimeProof({
         flow: 'Upload Documents',
         authUid: user?.id ?? null,
@@ -209,18 +208,7 @@ export default function DocumentsPage() {
         table: 'vehicle_documents',
         rlsPolicy: 'vehicle_docs_all_admin',
       });
-      while (Object.keys(payload).length > 0) {
-        const insertRes = await supabase.from('vehicle_documents').insert(payload);
-        if (!insertRes.error) { dbError = null; break; }
-        const missingColumn = getMissingColumnFromError(insertRes.error, 'vehicle_documents');
-        if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
-          delete payload[missingColumn];
-          dbError = insertRes.error;
-          continue;
-        }
-        dbError = insertRes.error;
-        break;
-      }
+      const { error: dbError } = await supabase.from('vehicle_documents').insert(payload);
       if (dbError) { setUploadError(`Database error: ${dbError.message}`); setUploading(false); return; }
     }
     setForm(DEFAULT_UPLOAD);
