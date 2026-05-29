@@ -6,7 +6,7 @@ import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Vehicle, VehicleType, Company } from '../../../lib/types/database';
 import { getMissingColumnFromError, isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
-import { resolveActiveCompanyId } from '../../../lib/activeCompany';
+import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
@@ -103,8 +103,6 @@ export default function VehiclesPage() {
   };
 
   useEffect(() => {
-    let cancelled = false;
-
     if (!hasSupabaseSession || !user?.id) {
       setCompanyId(null);
       setCompanyResolved(false);
@@ -123,28 +121,9 @@ export default function VehiclesPage() {
       return;
     }
 
-    setCompanyResolved(false);
-    resolveActiveCompanyId({
-      userId: user.id,
-      fallbackCompanyId: user.companyId ?? null,
-    }).then((id) => {
-      if (cancelled) return;
-      setCompanyId(id);
-      setCompanyResolved(true);
-      if (!id) {
-        setCompanyError('Company profile not available. Vehicles are hidden until company access resolves.');
-      }
-    }).catch((error) => {
-      if (cancelled) return;
-      console.error('Failed to resolve vehicle company context:', error);
-      setCompanyId(null);
-      setCompanyResolved(true);
-      setCompanyError('Company profile not available. Vehicles are hidden until company access resolves.');
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    setCompanyId(null);
+    setCompanyResolved(true);
+    setCompanyError('Company profile not available. Vehicles are hidden until company access resolves.');
   }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   useEffect(() => {
@@ -179,7 +158,6 @@ export default function VehiclesPage() {
     }
     setCreating(true);
     try {
-      const { data: authCtx } = await supabase.auth.getUser();
       const assignedDriverId = drivers.some((driver) => driver.id === formData.assigned_driver_id)
         ? formData.assigned_driver_id
         : '';
@@ -197,12 +175,14 @@ export default function VehiclesPage() {
         payload_kg: payloadKg,
         assigned_driver_id: assignedDriverId || null,
       };
-      console.debug('[XDrive Vehicles] insert attempt', {
-        authUid: authCtx.user?.id ?? null,
-        resolvedCompanyId,
-        userRole: user?.role ?? null,
-        payloadCompanyId: insertPayload.company_id,
-        payloadAssignedDriverId: insertPayload.assigned_driver_id,
+      logRuntimeProof({
+        flow: 'Add Vehicle',
+        authUid: user?.id ?? null,
+        membershipId: user?.membershipId ?? null,
+        companyId: resolvedCompanyId,
+        payload: insertPayload,
+        table: 'vehicles',
+        rlsPolicy: 'vehicles_company_isolation',
       });
       let createError: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null = null;
       while (Object.keys(insertPayload).length > 0) {
@@ -222,7 +202,7 @@ export default function VehiclesPage() {
       }
       if (createError) {
         console.error('[XDrive Vehicles] insert failed', {
-          authUid: authCtx.user?.id ?? null,
+          authUid: user?.id ?? null,
           resolvedCompanyId,
           userRole: user?.role ?? null,
           payloadCompanyId: insertPayload.company_id,

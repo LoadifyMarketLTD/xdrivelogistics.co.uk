@@ -6,6 +6,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
+import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 export default function CompaniesPage() {
   const { user, hasSupabaseSession } = useAuth();
@@ -26,23 +27,6 @@ export default function CompaniesPage() {
   const [editError, setEditError] = useState('');
   const [switchError, setSwitchError] = useState('');
   const [saving, setSaving] = useState(false);
-
-  const loadCompanyId = async (userId: string) => {
-    if (user?.companyId) {
-      setCompanyId(user.companyId);
-      return;
-    }
-    const { data } = await supabase.rpc('get_or_create_company_for_user');
-    if (data) { setCompanyId(data as string); return; }
-    const { data: membership } = await supabase
-      .from('company_memberships')
-      .select('company_id')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .limit(1)
-      .maybeSingle();
-    setCompanyId((membership?.company_id as string) ?? null);
-  };
 
   const loadCompanies = async () => {
     setLoading(true);
@@ -102,10 +86,12 @@ export default function CompaniesPage() {
   };
 
   useEffect(() => {
-    if (hasSupabaseSession && user?.id) {
-      loadCompanyId(user.id);
+    if (!hasSupabaseSession || !user?.id) {
+      setCompanyId(null);
+      return;
     }
-  }, [hasSupabaseSession, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    setCompanyId(user.companyId ?? null);
+  }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   useEffect(() => {
     if (!companyId) return;
@@ -115,9 +101,17 @@ export default function CompaniesPage() {
   const handleCreate = async () => {
     if (!formData.name.trim()) { setError('Company name is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { data: authCtx } = await supabase.auth.getUser();
-    if (!authCtx.user?.id) { setError('Session expired. Please sign in again.'); return; }
-    const payload: Record<string, string> = { ...formData, created_by: authCtx.user.id };
+    if (!user?.id) { setError('Session expired. Please sign in again.'); return; }
+    const payload: Record<string, string> = { ...formData, created_by: user.id };
+    logRuntimeProof({
+      flow: 'Create Company',
+      authUid: user.id,
+      membershipId: user.membershipId,
+      companyId: user.companyId ?? null,
+      payload,
+      table: 'companies',
+      rlsPolicy: 'companies_insert_by_role',
+    });
     let error: { message?: string | null } | null = null;
     let createdCompanyId: string | null = null;
     while (Object.keys(payload).length > 0) {
@@ -144,12 +138,26 @@ export default function CompaniesPage() {
       .upsert(
         {
           company_id: createdCompanyId,
-          user_id: authCtx.user.id,
+          user_id: user.id,
           role_in_company: 'owner',
           status: 'active',
         },
         { onConflict: 'company_id,user_id' }
       );
+    logRuntimeProof({
+      flow: 'Create Company',
+      authUid: user.id,
+      membershipId: user.membershipId,
+      companyId: createdCompanyId,
+      payload: {
+        company_id: createdCompanyId,
+        user_id: user.id,
+        role_in_company: 'owner',
+        status: 'active',
+      },
+      table: 'company_memberships',
+      rlsPolicy: 'company_memberships_upsert_owner',
+    });
     if (membershipError) { setError(membershipError.message ?? 'Failed to attach owner membership.'); return; }
 
     setCompanyId(createdCompanyId);

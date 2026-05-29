@@ -6,7 +6,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Driver, Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
-import { resolveActiveCompanyId } from '../../../lib/activeCompany';
+import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 const DRIVER_SELECT_COLUMNS = [
   'id',
@@ -98,17 +98,7 @@ export default function DriversPage() {
   };
 
   const loadCompanies = async (resolvedCompanyId: string) => {
-    if (!isSupabaseConfigured || !user?.id) return;
-    const { data: memberships } = await supabase
-      .from('company_memberships')
-      .select('company_id')
-      .eq('user_id', user.id)
-      .eq('status', 'active');
-
-    const membershipCompanyIds = ((memberships ?? []) as Array<{ company_id: string | null }>)
-      .map((m) => m.company_id)
-      .filter((id): id is string => typeof id === 'string');
-    const companyIds = membershipCompanyIds.length > 0 ? membershipCompanyIds : [resolvedCompanyId];
+    if (!isSupabaseConfigured) return;
 
     const requestedColumns = ['id', 'name'];
     const activeColumns = [...requestedColumns];
@@ -119,7 +109,7 @@ export default function DriversPage() {
       const companiesRes = await supabase
         .from('companies')
         .select(activeColumns.join(', '))
-        .in('id', companyIds)
+        .eq('id', resolvedCompanyId)
         .order('name');
       if (!companiesRes.error) {
         rows = ((companiesRes.data ?? []) as unknown) as Array<Record<string, unknown>>;
@@ -160,8 +150,6 @@ export default function DriversPage() {
   };
 
   useEffect(() => {
-    let cancelled = false;
-
     if (!hasSupabaseSession || !user?.id) {
       setCompanyId(null);
       setCompanyResolved(false);
@@ -179,28 +167,9 @@ export default function DriversPage() {
       return;
     }
 
-    setCompanyResolved(false);
-    resolveActiveCompanyId({
-      userId: user.id,
-      fallbackCompanyId: user.companyId ?? null,
-    }).then((id) => {
-      if (cancelled) return;
-      setCompanyId(id);
-      setCompanyResolved(true);
-      if (!id) {
-        setCompanyError('Company profile not available. Drivers are hidden until company access resolves.');
-      }
-    }).catch((error) => {
-      if (cancelled) return;
-      console.error('Failed to resolve driver company context:', error);
-      setCompanyId(null);
-      setCompanyResolved(true);
-      setCompanyError('Company profile not available. Drivers are hidden until company access resolves.');
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    setCompanyId(null);
+    setCompanyResolved(true);
+    setCompanyError('Company profile not available. Drivers are hidden until company access resolves.');
   }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   useEffect(() => {
@@ -239,6 +208,7 @@ export default function DriversPage() {
     accessToken: string,
     payload: {
       companyId: string;
+      membershipId: string | null;
       displayName: string;
       email: string;
       phone: string | null;
@@ -268,10 +238,20 @@ export default function DriversPage() {
 
       const requestPayload = {
         companyId: selectedCompanyId,
+        membershipId: user?.membershipId ?? null,
         displayName: formData.display_name,
         email: formData.email,
         phone: formData.phone || null,
       };
+      logRuntimeProof({
+        flow: 'Add Driver',
+        authUid: user?.id ?? null,
+        membershipId: user?.membershipId ?? null,
+        companyId: selectedCompanyId,
+        payload: requestPayload,
+        table: 'drivers',
+        rlsPolicy: 'drivers_insert_company_member',
+      });
 
       let response = await createDriverWithToken(accessToken, requestPayload);
       if (response.status === 401) {
