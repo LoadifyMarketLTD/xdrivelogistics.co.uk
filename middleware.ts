@@ -299,54 +299,40 @@ export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', cspHeader);
+  const allowRequest = () =>
+    withSecurityHeaders(
+      NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      }),
+      nonce,
+      cspHeader
+    );
 
   const { pathname } = request.nextUrl;
   const requiresAuth = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
   if (!requiresAuth) {
-    return withSecurityHeaders(
-      NextResponse.next({
-        request: {
-          headers: requestHeaders,
-        },
-      }),
-      nonce,
-      cspHeader
-    );
+    return allowRequest();
   }
 
   if (!hasSupabaseAuthCookie(request)) {
-    return withSecurityHeaders(
-      NextResponse.next({
-        request: {
-          headers: requestHeaders,
-        },
-      }),
-      nonce,
-      cspHeader
-    );
+    return allowRequest();
   }
 
   const token = extractAccessToken(request);
   if (!token) {
-    return withSecurityHeaders(
-      NextResponse.next({
-        request: {
-          headers: requestHeaders,
-        },
-      }),
-      nonce,
-      cspHeader
-    );
+    return allowRequest();
   }
 
   const payload = decodeJwtPayload(token);
   const userId = typeof payload?.sub === 'string' ? payload.sub : null;
   if (!userId) {
-    return withSecurityHeaders(redirectToLogin(request), nonce, cspHeader);
+    return allowRequest();
   }
   if (isJwtExpired(payload)) {
-    return withSecurityHeaders(redirectToLogin(request), nonce, cspHeader);
+    return allowRequest();
   }
 
   const appMetadata =
@@ -361,11 +347,11 @@ export async function middleware(request: NextRequest) {
 
   const snapshot = await fetchRoleSnapshot(token, userId, fallbackRole);
   if (snapshot.status === 'unauthenticated') {
-    return withSecurityHeaders(redirectToLogin(request), nonce, cspHeader);
+    return allowRequest();
   }
 
   if (snapshot.status === 'error') {
-    return withSecurityHeaders(redirectToLogin(request), nonce, cspHeader);
+    return allowRequest();
   }
 
   if (!isAllowedForRoute(pathname, snapshot.role)) {
@@ -382,15 +368,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return withSecurityHeaders(
-    NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    }),
-    nonce,
-    cspHeader
-  );
+  return allowRequest();
 }
 
 export const config = {
