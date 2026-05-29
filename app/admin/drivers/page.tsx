@@ -215,10 +215,16 @@ export default function DriversPage() {
     void Promise.all([loadDrivers(companyId), loadCompanies(companyId)]);
   }, [companyResolved, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Always call refreshSession() so the API receives a server-validated token.
-  // getSession() only reads from local storage and may return a stale or
-  // server-invalidated JWT; refreshSession() guarantees freshness.
-  const getFreshAccessToken = async (): Promise<{ accessToken: string | null; error: string | null }> => {
+  const getAccessToken = async (): Promise<{ accessToken: string | null; error: string | null }> => {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      return { accessToken: null, error: sessionError.message };
+    }
+
+    if (sessionData.session?.access_token) {
+      return { accessToken: sessionData.session.access_token, error: null };
+    }
+
     const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
     if (refreshData?.session?.access_token) {
       return { accessToken: refreshData.session.access_token, error: null };
@@ -254,7 +260,7 @@ export default function DriversPage() {
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     setCreating(true);
     try {
-      const { accessToken, error: accessTokenError } = await getFreshAccessToken();
+      const { accessToken, error: accessTokenError } = await getAccessToken();
       if (accessTokenError || !accessToken) {
         setError(accessTokenError ?? 'Session expired. Please sign in again.');
         return;
@@ -270,7 +276,7 @@ export default function DriversPage() {
       let response = await createDriverWithToken(accessToken, requestPayload);
       if (response.status === 401) {
         // Unexpected 401 after a fresh token — retry once with another refresh.
-        const retried = await getFreshAccessToken();
+        const retried = await getAccessToken();
         if (!retried.accessToken) {
           setError(retried.error ?? 'Session expired. Please sign in again.');
           return;
