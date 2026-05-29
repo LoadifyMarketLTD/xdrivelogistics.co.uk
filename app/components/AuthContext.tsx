@@ -138,7 +138,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (pathnameRef.current === RESET_PASSWORD_PATH) return true;
     if (event === 'PASSWORD_RECOVERY') return true;
     return false;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // stable — uses ref, never needs to be recreated
 
   const hydrateUser = useCallback(async (sessionUser: SessionUser): Promise<AuthResolutionResult> => {
