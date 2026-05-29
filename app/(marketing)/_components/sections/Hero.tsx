@@ -5,7 +5,7 @@ import { COMPANY_CONFIG } from '../../../config/company';
 import { useCompanyContactLinks } from '../../../hooks/useCompanyContactLinks';
 
 export function Hero() {
-  const { phoneHref, whatsappDefaultMessageHref } = useCompanyContactLinks();
+  const { phoneHref } = useCompanyContactLinks();
 
   return (
     <section
@@ -121,8 +121,8 @@ export function Hero() {
               marginBottom: '2.5rem',
             }}
           >
-            <a
-              href={whatsappDefaultMessageHref}
+            <Link
+              href="/request-quote"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -149,7 +149,7 @@ export function Hero() {
               }}
             >
               🚀 Get Instant Quote
-            </a>
+            </Link>
             <Link
               href="/register"
               style={{
