@@ -182,56 +182,105 @@ export async function POST(request: NextRequest) {
     rlsPolicy: 'drivers_insert_operator',
   });
 
-  let userId: string | null = null;
+  // ── Step 1: detect partial existing state ────────────────────────────────
+  // Look up by email in the drivers table first.  This covers the case where
+  // auth user + driver row already exist but company_memberships is missing.
+  const { data: existingDriverByEmail } = await supabaseAdmin
+    .from('drivers')
+    .select('id, user_id, company_id')
+    .eq('email', email)
+    .limit(1)
+    .maybeSingle();
+
+  let userId: string | null = existingDriverByEmail?.user_id ?? null;
+  let existingDriverId: string | null = existingDriverByEmail?.id ?? null;
   let invited = true;
   let temporaryPassword: string | null = null;
   let inviteFallbackReason: string | null = null;
 
-  const { data: invitedUserData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${getResetPasswordEmailRedirectTo()}?type=invite`,
-    data: {
-      role: 'driver',
-      requested_role: 'driver',
-    },
-  });
-
-  if (!inviteError && invitedUserData.user) {
-    userId = invitedUserData.user.id;
-  } else if (isInvalidApiKeyError(inviteError?.message, inviteError?.code)) {
-    invited = false;
-    inviteFallbackReason = 'Supabase Auth invite provider returned invalid API key.';
-    temporaryPassword = generateStrongTemporaryPassword();
-    const { data: createdUserData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: temporaryPassword,
-      email_confirm: true,
-      user_metadata: {
+  // ── Step 2: resolve / create auth user ───────────────────────────────────
+  if (!userId) {
+    const { data: invitedUserData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${getResetPasswordEmailRedirectTo()}?type=invite`,
+      data: {
         role: 'driver',
         requested_role: 'driver',
       },
-      app_metadata: {
-        role: 'driver',
-      },
     });
 
-    if (createUserError || !createdUserData.user) {
-      return NextResponse.json(
-        {
-          error: `Invite email provider API key is invalid. Fallback user creation failed: ${createUserError?.message || 'Failed to create driver auth user.'}`,
+    if (!inviteError && invitedUserData.user) {
+      userId = invitedUserData.user.id;
+    } else if (isInvalidApiKeyError(inviteError?.message, inviteError?.code)) {
+      // Email invite provider not configured — fall back to password-based creation.
+      invited = false;
+      inviteFallbackReason = 'Supabase Auth invite provider returned invalid API key.';
+      temporaryPassword = generateStrongTemporaryPassword();
+      const { data: createdUserData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: temporaryPassword,
+        email_confirm: true,
+        user_metadata: {
+          role: 'driver',
+          requested_role: 'driver',
         },
-        { status: 400 }
-      );
-    }
+        app_metadata: {
+          role: 'driver',
+        },
+      });
 
-    userId = createdUserData.user.id;
-  } else {
-    return NextResponse.json({ error: inviteError?.message || 'Failed to invite driver auth user.' }, { status: 400 });
+      if (createUserError || !createdUserData.user) {
+        return NextResponse.json(
+          {
+            error: `Invite email provider API key is invalid. Fallback user creation failed: ${createUserError?.message || 'Failed to create driver auth user.'}`,
+          },
+          { status: 400 }
+        );
+      }
+
+      userId = createdUserData.user.id;
+    } else if (inviteError) {
+      // User already registered in auth but has no driver row yet — look up via
+      // the auth admin list (small page; exact email match).
+      const lowerMsg = (inviteError.message ?? '').toLowerCase();
+      const isAlreadyExists =
+        lowerMsg.includes('already registered') ||
+        lowerMsg.includes('already been registered') ||
+        lowerMsg.includes('user already exists') ||
+        (inviteError as { code?: string }).code === 'email_exists';
+
+      if (isAlreadyExists) {
+        // Page through users to find the matching auth record.
+        let found: string | null = null;
+        let page = 1;
+        const perPage = 1000;
+        while (!found) {
+          const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+            page,
+            perPage,
+          });
+          if (listError || !listData) break;
+          const match = listData.users.find((u: { id: string; email?: string }) => u.email?.toLowerCase() === email);
+          if (match) {
+            found = match.id;
+          } else if (listData.users.length < perPage) {
+            break;
+          } else {
+            page += 1;
+          }
+        }
+        userId = found;
+        invited = false;
+      } else {
+        return NextResponse.json({ error: inviteError.message || 'Failed to invite driver auth user.' }, { status: 400 });
+      }
+    }
   }
 
   if (!userId) {
     return NextResponse.json({ error: 'Failed to resolve driver auth user.' }, { status: 500 });
   }
 
+  // ── Step 3: ensure auth metadata is correct ───────────────────────────────
   const { error: updateUserMetadataError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
     user_metadata: {
       role: 'driver',
@@ -243,17 +292,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: updateUserMetadataError.message }, { status: 400 });
   }
 
-  const { data: existingDriver } = await supabaseAdmin
-    .from('drivers')
-    .select('id')
-    .eq('user_id', userId)
-    .limit(1)
-    .maybeSingle();
-
-  if (existingDriver?.id) {
-    return NextResponse.json({ error: 'Driver account already exists for this email.' }, { status: 409 });
-  }
-
+  // ── Step 4: upsert profile ────────────────────────────────────────────────
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
     .upsert(
@@ -273,10 +312,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Failed to initialize driver profile: ${profileError.message}` }, { status: 500 });
   }
 
-  const { data: driverRow, error: driverInsertError } = await supabaseAdmin
-    .from('drivers')
-    .insert([
-      {
+  // ── Step 5: upsert driver row (idempotent) ────────────────────────────────
+  // If a driver row already exists (by id), update it in-place; otherwise insert.
+  let driverRow: Record<string, unknown> | null = null;
+
+  if (existingDriverId) {
+    const { data: updatedDriver, error: updateError } = await supabaseAdmin
+      .from('drivers')
+      .update({
         company_id: resolvedCompanyId,
         user_id: userId,
         display_name: displayName,
@@ -284,15 +327,63 @@ export async function POST(request: NextRequest) {
         email,
         status: 'active',
         app_access: true,
-        must_change_password: !invited,
-        temp_password_generated_at: invited ? null : new Date().toISOString(),
-      },
-    ])
-    .select('id, company_id, user_id, display_name, phone, email, status, app_access, temporary_password_seq, must_change_password, created_at')
-    .single();
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existingDriverId)
+      .select('id, company_id, user_id, display_name, phone, email, status, app_access, temporary_password_seq, must_change_password, created_at')
+      .single();
 
-  if (driverInsertError) {
-    return NextResponse.json({ error: `Failed to create driver record: ${driverInsertError.message}` }, { status: 500 });
+    if (updateError) {
+      return NextResponse.json({ error: `Failed to update driver record: ${updateError.message}` }, { status: 500 });
+    }
+    driverRow = updatedDriver;
+  } else {
+    const { data: insertedDriver, error: driverInsertError } = await supabaseAdmin
+      .from('drivers')
+      .insert([
+        {
+          company_id: resolvedCompanyId,
+          user_id: userId,
+          display_name: displayName,
+          phone,
+          email,
+          status: 'active',
+          app_access: true,
+          must_change_password: !invited,
+          temp_password_generated_at: invited ? null : new Date().toISOString(),
+        },
+      ])
+      .select('id, company_id, user_id, display_name, phone, email, status, app_access, temporary_password_seq, must_change_password, created_at')
+      .single();
+
+    if (driverInsertError) {
+      return NextResponse.json({ error: `Failed to create driver record: ${driverInsertError.message}` }, { status: 500 });
+    }
+    driverRow = insertedDriver;
+  }
+
+  // ── Step 6: upsert company_memberships (idempotent) ──────────────────────
+  // Drivers get role_in_company = 'viewer' (the lowest valid enum value).
+  // On conflict (company_id, user_id) we update status to active so a
+  // previously-suspended membership is re-activated.
+  const { error: membershipError } = await supabaseAdmin
+    .from('company_memberships')
+    .upsert(
+      {
+        company_id: resolvedCompanyId,
+        user_id: userId,
+        invited_email: email,
+        role_in_company: 'viewer',
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'company_id,user_id' }
+    );
+
+  if (membershipError) {
+    // Non-fatal: log the error but don't block the response — the driver row
+    // is already created/updated and the admin can re-run to repair.
+    console.error('[admin/drivers] company_memberships upsert failed', membershipError.message);
   }
 
   return NextResponse.json(
@@ -301,7 +392,8 @@ export async function POST(request: NextRequest) {
       invited,
       temporaryPassword,
       inviteFallbackReason,
+      membershipRepaired: !membershipError,
     },
-    { status: 201 }
+    { status: existingDriverId ? 200 : 201 }
   );
 }
