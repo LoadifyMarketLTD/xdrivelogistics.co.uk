@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 
 type DriverRow = {
   id: string;
@@ -73,15 +74,30 @@ export default function DriversVehiclesPage() {
         return;
       }
 
-      const [driversRes, vehiclesRes, trackingRes] = await Promise.all([
+      const [driversRes, vehiclesRes] = await Promise.all([
         supabase.from('drivers').select('id, display_name, status, created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(30),
         supabase.from('vehicles').select('id, reg_plate, type, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id, created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(50),
-        supabase.from('driver_locations').select('id, driver_id, lat, lng, recorded_at').eq('company_id', companyId).order('recorded_at', { ascending: false }).limit(50),
       ]);
+      let trackingRes = await supabase
+        .from('driver_locations')
+        .select('id, driver_id, lat, lng, recorded_at')
+        .eq('company_id', companyId)
+        .order('recorded_at', { ascending: false })
+        .limit(50);
+
+      if (isMissingColumnError(trackingRes.error, 'driver_locations', 'company_id')) {
+        trackingRes = await supabase
+          .from('driver_locations')
+          .select('id, driver_id, lat, lng, recorded_at')
+          .order('recorded_at', { ascending: false })
+          .limit(50);
+      }
 
       setDrivers((driversRes.data as DriverRow[]) ?? []);
       setVehicles((vehiclesRes.data as VehicleRow[]) ?? []);
-      setTracking((trackingRes.data as TrackingRow[]) ?? []);
+      const driverIds = new Set(((driversRes.data as DriverRow[] | null) ?? []).map((row) => row.id));
+      const trackingRows = ((trackingRes.data as TrackingRow[]) ?? []).filter((row) => driverIds.has(row.driver_id));
+      setTracking(trackingRows);
       setLoading(false);
     };
     void load();
