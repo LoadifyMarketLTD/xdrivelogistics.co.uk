@@ -720,13 +720,17 @@ export default function AdminPage() {
       icon: '🚚',
       color: ENTERPRISE_THEME.colors.live,
       subtitle: 'Live jobs in posted, allocated and in-transit states',
+      href: '/admin/jobs',
+      urgent: false,
     },
     {
       label: 'Pending Quotes',
       value: dashboard.overview.pendingQuotes,
       icon: '💬',
-      color: ENTERPRISE_THEME.colors.driverQuote,
+      color: dashboard.overview.pendingQuotes > 0 ? ENTERPRISE_THEME.colors.warning : ENTERPRISE_THEME.colors.driverQuote,
       subtitle: 'Pricing requests waiting for conversion',
+      href: '/admin/quotes',
+      urgent: dashboard.overview.pendingQuotes > 0,
     },
     {
       label: 'Active Drivers',
@@ -734,6 +738,8 @@ export default function AdminPage() {
       icon: '👤',
       color: ENTERPRISE_THEME.colors.success,
       subtitle: 'Drivers currently available for dispatch',
+      href: '/admin/drivers-vehicles',
+      urgent: false,
     },
     {
       label: 'Completed Today',
@@ -741,6 +747,8 @@ export default function AdminPage() {
       icon: '✅',
       color: ENTERPRISE_THEME.colors.success,
       subtitle: 'Delivery confirmations closed today',
+      href: '/admin/jobs',
+      urgent: false,
     },
     {
       label: 'Outstanding Revenue',
@@ -748,6 +756,8 @@ export default function AdminPage() {
       icon: '💷',
       color: ENTERPRISE_THEME.colors.warning,
       subtitle: 'Open invoice value to collect',
+      href: '/admin/invoices',
+      urgent: false,
     },
     {
       label: 'Compliance Alerts',
@@ -755,6 +765,8 @@ export default function AdminPage() {
       icon: '🛡️',
       color: ENTERPRISE_THEME.colors.danger,
       subtitle: 'Blocked or expired compliance documents',
+      href: '/admin/drivers-vehicles',
+      urgent: dashboard.compliance.attentionRequired > 0,
     },
   ];
 
@@ -935,16 +947,21 @@ export default function AdminPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
             {overviewCards.map((stat) => (
-              <div
+              <button
                 key={stat.label}
+                className="panel-button"
+                onClick={() => router.push(stat.href)}
                 style={{
-                  backgroundColor: ENTERPRISE_THEME.cardBg,
+                  backgroundColor: stat.urgent ? '#fff7ed' : ENTERPRISE_THEME.cardBg,
                   padding: '0.75rem',
                   borderRadius: ENTERPRISE_THEME.radius,
-                  border: `1px solid ${ENTERPRISE_THEME.cardBorder}`,
+                  border: stat.urgent ? `1px solid #fb923c` : `1px solid ${ENTERPRISE_THEME.cardBorder}`,
                   boxShadow: ENTERPRISE_THEME.cardShadow,
                   borderLeft: `3px solid ${stat.color}`,
                   minHeight: '110px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  width: '100%',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.45rem' }}>
@@ -954,9 +971,51 @@ export default function AdminPage() {
                   </div>
                   <span style={{ fontSize: '1.1rem', width: '26px', height: '26px', borderRadius: '8px', backgroundColor: '#f1f5f9', display: 'grid', placeItems: 'center' }}>{stat.icon}</span>
                 </div>
-                <div style={{ fontSize: '1.52rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text }}>{dashboardLoading ? '…' : stat.value}</div>
-              </div>
+                <div style={{ fontSize: '1.52rem', fontWeight: '700', color: stat.urgent ? stat.color : ENTERPRISE_THEME.colors.text }}>{dashboardLoading ? '…' : stat.value}</div>
+              </button>
             ))}
+          </div>
+
+          {/* Jobs Pipeline strip */}
+          <div style={{ marginBottom: '0.75rem' }}>
+            <section style={{ ...sectionCardStyle, padding: '0.75rem 1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.55rem' }}>
+                <h3 style={{ fontSize: '0.88rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Dispatch Pipeline</h3>
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/jobs')}
+                  style={{ background: 'none', border: 'none', fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.live, cursor: 'pointer', fontWeight: '600' }}
+                >
+                  View all →
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+                {[
+                  { label: 'Needs Dispatch', value: dashboard.jobsByStatus.posted, color: '#fbbf24', bg: '#fffbeb', urgent: dashboard.jobsByStatus.posted > 0 },
+                  { label: 'Allocated', value: dashboard.jobsByStatus.allocated, color: '#a855f7', bg: '#faf5ff', urgent: false },
+                  { label: 'In Transit', value: dashboard.jobsByStatus.inTransit, color: '#1d4ed8', bg: '#eff6ff', urgent: false },
+                  { label: 'Delivered', value: dashboard.jobsByStatus.delivered, color: '#15803d', bg: '#f0fdf4', urgent: false },
+                ].map((stage) => (
+                  <button
+                    key={stage.label}
+                    className="panel-button"
+                    onClick={() => router.push('/admin/jobs')}
+                    style={{
+                      backgroundColor: stage.urgent ? '#fffbeb' : stage.bg,
+                      border: stage.urgent ? `1px solid ${stage.color}` : '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      padding: '0.5rem 0.6rem',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      width: '100%',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600', marginBottom: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{stage.label}</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '700', color: stage.urgent ? stage.color : ENTERPRISE_THEME.colors.text }}>{dashboardLoading ? '…' : stage.value}</div>
+                  </button>
+                ))}
+              </div>
+            </section>
           </div>
 
           <div style={{ marginBottom: '0.75rem' }}>
