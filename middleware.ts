@@ -255,11 +255,6 @@ const redirectToForbidden = (request: NextRequest) => {
   return NextResponse.redirect(forbiddenUrl);
 };
 
-const redirectToLogin = (request: NextRequest) => {
-  const loginUrl = new URL('/login', request.url);
-  return NextResponse.redirect(loginUrl);
-};
-
 const redirectToDriverPasswordChange = (request: NextRequest) => {
   const changeUrl = new URL('/driver/change-password', request.url);
   return NextResponse.redirect(changeUrl);
