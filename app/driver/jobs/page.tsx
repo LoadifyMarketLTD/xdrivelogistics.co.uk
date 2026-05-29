@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DbJob } from '../../../lib/types/database';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -116,6 +117,20 @@ export default function DriverJobsPage() {
         }}
       >
         <div>
+          <Link
+            href="/driver"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              color: '#93c5fd',
+              fontSize: '0.75rem',
+              textDecoration: 'none',
+              marginBottom: '0.2rem',
+            }}
+          >
+            ← Hub
+          </Link>
           <p style={{ color: '#93c5fd', fontSize: '0.75rem', margin: 0 }}>Welcome back</p>
           <h1 style={{ color: '#ffffff', fontSize: '1.1rem', fontWeight: '700', margin: 0 }}>
             {driverName || 'Driver'}
