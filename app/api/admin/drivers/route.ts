@@ -140,26 +140,6 @@ export async function POST(request: NextRequest) {
     resolvedMembership = membership ?? null;
   }
 
-  // Profile-based fallback: handles users who have a valid profile + company but
-  // no company_memberships row (e.g. owner provisioned before the membership
-  // bootstrap RPC existed, or if the membership query failed during auth).
-  if (!resolvedMembership) {
-    const { data: profileData, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('company_id, role')
-      .eq('user_id', authData.user.id)
-      .eq('company_id', requestedCompanyId)
-      .maybeSingle();
-
-    if (!profileError && profileData?.company_id && ADMIN_ROLES.has(profileData.role ?? '')) {
-      resolvedMembership = {
-        id: authData.user.id,
-        company_id: profileData.company_id,
-        role_in_company: profileData.role ?? 'admin',
-      };
-    }
-  }
-
   if (!resolvedMembership?.id || !resolvedMembership.company_id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -231,7 +211,7 @@ export async function POST(request: NextRequest) {
       if (createUserError || !createdUserData.user) {
         return NextResponse.json(
           {
-            error: `Invite email provider API key is invalid. Fallback user creation failed: ${createUserError?.message || 'Failed to create driver auth user.'}`,
+            error: `Supabase Auth service key is misconfigured (Invalid API key). This is a server configuration issue, not a database or company error. Fallback user creation failed: ${createUserError?.message || 'Failed to create driver auth user.'}`,
           },
           { status: 400 }
         );

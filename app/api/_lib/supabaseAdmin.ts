@@ -11,6 +11,12 @@ const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_KEY?.trim() ||
   '';
 
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() && !process.env.SUPABASE_SERVICE_KEY?.trim()) {
+  console.error('[supabaseAdmin] SUPABASE_SERVICE_ROLE_KEY is not set — admin operations are disabled.');
+} else if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() && process.env.SUPABASE_SERVICE_KEY?.trim()) {
+  console.warn('[supabaseAdmin] Using legacy SUPABASE_SERVICE_KEY — prefer SUPABASE_SERVICE_ROLE_KEY.');
+}
+
 // Anon key (public) — used for JWT validation so that token verification never
 // depends on the service-role key being present/correct.  The service-role key
 // is only needed for privileged admin operations (inviteUserByEmail, etc.).
