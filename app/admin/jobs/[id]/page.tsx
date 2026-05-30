@@ -51,13 +51,14 @@ interface Job {
 
 interface DriverOption {
   id: string;
-  display_name: string | null;
-  full_name?: string | null;
+  user_id: string | null;
+  name: string | null;
   email: string | null;
+  company_id?: string | null;
 }
 
 const getDriverLabel = (driver: DriverOption) => {
-  const name = driver.display_name || driver.full_name || 'Unnamed driver';
+  const name = driver.name || 'Unnamed driver';
   return driver.email ? `${name} (${driver.email})` : name;
 };
 
@@ -102,10 +103,10 @@ export default function JobDetailPage() {
 
     const { data, error } = await supabase
       .from('drivers')
-      .select('id, display_name, full_name, email')
+      .select('id, user_id, name, email, company_id')
       .eq('company_id', companyId)
       .eq('status', 'active')
-      .order('display_name', { ascending: true, nullsFirst: false });
+      .order('name', { ascending: true, nullsFirst: false });
 
     if (error) {
       console.error('Failed to load active company drivers:', error.message);
@@ -749,7 +750,7 @@ export default function JobDetailPage() {
                     </option>
                   )}
                   {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>
+                    <option key={d.id} value={d.user_id ?? ''}>
                       {getDriverLabel(d)}
                     </option>
                   ))}
@@ -758,7 +759,7 @@ export default function JobDetailPage() {
                 <div style={{ fontSize: '0.95rem', color: formData.assignedDriverId ? '#1f2937' : '#9ca3af' }}>
                   {formData.assignedDriverId
                     ? (() => {
-                        const assignedDriver = drivers.find((d) => d.id === formData.assignedDriverId);
+                        const assignedDriver = drivers.find((d) => d.user_id === formData.assignedDriverId);
                         return assignedDriver ? getDriverLabel(assignedDriver) : 'Assigned driver not found in this company';
                       })()
                     : 'No driver assigned'}
