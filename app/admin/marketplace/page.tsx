@@ -27,6 +27,7 @@ type ExchangeLoad = {
   currency: string;
   load_details: string | null;
   exchange_posted_at: string | null;
+  awarded_carrier_company_id: string | null;
   // joined
   companies: { name: string } | null;
   myBid?: BidRow | null;
@@ -135,12 +136,13 @@ export default function MarketplacePage() {
     setLoadsLoading(true);
     setLoadsError('');
 
-    // Fetch exchange-visible jobs from other companies with status=posted
+    // Fetch exchange-visible jobs from other companies with status=posted and not yet awarded
     const { data: jobsData, error: jobsError } = await supabase
       .from('jobs')
-      .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, weight_kg, pallets, budget_amount, is_fixed_price, currency, load_details, exchange_posted_at, companies(name)')
+      .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, weight_kg, pallets, budget_amount, is_fixed_price, currency, load_details, exchange_posted_at, awarded_carrier_company_id, companies(name)')
       .eq('exchange_visibility', 'exchange')
       .eq('status', 'posted')
+      .is('awarded_carrier_company_id', null)
       .neq('company_id', companyId)
       .order('exchange_posted_at', { ascending: false })
       .limit(100);
@@ -561,13 +563,15 @@ export default function MarketplacePage() {
 
 function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
   const hasBid = !!load.myBid;
+  const bidAccepted = load.myBid?.status === 'accepted';
   const bidStyle = load.myBid ? (BID_STATUS_STYLE[load.myBid.status] ?? BID_STATUS_STYLE.submitted) : null;
+  const borderColor = bidAccepted ? '#86efac' : hasBid ? '#93c5fd' : '#e5e7eb';
 
   return (
     <div style={{
       backgroundColor: '#fff',
       borderRadius: '10px',
-      border: `1px solid ${hasBid ? '#86efac' : '#e5e7eb'}`,
+      border: `1px solid ${borderColor}`,
       padding: '1rem 1.25rem',
       display: 'flex',
       justifyContent: 'space-between',
@@ -612,7 +616,7 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
         {hasBid && load.myBid && bidStyle ? (
           <div style={{ textAlign: 'right' }}>
             <span style={{ backgroundColor: bidStyle.bg, color: bidStyle.color, padding: '0.2rem 0.65rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 600 }}>
-              Bid: £{(load.myBid.bid_price_gbp ?? load.myBid.amount).toFixed(2)} · {load.myBid.status}
+              {bidAccepted ? '✓ Bid Accepted' : `Bid: £${(load.myBid.bid_price_gbp ?? load.myBid.amount).toFixed(2)} · ${load.myBid.status.charAt(0).toUpperCase() + load.myBid.status.slice(1)}`}
             </span>
           </div>
         ) : (
