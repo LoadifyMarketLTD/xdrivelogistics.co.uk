@@ -47,7 +47,11 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Bid not found.' }, { status: 404 });
   }
 
-  const jobCompanyId = (bidJob.jobs as { company_id: string }).company_id;
+  const bidJobRelation = Array.isArray(bidJob.jobs) ? bidJob.jobs[0] : bidJob.jobs;
+  const jobCompanyId = (bidJobRelation as { company_id?: string } | null)?.company_id;
+  if (!jobCompanyId) {
+    return NextResponse.json({ error: 'Bid not found.' }, { status: 404 });
+  }
 
   const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
