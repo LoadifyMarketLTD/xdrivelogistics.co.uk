@@ -123,16 +123,26 @@ export async function POST(request: NextRequest) {
 
   let resolvedMembership: { id: string; company_id: string; role_in_company: string } | null = null;
 
-  if (requestedMembershipId) {
-    const { data: membership, error: membershipError } = await supabaseAdmin
+  // Build the base query: always scoped to the calling user + requested company.
+  // If the client also supplies a membershipId we add it as an extra constraint
+  // so the lookup is exact.  When it is absent (null / undefined — can happen
+  // when auth hydration has not yet surfaced the membership row) we fall back
+  // to looking up by (user_id, company_id) alone, which is sufficient to
+  // verify admin access without requiring the client to know its membership UUID.
+  {
+    let query = supabaseAdmin
       .from('company_memberships')
       .select('id, company_id, role_in_company')
       .eq('user_id', authData.user.id)
       .eq('status', 'active')
-      .eq('id', requestedMembershipId)
       .eq('company_id', requestedCompanyId)
-      .in('role_in_company', Array.from(ADMIN_ROLES))
-      .maybeSingle();
+      .in('role_in_company', Array.from(ADMIN_ROLES));
+
+    if (requestedMembershipId) {
+      query = query.eq('id', requestedMembershipId) as typeof query;
+    }
+
+    const { data: membership, error: membershipError } = await query.maybeSingle();
 
     if (membershipError) {
       return NextResponse.json({ error: membershipError.message }, { status: 500 });
@@ -141,7 +151,14 @@ export async function POST(request: NextRequest) {
   }
 
   if (!resolvedMembership?.id || !resolvedMembership.company_id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json(
+      {
+        error: 'Forbidden: no active admin membership found for this company.',
+        code: 'auth_membership_not_found',
+        hint: 'Ensure the calling user has an active owner/admin/dispatcher membership in this company.',
+      },
+      { status: 403 }
+    );
   }
 
   const resolvedCompanyId = resolvedMembership.company_id;
