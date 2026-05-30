@@ -5,16 +5,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
-
-// Roles that are allowed to accept bids (job owner side)
-const OWNER_ROLES = new Set([
-  'owner',
-  'admin',
-  'dispatcher',
-  'company_admin',
-  'admin_staff',
-  'company',
-]);
+import { hasBidDecisionRole } from '../../_lib/ownerRoles';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -39,38 +30,30 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Unauthorized — invalid token.' }, { status: 401 });
   }
 
-  // ── 2. Resolve the bid ──────────────────────────────────────────────────────
+  // ── 2. Resolve bid id ───────────────────────────────────────────────────────
   const { id: bidId } = await params;
   if (!bidId) {
     return NextResponse.json({ error: 'Bad request — missing bid id.' }, { status: 400 });
   }
 
-  const { data: bid, error: bidError } = await supabaseAdmin
+  // ── 3. Pre-check caller role on owning company ──────────────────────────────
+  const { data: bidJob, error: bidJobError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, job_id, company_id, status')
+    .select('id, jobs!inner(company_id)')
     .eq('id', bidId)
     .maybeSingle();
 
-  if (bidError || !bid) {
+  if (bidJobError || !bidJob || !bidJob.jobs) {
     return NextResponse.json({ error: 'Bid not found.' }, { status: 404 });
   }
 
-  // ── 3. Verify the caller owns the job ───────────────────────────────────────
-  const { data: job, error: jobError } = await supabaseAdmin
-    .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, exchange_visibility')
-    .eq('id', bid.job_id as string)
-    .maybeSingle();
-
-  if (jobError || !job) {
-    return NextResponse.json({ error: 'Job not found.' }, { status: 404 });
-  }
+  const jobCompanyId = (bidJob.jobs as { company_id: string }).company_id;
 
   const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
     .select('id, role_in_company')
     .eq('user_id', user.id)
-    .eq('company_id', job.company_id as string)
+    .eq('company_id', jobCompanyId)
     .eq('status', 'active')
     .maybeSingle();
 
@@ -81,80 +64,41 @@ export async function POST(request: NextRequest, { params }: Params) {
     );
   }
 
-  if (!OWNER_ROLES.has(membership.role_in_company as string)) {
+  if (!hasBidDecisionRole(membership.role_in_company as string | null)) {
     return NextResponse.json(
       { error: 'Forbidden — insufficient role to accept bids.' },
       { status: 403 }
     );
   }
 
-  // ── 4. Guard: cannot accept own company's bid ────────────────────────────────
-  if (bid.company_id === job.company_id) {
-    return NextResponse.json(
-      { error: 'Forbidden — cannot accept a bid placed by your own company.' },
-      { status: 403 }
-    );
-  }
+  // ── 4. Atomic accept via database function ───────────────────────────────────
+  const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+    'accept_job_bid_atomic',
+    {
+      p_bid_id: bidId,
+      p_actor_user_id: user.id,
+    }
+  );
 
-  // ── 5. Guard: job must be in exchange or direct visibility ───────────────────
-  if (!['exchange', 'direct'].includes(job.exchange_visibility as string)) {
+  if (rpcError) {
     return NextResponse.json(
-      { error: 'Bad request — this job is not on the exchange.' },
-      { status: 400 }
-    );
-  }
-
-  // ── 6. Guard: already awarded ────────────────────────────────────────────────
-  if (job.awarded_carrier_company_id) {
-    return NextResponse.json(
-      { error: 'Conflict — this job has already been awarded to a carrier.' },
-      { status: 409 }
-    );
-  }
-
-  // ── 7. Accept the bid ────────────────────────────────────────────────────────
-  const { error: acceptError } = await supabaseAdmin
-    .from('job_bids')
-    .update({ status: 'accepted' })
-    .eq('id', bidId);
-
-  if (acceptError) {
-    return NextResponse.json(
-      { error: `Failed to accept bid: ${acceptError.message}` },
+      { error: `Failed to accept bid: ${rpcError.message}` },
       { status: 500 }
     );
   }
 
-  // ── 8. Reject all competing bids for the same job ────────────────────────────
-  const { error: rejectError } = await supabaseAdmin
-    .from('job_bids')
-    .update({ status: 'rejected' })
-    .eq('job_id', bid.job_id as string)
-    .neq('id', bidId)
-    .in('status', ['submitted', 'accepted']);
-
-  if (rejectError) {
-    // Non-fatal: log and continue — the acceptance itself succeeded
-    console.error('[bid-accept] Failed to reject competing bids:', rejectError.message);
-  }
-
-  // ── 9. Set awarded_carrier_company_id on the job ─────────────────────────────
-  const { error: jobUpdateError } = await supabaseAdmin
-    .from('jobs')
-    .update({ awarded_carrier_company_id: bid.company_id })
-    .eq('id', bid.job_id as string);
-
-  if (jobUpdateError) {
+  const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
+  if (!result?.success) {
     return NextResponse.json(
-      { error: `Failed to award job: ${jobUpdateError.message}` },
-      { status: 500 }
+      { error: result?.error_message ?? 'Accept failed.' },
+      { status: result?.http_status ?? 500 }
     );
   }
 
   return NextResponse.json({
     success: true,
-    bidId,
-    jobId: bid.job_id,
-    awardedCarrierCompanyId: bid.company_id,
+    bidId: result.bid_id,
+    jobId: result.job_id,
+    awardedCarrierCompanyId: result.awarded_carrier_company_id,
   });
 }

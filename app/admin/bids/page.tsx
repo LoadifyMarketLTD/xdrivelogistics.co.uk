@@ -98,6 +98,7 @@ export default function BidsPage() {
         'companies(name)'
       )
       .eq('jobs.company_id', companyId)
+      .in('jobs.exchange_visibility', ['exchange', 'direct'])
       .order('created_at', { ascending: false });
 
     if (fetchError) {
@@ -108,7 +109,7 @@ export default function BidsPage() {
 
     // Group bids by job
     const groupMap = new Map<string, JobGroup>();
-    for (const raw of (data ?? []) as BidWithJob[]) {
+    for (const raw of (data ?? []) as unknown as BidWithJob[]) {
       const j = raw.jobs;
       if (!j) continue;
       if (!groupMap.has(raw.job_id)) {
@@ -307,7 +308,7 @@ function JobBidGroup({
             const sc = STATUS_COLORS[bid.status] ?? STATUS_COLORS.submitted;
             const isActioning = actionLoading === bid.id;
             const canAccept = !isAwarded && bid.status === 'submitted';
-            const canReject = bid.status === 'submitted' || bid.status === 'accepted';
+            const canReject = bid.status === 'submitted';
 
             return (
               <tr key={bid.id} style={{ borderBottom: i < group.bids.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
@@ -350,7 +351,7 @@ function JobBidGroup({
                       <button
                         onClick={() => onReject(bid.id)}
                         disabled={isActioning}
-                        title={bid.status === 'accepted' ? 'Revoke acceptance and reject this bid' : 'Reject this bid'}
+                        title="Reject this bid"
                         style={{ padding: '0.35rem 0.8rem', backgroundColor: isActioning ? '#e5e7eb' : '#fee2e2', color: isActioning ? '#9ca3af' : '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: isActioning ? 'not-allowed' : 'pointer' }}
                       >
                         {isActioning ? '…' : '✕ Reject'}

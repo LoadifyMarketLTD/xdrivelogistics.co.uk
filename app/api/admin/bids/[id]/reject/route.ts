@@ -5,16 +5,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
-
-// Roles that are allowed to reject bids (job owner side)
-const OWNER_ROLES = new Set([
-  'owner',
-  'admin',
-  'dispatcher',
-  'company_admin',
-  'admin_staff',
-  'company',
-]);
+import { hasBidDecisionRole } from '../../_lib/ownerRoles';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -58,7 +49,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   // ── 3. Verify the caller owns the job ───────────────────────────────────────
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id')
+    .select('id, company_id, awarded_carrier_company_id, exchange_visibility')
     .eq('id', bid.job_id as string)
     .maybeSingle();
 
@@ -81,18 +72,40 @@ export async function POST(request: NextRequest, { params }: Params) {
     );
   }
 
-  if (!OWNER_ROLES.has(membership.role_in_company as string)) {
+  if (!hasBidDecisionRole(membership.role_in_company as string | null)) {
     return NextResponse.json(
       { error: 'Forbidden — insufficient role to reject bids.' },
       { status: 403 }
     );
   }
 
-  // ── 4. Reject the bid ────────────────────────────────────────────────────────
-  const { error: rejectError } = await supabaseAdmin
+  // ── 4. Guard: exchange/direct bids only ──────────────────────────────────────
+  if (!['exchange', 'direct'].includes((job.exchange_visibility as string | null) ?? '')) {
+    return NextResponse.json(
+      { error: 'Bad request — this job is not on the exchange.' },
+      { status: 400 }
+    );
+  }
+
+  // ── 5. Guard: only submitted bids can be rejected in this flow ──────────────
+  if (bid.status !== 'submitted') {
+    return NextResponse.json(
+      {
+        error:
+          'Conflict — only submitted bids can be rejected via this endpoint.',
+      },
+      { status: 409 }
+    );
+  }
+
+  // ── 6. Reject the bid ────────────────────────────────────────────────────────
+  const { data: rejectedBid, error: rejectError } = await supabaseAdmin
     .from('job_bids')
     .update({ status: 'rejected' })
-    .eq('id', bidId);
+    .eq('id', bidId)
+    .eq('status', 'submitted')
+    .select('id')
+    .maybeSingle();
 
   if (rejectError) {
     return NextResponse.json(
@@ -100,28 +113,17 @@ export async function POST(request: NextRequest, { params }: Params) {
       { status: 500 }
     );
   }
-
-  // ── 5. If this bid was previously accepted, unset awarded_carrier_company_id ─
-  const wasAccepted = bid.status === 'accepted';
-  if (wasAccepted && job.awarded_carrier_company_id === bid.company_id) {
-    const { error: jobUpdateError } = await supabaseAdmin
-      .from('jobs')
-      .update({ awarded_carrier_company_id: null })
-      .eq('id', bid.job_id as string);
-
-    if (jobUpdateError) {
-      // Non-fatal: log but return success since bid was already rejected
-      console.error(
-        '[bid-reject] Failed to unset awarded_carrier_company_id:',
-        jobUpdateError.message
-      );
-    }
+  if (!rejectedBid) {
+    return NextResponse.json(
+      { error: 'Conflict — bid is no longer in submitted status.' },
+      { status: 409 }
+    );
   }
 
   return NextResponse.json({
     success: true,
     bidId,
     jobId: bid.job_id,
-    wasAccepted,
+    awardedCarrierCompanyId: job.awarded_carrier_company_id,
   });
 }
