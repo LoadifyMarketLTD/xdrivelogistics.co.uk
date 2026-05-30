@@ -28,7 +28,7 @@ type ForensicErrorPayload = {
 
 const FORENSIC_SQL = {
   membershipLookup:
-    "select id, company_id, role_in_company from public.company_memberships where user_id = :auth_user_id and status = 'active' and id = :membership_id and company_id = :company_id and role_in_company in (:admin_roles) limit 1",
+    "select id, company_id, role_in_company from public.company_memberships where user_id = :auth_user_id and status = 'active' and company_id = :company_id and role_in_company in (:admin_roles) and (:membership_id is null or id = :membership_id) limit 1",
   companyLookup:
     'select id, name from public.companies where id = :company_id limit 1',
   existingDriverLookup:
@@ -182,11 +182,6 @@ const logForensicSkip = (
     operation,
     ...details,
   });
-};
-
-const isInvalidApiKeyError = (message?: string | null, code?: string | null) => {
-  const value = `${message ?? ''} ${code ?? ''}`.toLowerCase();
-  return value.includes('invalid api key');
 };
 
 const TEMP_PASSWORD_CHARSETS = {
@@ -371,48 +366,55 @@ export async function POST(request: NextRequest) {
 
     let resolvedMembership: { id: string; company_id: string; role_in_company: string } | null = null;
 
+    const membershipLookupStack = logForensicStart(
+      requestId,
+      'membership lookup',
+      'lookup active admin membership',
+      {
+        sqlStatement: FORENSIC_SQL.membershipLookup,
+        requestedMembershipId,
+        requestedCompanyId,
+        membershipIdFilterApplied: Boolean(requestedMembershipId),
+      }
+    );
+
+    let membershipQuery = supabaseAdmin
+      .from('company_memberships')
+      .select('id, company_id, role_in_company')
+      .eq('user_id', authData.user.id)
+      .eq('status', 'active')
+      .eq('company_id', requestedCompanyId)
+      .in('role_in_company', Array.from(ADMIN_ROLES));
+
     if (requestedMembershipId) {
-      const membershipLookupStack = logForensicStart(
+      membershipQuery = membershipQuery.eq('id', requestedMembershipId);
+    }
+
+    const { data: membership, error: membershipLookupError } = await membershipQuery.maybeSingle();
+
+    if (membershipLookupError) {
+      logForensicFailure(
         requestId,
         'membership lookup',
         'lookup active admin membership',
+        membershipLookupError,
         {
-          sqlStatement: FORENSIC_SQL.membershipLookup,
-          requestedMembershipId,
-          requestedCompanyId,
+        callSiteStack: membershipLookupStack,
+        sqlStatement: FORENSIC_SQL.membershipLookup,
+        authUserId: authData.user.id,
+        membershipIdFilterApplied: Boolean(requestedMembershipId),
         }
       );
-
-      const { data: membership, error: membershipError } = await supabaseAdmin
-        .from('company_memberships')
-        .select('id, company_id, role_in_company')
-        .eq('user_id', authData.user.id)
-        .eq('status', 'active')
-        .eq('id', requestedMembershipId)
-        .eq('company_id', requestedCompanyId)
-        .in('role_in_company', Array.from(ADMIN_ROLES))
-        .maybeSingle();
-
-      if (membershipError) {
-        logForensicFailure(requestId, 'membership lookup', 'lookup active admin membership', membershipError, {
-          callSiteStack: membershipLookupStack,
-          sqlStatement: FORENSIC_SQL.membershipLookup,
-          authUserId: authData.user.id,
-        });
-        return respond(500, { error: membershipError.message }, 'membership_lookup_failed');
-      }
-
-      resolvedMembership = membership ?? null;
-      logForensicSuccess(requestId, 'membership lookup', 'lookup active admin membership', {
-        membershipId: resolvedMembership?.id ?? null,
-        companyId: resolvedMembership?.company_id ?? null,
-        roleInCompany: resolvedMembership?.role_in_company ?? null,
-      });
-    } else {
-      logForensicSkip(requestId, 'membership lookup', 'lookup active admin membership', {
-        reason: 'membershipId missing from request payload',
-      });
+      return respond(500, { error: membershipLookupError.message }, 'membership_lookup_failed');
     }
+
+    resolvedMembership = membership ?? null;
+    logForensicSuccess(requestId, 'membership lookup', 'lookup active admin membership', {
+      membershipId: resolvedMembership?.id ?? null,
+      companyId: resolvedMembership?.company_id ?? null,
+      roleInCompany: resolvedMembership?.role_in_company ?? null,
+      membershipIdFilterApplied: Boolean(requestedMembershipId),
+    });
 
     if (!resolvedMembership?.id || !resolvedMembership.company_id) {
       logForensicFailure(
@@ -558,73 +560,9 @@ export async function POST(request: NextRequest) {
           invitedUserId: userId,
           invitedUserEmail: invitedUserData.user.email ?? email,
         });
-      } else if (isInvalidApiKeyError(inviteError?.message, inviteError?.code)) {
-        logForensicFailure(requestId, 'inviteUserByEmail()', 'invite auth user by email', inviteError, {
-          level: 'warn',
-          callSiteStack: inviteUserStack,
-          inviteFallback: true,
-          email,
-        });
-
-        // Email invite provider not configured — fall back to password-based creation.
-        invited = false;
-        inviteFallbackReason = 'Supabase Auth invite provider returned invalid API key.';
-        temporaryPassword = generateStrongTemporaryPassword();
-
-        const createUserFallbackStack = logForensicStart(
-          requestId,
-          'createUser() fallback path',
-          'create auth user with temporary password fallback',
-          {
-            email,
-            inviteFallbackReason,
-          }
-        );
-        const { data: createdUserData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
-          email,
-          password: temporaryPassword,
-          email_confirm: true,
-          user_metadata: {
-            role: 'driver',
-            requested_role: 'driver',
-          },
-          app_metadata: {
-            role: 'driver',
-          },
-        });
-
-        if (createUserError || !createdUserData.user) {
-          logForensicFailure(
-            requestId,
-            'createUser() fallback path',
-            'create auth user with temporary password fallback',
-            createUserError ?? new Error('Failed to create driver auth user.'),
-            {
-              callSiteStack: createUserFallbackStack,
-              email,
-            }
-          );
-          return respond(
-            400,
-            {
-              error: `Supabase Auth service key is misconfigured (Invalid API key). This is a server configuration issue, not a database or company error. Fallback user creation failed: ${createUserError?.message || 'Failed to create driver auth user.'}`,
-            },
-            'create_user_fallback_failed'
-          );
-        }
-
-        userId = createdUserData.user.id;
-        logForensicSuccess(
-          requestId,
-          'createUser() fallback path',
-          'create auth user with temporary password fallback',
-          {
-            createdUserId: userId,
-            createdUserEmail: createdUserData.user.email ?? email,
-          }
-        );
       } else if (inviteError) {
         logForensicFailure(requestId, 'inviteUserByEmail()', 'invite auth user by email', inviteError, {
+          level: 'warn',
           callSiteStack: inviteUserStack,
           email,
         });
@@ -667,13 +605,65 @@ export async function POST(request: NextRequest) {
             reason: 'invite failure mapped to existing auth user; fallback not needed',
           });
         } else {
-          logForensicSkip(requestId, 'createUser() fallback path', 'create auth user with temporary password fallback', {
-            reason: 'invite failed without invalid api key fallback condition',
+          // Email invite failed for any reason (SMTP misconfiguration, invalid API key,
+          // rate limit, etc.) — fall back to password-based creation so the driver can
+          // still be onboarded. The admin can send a password-reset email afterwards.
+          invited = false;
+          inviteFallbackReason = `Invite email failed (${inviteError.message ?? 'unknown error'}). Driver created with temporary password.`;
+
+          const createUserFallbackStack = logForensicStart(
+            requestId,
+            'createUser() fallback path',
+            'create auth user with temporary password fallback',
+            {
+              email,
+              inviteFallbackReason,
+            }
+          );
+          temporaryPassword = generateStrongTemporaryPassword();
+          const { data: createdUserData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
+            email,
+            password: temporaryPassword,
+            email_confirm: true,
+            user_metadata: {
+              role: 'driver',
+              requested_role: 'driver',
+            },
+            app_metadata: {
+              role: 'driver',
+            },
           });
-          return respond(
-            400,
-            { error: inviteError.message || 'Failed to invite driver auth user.' },
-            'invite_user_failed'
+
+          if (createUserError || !createdUserData.user) {
+            logForensicFailure(
+              requestId,
+              'createUser() fallback path',
+              'create auth user with temporary password fallback',
+              createUserError ?? new Error('Failed to create driver auth user.'),
+              {
+                callSiteStack: createUserFallbackStack,
+                email,
+              }
+            );
+            return respond(
+              400,
+              {
+                error: `Failed to create driver account. Invite email also failed: ${inviteError.message || 'unknown'}. Creation error: ${createUserError?.message || 'Failed to create driver auth user.'}`,
+              },
+              'create_user_fallback_failed'
+            );
+          }
+
+          userId = createdUserData.user.id;
+          logForensicSuccess(
+            requestId,
+            'createUser() fallback path',
+            'create auth user with temporary password fallback',
+            {
+              createdUserId: userId,
+              createdUserEmail: createdUserData.user.email ?? email,
+              inviteFallbackReason,
+            }
           );
         }
       }

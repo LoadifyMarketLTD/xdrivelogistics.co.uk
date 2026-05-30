@@ -21,6 +21,7 @@ const buildCspHeader = (nonce: string) =>
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'self'",
+    "upgrade-insecure-requests",
   ].join('; ');
 
 const withSecurityHeaders = (response: NextResponse, nonce: string, cspHeader: string) => {
