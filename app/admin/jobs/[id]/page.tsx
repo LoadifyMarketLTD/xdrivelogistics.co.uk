@@ -32,6 +32,7 @@ interface Job {
     quantity: number;
     notes: string;
   };
+  distanceMiles: number | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -127,7 +128,7 @@ export default function JobDetailPage() {
 
         const { data, error } = await supabase
           .from('jobs')
-          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, assigned_driver_id, collection_photo_url, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at, exchange_visibility')
+.select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, assigned_driver_id, distance_miles, collection_photo_url, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at, exchange_visibility')
           .eq('id', jobId)
           .eq('company_id', companyId)
           .single();
@@ -163,6 +164,12 @@ export default function JobDetailPage() {
               quantity: (row.items as number) || 1,
               notes: clientFields.cargoNotes,
             },
+            distanceMiles:
+              typeof row.distance_miles === 'number'
+                ? row.distance_miles
+                : row.distance_miles !== null && row.distance_miles !== undefined
+                  ? Number(row.distance_miles)
+                  : null,
             status: (row.status as string) || JOB_STATUS.RECEIVED,
             createdAt: row.created_at as string,
             updatedAt: row.updated_at as string,
@@ -266,7 +273,6 @@ export default function JobDetailPage() {
           client_name: formData.client.name,
           client_email: formData.client.email || null,
           client_phone: formData.client.phone || null,
-          load_details: formData.client.name,
           special_requirements: buildLegacyJobSpecialRequirements({
             clientPhone: formData.client.phone,
             clientEmail: formData.client.email,
@@ -278,6 +284,7 @@ export default function JobDetailPage() {
           delivery_datetime: formData.delivery.date && formData.delivery.time ? `${formData.delivery.date}T${formData.delivery.time}:00` : null,
           cargo_type: formData.cargo.type.toLowerCase(),
           items: formData.cargo.quantity,
+          distance_miles: formData.distanceMiles,
           status: formData.status,
           assigned_driver_id: formData.assignedDriverId || null,
           updated_at: new Date().toISOString(),
@@ -288,7 +295,9 @@ export default function JobDetailPage() {
           setTimeout(() => setSaveMessage(''), 3000);
           return;
         }
-        setJob(formData);
+        const updatedJob = { ...formData, updatedAt: new Date().toISOString() };
+        setJob(updatedJob);
+        setFormData(updatedJob);
         setEditMode(false);
         setSaveMessage('Job saved successfully!');
         setTimeout(() => setSaveMessage(''), 3000);
@@ -983,6 +992,33 @@ export default function JobDetailPage() {
                 ) : (
                   <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
                     {formData.cargo.quantity}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label style={labelStyle}>Distance</label>
+                {editMode ? (
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={formData.distanceMiles ?? ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        distanceMiles: e.target.value === '' ? null : Number(e.target.value),
+                      })
+                    }
+                    style={inputStyle}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                    placeholder="Distance in miles"
+                  />
+                ) : (
+                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                    {formData.distanceMiles !== null && formData.distanceMiles !== undefined
+                      ? `${formData.distanceMiles} miles`
+                      : 'Not provided'}
                   </div>
                 )}
               </div>
