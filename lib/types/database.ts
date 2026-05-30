@@ -154,6 +154,9 @@ export interface DbJob {
   status_history: Array<{ status: string; timestamp: string; note?: string }> | null;
   driver_notes: string | null;
   client_signature_name: string | null;
+  exchange_visibility: 'private' | 'exchange' | 'direct' | null;
+  awarded_carrier_company_id: string | null;
+  exchange_posted_at: string | null;
   created_at: string;
   updated_at: string;
 }
