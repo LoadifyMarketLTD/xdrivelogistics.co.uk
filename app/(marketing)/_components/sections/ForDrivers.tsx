@@ -114,9 +114,14 @@ export function ForDrivers() {
               ))}
             </div>
 
-            <PrimaryButton href="/login" variant="primary" size="lg">
-              Driver Login
-            </PrimaryButton>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <PrimaryButton href="/register" variant="primary" size="lg">
+                Join as Driver
+              </PrimaryButton>
+              <PrimaryButton href="/login" variant="secondary" size="lg">
+                Driver Login
+              </PrimaryButton>
+            </div>
           </div>
         </div>
       </div>
