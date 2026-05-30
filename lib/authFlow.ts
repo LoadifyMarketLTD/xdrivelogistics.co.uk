@@ -1,4 +1,5 @@
-export const PUBLIC_SITE_URL = 'https://xdrivelogistics.co.uk';
+export const PUBLIC_SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') || 'https://www.xdrivelogistics.co.uk';
 export const LOGIN_PATH = '/login';
 export const REGISTER_PATH = '/register';
 export const AUTH_CALLBACK_PATH = '/auth/callback';
