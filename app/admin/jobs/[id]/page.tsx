@@ -50,9 +50,15 @@ interface Job {
 
 interface DriverOption {
   id: string;
-  display_name: string;
+  display_name: string | null;
+  full_name?: string | null;
   email: string | null;
 }
+
+const getDriverLabel = (driver: DriverOption) => {
+  const name = driver.display_name || driver.full_name || 'Unnamed driver';
+  return driver.email ? `${name} (${driver.email})` : name;
+};
 
 const CARGO_TYPES = [
   'Documents',
@@ -88,14 +94,25 @@ export default function JobDetailPage() {
   }, [jobId, hasSupabaseSession, companyId]);
 
   const loadDrivers = async () => {
-    if (!companyId) return;
-    const { data } = await supabase
+    if (!companyId) {
+      setDrivers([]);
+      return;
+    }
+
+    const { data, error } = await supabase
       .from('drivers')
-      .select('id, display_name, email')
+      .select('id, display_name, full_name, email')
       .eq('company_id', companyId)
       .eq('status', 'active')
-      .order('display_name');
-    if (data) setDrivers(data as DriverOption[]);
+      .order('display_name', { ascending: true, nullsFirst: false });
+
+    if (error) {
+      console.error('Failed to load active company drivers:', error.message);
+      setDrivers([]);
+      return;
+    }
+
+    setDrivers((data ?? []) as DriverOption[]);
   };
 
   const loadJob = async () => {
@@ -717,16 +734,24 @@ export default function JobDetailPage() {
                   style={{ ...inputStyle, maxWidth: '320px' }}
                 >
                   <option value="">— Unassigned —</option>
+                  {drivers.length === 0 && (
+                    <option value="" disabled>
+                      No active drivers found for this company
+                    </option>
+                  )}
                   {drivers.map((d) => (
                     <option key={d.id} value={d.id}>
-                      {d.display_name}{d.email ? ` (${d.email})` : ''}
+                      {getDriverLabel(d)}
                     </option>
                   ))}
                 </select>
               ) : (
                 <div style={{ fontSize: '0.95rem', color: formData.assignedDriverId ? '#1f2937' : '#9ca3af' }}>
                   {formData.assignedDriverId
-                    ? (drivers.find((d) => d.id === formData.assignedDriverId)?.display_name ?? 'Unknown driver')
+                    ? (() => {
+                        const assignedDriver = drivers.find((d) => d.id === formData.assignedDriverId);
+                        return assignedDriver ? getDriverLabel(assignedDriver) : 'Assigned driver not found in this company';
+                      })()
                     : 'No driver assigned'}
                 </div>
               )}
