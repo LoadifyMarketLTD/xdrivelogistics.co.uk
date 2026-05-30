@@ -78,6 +78,8 @@ export default function JobDetailPage() {
   const [saveMessage, setSaveMessage] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
+  const [exchangeVisibility, setExchangeVisibility] = useState<'private' | 'exchange' | null>(null);
+  const [publishingExchange, setPublishingExchange] = useState(false);
 
   useEffect(() => {
     loadJob();
@@ -108,7 +110,7 @@ export default function JobDetailPage() {
 
         const { data, error } = await supabase
           .from('jobs')
-          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, assigned_driver_id, collection_photo_url, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at')
+          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, assigned_driver_id, collection_photo_url, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at, exchange_visibility')
           .eq('id', jobId)
           .eq('company_id', companyId)
           .single();
@@ -182,6 +184,7 @@ export default function JobDetailPage() {
           };
           setJob(mapped);
           setFormData(mapped);
+          setExchangeVisibility((row.exchange_visibility as 'private' | 'exchange' | null) ?? 'private');
           return;
         }
       }
@@ -199,6 +202,36 @@ export default function JobDetailPage() {
   const handleCancel = () => {
     setFormData(job);
     setEditMode(false);
+  };
+
+  const handlePublishToExchange = async () => {
+    if (!companyId || !jobId) return;
+    const isPublished = exchangeVisibility === 'exchange';
+    const newVisibility = isPublished ? 'private' : 'exchange';
+    setPublishingExchange(true);
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({
+          exchange_visibility: newVisibility,
+          exchange_posted_at: newVisibility === 'exchange' ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', jobId)
+        .eq('company_id', companyId);
+      if (error) {
+        setSaveMessage(`Failed to update exchange visibility: ${error.message}`);
+      } else {
+        setExchangeVisibility(newVisibility);
+        setSaveMessage(newVisibility === 'exchange' ? '✅ Load published to Exchange Marketplace!' : '✅ Load removed from Exchange Marketplace.');
+      }
+    } catch (err) {
+      setSaveMessage('Error updating exchange visibility.');
+      console.error(err);
+    } finally {
+      setPublishingExchange(false);
+      setTimeout(() => setSaveMessage(''), 4000);
+    }
   };
 
   const handleSave = async () => {
@@ -479,6 +512,31 @@ export default function JobDetailPage() {
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
                   >
                     🗑️ Delete
+                  </button>
+                  <button
+                   onClick={handlePublishToExchange}
+                   disabled={publishingExchange}
+                   style={{
+                     padding: '0.75rem 1.25rem',
+                     backgroundColor: exchangeVisibility === 'exchange' ? '#d97706' : '#7c3aed',
+                     color: 'white',
+                     border: 'none',
+                     borderRadius: '8px',
+                     fontSize: '0.95rem',
+                     fontWeight: '600',
+                     cursor: publishingExchange ? 'not-allowed' : 'pointer',
+                     opacity: publishingExchange ? 0.7 : 1,
+                     transition: 'background-color 0.2s',
+                   }}
+                   onMouseEnter={(e) => {
+                     if (!publishingExchange) e.currentTarget.style.backgroundColor = exchangeVisibility === 'exchange' ? '#b45309' : '#6d28d9';
+                   }}
+                   onMouseLeave={(e) => {
+                     if (!publishingExchange) e.currentTarget.style.backgroundColor = exchangeVisibility === 'exchange' ? '#d97706' : '#7c3aed';
+                   }}
+                   title={exchangeVisibility === 'exchange' ? 'Remove from Exchange Marketplace' : 'Publish to Exchange Marketplace'}
+                  >
+                   {publishingExchange ? '⏳ Updating…' : exchangeVisibility === 'exchange' ? '🔒 Unpublish from Exchange' : '🏪 Publish to Exchange'}
                   </button>
                 </>
               ) : (

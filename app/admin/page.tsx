@@ -150,6 +150,7 @@ const DEFAULT_DASHBOARD: DashboardState = {
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/admin' },
+  { id: 'marketplace', label: 'Marketplace', icon: '🏪', href: '/admin/marketplace' },
   { id: 'diary', label: 'Diary / Operations', icon: '🗓️', href: '/admin/diary' },
   { id: 'fleet', label: 'Fleet', icon: '🧭', href: '/admin/fleet' },
   { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
