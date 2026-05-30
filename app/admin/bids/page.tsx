@@ -1,154 +1,385 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import type { JobBid } from '../../../lib/types/database';
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+type BidWithJob = {
+  id: string;
+  job_id: string;
+  company_id: string | null;
+  bidder_user_id: string | null;
+  amount: number;
+  bid_price_gbp: number | null;
+  currency: string;
+  message: string | null;
+  status: string;
+  created_at: string;
+  // joined
+  jobs: {
+    id: string;
+    company_id: string;
+    pickup_location: string | null;
+    delivery_location: string | null;
+    pickup_datetime: string | null;
+    vehicle_type: string | null;
+    awarded_carrier_company_id: string | null;
+    exchange_visibility: string;
+  } | null;
+  companies: { name: string } | null;
+};
+
+type JobGroup = {
+  jobId: string;
+  jobPickup: string | null;
+  jobDelivery: string | null;
+  jobPickupDate: string | null;
+  jobVehicle: string | null;
+  awardedCarrierCompanyId: string | null;
+  exchangeVisibility: string;
+  bids: BidWithJob[];
+};
+
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   submitted: { bg: '#e0f2fe', text: '#075985' },
-  accepted: { bg: '#d1fae5', text: '#065f46' },
-  rejected: { bg: '#fee2e2', text: '#991b1b' },
+  accepted:  { bg: '#d1fae5', text: '#065f46' },
+  rejected:  { bg: '#fee2e2', text: '#991b1b' },
   withdrawn: { bg: '#f3f4f6', text: '#6b7280' },
 };
-const ALLOWED_BID_STATUS = new Set(['submitted', 'accepted', 'rejected', 'withdrawn']);
+
+const VEHICLE_LABEL: Record<string, string> = {
+  bicycle: 'Bicycle', motorbike: 'Motorbike', car: 'Car',
+  van_small: 'Small Van', van_large: 'Large Van', luton: 'Luton Van',
+  truck_7_5t: '7.5t Truck', truck_18t: '18t Truck', artic: 'Artic',
+};
+
+function fmtDate(iso: string | null) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function BidsPage() {
   const { user } = useAuth();
   const companyId = user?.companyId ?? null;
-  const [bids, setBids] = useState<JobBid[]>([]);
+
+  const [jobGroups, setJobGroups] = useState<JobGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [actionLoading, setActionLoading] = useState<string | null>(null); // bidId being actioned
 
-  const loadBids = async () => {
+  // ── Data loading ─────────────────────────────────────────────────────────────
+
+  const loadBids = useCallback(async () => {
     setLoading(true);
     setError('');
     if (!isSupabaseConfigured) { setLoading(false); return; }
     if (!companyId) {
-      setBids([]);
       setError('Company profile not loaded. Bid data is hidden until company access resolves.');
       setLoading(false);
       return;
     }
-    const { data, error } = await supabase
+
+    // Fetch all bids on jobs owned by the current company.
+    // The job_bids_owner_select RLS policy (migration 061) allows job owners to
+    // SELECT bids on their own jobs, keyed via the jobs join.
+    const { data, error: fetchError } = await supabase
       .from('job_bids')
-      .select('id, job_id, company_id, bidder_user_id, bidder_id, bidder_driver_id, amount, bid_price_gbp, currency, message, status, created_at, jobs!inner(company_id)')
+      .select(
+        'id, job_id, company_id, bidder_user_id, amount, bid_price_gbp, currency, message, status, created_at, ' +
+        'jobs!inner(id, company_id, pickup_location, delivery_location, pickup_datetime, vehicle_type, awarded_carrier_company_id, exchange_visibility), ' +
+        'companies(name)'
+      )
       .eq('jobs.company_id', companyId)
       .order('created_at', { ascending: false });
-    if (error) {
-      setBids([]);
-      setError(`Failed to load bids: ${error.message}`);
-    } else if (data) {
-      setBids(data as JobBid[]);
+
+    if (fetchError) {
+      setError(`Failed to load bids: ${fetchError.message}`);
+      setLoading(false);
+      return;
     }
+
+    // Group bids by job
+    const groupMap = new Map<string, JobGroup>();
+    for (const raw of (data ?? []) as BidWithJob[]) {
+      const j = raw.jobs;
+      if (!j) continue;
+      if (!groupMap.has(raw.job_id)) {
+        groupMap.set(raw.job_id, {
+          jobId: raw.job_id,
+          jobPickup: j.pickup_location,
+          jobDelivery: j.delivery_location,
+          jobPickupDate: j.pickup_datetime,
+          jobVehicle: j.vehicle_type,
+          awardedCarrierCompanyId: j.awarded_carrier_company_id,
+          exchangeVisibility: j.exchange_visibility,
+          bids: [],
+        });
+      }
+      groupMap.get(raw.job_id)!.bids.push(raw);
+    }
+    setJobGroups(Array.from(groupMap.values()));
     setLoading(false);
+  }, [companyId]);
+
+  useEffect(() => { void loadBids(); }, [loadBids]);
+
+  // ── Access token helper ────────────────────────────────────────────────────
+
+  const getAccessToken = async (): Promise<string | null> => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    return sessionData.session?.access_token ?? null;
   };
 
-  useEffect(() => { loadBids(); }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ── Accept bid ────────────────────────────────────────────────────────────
 
-  const updateStatus = async (id: string, status: string) => {
-    if (!isSupabaseConfigured || !companyId) return;
-    if (!ALLOWED_BID_STATUS.has(status)) {
-      setError('Invalid bid status update request.');
+  const acceptBid = async (bidId: string) => {
+    setActionError('');
+    setActionLoading(bidId);
+    const token = await getAccessToken();
+    if (!token) {
+      setActionError('Session expired. Please sign in again.');
+      setActionLoading(null);
       return;
     }
-
-    const { data: verifiedBid, error: verifyError } = await supabase
-      .from('job_bids')
-      .select('id, job_id, jobs!inner(company_id)')
-      .eq('id', id)
-      .eq('jobs.company_id', companyId)
-      .maybeSingle();
-
-    if (verifyError || !verifiedBid) {
-      setError('Bid not found for the current company.');
-      return;
+    const res = await fetch(`/api/admin/bids/${bidId}/accept`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const json = await res.json() as { error?: string };
+    if (!res.ok) {
+      setActionError(json.error ?? `Accept failed (${res.status}).`);
+    } else {
+      void loadBids();
     }
-
-    const { error: updateError } = await supabase
-      .from('job_bids')
-      .update({ status })
-      .eq('id', id)
-      .eq('job_id', verifiedBid.job_id as string);
-
-    if (updateError) {
-      console.error('Failed to update bid status:', updateError.message);
-      setError(`Failed to update bid status: ${updateError.message}`);
-      return;
-    }
-
-    loadBids();
+    setActionLoading(null);
   };
+
+  // ── Reject bid ────────────────────────────────────────────────────────────
+
+  const rejectBid = async (bidId: string) => {
+    setActionError('');
+    setActionLoading(bidId);
+    const token = await getAccessToken();
+    if (!token) {
+      setActionError('Session expired. Please sign in again.');
+      setActionLoading(null);
+      return;
+    }
+    const res = await fetch(`/api/admin/bids/${bidId}/reject`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const json = await res.json() as { error?: string };
+    if (!res.ok) {
+      setActionError(json.error ?? `Reject failed (${res.status}).`);
+    } else {
+      void loadBids();
+    }
+    setActionLoading(null);
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <ProtectedRoute>
       <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ marginBottom: '2rem' }}>
-            <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Job Bids</h1>
-            <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Review and manage incoming job bids</p>
+
+          {/* Header */}
+          <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h1 style={{ fontSize: '2rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>
+                💼 Received Bids
+              </h1>
+              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>
+                Review and accept or reject bids submitted by carrier companies on your exchange loads.
+              </p>
+            </div>
+            <button
+              onClick={() => void loadBids()}
+              style={{ padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontSize: '0.85rem', color: '#374151' }}
+            >
+              ↻ Refresh
+            </button>
           </div>
 
+          {/* Banners */}
           {!isSupabaseConfigured && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
-              ⚠️ Supabase is not configured. Database features are disabled.
+            <Banner color="amber">⚠️ Supabase is not configured. Database features are disabled.</Banner>
+          )}
+          {error && <Banner color="red">{error}</Banner>}
+          {actionError && <Banner color="red">{actionError}</Banner>}
+
+          {/* Content */}
+          {loading ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading…</div>
+          ) : jobGroups.length === 0 ? (
+            <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '3rem', textAlign: 'center', color: '#6b7280', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
+              <p style={{ margin: 0 }}>No bids received yet. Publish loads to the exchange to start receiving bids.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {jobGroups.map((group) => (
+                <JobBidGroup
+                  key={group.jobId}
+                  group={group}
+                  actionLoading={actionLoading}
+                  onAccept={acceptBid}
+                  onReject={rejectBid}
+                />
+              ))}
             </div>
           )}
-
-          {error && (
-            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#991b1b' }}>
-              {error}
-            </div>
-          )}
-
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            {loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
-            ) : bids.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💼</div>
-                <p>No bids yet.</p>
-              </div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                    {['Job ID', 'Amount', 'Currency', 'Message', 'Status', 'Submitted', 'Actions'].map(h => (
-                      <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {bids.map((b, i) => {
-                    const sc = STATUS_COLORS[b.status] ?? STATUS_COLORS.submitted;
-                    return (
-                      <tr key={b.id} style={{ borderBottom: i < bids.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                        <td style={{ padding: '1rem', color: '#6b7280', fontFamily: 'monospace', fontSize: '0.8rem' }}>{b.job_id.slice(0, 8)}…</td>
-                        <td style={{ padding: '1rem', fontWeight: '700', color: '#1f2937' }}>£{b.amount.toFixed(2)}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{b.currency}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.message || '—'}</td>
-                        <td style={{ padding: '1rem' }}><span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{b.status}</span></td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{new Date(b.created_at).toLocaleDateString()}</td>
-                        <td style={{ padding: '1rem' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            {b.status === 'submitted' && (
-                              <>
-                                <button onClick={() => updateStatus(b.id, 'accepted')} style={{ padding: '0.375rem 0.75rem', backgroundColor: '#d1fae5', color: '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>Accept</button>
-                                <button onClick={() => updateStatus(b.id, 'rejected')} style={{ padding: '0.375rem 0.75rem', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>Reject</button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+// ── JobBidGroup ────────────────────────────────────────────────────────────────
+
+function JobBidGroup({
+  group,
+  actionLoading,
+  onAccept,
+  onReject,
+}: {
+  group: JobGroup;
+  actionLoading: string | null;
+  onAccept: (bidId: string) => void;
+  onReject: (bidId: string) => void;
+}) {
+  const isAwarded = !!group.awardedCarrierCompanyId;
+  const awardedBid = isAwarded
+    ? group.bids.find((b) => b.company_id === group.awardedCarrierCompanyId && b.status === 'accepted')
+    : null;
+
+  return (
+    <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden', border: isAwarded ? '1px solid #86efac' : '1px solid #e5e7eb' }}>
+      {/* Job header */}
+      <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #f3f4f6', backgroundColor: isAwarded ? '#f0fdf4' : '#f9fafb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div>
+          <div style={{ fontWeight: 700, color: '#111827', fontSize: '0.95rem' }}>
+            {group.jobPickup || '—'} → {group.jobDelivery || '—'}
+          </div>
+          <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
+            {group.jobVehicle ? VEHICLE_LABEL[group.jobVehicle] ?? group.jobVehicle : 'Vehicle TBC'}
+            {group.jobPickupDate ? ` · Pickup: ${fmtDate(group.jobPickupDate)}` : ''}
+            {' · '}
+            <span style={{ textTransform: 'capitalize' }}>{group.exchangeVisibility}</span>
+            {' · '}
+            <span style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{group.jobId.slice(0, 8)}…</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {isAwarded ? (
+            <span style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '0.3rem 0.85rem', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 700 }}>
+              ✓ Awarded{awardedBid?.companies?.name ? ` — ${awardedBid.companies.name}` : ''}
+            </span>
+          ) : (
+            <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '0.3rem 0.85rem', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 600 }}>
+              {group.bids.filter((b) => b.status === 'submitted').length} pending bid{group.bids.filter((b) => b.status === 'submitted').length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Bids table */}
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+            {['Carrier', 'Amount', 'Message', 'Status', 'Submitted', 'Actions'].map((h) => (
+              <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.78rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {group.bids.map((bid, i) => {
+            const sc = STATUS_COLORS[bid.status] ?? STATUS_COLORS.submitted;
+            const isActioning = actionLoading === bid.id;
+            const canAccept = !isAwarded && bid.status === 'submitted';
+            const canReject = bid.status === 'submitted' || bid.status === 'accepted';
+
+            return (
+              <tr key={bid.id} style={{ borderBottom: i < group.bids.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                <td style={{ padding: '0.85rem 1rem' }}>
+                  <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.88rem' }}>
+                    {bid.companies?.name || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Unknown carrier</span>}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#9ca3af', fontFamily: 'monospace' }}>
+                    {bid.id.slice(0, 8)}…
+                  </div>
+                </td>
+                <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#111827' }}>
+                  £{(bid.bid_price_gbp ?? bid.amount).toFixed(2)}
+                  <span style={{ fontWeight: 400, fontSize: '0.8rem', color: '#6b7280', marginLeft: '0.25rem' }}>{bid.currency}</span>
+                </td>
+                <td style={{ padding: '0.85rem 1rem', color: '#6b7280', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85rem' }}>
+                  {bid.message || <span style={{ fontStyle: 'italic' }}>—</span>}
+                </td>
+                <td style={{ padding: '0.85rem 1rem' }}>
+                  <span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.65rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 600 }}>
+                    {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
+                  </span>
+                </td>
+                <td style={{ padding: '0.85rem 1rem', color: '#6b7280', fontSize: '0.85rem' }}>
+                  {fmtDate(bid.created_at)}
+                </td>
+                <td style={{ padding: '0.85rem 1rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {canAccept && (
+                      <button
+                        onClick={() => onAccept(bid.id)}
+                        disabled={isActioning}
+                        title="Accept this bid and award the job to this carrier"
+                        style={{ padding: '0.35rem 0.8rem', backgroundColor: isActioning ? '#e5e7eb' : '#d1fae5', color: isActioning ? '#9ca3af' : '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: isActioning ? 'not-allowed' : 'pointer' }}
+                      >
+                        {isActioning ? '…' : '✓ Accept'}
+                      </button>
+                    )}
+                    {canReject && (
+                      <button
+                        onClick={() => onReject(bid.id)}
+                        disabled={isActioning}
+                        title={bid.status === 'accepted' ? 'Revoke acceptance and reject this bid' : 'Reject this bid'}
+                        style={{ padding: '0.35rem 0.8rem', backgroundColor: isActioning ? '#e5e7eb' : '#fee2e2', color: isActioning ? '#9ca3af' : '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: isActioning ? 'not-allowed' : 'pointer' }}
+                      >
+                        {isActioning ? '…' : '✕ Reject'}
+                      </button>
+                    )}
+                    {!canAccept && !canReject && (
+                      <span style={{ color: '#9ca3af', fontSize: '0.8rem', fontStyle: 'italic' }}>—</span>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Banner ─────────────────────────────────────────────────────────────────────
+
+function Banner({ children, color }: { children: React.ReactNode; color: 'red' | 'amber' }) {
+  const styles = {
+    red:   { bg: '#fef2f2', border: '#fca5a5', text: '#991b1b' },
+    amber: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+  }[color];
+  return (
+    <div style={{ backgroundColor: styles.bg, border: `1px solid ${styles.border}`, borderRadius: '8px', padding: '0.85rem 1rem', marginBottom: '1rem', color: styles.text, fontSize: '0.88rem' }}>
+      {children}
+    </div>
   );
 }
