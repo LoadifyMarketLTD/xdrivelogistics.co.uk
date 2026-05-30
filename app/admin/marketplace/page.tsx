@@ -72,6 +72,23 @@ type WonJob = {
 
 type Tab = 'loads' | 'bids' | 'won';
 
+type CompanyJoinInput = { name: string } | Array<{ name: string }> | null | undefined;
+type BidJobJoin = NonNullable<BidRow['jobs']>;
+type RawBidJobJoin = Omit<BidJobJoin, 'companies'> & { companies: CompanyJoinInput };
+type BidJobJoinInput = RawBidJobJoin | RawBidJobJoin[] | BidJobJoin | BidJobJoin[] | null | undefined;
+
+function normalizeCompany(company: CompanyJoinInput): { name: string } | null {
+  if (!company) return null;
+  return Array.isArray(company) ? (company[0] ?? null) : company;
+}
+
+function normalizeBidJob(job: BidJobJoinInput): BidRow['jobs'] {
+  if (!job) return null;
+  const normalizedJob = Array.isArray(job) ? (job[0] ?? null) : job;
+  if (!normalizedJob) return null;
+  return { ...normalizedJob, companies: normalizeCompany(normalizedJob.companies) };
+}
+
 // ── Style constants ────────────────────────────────────────────────────────────
 
 const BID_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
@@ -153,7 +170,11 @@ export default function MarketplacePage() {
       return;
     }
 
-    const loadsList = (jobsData ?? []) as ExchangeLoad[];
+    const loadsList: ExchangeLoad[] = (jobsData ?? []).map((job) => ({
+      ...job,
+      companies: normalizeCompany(job.companies),
+      myBid: null,
+    }));
 
     if (loadsList.length > 0) {
       // Fetch my bids for these loads to show existing bid status
@@ -192,7 +213,12 @@ export default function MarketplacePage() {
     if (error) {
       setBidsError(`Failed to load bids: ${error.message}`);
     } else {
-      setBids((data ?? []) as BidRow[]);
+      setBids(
+        (data ?? []).map((bid) => ({
+          ...bid,
+          jobs: normalizeBidJob(bid.jobs),
+        })),
+      );
     }
     setBidsLoading(false);
   }, [companyId]);
@@ -212,7 +238,12 @@ export default function MarketplacePage() {
     if (error) {
       setWonError(`Failed to load won jobs: ${error.message}`);
     } else {
-      setWonJobs((data ?? []) as WonJob[]);
+      setWonJobs(
+        (data ?? []).map((job) => ({
+          ...job,
+          companies: normalizeCompany(job.companies),
+        })),
+      );
     }
     setWonLoading(false);
   }, [companyId]);
