@@ -750,7 +750,7 @@ export default function JobDetailPage() {
                     </option>
                   )}
                   {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>
+                    <option key={d.id} value={d.user_id ?? ''} disabled={!d.user_id}>
                       {getDriverLabel(d)}
                     </option>
                   ))}
@@ -759,7 +759,7 @@ export default function JobDetailPage() {
                 <div style={{ fontSize: '0.95rem', color: formData.assignedDriverId ? '#1f2937' : '#9ca3af' }}>
                   {formData.assignedDriverId
                     ? (() => {
-                        const assignedDriver = drivers.find((d) => d.id === formData.assignedDriverId);
+                        const assignedDriver = drivers.find((d) => d.user_id === formData.assignedDriverId);
                         return assignedDriver ? getDriverLabel(assignedDriver) : 'Assigned driver not found in this company';
                       })()
                     : 'No driver assigned'}
