@@ -102,7 +102,7 @@ export default function JobDetailPage() {
 
     const { data, error } = await supabase
       .from('drivers')
-      .select('id, display_name, full_name, email')
+      .select('id, display_name, email')
       .eq('company_id', companyId)
       .eq('status', 'active')
       .order('display_name', { ascending: true, nullsFirst: false });
