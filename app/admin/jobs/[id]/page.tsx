@@ -51,14 +51,13 @@ interface Job {
 
 interface DriverOption {
   id: string;
-  user_id: string | null;
-  name: string | null;
+  display_name: string | null;
+  full_name?: string | null;
   email: string | null;
-  company_id?: string | null;
 }
 
 const getDriverLabel = (driver: DriverOption) => {
-  const name = driver.name || 'Unnamed driver';
+  const name = driver.display_name || driver.full_name || 'Unnamed driver';
   return driver.email ? `${name} (${driver.email})` : name;
 };
 
@@ -103,10 +102,10 @@ export default function JobDetailPage() {
 
     const { data, error } = await supabase
       .from('drivers')
-      .select('id, user_id, name, email, company_id')
+      .select('id, display_name, full_name, email')
       .eq('company_id', companyId)
       .eq('status', 'active')
-      .order('name', { ascending: true, nullsFirst: false });
+      .order('display_name', { ascending: true, nullsFirst: false });
 
     if (error) {
       console.error('Failed to load active company drivers:', error.message);
