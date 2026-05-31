@@ -36,6 +36,9 @@ interface Job {
   status: string;
   createdAt: string;
   updatedAt: string;
+  distanceMiles: string;
+  vehicleType: string;
+  paymentTerms: string;
 }
 
 const CARGO_TYPES = [
@@ -60,6 +63,11 @@ export default function JobsPage() {
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [pickupFilter, setPickupFilter] = useState('');
+  const [deliveryFilter, setDeliveryFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [customerFilter, setCustomerFilter] = useState('');
+  const [driverFilter, setDriverFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     clientName: '',
@@ -106,7 +114,7 @@ export default function JobsPage() {
   useEffect(() => {
     filterJobs();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs, searchTerm, statusFilter]);
+  }, [jobs, searchTerm, statusFilter, pickupFilter, deliveryFilter, dateFilter, customerFilter, driverFilter]);
 
   const loadJobs = async () => {
     setDbError(null);
@@ -160,6 +168,9 @@ export default function JobsPage() {
             status: (row.status as string) || JOB_STATUS.RECEIVED,
             createdAt: row.created_at as string,
             updatedAt: row.updated_at as string,
+            distanceMiles: '—',
+            vehicleType: ((row.cargo_type as string) || 'unknown').replace(/_/g, ' '),
+            paymentTerms: 'Not provided',
           };
         });
         setJobs(mapped);
@@ -185,6 +196,30 @@ export default function JobsPage() {
         job.pickup.location.toLowerCase().includes(term) ||
         job.delivery.location.toLowerCase().includes(term)
       );
+    }
+
+    if (pickupFilter.trim()) {
+      const term = pickupFilter.trim().toLowerCase();
+      filtered = filtered.filter((job) => job.pickup.location.toLowerCase().includes(term));
+    }
+
+    if (deliveryFilter.trim()) {
+      const term = deliveryFilter.trim().toLowerCase();
+      filtered = filtered.filter((job) => job.delivery.location.toLowerCase().includes(term));
+    }
+
+    if (customerFilter.trim()) {
+      const term = customerFilter.trim().toLowerCase();
+      filtered = filtered.filter((job) => job.client.name.toLowerCase().includes(term));
+    }
+
+    if (driverFilter.trim()) {
+      const term = driverFilter.trim().toLowerCase();
+      filtered = filtered.filter((job) => job.cargo.notes.toLowerCase().includes(term));
+    }
+
+    if (dateFilter) {
+      filtered = filtered.filter((job) => job.pickup.date === dateFilter || job.delivery.date === dateFilter);
     }
 
     setFilteredJobs(filtered);
@@ -535,7 +570,7 @@ export default function JobsPage() {
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
           marginBottom: '2rem'
         }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', alignItems: 'center' }}>
             <input
               type="text"
               placeholder="Search by job ref, client, or location..."
@@ -568,6 +603,11 @@ export default function JobsPage() {
               <option value={JOB_STATUS.ALLOCATED}>Allocated</option>
               <option value={JOB_STATUS.DELIVERED}>Delivered</option>
             </select>
+            <input type="text" placeholder="Pickup" value={pickupFilter} onChange={(e) => setPickupFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
+            <input type="text" placeholder="Delivery" value={deliveryFilter} onChange={(e) => setDeliveryFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
+            <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
+            <input type="text" placeholder="Customer/Company" value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
+            <input type="text" placeholder="Driver" value={driverFilter} onChange={(e) => setDriverFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
           </div>
         </div>
 
@@ -585,6 +625,9 @@ export default function JobsPage() {
                   <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Job Ref</th>
                   <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Client</th>
                   <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Pickup → Delivery</th>
+                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Distance</th>
+                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Vehicle Type</th>
+                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Payment Terms</th>
                   <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Status</th>
                   <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Created Date</th>
                   <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', fontSize: '0.9rem' }}>Actions</th>
@@ -593,7 +636,7 @@ export default function JobsPage() {
               <tbody>
                 {filteredJobs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+                    <td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                       <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📦</div>
                       <div style={{ fontSize: '1.1rem', fontWeight: '500' }}>No jobs found</div>
                       <div style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
@@ -646,6 +689,9 @@ export default function JobsPage() {
                             </div>
                           </div>
                         </td>
+                        <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.distanceMiles}</td>
+                        <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#374151', textTransform: 'capitalize' }}>{job.vehicleType}</td>
+                        <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.paymentTerms}</td>
                         <td style={{ padding: '1rem' }}>
                           <select
                             value={job.status}
