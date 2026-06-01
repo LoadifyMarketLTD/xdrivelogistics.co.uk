@@ -18,7 +18,7 @@ type DiaryJob = {
 };
 
 const LANE_CONFIG: Array<{ key: string; label: string; statuses: string[] }> = [
-  { key: 'unallocated', label: 'Unallocated', statuses: ['received', 'posted'] },
+  { key: 'unallocated', label: 'Unallocated', statuses: ['draft', 'received', 'posted'] },
   { key: 'allocated', label: 'Allocated', statuses: ['allocated'] },
   { key: 'inProgress', label: 'In Progress', statuses: ['in_transit'] },
   { key: 'completed', label: 'Completed', statuses: ['delivered'] },
@@ -60,6 +60,28 @@ export default function DiaryPage() {
       setLoading(false);
     };
     void load();
+
+    if (!isSupabaseConfigured || !companyId) return;
+
+    const channel = supabase
+      .channel(`diary-jobs-${companyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'jobs',
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          void load();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, [companyId]);
 
   const grouped = useMemo(() => {

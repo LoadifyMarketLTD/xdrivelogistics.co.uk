@@ -270,6 +270,12 @@ export default function JobDetailPage() {
           return;
         }
 
+        const PRE_ALLOCATION_STATUSES = ['draft', 'posted', 'received'];
+        const effectiveStatus =
+          formData.assignedDriverId && PRE_ALLOCATION_STATUSES.includes(formData.status)
+            ? 'allocated'
+            : formData.status;
+
         const { error } = await supabase.from('jobs').update({
           client_name: formData.client.name,
           client_email: formData.client.email || null,
@@ -286,7 +292,7 @@ export default function JobDetailPage() {
           cargo_type: formData.cargo.type.toLowerCase(),
           items: formData.cargo.quantity,
           distance_miles: formData.distanceMiles,
-          status: formData.status,
+          status: effectiveStatus,
           assigned_driver_id: formData.assignedDriverId || null,
           updated_at: new Date().toISOString(),
         }).eq('id', jobId).eq('company_id', companyId);
@@ -296,7 +302,7 @@ export default function JobDetailPage() {
           setTimeout(() => setSaveMessage(''), 3000);
           return;
         }
-        const updatedJob = { ...formData, updatedAt: new Date().toISOString() };
+        const updatedJob = { ...formData, status: effectiveStatus, updatedAt: new Date().toISOString() };
         setJob(updatedJob);
         setFormData(updatedJob);
         setEditMode(false);
@@ -750,7 +756,7 @@ export default function JobDetailPage() {
                     </option>
                   )}
                   {drivers.map((d) => (
-                    <option key={d.id} value={d.user_id ?? ''} disabled={!d.user_id}>
+                    <option key={d.id} value={d.id}>
                       {getDriverLabel(d)}
                     </option>
                   ))}
@@ -759,7 +765,7 @@ export default function JobDetailPage() {
                 <div style={{ fontSize: '0.95rem', color: formData.assignedDriverId ? '#1f2937' : '#9ca3af' }}>
                   {formData.assignedDriverId
                     ? (() => {
-                        const assignedDriver = drivers.find((d) => d.user_id === formData.assignedDriverId);
+                        const assignedDriver = drivers.find((d) => d.id === formData.assignedDriverId);
                         return assignedDriver ? getDriverLabel(assignedDriver) : 'Assigned driver not found in this company';
                       })()
                     : 'No driver assigned'}
