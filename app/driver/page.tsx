@@ -269,6 +269,31 @@ export default function DriverEntryPage() {
     loadDashboard();
   }, [loadDashboard]);
 
+  // ── Supabase Realtime: refresh dashboard when any of the driver's jobs change ──
+  useEffect(() => {
+    if (!user?.driverId || !isSupabaseConfigured) return;
+
+    const channel = supabase
+      .channel(`driver-jobs-${user.driverId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'jobs',
+          filter: `assigned_driver_id=eq.${user.driverId}`,
+        },
+        () => {
+          void loadDashboard();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.driverId, loadDashboard]);
+
   const handleAvailabilityChange = async (next: AvailabilityStatus) => {
     if (!user?.driverId || !isSupabaseConfigured || availabilityLoading) return;
     setAvailabilityLoading(true);

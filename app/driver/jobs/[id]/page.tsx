@@ -34,6 +34,7 @@ export default function DriverJobDetailPage() {
   const { user } = useAuth();
   const params = useParams<{ id: string }>();
   const jobId = params?.id ?? '';
+  const companyId = user?.companyId ?? null;
 
   const [job, setJob] = useState<DbJob | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,13 +141,35 @@ export default function DriverJobDetailPage() {
   const getSignatureDataUrl = () => canvasRef.current?.toDataURL('image/png') ?? null;
 
   // ── Photo helpers ────────────────────────────────────────────
-  const readFileAsDataUrl = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = e => resolve(e.target?.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+  const uploadPhotoToStorage = async (file: File, prefix: string): Promise<string> => {
+    if (!companyId || !jobId) {
+      // Fallback: return base64 if storage path is unavailable
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+    const ext = file.name.split('.').pop() ?? 'jpg';
+    const path = `${companyId}/${jobId}/${prefix}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from('pod-photos')
+      .upload(path, file, { upsert: true });
+    if (uploadError) {
+      // Fallback to base64 if storage upload fails
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+    const { data: signedData } = await supabase.storage
+      .from('pod-photos')
+      .createSignedUrl(path, 60 * 60 * 24 * 365); // 1-year signed URL
+    return signedData?.signedUrl ?? path;
+  };
 
   const handleRemoveCollectionPhoto = () => {
     setCollectionPhotoPreview(null);
@@ -156,15 +179,15 @@ export default function DriverJobDetailPage() {
   const handleCollectionPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await readFileAsDataUrl(file);
-    setCollectionPhotoPreview(dataUrl);
+    const url = await uploadPhotoToStorage(file, 'collection');
+    setCollectionPhotoPreview(url);
   };
 
   const handleDeliveryPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
-    const dataUrls = await Promise.all(files.map(readFileAsDataUrl));
-    setDeliveryPhotoPreviews(prev => [...prev, ...dataUrls]);
+    const urls = await Promise.all(files.map((f, i) => uploadPhotoToStorage(f, `delivery-${i}`)));
+    setDeliveryPhotoPreviews(prev => [...prev, ...urls]);
   };
 
   // ── Status transition helpers ────────────────────────────────
