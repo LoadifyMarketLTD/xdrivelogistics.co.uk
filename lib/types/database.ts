@@ -1,4 +1,4 @@
-export type CompanyRole = 'owner' | 'admin' | 'dispatcher' | 'viewer';
+export type CompanyRole = 'owner' | 'admin' | 'dispatcher' | 'member' | 'viewer';
 export type MembershipStatus = 'invited' | 'active' | 'suspended';
 export type DocStatus = 'pending' | 'approved' | 'rejected' | 'expired';
 export type JobStatus = 'draft' | 'posted' | 'allocated' | 'in_transit' | 'delivered' | 'cancelled' | 'disputed';

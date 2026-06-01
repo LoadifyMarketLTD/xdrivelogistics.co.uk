@@ -1,9 +1,16 @@
-import { mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './authRole';
+import { isRoleAllowedForPath, mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './authRole';
 import { resolveAuthContext } from './authContextResolver';
 import { supabase } from './supabaseClient';
 import type { CompanyMembership, Driver, Profile } from './types/database';
 
-export type UserRole = 'guest' | 'customer' | 'driver' | 'company' | 'admin' | 'owner';
+export type UserRole =
+  | 'guest'
+  | 'owner'
+  | 'broker'
+  | 'company_admin'
+  | 'company_staff'
+  | 'driver'
+  | 'customer';
 
 /**
  * Reason codes returned when auth resolution fails.
@@ -53,8 +60,37 @@ const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, 
   return typeof value === 'string' && value.trim().length > 0 ? value : null;
 };
 
+const readMetadataFlag = (metadata: Record<string, unknown> | null | undefined, key: string) => {
+  const value = metadata?.[key];
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return false;
+  const normalized = value.toLowerCase().trim();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
+};
+
 export const getFallbackRole = (sessionUser: SessionUser) =>
   readMetadataRole(sessionUser.app_metadata, 'role');
+
+const isOwnerDriverWorkspaceRequested = (sessionUser: SessionUser) => {
+  const tags = [
+    readMetadataRole(sessionUser.user_metadata, 'account_type'),
+    readMetadataRole(sessionUser.user_metadata, 'workspace_mode'),
+    readMetadataRole(sessionUser.user_metadata, 'requested_role'),
+    readMetadataRole(sessionUser.user_metadata, 'role'),
+    readMetadataRole(sessionUser.app_metadata, 'account_type'),
+    readMetadataRole(sessionUser.app_metadata, 'workspace_mode'),
+    readMetadataRole(sessionUser.app_metadata, 'requested_role'),
+    readMetadataRole(sessionUser.app_metadata, 'role'),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase().trim());
+
+  return (
+    readMetadataFlag(sessionUser.user_metadata, 'owner_driver_workspace') ||
+    readMetadataFlag(sessionUser.app_metadata, 'owner_driver_workspace') ||
+    tags.some((value) => value === 'owner_driver' || value === 'owner-driver' || value === 'sole_trader')
+  );
+};
 
 export const resolveAuthenticatedUser = async (
   sessionUser: SessionUser
@@ -216,6 +252,25 @@ export const resolveAuthenticatedUser = async (
 
   if (
     !companyId &&
+    isOwnerDriverWorkspaceRequested(sessionUser) &&
+    (mapAppRole(profile?.role) === 'driver' || mapAppRole(fallbackRole) === 'driver')
+  ) {
+    const { data: ownerDriverCompanyId, error: ownerDriverProvisionError } =
+      await supabase.rpc('bootstrap_owner_driver_workspace');
+    if (typeof ownerDriverCompanyId === 'string' && ownerDriverCompanyId) {
+      companyId = ownerDriverCompanyId;
+    } else if (ownerDriverProvisionError && !isMissingCompanyProvisionRpc(ownerDriverProvisionError)) {
+      console.debug('[XDrive Auth] bootstrap_owner_driver_workspace failed', {
+        userId: sessionUser.id,
+        message: ownerDriverProvisionError.message,
+        details: ownerDriverProvisionError.details,
+        hint: ownerDriverProvisionError.hint,
+      });
+    }
+  }
+
+  if (
+    !companyId &&
     shouldAutoProvisionCompany({
       fallbackRole,
       profileRole: profile?.role,
@@ -363,6 +418,10 @@ const ok = (
 
 export const getPostLoginRoute = (currentUser: Pick<ResolvedAuthUser, 'role' | 'mustChangePassword'>) => {
   if (currentUser.role === 'driver') return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
+  if (currentUser.role === 'broker') return '/admin/marketplace';
   if (currentUser.role === 'customer') return '/customer';
   return '/admin';
 };
+
+export const roleCanAccessPath = (currentUser: Pick<ResolvedAuthUser, 'role'>, path: string) =>
+  isRoleAllowedForPath(path, mapAppRole(currentUser.role));
