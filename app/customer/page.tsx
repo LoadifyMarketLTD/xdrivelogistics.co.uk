@@ -125,13 +125,13 @@ export default function CustomerPage() {
     <ProtectedRoute allowedRoles={['customer']}>
       <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
         {/* Header */}
-        <header style={{ backgroundColor: '#0A2239', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <header style={{ backgroundColor: '#0A2239', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <div>
             <p style={{ color: '#93c5fd', fontSize: '0.75rem', margin: 0 }}>Welcome back</p>
             <h1 style={{ color: '#ffffff', fontSize: '1.25rem', fontWeight: '700', margin: 0 }}>Customer Portal</h1>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>{user?.email}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <span style={{ color: '#cbd5e1', fontSize: '0.85rem', wordBreak: 'break-word' }}>{user?.email}</span>
             <button
               onClick={() => logout()}
               style={{ padding: '0.5rem 1rem', backgroundColor: 'transparent', color: '#cbd5e1', border: '1px solid #4b5563', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}
@@ -141,7 +141,7 @@ export default function CustomerPage() {
           </div>
         </header>
 
-        <main style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
+        <main style={{ width: '100%', padding: '1rem' }}>
           {pageMessage && (
             <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#92400e', fontWeight: '600' }}>
               {pageMessage}
@@ -155,7 +155,7 @@ export default function CustomerPage() {
           )}
 
           {/* Action bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
               <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>My Quote Requests</h2>
               <p style={{ color: '#6b7280', margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>Track and manage your delivery quote requests</p>
@@ -180,31 +180,33 @@ export default function CustomerPage() {
                 <p style={{ fontSize: '0.9rem' }}>Click &quot;Request a Quote&quot; to get started with your first delivery.</p>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                    {['Pickup', 'Delivery', 'Vehicle', 'Cargo', 'Amount', 'Status', 'Date'].map(h => (
-                      <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {quotes.map((q, i) => {
-                    const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
-                    return (
-                      <tr key={q.id} style={{ borderBottom: i < quotes.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                        <td style={{ padding: '1rem', color: '#1f2937', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.pickup_location || '—'}</td>
-                        <td style={{ padding: '1rem', color: '#1f2937', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.delivery_location || '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{q.cargo_type || '—'}</td>
-                        <td style={{ padding: '1rem', fontWeight: '700', color: '#1f2937' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
-                        <td style={{ padding: '1rem' }}><span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{q.status}</span></td>
-                        <td style={{ padding: '1rem', color: '#6b7280', fontSize: '0.85rem' }}>{new Date(q.created_at).toLocaleDateString()}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div style={{ overflowX: 'auto', width: '100%' }}>
+                <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                      {['Pickup', 'Delivery', 'Vehicle', 'Cargo', 'Amount', 'Status', 'Date'].map(h => (
+                        <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quotes.map((q, i) => {
+                      const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
+                      return (
+                        <tr key={q.id} style={{ borderBottom: i < quotes.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                          <td style={{ padding: '1rem', color: '#1f2937', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.pickup_location || '—'}</td>
+                          <td style={{ padding: '1rem', color: '#1f2937', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.delivery_location || '—'}</td>
+                          <td style={{ padding: '1rem', color: '#6b7280' }}>{q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
+                          <td style={{ padding: '1rem', color: '#6b7280' }}>{q.cargo_type || '—'}</td>
+                          <td style={{ padding: '1rem', fontWeight: '700', color: '#1f2937' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
+                          <td style={{ padding: '1rem' }}><span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{q.status}</span></td>
+                          <td style={{ padding: '1rem', color: '#6b7280', fontSize: '0.85rem' }}>{new Date(q.created_at).toLocaleDateString()}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </main>
@@ -227,7 +229,7 @@ export default function CustomerPage() {
                   <label style={labelStyle}>Delivery Location *</label>
                   <input style={inputStyle} value={formData.delivery_location} onChange={e => setFormData({...formData, delivery_location: e.target.value})} placeholder="e.g. Manchester, M1 1AE" />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div>
                     <label style={labelStyle}>Vehicle Type</label>
                     <select style={inputStyle} value={formData.vehicle_type} onChange={e => setFormData({...formData, vehicle_type: e.target.value as VehicleType})}>
