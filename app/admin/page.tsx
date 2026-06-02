@@ -273,6 +273,39 @@ const rowsQuery = async <T,>(promise: PromiseLike<{ data: T[] | null; error: { m
   return data ?? [];
 };
 
+const loadDriverAvailabilityWithCompat = async (companyId: string): Promise<DriverAvailRow[]> => {
+  const result = await supabase
+    .from('drivers')
+    .select('id, display_name, availability_status, status')
+    .eq('company_id', companyId)
+    .eq('status', 'active')
+    .limit(20);
+
+  if (!result.error) {
+    return result.data ?? [];
+  }
+
+  if (isMissingColumnError(result.error, 'drivers', 'availability_status')) {
+    const fallback = await supabase
+      .from('drivers')
+      .select('id, display_name, status')
+      .eq('company_id', companyId)
+      .eq('status', 'active')
+      .limit(20);
+
+    if (fallback.error) throw new Error(fallback.error.message);
+
+    return (fallback.data ?? []).map((driver) => ({
+      id: driver.id,
+      display_name: driver.display_name,
+      availability_status: null,
+      status: driver.status,
+    }));
+  }
+
+  throw new Error(result.error.message);
+};
+
 const readInvoiceClientName = (row: Record<string, unknown>): string | null => {
   if (typeof row.client_name === 'string' && row.client_name.trim().length > 0) return row.client_name;
   const related = row.clients;
@@ -610,14 +643,7 @@ export default function AdminPage() {
         },
         {
           label: 'driver availability',
-          run: rowsQuery<DriverAvailRow>(
-          supabase
-            .from('drivers')
-            .select('id, display_name, availability_status, status')
-            .eq('company_id', resolvedCompanyId)
-            .eq('status', 'active')
-            .limit(20)
-          ),
+          run: loadDriverAvailabilityWithCompat(resolvedCompanyId),
         },
         {
           label: 'posted jobs for dispatch',
