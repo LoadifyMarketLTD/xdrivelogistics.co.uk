@@ -147,7 +147,10 @@ export default function JobsPage() {
               : row.job_distance_miles !== null && row.job_distance_miles !== undefined
                 ? Number(row.job_distance_miles)
                 : null;
-          const distanceMiles = Number.isFinite(rawDistanceMiles) ? `${rawDistanceMiles.toFixed(1)} mi` : '—';
+          const distanceMiles =
+            rawDistanceMiles !== null && Number.isFinite(rawDistanceMiles)
+              ? `${rawDistanceMiles.toFixed(1)} mi`
+              : '—';
 
           return {
             id: row.id as string,
