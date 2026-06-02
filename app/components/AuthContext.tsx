@@ -1,5 +1,6 @@
 'use client';
 
+import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -15,6 +16,7 @@ import {
   getPostLoginRoute,
   resolveAuthenticatedUser,
 } from '../../lib/authSession';
+import { clearRouteAuthCookie, writeRouteAuthCookie } from '../../lib/routeAuthCookie';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
 const LOGIN_TIMEOUT_MS = 45_000;
@@ -124,9 +126,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hasSupabaseSessionRef.current = hasSupabaseSession;
   }, [hasSupabaseSession]);
 
+  const syncRouteAuthCookie = useCallback((session: Pick<Session, 'access_token' | 'expires_at'> | null | undefined) => {
+    writeRouteAuthCookie(session);
+  }, []);
+
   const resetAuthState = useCallback(() => {
     setUser(null);
     setHasSupabaseSession(false);
+    clearRouteAuthCookie();
   }, []);
 
   const setPasswordSetupSessionState = useCallback(() => {
@@ -194,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw error;
 
         if (session?.user) {
+          syncRouteAuthCookie(session);
           if (isPasswordSetupContext()) {
             setPasswordSetupSessionState();
           } else {
@@ -221,11 +229,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // TOKEN_REFRESHED: the Supabase client silently rotated the JWT.
-      // Profile, role, and company context are unchanged — re-running the full
-      // database hydration would fire 4+ unnecessary Supabase queries and can
-      // cascade into repeated dashboard/driver page reloads.
-      if (event === 'TOKEN_REFRESHED' && userRef.current) {
+    syncRouteAuthCookie(session);
+
+    // TOKEN_REFRESHED: the Supabase client silently rotated the JWT.
+    // Profile, role, and company context are unchanged — re-running the full
+    // database hydration would fire 4+ unnecessary Supabase queries and can
+    // cascade into repeated dashboard/driver page reloads.
+    if (event === 'TOKEN_REFRESHED' && userRef.current) {
         return;
       }
 
@@ -258,7 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [hydrateUser, isPasswordSetupContext, resetAuthState, setPasswordSetupSessionState]);
+  }, [hydrateUser, isPasswordSetupContext, resetAuthState, setPasswordSetupSessionState, syncRouteAuthCookie]);
 
   const login = async (
     email: string,
@@ -277,6 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
       if (error) { return { success: false, error: error.message }; }
       if (!data.user) { return { success: false, error: 'Login failed' }; }
+      syncRouteAuthCookie(data.session);
 
       const result = await hydrateUser(data.user);
       if (!result.user) {
