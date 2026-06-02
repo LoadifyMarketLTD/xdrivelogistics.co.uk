@@ -100,7 +100,7 @@ export async function loadCompanySettings(
         .eq('id', companyId)
         .maybeSingle();
       return {
-        data: companyRes.data ? [companyRes.data as Record<string, string | null>] : [],
+        data: companyRes.data ? [companyRes.data as unknown as Record<string, string | null>] : [],
         error: companyRes.error,
       };
     },
