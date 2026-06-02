@@ -25,6 +25,24 @@
 
 BEGIN;
 
+-- Canonicalize legacy job assignment references before dedup checks.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'jobs'
+      AND column_name = 'driver_id'
+  ) THEN
+    UPDATE public.jobs
+       SET assigned_driver_id = driver_id
+     WHERE assigned_driver_id IS NULL
+       AND driver_id IS NOT NULL;
+  END IF;
+END
+$$;
+
 CREATE OR REPLACE FUNCTION public.safe_dedup_drivers(p_keep_driver_id uuid)
 RETURNS TABLE (deleted_id uuid, deleted_name text)
 LANGUAGE plpgsql
@@ -65,7 +83,7 @@ BEGIN
     IF EXISTS (
       SELECT 1
         FROM public.jobs j
-       WHERE (j.assigned_driver_id = v_dup.id OR j.driver_id = v_dup.id)
+       WHERE j.assigned_driver_id = v_dup.id
          AND (
                j.status IS NULL
             OR j.status::text NOT IN ('delivered', 'cancelled', 'disputed')
