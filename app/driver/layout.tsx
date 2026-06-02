@@ -23,8 +23,6 @@ export default function DriverAppLayout({
     <div
       style={{
         minHeight: '100dvh',
-        maxWidth: '480px',
-        margin: '0 auto',
         backgroundColor: '#f3f4f6',
         fontFamily:
           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
