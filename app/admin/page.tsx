@@ -94,6 +94,7 @@ type BidRow = {
   id: string;
   status: string;
   amount: number | null;
+  bid_price_gbp: number | null;
   created_at: string;
 };
 
@@ -395,6 +396,12 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 2,
   }).format(value);
 
+const resolveBidAmountGbp = (bid: Pick<BidRow, 'bid_price_gbp' | 'amount'>): number | null => {
+  if (typeof bid.bid_price_gbp === 'number') return bid.bid_price_gbp;
+  if (typeof bid.amount === 'number') return bid.amount;
+  return null;
+};
+
 const formatTimestamp = (value: string) => new Date(value).toLocaleString('en-GB', {
   day: '2-digit',
   month: 'short',
@@ -540,7 +547,7 @@ export default function AdminPage() {
           run: rowsQuery<BidRow>(
           supabase
             .from('job_bids')
-            .select('id, status, amount, created_at, jobs!inner(company_id)')
+            .select('id, status, amount, bid_price_gbp, created_at, jobs!inner(company_id)')
             .eq('jobs.company_id', resolvedCompanyId)
             .order('created_at', { ascending: false })
           ),
@@ -654,7 +661,10 @@ export default function AdminPage() {
           id: `bid-${bid.id}`,
           icon: '💼',
           title: `${bid.status === 'submitted' ? 'Incoming' : bid.status} bid`,
-          meta: typeof bid.amount === 'number' ? formatCurrency(bid.amount) : 'Bid amount pending',
+          meta: (() => {
+            const bidAmount = resolveBidAmountGbp(bid);
+            return typeof bidAmount === 'number' ? formatCurrency(bidAmount) : 'Bid amount pending';
+          })(),
           date: bid.created_at,
           href: '/admin/bids',
         })),

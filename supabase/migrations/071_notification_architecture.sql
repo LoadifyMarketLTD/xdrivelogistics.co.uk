@@ -131,10 +131,15 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_bid_amount_gbp numeric;
 BEGIN
   IF NEW.status <> 'accepted' OR OLD.status = 'accepted' THEN
     RETURN NEW;
   END IF;
+
+  -- Canonical monetary field is bid_price_gbp; amount is kept as transition alias.
+  v_bid_amount_gbp := COALESCE(NEW.bid_price_gbp, NEW.amount);
 
   INSERT INTO public.notification_events
     (event_type, entity_type, entity_id, company_id, recipient_user_id, payload)
@@ -149,7 +154,9 @@ BEGIN
       'job_id',    NEW.job_id,
       'company_id', NEW.company_id,
       'bidder_user_id', NEW.bidder_user_id,
-      'bid_amount', NEW.bid_amount
+      'bid_price_gbp', v_bid_amount_gbp,
+      'amount', v_bid_amount_gbp,
+      'bid_amount', v_bid_amount_gbp
     )
   );
 
