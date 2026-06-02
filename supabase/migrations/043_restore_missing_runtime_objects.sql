@@ -6,6 +6,24 @@
 
 BEGIN;
 
+-- Canonicalize legacy job assignment references before reinstalling runtime trigger logic.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'jobs'
+      AND column_name = 'driver_id'
+  ) THEN
+    UPDATE public.jobs
+       SET assigned_driver_id = driver_id
+     WHERE assigned_driver_id IS NULL
+       AND driver_id IS NOT NULL;
+  END IF;
+END
+$$;
+
 CREATE OR REPLACE FUNCTION public.prevent_unsafe_driver_delete()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -19,7 +37,7 @@ BEGIN
   IF EXISTS (
     SELECT 1
     FROM public.jobs j
-    WHERE (j.assigned_driver_id = OLD.id OR j.driver_id = OLD.id)
+    WHERE j.assigned_driver_id = OLD.id
       AND (
         j.status IS NULL
         OR j.status::text NOT IN ('delivered', 'cancelled', 'disputed')
