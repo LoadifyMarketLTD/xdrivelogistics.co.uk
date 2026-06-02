@@ -265,9 +265,9 @@ export default function VehiclesPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1rem' }}>
+        <div style={{ width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Vehicles</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage fleet vehicles</p>
@@ -302,48 +302,50 @@ export default function VehiclesPage() {
                 <p>No vehicles yet. Add your first vehicle.</p>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                    {['Reg Plate', 'Type', 'Make / Model', 'Year', 'Payload (kg)', 'Tail Lift', 'Assigned Driver', 'Created', 'Actions'].map(h => (
-                      <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {vehicles.map((v, i) => {
-                    const assignedDriver = drivers.find(d => d.id === v.assigned_driver_id);
-                    return (
-                      <tr key={v.id} style={{ borderBottom: i < vehicles.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                        <td style={{ padding: '1rem', fontWeight: '600', color: '#1f2937' }}>{v.reg_plate || '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{v.type.replace(/_/g, ' ')}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{v.manufacture_year ?? '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{v.payload_kg ?? '—'}</td>
-                        <td style={{ padding: '1rem' }}>{v.has_tail_lift ? '✅' : '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{assignedDriver?.display_name ?? '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{formatDate(v.created_at)}</td>
-                        <td style={{ padding: '1rem' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button
-                              onClick={() => openEditModal(v)}
-                              style={{ padding: '0.35rem 0.75rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => setShowDeleteConfirm(v.id)}
-                              style={{ padding: '0.35rem 0.75rem', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div style={{ overflowX: 'auto', width: '100%' }}>
+                <table style={{ width: '100%', minWidth: '1120px', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                      {['Reg Plate', 'Type', 'Make / Model', 'Year', 'Payload (kg)', 'Tail Lift', 'Assigned Driver', 'Created', 'Actions'].map(h => (
+                        <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vehicles.map((v, i) => {
+                      const assignedDriver = drivers.find(d => d.id === v.assigned_driver_id);
+                      return (
+                        <tr key={v.id} style={{ borderBottom: i < vehicles.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                          <td style={{ padding: '1rem', fontWeight: '600', color: '#1f2937' }}>{v.reg_plate || '—'}</td>
+                          <td style={{ padding: '1rem', color: '#6b7280' }}>{v.type.replace(/_/g, ' ')}</td>
+                          <td style={{ padding: '1rem', color: '#6b7280' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
+                          <td style={{ padding: '1rem', color: '#6b7280' }}>{v.manufacture_year ?? '—'}</td>
+                          <td style={{ padding: '1rem', color: '#6b7280' }}>{v.payload_kg ?? '—'}</td>
+                          <td style={{ padding: '1rem' }}>{v.has_tail_lift ? '✅' : '—'}</td>
+                          <td style={{ padding: '1rem', color: '#6b7280' }}>{assignedDriver?.display_name ?? '—'}</td>
+                          <td style={{ padding: '1rem', color: '#6b7280' }}>{formatDate(v.created_at)}</td>
+                          <td style={{ padding: '1rem' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => openEditModal(v)}
+                                style={{ padding: '0.35rem 0.75rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => setShowDeleteConfirm(v.id)}
+                                style={{ padding: '0.35rem 0.75rem', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
