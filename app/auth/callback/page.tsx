@@ -7,6 +7,7 @@ import {
   getBrowserAuthSignals,
 } from '../../../lib/authFlow';
 import { getPostLoginRoute, resolveAuthenticatedUser, type SessionUser } from '../../../lib/authSession';
+import { clearRouteAuthCookie, writeRouteAuthCookie } from '../../../lib/routeAuthCookie';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
 const AUTH_CALLBACK_TIMEOUT_MS = 10_000;
@@ -38,9 +39,15 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const redirectAuthenticatedUser = async (sessionUser: SessionUser | null) => {
       if (!sessionUser) {
+        clearRouteAuthCookie();
         router.replace('/login');
         return;
       }
+
+      const {
+        data: { session },
+      } = await withTimeout(supabase.auth.getSession(), AUTH_CALLBACK_TIMEOUT_MS);
+      writeRouteAuthCookie(session);
 
       const result = await withTimeout(resolveAuthenticatedUser(sessionUser), AUTH_CALLBACK_TIMEOUT_MS);
       if (!result.user) {
@@ -60,6 +67,7 @@ export default function AuthCallbackPage() {
 
         const signals = getBrowserAuthSignals();
         if (!signals) {
+          clearRouteAuthCookie();
           router.replace('/login');
           return;
         }
@@ -130,6 +138,7 @@ export default function AuthCallbackPage() {
 
         await redirectAuthenticatedUser(sessionUser);
       } catch (err) {
+        clearRouteAuthCookie();
         const message = err instanceof Error ? err.message : 'Authentication callback failed.';
         setError(message);
       }

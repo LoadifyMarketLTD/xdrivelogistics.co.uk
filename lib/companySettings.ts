@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { COMPANY_CONFIG, type PaymentTerm, type VATRate } from '../app/config/company';
-import { getMissingColumnFromError } from './supabaseSchemaCompat';
+import { selectWithMissingColumnFallback } from './supabaseSchemaCompat';
 
 export interface CompanySettingsValues {
   companyName: string;
@@ -86,35 +86,26 @@ export async function loadCompanySettings(
   companyId: string
 ): Promise<CompanySettingsValues> {
   const requestedCompanyColumns = ['name', 'company_number', 'email', 'phone', 'address_line1', 'city', 'postcode'];
-  const activeCompanyColumns = [...requestedCompanyColumns];
-  const missingCompanyColumns = new Set<string>();
-  let companyData: Record<string, string | null> | null = null;
-  let companyError: { code?: string | null; message?: string | null } | null = null;
-
-  while (activeCompanyColumns.length > 0) {
-    const companyRes = await supabase
-      .from('companies')
-      .select(activeCompanyColumns.join(', '))
-      .eq('id', companyId)
-      .maybeSingle();
-
-    if (!companyRes.error) {
-      companyData = (companyRes.data as Record<string, string | null> | null) ?? null;
-      companyError = null;
-      break;
-    }
-
-    const missingColumn = getMissingColumnFromError(companyRes.error, 'companies');
-    if (missingColumn && activeCompanyColumns.includes(missingColumn)) {
-      missingCompanyColumns.add(missingColumn);
-      activeCompanyColumns.splice(activeCompanyColumns.indexOf(missingColumn), 1);
-      companyError = companyRes.error;
-      continue;
-    }
-
-    companyError = companyRes.error;
-    break;
-  }
+  const {
+    rows: companyRows,
+    missingColumns: missingCompanyColumns,
+    error: companyError,
+  } = await selectWithMissingColumnFallback<Record<string, string | null>>({
+    table: 'companies',
+    columns: requestedCompanyColumns,
+    execute: async (activeColumns) => {
+      const companyRes = await supabase
+        .from('companies')
+        .select(activeColumns.join(', '))
+        .eq('id', companyId)
+        .maybeSingle();
+      return {
+        data: companyRes.data ? [companyRes.data as unknown as Record<string, string | null>] : [],
+        error: companyRes.error,
+      };
+    },
+  });
+  const companyData = companyRows[0] ?? null;
 
   const settingsRes = await supabase
     .from('company_settings')

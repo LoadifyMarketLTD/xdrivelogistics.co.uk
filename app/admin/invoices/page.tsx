@@ -7,26 +7,9 @@ import { useAuth } from '../../components/AuthContext';
 import type { InvoiceData } from '../../components/InvoiceTemplate';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import {
-  getMissingColumnFromError,
-  isMissingColumnError,
-  isMissingRelationshipError,
+  loadInvoicesWithSchemaCompat,
+  resolveInvoiceClientName,
 } from '../../../lib/supabaseSchemaCompat';
-
-/** Map a Supabase Invoice row → InvoiceData used by the UI */
-function readInvoiceClientName(row: Record<string, unknown>): string | null {
-  if (typeof row.client_name === 'string' && row.client_name.trim().length > 0) return row.client_name;
-  const related = row.clients;
-  if (related && typeof related === 'object' && !Array.isArray(related)) {
-    const relationName = (related as { name?: unknown }).name;
-    if (typeof relationName === 'string' && relationName.trim().length > 0) return relationName;
-  }
-  if (Array.isArray(related)) {
-    const first = related[0];
-    const relationName = first && typeof first === 'object' ? (first as { name?: unknown }).name : null;
-    if (typeof relationName === 'string' && relationName.trim().length > 0) return relationName;
-  }
-  return null;
-}
 
 function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): InvoiceData {
   const invoiceDate =
@@ -48,7 +31,7 @@ function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): Invo
     date: invoiceDate,
     dueDate,
     status,
-    clientName: readInvoiceClientName(row) ?? 'Client pending',
+    clientName: resolveInvoiceClientName(row) ?? 'Client pending',
     clientAddress: typeof row.client_address === 'string' ? row.client_address : '',
     clientEmail: typeof row.client_email === 'string' ? row.client_email : '',
     pickupLocation: typeof row.pickup_location === 'string' ? row.pickup_location : '',
@@ -106,76 +89,7 @@ export default function InvoicesPage() {
       'vat_rate', 'currency', 'payment_terms', 'late_fee', 'pod_photos', 'signature', 'recipient_name', 'created_at',
       'updated_at',
     ];
-
-    let rows: Array<Record<string, unknown>> = [];
-    let queryError: { message?: string | null } | null = null;
-    let useClientsRelation = false;
-    let clientsRelationDisabled = false;
-    const seenStates = new Set<string>();
-    const maxAttempts = Math.max(12, activeColumns.length * 3);
-    let attempts = 0;
-
-    while (activeColumns.length > 0 && attempts < maxAttempts) {
-      attempts += 1;
-      const stateKey = `${useClientsRelation ? 'clients' : 'direct'}::${activeColumns.join(',')}`;
-      if (seenStates.has(stateKey)) {
-        queryError = { message: 'Invoice query fallback loop detected and stopped.' };
-        break;
-      }
-      seenStates.add(stateKey);
-
-      const selectColumns = useClientsRelation
-        ? [...activeColumns.filter((column) => column !== 'client_name'), 'clients(name)']
-        : activeColumns;
-
-      const result = await supabase
-        .from('invoices')
-        .select(selectColumns.join(', '))
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
-
-      if (!result.error) {
-        rows = ((result.data ?? []) as unknown) as Array<Record<string, unknown>>;
-        queryError = null;
-        break;
-      }
-
-      if (
-        !useClientsRelation &&
-        isMissingColumnError(result.error, 'invoices', 'client_name')
-      ) {
-        if (activeColumns.includes('client_name')) {
-          activeColumns.splice(activeColumns.indexOf('client_name'), 1);
-        }
-        useClientsRelation = !clientsRelationDisabled;
-        queryError = result.error;
-        continue;
-      }
-
-      if (
-        useClientsRelation &&
-        isMissingRelationshipError(result.error, 'invoices', 'clients')
-      ) {
-        clientsRelationDisabled = true;
-        useClientsRelation = false;
-        queryError = result.error;
-        continue;
-      }
-
-      const missingColumn = getMissingColumnFromError(result.error, 'invoices');
-      if (missingColumn && activeColumns.includes(missingColumn)) {
-        activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
-        queryError = result.error;
-        continue;
-      }
-
-      queryError = result.error;
-      break;
-    }
-
-    if (!queryError && attempts >= maxAttempts) {
-      queryError = { message: 'Invoice query retry limit reached.' };
-    }
+    const { rows, error: queryError } = await loadInvoicesWithSchemaCompat(supabase, companyId, activeColumns);
 
     if (requestId !== loadRequestRef.current) return;
 

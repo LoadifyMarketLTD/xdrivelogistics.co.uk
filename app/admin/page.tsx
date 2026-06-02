@@ -8,9 +8,10 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { COMPANY_CONFIG } from '../config/company';
 import { resolveActiveCompanyId } from '../../lib/activeCompany';
 import {
-  getMissingColumnFromError,
   isMissingColumnError,
-  isMissingRelationshipError,
+  loadInvoicesWithSchemaCompat,
+  resolveInvoiceClientName,
+  selectWithMissingColumnFallback,
 } from '../../lib/supabaseSchemaCompat';
 
 type DashboardOverview = {
@@ -93,6 +94,7 @@ type BidRow = {
   id: string;
   status: string;
   amount: number | null;
+  bid_price_gbp: number | null;
   created_at: string;
 };
 
@@ -306,105 +308,37 @@ const loadDriverAvailabilityWithCompat = async (companyId: string): Promise<Driv
   throw new Error(result.error.message);
 };
 
-const readInvoiceClientName = (row: Record<string, unknown>): string | null => {
-  if (typeof row.client_name === 'string' && row.client_name.trim().length > 0) return row.client_name;
-  const related = row.clients;
-  if (related && typeof related === 'object' && !Array.isArray(related)) {
-    const relationName = (related as { name?: unknown }).name;
-    if (typeof relationName === 'string' && relationName.trim().length > 0) return relationName;
-  }
-  if (Array.isArray(related)) {
-    const first = related[0];
-    const relationName = first && typeof first === 'object' ? (first as { name?: unknown }).name : null;
-    if (typeof relationName === 'string' && relationName.trim().length > 0) return relationName;
-  }
-  return null;
-};
-
 const loadInvoicesWithCompat = async (companyId: string): Promise<InvoiceRow[]> => {
-  const activeColumns = ['id', 'invoice_number', 'status', 'due_date', 'amount', 'client_name', 'created_at'];
-  const missingColumns = new Set<string>();
-  let useClientsRelation = false;
-  let clientsRelationDisabled = false;
-  const seenStates = new Set<string>();
-  const maxAttempts = Math.max(12, activeColumns.length * 3);
-  let attempts = 0;
+  const { rows, missingColumns, error } = await loadInvoicesWithSchemaCompat(supabase, companyId, [
+    'id',
+    'invoice_number',
+    'status',
+    'due_date',
+    'amount',
+    'client_name',
+    'created_at',
+  ]);
+  if (error) {
+    throw new Error(error.message ?? 'Failed to load invoices.');
+  }
 
-  while (activeColumns.length > 0 && attempts < maxAttempts) {
-    attempts += 1;
-    const stateKey = `${useClientsRelation ? 'clients' : 'direct'}::${activeColumns.join(',')}`;
-    if (seenStates.has(stateKey)) {
-      throw new Error('Invoice compatibility fallback loop detected and stopped.');
-    }
-    seenStates.add(stateKey);
-
-    const selectColumns = useClientsRelation
-      ? [...activeColumns.filter((column) => column !== 'client_name'), 'clients(name)']
-      : activeColumns;
-
-    const result = await supabase
-      .from('invoices')
-      .select(selectColumns.join(', '))
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
-
-    if (!result.error) {
-      const rows = ((result.data ?? []) as unknown) as Array<Record<string, unknown>>;
-      return rows.map((row, index) => ({
-        id: String(row.id ?? `invoice-${index}`),
-        invoice_number: missingColumns.has('invoice_number') ? 'Invoice' : String(row.invoice_number ?? 'Invoice'),
-        status: missingColumns.has('status') ? 'Pending' : String(row.status ?? 'Pending'),
-        due_date: missingColumns.has('due_date')
-          ? String(row.created_at ?? new Date().toISOString())
-          : String(row.due_date ?? row.created_at ?? new Date().toISOString()),
-        amount: missingColumns.has('amount')
+  return rows.map((row, index) => ({
+    id: String(row.id ?? `invoice-${index}`),
+    invoice_number: missingColumns.has('invoice_number') ? 'Invoice' : String(row.invoice_number ?? 'Invoice'),
+    status: missingColumns.has('status') ? 'Pending' : String(row.status ?? 'Pending'),
+    due_date: missingColumns.has('due_date')
+      ? String(row.created_at ?? new Date().toISOString())
+      : String(row.due_date ?? row.created_at ?? new Date().toISOString()),
+    amount: missingColumns.has('amount')
+      ? null
+      : typeof row.amount === 'number'
+        ? row.amount
+        : row.amount == null
           ? null
-          : typeof row.amount === 'number'
-            ? row.amount
-            : row.amount == null
-              ? null
-              : Number(row.amount),
-        client_name: missingColumns.has('client_name') && !useClientsRelation ? null : readInvoiceClientName(row),
-        created_at: String(row.created_at ?? new Date().toISOString()),
-      }));
-    }
-
-    if (
-      !useClientsRelation &&
-      isMissingColumnError(result.error, 'invoices', 'client_name')
-    ) {
-      missingColumns.add('client_name');
-      if (activeColumns.includes('client_name')) {
-        activeColumns.splice(activeColumns.indexOf('client_name'), 1);
-      }
-      useClientsRelation = !clientsRelationDisabled;
-      continue;
-    }
-
-    if (
-      useClientsRelation &&
-      isMissingRelationshipError(result.error, 'invoices', 'clients')
-    ) {
-      clientsRelationDisabled = true;
-      useClientsRelation = false;
-      continue;
-    }
-
-    const missingColumn = getMissingColumnFromError(result.error, 'invoices');
-    if (missingColumn && activeColumns.includes(missingColumn)) {
-      missingColumns.add(missingColumn);
-      activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
-      continue;
-    }
-
-    throw new Error(result.error.message);
-  }
-
-  if (attempts >= maxAttempts) {
-    throw new Error('Invoice compatibility retry limit reached.');
-  }
-
-  return [];
+          : Number(row.amount),
+    client_name: resolveInvoiceClientName(row),
+    created_at: String(row.created_at ?? new Date().toISOString()),
+  }));
 };
 
 const loadVehicleDocumentsWithCompat = async (companyId: string): Promise<DocRow[]> => {
@@ -413,36 +347,29 @@ const loadVehicleDocumentsWithCompat = async (companyId: string): Promise<DocRow
 
   const vehicleIds = (vehiclesRes.data ?? []).map((vehicle) => vehicle.id).filter(Boolean);
   if (vehicleIds.length === 0) return [];
-
-  const activeColumns = ['id', 'status', 'expiry_date', 'vehicle_id'];
-  const missingColumns = new Set<string>();
-
-  while (activeColumns.length > 0) {
-    const result = await supabase
-      .from('vehicle_documents')
-      .select(activeColumns.join(', '))
-      .in('vehicle_id', vehicleIds);
-
-    if (!result.error) {
-      const rows = ((result.data ?? []) as unknown) as Array<Record<string, unknown>>;
-      return rows.map((row, index) => ({
-        id: String(row.id ?? `vehicle-doc-${index}`),
-        status: missingColumns.has('status') ? 'pending' : String(row.status ?? 'pending'),
-        expiry_date: missingColumns.has('expiry_date') ? null : (row.expiry_date == null ? null : String(row.expiry_date)),
-      }));
-    }
-
-    const missingColumn = getMissingColumnFromError(result.error, 'vehicle_documents');
-    if (missingColumn && activeColumns.includes(missingColumn)) {
-      missingColumns.add(missingColumn);
-      activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
-      continue;
-    }
-
-    throw new Error(result.error.message);
+  const { rows, missingColumns, error } = await selectWithMissingColumnFallback<Record<string, unknown>>({
+    table: 'vehicle_documents',
+    columns: ['id', 'status', 'expiry_date', 'vehicle_id'],
+    execute: async (activeColumns) => {
+      const result = await supabase
+        .from('vehicle_documents')
+        .select(activeColumns.join(', '))
+        .in('vehicle_id', vehicleIds);
+      return {
+        data: ((result.data ?? []) as unknown) as Record<string, unknown>[],
+        error: result.error,
+      };
+    },
+  });
+  if (error) {
+    throw new Error(error.message ?? 'Failed to load vehicle documents.');
   }
 
-  return [];
+  return rows.map((row, index) => ({
+    id: String(row.id ?? `vehicle-doc-${index}`),
+    status: missingColumns.has('status') ? 'pending' : String(row.status ?? 'pending'),
+    expiry_date: missingColumns.has('expiry_date') ? null : (row.expiry_date == null ? null : String(row.expiry_date)),
+  }));
 };
 
 const getInvoiceStatus = (dueDate: string, currentStatus: string) => {
@@ -468,6 +395,12 @@ const formatCurrency = (value: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+
+const resolveBidAmountGbp = (bid: Pick<BidRow, 'bid_price_gbp' | 'amount'>): number | null => {
+  if (typeof bid.bid_price_gbp === 'number') return bid.bid_price_gbp;
+  if (typeof bid.amount === 'number') return bid.amount;
+  return null;
+};
 
 const formatTimestamp = (value: string) => new Date(value).toLocaleString('en-GB', {
   day: '2-digit',
@@ -614,7 +547,7 @@ export default function AdminPage() {
           run: rowsQuery<BidRow>(
           supabase
             .from('job_bids')
-            .select('id, status, amount, created_at, jobs!inner(company_id)')
+            .select('id, status, amount, bid_price_gbp, created_at, jobs!inner(company_id)')
             .eq('jobs.company_id', resolvedCompanyId)
             .order('created_at', { ascending: false })
           ),
@@ -728,7 +661,10 @@ export default function AdminPage() {
           id: `bid-${bid.id}`,
           icon: '💼',
           title: `${bid.status === 'submitted' ? 'Incoming' : bid.status} bid`,
-          meta: typeof bid.amount === 'number' ? formatCurrency(bid.amount) : 'Bid amount pending',
+          meta: (() => {
+            const bidAmount = resolveBidAmountGbp(bid);
+            return typeof bidAmount === 'number' ? formatCurrency(bidAmount) : 'Bid amount pending';
+          })(),
           date: bid.created_at,
           href: '/admin/bids',
         })),

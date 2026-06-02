@@ -5,7 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DriverDocument, VehicleDocument, DocStatus } from '../../../lib/types/database';
-import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
+import { selectWithMissingColumnFallback } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 interface DriverOption { id: string; display_name: string; }
@@ -34,6 +34,19 @@ interface UploadForm {
 }
 
 const DEFAULT_UPLOAD: UploadForm = { kind: 'driver', subjectId: '', docType: '', issuedDate: '', expiryDate: '', file: null };
+
+const getDownloadFilename = (filePath: string, docId: string) => {
+  const fallback = `document-${docId}`;
+  try {
+    const url = new URL(filePath);
+    const rawName = url.pathname.split('/').pop();
+    if (!rawName) return fallback;
+    const decoded = decodeURIComponent(rawName);
+    return decoded.trim() || fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 export default function DocumentsPage() {
   const { user } = useAuth();
@@ -85,36 +98,21 @@ export default function DocumentsPage() {
         })));
       }
     } else {
-      const requestedColumns = ['id', 'vehicle_id', 'doc_type', 'file_path', 'issued_date', 'expiry_date', 'status', 'rejection_reason', 'verified_by', 'verified_at', 'created_at'];
-      const activeColumns = [...requestedColumns];
-      const missingColumns = new Set<string>();
-      let rows: Array<Record<string, unknown>> = [];
-      let vehicleError: { message?: string | null } | null = null;
-
-      while (activeColumns.length > 0) {
-        const vehicleRes = await supabase
-          .from('vehicle_documents')
-          .select(`${activeColumns.join(', ')}, vehicles!inner(reg_plate, company_id)`)
-          .eq('vehicles.company_id', companyId)
-          .order('created_at', { ascending: false });
-
-        if (!vehicleRes.error) {
-          rows = ((vehicleRes.data ?? []) as unknown) as Array<Record<string, unknown>>;
-          vehicleError = null;
-          break;
-        }
-
-        const missingColumn = getMissingColumnFromError(vehicleRes.error, 'vehicle_documents');
-        if (missingColumn && activeColumns.includes(missingColumn)) {
-          missingColumns.add(missingColumn);
-          activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
-          vehicleError = vehicleRes.error;
-          continue;
-        }
-
-        vehicleError = vehicleRes.error;
-        break;
-      }
+      const { rows, missingColumns, error: vehicleError } = await selectWithMissingColumnFallback<Record<string, unknown>>({
+        table: 'vehicle_documents',
+        columns: ['id', 'vehicle_id', 'doc_type', 'file_path', 'issued_date', 'expiry_date', 'status', 'rejection_reason', 'verified_by', 'verified_at', 'created_at'],
+        execute: async (activeColumns) => {
+          const vehicleRes = await supabase
+            .from('vehicle_documents')
+            .select(`${activeColumns.join(', ')}, vehicles!inner(reg_plate, company_id)`)
+            .eq('vehicles.company_id', companyId)
+            .order('created_at', { ascending: false });
+          return {
+            data: ((vehicleRes.data ?? []) as unknown) as Array<Record<string, unknown>>,
+            error: vehicleRes.error,
+          };
+        },
+      });
 
       if (vehicleError) {
         setDocs([]);
@@ -282,6 +280,28 @@ export default function DocumentsPage() {
     loadDocs();
   };
 
+  const downloadDocument = async (filePath: string, docId: string) => {
+    setError('');
+    try {
+      const response = await fetch(filePath);
+      if (!response.ok) {
+        throw new Error(`Download failed with status ${response.status}`);
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = getDownloadFilename(filePath, docId);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      window.open(filePath, '_blank', 'noopener,noreferrer');
+      setError('Direct download failed, so the file was opened in a new tab.');
+    }
+  };
+
   const tabStyle = (active: boolean) => ({
     padding: '0.75rem 1.5rem', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600' as const, cursor: 'pointer',
     backgroundColor: active ? '#1F7A3D' : 'white', color: active ? 'white' : '#6b7280',
@@ -419,6 +439,15 @@ export default function DocumentsPage() {
                             {d.file_path && (
                               <a href={d.file_path} target="_blank" rel="noopener noreferrer"
                                 style={{ padding: '0.375rem 0.75rem', backgroundColor: '#eff6ff', color: '#1d4ed8', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', textDecoration: 'none' }}>View</a>
+                            )}
+                            {d.file_path && (
+                              <button
+                                type="button"
+                                onClick={() => downloadDocument(d.file_path as string, d.id)}
+                                style={{ padding: '0.375rem 0.75rem', backgroundColor: '#ecfdf5', color: '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                              >
+                                Download
+                              </button>
                             )}
                             {d.status !== 'approved' && <button onClick={() => updateStatus(d.id, 'approved')} style={{ padding: '0.375rem 0.75rem', backgroundColor: '#d1fae5', color: '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>Approve</button>}
                             {d.status !== 'rejected' && <button onClick={() => updateStatus(d.id, 'rejected')} style={{ padding: '0.375rem 0.75rem', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>Reject</button>}
