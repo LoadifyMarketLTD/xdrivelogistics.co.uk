@@ -75,11 +75,13 @@ export default function FleetPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', background: '#f3f4f6', padding: '1.5rem' }}>
-        <h1 style={{ margin: 0, color: '#111827', fontSize: '2rem' }}>Fleet</h1>
-        <p style={{ margin: '0.4rem 0 1rem 0', color: '#6b7280' }}>Operational vehicle availability and tracking status.</p>
-        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '980px' }}>
+      <div style={{ minHeight: '100vh', background: '#f3f4f6', padding: '1rem' }}>
+        <div style={{ width: '100%' }}>
+          <h1 style={{ margin: 0, color: '#111827', fontSize: '2rem' }}>Fleet</h1>
+          <p style={{ margin: '0.4rem 0 1rem 0', color: '#6b7280' }}>Operational vehicle availability and tracking status.</p>
+        </div>
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', overflowX: 'auto', width: '100%' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '920px' }}>
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                 {['Vehicle', 'Type / Size', 'Status', 'Current / Last Tracked', 'Future Journey / Position', 'Tracked Notify'].map((h) => (
