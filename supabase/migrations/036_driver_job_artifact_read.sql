@@ -8,7 +8,7 @@
 --
 -- Fix:
 -- Add three read-only (SELECT) policies that allow a driver to access artifacts for
--- any job where drivers.user_id = auth.uid() and jobs.driver_id = drivers.id.
+-- any job where drivers.user_id = auth.uid() and jobs.assigned_driver_id = drivers.id.
 -- Write access (INSERT/UPDATE/DELETE) remains gated by the operator policies in 035.
 
 BEGIN;
@@ -20,7 +20,7 @@ CREATE POLICY "job_tracking_select_assigned_driver"
     EXISTS (
       SELECT 1
       FROM public.jobs j
-      JOIN public.drivers d ON d.id = j.driver_id
+      JOIN public.drivers d ON d.id = j.assigned_driver_id
       WHERE j.id  = job_tracking_events.job_id
         AND d.user_id = auth.uid()
     )
@@ -33,7 +33,7 @@ CREATE POLICY "job_notes_select_assigned_driver"
     EXISTS (
       SELECT 1
       FROM public.jobs j
-      JOIN public.drivers d ON d.id = j.driver_id
+      JOIN public.drivers d ON d.id = j.assigned_driver_id
       WHERE j.id  = job_notes.job_id
         AND d.user_id = auth.uid()
     )
@@ -46,7 +46,7 @@ CREATE POLICY "job_documents_select_assigned_driver"
     EXISTS (
       SELECT 1
       FROM public.jobs j
-      JOIN public.drivers d ON d.id = j.driver_id
+      JOIN public.drivers d ON d.id = j.assigned_driver_id
       WHERE j.id  = job_documents.job_id
         AND d.user_id = auth.uid()
     )

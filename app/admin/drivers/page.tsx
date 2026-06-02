@@ -5,7 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Driver, Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
-import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
+import { getMissingColumnFromError, selectWithMissingColumnFallback } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 const DRIVER_SELECT_COLUMNS = [
@@ -52,49 +52,40 @@ export default function DriversPage() {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
 
-    const activeColumns = [...DRIVER_SELECT_COLUMNS];
-    let data: Driver[] | null = null;
-    let queryError: { message?: string | null } | null = null;
     let orderByCreatedAt = true;
+    const { rows, error: queryError } = await selectWithMissingColumnFallback<Driver>({
+      table: 'drivers',
+      columns: DRIVER_SELECT_COLUMNS,
+      execute: async (activeColumns) => {
+        let query = supabase
+          .from('drivers')
+          .select(activeColumns.join(', '))
+          .eq('company_id', resolvedCompanyId);
 
-    while (activeColumns.length > 0) {
-      let query = supabase
-        .from('drivers')
-        .select(activeColumns.join(', '))
-        .eq('company_id', resolvedCompanyId);
+        if (orderByCreatedAt) {
+          query = query.order('created_at', { ascending: false });
+        }
 
-      if (orderByCreatedAt) {
-        query = query.order('created_at', { ascending: false });
-      }
-
-      const result = await query;
-
-      if (!result.error) {
-        data = (result.data ?? []) as unknown as Driver[];
-        queryError = null;
-        break;
-      }
-
-      const missingColumn = getMissingColumnFromError(result.error, 'drivers');
-      if (missingColumn === 'created_at' && orderByCreatedAt) {
-        orderByCreatedAt = false;
-        queryError = result.error;
-        continue;
-      }
-      if (missingColumn && activeColumns.includes(missingColumn)) {
-        activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
-        queryError = result.error;
-        continue;
-      }
-
-      queryError = result.error;
-      break;
-    }
+        const result = await query;
+        return {
+          data: (result.data ?? []) as unknown as Driver[],
+          error: result.error,
+        };
+      },
+      onError: (error) => {
+        const missingColumn = getMissingColumnFromError(error, 'drivers');
+        if (missingColumn === 'created_at' && orderByCreatedAt) {
+          orderByCreatedAt = false;
+          return true;
+        }
+        return false;
+      },
+    });
 
     if (queryError) {
       console.error('Failed to load drivers:', queryError.message);
-    } else if (data) {
-      setDrivers(data);
+    } else {
+      setDrivers(rows);
     }
     setLoading(false);
   };
@@ -102,31 +93,21 @@ export default function DriversPage() {
   const loadCompanies = async (resolvedCompanyId: string) => {
     if (!isSupabaseConfigured) return;
 
-    const requestedColumns = ['id', 'name'];
-    const activeColumns = [...requestedColumns];
-    let rows: Array<Record<string, unknown>> = [];
-    let queryError: { message?: string | null } | null = null;
-
-    while (activeColumns.length > 0) {
-      const companiesRes = await supabase
-        .from('companies')
-        .select(activeColumns.join(', '))
-        .eq('id', resolvedCompanyId)
-        .order('name');
-      if (!companiesRes.error) {
-        rows = ((companiesRes.data ?? []) as unknown) as Array<Record<string, unknown>>;
-        queryError = null;
-        break;
-      }
-      const missingColumn = getMissingColumnFromError(companiesRes.error, 'companies');
-      if (missingColumn && activeColumns.includes(missingColumn)) {
-        activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
-        queryError = companiesRes.error;
-        continue;
-      }
-      queryError = companiesRes.error;
-      break;
-    }
+    const { rows, error: queryError } = await selectWithMissingColumnFallback<Record<string, unknown>>({
+      table: 'companies',
+      columns: ['id', 'name'],
+      execute: async (activeColumns) => {
+        const companiesRes = await supabase
+          .from('companies')
+          .select(activeColumns.join(', '))
+          .eq('id', resolvedCompanyId)
+          .order('name');
+        return {
+          data: ((companiesRes.data ?? []) as unknown) as Array<Record<string, unknown>>,
+          error: companiesRes.error,
+        };
+      },
+    });
 
     if (queryError) {
       console.error('Failed to load companies:', queryError.message);

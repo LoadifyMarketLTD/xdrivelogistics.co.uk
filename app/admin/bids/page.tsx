@@ -12,7 +12,7 @@ type BidWithJob = {
   job_id: string;
   company_id: string | null;
   bidder_user_id: string | null;
-  amount: number;
+  amount: number | null;
   bid_price_gbp: number | null;
   currency: string;
   message: string | null;
@@ -61,6 +61,12 @@ const VEHICLE_LABEL: Record<string, string> = {
 function fmtDate(iso: string | null) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function resolveBidAmountGbp(bid: Pick<BidWithJob, 'bid_price_gbp' | 'amount'>): number | null {
+  if (typeof bid.bid_price_gbp === 'number') return bid.bid_price_gbp;
+  if (typeof bid.amount === 'number') return bid.amount;
+  return null;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -309,6 +315,7 @@ function JobBidGroup({
             const isActioning = actionLoading === bid.id;
             const canAccept = !isAwarded && bid.status === 'submitted';
             const canReject = bid.status === 'submitted';
+            const bidAmount = resolveBidAmountGbp(bid);
 
             return (
               <tr key={bid.id} style={{ borderBottom: i < group.bids.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
@@ -321,7 +328,7 @@ function JobBidGroup({
                   </div>
                 </td>
                 <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#111827' }}>
-                  £{(bid.bid_price_gbp ?? bid.amount).toFixed(2)}
+                  {bidAmount == null ? '—' : `£${bidAmount.toFixed(2)}`}
                   <span style={{ fontWeight: 400, fontSize: '0.8rem', color: '#6b7280', marginLeft: '0.25rem' }}>{bid.currency}</span>
                 </td>
                 <td style={{ padding: '0.85rem 1rem', color: '#6b7280', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85rem' }}>
