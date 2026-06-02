@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ProtectedRoute from '../components/ProtectedRoute';
@@ -136,6 +136,9 @@ export default function DriverEntryPage() {
   const [activeJob, setActiveJob] = useState<JobRow | null>(null);
   const [notes, setNotes] = useState<string[]>([]);
   const [schemaWarnings, setSchemaWarnings] = useState<string[]>([]);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMsg, setActionMsg] = useState('');
+  const podInputRef = useRef<HTMLInputElement>(null);
 
   const quickActions = [
     { label: 'Active Jobs', description: 'Open current deliveries', emoji: '🚚', href: '/driver/jobs?tab=active', highlight: true },
@@ -269,6 +272,31 @@ export default function DriverEntryPage() {
     loadDashboard();
   }, [loadDashboard]);
 
+  // ── Supabase Realtime: refresh dashboard when any of the driver's jobs change ──
+  useEffect(() => {
+    if (!user?.driverId || !isSupabaseConfigured) return;
+
+    const channel = supabase
+      .channel(`driver-jobs-${user.driverId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'jobs',
+          filter: `assigned_driver_id=eq.${user.driverId}`,
+        },
+        () => {
+          void loadDashboard();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.driverId, loadDashboard]);
+
   const handleAvailabilityChange = async (next: AvailabilityStatus) => {
     if (!user?.driverId || !isSupabaseConfigured || availabilityLoading) return;
     setAvailabilityLoading(true);
@@ -278,6 +306,127 @@ export default function DriverEntryPage() {
       await supabase.from('drivers').update({ status: next }).eq('id', user.driverId);
     }
     setAvailabilityLoading(false);
+  };
+
+  const updateActiveJobStatus = async (newStatus: string, extraFields: Record<string, unknown> = {}) => {
+    if (!activeJob || !user?.driverId || !isSupabaseConfigured) return;
+    setActionLoading(true);
+    setActionMsg('');
+    const { data: currentJob } = await supabase
+      .from('jobs')
+      .select('status_history')
+      .eq('id', activeJob.id)
+      .maybeSingle();
+    const history = Array.isArray((currentJob as { status_history?: unknown } | null)?.status_history)
+      ? (currentJob as { status_history: { status: string; timestamp: string }[] }).status_history
+      : [];
+    const newHistory = [...history, { status: newStatus, timestamp: new Date().toISOString() }];
+    const { error: dbError } = await supabase
+      .from('jobs')
+      .update({ status: newStatus, status_history: newHistory, ...extraFields })
+      .eq('id', activeJob.id)
+      .eq('assigned_driver_id', user.driverId);
+    if (dbError) {
+      setActionMsg(`❌ ${dbError.message}`);
+    } else {
+      setActionMsg(`✅ Marked as ${STATUS_LABEL[newStatus] ?? newStatus}`);
+      await loadDashboard();
+      setTimeout(() => setActionMsg(''), 3500);
+    }
+    setActionLoading(false);
+  };
+
+  const handleDeclineJob = async () => {
+    if (!activeJob || !user?.driverId || !isSupabaseConfigured) return;
+    if (!window.confirm('Are you sure you want to decline this job? It will be returned to dispatch.')) return;
+    setActionLoading(true);
+    setActionMsg('');
+    const { data: currentJob } = await supabase
+      .from('jobs')
+      .select('status_history')
+      .eq('id', activeJob.id)
+      .maybeSingle();
+    const history = Array.isArray((currentJob as { status_history?: unknown } | null)?.status_history)
+      ? (currentJob as { status_history: { status: string; timestamp: string }[] }).status_history
+      : [];
+    const newHistory = [...history, { status: 'driver_declined', timestamp: new Date().toISOString() }];
+    const { error: dbError } = await supabase
+      .from('jobs')
+      .update({ assigned_driver_id: null, status: 'posted', status_history: newHistory })
+      .eq('id', activeJob.id)
+      .eq('assigned_driver_id', user.driverId);
+    if (dbError) {
+      setActionMsg(`❌ ${dbError.message}`);
+    } else {
+      setActionMsg('Job declined and returned to dispatch.');
+      await loadDashboard();
+      setTimeout(() => setActionMsg(''), 3500);
+    }
+    setActionLoading(false);
+  };
+
+  const handlePODUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeJob || !user?.driverId || !isSupabaseConfigured) return;
+    setActionLoading(true);
+    setActionMsg('');
+    let url: string;
+    const cId = user?.companyId ?? null;
+    if (cId) {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `${cId}/${activeJob.id}/pod-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('pod-photos').upload(path, file, { upsert: true });
+      if (!uploadError) {
+        const { data: signed } = await supabase.storage.from('pod-photos').createSignedUrl(path, 60 * 60 * 24 * 365);
+        url = signed?.signedUrl ?? path;
+      } else {
+        url = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target?.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+    } else {
+      url = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+    const { data: currentJob } = await supabase
+      .from('jobs')
+      .select('delivery_photos')
+      .eq('id', activeJob.id)
+      .maybeSingle();
+    const existing = Array.isArray((currentJob as { delivery_photos?: unknown } | null)?.delivery_photos)
+      ? (currentJob as { delivery_photos: string[] }).delivery_photos
+      : [];
+    const { error: dbError } = await supabase
+      .from('jobs')
+      .update({ delivery_photos: [...existing, url] })
+      .eq('id', activeJob.id)
+      .eq('assigned_driver_id', user.driverId);
+    if (dbError) {
+      setActionMsg(`❌ Upload failed: ${dbError.message}`);
+    } else {
+      setActionMsg('✅ POD uploaded successfully');
+      await loadDashboard();
+      setTimeout(() => setActionMsg(''), 4000);
+    }
+    if (podInputRef.current) podInputRef.current.value = '';
+    setActionLoading(false);
+  };
+
+  const viewOnMap = () => {
+    if (!activeJob) return;
+    const address = activeJob.status === 'in_transit'
+      ? activeJob.delivery_location
+      : activeJob.pickup_location;
+    if (!address) return;
+    const q = encodeURIComponent(address);
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${q}`, '_blank', 'noopener,noreferrer');
   };
 
   const currentAvail = AVAILABILITY_OPTIONS.find((o) => o.value === availability) ?? AVAILABILITY_OPTIONS[0];
@@ -461,6 +610,51 @@ export default function DriverEntryPage() {
                         {activeJob.customer_notes || activeJob.special_instructions || 'No customer or dispatcher notes for this job.'}
                       </div>
                     </div>
+
+                    {/* Accept / Decline for allocated jobs */}
+                    {activeJob.status === 'allocated' && (
+                      <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.85rem', flexWrap: 'wrap' }} data-testid="driver-accept-decline-bar">
+                        <button
+                          onClick={() => updateActiveJobStatus('allocated')}
+                          disabled={actionLoading}
+                          style={{ ...primaryButtonStyle, flex: 1, minWidth: '120px' }}
+                          data-testid="driver-accept-job"
+                        >
+                          ✅ Accept Job
+                        </button>
+                        <button
+                          onClick={handleDeclineJob}
+                          disabled={actionLoading}
+                          style={{
+                            ...secondaryButtonStyle,
+                            flex: 1,
+                            minWidth: '120px',
+                            backgroundColor: '#fef2f2',
+                            color: '#dc2626',
+                            border: '1px solid #fca5a5',
+                          }}
+                          data-testid="driver-decline-job"
+                        >
+                          ❌ Decline Job
+                        </button>
+                      </div>
+                    )}
+                    {actionMsg && (
+                      <div
+                        style={{
+                          marginTop: '0.75rem',
+                          padding: '0.6rem 0.85rem',
+                          borderRadius: '10px',
+                          backgroundColor: actionMsg.startsWith('❌') ? '#fef2f2' : '#f0fdf4',
+                          color: actionMsg.startsWith('❌') ? '#dc2626' : '#15803d',
+                          fontSize: '0.88rem',
+                          fontWeight: 600,
+                        }}
+                        data-testid="driver-action-msg"
+                      >
+                        {actionMsg}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <EmptyOpsBlock
@@ -574,15 +768,118 @@ export default function DriverEntryPage() {
                 <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginBottom: '0.25rem' }}>
                   Job actions
                 </div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.8rem' }}>Primary workflow controls</div>
+                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Primary workflow controls</div>
+                {!activeJob && (
+                  <div style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: '0.8rem' }}>
+                    No active job selected. Actions are enabled when a job is allocated to you.
+                  </div>
+                )}
+                {/* Hidden POD file input */}
+                <input
+                  ref={podInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: 'none' }}
+                  onChange={handlePODUpload}
+                  data-testid="driver-pod-file-input"
+                />
                 <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
-                  <button style={primaryButtonStyle} onClick={() => router.push('/driver/jobs?tab=active')} data-testid="driver-action-start-job">Accept / start</button>
-                  <button style={secondaryButtonStyle} onClick={() => router.push('/driver/jobs?tab=active')} data-testid="driver-action-on-site">On site</button>
-                  <button style={secondaryButtonStyle} onClick={() => router.push('/driver/jobs?tab=active')} data-testid="driver-action-collected">Collected</button>
-                  <button style={secondaryButtonStyle} onClick={() => router.push('/driver/jobs?tab=active')} data-testid="driver-action-delivered">Delivered</button>
-                  <button style={secondaryButtonStyle} onClick={() => router.push('/driver/jobs?tab=active')} data-testid="driver-action-pod">Upload POD</button>
-                  <button style={secondaryButtonStyle} onClick={() => router.push('/driver/jobs?tab=active')} data-testid="driver-action-map">View on map</button>
+                  <button
+                    style={{
+                      ...primaryButtonStyle,
+                      opacity: !activeJob || activeJob.status !== 'allocated' ? 0.45 : 1,
+                      cursor: !activeJob || activeJob.status !== 'allocated' || actionLoading ? 'not-allowed' : 'pointer',
+                    }}
+                    onClick={() => activeJob?.status === 'allocated' && updateActiveJobStatus('allocated')}
+                    disabled={!activeJob || activeJob.status !== 'allocated' || actionLoading}
+                    data-testid="driver-action-start-job"
+                    title="Accept this allocated job"
+                  >
+                    ✅ Accept
+                  </button>
+                  <button
+                    style={{
+                      ...secondaryButtonStyle,
+                      opacity: !activeJob || activeJob.status !== 'allocated' ? 0.45 : 1,
+                      cursor: !activeJob || activeJob.status !== 'allocated' || actionLoading ? 'not-allowed' : 'pointer',
+                    }}
+                    onClick={() => activeJob?.status === 'allocated' && handleDeclineJob()}
+                    disabled={!activeJob || activeJob.status !== 'allocated' || actionLoading}
+                    data-testid="driver-action-decline-job"
+                    title="Decline this job (returns to dispatch)"
+                  >
+                    ❌ Decline
+                  </button>
+                  <button
+                    style={{
+                      ...secondaryButtonStyle,
+                      opacity: !activeJob || activeJob.status !== 'allocated' ? 0.45 : 1,
+                      cursor: !activeJob || activeJob.status !== 'allocated' || actionLoading ? 'not-allowed' : 'pointer',
+                    }}
+                    onClick={() => activeJob?.status === 'allocated' && updateActiveJobStatus('in_transit')}
+                    disabled={!activeJob || activeJob.status !== 'allocated' || actionLoading}
+                    data-testid="driver-action-collected"
+                    title="Mark collected — moves job to in transit"
+                  >
+                    🚚 Mark Collected
+                  </button>
+                  <button
+                    style={{
+                      ...secondaryButtonStyle,
+                      opacity: !activeJob || activeJob.status !== 'in_transit' ? 0.45 : 1,
+                      cursor: !activeJob || activeJob.status !== 'in_transit' || actionLoading ? 'not-allowed' : 'pointer',
+                    }}
+                    onClick={() => activeJob?.status === 'in_transit' && updateActiveJobStatus('delivered')}
+                    disabled={!activeJob || activeJob.status !== 'in_transit' || actionLoading}
+                    data-testid="driver-action-delivered"
+                    title="Mark delivered — closes the job"
+                  >
+                    📬 Mark Delivered
+                  </button>
+                  <button
+                    style={{
+                      ...secondaryButtonStyle,
+                      opacity: !activeJob || activeJob.status !== 'in_transit' ? 0.45 : 1,
+                      cursor: !activeJob || activeJob.status !== 'in_transit' || actionLoading ? 'not-allowed' : 'pointer',
+                    }}
+                    onClick={() => activeJob?.status === 'in_transit' && podInputRef.current?.click()}
+                    disabled={!activeJob || activeJob.status !== 'in_transit' || actionLoading}
+                    data-testid="driver-action-pod"
+                    title="Upload proof of delivery photo"
+                  >
+                    📷 Upload POD
+                  </button>
+                  <button
+                    style={{
+                      ...secondaryButtonStyle,
+                      opacity: !activeJob || (!activeJob.pickup_location && !activeJob.delivery_location) ? 0.45 : 1,
+                      cursor: !activeJob || actionLoading ? 'not-allowed' : 'pointer',
+                    }}
+                    onClick={viewOnMap}
+                    disabled={!activeJob || (!activeJob.pickup_location && !activeJob.delivery_location)}
+                    data-testid="driver-action-map"
+                    title="Open current stop in Google Maps"
+                  >
+                    🗺️ View on Map
+                  </button>
                 </div>
+                {actionMsg && (
+                  <div
+                    style={{
+                      marginTop: '0.75rem',
+                      padding: '0.6rem 0.85rem',
+                      borderRadius: '10px',
+                      backgroundColor: actionMsg.startsWith('❌') ? '#fef2f2' : '#f0fdf4',
+                      color: actionMsg.startsWith('❌') ? '#dc2626' : '#15803d',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                    }}
+                    data-testid="driver-action-msg-actions"
+                  >
+                    {actionMsg}
+                  </div>
+                )}
               </section>
             </div>
 
@@ -600,7 +897,7 @@ export default function DriverEntryPage() {
                         <div style={{ fontSize: '0.84rem', color: '#475569', marginTop: '0.25rem' }}>
                           {job.delivery_location ?? 'Delivery location pending'}
                         </div>
-                        <button style={{ ...primaryButtonStyle, width: '100%', marginTop: '0.7rem' }} onClick={() => router.push('/driver/jobs?tab=active')}>
+                        <button style={{ ...primaryButtonStyle, width: '100%', marginTop: '0.7rem' }} onClick={() => router.push(`/driver/jobs/${job.id}`)}>
                           Upload POD now
                         </button>
                       </div>

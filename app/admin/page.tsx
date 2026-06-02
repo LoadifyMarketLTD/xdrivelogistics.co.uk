@@ -111,6 +111,20 @@ type DocRow = {
   expiry_date: string | null;
 };
 
+type DriverAvailRow = {
+  id: string;
+  display_name: string | null;
+  availability_status: string | null;
+  status: string | null;
+};
+
+type PostedJobDispatch = {
+  id: string;
+  pickup_location: string | null;
+  delivery_location: string | null;
+  created_at: string;
+};
+
 const DEFAULT_DASHBOARD: DashboardState = {
   overview: {
     activeJobs: 0,
@@ -156,7 +170,10 @@ const menuItems = [
   { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
   { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
   { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
+  { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
   { id: 'driversVehicles', label: 'Drivers & Vehicles', icon: '🚚', href: '/admin/drivers-vehicles' },
+  { id: 'companies', label: 'Companies', icon: '🏢', href: '/admin/companies' },
+  { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
   { id: 'settings', label: 'Settings', icon: '⚙️', href: '/admin/settings' },
 ];
 
@@ -437,6 +454,8 @@ export default function AdminPage() {
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [driverAvailability, setDriverAvailability] = useState<DriverAvailRow[]>([]);
+  const [postedJobsForDispatch, setPostedJobsForDispatch] = useState<PostedJobDispatch[]>([]);
 
   useEffect(() => {
     const updateIsMobile = () => setIsMobile(window.innerWidth <= 1024);
@@ -589,6 +608,29 @@ export default function AdminPage() {
             .eq('company_id', resolvedCompanyId)
           ),
         },
+        {
+          label: 'driver availability',
+          run: rowsQuery<DriverAvailRow>(
+          supabase
+            .from('drivers')
+            .select('id, display_name, availability_status, status')
+            .eq('company_id', resolvedCompanyId)
+            .eq('status', 'active')
+            .limit(20)
+          ),
+        },
+        {
+          label: 'posted jobs for dispatch',
+          run: rowsQuery<PostedJobDispatch>(
+          supabase
+            .from('jobs')
+            .select('id, pickup_location, delivery_location, created_at')
+            .eq('company_id', resolvedCompanyId)
+            .eq('status', 'posted')
+            .order('created_at', { ascending: true })
+            .limit(5)
+          ),
+        },
       ];
       const results = await Promise.allSettled(dashboardModules.map((module) => module.run));
 
@@ -617,6 +659,10 @@ export default function AdminPage() {
       const driverDocs = getValue<DocRow[]>(6, []);
       const vehicleDocs = getValue<DocRow[]>(7, []);
       const fleetUnits = getValue<number>(8, 0);
+      const driverAvailData = getValue<DriverAvailRow[]>(9, []);
+      const postedDispatchData = getValue<PostedJobDispatch[]>(10, []);
+      setDriverAvailability(driverAvailData);
+      setPostedJobsForDispatch(postedDispatchData);
       // Derive quotes count from list (no separate count query needed).
       const pendingQuotes = quotes.filter((q) => ['draft', 'sent'].includes(q.status)).length;
       const documentRows = [...driverDocs, ...vehicleDocs];
@@ -1057,6 +1103,151 @@ export default function AdminPage() {
                       <div style={{ color: '#94a3b8', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>{formatTimestamp(item.date)}</div>
                     </button>
                   ))}
+                </div>
+              )}
+            </section>
+          </div>
+
+          {/* Driver Availability Board */}
+          <div style={{ marginBottom: '0.75rem' }}>
+            <section style={sectionCardStyle} data-testid="admin-driver-availability-board">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.68rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Driver Availability Board</h3>
+                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Live availability status of all active drivers.</p>
+                </div>
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/drivers-vehicles')}
+                  style={{ background: 'none', border: 'none', fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.live, cursor: 'pointer', fontWeight: '600' }}
+                >
+                  Manage drivers →
+                </button>
+              </div>
+              {dashboardLoading ? (
+                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem' }}>Loading…</div>
+              ) : driverAvailability.length === 0 ? (
+                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem', padding: '0.4rem 0' }}>No active drivers found.</div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '0.5rem' }}>
+                  {driverAvailability.map((driver) => {
+                    const avail = driver.availability_status ?? driver.status ?? 'unknown';
+                    const availConfig: Record<string, { color: string; bg: string; label: string }> = {
+                      available: { color: '#15803d', bg: '#f0fdf4', label: '🟢 Available' },
+                      busy: { color: '#b45309', bg: '#fefce8', label: '🟡 On a Job' },
+                      offline: { color: '#dc2626', bg: '#fef2f2', label: '🔴 Offline' },
+                    };
+                    const cfg = availConfig[avail] ?? { color: '#64748b', bg: '#f8fafc', label: `⚪ ${avail}` };
+                    return (
+                      <div
+                        key={driver.id}
+                        style={{
+                          backgroundColor: cfg.bg,
+                          border: `1px solid ${cfg.color}33`,
+                          borderRadius: '8px',
+                          padding: '0.55rem 0.7rem',
+                        }}
+                        data-testid={`admin-driver-avail-${driver.id}`}
+                      >
+                        <div style={{ fontWeight: '700', fontSize: '0.82rem', color: ENTERPRISE_THEME.colors.text, marginBottom: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {driver.display_name ?? 'Driver'}
+                        </div>
+                        <div style={{ fontSize: '0.73rem', fontWeight: '600', color: cfg.color }}>{cfg.label}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </div>
+
+          {/* Quick Dispatch Allocation Widget */}
+          <div style={{ marginBottom: '0.75rem' }}>
+            <section style={sectionCardStyle} data-testid="admin-quick-dispatch-widget">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.68rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Quick Dispatch</h3>
+                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>
+                    Jobs awaiting dispatch allocation ({dashboard.jobsByStatus.posted} unallocated).
+                  </p>
+                </div>
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/diary')}
+                  style={{ background: 'none', border: 'none', fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.live, cursor: 'pointer', fontWeight: '600' }}
+                >
+                  Open diary →
+                </button>
+              </div>
+              {dashboardLoading ? (
+                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem' }}>Loading…</div>
+              ) : postedJobsForDispatch.length === 0 ? (
+                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem', padding: '0.4rem 0' }}>
+                  ✅ No jobs currently awaiting dispatch.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: '0.5rem' }}>
+                  {postedJobsForDispatch.map((job) => (
+                    <div
+                      key={job.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        backgroundColor: '#fffbeb',
+                        border: '1px solid #fbbf24',
+                        borderRadius: '8px',
+                        padding: '0.55rem 0.7rem',
+                      }}
+                      data-testid={`admin-dispatch-job-${job.id}`}
+                    >
+                      <span style={{ fontSize: '1rem' }}>📦</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: '700', fontSize: '0.82rem', color: ENTERPRISE_THEME.colors.text }}>
+                          #{job.id.slice(0, 8).toUpperCase()}
+                        </div>
+                        <div style={{ fontSize: '0.73rem', color: ENTERPRISE_THEME.colors.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {job.pickup_location ?? 'Pickup TBC'} → {job.delivery_location ?? 'Delivery TBC'}
+                        </div>
+                      </div>
+                      <button
+                        className="panel-button"
+                        onClick={() => router.push(`/admin/jobs`)}
+                        style={{
+                          backgroundColor: ENTERPRISE_THEME.colors.live,
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '0.35rem 0.65rem',
+                          fontSize: '0.75rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Dispatch →
+                      </button>
+                    </div>
+                  ))}
+                  {dashboard.jobsByStatus.posted > postedJobsForDispatch.length && (
+                    <button
+                      className="panel-button"
+                      onClick={() => router.push('/admin/jobs')}
+                      style={{
+                        background: 'none',
+                        border: '1px dashed #cbd5e1',
+                        borderRadius: '8px',
+                        padding: '0.5rem',
+                        color: ENTERPRISE_THEME.colors.muted,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        textAlign: 'center',
+                      }}
+                    >
+                      +{dashboard.jobsByStatus.posted - postedJobsForDispatch.length} more — view all →
+                    </button>
+                  )}
                 </div>
               )}
             </section>
