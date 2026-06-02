@@ -94,16 +94,18 @@ async function handleJobAssigned(event: NotificationEvent): Promise<boolean> {
 }
 
 async function handleBidAccepted(event: NotificationEvent): Promise<boolean> {
-  const { bidder_user_id, job_id, bid_amount } = event.payload;
+  const { bidder_user_id, job_id, bid_price_gbp, amount, bid_amount } = event.payload;
   if (!bidder_user_id) return true;
 
   const user = await getUserEmail(bidder_user_id as string);
   if (!user) return true;
 
+  const normalizedBidAmount = bid_price_gbp ?? amount ?? bid_amount ?? 'N/A';
+
   const html = `
     <h2>Your bid has been accepted!</h2>
     <p>Hi ${user.name},</p>
-    <p>Great news — your bid of <strong>£${bid_amount ?? 'N/A'}</strong> on job <strong>${job_id}</strong> has been accepted.</p>
+    <p>Great news — your bid of <strong>£${normalizedBidAmount}</strong> on job <strong>${job_id}</strong> has been accepted.</p>
     <p>Please log in to XDrive Logistics to proceed.</p>
     <p>XDrive Logistics</p>
   `;

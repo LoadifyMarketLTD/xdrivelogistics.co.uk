@@ -127,7 +127,7 @@ export default function JobsPage() {
 
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, created_at, updated_at')
+        .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, job_distance_miles, created_at, updated_at')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
@@ -141,6 +141,16 @@ export default function JobsPage() {
       if (data) {
         const mapped = data.map((row: Record<string, unknown>) => {
           const clientFields = getJobClientFields(row);
+          const rawDistanceMiles =
+            typeof row.job_distance_miles === 'number'
+              ? row.job_distance_miles
+              : row.job_distance_miles !== null && row.job_distance_miles !== undefined
+                ? Number(row.job_distance_miles)
+                : null;
+          const distanceMiles =
+            rawDistanceMiles !== null && Number.isFinite(rawDistanceMiles)
+              ? `${rawDistanceMiles.toFixed(1)} mi`
+              : '—';
 
           return {
             id: row.id as string,
@@ -168,7 +178,7 @@ export default function JobsPage() {
             status: (row.status as string) || JOB_STATUS.RECEIVED,
             createdAt: row.created_at as string,
             updatedAt: row.updated_at as string,
-            distanceMiles: '—',
+            distanceMiles,
             vehicleType: ((row.cargo_type as string) || 'unknown').replace(/_/g, ' '),
             paymentTerms: 'Not provided',
           };

@@ -37,7 +37,7 @@ type BidRow = {
   id: string;
   job_id: string;
   company_id: string | null;
-  amount: number;
+  amount: number | null;
   bid_price_gbp: number | null;
   currency: string;
   message: string | null;
@@ -107,6 +107,12 @@ const VEHICLE_LABEL: Record<string, string> = {
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function resolveBidAmountGbp(bid: Pick<BidRow, 'bid_price_gbp' | 'amount'>): number | null {
+  if (typeof bid.bid_price_gbp === 'number') return bid.bid_price_gbp;
+  if (typeof bid.amount === 'number') return bid.amount;
+  return null;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -280,13 +286,14 @@ export default function MarketplacePage() {
     }
     setBidSubmitting(true);
     setBidError('');
+    const normalizedBidPriceGbp = parsed;
 
     const { error } = await supabase.from('job_bids').insert({
       job_id: bidTarget.id,
       company_id: companyId,
       bidder_user_id: user.id,
-      amount: parsed,
-      bid_price_gbp: parsed,
+      bid_price_gbp: normalizedBidPriceGbp,
+      amount: normalizedBidPriceGbp,
       currency: bidTarget.currency || 'GBP',
       message: bidMessage.trim() || null,
       status: 'submitted',
@@ -436,6 +443,7 @@ export default function MarketplacePage() {
                       {bids.map((bid, i) => {
                         const job = bid.jobs;
                         const style = BID_STATUS_STYLE[bid.status] ?? BID_STATUS_STYLE.submitted;
+                        const bidAmount = resolveBidAmountGbp(bid);
                         return (
                           <tr key={bid.id} style={{ borderBottom: i < bids.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
                             <td style={{ padding: '0.85rem 1rem' }}>
@@ -451,7 +459,7 @@ export default function MarketplacePage() {
                               {job?.companies?.name || '—'}
                             </td>
                             <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#111827' }}>
-                              £{(bid.bid_price_gbp ?? bid.amount).toFixed(2)}
+                              {bidAmount == null ? '—' : `£${bidAmount.toFixed(2)}`}
                             </td>
                             <td style={{ padding: '0.85rem 1rem' }}>
                               <span style={{ backgroundColor: style.bg, color: style.color, padding: '0.2rem 0.65rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 600 }}>
@@ -599,6 +607,7 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
   const bidAccepted = load.myBid?.status === 'accepted';
   const bidStyle = load.myBid ? (BID_STATUS_STYLE[load.myBid.status] ?? BID_STATUS_STYLE.submitted) : null;
   const borderColor = bidAccepted ? '#86efac' : hasBid ? '#93c5fd' : '#e5e7eb';
+  const myBidAmount = load.myBid ? resolveBidAmountGbp(load.myBid) : null;
 
   return (
     <div style={{
@@ -649,7 +658,9 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
         {hasBid && load.myBid && bidStyle ? (
           <div style={{ textAlign: 'right' }}>
             <span style={{ backgroundColor: bidStyle.bg, color: bidStyle.color, padding: '0.2rem 0.65rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 600 }}>
-              {bidAccepted ? '✓ Bid Accepted' : `Bid: £${(load.myBid.bid_price_gbp ?? load.myBid.amount).toFixed(2)} · ${load.myBid.status.charAt(0).toUpperCase() + load.myBid.status.slice(1)}`}
+              {bidAccepted
+                ? '✓ Bid Accepted'
+                : `Bid: ${myBidAmount == null ? 'N/A' : `£${myBidAmount.toFixed(2)}`} · ${load.myBid.status.charAt(0).toUpperCase() + load.myBid.status.slice(1)}`}
             </span>
           </div>
         ) : (
