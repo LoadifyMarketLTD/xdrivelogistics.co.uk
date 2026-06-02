@@ -129,7 +129,7 @@ export default function JobDetailPage() {
 
         const { data, error } = await supabase
           .from('jobs')
-.select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, assigned_driver_id, distance_miles, collection_photo_url, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at, exchange_visibility')
+          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, assigned_driver_id, job_distance_miles, collection_photo_url, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at, exchange_visibility')
           .eq('id', jobId)
           .eq('company_id', companyId)
           .single();
@@ -166,10 +166,10 @@ export default function JobDetailPage() {
               notes: clientFields.cargoNotes,
             },
             distanceMiles:
-              typeof row.distance_miles === 'number'
-                ? row.distance_miles
-                : row.distance_miles !== null && row.distance_miles !== undefined
-                  ? Number(row.distance_miles)
+              typeof row.job_distance_miles === 'number'
+                ? row.job_distance_miles
+                : row.job_distance_miles !== null && row.job_distance_miles !== undefined
+                  ? Number(row.job_distance_miles)
                   : null,
             status: (row.status as string) || JOB_STATUS.RECEIVED,
             createdAt: row.created_at as string,
@@ -291,7 +291,7 @@ export default function JobDetailPage() {
           delivery_datetime: formData.delivery.date && formData.delivery.time ? `${formData.delivery.date}T${formData.delivery.time}:00` : null,
           cargo_type: formData.cargo.type.toLowerCase(),
           items: formData.cargo.quantity,
-          distance_miles: formData.distanceMiles,
+          job_distance_miles: formData.distanceMiles,
           status: effectiveStatus,
           assigned_driver_id: formData.assignedDriverId || null,
           updated_at: new Date().toISOString(),
