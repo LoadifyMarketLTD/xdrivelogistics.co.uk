@@ -5,7 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DriverDocument, VehicleDocument, DocStatus } from '../../../lib/types/database';
-import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
+import { selectWithMissingColumnFallback } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 interface DriverOption { id: string; display_name: string; }
@@ -85,36 +85,21 @@ export default function DocumentsPage() {
         })));
       }
     } else {
-      const requestedColumns = ['id', 'vehicle_id', 'doc_type', 'file_path', 'issued_date', 'expiry_date', 'status', 'rejection_reason', 'verified_by', 'verified_at', 'created_at'];
-      const activeColumns = [...requestedColumns];
-      const missingColumns = new Set<string>();
-      let rows: Array<Record<string, unknown>> = [];
-      let vehicleError: { message?: string | null } | null = null;
-
-      while (activeColumns.length > 0) {
-        const vehicleRes = await supabase
-          .from('vehicle_documents')
-          .select(`${activeColumns.join(', ')}, vehicles!inner(reg_plate, company_id)`)
-          .eq('vehicles.company_id', companyId)
-          .order('created_at', { ascending: false });
-
-        if (!vehicleRes.error) {
-          rows = ((vehicleRes.data ?? []) as unknown) as Array<Record<string, unknown>>;
-          vehicleError = null;
-          break;
-        }
-
-        const missingColumn = getMissingColumnFromError(vehicleRes.error, 'vehicle_documents');
-        if (missingColumn && activeColumns.includes(missingColumn)) {
-          missingColumns.add(missingColumn);
-          activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
-          vehicleError = vehicleRes.error;
-          continue;
-        }
-
-        vehicleError = vehicleRes.error;
-        break;
-      }
+      const { rows, missingColumns, error: vehicleError } = await selectWithMissingColumnFallback<Record<string, unknown>>({
+        table: 'vehicle_documents',
+        columns: ['id', 'vehicle_id', 'doc_type', 'file_path', 'issued_date', 'expiry_date', 'status', 'rejection_reason', 'verified_by', 'verified_at', 'created_at'],
+        execute: async (activeColumns) => {
+          const vehicleRes = await supabase
+            .from('vehicle_documents')
+            .select(`${activeColumns.join(', ')}, vehicles!inner(reg_plate, company_id)`)
+            .eq('vehicles.company_id', companyId)
+            .order('created_at', { ascending: false });
+          return {
+            data: ((vehicleRes.data ?? []) as unknown) as Array<Record<string, unknown>>,
+            error: vehicleRes.error,
+          };
+        },
+      });
 
       if (vehicleError) {
         setDocs([]);
