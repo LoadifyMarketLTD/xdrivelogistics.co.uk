@@ -5,13 +5,13 @@ import { type FormEvent, useState } from 'react';
 import { getAuthCallbackEmailRedirectTo } from '../../lib/authFlow';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
-type RegisterRole = 'customer' | 'company';
+type RegisterRole = 'broker' | 'company_admin' | 'owner_driver';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<RegisterRole>('customer');
+  const [role, setRole] = useState<RegisterRole>('broker');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -45,8 +45,11 @@ export default function RegisterPage() {
         options: {
           emailRedirectTo: getAuthCallbackEmailRedirectTo(),
           data: {
-            role,
-            requested_role: role,
+            role: role === 'owner_driver' ? 'driver' : role,
+            requested_role: role === 'owner_driver' ? 'driver' : role,
+            account_type: role,
+            workspace_mode: role === 'owner_driver' ? 'owner_driver' : 'company',
+            owner_driver_workspace: role === 'owner_driver',
           },
         },
       });
@@ -60,7 +63,7 @@ export default function RegisterPage() {
       setEmail('');
       setPassword('');
       setConfirmPassword('');
-      setRole('customer');
+      setRole('broker');
     } catch (err) {
       const fallback = err instanceof Error ? err.message : 'Registration failed.';
       setError(fallback);
@@ -92,7 +95,7 @@ export default function RegisterPage() {
       >
         <h1 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#0A2239' }}>Create account</h1>
         <p style={{ marginTop: 0, color: '#5B6B85', marginBottom: '1.5rem' }}>
-          Register as a customer or company user.
+          Register as broker, fleet/courier company, or owner-driver.
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -119,8 +122,9 @@ export default function RegisterPage() {
             disabled={loading}
             style={{ width: '100%', marginBottom: '1rem', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
           >
-            <option value="customer">Customer</option>
-            <option value="company">Company</option>
+            <option value="broker">Broker / Shipper</option>
+            <option value="company_admin">Fleet / Courier Company</option>
+            <option value="owner_driver">Owner-Driver / Sole Trader</option>
           </select>
 
           <label htmlFor="register-password" style={{ display: 'block', marginBottom: '0.4rem', color: '#0B1B33' }}>
@@ -152,7 +156,7 @@ export default function RegisterPage() {
           />
 
           <p style={{ marginTop: 0, marginBottom: '1rem', color: '#5B6B85', fontSize: '0.9rem' }}>
-            Driver access is provisioned by a company after assignment and is not available through public self-registration.
+            Fleet accounts get a company workspace. Owner-driver accounts get a personal workspace automatically after login.
           </p>
 
           {error && (

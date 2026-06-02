@@ -3,8 +3,7 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValid
 import { getResetPasswordEmailRedirectTo } from '../../../../lib/authFlow';
 import { logRuntimeProof } from '../../../../lib/runtimeProof';
 
-// Canonical roles + legacy aliases used in company_memberships.role_in_company
-const ADMIN_ROLES = new Set(['owner', 'admin', 'dispatcher', 'company_admin', 'admin_staff', 'company']);
+const ADMIN_ROLES = new Set(['owner', 'admin', 'dispatcher']);
 
 type CreateDriverPayload = {
   companyId?: string;
@@ -878,7 +877,7 @@ export async function POST(request: NextRequest) {
     );
 
     // ── Step 6: upsert company_memberships (idempotent) ──────────────────────
-    // Drivers get role_in_company = 'viewer' (the lowest valid enum value).
+    // Drivers get role_in_company = 'member' (company staff/driver membership baseline).
     // On conflict (company_id, user_id) we update status to active so a
     // previously-suspended membership is re-activated.
     const { error: membershipError } = await supabaseAdmin
@@ -888,7 +887,7 @@ export async function POST(request: NextRequest) {
           company_id: resolvedCompanyId,
           user_id: userId,
           invited_email: email,
-          role_in_company: 'viewer',
+          role_in_company: 'member',
           status: 'active',
           updated_at: new Date().toISOString(),
         },
@@ -916,7 +915,7 @@ export async function POST(request: NextRequest) {
       logForensicSuccess(requestId, 'company_memberships upsert', 'upsert driver membership row', {
         companyId: resolvedCompanyId,
         userId,
-        roleInCompany: 'viewer',
+        roleInCompany: 'member',
         status: 'active',
       });
     }

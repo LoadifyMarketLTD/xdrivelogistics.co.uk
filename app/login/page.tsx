@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { buildPathWithAuthParams, getBrowserAuthSignals, isRecoveryAuthFlow, RESET_PASSWORD_PATH } from '../../lib/authFlow';
-import { getPostLoginRoute } from '../../lib/authSession';
+import { getPostLoginRoute, roleCanAccessPath } from '../../lib/authSession';
 import { COMPANY_CONFIG } from '../config/company';
 
 export default function LoginPage() {
@@ -33,13 +33,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (authLoading || !user) return;
     const canonicalRoute = getPostLoginRoute(user);
-    const roleAllowsPath = (role: string, path: string) => {
-      if (path.startsWith('/admin') || path.startsWith('/m')) return role === 'owner' || role === 'admin' || role === 'company';
-      if (path.startsWith('/driver')) return role === 'driver';
-      if (path.startsWith('/customer')) return role === 'customer';
-      return true;
-    };
-    const destination = safeNextPath && roleAllowsPath(user.role, safeNextPath) ? safeNextPath : canonicalRoute;
+    const destination = safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
     router.replace(destination);
   }, [authLoading, user, router, safeNextPath]);
 

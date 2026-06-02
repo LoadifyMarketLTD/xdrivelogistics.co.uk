@@ -7,7 +7,7 @@ export default function MobileJobsPage() {
   const router = useRouter();
 
   return (
-    <ProtectedRoute allowedRoles={['company', 'admin', 'owner']}>
+    <ProtectedRoute allowedRoles={['company_staff', 'company_admin', 'broker', 'owner']}>
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '2rem', textAlign: 'center' }}>
         <div>
           <h1 style={{ marginBottom: '0.75rem' }}>Mobile jobs module disabled</h1>

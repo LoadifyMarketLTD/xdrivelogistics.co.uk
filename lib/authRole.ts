@@ -1,23 +1,16 @@
-export type AppUserRole = 'customer' | 'driver' | 'company' | 'admin' | 'owner';
+export type AppUserRole =
+  | 'owner'
+  | 'broker'
+  | 'company_admin'
+  | 'company_staff'
+  | 'driver'
+  | 'customer';
 
 /**
- * Maps any profile.role value (canonical or legacy) to an AppUserRole.
+ * Maps any profile.role value (canonical or legacy alias) to an AppUserRole.
  *
- * Canonical values (stored after migration 031):
- *   owner | admin | company | driver | customer
- *
- * Legacy / alias values accepted as belt-and-suspenders (e.g. environments
- * where migration 031 has not yet run, or rows touched before the migration):
- *
- *   owner    ← superadmin, super_admin, platform_owner
- *   admin    ← company_admin, org_admin, platform_admin
- *   company  ← broker, freight_broker, carrier, dispatcher, company_staff
- *              NOTE — broker maps to company because on a Courier Exchange
- *              platform a freight broker is a company-level operator who posts
- *              loads, manages carrier assignments and invoicing.  This is
- *              identical to the company/dispatcher access model.
- *   driver   ← owner_driver
- *   customer ← shipper, client, viewer
+ * Canonical values:
+ *   owner | broker | company_admin | company_staff | driver | customer
  *
  * Returns null only when the value is empty/null or genuinely unrecognised
  * (triggers 'role_unsupported' error in authSession.ts).
@@ -25,37 +18,40 @@ export type AppUserRole = 'customer' | 'driver' | 'company' | 'admin' | 'owner';
 export const mapAppRole = (value: string | null | undefined): AppUserRole | null => {
   const normalized = (value ?? '').toLowerCase().trim();
 
-  // ── Canonical values ──────────────────────────────────────────────────────
+  // Canonical values
   if (normalized === 'owner') return 'owner';
-  if (normalized === 'admin') return 'admin';
-  if (normalized === 'company') return 'company';
+  if (normalized === 'broker') return 'broker';
+  if (normalized === 'company_admin') return 'company_admin';
+  if (normalized === 'company_staff') return 'company_staff';
   if (normalized === 'driver') return 'driver';
   if (normalized === 'customer') return 'customer';
 
-  // ── Owner aliases ─────────────────────────────────────────────────────────
+  // Owner aliases
   if (normalized === 'superadmin' || normalized === 'super_admin' || normalized === 'platform_owner') return 'owner';
 
-  // ── Admin aliases (incl. company_admin, admin_staff) ─────────────────────
+  // Company admin aliases
   if (
+    normalized === 'admin' ||
     normalized === 'admin_staff' ||
-    normalized === 'company_admin' ||
     normalized === 'org_admin' ||
     normalized === 'platform_admin'
-  ) return 'admin';
+  ) return 'company_admin';
 
-  // ── Company/dispatcher aliases (incl. broker) ─────────────────────────────
+  // Company staff aliases
   if (
-    normalized === 'broker' ||
-    normalized === 'freight_broker' ||
-    normalized === 'carrier' ||
+    normalized === 'company' ||
     normalized === 'dispatcher' ||
-    normalized === 'company_staff'
-  ) return 'company';
+    normalized === 'carrier' ||
+    normalized === 'admin_operator'
+  ) return 'company_staff';
 
-  // ── Driver aliases ────────────────────────────────────────────────────────
+  // Broker aliases
+  if (normalized === 'freight_broker' || normalized === 'shipper_broker') return 'broker';
+
+  // Driver aliases
   if (normalized === 'owner_driver') return 'driver';
 
-  // ── Customer aliases ──────────────────────────────────────────────────────
+  // Customer aliases
   if (normalized === 'shipper' || normalized === 'client' || normalized === 'viewer') return 'customer';
 
   return null;
@@ -69,11 +65,13 @@ export const shouldAutoProvisionCompany = ({
   profileRole?: string | null;
 }) => {
   const candidateRoles = [mapAppRole(fallbackRole), mapAppRole(profileRole)];
-  return candidateRoles.some((role) => role === 'company' || role === 'admin' || role === 'owner');
+  return candidateRoles.some(
+    (role) => role === 'broker' || role === 'company_admin' || role === 'company_staff' || role === 'owner'
+  );
 };
 
 export const roleRequiresCompanyContext = (role: AppUserRole | null) =>
-  role === 'company' || role === 'admin' || role === 'owner' || role === 'driver';
+  role === 'broker' || role === 'company_admin' || role === 'company_staff' || role === 'driver';
 
 export const resolveAuthoritativeRole = ({
   membershipRole,
@@ -90,24 +88,24 @@ export const resolveAuthoritativeRole = ({
   creatorCompanyType?: string | null;
   fallbackRole?: string | null;
 }): AppUserRole | null => {
-  if (membershipRole === 'owner') return 'owner';
-  if (membershipRole === 'admin') return 'admin';
-  if (membershipRole === 'dispatcher') return 'company';
-  if (isDriver) return 'driver';
-  if (membershipRole === 'viewer') return 'customer';
-  if (hasCreatedCompany) return creatorCompanyType === 'admin' ? 'admin' : 'owner';
-
   const resolvedProfileRole = mapAppRole(profileRole);
   if (resolvedProfileRole) return resolvedProfileRole;
 
   const resolvedFallbackRole = mapAppRole(fallbackRole);
   if (resolvedFallbackRole) return resolvedFallbackRole;
 
+  if (isDriver) return 'driver';
+
+  if (membershipRole === 'owner' || membershipRole === 'admin') return 'company_admin';
+  if (membershipRole === 'dispatcher' || membershipRole === 'member') return 'company_staff';
+  if (membershipRole === 'viewer') return 'customer';
+  if (hasCreatedCompany) return creatorCompanyType === 'admin' ? 'company_admin' : 'company_staff';
+
   return null;
 };
 
-const ADMIN_ROUTE_ROLES = new Set<AppUserRole>(['company', 'admin', 'owner']);
-const MOBILE_ROUTE_ROLES = new Set<AppUserRole>(['company', 'admin', 'owner']);
+const ADMIN_ROUTE_ROLES = new Set<AppUserRole>(['broker', 'company_admin', 'company_staff', 'owner']);
+const MOBILE_ROUTE_ROLES = new Set<AppUserRole>(['broker', 'company_admin', 'company_staff', 'owner']);
 const DRIVER_ROUTE_ROLES = new Set<AppUserRole>(['driver']);
 const CUSTOMER_ROUTE_ROLES = new Set<AppUserRole>(['customer']);
 
@@ -125,11 +123,11 @@ export const isRoleAllowedForRequiredRole = (
   role: AppUserRole | null
 ): boolean => {
   if (!role) return false;
-  if (requiredRole === 'admin') {
-    return role === 'company' || role === 'admin' || role === 'owner';
+  if (requiredRole === 'company_admin') {
+    return role === 'broker' || role === 'company_admin' || role === 'company_staff' || role === 'owner';
   }
-  if (requiredRole === 'company') {
-    return role === 'company' || role === 'admin' || role === 'owner';
+  if (requiredRole === 'company_staff') {
+    return role === 'broker' || role === 'company_admin' || role === 'company_staff' || role === 'owner';
   }
   if (requiredRole === 'owner') {
     return role === 'owner';

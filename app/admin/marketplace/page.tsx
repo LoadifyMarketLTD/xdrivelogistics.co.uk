@@ -322,7 +322,7 @@ export default function MarketplacePage() {
   ];
 
   return (
-    <ProtectedRoute allowedRoles={['owner', 'admin', 'company']}>
+    <ProtectedRoute allowedRoles={['owner', 'broker', 'company_admin', 'company_staff']}>
       <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1.5rem' }}>
 
         {/* Page header */}
