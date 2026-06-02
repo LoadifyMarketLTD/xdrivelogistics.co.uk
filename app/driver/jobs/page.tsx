@@ -221,8 +221,6 @@ export default function DriverJobsPage() {
   const [actionMsg, setActionMsg] = useState('');
   const [selectedPodJobId, setSelectedPodJobId] = useState<string | null>(null);
   const podInputRef = useRef<HTMLInputElement>(null);
-  const previewMode = typeof window !== 'undefined' && window.location.search.includes('mock-dashboard=1');
-
   const loadDriverProfile = useCallback(async () => {
     if (!user?.driverId || !isSupabaseConfigured) return;
 
@@ -312,77 +310,6 @@ export default function DriverJobsPage() {
   useEffect(() => {
     void loadDashboard();
   }, [loadDashboard]);
-
-  useEffect(() => {
-    if (!previewMode || user?.driverId) return;
-
-    setDriverName('Alex Driver');
-    setDriverPhone('07700 900123');
-    setAvailability('busy');
-    setVehicle({
-      reg_plate: 'LD24 XDL',
-      type: 'van_large',
-      payload_kg: 1350,
-      has_tail_lift: true,
-    });
-    setJobs([
-      {
-        id: 'job-current-001',
-        status: 'allocated',
-        pickup_location: 'Unit 3, Heathrow Cargo Centre, TW6 3PF',
-        delivery_location: '44 Southgate Road, London N1 3JG',
-        pickup_contact_name: 'Warehouse Desk',
-        pickup_contact_phone: '020 7946 1001',
-        delivery_contact_name: 'Site Manager',
-        delivery_contact_phone: '020 7946 2002',
-        customer_notes: 'Call 20 minutes before arrival.',
-        special_instructions: 'Use loading bay B.',
-        collection_window_start: new Date().toISOString(),
-        collection_window_end: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-        delivery_window_start: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-        delivery_window_end: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
-        budget_amount: 145,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        delivery_photos: null,
-      },
-      {
-        id: 'job-next-002',
-        status: 'in_transit',
-        pickup_location: 'Bluewater Retail Park, Dartford DA9 9ST',
-        delivery_location: '18 Queen Street, Croydon CR0 1SY',
-        pickup_contact_name: 'Store Lead',
-        pickup_contact_phone: '020 7000 3003',
-        delivery_contact_name: 'Receiving',
-        delivery_contact_phone: '020 7000 4004',
-        customer_notes: 'Fragile load.',
-        special_instructions: 'Rear entrance only.',
-        collection_window_start: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
-        collection_window_end: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
-        delivery_window_start: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-        delivery_window_end: new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString(),
-        budget_amount: 120,
-        created_at: new Date().toISOString(),
-        updated_at: new Date(Date.now() + 60 * 1000).toISOString(),
-        delivery_photos: null,
-      },
-      {
-        id: 'job-pod-003',
-        status: 'delivered',
-        pickup_location: 'Barking Depot, IG11 0TT',
-        delivery_location: '9 Market Square, Romford RM1 3AB',
-        delivery_contact_name: 'Goods In',
-        customer_notes: 'POD still required.',
-        delivery_window_end: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-        budget_amount: 88,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        delivery_photos: [],
-      },
-    ]);
-    setEarnings({ total: 1850, week: 420, count: 18 });
-    setLoading(false);
-  }, [previewMode, user?.driverId]);
 
   useEffect(() => {
     if (!driverId || !isSupabaseConfigured) return;
@@ -963,7 +890,7 @@ export default function DriverJobsPage() {
       </div>
   );
 
-  return previewMode ? dashboard : <ProtectedRoute allowedRoles={['driver']}>{dashboard}</ProtectedRoute>;
+  return <ProtectedRoute allowedRoles={['driver']}>{dashboard}</ProtectedRoute>;
 }
 
 function joinContact(name?: string | null, phone?: string | null) {
