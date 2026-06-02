@@ -5,7 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
-import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
+import { selectWithMissingColumnFallback } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 export default function CompaniesPage() {
@@ -33,35 +33,21 @@ export default function CompaniesPage() {
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
     const companyIds = [companyId];
 
-    const requestedColumns = ['id', 'name', 'company_number', 'vat_number', 'email', 'phone', 'address_line1', 'city', 'postcode', 'created_at'];
-    const activeColumns = [...requestedColumns];
-    const missingColumns = new Set<string>();
-    let rows: Array<Record<string, unknown>> = [];
-    let companyError: { message?: string | null } | null = null;
-
-    while (activeColumns.length > 0) {
-      const companyRes = await supabase
-        .from('companies')
-        .select(activeColumns.join(', '))
-        .in('id', companyIds)
-        .order('created_at', { ascending: false });
-      if (!companyRes.error) {
-        rows = ((companyRes.data ?? []) as unknown) as Array<Record<string, unknown>>;
-        companyError = null;
-        break;
-      }
-
-      const missingColumn = getMissingColumnFromError(companyRes.error, 'companies');
-      if (missingColumn && activeColumns.includes(missingColumn)) {
-        missingColumns.add(missingColumn);
-        activeColumns.splice(activeColumns.indexOf(missingColumn), 1);
-        companyError = companyRes.error;
-        continue;
-      }
-
-      companyError = companyRes.error;
-      break;
-    }
+    const { rows, missingColumns, error: companyError } = await selectWithMissingColumnFallback<Record<string, unknown>>({
+      table: 'companies',
+      columns: ['id', 'name', 'company_number', 'vat_number', 'email', 'phone', 'address_line1', 'city', 'postcode', 'created_at'],
+      execute: async (activeColumns) => {
+        const companyRes = await supabase
+          .from('companies')
+          .select(activeColumns.join(', '))
+          .in('id', companyIds)
+          .order('created_at', { ascending: false });
+        return {
+          data: ((companyRes.data ?? []) as unknown) as Array<Record<string, unknown>>,
+          error: companyRes.error,
+        };
+      },
+    });
 
     if (!companyError) {
       setCompanies(rows.map((row) => ({
