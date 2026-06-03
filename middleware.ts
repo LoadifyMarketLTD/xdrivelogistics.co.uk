@@ -14,6 +14,7 @@ const LOGIN_PATH = '/login';
 
 type RouteAuthResult =
   | { kind: 'unauthenticated' }
+  | { kind: 'service_unavailable' }
   | { kind: 'forbidden' }
   | {
       kind: 'authenticated';
@@ -41,7 +42,7 @@ const buildRedirect = (request: NextRequest, pathname: string, clearCookie = fal
   return response;
 };
 
-const buildLoginRedirect = (request: NextRequest) => {
+const buildLoginRedirect = (request: NextRequest, reason?: string) => {
   const url = request.nextUrl.clone();
   url.pathname = LOGIN_PATH;
   url.search = '';
@@ -51,6 +52,9 @@ const buildLoginRedirect = (request: NextRequest) => {
   const nextPath = `${nextUrl.pathname}${nextUrl.search}`;
   if (nextPath && nextPath !== LOGIN_PATH) {
     url.searchParams.set('next', nextPath);
+  }
+  if (reason) {
+    url.searchParams.set('reason', reason);
   }
 
   const response = NextResponse.redirect(url);
@@ -68,6 +72,18 @@ const buildLoginRedirect = (request: NextRequest) => {
 const readFallbackRole = (value: unknown) =>
   typeof value === 'string' && value.trim().length > 0 ? value : null;
 
+const isServiceFailure = (message: string | null | undefined) => {
+  const normalized = (message ?? '').toLowerCase();
+  return (
+    normalized.includes('failed to fetch') ||
+    normalized.includes('network') ||
+    normalized.includes('timeout') ||
+    normalized.includes('timed out') ||
+    normalized.includes('fetch') ||
+    normalized.includes('503')
+  );
+};
+
 const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> => {
   const accessToken = request.cookies.get(ROUTE_AUTH_COOKIE_NAME)?.value?.trim();
   if (!accessToken || !supabaseValidator) {
@@ -75,6 +91,9 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
   }
 
   const { data: authData, error: authError } = await supabaseValidator.auth.getUser(accessToken);
+  if (authError && isServiceFailure(authError.message)) {
+    return { kind: 'service_unavailable' };
+  }
   if (authError || !authData.user) {
     return { kind: 'unauthenticated' };
   }
@@ -126,6 +145,15 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     ? null
     : (creatorCompanyRes.data as { company_type?: string | null } | null);
 
+  if (
+    isServiceFailure(profileRes.error?.message) ||
+    isServiceFailure(membershipRes.error?.message) ||
+    isServiceFailure(driverRes.error?.message) ||
+    isServiceFailure(creatorCompanyRes.error?.message)
+  ) {
+    return { kind: 'service_unavailable' };
+  }
+
   const profileStatus = profile?.status?.toLowerCase();
   if (profileStatus === 'pending' || profileStatus === 'blocked' || profileStatus === 'suspended' || profileStatus === 'inactive') {
     return { kind: 'forbidden' };
@@ -156,6 +184,10 @@ export async function middleware(request: NextRequest) {
   const auth = await resolveRouteAuth(request);
   if (auth.kind === 'unauthenticated') {
     return buildLoginRedirect(request);
+  }
+
+  if (auth.kind === 'service_unavailable') {
+    return buildLoginRedirect(request, 'service_unavailable');
   }
 
   if (auth.kind === 'forbidden') {
