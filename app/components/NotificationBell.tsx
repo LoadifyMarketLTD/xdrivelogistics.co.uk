@@ -71,12 +71,20 @@ const getNotificationSummary = (event: NotificationEventRow) => {
 };
 
 const getNotificationHref = (event: NotificationEventRow) => {
-  const jobId = typeof event.payload.job_id === 'string' ? event.payload.job_id : null;
+  // payload.job_id is the canonical source; fall back to entity_id for job/pod events
+  const jobId =
+    typeof event.payload.job_id === 'string'
+      ? event.payload.job_id
+      : (event.event_type === 'job_assigned' || event.event_type === 'pod_uploaded')
+        ? event.entity_id
+        : null;
   if ((event.event_type === 'job_assigned' || event.event_type === 'pod_uploaded') && jobId) {
     return `/admin/jobs/${jobId}`;
   }
   if (event.event_type === 'bid_accepted') {
-    return '/admin/bids';
+    // bid_accepted payload.job_id contains the related job; route there if available
+    const bidJobId = typeof event.payload.job_id === 'string' ? event.payload.job_id : null;
+    return bidJobId ? `/admin/jobs/${bidJobId}` : '/admin/bids';
   }
   return '/admin';
 };

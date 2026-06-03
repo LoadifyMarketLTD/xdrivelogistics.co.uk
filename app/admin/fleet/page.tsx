@@ -5,6 +5,7 @@ import { useAuth } from '../../components/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import type { Vehicle } from '../../../lib/types/database';
 
 type FleetDriver = {
@@ -48,11 +49,34 @@ export default function FleetPage() {
         setLocations([]);
         return;
       }
-      const [vehicleRes, driverRes, locationRes] = await Promise.all([
-        supabase.from('vehicles').select('id, company_id, assigned_driver_id, type, reg_plate, make, model, manufacture_year, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets, created_at').eq('company_id', companyId).order('created_at', { ascending: false }),
+
+      // Try full column set first; fall back gracefully if optional columns are missing
+      const fullColumns = 'id, company_id, assigned_driver_id, type, reg_plate, make, model, manufacture_year, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets, created_at';
+      const coreColumns = 'id, company_id, assigned_driver_id, type, reg_plate, make, model, manufacture_year, payload_kg, has_tail_lift, created_at';
+
+      let vehicleRes = await supabase
+        .from('vehicles')
+        .select(fullColumns)
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+
+      if (
+        isMissingColumnError(vehicleRes.error, 'vehicles', 'pallets_capacity') ||
+        isMissingColumnError(vehicleRes.error, 'vehicles', 'has_straps') ||
+        isMissingColumnError(vehicleRes.error, 'vehicles', 'has_blankets')
+      ) {
+        vehicleRes = await supabase
+          .from('vehicles')
+          .select(coreColumns)
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: false });
+      }
+
+      const [driverRes, locationRes] = await Promise.all([
         supabase.from('drivers').select('id, display_name, availability_status').eq('company_id', companyId),
         supabase.from('driver_locations').select('id, driver_id, recorded_at, lat, lng').eq('company_id', companyId).order('recorded_at', { ascending: false }).limit(300),
       ]);
+
       setVehicles((vehicleRes.data as Vehicle[]) ?? []);
       setDrivers((driverRes.data as FleetDriver[]) ?? []);
       setLocations((locationRes.data as DriverLocationRow[]) ?? []);
