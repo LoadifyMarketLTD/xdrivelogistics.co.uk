@@ -168,12 +168,13 @@ const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/admin' },
   { id: 'marketplace', label: 'Marketplace', icon: '🏪', href: '/admin/marketplace' },
   { id: 'diary', label: 'Diary / Operations', icon: '🗓️', href: '/admin/diary' },
-  { id: 'fleet', label: 'Fleet', icon: '🧭', href: '/admin/fleet' },
-  { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
   { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
   { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
   { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
-  { id: 'driversVehicles', label: 'Drivers & Vehicles', icon: '🚚', href: '/admin/drivers-vehicles' },
+  { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
+  { id: 'drivers', label: 'Drivers', icon: '👤', href: '/admin/drivers' },
+  { id: 'vehicles', label: 'Vehicles', icon: '🚛', href: '/admin/vehicles' },
+  { id: 'fleet', label: 'Fleet Tracking', icon: '🧭', href: '/admin/fleet' },
   { id: 'companies', label: 'Companies', icon: '🏢', href: '/admin/companies' },
   { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
   { id: 'settings', label: 'Settings', icon: '⚙️', href: '/admin/settings' },
@@ -208,7 +209,7 @@ const quickActionTiles = [
     border: '#fed7aa',
   },
   {
-    title: 'Track fleet',
+    title: 'Fleet tracking',
     description: 'See vehicle status and latest tracked positions.',
     href: '/admin/fleet',
     icon: '🧭',
@@ -226,10 +227,10 @@ const quickActionTiles = [
     border: '#a7f3d0',
   },
   {
-    title: 'Drivers & vehicles',
-    description: 'Manage users, company vehicles and tracking.',
-    href: '/admin/drivers-vehicles',
-    icon: '🚚',
+    title: 'Manage drivers',
+    description: 'Add, edit and remove drivers for your company.',
+    href: '/admin/drivers',
+    icon: '👤',
     background: '#f5f3ff',
     color: '#6d28d9',
     border: '#ddd6fe',
@@ -747,7 +748,7 @@ export default function AdminPage() {
       icon: '👤',
       color: ENTERPRISE_THEME.colors.success,
       subtitle: 'Drivers currently available for dispatch',
-      href: '/admin/drivers-vehicles',
+      href: '/admin/drivers',
       urgent: false,
     },
     {
@@ -774,7 +775,7 @@ export default function AdminPage() {
       icon: '🛡️',
       color: ENTERPRISE_THEME.colors.danger,
       subtitle: 'Blocked or expired compliance documents',
-      href: '/admin/drivers-vehicles',
+      href: '/admin/documents',
       urgent: dashboard.compliance.attentionRequired > 0,
     },
   ];
@@ -1080,7 +1081,7 @@ export default function AdminPage() {
                 </div>
                 <button
                   className="panel-button"
-                  onClick={() => router.push('/admin/drivers-vehicles')}
+                  onClick={() => router.push('/admin/drivers')}
                   style={{ background: 'none', border: 'none', fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.live, cursor: 'pointer', fontWeight: '600' }}
                 >
                   Manage drivers →
