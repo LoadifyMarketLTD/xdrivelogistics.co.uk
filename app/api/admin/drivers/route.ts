@@ -1009,10 +1009,12 @@ export async function PATCH(request: NextRequest) {
       return respond(403, { error: 'Forbidden' }, 'membership_not_resolved');
     }
 
-    if (
-      (requestedCompanyId && requestedCompanyId !== membership.company_id) ||
-      (requestedMembershipId && requestedMembershipId !== membership.id)
-    ) {
+    const resolvedCompanyId = membership.company_id;
+    const resolvedMembershipId = membership.id;
+    const scopedCompanyId = requestedCompanyId ?? resolvedCompanyId;
+    const scopedMembershipId = requestedMembershipId ?? resolvedMembershipId;
+
+    if (scopedCompanyId !== resolvedCompanyId || scopedMembershipId !== resolvedMembershipId) {
       return respond(403, { error: 'Forbidden' }, 'membership_scope_mismatch');
     }
 
@@ -1020,7 +1022,6 @@ export async function PATCH(request: NextRequest) {
       return respond(400, { error: 'email is required.' }, 'missing_required_fields');
     }
 
-    const resolvedCompanyId = membership.company_id;
     const { data: existingDriver, error: existingDriverError } = await supabaseAdmin
       .from('drivers')
       .select('id, user_id')
