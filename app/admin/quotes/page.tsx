@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Quote, VehicleType, CargoType, Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
+import { WorkflowStageStrip } from '../workflowUi';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'equipment', 'other'];
@@ -18,10 +19,10 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 const QUOTE_TABS: Array<{ id: string; label: string; statuses: string[] }> = [
-  { id: 'received', label: 'Received', statuses: ['draft'] },
-  { id: 'submitted', label: 'Submitted', statuses: ['sent'] },
-  { id: 'accepted', label: 'Accepted / Won', statuses: ['accepted'] },
-  { id: 'rejected', label: 'Rejected / Archived', statuses: ['declined'] },
+  { id: 'received', label: 'Inbox', statuses: ['draft'] },
+  { id: 'submitted', label: 'Sent', statuses: ['sent'] },
+  { id: 'accepted', label: 'Won', statuses: ['accepted'] },
+  { id: 'rejected', label: 'Lost', statuses: ['declined'] },
 ] as const;
 
 export default function QuotesPage() {
@@ -202,13 +203,28 @@ export default function QuotesPage() {
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
             <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Quotes</h1>
-              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Create and manage price quotes</p>
+              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Quotes & Pricing Workspace</h1>
+              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Price work, progress quotes, and convert won quotes into jobs.</p>
             </div>
-            <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
-              + New Quote
-            </button>
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <button onClick={() => router.push('/admin/marketplace')} style={{ padding: '0.75rem 1rem', backgroundColor: 'white', color: '#0f172a', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer' }}>
+                Find Work
+              </button>
+              <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
+                + New Quote
+              </button>
+            </div>
           </div>
+
+          <WorkflowStageStrip
+            activeStage="price"
+            counts={{
+              find: 0,
+              price: quotes.filter((quote) => (quote.status || '').toLowerCase() === 'draft').length,
+              win: quotes.filter((quote) => (quote.status || '').toLowerCase() === 'accepted').length,
+              complete: 0,
+            }}
+          />
 
           {!isSupabaseConfigured && (
             <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
