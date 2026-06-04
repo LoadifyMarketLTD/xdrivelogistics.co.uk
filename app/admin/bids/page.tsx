@@ -100,8 +100,7 @@ export default function BidsPage() {
       .from('job_bids')
       .select(
         'id, job_id, company_id, bidder_user_id, amount, bid_price_gbp, currency, message, status, created_at, ' +
-        'jobs!inner(id, company_id, pickup_location, delivery_location, pickup_datetime, vehicle_type, awarded_carrier_company_id, exchange_visibility), ' +
-        'companies(name)'
+        'jobs!inner(id, company_id, pickup_location, delivery_location, pickup_datetime, vehicle_type, awarded_carrier_company_id, exchange_visibility)'
       )
       .eq('jobs.company_id', companyId)
       .in('jobs.exchange_visibility', ['exchange', 'direct'])
@@ -113,9 +112,33 @@ export default function BidsPage() {
       return;
     }
 
+    const bidRows = (data ?? []) as unknown as BidWithJob[];
+    const bidderCompanyIds = Array.from(
+      new Set(bidRows.map((bid) => bid.company_id).filter((id): id is string => Boolean(id))),
+    );
+
+    let companyNameById = new Map<string, string>();
+    if (bidderCompanyIds.length > 0) {
+      const { data: companyRows } = await supabase
+        .from('companies')
+        .select('id, name')
+        .in('id', bidderCompanyIds);
+
+      companyNameById = new Map(
+        (companyRows ?? [])
+          .map((row) => [row.id, row.name] as const)
+          .filter((entry): entry is readonly [string, string] => typeof entry[0] === 'string' && typeof entry[1] === 'string'),
+      );
+    }
+
+    const enrichedBids = bidRows.map((bid) => ({
+      ...bid,
+      companies: bid.company_id && companyNameById.has(bid.company_id) ? { name: companyNameById.get(bid.company_id)! } : null,
+    }));
+
     // Group bids by job
     const groupMap = new Map<string, JobGroup>();
-    for (const raw of (data ?? []) as unknown as BidWithJob[]) {
+    for (const raw of enrichedBids) {
       const j = raw.jobs;
       if (!j) continue;
       if (!groupMap.has(raw.job_id)) {
