@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import { getResetPasswordEmailRedirectTo } from '../../../../lib/authFlow';
+import { normalizeProfileRoleForStorage } from '../../../../lib/authRole';
 
 const ADMIN_ROLES = new Set(['owner', 'admin']);
 
@@ -227,7 +228,7 @@ export async function POST(request: NextRequest) {
           user_id: userId,
           full_name: displayName,
           phone,
-          role: 'company_staff',
+          role: normalizeProfileRoleForStorage('company_staff') ?? 'company',
           status: 'active',
           company_id: resolvedCompanyId,
           is_driver: false,

@@ -1,4 +1,10 @@
-import { isRoleAllowedForPath, mapAppRole, roleRequiresCompanyContext, shouldAutoProvisionCompany } from './authRole';
+import {
+  isRoleAllowedForPath,
+  mapAppRole,
+  normalizeProfileRoleForStorage,
+  roleRequiresCompanyContext,
+  shouldAutoProvisionCompany,
+} from './authRole';
 import { resolveAuthContext } from './authContextResolver';
 import { supabase } from './supabaseClient';
 import type { CompanyMembership, Driver, Profile } from './types/database';
@@ -318,12 +324,13 @@ export const resolveAuthenticatedUser = async (
       ?? readMetadataRole(sessionUser.user_metadata, 'requested_role')
       ?? fallbackRole;
     const mappedRole = mapAppRole(metadataRole) ?? 'customer';
+    const storedRole = normalizeProfileRoleForStorage(mappedRole) ?? 'customer';
     const profileBootstrap = await supabase
       .from('profiles')
       .upsert(
         {
           user_id: sessionUser.id,
-          role: mappedRole,
+          role: storedRole,
           status: 'active',
           is_driver: mappedRole === 'driver',
         },
