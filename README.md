@@ -59,12 +59,38 @@ The project uses:
 - Do not store real credentials in repository files.
 - Configure environment variables via deployment secrets and local `.env.local` only.
 - Required variables are documented in `.env.example` using placeholders.
+- `XDRIVE_DEFAULT_COMPANY_ID` is required for `/api/public/quote-request` so public quote submissions attach to the default company workspace.
 
 ---
 
 ## ⚠️ Security Notice
 
 Never commit passwords, API keys, tokens, or real login pairs to source control.
+
+---
+
+## Quote Intake Configuration
+
+- Set `XDRIVE_DEFAULT_COMPANY_ID` in Netlify and local `.env.local`.
+- `/api/public/quote-request` inserts public requests into `public.quotes` using that company ID.
+- If the variable is missing, the public quote form returns HTTP `503` by design.
+
+## Notifications Deployment
+
+`supabase/functions/notify-operational-event/index.ts` is ready for deployment, but it still needs Supabase dashboard wiring:
+
+1. Deploy the Edge Function:
+   ```bash
+   supabase functions deploy notify-operational-event --no-verify-jwt
+   ```
+2. Set Supabase Edge Function secrets:
+   - `SITE_URL=https://www.xdrivelogistics.co.uk`
+   - `FROM_EMAIL=no-reply@xdrivelogistics.co.uk`
+   - `RESEND_API_KEY=...` (optional; when omitted the queue still marks events as processed without sending email)
+3. In Supabase Dashboard → Database → Webhooks, create an `INSERT` webhook on `public.notification_events` pointing to the deployed function URL.
+4. Keep migration `071_notification_architecture.sql` applied so the `job_assigned`, `bid_accepted`, and `pod_uploaded` triggers continue enqueueing notification events.
+
+The app notification bell reads directly from `public.notification_events`, so no second notification store is required.
 
 ---
 

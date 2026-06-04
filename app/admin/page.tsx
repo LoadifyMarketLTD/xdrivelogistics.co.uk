@@ -13,6 +13,7 @@ import {
   resolveInvoiceClientName,
   selectWithMissingColumnFallback,
 } from '../../lib/supabaseSchemaCompat';
+import { WORKFLOW_NAV_SECTIONS, WorkflowStageStrip } from './workflowUi';
 
 type DashboardOverview = {
   activeJobs: number;
@@ -164,25 +165,10 @@ const DEFAULT_DASHBOARD: DashboardState = {
   activity: [],
 };
 
-const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/admin' },
-  { id: 'marketplace', label: 'Marketplace', icon: '🏪', href: '/admin/marketplace' },
-  { id: 'diary', label: 'Diary / Operations', icon: '🗓️', href: '/admin/diary' },
-  { id: 'fleet', label: 'Fleet', icon: '🧭', href: '/admin/fleet' },
-  { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
-  { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
-  { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
-  { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
-  { id: 'driversVehicles', label: 'Drivers & Vehicles', icon: '🚚', href: '/admin/drivers-vehicles' },
-  { id: 'companies', label: 'Companies', icon: '🏢', href: '/admin/companies' },
-  { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
-  { id: 'settings', label: 'Settings', icon: '⚙️', href: '/admin/settings' },
-];
-
 const quickActionTiles = [
   {
-    title: 'Open diary',
-    description: 'Work live allocations and in-progress jobs.',
+    title: 'Assign work',
+    description: 'Allocate unassigned jobs to available drivers.',
     href: '/admin/diary',
     icon: '🗓️',
     background: '#ecfdf5',
@@ -190,8 +176,8 @@ const quickActionTiles = [
     border: '#86efac',
   },
   {
-    title: 'Manage loads',
-    description: 'Review pickup/delivery jobs and dispatch actions.',
+    title: 'Complete work',
+    description: 'Run the operational jobs board and close deliveries.',
     href: '/admin/jobs',
     icon: '📦',
     background: '#eff6ff',
@@ -199,8 +185,8 @@ const quickActionTiles = [
     border: '#bfdbfe',
   },
   {
-    title: 'Action quotes',
-    description: 'Review received, submitted and won quotes.',
+    title: 'Price work',
+    description: 'Progress quote inbox, sent, won and rejected work.',
     href: '/admin/quotes',
     icon: '💬',
     background: '#fff7ed',
@@ -208,8 +194,8 @@ const quickActionTiles = [
     border: '#fed7aa',
   },
   {
-    title: 'Track fleet',
-    description: 'See vehicle status and latest tracked positions.',
+    title: 'Track work',
+    description: 'Monitor fleet availability and live tracked positions.',
     href: '/admin/fleet',
     icon: '🧭',
     background: '#eef2ff',
@@ -217,8 +203,8 @@ const quickActionTiles = [
     border: '#c7d2fe',
   },
   {
-    title: 'Review invoices',
-    description: 'Focus on outstanding and overdue finance items.',
+    title: 'Invoice work',
+    description: 'Prioritise overdue and outstanding invoice recovery.',
     href: '/admin/invoices',
     icon: '💰',
     background: '#ecfdf5',
@@ -226,10 +212,10 @@ const quickActionTiles = [
     border: '#a7f3d0',
   },
   {
-    title: 'Drivers & vehicles',
-    description: 'Manage users, company vehicles and tracking.',
-    href: '/admin/drivers-vehicles',
-    icon: '🚚',
+    title: 'Manage resources',
+    description: 'Keep drivers ready and available for allocation.',
+    href: '/admin/drivers',
+    icon: '👤',
     background: '#f5f3ff',
     color: '#6d28d9',
     border: '#ddd6fe',
@@ -747,7 +733,7 @@ export default function AdminPage() {
       icon: '👤',
       color: ENTERPRISE_THEME.colors.success,
       subtitle: 'Drivers currently available for dispatch',
-      href: '/admin/drivers-vehicles',
+      href: '/admin/drivers',
       urgent: false,
     },
     {
@@ -774,7 +760,7 @@ export default function AdminPage() {
       icon: '🛡️',
       color: ENTERPRISE_THEME.colors.danger,
       subtitle: 'Blocked or expired compliance documents',
-      href: '/admin/drivers-vehicles',
+      href: '/admin/documents',
       urgent: dashboard.compliance.attentionRequired > 0,
     },
   ];
@@ -814,56 +800,72 @@ export default function AdminPage() {
           <div style={{ padding: '1.1rem 1rem', borderBottom: '1px solid rgba(159, 180, 203, 0.22)' }}>
             <h1 style={{ fontSize: '1.02rem', fontWeight: '700', margin: 0, color: 'white', lineHeight: 1.35 }}>{COMPANY_CONFIG.legalName}</h1>
             <p style={{ fontSize: '0.74rem', margin: '0.3rem 0 0 0', color: ENTERPRISE_THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Operations Console
+              Dispatcher Workspace
             </p>
           </div>
 
-          <nav style={{ flex: 1, padding: '0.6rem' }}>
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <button
-                  className="nav-item"
-                  key={item.id}
-                  onClick={() => {
-                    router.push(item.href);
-                    if (isMobile) setSidebarOpen(false);
-                  }}
+          <nav style={{ flex: 1, padding: '0.6rem', overflowY: 'auto' }}>
+            {WORKFLOW_NAV_SECTIONS.map((section) => (
+              <div key={section.id} style={{ marginBottom: '0.7rem' }}>
+                <div
                   style={{
-                    width: '100%',
-                    padding: '0.58rem 0.72rem',
-                    backgroundColor: isActive ? 'rgba(63, 131, 248, 0.18)' : 'transparent',
-                    color: 'white',
-                    border: 'none',
-                    borderLeft: isActive ? `3px solid ${ENTERPRISE_THEME.colors.live}` : '3px solid transparent',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.55rem',
-                    fontSize: '0.84rem',
-                    fontWeight: isActive ? '600' : '500',
-                    borderRadius: '8px',
-                    transition: 'background-color 0.15s ease',
+                    fontSize: '0.67rem',
+                    color: ENTERPRISE_THEME.shellMuted,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    fontWeight: 700,
+                    margin: '0.35rem 0.5rem',
                   }}
                 >
-                  <span
-                    style={{
-                      width: '22px',
-                      height: '22px',
-                      borderRadius: '6px',
-                      display: 'grid',
-                      placeItems: 'center',
-                      fontSize: '0.88rem',
-                      backgroundColor: 'rgba(159, 180, 203, 0.2)',
-                    }}
-                  >
-                    {item.icon}
-                  </span>
-                  {item.label}
-                </button>
-              );
-            })}
+                  {section.label}
+                </div>
+                {section.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <button
+                      className="nav-item"
+                      key={item.id}
+                      onClick={() => {
+                        router.push(item.href);
+                        if (isMobile) setSidebarOpen(false);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '0.58rem 0.72rem',
+                        backgroundColor: isActive ? 'rgba(63, 131, 248, 0.18)' : 'transparent',
+                        color: 'white',
+                        border: 'none',
+                        borderLeft: isActive ? `3px solid ${ENTERPRISE_THEME.colors.live}` : '3px solid transparent',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.55rem',
+                        fontSize: '0.82rem',
+                        fontWeight: isActive ? '600' : '500',
+                        borderRadius: '8px',
+                        transition: 'background-color 0.15s ease',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '6px',
+                          display: 'grid',
+                          placeItems: 'center',
+                          fontSize: '0.88rem',
+                          backgroundColor: 'rgba(159, 180, 203, 0.2)',
+                        }}
+                      >
+                        {item.icon}
+                      </span>
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
 
           <div style={{ padding: '0.9rem', borderTop: '1px solid rgba(159, 180, 203, 0.22)' }}>
@@ -912,9 +914,9 @@ export default function AdminPage() {
           )}
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
             <div>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Dashboard</h2>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Command Centre</h2>
               <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: 0, maxWidth: '760px', fontSize: '0.86rem' }}>
-                Snapshot of today’s activity with quick links to operational pages.
+                Dispatcher-first workflow view across find, price, win, assign, track, complete and invoice.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
@@ -932,7 +934,7 @@ export default function AdminPage() {
                   color: 'white',
                 }}
               >
-                🗓️ Open Diary
+                🗓️ Open Allocation Diary
               </button>
             </div>
           </div>
@@ -953,6 +955,67 @@ export default function AdminPage() {
               {dashboardError}
             </div>
           )}
+
+          {/* Needs Attention alert bar */}
+          {(dashboard.jobsByStatus.posted > 0 || dashboard.finance.overdueInvoices > 0 || dashboard.compliance.attentionRequired > 0) && (
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+                alignItems: 'center',
+                backgroundColor: '#fff7ed',
+                border: '1px solid #fed7aa',
+                borderRadius: '10px',
+                padding: '0.6rem 0.9rem',
+                marginBottom: '0.75rem',
+              }}
+              data-testid="admin-needs-attention-bar"
+            >
+              <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#9a3412', marginRight: '0.25rem' }}>⚠️ Needs Attention:</span>
+              {dashboard.jobsByStatus.posted > 0 && (
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/diary')}
+                  style={{ backgroundColor: '#fbbf24', color: '#78350f', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                >
+                  {dashboard.jobsByStatus.posted} unallocated job{dashboard.jobsByStatus.posted !== 1 ? 's' : ''} →
+                </button>
+              )}
+              {dashboard.finance.overdueInvoices > 0 && (
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/invoices')}
+                  style={{ backgroundColor: '#f87171', color: '#7f1d1d', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                >
+                  {dashboard.finance.overdueInvoices} overdue invoice{dashboard.finance.overdueInvoices !== 1 ? 's' : ''} →
+                </button>
+              )}
+              {dashboard.compliance.attentionRequired > 0 && (
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/documents')}
+                  style={{ backgroundColor: '#a78bfa', color: '#2e1065', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                >
+                  {dashboard.compliance.attentionRequired} compliance alert{dashboard.compliance.attentionRequired !== 1 ? 's' : ''} →
+                </button>
+              )}
+            </div>
+          )}
+
+          <WorkflowStageStrip
+            activeStage="assign"
+            counts={{
+              find: dashboard.market.incomingBids,
+              price: dashboard.overview.pendingQuotes,
+              win: dashboard.market.acceptedQuotes,
+              assign: dashboard.jobsByStatus.posted,
+              track: dashboard.jobsByStatus.inTransit,
+              complete: dashboard.overview.activeJobs,
+              invoice: dashboard.finance.outstandingInvoices,
+            }}
+            marginBottom="0.75rem"
+          />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
             {overviewCards.map((stat) => (
@@ -1080,7 +1143,7 @@ export default function AdminPage() {
                 </div>
                 <button
                   className="panel-button"
-                  onClick={() => router.push('/admin/drivers-vehicles')}
+                  onClick={() => router.push('/admin/drivers')}
                   style={{ background: 'none', border: 'none', fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.live, cursor: 'pointer', fontWeight: '600' }}
                 >
                   Manage drivers →
@@ -1101,7 +1164,7 @@ export default function AdminPage() {
                     };
                     const cfg = availConfig[avail] ?? { color: '#64748b', bg: '#f8fafc', label: `⚪ ${avail}` };
                     return (
-                      <div
+                     <div
                         key={driver.id}
                         style={{
                           backgroundColor: cfg.bg,
@@ -1114,7 +1177,26 @@ export default function AdminPage() {
                         <div style={{ fontWeight: '700', fontSize: '0.82rem', color: ENTERPRISE_THEME.colors.text, marginBottom: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {driver.display_name ?? 'Driver'}
                         </div>
-                        <div style={{ fontSize: '0.73rem', fontWeight: '600', color: cfg.color }}>{cfg.label}</div>
+                        <div style={{ fontSize: '0.73rem', fontWeight: '600', color: cfg.color, marginBottom: avail === 'available' ? '0.4rem' : '0' }}>{cfg.label}</div>
+                        {avail === 'available' && (
+                          <button
+                            className="panel-button"
+                            onClick={() => router.push('/admin/diary')}
+                            style={{
+                              width: '100%',
+                              backgroundColor: '#15803d',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '5px',
+                              padding: '0.28rem 0.4rem',
+                              fontSize: '0.72rem',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Assign a Job →
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -1174,7 +1256,7 @@ export default function AdminPage() {
                       </div>
                       <button
                         className="panel-button"
-                        onClick={() => router.push(`/admin/jobs`)}
+                        onClick={() => router.push(`/admin/diary`)}
                         style={{
                           backgroundColor: ENTERPRISE_THEME.colors.live,
                           color: 'white',
@@ -1194,7 +1276,7 @@ export default function AdminPage() {
                   {dashboard.jobsByStatus.posted > postedJobsForDispatch.length && (
                     <button
                       className="panel-button"
-                      onClick={() => router.push('/admin/jobs')}
+                      onClick={() => router.push('/admin/diary')}
                       style={{
                         background: 'none',
                         border: '1px dashed #cbd5e1',

@@ -80,6 +80,7 @@ export const resolveAuthoritativeRole = ({
   hasCreatedCompany,
   creatorCompanyType,
   fallbackRole,
+  ownerDriverWorkspaceRequested,
 }: {
   membershipRole?: string | null;
   profileRole?: string | null;
@@ -87,11 +88,23 @@ export const resolveAuthoritativeRole = ({
   hasCreatedCompany: boolean;
   creatorCompanyType?: string | null;
   fallbackRole?: string | null;
+  ownerDriverWorkspaceRequested?: boolean;
 }): AppUserRole | null => {
   const resolvedProfileRole = mapAppRole(profileRole);
-  if (resolvedProfileRole) return resolvedProfileRole;
-
   const resolvedFallbackRole = mapAppRole(fallbackRole);
+  const ownerDriverWorkspace =
+    ownerDriverWorkspaceRequested &&
+    (resolvedProfileRole === 'driver' || resolvedFallbackRole === 'driver' || isDriver);
+
+  if (ownerDriverWorkspace && (membershipRole === 'owner' || membershipRole === 'admin')) {
+    return 'company_admin';
+  }
+
+  if (ownerDriverWorkspace && hasCreatedCompany) {
+    return creatorCompanyType === 'admin' ? 'company_admin' : 'company_staff';
+  }
+
+  if (resolvedProfileRole) return resolvedProfileRole;
   if (resolvedFallbackRole) return resolvedFallbackRole;
 
   if (isDriver) return 'driver';

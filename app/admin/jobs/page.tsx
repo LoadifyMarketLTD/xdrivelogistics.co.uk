@@ -9,6 +9,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
+import { WorkflowStageStrip } from '../workflowUi';
 
 interface Job {
   id: string;
@@ -403,16 +404,17 @@ export default function JobsPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1.5rem' }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         {/* Header */}
-        <div style={{ marginBottom: '2rem' }}>
+        <div style={{ marginBottom: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <div>
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>
-                Job Management
+                Operations Workspace
               </h1>
               <p style={{ color: '#6b7280', margin: 0 }}>
-                Manage and track all delivery jobs
+                One board for assign, track and complete work.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '1rem' }}>
@@ -438,7 +440,22 @@ export default function JobsPage() {
                   e.currentTarget.style.borderColor = '#d1d5db';
                 }}
               >
-                ← Back to Dashboard
+                ← Command Centre
+              </button>
+              <button
+                onClick={() => router.push('/admin/diary')}
+                style={{
+                  padding: '0.75rem 1.2rem',
+                  backgroundColor: 'white',
+                  color: '#0A2239',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                }}
+              >
+                Open Allocation Diary
               </button>
               <button
                 onClick={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
@@ -462,6 +479,16 @@ export default function JobsPage() {
             </div>
           </div>
         </div>
+
+        <WorkflowStageStrip
+          activeStage="complete"
+          counts={{
+            assign: jobs.filter((job) => job.status === JOB_STATUS.RECEIVED || job.status === JOB_STATUS.POSTED).length,
+            track: jobs.filter((job) => job.status === JOB_STATUS.ALLOCATED).length,
+            complete: jobs.length,
+          }}
+          marginBottom="1rem"
+        />
 
         {/* Company profile error banner */}
         {companyError && (
@@ -1229,6 +1256,7 @@ export default function JobsPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
     </ProtectedRoute>
   );
