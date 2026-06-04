@@ -5,163 +5,89 @@ import { Section } from '../ui/Section';
 
 const FAQS = [
   {
-    question: 'How do I get a quote for my delivery?',
-    answer:
-      'You can request a quote by contacting us via WhatsApp, calling our number, or sending an email. We provide pricing and service availability after reviewing your requirements.',
+    question: 'What is XDrive?',
+    answer: 'XDrive is a logistics exchange and operations platform where transport work can move from request and quote through assignment, delivery, POD, and invoicing.',
   },
   {
-    question: 'What areas do you cover?',
-    answer:
-      'We provide transport services across the entire UK and into Europe. From local same-day deliveries to cross-border freight, our network covers all major routes.',
+    question: 'Is it like Courier Exchange?',
+    answer: 'XDrive serves a similar exchange-style use case for logistics workflows, but it is an independent platform operated by XDrive Logistics Ltd.',
   },
   {
-    question: 'How are driver compliance checks handled?',
-    answer:
-      'Drivers are required to provide valid licensing and insurance documentation during onboarding. Compliance checks are carried out before activation.',
+    question: 'Can owner operators use it?',
+    answer: 'Yes. Owner operators are supported as a dedicated user type and can run quoting, job management, delivery, POD, and invoicing workflows.',
   },
   {
-    question: 'What types of goods can you transport?',
-    answer:
-      'We handle a wide range of freight — from documents and parcels to full pallet loads and larger consignments. Contact us if you have specific requirements and we\'ll advise on the best solution.',
+    question: 'Can companies add drivers?',
+    answer: 'Yes. Carrier companies can operate with company-level access and assign work to their drivers in operational workflows.',
   },
   {
-    question: 'How does payment work?',
-    answer:
-      'We accept BACS bank transfer, PayPal, and other payment methods. Standard payment terms are 14 or 30 days, with options for same-day payment for regular clients. Invoices are provided for every job.',
+    question: 'Can brokers post loads?',
+    answer: 'Yes. Brokers/load posters can publish work to the exchange so carriers and owner operators can quote.',
   },
   {
-    question: 'What happens if my delivery is delayed?',
-    answer:
-      'We communicate delays through operations updates and provide revised delivery expectations when available.',
+    question: 'Can customers request quotes?',
+    answer: 'Yes. Customers can submit transport quote requests through the public request flow.',
   },
   {
-    question: 'How will I receive delivery updates?',
-    answer:
-      'You will receive delivery status updates from the operations team during active jobs.',
+    question: 'Is live tracking available?',
+    answer: 'Not as a full live GPS network. The platform currently focuses on operational status flow, delivery execution, and POD/invoice workflow.',
   },
   {
-    question: 'How do I register as a driver?',
-    answer:
-      'Driver onboarding is currently managed directly by XDrive Logistics operations. Contact the team to request onboarding instructions.',
+    question: 'Is the platform fully launched?',
+    answer: 'No. XDrive is early-stage and in active development, with core exchange and operations capabilities continuing to evolve.',
   },
 ];
 
 export function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-
-  const toggle = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index);
-  };
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
     <Section id="faq" backgroundColor="var(--color-primary-navy)">
       <div style={{ paddingTop: '4rem', paddingBottom: '4rem' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <h2
-            style={{
-              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-              fontWeight: 'var(--font-weight-bold)',
-              color: 'var(--color-text-white)',
-              marginBottom: '1rem',
-            }}
-          >
-            Frequently Asked Questions
-          </h2>
-          <p
-            style={{
-              fontSize: '1.1rem',
-              color: 'var(--color-text-white-transparent)',
-              maxWidth: '600px',
-              margin: '0 auto',
-            }}
-          >
-            Everything you need to know about XDrive Logistics
-          </p>
-        </div>
+        <h2 style={{ margin: '0 0 0.75rem', color: '#FFFFFF', fontSize: 'clamp(1.6rem, 4vw, 2.2rem)' }}>
+          Frequently Asked Questions
+        </h2>
+        <p style={{ margin: '0 0 1.5rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6 }}>
+          Clear answers about platform scope and current stage.
+        </p>
 
-        {/* Accordion */}
-        <div
-          style={{
-            maxWidth: '800px',
-            margin: '0 auto',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
-          }}
-        >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
           {FAQS.map((faq, index) => (
-            <div
-              key={index}
+            <article
+              key={faq.question}
               style={{
                 backgroundColor: 'var(--glass-bg)',
                 border: `1px solid ${openIndex === index ? 'var(--color-gold-primary)' : 'var(--glass-border)'}`,
-                borderRadius: 'var(--radius-lg)',
+                borderRadius: '12px',
                 overflow: 'hidden',
-                backdropFilter: 'blur(10px)',
-                transition: 'border-color 0.3s ease',
               }}
             >
               <button
-                onClick={() => toggle(index)}
+                onClick={() => setOpenIndex(openIndex === index ? null : index)}
                 aria-expanded={openIndex === index}
                 style={{
                   width: '100%',
                   textAlign: 'left',
-                  padding: '1.25rem 1.5rem',
+                  padding: '1rem',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  gap: '1rem',
+                  gap: '0.75rem',
                   background: 'none',
                   border: 'none',
+                  color: '#FFFFFF',
                   cursor: 'pointer',
-                  color: 'var(--color-text-white)',
                 }}
               >
-                <span
-                  style={{
-                    fontSize: '1rem',
-                    fontWeight: 'var(--font-weight-semibold)',
-                    lineHeight: '1.4',
-                  }}
-                >
-                  {faq.question}
-                </span>
-                <span
-                  style={{
-                    color: 'var(--color-gold-primary)',
-                    fontSize: '1.25rem',
-                    flexShrink: 0,
-                    transform: openIndex === index ? 'rotate(45deg)' : 'rotate(0)',
-                    transition: 'transform 0.3s ease',
-                    display: 'inline-block',
-                  }}
-                >
-                  +
-                </span>
+                <span style={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.45 }}>{faq.question}</span>
+                <span style={{ color: '#D4AF37', fontSize: '1.1rem', flexShrink: 0 }}>{openIndex === index ? '−' : '+'}</span>
               </button>
-
               {openIndex === index && (
-                <div
-                  style={{
-                    padding: '0 1.5rem 1.25rem',
-                    borderTop: '1px solid var(--glass-border)',
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: '0.95rem',
-                      color: 'var(--color-text-white-transparent)',
-                      lineHeight: '1.6',
-                      margin: '1rem 0 0',
-                    }}
-                  >
-                    {faq.answer}
-                  </p>
+                <div style={{ borderTop: '1px solid var(--glass-border)', padding: '0.9rem 1rem 1rem' }}>
+                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.84)', lineHeight: 1.6, fontSize: '0.92rem' }}>{faq.answer}</p>
                 </div>
               )}
-            </div>
+            </article>
           ))}
         </div>
       </div>

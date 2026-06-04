@@ -1,131 +1,103 @@
-'use client';
+import Link from 'next/link';
+import { Section } from '../ui/Section';
 
-import { useEffect, useRef, useState } from 'react';
+type RoleCard = {
+  title: string;
+  forWho: string;
+  canDo: string;
+  ctaLabel: string;
+  href: string;
+};
 
-const STATS = [
-  { value: 'Registered', label: 'Platform Ready', icon: '📦', description: 'operational logistics' },
-  { value: 'Monitored', label: 'Status Updates', icon: '⏱️', description: 'service visibility' },
-  { value: '24/7', label: 'Availability', icon: '🕐', description: 'always reachable' },
-  { value: 'UK & EU', label: 'Coverage Area', icon: '🌍', description: 'cross-border logistics' },
+const ROLE_CARDS: RoleCard[] = [
+  {
+    title: 'Brokers / Load Posters',
+    forWho: 'For brokers and teams posting transport jobs to the exchange.',
+    canDo: 'Post loads, collect quotes, award jobs, and move awarded work into operations.',
+    ctaLabel: 'Register as Broker',
+    href: '/register',
+  },
+  {
+    title: 'Carrier Companies',
+    forWho: 'For courier and transport companies managing teams and fleet.',
+    canDo: 'Quote on posted work, assign drivers, track delivery progress, and manage POD/invoices.',
+    ctaLabel: 'Join as Carrier',
+    href: '/register',
+  },
+  {
+    title: 'Owner Operators',
+    forWho: 'For self-employed operators running independently.',
+    canDo: 'Act as company + dispatcher + driver: quote, deliver, upload POD, and invoice.',
+    ctaLabel: 'Join as Owner Operator',
+    href: '/register',
+  },
+  {
+    title: 'Drivers',
+    forWho: 'For employed and assigned drivers delivering booked work.',
+    canDo: 'Receive assigned jobs, complete deliveries, and upload delivery proof (POD).',
+    ctaLabel: 'Driver Login',
+    href: '/login',
+  },
+  {
+    title: 'Customers',
+    forWho: 'For customers requesting transport services and quotes.',
+    canDo: 'Submit quote requests and move approved jobs into operational delivery workflow.',
+    ctaLabel: 'Request a Quote',
+    href: '/request-quote',
+  },
 ];
 
 export function KPIStats() {
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.2 }
-    );
-    if (sectionRef.current) observer.observe(sectionRef.current);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <section
-      ref={sectionRef}
-      style={{
-        backgroundColor: '#F4F6F8',
-        padding: '5rem 0',
-      }}
-    >
-      <div
-        style={{
-          maxWidth: '1400px',
-          margin: '0 auto',
-          padding: '0 24px',
-        }}
-      >
-        <div
-          style={{
-            textAlign: 'center',
-            marginBottom: '3rem',
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-              fontWeight: 800,
-              color: '#1C1C1C',
-              marginBottom: '0.75rem',
-            }}
-          >
-            Platform Performance
-          </h2>
-          <p style={{ fontSize: '1.1rem', color: '#555', maxWidth: '500px', margin: '0 auto' }}>
-            Real numbers that prove our reliability
-          </p>
-        </div>
+    <Section backgroundColor="#0F2742">
+      <div style={{ paddingTop: '3.5rem', paddingBottom: '3.5rem' }}>
+        <h2 style={{ fontSize: 'clamp(1.6rem, 4vw, 2.2rem)', fontWeight: 800, color: '#FFFFFF', margin: '0 0 0.75rem' }}>
+          Built for Every Role in the XDrive Exchange
+        </h2>
+        <p style={{ margin: '0 0 1.6rem', color: 'rgba(255,255,255,0.78)', maxWidth: '820px', lineHeight: 1.6 }}>
+          Choose your role and access the workflow designed for how you operate in logistics.
+        </p>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '2rem',
-          }}
-        >
-          {STATS.map((stat, index) => (
-            <div
-              key={stat.label}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1rem' }}>
+          {ROLE_CARDS.map((card) => (
+            <article
+              key={card.title}
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: '20px',
-                padding: '2.5rem 2rem',
-                textAlign: 'center',
-                boxShadow: '0 4px 24px rgba(31, 58, 95, 0.08)',
-                border: '1px solid rgba(31, 58, 95, 0.06)',
-                transition: 'all 0.3s ease',
-                opacity: visible ? 1 : 0,
-                transform: visible ? 'translateY(0)' : 'translateY(24px)',
-                transitionDelay: `${index * 0.1}s`,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = '0 12px 36px rgba(31, 58, 95, 0.15)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 24px rgba(31, 58, 95, 0.08)';
+                backgroundColor: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                borderRadius: '14px',
+                padding: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.6rem',
               }}
             >
-              <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>{stat.icon}</div>
-              <div
-                style={{
-                  fontSize: 'clamp(2.5rem, 5vw, 4rem)',
-                  fontWeight: 800,
-                  color: '#1F3A5F',
-                  lineHeight: '1',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                {stat.value}
+              <h3 style={{ margin: 0, color: '#FFFFFF', fontSize: '1.04rem', lineHeight: 1.35 }}>{card.title}</h3>
+              <p style={{ margin: 0, color: 'rgba(255,255,255,0.78)', fontSize: '0.9rem', lineHeight: 1.5 }}>{card.forWho}</p>
+              <p style={{ margin: 0, color: 'rgba(255,255,255,0.9)', fontSize: '0.9rem', lineHeight: 1.5 }}>{card.canDo}</p>
+              <div style={{ marginTop: '0.3rem' }}>
+                <Link
+                  href={card.href}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0.62rem 0.85rem',
+                    borderRadius: '8px',
+                    backgroundColor: '#1F3A5F',
+                    color: '#D4AF37',
+                    textDecoration: 'none',
+                    fontSize: '0.83rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  {card.ctaLabel}
+                </Link>
               </div>
-              <div
-                style={{
-                  width: visible ? '40px' : '0px',
-                  height: '3px',
-                  backgroundColor: '#2E7D32',
-                  borderRadius: '2px',
-                  margin: '0.75rem auto',
-                  transition: `width 0.6s ease ${index * 0.15 + 0.3}s`,
-                }}
-              />
-              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#1C1C1C', marginBottom: '0.25rem' }}>
-                {stat.label}
-              </div>
-              <div style={{ fontSize: '0.85rem', color: '#888' }}>
-                {stat.description}
-              </div>
-            </div>
+            </article>
           ))}
         </div>
       </div>
-    </section>
+    </Section>
   );
 }
