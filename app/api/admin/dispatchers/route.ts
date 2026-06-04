@@ -87,28 +87,17 @@ const findAuthUserIdByEmail = async (email: string) => {
 };
 
 const resolveAdminMembership = async (
-  authUserId: string,
-  requestedCompanyId?: string | null,
-  requestedMembershipId?: string | null
+  authUserId: string
 ) => {
   if (!supabaseAdmin) return { data: null, error: new Error('Server auth is not configured.') };
 
-  let membershipQuery = supabaseAdmin
+  return supabaseAdmin
     .from('company_memberships')
     .select('id, company_id, role_in_company')
     .eq('user_id', authUserId)
     .eq('status', 'active')
-    .in('role_in_company', Array.from(ADMIN_ROLES));
-
-  if (requestedCompanyId) {
-    membershipQuery = membershipQuery.eq('company_id', requestedCompanyId);
-  }
-
-  if (requestedMembershipId) {
-    membershipQuery = membershipQuery.eq('id', requestedMembershipId);
-  }
-
-  return membershipQuery.maybeSingle();
+    .in('role_in_company', Array.from(ADMIN_ROLES))
+    .maybeSingle();
 };
 
 export async function POST(request: NextRequest) {
@@ -142,17 +131,20 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const { data: membership, error: membershipError } = await resolveAdminMembership(
-      authData.user.id,
-      requestedCompanyId,
-      requestedMembershipId
-    );
+    const { data: membership, error: membershipError } = await resolveAdminMembership(authData.user.id);
 
     if (membershipError) {
       return respond(500, { error: membershipError.message });
     }
 
     if (!membership?.id || !membership.company_id) {
+      return respond(403, { error: 'Forbidden' });
+    }
+
+    if (
+      (requestedCompanyId && requestedCompanyId !== membership.company_id) ||
+      (requestedMembershipId && requestedMembershipId !== membership.id)
+    ) {
       return respond(403, { error: 'Forbidden' });
     }
 
@@ -312,17 +304,20 @@ export async function PATCH(request: NextRequest) {
       return respond(400, { error: 'email is required.' });
     }
 
-    const { data: membership, error: membershipError } = await resolveAdminMembership(
-      authData.user.id,
-      requestedCompanyId,
-      requestedMembershipId
-    );
+    const { data: membership, error: membershipError } = await resolveAdminMembership(authData.user.id);
 
     if (membershipError) {
       return respond(500, { error: membershipError.message });
     }
 
     if (!membership?.id || !membership.company_id) {
+      return respond(403, { error: 'Forbidden' });
+    }
+
+    if (
+      (requestedCompanyId && requestedCompanyId !== membership.company_id) ||
+      (requestedMembershipId && requestedMembershipId !== membership.id)
+    ) {
       return respond(403, { error: 'Forbidden' });
     }
 
