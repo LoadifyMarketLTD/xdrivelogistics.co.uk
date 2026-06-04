@@ -993,10 +993,6 @@ export async function PATCH(request: NextRequest) {
     const requestedMembershipId = payload.membershipId?.trim();
     const email = payload.email?.trim().toLowerCase();
 
-    if (!email) {
-      return respond(400, { error: 'email is required.' }, 'missing_required_fields');
-    }
-
     const membershipQuery = supabaseAdmin
       .from('company_memberships')
       .select('id, company_id, role_in_company')
@@ -1018,6 +1014,10 @@ export async function PATCH(request: NextRequest) {
       (requestedMembershipId && requestedMembershipId !== membership.id)
     ) {
       return respond(403, { error: 'Forbidden' }, 'membership_scope_mismatch');
+    }
+
+    if (!email) {
+      return respond(400, { error: 'email is required.' }, 'missing_required_fields');
     }
 
     const resolvedCompanyId = membership.company_id;
