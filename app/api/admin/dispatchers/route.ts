@@ -118,19 +118,6 @@ export async function POST(request: NextRequest) {
       return respond(401, { error: 'Unauthorized: invalid or expired token.' });
     }
 
-    const payload = (await request.json()) as CreateDispatcherPayload;
-    const requestedCompanyId = payload.companyId?.trim();
-    const requestedMembershipId = payload.membershipId?.trim();
-    const displayName = payload.displayName?.trim();
-    const email = payload.email?.trim().toLowerCase();
-    const phone = payload.phone?.trim() || null;
-
-    if (!email || !displayName) {
-      return respond(400, {
-        error: 'displayName and email are required.',
-      });
-    }
-
     const { data: membership, error: membershipError } = await resolveAdminMembership(authData.user.id);
 
     if (membershipError) {
@@ -141,11 +128,24 @@ export async function POST(request: NextRequest) {
       return respond(403, { error: 'Forbidden' });
     }
 
+    const payload = (await request.json()) as CreateDispatcherPayload;
+    const requestedCompanyId = payload.companyId?.trim();
+    const requestedMembershipId = payload.membershipId?.trim();
+    const displayName = payload.displayName?.trim();
+    const email = payload.email?.trim().toLowerCase();
+    const phone = payload.phone?.trim() || null;
+
     if (
       (requestedCompanyId && requestedCompanyId !== membership.company_id) ||
       (requestedMembershipId && requestedMembershipId !== membership.id)
     ) {
       return respond(403, { error: 'Forbidden' });
+    }
+
+    if (!email || !displayName) {
+      return respond(400, {
+        error: 'displayName and email are required.',
+      });
     }
 
     const resolvedCompanyId = membership.company_id;

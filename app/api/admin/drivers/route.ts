@@ -351,30 +351,8 @@ export async function POST(request: NextRequest) {
     const email = payload.email?.trim().toLowerCase();
     const phone = payload.phone?.trim() || null;
 
-    if (!email || !displayName) {
-      logForensicFailure(
-        requestId,
-        'request validation',
-        'validate bearer token and request payload',
-        new Error('displayName and email are required.'),
-        {
-          callSiteStack: requestValidationStack,
-        }
-      );
-      return respond(
-        400,
-        { error: 'displayName and email are required.' },
-        'missing_required_fields'
-      );
-    }
-
-    logForensicSuccess(requestId, 'request validation', 'validate bearer token and request payload', {
-      authUserId: authData.user.id,
-      requestedCompanyId,
-      requestedMembershipId: requestedMembershipId ?? null,
-      email,
-    });
-
+    // Authorisation must be resolved before returning any payload-validation
+    // error so that non-admin callers always receive 403, not 400.
     let resolvedMembership: { id: string; company_id: string; role_in_company: string } | null = null;
 
     const membershipLookupStack = logForensicStart(
@@ -454,6 +432,30 @@ export async function POST(request: NextRequest) {
       );
       return respond(403, { error: 'Forbidden' }, 'membership_scope_mismatch');
     }
+
+    if (!email || !displayName) {
+      logForensicFailure(
+        requestId,
+        'request validation',
+        'validate bearer token and request payload',
+        new Error('displayName and email are required.'),
+        {
+          callSiteStack: requestValidationStack,
+        }
+      );
+      return respond(
+        400,
+        { error: 'displayName and email are required.' },
+        'missing_required_fields'
+      );
+    }
+
+    logForensicSuccess(requestId, 'request validation', 'validate bearer token and request payload', {
+      authUserId: authData.user.id,
+      requestedCompanyId,
+      requestedMembershipId: requestedMembershipId ?? null,
+      email,
+    });
 
     const resolvedCompanyId = resolvedMembership.company_id;
 

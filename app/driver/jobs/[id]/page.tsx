@@ -29,6 +29,13 @@ function buildMapsUrl(app: 'google' | 'waze' | 'apple', address: string, postcod
   return `maps://maps.apple.com/?daddr=${q}`;
 }
 
+/** Validate that a URL uses a safe scheme before rendering it in an img src. */
+function sanitizePhotoUrl(url: string | null): string | null {
+  if (!url) return null;
+  if (/^(https?:|blob:|data:image\/)/i.test(url)) return url;
+  return null;
+}
+
 export default function DriverJobDetailPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -437,7 +444,7 @@ export default function DriverJobDetailPage() {
             {collectionPhotoPreview ? (
               <div>
                 <img
-                  src={collectionPhotoPreview}
+                  src={sanitizePhotoUrl(collectionPhotoPreview) ?? undefined}
                   alt="Collection"
                   style={{ width: '100%', borderRadius: '8px', marginBottom: '0.5rem' }}
                 />
@@ -471,7 +478,7 @@ export default function DriverJobDetailPage() {
               />
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
                 {deliveryPhotoPreviews.map((src, i) => (
-                  <img key={i} src={src} alt={`Delivery ${i + 1}`} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '6px' }} />
+                  <img key={i} src={sanitizePhotoUrl(src) ?? undefined} alt={`Delivery ${i + 1}`} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '6px' }} />
                 ))}
               </div>
               <button onClick={() => deliveryInputRef.current?.click()} style={photoBtn}>
