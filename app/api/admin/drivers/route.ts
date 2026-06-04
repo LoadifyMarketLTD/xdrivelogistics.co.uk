@@ -5,7 +5,10 @@ import { logRuntimeProof } from '../../../../lib/runtimeProof';
 
 const ADMIN_ROLES = new Set(['owner', 'admin', 'dispatcher']);
 
+type DriverAction = 'create' | 'send_password_setup';
+
 type CreateDriverPayload = {
+  action?: DriverAction;
   companyId?: string;
   membershipId?: string | null;
   displayName?: string;
@@ -225,6 +228,28 @@ const generateStrongTemporaryPassword = (length = 20) => {
   return shuffle(chars).join('');
 };
 
+const findAuthUserIdByEmail = async (email: string) => {
+  if (!supabaseAdmin) return null;
+
+  let page = 1;
+  const perPage = 1000;
+
+  while (true) {
+    const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+
+    if (listError || !listData) return null;
+
+    const match = listData.users.find((user: { id: string; email?: string }) => user.email?.toLowerCase() === email);
+    if (match) return match.id;
+    if (listData.users.length < perPage) return null;
+
+    page += 1;
+  }
+};
+
 export async function POST(request: NextRequest) {
   const requestId = getRequestId(request);
   const respond = (status: number, payload: Record<string, unknown>, reason: string) => {
@@ -317,23 +342,28 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = (await request.json()) as CreateDriverPayload;
+    const action = payload.action ?? 'create';
     const requestedCompanyId = payload.companyId?.trim();
     const requestedMembershipId = payload.membershipId?.trim();
     const displayName = payload.displayName?.trim();
     const email = payload.email?.trim().toLowerCase();
     const phone = payload.phone?.trim() || null;
 
-    if (!displayName || !email) {
+    if (!email || (action !== 'send_password_setup' && !displayName)) {
       logForensicFailure(
         requestId,
         'request validation',
         'validate bearer token and request payload',
-        new Error('displayName and email are required.'),
+        new Error(action === 'send_password_setup' ? 'email is required.' : 'displayName and email are required.'),
         {
           callSiteStack: requestValidationStack,
         }
       );
-      return respond(400, { error: 'displayName and email are required.' }, 'missing_required_fields');
+      return respond(
+        400,
+        { error: action === 'send_password_setup' ? 'email is required.' : 'displayName and email are required.' },
+        'missing_required_fields'
+      );
     }
 
     if (!requestedCompanyId) {
@@ -430,6 +460,38 @@ export async function POST(request: NextRequest) {
     }
 
     const resolvedCompanyId = resolvedMembership.company_id;
+
+    if (action === 'send_password_setup') {
+      const { data: existingDriver, error: existingDriverError } = await supabaseAdmin
+        .from('drivers')
+        .select('id, user_id')
+        .eq('company_id', resolvedCompanyId)
+        .eq('email', email)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingDriverError) {
+        return respond(
+          500,
+          { error: `Failed to load driver account: ${existingDriverError.message}` },
+          'driver_lookup_failed'
+        );
+      }
+
+      if (!existingDriver?.id) {
+        return respond(404, { error: 'Driver account not found for this company.' }, 'driver_not_found');
+      }
+
+      const { error: passwordSetupError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+        redirectTo: getResetPasswordEmailRedirectTo(),
+      });
+
+      if (passwordSetupError) {
+        return respond(400, { error: passwordSetupError.message }, 'password_setup_email_failed');
+      }
+
+      return respond(200, { success: true }, 'password_setup_email_sent');
+    }
 
     const companyLookupStack = logForensicStart(
       requestId,
@@ -534,6 +596,8 @@ export async function POST(request: NextRequest) {
     let invited = true;
     let temporaryPassword: string | null = null;
     let inviteFallbackReason: string | null = null;
+    let onboardingOutcome: 'invite_sent' | 'password_setup_required' | 'temporary_password_created' =
+      existingDriverByEmail?.user_id ? 'password_setup_required' : 'invite_sent';
 
     // ── Step 2: resolve / create auth user ───────────────────────────────────
     if (!userId) {
@@ -555,6 +619,7 @@ export async function POST(request: NextRequest) {
 
       if (!inviteError && invitedUserData.user) {
         userId = invitedUserData.user.id;
+        onboardingOutcome = 'invite_sent';
         logForensicSuccess(requestId, 'inviteUserByEmail()', 'invite auth user by email', {
           invitedUserId: userId,
           invitedUserEmail: invitedUserData.user.email ?? email,
@@ -576,27 +641,9 @@ export async function POST(request: NextRequest) {
           (inviteError as { code?: string }).code === 'email_exists';
 
         if (isAlreadyExists) {
-          // Page through users to find the matching auth record.
-          let found: string | null = null;
-          let page = 1;
-          const perPage = 1000;
-          while (!found) {
-            const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
-              page,
-              perPage,
-            });
-            if (listError || !listData) break;
-            const match = listData.users.find((u: { id: string; email?: string }) => u.email?.toLowerCase() === email);
-            if (match) {
-              found = match.id;
-            } else if (listData.users.length < perPage) {
-              break;
-            } else {
-              page += 1;
-            }
-          }
-          userId = found;
+          userId = await findAuthUserIdByEmail(email);
           invited = false;
+          onboardingOutcome = 'password_setup_required';
           logForensicSuccess(requestId, 'inviteUserByEmail()', 'resolve already-existing auth user after invite failure', {
             resolvedExistingAuthUserId: userId,
           });
@@ -609,6 +656,7 @@ export async function POST(request: NextRequest) {
           // still be onboarded. The admin can send a password-reset email afterwards.
           invited = false;
           inviteFallbackReason = `Invite email failed (${inviteError.message ?? 'unknown error'}). Driver created with temporary password.`;
+          onboardingOutcome = 'temporary_password_created';
 
           const createUserFallbackStack = logForensicStart(
             requestId,
@@ -925,6 +973,7 @@ export async function POST(request: NextRequest) {
       {
         driver: driverRow,
         invited,
+        onboardingOutcome,
         temporaryPassword,
         inviteFallbackReason,
         membershipRepaired: !membershipError,
