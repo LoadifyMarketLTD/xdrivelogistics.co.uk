@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
+import type { AppUserRole } from '../../lib/authRole';
 
 export type WorkflowStageId =
   | 'find'
@@ -27,49 +28,99 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
   { id: 'invoice', label: 'Invoice Work', href: '/admin/invoices' },
 ];
 
-export const WORKFLOW_NAV_SECTIONS = [
+/**
+ * Platform modules — each section maps to a distinct module with its own
+ * objective, KPIs and primary actions.  `roles` controls which AppUserRole
+ * values can see a section; omitting `roles` means visible to all admin roles.
+ */
+export type NavItem = {
+  id: string;
+  label: string;
+  icon: string;
+  href: string;
+};
+
+export type NavSection = {
+  id: string;
+  label: string;
+  roles?: ReadonlyArray<AppUserRole>;
+  items: NavItem[];
+};
+
+export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'home',
-    label: 'Home',
-    items: [{ id: 'dashboard', label: 'Command Centre', icon: '🏠', href: '/admin' }],
+    label: 'Platform',
+    items: [{ id: 'dashboard', label: 'Control Centre', icon: '🏠', href: '/admin' }],
+  },
+  {
+    id: 'marketplace',
+    label: 'Marketplace',
+    items: [
+      { id: 'marketplace', label: 'Find Work', icon: '🏪', href: '/admin/marketplace' },
+      { id: 'quotes', label: 'Quotes & Bids', icon: '💬', href: '/admin/quotes' },
+    ],
   },
   {
     id: 'operations',
     label: 'Operations',
     items: [
       { id: 'diary', label: 'Allocation Diary', icon: '🗓️', href: '/admin/diary' },
-      { id: 'jobs', label: 'All Jobs', icon: '📦', href: '/admin/jobs' },
+      { id: 'jobs', label: 'Jobs Board', icon: '📦', href: '/admin/jobs' },
     ],
   },
   {
-    id: 'commercial',
-    label: 'Commercial',
-    items: [
-      { id: 'marketplace', label: 'Find Work', icon: '🏪', href: '/admin/marketplace' },
-      { id: 'quotes', label: 'Quotes & Bids', icon: '💬', href: '/admin/quotes' },
-      { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
-    ],
-  },
-  {
-    id: 'fleet',
+    id: 'fleet_module',
     label: 'Fleet',
     items: [
       { id: 'fleet', label: 'Availability', icon: '🧭', href: '/admin/fleet' },
-      { id: 'drivers', label: 'Drivers', icon: '👤', href: '/admin/drivers' },
-      { id: 'dispatchers', label: 'Dispatchers', icon: '🎛️', href: '/admin/dispatchers' },
       { id: 'vehicles', label: 'Vehicles', icon: '🚛', href: '/admin/vehicles' },
+    ],
+  },
+  {
+    id: 'drivers_module',
+    label: 'Drivers',
+    items: [
+      { id: 'drivers', label: 'Driver Roster', icon: '👤', href: '/admin/drivers' },
+      { id: 'dispatchers', label: 'Dispatchers', icon: '🎛️', href: '/admin/dispatchers' },
+    ],
+  },
+  {
+    id: 'compliance_module',
+    label: 'Compliance',
+    items: [
       { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
     ],
   },
   {
-    id: 'admin',
-    label: 'Admin',
+    id: 'finance_module',
+    label: 'Finance',
+    items: [
+      { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
+    ],
+  },
+  {
+    id: 'platform_admin',
+    label: 'Platform Admin',
+    roles: ['owner', 'company_admin'],
     items: [
       { id: 'companies', label: 'Companies', icon: '🏢', href: '/admin/companies' },
       { id: 'settings', label: 'Settings', icon: '⚙️', href: '/admin/settings' },
     ],
   },
-] as const;
+];
+
+/**
+ * Returns the nav sections visible for the given role.
+ * Sections without a `roles` array are visible to all admin roles.
+ */
+export const getNavSectionsForRole = (role: AppUserRole | null): NavSection[] => {
+  if (!role) return PLATFORM_NAV_SECTIONS.filter((s) => !s.roles);
+  return PLATFORM_NAV_SECTIONS.filter((s) => !s.roles || s.roles.includes(role));
+};
+
+/** @deprecated Use PLATFORM_NAV_SECTIONS; kept for compatibility. */
+export const WORKFLOW_NAV_SECTIONS = PLATFORM_NAV_SECTIONS;
 
 type WorkflowStripProps = {
   activeStage?: WorkflowStageId;
