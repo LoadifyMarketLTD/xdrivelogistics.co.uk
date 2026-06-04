@@ -220,14 +220,14 @@ export default function BidsPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
 
           {/* Header */}
-          <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>
-                💼 Received Bids
+              <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>
+                Received Bids
               </h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>
                 Review and accept or reject bids submitted by carrier companies on your exchange loads.

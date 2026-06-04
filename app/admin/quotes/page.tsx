@@ -6,7 +6,6 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Quote, VehicleType, CargoType, Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
-import { WorkflowStageStrip } from '../workflowUi';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'equipment', 'other'];
@@ -207,24 +206,11 @@ export default function QuotesPage() {
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Price work, progress quotes, and convert won quotes into jobs.</p>
             </div>
             <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-              <button onClick={() => router.push('/admin/marketplace')} style={{ padding: '0.75rem 1rem', backgroundColor: 'white', color: '#0f172a', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer' }}>
-                Find Work
-              </button>
               <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
                 + New Quote
               </button>
             </div>
           </div>
-
-          <WorkflowStageStrip
-            activeStage="price"
-            counts={{
-              find: 0,
-              price: quotes.filter((quote) => (quote.status || '').toLowerCase() === 'draft').length,
-              win: quotes.filter((quote) => (quote.status || '').toLowerCase() === 'accepted').length,
-              complete: 0,
-            }}
-          />
 
           {!isSupabaseConfigured && (
             <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>

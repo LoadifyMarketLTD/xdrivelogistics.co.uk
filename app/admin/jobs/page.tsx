@@ -9,7 +9,6 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
-import { WorkflowStageStrip } from '../workflowUi';
 
 interface Job {
   id: string;
@@ -419,45 +418,6 @@ export default function JobsPage() {
             </div>
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button
-                onClick={() => router.push('/admin')}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  backgroundColor: 'white',
-                  color: '#0A2239',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: '0.95rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f9fafb';
-                  e.currentTarget.style.borderColor = '#0A2239';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'white';
-                  e.currentTarget.style.borderColor = '#d1d5db';
-                }}
-              >
-                ← Command Centre
-              </button>
-              <button
-                onClick={() => router.push('/admin/diary')}
-                style={{
-                  padding: '0.75rem 1.2rem',
-                  backgroundColor: 'white',
-                  color: '#0A2239',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: '0.95rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                }}
-              >
-                Open Allocation Diary
-              </button>
-              <button
                 onClick={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
                 disabled={newJobDisabled}
                 style={{
@@ -479,16 +439,6 @@ export default function JobsPage() {
             </div>
           </div>
         </div>
-
-        <WorkflowStageStrip
-          activeStage="complete"
-          counts={{
-            assign: jobs.filter((job) => job.status === JOB_STATUS.RECEIVED || job.status === JOB_STATUS.POSTED).length,
-            track: jobs.filter((job) => job.status === JOB_STATUS.ALLOCATED).length,
-            complete: jobs.length,
-          }}
-          marginBottom="1rem"
-        />
 
         {/* Company profile error banner */}
         {companyError && (
@@ -658,16 +608,16 @@ export default function JobsPage() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ backgroundColor: '#0A2239', color: 'white' }}>
-                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Job Ref</th>
-                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Client</th>
-                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Pickup → Delivery</th>
-                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Distance</th>
-                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Vehicle Type</th>
-                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Payment Terms</th>
-                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Status</th>
-                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', fontSize: '0.9rem' }}>Created Date</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', fontSize: '0.9rem' }}>Actions</th>
+                <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Job Ref</th>
+                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Client</th>
+                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Pickup → Delivery</th>
+                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Distance</th>
+                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Vehicle Type</th>
+                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Payment Terms</th>
+                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Status</th>
+                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Created Date</th>
+                  <th style={{ padding: '0.8rem', textAlign: 'center', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>

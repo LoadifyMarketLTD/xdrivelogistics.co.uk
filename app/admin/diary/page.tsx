@@ -7,7 +7,6 @@ import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { buildDriverAssignmentUpdate } from '../../../lib/jobAssignment';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import { WorkflowStageStrip } from '../workflowUi';
 
 type DiaryJob = {
   id: string;
@@ -184,24 +183,7 @@ export default function DiaryPage() {
             <h1 style={{ margin: 0, fontSize: '2rem', color: '#111827' }}>Allocation Diary</h1>
             <p style={{ margin: '0.35rem 0 0 0', color: '#6b7280' }}>Assign work first, then follow each lane through to completion.</p>
           </div>
-          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-            <button onClick={() => router.push('/admin/jobs')} style={{ padding: '0.65rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', background: '#fff', color: '#0f172a', fontWeight: 600 }}>
-              Open Operations Workspace
-            </button>
-            <button onClick={() => router.push('/admin/fleet')} style={{ padding: '0.65rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', background: '#fff', color: '#0f172a', fontWeight: 600 }}>
-              Open Fleet Availability
-            </button>
-          </div>
         </div>
-
-        <WorkflowStageStrip
-          activeStage="assign"
-          counts={{
-            assign: (grouped.get('unallocated') ?? []).length,
-            track: (grouped.get('inProgress') ?? []).length,
-            complete: jobs.length,
-          }}
-        />
         {assignmentMessage && (
           <div
             style={{

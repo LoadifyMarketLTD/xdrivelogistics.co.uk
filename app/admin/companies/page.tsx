@@ -191,9 +191,9 @@ export default function CompaniesPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <div>
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Companies</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage companies and memberships</p>
@@ -225,7 +225,7 @@ export default function CompaniesPage() {
             </div>
           )}
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
             {loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
             ) : companies.length === 0 ? (
@@ -238,20 +238,20 @@ export default function CompaniesPage() {
                 <thead>
                   <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                     {['Name', 'Company No.', 'Email', 'Phone', 'City', 'Created', 'Actions'].map(h => (
-                      <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                      <th key={h} style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {companies.map((c, i) => (
                     <tr key={c.id} style={{ borderBottom: i < companies.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                      <td style={{ padding: '1rem', fontWeight: '600', color: '#1f2937' }}>{c.name}</td>
-                      <td style={{ padding: '1rem', color: '#6b7280' }}>{c.company_number || '—'}</td>
-                      <td style={{ padding: '1rem', color: '#6b7280' }}>{c.email || '—'}</td>
-                      <td style={{ padding: '1rem', color: '#6b7280' }}>{c.phone || '—'}</td>
-                      <td style={{ padding: '1rem', color: '#6b7280' }}>{c.city || '—'}</td>
-                      <td style={{ padding: '1rem', color: '#6b7280' }}>{new Date(c.created_at).toLocaleDateString()}</td>
-                      <td style={{ padding: '1rem' }}>
+                      <td style={{ padding: '0.8rem', fontWeight: '600', color: '#1f2937' }}>{c.name}</td>
+                      <td style={{ padding: '0.8rem', color: '#6b7280' }}>{c.company_number || '—'}</td>
+                      <td style={{ padding: '0.8rem', color: '#6b7280' }}>{c.email || '—'}</td>
+                      <td style={{ padding: '0.8rem', color: '#6b7280' }}>{c.phone || '—'}</td>
+                      <td style={{ padding: '0.8rem', color: '#6b7280' }}>{c.city || '—'}</td>
+                      <td style={{ padding: '0.8rem', color: '#6b7280' }}>{new Date(c.created_at).toLocaleDateString()}</td>
+                      <td style={{ padding: '0.8rem' }}>
                         <button
                           onClick={() => openEditModal(c)}
                           style={{ padding: '0.35rem 0.75rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}

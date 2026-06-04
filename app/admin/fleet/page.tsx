@@ -1,14 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import type { Vehicle } from '../../../lib/types/database';
-import { WorkflowStageStrip } from '../workflowUi';
 
 type FleetDriver = {
   id: string;
@@ -22,14 +20,6 @@ type DriverLocationRow = {
   recorded_at: string;
   lat: number | null;
   lng: number | null;
-};
-
-type AssignedJobRow = {
-  id: string;
-  status: string;
-  pickup_location: string | null;
-  delivery_location: string | null;
-  assigned_driver_id: string | null;
 };
 
 type VehicleSelectRow = Omit<Vehicle, 'pallets_capacity' | 'has_straps' | 'has_blankets'> &
@@ -61,22 +51,12 @@ const VEHICLE_TYPE_LABEL: Record<string, string> = {
   artic: 'Artic',
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  posted: 'Needs Dispatch',
-  allocated: 'Allocated',
-  in_transit: 'In Transit',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-};
-
 export default function FleetPage() {
-  const router = useRouter();
   const { user, hasSupabaseSession } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<FleetDriver[]>([]);
   const [locations, setLocations] = useState<DriverLocationRow[]>([]);
-  const [assignedJobs, setAssignedJobs] = useState<AssignedJobRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -96,7 +76,6 @@ export default function FleetPage() {
         setVehicles([]);
         setDrivers([]);
         setLocations([]);
-        setAssignedJobs([]);
         return;
       }
 
@@ -121,10 +100,9 @@ export default function FleetPage() {
           .order('created_at', { ascending: false });
       }
 
-      const [driverRes, locationRes, jobRes] = await Promise.all([
+      const [driverRes, locationRes] = await Promise.all([
         supabase.from('drivers').select('id, display_name, availability_status').eq('company_id', companyId),
         supabase.from('driver_locations').select('id, driver_id, recorded_at, lat, lng').eq('company_id', companyId).order('recorded_at', { ascending: false }).limit(300),
-        supabase.from('jobs').select('id, status, pickup_location, delivery_location, assigned_driver_id').eq('company_id', companyId).in('status', ['allocated', 'in_transit']).order('updated_at', { ascending: false }),
       ]);
 
       setVehicles(
@@ -137,7 +115,6 @@ export default function FleetPage() {
       );
       setDrivers((driverRes.data as FleetDriver[]) ?? []);
       setLocations((locationRes.data as DriverLocationRow[]) ?? []);
-      setAssignedJobs((jobRes.data as AssignedJobRow[]) ?? []);
       setLoading(false);
     };
     void load();
@@ -155,16 +132,6 @@ export default function FleetPage() {
     return new Map(drivers.map((driver) => [driver.id, driver]));
   }, [drivers]);
 
-  const activeJobByDriverId = useMemo(() => {
-    const map = new Map<string, AssignedJobRow>();
-    for (const job of assignedJobs) {
-      if (job.assigned_driver_id && !map.has(job.assigned_driver_id)) {
-        map.set(job.assigned_driver_id, job);
-      }
-    }
-    return map;
-  }, [assignedJobs]);
-
   const availCounts = useMemo(() => {
     const counts = { available: 0, busy: 0, offline: 0, unassigned: 0 };
     for (const v of vehicles) {
@@ -179,18 +146,6 @@ export default function FleetPage() {
     return counts;
   }, [vehicles, driverById]);
 
-  const btnBase: React.CSSProperties = {
-    padding: '0.38rem 0.72rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '7px',
-    background: '#fff',
-    cursor: 'pointer',
-    fontSize: '0.78rem',
-    fontWeight: 600,
-    color: '#0f172a',
-    whiteSpace: 'nowrap',
-  };
-
   return (
     <ProtectedRoute>
       <div style={{ minHeight: '100vh', background: '#eef2f6', padding: '1rem' }}>
@@ -200,13 +155,7 @@ export default function FleetPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
             <div>
               <h1 style={{ margin: 0, color: '#111827', fontSize: '1.7rem', fontWeight: 700 }}>Fleet Workspace</h1>
-              <p style={{ margin: '0.25rem 0 0 0', color: '#6b7280', fontSize: '0.84rem' }}>Vehicle · Driver · Job — unified operational view.</p>
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <button onClick={() => router.push('/admin/drivers')} style={btnBase}>Drivers</button>
-              <button onClick={() => router.push('/admin/vehicles')} style={btnBase}>Vehicles</button>
-              <button onClick={() => router.push('/admin/documents')} style={btnBase}>Documents</button>
-              <button onClick={() => router.push('/admin/diary')} style={{ ...btnBase, background: '#1d4ed8', color: '#fff', borderColor: '#1d4ed8' }}>Open Diary</button>
+              <p style={{ margin: '0.25rem 0 0 0', color: '#6b7280', fontSize: '0.84rem' }}>Live vehicle and driver availability.</p>
             </div>
           </div>
 
@@ -226,15 +175,6 @@ export default function FleetPage() {
             </div>
           )}
 
-          <WorkflowStageStrip
-            activeStage="track"
-            counts={{
-              assign: availCounts.available,
-              track: vehicles.length,
-              complete: availCounts.busy,
-            }}
-          />
-
           {/* Operational card grid */}
           {loading ? (
             <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '2rem', color: '#6b7280' }}>Loading fleet…</div>
@@ -245,7 +185,6 @@ export default function FleetPage() {
               {vehicles.map((vehicle) => {
                 const driver = vehicle.assigned_driver_id ? driverById.get(vehicle.assigned_driver_id) : undefined;
                 const latest = vehicle.assigned_driver_id ? latestLocationByDriver.get(vehicle.assigned_driver_id) : undefined;
-                const activeJob = vehicle.assigned_driver_id ? activeJobByDriverId.get(vehicle.assigned_driver_id) : undefined;
                 const availKey = driver?.availability_status ?? (vehicle.assigned_driver_id ? 'unassigned' : 'unassigned');
                 const avail = AVAIL_CONFIG[availKey] ?? AVAIL_CONFIG.unassigned;
                 const locationStr = latest?.lat != null && latest?.lng != null
@@ -285,12 +224,7 @@ export default function FleetPage() {
                     <div style={{ fontSize: '0.82rem', color: '#374151' }}>
                       <span style={{ color: '#64748b', fontWeight: 600 }}>Driver: </span>
                       {driver ? (
-                        <button
-                          onClick={() => router.push('/admin/drivers')}
-                          style={{ background: 'none', border: 'none', color: '#1d4ed8', fontWeight: 700, cursor: 'pointer', padding: 0, fontSize: '0.82rem' }}
-                        >
-                          {driver.display_name}
-                        </button>
+                        <span style={{ color: '#0f172a', fontWeight: 700 }}>{driver.display_name}</span>
                       ) : (
                         <span style={{ color: '#94a3b8' }}>No driver assigned</span>
                       )}
@@ -306,46 +240,7 @@ export default function FleetPage() {
                       )}
                     </div>
 
-                    {/* Assigned job row */}
-                    {activeJob ? (
-                      <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '0.5rem 0.65rem', fontSize: '0.8rem' }}>
-                        <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.2rem' }}>
-                          #{activeJob.id.slice(0, 8).toUpperCase()}
-                          <span style={{ marginLeft: '0.4rem', fontSize: '0.72rem', color: '#0369a1', fontWeight: 600 }}>{STATUS_LABEL[activeJob.status] ?? activeJob.status}</span>
-                        </div>
-                        <div style={{ color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {activeJob.pickup_location ?? 'Pickup TBC'} → {activeJob.delivery_location ?? 'Delivery TBC'}
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>No active job assigned</div>
-                    )}
-
-                    {/* Actions */}
-                    <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', marginTop: '0.1rem' }}>
-                      {activeJob && (
-                        <button
-                          onClick={() => router.push('/admin/jobs')}
-                          style={{ ...btnBase, background: '#eff6ff', borderColor: '#bfdbfe', color: '#1d4ed8' }}
-                        >
-                          View Job →
-                        </button>
-                      )}
-                      <button
-                        onClick={() => router.push('/admin/diary')}
-                        style={{ ...btnBase, background: '#f0fdf4', borderColor: '#86efac', color: '#15803d' }}
-                      >
-                        Open Diary
-                      </button>
-                      {driver && availKey !== 'available' && (
-                        <button
-                          onClick={() => router.push('/admin/drivers')}
-                          style={{ ...btnBase }}
-                        >
-                          Manage Driver
-                        </button>
-                      )}
-                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Use Drivers and Jobs modules for assignment workflows.</div>
                   </div>
                 );
               })}
