@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import { getResetPasswordEmailRedirectTo } from '../../../../lib/authFlow';
 import { logRuntimeProof } from '../../../../lib/runtimeProof';
 
 const ADMIN_ROLES = new Set(['owner', 'admin', 'dispatcher']);
 
-type CreateDriverPayload = {
+type SendDriverPasswordSetupPayload = {
   companyId?: string;
   membershipId?: string | null;
-  displayName?: string;
   email?: string;
-  phone?: string;
 };
+
+const createDriverPayloadSchema = z.object({
+  companyId: z.string().optional(),
+  membershipId: z.string().nullable().optional(),
+  displayName: z.string().trim().min(1),
+  email: z.string().trim().min(1).transform((value) => value.toLowerCase()),
+  phone: z.string().optional(),
+});
 
 type ForensicLogLevel = 'info' | 'warn' | 'error';
 
@@ -225,6 +232,28 @@ const generateStrongTemporaryPassword = (length = 20) => {
   return shuffle(chars).join('');
 };
 
+const findAuthUserIdByEmail = async (email: string) => {
+  if (!supabaseAdmin) return null;
+
+  let page = 1;
+  const perPage = 1000;
+
+  while (true) {
+    const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+
+    if (listError || !listData) return null;
+
+    const match = listData.users.find((user: { id: string; email?: string }) => user.email?.toLowerCase() === email);
+    if (match) return match.id;
+    if (listData.users.length < perPage) return null;
+
+    page += 1;
+  }
+};
+
 export async function POST(request: NextRequest) {
   const requestId = getRequestId(request);
   const respond = (status: number, payload: Record<string, unknown>, reason: string) => {
@@ -316,53 +345,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const payload = (await request.json()) as CreateDriverPayload;
-    const requestedCompanyId = payload.companyId?.trim();
-    const requestedMembershipId = payload.membershipId?.trim();
-    const displayName = payload.displayName?.trim();
-    const email = payload.email?.trim().toLowerCase();
-    const phone = payload.phone?.trim() || null;
-
-    if (!displayName || !email) {
-      logForensicFailure(
-        requestId,
-        'request validation',
-        'validate bearer token and request payload',
-        new Error('displayName and email are required.'),
-        {
-          callSiteStack: requestValidationStack,
-        }
-      );
-      return respond(400, { error: 'displayName and email are required.' }, 'missing_required_fields');
+    let parsedPayload: z.infer<typeof createDriverPayloadSchema>;
+    try {
+      parsedPayload = createDriverPayloadSchema.parse(await request.json());
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        logForensicFailure(
+          requestId,
+          'request validation',
+          'validate bearer token and request payload',
+          new Error('displayName and email are required.'),
+          {
+            callSiteStack: requestValidationStack,
+          }
+        );
+        return respond(
+          400,
+          { error: 'displayName and email are required.' },
+          'missing_required_fields'
+        );
+      }
+      throw error;
     }
+    const requestedCompanyId = parsedPayload.companyId?.trim();
+    const requestedMembershipId = parsedPayload.membershipId?.trim();
+    const displayName = parsedPayload.displayName;
+    const email = parsedPayload.email;
+    const phone = parsedPayload.phone?.trim() || null;
 
-    if (!requestedCompanyId) {
-      logForensicFailure(
-        requestId,
-        'request validation',
-        'validate bearer token and request payload',
-        new Error('Forbidden: missing company or membership context.'),
-        {
-          callSiteStack: requestValidationStack,
-        }
-      );
-      return respond(
-        403,
-        {
-          error: 'Forbidden: missing company or membership context.',
-          code: 'auth_missing_membership_context',
-        },
-        'auth_missing_membership_context'
-      );
-    }
-
-    logForensicSuccess(requestId, 'request validation', 'validate bearer token and request payload', {
-      authUserId: authData.user.id,
-      requestedCompanyId,
-      requestedMembershipId: requestedMembershipId ?? null,
-      email,
-    });
-
+    // Authorisation must be resolved before returning any payload-validation
+    // error so that non-admin callers always receive 403, not 400.
     let resolvedMembership: { id: string; company_id: string; role_in_company: string } | null = null;
 
     const membershipLookupStack = logForensicStart(
@@ -377,17 +389,12 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    let membershipQuery = supabaseAdmin
+    const membershipQuery = supabaseAdmin
       .from('company_memberships')
       .select('id, company_id, role_in_company')
       .eq('user_id', authData.user.id)
       .eq('status', 'active')
-      .eq('company_id', requestedCompanyId)
       .in('role_in_company', Array.from(ADMIN_ROLES));
-
-    if (requestedMembershipId) {
-      membershipQuery = membershipQuery.eq('id', requestedMembershipId);
-    }
 
     const { data: membership, error: membershipLookupError } = await membershipQuery.maybeSingle();
 
@@ -428,6 +435,32 @@ export async function POST(request: NextRequest) {
       );
       return respond(403, { error: 'Forbidden' }, 'membership_not_resolved');
     }
+
+    if (
+      (requestedCompanyId && requestedCompanyId !== resolvedMembership.company_id) ||
+      (requestedMembershipId && requestedMembershipId !== resolvedMembership.id)
+    ) {
+      logForensicFailure(
+        requestId,
+        'membership lookup',
+        'lookup active admin membership',
+        new Error('Forbidden'),
+        {
+          membershipId: resolvedMembership.id,
+          companyId: resolvedMembership.company_id,
+          requestedMembershipId: requestedMembershipId ?? null,
+          requestedCompanyId: requestedCompanyId ?? null,
+        }
+      );
+      return respond(403, { error: 'Forbidden' }, 'membership_scope_mismatch');
+    }
+
+    logForensicSuccess(requestId, 'request validation', 'validate bearer token and request payload', {
+      authUserId: authData.user.id,
+      requestedCompanyId,
+      requestedMembershipId: requestedMembershipId ?? null,
+      email,
+    });
 
     const resolvedCompanyId = resolvedMembership.company_id;
 
@@ -534,6 +567,8 @@ export async function POST(request: NextRequest) {
     let invited = true;
     let temporaryPassword: string | null = null;
     let inviteFallbackReason: string | null = null;
+    let onboardingOutcome: 'invite_sent' | 'password_setup_required' | 'temporary_password_created' =
+      existingDriverByEmail?.user_id ? 'password_setup_required' : 'invite_sent';
 
     // ── Step 2: resolve / create auth user ───────────────────────────────────
     if (!userId) {
@@ -555,6 +590,7 @@ export async function POST(request: NextRequest) {
 
       if (!inviteError && invitedUserData.user) {
         userId = invitedUserData.user.id;
+        onboardingOutcome = 'invite_sent';
         logForensicSuccess(requestId, 'inviteUserByEmail()', 'invite auth user by email', {
           invitedUserId: userId,
           invitedUserEmail: invitedUserData.user.email ?? email,
@@ -576,27 +612,9 @@ export async function POST(request: NextRequest) {
           (inviteError as { code?: string }).code === 'email_exists';
 
         if (isAlreadyExists) {
-          // Page through users to find the matching auth record.
-          let found: string | null = null;
-          let page = 1;
-          const perPage = 1000;
-          while (!found) {
-            const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
-              page,
-              perPage,
-            });
-            if (listError || !listData) break;
-            const match = listData.users.find((u: { id: string; email?: string }) => u.email?.toLowerCase() === email);
-            if (match) {
-              found = match.id;
-            } else if (listData.users.length < perPage) {
-              break;
-            } else {
-              page += 1;
-            }
-          }
-          userId = found;
+          userId = await findAuthUserIdByEmail(email);
           invited = false;
+          onboardingOutcome = 'password_setup_required';
           logForensicSuccess(requestId, 'inviteUserByEmail()', 'resolve already-existing auth user after invite failure', {
             resolvedExistingAuthUserId: userId,
           });
@@ -609,6 +627,7 @@ export async function POST(request: NextRequest) {
           // still be onboarded. The admin can send a password-reset email afterwards.
           invited = false;
           inviteFallbackReason = `Invite email failed (${inviteError.message ?? 'unknown error'}). Driver created with temporary password.`;
+          onboardingOutcome = 'temporary_password_created';
 
           const createUserFallbackStack = logForensicStart(
             requestId,
@@ -666,6 +685,7 @@ export async function POST(request: NextRequest) {
           );
         }
       }
+
     } else {
       logForensicSkip(requestId, 'inviteUserByEmail()', 'invite auth user by email', {
         reason: 'existing driver already linked to auth user',
@@ -925,6 +945,7 @@ export async function POST(request: NextRequest) {
       {
         driver: driverRow,
         invited,
+        onboardingOutcome,
         temporaryPassword,
         inviteFallbackReason,
         membershipRepaired: !membershipError,
@@ -942,5 +963,99 @@ export async function POST(request: NextRequest) {
       },
       'unexpected_exception'
     );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const requestId = getRequestId(request);
+  const respond = (status: number, payload: Record<string, unknown>, reason: string) => {
+    logForensicEvent('info', requestId, 'final response', 'success', {
+      reason,
+      status,
+      response: sanitizeResponsePayload(payload),
+    });
+    return NextResponse.json(payload, { status });
+  };
+
+  try {
+    if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+      return respond(503, { error: 'Server auth is not configured.' }, 'supabase_admin_not_configured');
+    }
+
+    const token = getBearerToken(request);
+    if (!token) {
+      return respond(401, { error: 'Unauthorized: missing bearer token.' }, 'auth_missing_bearer_token');
+    }
+
+    const validatorClient = supabaseValidator ?? supabaseAdmin;
+    const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
+    if (authError || !authData.user) {
+      return respond(401, { error: 'Unauthorized: invalid or expired token.' }, 'auth_invalid_bearer_token');
+    }
+
+    const payload = (await request.json()) as SendDriverPasswordSetupPayload;
+    const requestedCompanyId = payload.companyId?.trim();
+    const requestedMembershipId = payload.membershipId?.trim();
+    const email = payload.email?.trim().toLowerCase();
+
+    const membershipQuery = supabaseAdmin
+      .from('company_memberships')
+      .select('id, company_id, role_in_company')
+      .eq('user_id', authData.user.id)
+      .eq('status', 'active')
+      .in('role_in_company', Array.from(ADMIN_ROLES));
+
+    const { data: membership, error: membershipLookupError } = await membershipQuery.maybeSingle();
+    if (membershipLookupError) {
+      return respond(500, { error: membershipLookupError.message }, 'membership_lookup_failed');
+    }
+
+    if (!membership?.id || !membership.company_id) {
+      return respond(403, { error: 'Forbidden' }, 'membership_not_resolved');
+    }
+
+    const resolvedCompanyId = membership.company_id;
+    const resolvedMembershipId = membership.id;
+    const scopedCompanyId = requestedCompanyId ?? resolvedCompanyId;
+    const scopedMembershipId = requestedMembershipId ?? resolvedMembershipId;
+
+    if (scopedCompanyId !== resolvedCompanyId || scopedMembershipId !== resolvedMembershipId) {
+      return respond(403, { error: 'Forbidden' }, 'membership_scope_mismatch');
+    }
+
+    if (!email) {
+      return respond(400, { error: 'email is required.' }, 'missing_required_fields');
+    }
+
+    const { data: existingDriver, error: existingDriverError } = await supabaseAdmin
+      .from('drivers')
+      .select('id, user_id')
+      .eq('company_id', resolvedCompanyId)
+      .eq('email', email)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingDriverError) {
+      return respond(500, { error: `Failed to load driver account: ${existingDriverError.message}` }, 'driver_lookup_failed');
+    }
+
+    if (!existingDriver?.id) {
+      return respond(404, { error: 'Driver account not found for this company.' }, 'driver_not_found');
+    }
+
+    const { error: passwordSetupError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+      redirectTo: getResetPasswordEmailRedirectTo(),
+    });
+
+    if (passwordSetupError) {
+      return respond(400, { error: passwordSetupError.message }, 'password_setup_email_failed');
+    }
+
+    return respond(200, { success: true }, 'password_setup_email_sent');
+  } catch (error) {
+    logForensicFailure(requestId, 'unhandled exception', 'unexpected PATCH /api/admin/drivers failure', error, {
+      callSiteStack: new Error('[admin/drivers] unhandled PATCH exception').stack ?? null,
+    });
+    return respond(500, { error: 'Unexpected server error while sending password setup.' }, 'unexpected_exception');
   }
 }

@@ -15,14 +15,19 @@
  * Environment variables required (set in Supabase Dashboard → Edge Functions → Secrets):
  *   SUPABASE_URL             (auto-injected)
  *   SUPABASE_SERVICE_ROLE_KEY (auto-injected)
+ *   SITE_URL                 (recommended: https://www.xdrivelogistics.co.uk)
  *   RESEND_API_KEY           (optional: if using Resend for transactional email)
  *   FROM_EMAIL               (optional: sender address, defaults to no-reply@xdrivelogistics.co.uk)
+ *
+ * Deploy with:
+ *   supabase functions deploy notify-operational-event --no-verify-jwt
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://www.xdrivelogistics.co.uk').trim().replace(/\/$/, '');
 const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? '';
 const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'no-reply@xdrivelogistics.co.uk';
 
@@ -71,6 +76,8 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
   return res.ok;
 }
 
+const buildAppUrl = (path: string) => new URL(path, `${siteUrl}/`).toString();
+
 async function handleJobAssigned(event: NotificationEvent): Promise<boolean> {
   const { driver_user_id, pickup_location, delivery_location, job_id } = event.payload;
   if (!driver_user_id) return true; // no driver user — skip silently
@@ -78,7 +85,7 @@ async function handleJobAssigned(event: NotificationEvent): Promise<boolean> {
   const user = await getUserEmail(driver_user_id as string);
   if (!user) return true; // driver has no email — skip
 
-  const jobUrl = `${supabaseUrl.replace('supabase.co', 'xdrivelogistics.co.uk')}/driver/jobs/${job_id}`;
+  const jobUrl = buildAppUrl(`/driver/jobs/${job_id}`);
   const html = `
     <h2>You have a new job assigned</h2>
     <p>Hi ${user.name},</p>
@@ -106,7 +113,7 @@ async function handleBidAccepted(event: NotificationEvent): Promise<boolean> {
     <h2>Your bid has been accepted!</h2>
     <p>Hi ${user.name},</p>
     <p>Great news — your bid of <strong>£${normalizedBidAmount}</strong> on job <strong>${job_id}</strong> has been accepted.</p>
-    <p>Please log in to XDrive Logistics to proceed.</p>
+    <p><a href="${buildAppUrl('/admin/bids')}">Open the bids workspace →</a></p>
     <p>XDrive Logistics</p>
   `;
   return sendEmail(user.email, '✅ Bid Accepted — XDrive Logistics', html);
@@ -180,6 +187,13 @@ async function processEvent(event: NotificationEvent): Promise<void> {
 
 Deno.serve(async (req) => {
   try {
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(
+        JSON.stringify({ error: 'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
     // Accept a single event from a DB webhook payload, or process pending queue
     const body = await req.json().catch(() => null);
 
@@ -208,7 +222,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error('[notify] Fatal error:', err);
     return new Response(
-      JSON.stringify({ error: String(err) }),
+      JSON.stringify({ error: 'Internal server error.' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } },
     );
   }

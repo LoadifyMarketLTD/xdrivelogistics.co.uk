@@ -13,6 +13,7 @@ import {
   loadCompanySettings,
   type CompanySettingsValues,
 } from '../../../../lib/companySettings';
+import { downloadInvoicePdf } from '../../../../lib/invoicePdf';
 import { resolveActiveCompanyId } from '../../../../lib/activeCompany';
 import type { Invoice } from '../../../../lib/types/database';
 
@@ -126,6 +127,7 @@ export default function InvoiceDetailPage() {
 
   const [showPreview, setShowPreview] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // Load the company ID for the current user (needed to write invoices to Supabase)
   useEffect(() => {
@@ -365,8 +367,17 @@ export default function InvoiceDetailPage() {
     window.open(`https://wa.me/?text=${message}`, '_blank');
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadPdf = async () => {
+    try {
+      setDownloadingPdf(true);
+      await downloadInvoicePdf({ invoice: formData, companySettings });
+      setSaveMessage('Invoice PDF downloaded.');
+    } catch (error) {
+      console.error('Failed to download invoice PDF:', error);
+      setSaveMessage('Error downloading invoice PDF.');
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   const inputStyle: React.CSSProperties = {
@@ -496,7 +507,7 @@ export default function InvoiceDetailPage() {
                     👁️ {showPreview ? 'Hide' : 'Show'} Preview
                   </button>
                   <button
-                    onClick={handlePrint}
+                    onClick={() => void handleDownloadPdf()}
                     style={{
                       padding: '0.75rem 1.25rem',
                       backgroundColor: '#6b7280',
@@ -505,13 +516,15 @@ export default function InvoiceDetailPage() {
                       borderRadius: '8px',
                       fontSize: '0.95rem',
                       fontWeight: '600',
-                      cursor: 'pointer',
+                      cursor: downloadingPdf ? 'not-allowed' : 'pointer',
+                      opacity: downloadingPdf ? 0.7 : 1,
                       transition: 'background-color 0.2s',
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#4b5563')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#6b7280')}
+                    disabled={downloadingPdf}
                   >
-                    🖨️ Print
+                    {downloadingPdf ? '⏳ Preparing PDF…' : '⬇️ Download PDF'}
                   </button>
                   <button
                     onClick={handleWhatsAppShare}

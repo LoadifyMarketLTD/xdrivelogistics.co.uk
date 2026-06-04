@@ -9,6 +9,7 @@ type ResolveAuthContextInput = {
   membershipCompanyId?: string | null;
   membershipRole?: string | null;
   mustChangePassword?: boolean;
+  ownerDriverWorkspaceRequested?: boolean;
   profileCompanyId?: string | null;
   profileRole?: string | null;
 };
@@ -35,6 +36,7 @@ export const resolveAuthContext = ({
   membershipCompanyId,
   membershipRole,
   mustChangePassword = false,
+  ownerDriverWorkspaceRequested = false,
   profileCompanyId,
   profileRole,
 }: ResolveAuthContextInput): ResolveAuthContextResult => {
@@ -45,6 +47,7 @@ export const resolveAuthContext = ({
     hasCreatedCompany: Boolean(normalizeId(creatorCompanyId)),
     creatorCompanyType,
     fallbackRole,
+    ownerDriverWorkspaceRequested,
   });
 
   const companyId =

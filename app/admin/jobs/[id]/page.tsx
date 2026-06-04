@@ -6,6 +6,7 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import { JOB_STATUS, JOB_STATUS_LABEL } from '../../../config/company';
 import { supabase } from '../../../../lib/supabaseClient';
 import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../../lib/jobClientFields';
+import { buildDriverAssignmentUpdate } from '../../../../lib/jobAssignment';
 import { useAuth } from '../../../components/AuthContext';
 
 interface Job {
@@ -270,11 +271,12 @@ export default function JobDetailPage() {
           return;
         }
 
-        const PRE_ALLOCATION_STATUSES = ['draft', 'posted', 'received'];
-        const effectiveStatus =
-          formData.assignedDriverId && PRE_ALLOCATION_STATUSES.includes(formData.status)
-            ? 'allocated'
-            : formData.status;
+        const updatedAt = new Date().toISOString();
+        const assignmentUpdate = buildDriverAssignmentUpdate({
+          assignedDriverId: formData.assignedDriverId,
+          currentStatus: formData.status,
+          updatedAt,
+        });
 
         const { error } = await supabase.from('jobs').update({
           client_name: formData.client.name,
@@ -292,9 +294,7 @@ export default function JobDetailPage() {
           cargo_type: formData.cargo.type.toLowerCase(),
           items: formData.cargo.quantity,
           job_distance_miles: formData.distanceMiles,
-          status: effectiveStatus,
-          assigned_driver_id: formData.assignedDriverId || null,
-          updated_at: new Date().toISOString(),
+          ...assignmentUpdate,
         }).eq('id', jobId).eq('company_id', companyId);
         if (error) {
           console.error('Failed to save job:', error.message);
@@ -302,7 +302,7 @@ export default function JobDetailPage() {
           setTimeout(() => setSaveMessage(''), 3000);
           return;
         }
-        const updatedJob = { ...formData, status: effectiveStatus, updatedAt: new Date().toISOString() };
+        const updatedJob = { ...formData, status: assignmentUpdate.status, updatedAt };
         setJob(updatedJob);
         setFormData(updatedJob);
         setEditMode(false);

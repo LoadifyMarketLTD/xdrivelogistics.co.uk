@@ -110,6 +110,7 @@ export const resolveAuthenticatedUser = async (
   }
 
   const fallbackRole = getFallbackRole(sessionUser);
+  const ownerDriverWorkspaceRequested = isOwnerDriverWorkspaceRequested(sessionUser);
   const profileLookupQuery = `profiles.select(role,status,is_driver,company_id).eq(user_id,${sessionUser.id}).maybeSingle()`;
   const membershipLookupQuery =
     `company_memberships.select(id,company_id,role_in_company,status).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc)`;
@@ -252,7 +253,7 @@ export const resolveAuthenticatedUser = async (
 
   if (
     !companyId &&
-    isOwnerDriverWorkspaceRequested(sessionUser) &&
+    ownerDriverWorkspaceRequested &&
     (mapAppRole(profile?.role) === 'driver' || mapAppRole(fallbackRole) === 'driver')
   ) {
     const { data: ownerDriverCompanyId, error: ownerDriverProvisionError } =
@@ -347,6 +348,7 @@ export const resolveAuthenticatedUser = async (
     driverCompanyId: driver?.company_id ?? null,
     creatorCompanyId: creatorCompany?.id ?? null,
     mustChangePassword,
+    ownerDriverWorkspaceRequested,
   });
 
   companyId = resolvedContext.companyId;

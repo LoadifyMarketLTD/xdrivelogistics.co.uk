@@ -13,6 +13,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<RegisterRole>('broker');
   const [message, setMessage] = useState('');
+  const [warning, setWarning] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -20,6 +21,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setError('');
     setMessage('');
+    setWarning('');
 
     if (!isSupabaseConfigured) {
       setError('Registration is unavailable: Supabase is not configured.');
@@ -39,14 +41,15 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
+      const normalizedRole = role === 'owner_driver' ? 'driver' : role;
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: getAuthCallbackEmailRedirectTo(),
           data: {
-            role: role === 'owner_driver' ? 'driver' : role,
-            requested_role: role === 'owner_driver' ? 'driver' : role,
+            role: normalizedRole,
+            requested_role: normalizedRole,
             account_type: role,
             workspace_mode: role === 'owner_driver' ? 'owner_driver' : 'company',
             owner_driver_workspace: role === 'owner_driver',
@@ -57,6 +60,22 @@ export default function RegisterPage() {
       if (signUpError) {
         setError(signUpError.message);
         return;
+      }
+
+      if (signUpData.session && signUpData.user) {
+        const { error: profileUpsertError } = await supabase
+          .from('profiles')
+          .upsert({
+            user_id: signUpData.user.id,
+            role: normalizedRole,
+            status: 'active',
+            is_driver: role === 'owner_driver',
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
+
+        if (profileUpsertError) {
+          setWarning(`Account created, but profile sync needs attention: ${profileUpsertError.message}`);
+        }
       }
 
       setMessage('Account created. Check your email to verify your account, then sign in.');
@@ -167,6 +186,11 @@ export default function RegisterPage() {
           {message && (
             <p style={{ margin: '0 0 1rem', color: '#166534', fontSize: '0.9rem' }}>
               {message}
+            </p>
+          )}
+          {warning && (
+            <p style={{ margin: '0 0 1rem', color: '#b45309', fontSize: '0.9rem' }}>
+              {warning}
             </p>
           )}
 

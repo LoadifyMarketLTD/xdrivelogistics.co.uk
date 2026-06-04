@@ -93,6 +93,7 @@ const VEHICLE_TYPE_LABEL: Record<string, string> = {
 
 const DRIVER_MENU_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/driver/jobs' },
+  { id: 'run', label: "Today's Run", icon: '🗂️', href: '/driver/jobs#run-sheet' },
   { id: 'history', label: 'History', icon: '📚', href: '/driver/jobs#history' },
   { id: 'security', label: 'Account Security', icon: '🔐', href: '/driver/change-password' },
 ];
@@ -742,14 +743,37 @@ export default function DriverJobsPage() {
           </button>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem', alignItems: 'flex-start' }}>
           <div>
             <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Driver Dashboard</h2>
             <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: 0, maxWidth: '760px', fontSize: '0.86rem' }}>
               Live view of today&apos;s work, upcoming stops, POD tasks, earnings and account actions.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Availability toggle — always visible in header */}
+            <div style={{ display: 'flex', gap: '0.35rem', padding: '0.22rem', background: '#f1f5f9', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              {AVAILABILITY_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => void handleAvailabilityChange(option.value)}
+                  disabled={availabilityLoading}
+                  style={{
+                    padding: '0.32rem 0.65rem',
+                    borderRadius: '7px',
+                    border: availability === option.value ? `1px solid ${option.color}` : '1px solid transparent',
+                    backgroundColor: availability === option.value ? option.bg : 'transparent',
+                    color: availability === option.value ? option.color : '#64748b',
+                    fontWeight: 700,
+                    cursor: availabilityLoading ? 'not-allowed' : 'pointer',
+                    fontSize: '0.78rem',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
             <button
               onClick={() => currentJob && router.push(`/driver/jobs/${currentJob.id}`)}
               disabled={!currentJob}
@@ -821,6 +845,119 @@ export default function DriverJobsPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', alignItems: 'start' }}>
           <section style={{ ...sectionCardStyle, gridColumn: isMobile ? 'auto' : 'span 2' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+              <SectionEyebrow>Today&apos;s Run Sheet</SectionEyebrow>
+              <span style={{ fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.muted, fontWeight: 600 }}>
+                {todayJobs.length} job{todayJobs.length !== 1 ? 's' : ''} today
+              </span>
+            </div>
+            {loading ? (
+              <LoadingBlock label="Loading run sheet…" />
+            ) : todayJobs.length === 0 ? (
+              <EmptyBlock title="No jobs today" description="No jobs are scheduled or active for today." />
+            ) : (
+              <div style={{ display: 'grid', gap: '0.55rem' }}>
+                {todayJobs.map((job, idx) => {
+                  const isActive = ACTIVE_STATUSES.includes(job.status);
+                  const isCompleted = ['delivered', 'cancelled', 'disputed'].includes(job.status);
+                  const mapAddress = buildMapsAddress(job);
+                  return (
+                    <div
+                      key={job.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr auto',
+                        gap: '0.75rem',
+                        alignItems: 'start',
+                        padding: '0.75rem',
+                        borderRadius: '10px',
+                        background: isActive ? '#f0f9ff' : isCompleted ? '#f0fdf4' : '#f8fafc',
+                        border: isActive ? '1px solid #bae6fd' : isCompleted ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+                        borderLeft: isActive ? `3px solid ${ENTERPRISE_THEME.colors.live}` : isCompleted ? '3px solid #15803d' : '3px solid #e2e8f0',
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.3rem', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.72rem', color: ENTERPRISE_THEME.colors.muted, fontWeight: 600 }}>#{idx + 1}</span>
+                          <span style={{ fontWeight: 800, fontSize: '0.88rem', color: ENTERPRISE_THEME.colors.text }}>
+                            {job.id.slice(0, 8).toUpperCase()}
+                          </span>
+                          <StatusBadge status={job.status} />
+                          {job.budget_amount != null && (
+                            <span style={{ fontSize: '0.72rem', color: '#15803d', fontWeight: 700 }}>£{job.budget_amount.toFixed(2)}</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '0.82rem', color: '#374151', marginBottom: '0.2rem' }}>
+                          <span style={{ fontWeight: 600 }}>Collection: </span>
+                          {job.pickup_location ?? 'Not set'}
+                        </div>
+                        <div style={{ fontSize: '0.82rem', color: '#374151', marginBottom: '0.2rem' }}>
+                          <span style={{ fontWeight: 600 }}>Delivery: </span>
+                          {job.delivery_location ?? 'Not set'}
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: ENTERPRISE_THEME.colors.muted, marginBottom: '0.35rem' }}>
+                          {getPrimaryJobTimeWindow(job)}
+                        </div>
+                        {(job.pickup_contact_phone || job.delivery_contact_phone) && (
+                          <div style={{ fontSize: '0.78rem', marginBottom: '0.1rem' }}>
+                            {job.pickup_contact_phone && (
+                              <a href={`tel:${job.pickup_contact_phone}`} style={{ color: ENTERPRISE_THEME.colors.live, fontWeight: 600, textDecoration: 'none', marginRight: '0.75rem' }}>
+                                📞 {job.pickup_contact_name ?? job.pickup_contact_phone}
+                              </a>
+                            )}
+                            {job.delivery_contact_phone && (
+                              <a href={`tel:${job.delivery_contact_phone}`} style={{ color: ENTERPRISE_THEME.colors.live, fontWeight: 600, textDecoration: 'none' }}>
+                                📞 {job.delivery_contact_name ?? job.delivery_contact_phone}
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {/* Inline actions attached to job */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: '130px' }}>
+                        {job.status === 'allocated' && (
+                          <>
+                            <button onClick={() => void updateJobStatus(job, 'in_transit')} disabled={actionLoading} style={buildActionStyle(actionLoading, true)}>
+                              Mark Collected
+                            </button>
+                            <button onClick={() => void handleDeclineJob()} disabled={job.id !== currentJob?.id || actionLoading} style={buildActionStyle(job.id !== currentJob?.id || actionLoading)}>
+                              Decline
+                            </button>
+                          </>
+                        )}
+                        {job.status === 'in_transit' && (
+                          <button onClick={() => void updateJobStatus(job, 'delivered')} disabled={actionLoading} style={buildActionStyle(actionLoading, true)}>
+                            Mark Delivered
+                          </button>
+                        )}
+                        {isPODPending(job) && (
+                          <button onClick={() => launchPodUpload(job)} disabled={actionLoading} style={buildActionStyle(actionLoading)}>
+                            Upload POD
+                          </button>
+                        )}
+                        {mapAddress && (
+                          <button
+                            onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(mapAddress)}`, '_blank', 'noopener,noreferrer')}
+                            disabled={actionLoading}
+                            style={buildActionStyle(actionLoading)}
+                          >
+                            Navigate
+                          </button>
+                        )}
+                        {!isCompleted && (
+                          <button onClick={() => router.push(`/driver/jobs/${job.id}`)} style={buildActionStyle(false)}>
+                            Open →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section style={{ ...sectionCardStyle, gridColumn: isMobile ? 'auto' : 'span 2' }}>
             <SectionEyebrow>Active Job</SectionEyebrow>
             {loading ? (
               <LoadingBlock label="Loading active job…" />
@@ -857,11 +994,11 @@ export default function DriverJobsPage() {
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.65rem' }}>
                   <button
-                    onClick={() => void updateJobStatus(currentJob, 'allocated')}
+                    onClick={() => currentJob && router.push(`/driver/jobs/${currentJob.id}`)}
                     disabled={!currentJob || currentJob.status !== 'allocated' || actionLoading}
                     style={buildActionStyle(!currentJob || currentJob.status !== 'allocated' || actionLoading, true)}
                   >
-                    Accept Job
+                    Open Job
                   </button>
                   <button
                     onClick={() => void handleDeclineJob()}
@@ -914,7 +1051,8 @@ export default function DriverJobsPage() {
                 title={`#${nextCollection.id.slice(0, 8).toUpperCase()}`}
                 address={nextCollection.pickup_location ?? 'Collection not set'}
                 windowLabel={formatTimeWindow(nextCollection.collection_window_start, nextCollection.collection_window_end)}
-                contact={joinContact(nextCollection.pickup_contact_name, nextCollection.pickup_contact_phone)}
+                contactName={nextCollection.pickup_contact_name}
+                contactPhone={nextCollection.pickup_contact_phone}
                 note={nextCollection.customer_notes || nextCollection.special_instructions || 'No client note.'}
               />
             ) : (
@@ -931,7 +1069,8 @@ export default function DriverJobsPage() {
                 title={`#${nextDelivery.id.slice(0, 8).toUpperCase()}`}
                 address={nextDelivery.delivery_location ?? 'Delivery not set'}
                 windowLabel={formatTimeWindow(nextDelivery.delivery_window_start, nextDelivery.delivery_window_end)}
-                contact={joinContact(nextDelivery.delivery_contact_name, nextDelivery.delivery_contact_phone)}
+                contactName={nextDelivery.delivery_contact_name}
+                contactPhone={nextDelivery.delivery_contact_phone}
                 note={nextDelivery.customer_notes || nextDelivery.special_instructions || 'No client note.'}
               />
             ) : (
@@ -1068,10 +1207,6 @@ export default function DriverJobsPage() {
   return <ProtectedRoute allowedRoles={['driver']}>{dashboard}</ProtectedRoute>;
 }
 
-function joinContact(name?: string | null, phone?: string | null) {
-  if (name && phone) return `${name} · ${phone}`;
-  return name || phone || 'No contact provided';
-}
 
 function buildActionStyle(disabled: boolean, primary = false): CSSProperties {
   const base = primary ? primaryButtonStyle : secondaryButtonStyle;
@@ -1158,21 +1293,36 @@ function StopCard({
   title,
   address,
   windowLabel,
-  contact,
+  contactName,
+  contactPhone,
   note,
 }: {
   title: string;
   address: string;
   windowLabel: string;
-  contact: string;
+  contactName?: string | null;
+  contactPhone?: string | null;
   note: string;
 }) {
+  const displayName = contactName || contactPhone || 'No contact provided';
   return (
     <div style={{ display: 'grid', gap: '0.75rem' }}>
       <DataBlock label="Job reference" value={title} />
       <DataBlock label="Address" value={address} />
       <DataBlock label="Time / window" value={windowLabel} />
-      <DataBlock label="Contact / client note" value={`${contact}${note ? `\n${note}` : ''}`} />
+      <div style={{ backgroundColor: '#f8fafc', borderRadius: '14px', padding: '0.85rem' }}>
+        <div style={{ fontSize: '0.74rem', color: '#64748b', marginBottom: '0.25rem' }}>Contact / client note</div>
+        {contactPhone ? (
+          <a href={`tel:${contactPhone}`} style={{ color: '#1d4ed8', fontWeight: 700, textDecoration: 'none', fontSize: '0.9rem' }}>
+            📞 {displayName}
+          </a>
+        ) : (
+          <div style={{ color: '#0f172a', fontWeight: 800, lineHeight: 1.4 }}>{displayName}</div>
+        )}
+        {note && note !== 'No client note.' && (
+          <div style={{ marginTop: '0.35rem', color: '#9a3412', fontSize: '0.8rem', whiteSpace: 'pre-line' }}>{note}</div>
+        )}
+      </div>
     </div>
   );
 }

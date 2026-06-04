@@ -43,10 +43,15 @@ export default function DriversPage() {
   const [createdCredentials, setCreatedCredentials] = useState<{
     displayName: string;
     email: string;
-    invited: boolean;
+    onboardingOutcome: 'invite_sent' | 'password_setup_required' | 'temporary_password_created';
     temporaryPassword: string | null;
     inviteFallbackReason: string | null;
   } | null>(null);
+  const [copiedTemporaryPassword, setCopiedTemporaryPassword] = useState(false);
+  const [passwordSetupState, setPasswordSetupState] = useState<{ status: 'idle' | 'sending' | 'sent' | 'error'; message: string }>({
+    status: 'idle',
+    message: '',
+  });
 
   const loadDrivers = async (resolvedCompanyId: string) => {
     setLoading(true);
@@ -185,6 +190,22 @@ export default function DriversPage() {
     body: JSON.stringify(payload),
   });
 
+  const sendPasswordSetupWithToken = async (
+    accessToken: string,
+    payload: {
+      companyId: string;
+      membershipId: string | null;
+      email: string;
+    }
+  ) => fetch('/api/admin/drivers', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+
   const handleCreate = async () => {
     if (!formData.display_name.trim()) { setError('Driver name is required'); return; }
     if (!formData.email.trim()) { setError('Driver email is required'); return; }
@@ -219,7 +240,7 @@ export default function DriversPage() {
 
       const payload = await response.json().catch(() => ({} as {
         error?: string;
-        invited?: boolean;
+        onboardingOutcome?: 'invite_sent' | 'password_setup_required' | 'temporary_password_created';
         temporaryPassword?: string | null;
         inviteFallbackReason?: string | null;
       }));
@@ -237,10 +258,12 @@ export default function DriversPage() {
       setCreatedCredentials({
         displayName: formData.display_name.trim(),
         email: formData.email.trim().toLowerCase(),
-        invited: Boolean(payload.invited),
+        onboardingOutcome: payload.onboardingOutcome ?? 'invite_sent',
         temporaryPassword: payload.temporaryPassword ?? null,
         inviteFallbackReason: payload.inviteFallbackReason ?? null,
       });
+      setCopiedTemporaryPassword(false);
+      setPasswordSetupState({ status: 'idle', message: '' });
       setFormData({ display_name: '', phone: '', email: '' });
       setError('');
       await loadDrivers(companyId);
@@ -295,6 +318,66 @@ export default function DriversPage() {
     setShowModal(false);
     setError('');
     setCreatedCredentials(null);
+    setCopiedTemporaryPassword(false);
+    setPasswordSetupState({ status: 'idle', message: '' });
+  };
+
+  const handleCopyTemporaryPassword = async () => {
+    if (!createdCredentials?.temporaryPassword) return;
+
+    try {
+      await navigator.clipboard.writeText(createdCredentials.temporaryPassword);
+      setCopiedTemporaryPassword(true);
+    } catch {
+      setCopiedTemporaryPassword(false);
+      setPasswordSetupState({
+        status: 'error',
+        message: 'Failed to copy the temporary password. Copy it manually before closing this modal.',
+      });
+    }
+  };
+
+  const handleSendPasswordSetup = async () => {
+    if (!companyId || !createdCredentials || !isSupabaseConfigured) return;
+
+    const { accessToken, error: accessTokenError } = await getAccessToken();
+    if (accessTokenError || !accessToken) {
+      setPasswordSetupState({
+        status: 'error',
+        message: accessTokenError ?? 'Session expired. Please sign in again.',
+      });
+      return;
+    }
+
+    setPasswordSetupState({ status: 'sending', message: '' });
+
+    try {
+      const response = await sendPasswordSetupWithToken(accessToken, {
+        companyId,
+        membershipId: user?.membershipId ?? null,
+        email: createdCredentials.email,
+      });
+
+      const payload = await response.json().catch(() => ({} as { error?: string }));
+
+      if (!response.ok) {
+        setPasswordSetupState({
+          status: 'error',
+          message: payload.error || 'Failed to send password setup email.',
+        });
+        return;
+      }
+
+      setPasswordSetupState({
+        status: 'sent',
+        message: 'Password setup email sent successfully.',
+      });
+    } catch (requestError) {
+      setPasswordSetupState({
+        status: 'error',
+        message: requestError instanceof Error ? requestError.message : 'Failed to send password setup email.',
+      });
+    }
   };
 
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const };
@@ -316,7 +399,13 @@ export default function DriversPage() {
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage drivers for your company</p>
             </div>
             <button
-              onClick={() => { setCreatedCredentials(null); setError(''); setShowModal(true); }}
+              onClick={() => {
+                setCreatedCredentials(null);
+                setCopiedTemporaryPassword(false);
+                setPasswordSetupState({ status: 'idle', message: '' });
+                setError('');
+                setShowModal(true);
+              }}
               disabled={!companyResolved || !companyId}
               style={{ padding: '0.75rem 1.5rem', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}
             >
@@ -407,30 +496,62 @@ export default function DriversPage() {
               {createdCredentials ? (
                 <>
                   <div style={{ padding: '1.5rem', display: 'grid', gap: '0.8rem' }}>
-                    <div style={{ backgroundColor: '#ecfdf3', border: '1px solid #86efac', borderRadius: '8px', padding: '0.9rem', color: '#166534', fontSize: '0.9rem' }}>
-                      {createdCredentials.invited
+                  <div style={{ backgroundColor: createdCredentials.onboardingOutcome === 'invite_sent' ? '#ecfdf3' : '#eff6ff', border: `1px solid ${createdCredentials.onboardingOutcome === 'invite_sent' ? '#86efac' : '#93c5fd'}`, borderRadius: '8px', padding: '0.9rem', color: createdCredentials.onboardingOutcome === 'invite_sent' ? '#166534' : '#1d4ed8', fontSize: '0.9rem' }}>
+                    {createdCredentials.onboardingOutcome === 'invite_sent'
                         ? 'Driver invited successfully. A password setup email was sent.'
-                        : 'Driver created. Temporary password shown once.'}
-                    </div>
-                    <div style={{ fontSize: '0.88rem', color: '#334155' }}>
-                      <strong>Driver:</strong> {createdCredentials.displayName}
-                      <br />
-                      <strong>Email:</strong> {createdCredentials.email}
-                      {!createdCredentials.invited && createdCredentials.temporaryPassword ? (
-                        <>
-                          <br />
-                          <strong>Temporary password:</strong> {createdCredentials.temporaryPassword}
+                      : createdCredentials.onboardingOutcome === 'temporary_password_created'
+                      ? 'Driver created with a temporary password because invite delivery failed.'
+                      : 'Driver account linked without sending a fresh invite.'}
+                  </div>
+                  <div style={{ fontSize: '0.88rem', color: '#334155' }}>
+                    <strong>Driver:</strong> {createdCredentials.displayName}
+                    <br />
+                    <strong>Email:</strong> {createdCredentials.email}
+                    {createdCredentials.temporaryPassword ? (
+                      <>
+                        <br />
+                        <strong>Temporary password:</strong> {createdCredentials.temporaryPassword}
                         </>
                       ) : null}
                     </div>
-                    {!createdCredentials.invited ? (
+                    {createdCredentials.onboardingOutcome === 'temporary_password_created' ? (
+                      <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px', padding: '0.9rem', color: '#9a3412', fontSize: '0.85rem', lineHeight: 1.6 }}>
+                        <strong>Next action:</strong> copy the temporary password now, share it securely with the driver, and require an immediate password change on first sign-in.
+                      </div>
+                    ) : (
+                      <div style={{ backgroundColor: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '8px', padding: '0.9rem', color: '#1d4ed8', fontSize: '0.85rem', lineHeight: 1.6 }}>
+                        <strong>Next action:</strong> ask the driver to open their password setup email. If they need a fresh message, use the password setup action below.
+                      </div>
+                    )}
+                    {createdCredentials.inviteFallbackReason ? (
                       <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px', padding: '0.9rem', color: '#9a3412', fontSize: '0.85rem' }}>
-                        {createdCredentials.inviteFallbackReason ?? 'Invite email provider failed with Invalid API key.'}
-                        {' '}Supabase Auth SMTP/Resend provider key must be corrected to restore invite emails.
+                        {createdCredentials.inviteFallbackReason}
+                      </div>
+                    ) : null}
+                    {passwordSetupState.message ? (
+                      <div style={{ backgroundColor: passwordSetupState.status === 'error' ? '#fef2f2' : '#ecfdf3', border: `1px solid ${passwordSetupState.status === 'error' ? '#fca5a5' : '#86efac'}`, borderRadius: '8px', padding: '0.9rem', color: passwordSetupState.status === 'error' ? '#dc2626' : '#166534', fontSize: '0.85rem' }}>
+                        {passwordSetupState.message}
+                      </div>
+                    ) : null}
+                    {copiedTemporaryPassword ? (
+                      <div style={{ backgroundColor: '#ecfdf3', border: '1px solid #86efac', borderRadius: '8px', padding: '0.9rem', color: '#166534', fontSize: '0.85rem' }}>
+                        Temporary password copied.
                       </div>
                     ) : null}
                   </div>
-                  <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                  <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    {createdCredentials.temporaryPassword ? (
+                      <button onClick={handleCopyTemporaryPassword} style={{ padding: '0.75rem 1rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
+                        Copy temporary password
+                      </button>
+                    ) : null}
+                    <button
+                      onClick={handleSendPasswordSetup}
+                      disabled={passwordSetupState.status === 'sending'}
+                      style={{ padding: '0.75rem 1rem', backgroundColor: '#1d4ed8', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: passwordSetupState.status === 'sending' ? 'not-allowed' : 'pointer' }}
+                    >
+                      {passwordSetupState.status === 'sending' ? 'Sending...' : 'Send password setup email'}
+                    </button>
                     <button onClick={closeModal} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Done</button>
                   </div>
                 </>
