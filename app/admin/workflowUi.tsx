@@ -56,6 +56,7 @@ export const WORKFLOW_NAV_SECTIONS = [
     items: [
       { id: 'fleet', label: 'Availability', icon: '🧭', href: '/admin/fleet' },
       { id: 'drivers', label: 'Drivers', icon: '👤', href: '/admin/drivers' },
+      { id: 'dispatchers', label: 'Dispatchers', icon: '🎛️', href: '/admin/dispatchers' },
       { id: 'vehicles', label: 'Vehicles', icon: '🚛', href: '/admin/vehicles' },
       { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
     ],
