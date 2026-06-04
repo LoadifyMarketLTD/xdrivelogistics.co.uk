@@ -129,20 +129,11 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = (await request.json()) as CreateDispatcherPayload;
-    const requestedCompanyId = payload.companyId?.trim();
-    const requestedMembershipId = payload.membershipId?.trim();
     const displayName = payload.displayName?.trim();
     const email = payload.email?.trim().toLowerCase();
     const phone = payload.phone?.trim() || null;
 
     const resolvedCompanyId = membership.company_id;
-    const resolvedMembershipId = membership.id;
-    const scopedCompanyId = requestedCompanyId ?? resolvedCompanyId;
-    const scopedMembershipId = requestedMembershipId ?? resolvedMembershipId;
-
-    if (scopedCompanyId !== resolvedCompanyId || scopedMembershipId !== resolvedMembershipId) {
-      return respond(403, { error: 'Forbidden' });
-    }
 
     if (!email || !displayName) {
       return respond(400, {
@@ -296,8 +287,6 @@ export async function PATCH(request: NextRequest) {
     }
 
     const payload = (await request.json()) as SendDispatcherPasswordSetupPayload;
-    const requestedCompanyId = payload.companyId?.trim();
-    const requestedMembershipId = payload.membershipId?.trim();
     const email = payload.email?.trim().toLowerCase();
 
     const { data: membership, error: membershipError } = await resolveAdminMembership(authData.user.id);
@@ -311,13 +300,6 @@ export async function PATCH(request: NextRequest) {
     }
 
     const resolvedCompanyId = membership.company_id;
-    const resolvedMembershipId = membership.id;
-    const scopedCompanyId = requestedCompanyId ?? resolvedCompanyId;
-    const scopedMembershipId = requestedMembershipId ?? resolvedMembershipId;
-
-    if (scopedCompanyId !== resolvedCompanyId || scopedMembershipId !== resolvedMembershipId) {
-      return respond(403, { error: 'Forbidden' });
-    }
 
     if (!email) {
       return respond(400, { error: 'email is required.' });

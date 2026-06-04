@@ -32,7 +32,22 @@ function buildMapsUrl(app: 'google' | 'waze' | 'apple', address: string, postcod
 /** Validate that a URL uses a safe scheme before rendering it in an img src. */
 function sanitizePhotoUrl(url: string | null): string | null {
   if (!url) return null;
-  if (/^(https?:|blob:|data:image\/)/i.test(url)) return url;
+
+  if (/^data:/i.test(url)) {
+    return /^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(url) ? url : null;
+  }
+
+  if (/^blob:/i.test(url)) return url;
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch {
+    return null;
+  }
+
   return null;
 }
 
