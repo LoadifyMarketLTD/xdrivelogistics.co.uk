@@ -857,11 +857,11 @@ export default function DriverJobsPage() {
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.65rem' }}>
                   <button
-                    onClick={() => void updateJobStatus(currentJob, 'allocated')}
+                    onClick={() => currentJob && router.push(`/driver/jobs/${currentJob.id}`)}
                     disabled={!currentJob || currentJob.status !== 'allocated' || actionLoading}
                     style={buildActionStyle(!currentJob || currentJob.status !== 'allocated' || actionLoading, true)}
                   >
-                    Accept Job
+                    Open Job
                   </button>
                   <button
                     onClick={() => void handleDeclineJob()}
