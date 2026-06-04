@@ -22,6 +22,16 @@ type DriverLocationRow = {
   lng: number | null;
 };
 
+type VehicleSelectRow = Omit<Vehicle, 'pallets_capacity' | 'has_straps' | 'has_blankets'> &
+  Partial<Pick<Vehicle, 'pallets_capacity' | 'has_straps' | 'has_blankets'>>;
+
+type SupabaseErrorLike = {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+};
+
 export default function FleetPage() {
   const { user, hasSupabaseSession } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -54,7 +64,7 @@ export default function FleetPage() {
       const fullColumns = 'id, company_id, assigned_driver_id, type, reg_plate, make, model, manufacture_year, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets, created_at';
       const coreColumns = 'id, company_id, assigned_driver_id, type, reg_plate, make, model, manufacture_year, payload_kg, has_tail_lift, created_at';
 
-      let vehicleRes = await supabase
+      let vehicleRes: { data: VehicleSelectRow[] | null; error: SupabaseErrorLike | null } = await supabase
         .from('vehicles')
         .select(fullColumns)
         .eq('company_id', companyId)
@@ -77,7 +87,14 @@ export default function FleetPage() {
         supabase.from('driver_locations').select('id, driver_id, recorded_at, lat, lng').eq('company_id', companyId).order('recorded_at', { ascending: false }).limit(300),
       ]);
 
-      setVehicles((vehicleRes.data as Vehicle[]) ?? []);
+      setVehicles(
+        (vehicleRes.data ?? []).map((vehicle): Vehicle => ({
+          ...vehicle,
+          pallets_capacity: vehicle.pallets_capacity ?? null,
+          has_straps: vehicle.has_straps ?? false,
+          has_blankets: vehicle.has_blankets ?? false,
+        }))
+      );
       setDrivers((driverRes.data as FleetDriver[]) ?? []);
       setLocations((locationRes.data as DriverLocationRow[]) ?? []);
       setLoading(false);
