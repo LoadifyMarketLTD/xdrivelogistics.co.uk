@@ -16,6 +16,15 @@ const ROLE_LABEL: Record<string, string> = {
   customer: 'Customer',
 };
 
+const WORKSPACE_LABEL: Record<string, string> = {
+  owner: 'Owner Workspace',
+  broker: 'Broker Workspace',
+  company_admin: 'Company Admin Workspace',
+  company_staff: 'Dispatcher Workspace',
+  driver: 'Driver Workspace',
+  customer: 'Customer Workspace',
+};
+
 export default function AdminPlatformShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -33,6 +42,7 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
 
   const companyLabel = user?.companyId ? `Company ${user.companyId.slice(0, 8)}` : 'Company pending';
   const roleLabel = role ? ROLE_LABEL[role] ?? role : 'Role pending';
+  const workspaceLabel = role ? WORKSPACE_LABEL[role] ?? 'Workspace' : 'Workspace';
   const moduleLabel = activeModule?.label ?? 'Module workspace';
 
   if (isAdminHome) {
@@ -54,7 +64,7 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                XDrive platform shell
+                {workspaceLabel}
               </div>
               <div style={{ fontSize: '1.02rem', fontWeight: 700, color: '#0f172a', marginTop: '0.12rem' }}>{moduleLabel}</div>
             </div>
@@ -71,13 +81,14 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
                 fontSize: '0.8rem',
               }}
             >
-              Platform home
+              Workspace home
             </button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem', marginTop: '0.65rem' }}>
-            <ShellContextCard label="Role context" value={roleLabel} />
-            <ShellContextCard label="Company context" value={companyLabel} />
-            <ShellContextCard label="Current module" value={moduleLabel} />
+            <ShellContextCard label="Workspace" value={workspaceLabel} />
+            <ShellContextCard label="Role" value={roleLabel} />
+            <ShellContextCard label="Company" value={companyLabel} />
+            <ShellContextCard label="Module" value={moduleLabel} />
           </div>
         </section>
 
@@ -128,3 +139,4 @@ function ShellContextCard({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+

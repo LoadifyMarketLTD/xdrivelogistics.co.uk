@@ -51,11 +51,15 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'home',
     label: 'Platform Home',
+    // visible to all admin-area roles
     items: [{ id: 'dashboard', label: 'Platform Home', icon: '🏠', href: '/admin' }],
   },
   {
     id: 'marketplace',
     label: 'Marketplace / Loads',
+    // Brokers browse loads; owner/admin manage exchange listings
+    // Dispatchers (company_staff) do not have marketplace access
+    roles: ['owner', 'company_admin', 'broker'],
     items: [
       { id: 'marketplace', label: 'Load Board', icon: '🏪', href: '/admin/marketplace' },
     ],
@@ -63,6 +67,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'quotes_bids',
     label: 'Quotes & Bids',
+    // Commercial negotiation — owner, admin, broker only
+    roles: ['owner', 'company_admin', 'broker'],
     items: [
       { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
       { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
@@ -71,6 +77,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'operations',
     label: 'Diary / Operations',
+    // Dispatchers and admins manage day-to-day operations; brokers do not
+    roles: ['owner', 'company_admin', 'company_staff'],
     items: [
       { id: 'diary', label: 'Diary', icon: '🗓️', href: '/admin/diary' },
       { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
@@ -79,6 +87,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'fleet_module',
     label: 'Fleet',
+    // Fleet management: owner, admin, dispatcher
+    roles: ['owner', 'company_admin', 'company_staff'],
     items: [
       { id: 'fleet', label: 'Fleet Workspace', icon: '🧭', href: '/admin/fleet' },
     ],
@@ -86,6 +96,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'drivers_module',
     label: 'Drivers',
+    // Driver roster: owner, admin, dispatcher
+    roles: ['owner', 'company_admin', 'company_staff'],
     items: [
       { id: 'drivers', label: 'Driver Roster', icon: '👤', href: '/admin/drivers' },
     ],
@@ -93,6 +105,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'vehicles_module',
     label: 'Vehicles',
+    // Vehicle registry: owner, admin, dispatcher
+    roles: ['owner', 'company_admin', 'company_staff'],
     items: [
       { id: 'vehicles', label: 'Vehicle Registry', icon: '🚛', href: '/admin/vehicles' },
     ],
@@ -100,6 +114,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'compliance_module',
     label: 'Compliance / Documents',
+    // Document compliance: owner, admin, dispatcher
+    roles: ['owner', 'company_admin', 'company_staff'],
     items: [
       { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
     ],
@@ -107,6 +123,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'finance_module',
     label: 'Finance / Invoices',
+    // Finance is restricted to owner and admin — dispatchers have no invoice access
+    roles: ['owner', 'company_admin'],
     items: [
       { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
     ],
@@ -114,6 +132,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'network_module',
     label: 'Network / Companies',
+    // Company directory: owner, admin, broker (network participants)
+    roles: ['owner', 'company_admin', 'broker'],
     items: [
       { id: 'companies', label: 'Companies', icon: '🏢', href: '/admin/companies' },
     ],
@@ -121,6 +141,7 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'platform_admin',
     label: 'Administration',
+    // Team management and settings: owner and admin only
     roles: ['owner', 'company_admin'],
     items: [
       { id: 'dispatchers', label: 'Memberships', icon: '👥', href: '/admin/dispatchers' },
