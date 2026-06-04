@@ -356,7 +356,10 @@ export default function AdminPage() {
   const [postedJobsForDispatch, setPostedJobsForDispatch] = useState<PostedJobDispatch[]>([]);
 
   const activeRole = mapAppRole(user?.role ?? null);
-  const navSections = getNavSectionsForRole(activeRole);
+  const navSections = getNavSectionsForRole(activeRole, {
+    membershipRole: user?.membershipRole ?? null,
+    financeAccess: user?.financeAccess ?? null,
+  });
 
   const roleLabel: Record<string, string> = {
     owner: 'Owner',

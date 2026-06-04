@@ -26,9 +26,15 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
     if (!isLoading && user) {
       const role = mapAppRole(user.role);
+      const roleAllowedByList = allowedRoles?.length
+        ? (
+            allowedRoles.includes(user.role) ||
+            (allowedRoles.includes('driver') && user.canAccessDriverMode === true)
+          )
+        : null;
       const hasAccess = allowedRoles?.length
-        ? allowedRoles.includes(user.role)
-        : isRoleAllowedForPath(pathname, role);
+        ? roleAllowedByList === true
+        : isRoleAllowedForPath(pathname, role, { canAccessDriverMode: user.canAccessDriverMode === true });
       if (!hasAccess && pathname !== '/forbidden') {
         router.replace('/forbidden');
       }
@@ -55,9 +61,15 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   }
 
   const role = mapAppRole(user.role);
+  const roleAllowedByList = allowedRoles?.length
+    ? (
+        allowedRoles.includes(user.role) ||
+        (allowedRoles.includes('driver') && user.canAccessDriverMode === true)
+      )
+    : null;
   const hasAccess = allowedRoles?.length
-    ? allowedRoles.includes(user.role)
-    : isRoleAllowedForPath(pathname, role);
+    ? roleAllowedByList === true
+    : isRoleAllowedForPath(pathname, role, { canAccessDriverMode: user.canAccessDriverMode === true });
 
   if (!hasAccess) {
     return null;

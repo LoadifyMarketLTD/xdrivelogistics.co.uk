@@ -148,10 +148,16 @@ const MOBILE_ROUTE_ROLES = new Set<AppUserRole>(['broker', 'company_admin', 'com
 const DRIVER_ROUTE_ROLES = new Set<AppUserRole>(['driver']);
 const CUSTOMER_ROUTE_ROLES = new Set<AppUserRole>(['customer']);
 
-export const isRoleAllowedForPath = (pathname: string, role: AppUserRole | null): boolean => {
+export const isRoleAllowedForPath = (
+  pathname: string,
+  role: AppUserRole | null,
+  options?: { canAccessDriverMode?: boolean }
+): boolean => {
   if (!role) return false;
   if (pathname.startsWith('/admin')) return ADMIN_ROUTE_ROLES.has(role);
-  if (pathname.startsWith('/driver')) return DRIVER_ROUTE_ROLES.has(role);
+  if (pathname.startsWith('/driver')) {
+    return DRIVER_ROUTE_ROLES.has(role) || options?.canAccessDriverMode === true;
+  }
   if (pathname.startsWith('/m')) return MOBILE_ROUTE_ROLES.has(role);
   if (pathname.startsWith('/customer')) return CUSTOMER_ROUTE_ROLES.has(role);
   return true;
