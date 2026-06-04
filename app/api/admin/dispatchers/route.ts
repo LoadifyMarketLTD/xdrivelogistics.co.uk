@@ -215,80 +215,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    export async function PATCH(request: NextRequest) {
-      try {
-        if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-          return respond(503, { error: 'Server auth is not configured.' });
-        }
-
-        const token = getBearerToken(request);
-        if (!token) {
-          return respond(401, { error: 'Unauthorized: missing bearer token.' });
-        }
-
-        const validatorClient = supabaseValidator ?? supabaseAdmin;
-        const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-
-        if (authError || !authData.user) {
-          return respond(401, { error: 'Unauthorized: invalid or expired token.' });
-        }
-
-        const payload = (await request.json()) as SendDispatcherPasswordSetupPayload;
-        const requestedCompanyId = payload.companyId?.trim();
-        const requestedMembershipId = payload.membershipId?.trim();
-        const email = payload.email?.trim().toLowerCase();
-
-        if (!email) {
-          return respond(400, { error: 'email is required.' });
-        }
-
-        const { data: membership, error: membershipError } = await resolveAdminMembership(
-          authData.user.id,
-          requestedCompanyId,
-          requestedMembershipId
-        );
-
-        if (membershipError) {
-          return respond(500, { error: membershipError.message });
-        }
-
-        if (!membership?.id || !membership.company_id) {
-          return respond(403, { error: 'Forbidden' });
-        }
-
-        const resolvedCompanyId = membership.company_id;
-        const { data: dispatcherMembership, error: dispatcherMembershipError } = await supabaseAdmin
-          .from('company_memberships')
-          .select('id')
-          .eq('company_id', resolvedCompanyId)
-          .eq('role_in_company', 'dispatcher')
-          .eq('invited_email', email)
-          .limit(1)
-          .maybeSingle();
-
-        if (dispatcherMembershipError) {
-          return respond(500, { error: `Failed to load dispatcher account: ${dispatcherMembershipError.message}` });
-        }
-
-        if (!dispatcherMembership?.id) {
-          return respond(404, { error: 'Dispatcher account not found for this company.' });
-        }
-
-        const { error: passwordSetupError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-          redirectTo: getResetPasswordEmailRedirectTo(),
-        });
-
-        if (passwordSetupError) {
-          return respond(400, { error: passwordSetupError.message });
-        }
-
-        return respond(200, { success: true });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unexpected error';
-        return respond(500, { error: message });
-      }
-    }
-
     if (!userId) {
       return respond(500, { error: 'Failed to resolve dispatcher auth user.' });
     }
@@ -356,5 +282,79 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     return respond(500, { error: error instanceof Error ? error.message : 'Unexpected dispatcher onboarding failure.' });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+      return respond(503, { error: 'Server auth is not configured.' });
+    }
+
+    const token = getBearerToken(request);
+    if (!token) {
+      return respond(401, { error: 'Unauthorized: missing bearer token.' });
+    }
+
+    const validatorClient = supabaseValidator ?? supabaseAdmin;
+    const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
+
+    if (authError || !authData.user) {
+      return respond(401, { error: 'Unauthorized: invalid or expired token.' });
+    }
+
+    const payload = (await request.json()) as SendDispatcherPasswordSetupPayload;
+    const requestedCompanyId = payload.companyId?.trim();
+    const requestedMembershipId = payload.membershipId?.trim();
+    const email = payload.email?.trim().toLowerCase();
+
+    if (!email) {
+      return respond(400, { error: 'email is required.' });
+    }
+
+    const { data: membership, error: membershipError } = await resolveAdminMembership(
+      authData.user.id,
+      requestedCompanyId,
+      requestedMembershipId
+    );
+
+    if (membershipError) {
+      return respond(500, { error: membershipError.message });
+    }
+
+    if (!membership?.id || !membership.company_id) {
+      return respond(403, { error: 'Forbidden' });
+    }
+
+    const resolvedCompanyId = membership.company_id;
+    const { data: dispatcherMembership, error: dispatcherMembershipError } = await supabaseAdmin
+      .from('company_memberships')
+      .select('id')
+      .eq('company_id', resolvedCompanyId)
+      .eq('role_in_company', 'dispatcher')
+      .eq('invited_email', email)
+      .limit(1)
+      .maybeSingle();
+
+    if (dispatcherMembershipError) {
+      return respond(500, { error: `Failed to load dispatcher account: ${dispatcherMembershipError.message}` });
+    }
+
+    if (!dispatcherMembership?.id) {
+      return respond(404, { error: 'Dispatcher account not found for this company.' });
+    }
+
+    const { error: passwordSetupError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+      redirectTo: getResetPasswordEmailRedirectTo(),
+    });
+
+    if (passwordSetupError) {
+      return respond(400, { error: passwordSetupError.message });
+    }
+
+    return respond(200, { success: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    return respond(500, { error: message });
   }
 }
