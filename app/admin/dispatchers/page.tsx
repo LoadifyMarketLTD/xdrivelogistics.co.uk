@@ -106,7 +106,7 @@ export default function DispatchersPage() {
           .limit(1);
 
         return {
-          data: (result.data ?? []) as Record<string, unknown>[],
+          data: ((result.data ?? []) as unknown) as Record<string, unknown>[],
           error: result.error,
         };
       },
