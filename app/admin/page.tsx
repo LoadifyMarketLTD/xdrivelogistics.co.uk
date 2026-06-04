@@ -956,6 +956,53 @@ export default function AdminPage() {
             </div>
           )}
 
+          {/* Needs Attention alert bar */}
+          {(dashboard.jobsByStatus.posted > 0 || dashboard.finance.overdueInvoices > 0 || dashboard.compliance.attentionRequired > 0) && (
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+                alignItems: 'center',
+                backgroundColor: '#fff7ed',
+                border: '1px solid #fed7aa',
+                borderRadius: '10px',
+                padding: '0.6rem 0.9rem',
+                marginBottom: '0.75rem',
+              }}
+              data-testid="admin-needs-attention-bar"
+            >
+              <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#9a3412', marginRight: '0.25rem' }}>⚠️ Needs Attention:</span>
+              {dashboard.jobsByStatus.posted > 0 && (
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/diary')}
+                  style={{ backgroundColor: '#fbbf24', color: '#78350f', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                >
+                  {dashboard.jobsByStatus.posted} unallocated job{dashboard.jobsByStatus.posted !== 1 ? 's' : ''} →
+                </button>
+              )}
+              {dashboard.finance.overdueInvoices > 0 && (
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/invoices')}
+                  style={{ backgroundColor: '#f87171', color: '#7f1d1d', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                >
+                  {dashboard.finance.overdueInvoices} overdue invoice{dashboard.finance.overdueInvoices !== 1 ? 's' : ''} →
+                </button>
+              )}
+              {dashboard.compliance.attentionRequired > 0 && (
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/documents')}
+                  style={{ backgroundColor: '#a78bfa', color: '#2e1065', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                >
+                  {dashboard.compliance.attentionRequired} compliance alert{dashboard.compliance.attentionRequired !== 1 ? 's' : ''} →
+                </button>
+              )}
+            </div>
+          )}
+
           <WorkflowStageStrip
             activeStage="assign"
             counts={{
@@ -1117,7 +1164,7 @@ export default function AdminPage() {
                     };
                     const cfg = availConfig[avail] ?? { color: '#64748b', bg: '#f8fafc', label: `⚪ ${avail}` };
                     return (
-                      <div
+                     <div
                         key={driver.id}
                         style={{
                           backgroundColor: cfg.bg,
@@ -1130,7 +1177,26 @@ export default function AdminPage() {
                         <div style={{ fontWeight: '700', fontSize: '0.82rem', color: ENTERPRISE_THEME.colors.text, marginBottom: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {driver.display_name ?? 'Driver'}
                         </div>
-                        <div style={{ fontSize: '0.73rem', fontWeight: '600', color: cfg.color }}>{cfg.label}</div>
+                        <div style={{ fontSize: '0.73rem', fontWeight: '600', color: cfg.color, marginBottom: avail === 'available' ? '0.4rem' : '0' }}>{cfg.label}</div>
+                        {avail === 'available' && (
+                          <button
+                            className="panel-button"
+                            onClick={() => router.push('/admin/diary')}
+                            style={{
+                              width: '100%',
+                              backgroundColor: '#15803d',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '5px',
+                              padding: '0.28rem 0.4rem',
+                              fontSize: '0.72rem',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Assign a Job →
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -1190,7 +1256,7 @@ export default function AdminPage() {
                       </div>
                       <button
                         className="panel-button"
-                        onClick={() => router.push(`/admin/jobs`)}
+                        onClick={() => router.push(`/admin/diary`)}
                         style={{
                           backgroundColor: ENTERPRISE_THEME.colors.live,
                           color: 'white',
@@ -1210,7 +1276,7 @@ export default function AdminPage() {
                   {dashboard.jobsByStatus.posted > postedJobsForDispatch.length && (
                     <button
                       className="panel-button"
-                      onClick={() => router.push('/admin/jobs')}
+                      onClick={() => router.push('/admin/diary')}
                       style={{
                         background: 'none',
                         border: '1px dashed #cbd5e1',
