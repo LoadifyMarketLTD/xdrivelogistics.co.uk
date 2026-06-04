@@ -79,22 +79,6 @@ const workflow = [
   { title: 'Invoice', detail: 'Finance closes the job with validated billing records.', icon: ShieldCheck },
 ];
 
-const featureCards = [
-  { title: 'Marketplace', description: 'Connected load matching, bidding and routing intelligence.', icon: Route },
-  { title: 'Operations', description: 'End-to-end diary, dispatch and execution control.', icon: Layers },
-  { title: 'Dispatch', description: 'Awarding, assignment and workload balancing tools.', icon: ClipboardCheck },
-  { title: 'Driver Workflow', description: 'Mobile job execution with status and exception handling.', icon: Truck },
-  { title: 'POD', description: 'Structured proof capture with verification controls.', icon: FileCheck2 },
-  { title: 'Finance', description: 'Integrated invoicing, payment visibility and closure tracking.', icon: CircleDollarSign },
-];
-
-const faqs = [
-  { q: 'What is XDrive?', a: 'XDrive is a UK logistics technology platform connecting marketplace, operations, driver workflow and finance in one ecosystem.' },
-  { q: 'Who can use XDrive?', a: 'Owner operators, courier companies, load posters, customers and drivers can all operate inside the same platform.' },
-  { q: 'When is launch planned?', a: 'XDrive is currently in commercial early-access onboarding for launch participants in the United Kingdom.' },
-  { q: 'Can owner-drivers join?', a: 'Yes. Owner operators can join early access and use marketplace and operations workflows directly.' },
-  { q: 'How do I request early access?', a: 'Use the Join Early Access call-to-action to register your interest and onboarding details.' },
-];
 
 export function LandingPage() {
   const [activePreview, setActivePreview] = useState<(typeof platformModules)[number]['key']>('marketplace');
@@ -453,4 +437,3 @@ const faqs = [
   { q: 'Can owner-drivers join?', a: 'Yes. Owner operators can join early access and use marketplace and operations workflows directly.' },
   { q: 'How do I request early access?', a: 'Use the Join Early Access call-to-action to register your interest and onboarding details.' },
 ];
-
