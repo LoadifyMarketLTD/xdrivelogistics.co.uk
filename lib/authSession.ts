@@ -429,6 +429,7 @@ export const getPostLoginRoute = (currentUser: Pick<ResolvedAuthUser, 'role' | '
   if (currentUser.role === 'driver') return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
   if (currentUser.role === 'broker') return '/admin/marketplace';
   if (currentUser.role === 'customer') return '/customer';
+  if (currentUser.role === 'company_staff') return '/admin/jobs';
   return '/admin';
 };
 
