@@ -2,27 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { COMPANY_CONFIG } from '../../../config/company';
 import { LoginModal } from '../../../components/LoginModal';
-import { useCompanyContactLinks } from '../../../hooks/useCompanyContactLinks';
 
 const NAV_LINKS = [
-  { label: 'Home', href: '#home' },
-  { label: 'How It Works', href: '#how-it-works' },
-  { label: 'For Drivers', href: '#for-drivers' },
-  { label: 'For Companies', href: '#for-companies' },
+  { label: 'Roles', href: '#roles' },
+  { label: 'Exchange', href: '#exchange' },
+  { label: 'Flow', href: '#how-it-works' },
+  { label: 'Operations', href: '#operations' },
+  { label: 'Owner Operator', href: '#owner-operator' },
+  { label: 'Trust', href: '#trust' },
   { label: 'FAQ', href: '#faq' },
-  { label: 'Contact', href: '#contact' },
 ];
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const { phoneHref } = useCompanyContactLinks();
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 60);
+    const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -38,86 +36,44 @@ export function Navbar() {
           left: 0,
           right: 0,
           zIndex: 1000,
-          backgroundColor: scrolled ? 'rgba(255, 255, 255, 0.97)' : 'transparent',
-          backdropFilter: scrolled ? 'blur(12px)' : 'none',
-          boxShadow: scrolled ? '0 2px 20px rgba(0,0,0,0.08)' : 'none',
-          transition: 'all 0.3s ease',
-          borderBottom: scrolled ? '1px solid rgba(31,58,95,0.08)' : '1px solid transparent',
+          backgroundColor: scrolled ? 'rgba(255, 255, 255, 0.97)' : 'rgba(10, 34, 57, 0.85)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: scrolled ? '1px solid rgba(31,58,95,0.08)' : '1px solid rgba(255,255,255,0.08)',
+          transition: 'all 0.2s ease',
         }}
       >
         <div
           style={{
             maxWidth: '1400px',
             margin: '0 auto',
-            padding: '0 24px',
+            padding: '0 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            height: '4.5rem',
+            minHeight: '4rem',
+            gap: '0.75rem',
           }}
         >
           <a
             href="#home"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              textDecoration: 'none',
-              flexShrink: 0,
-            }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none', flexShrink: 0 }}
           >
-            <span
-              style={{
-                fontSize: '1.5rem',
-                fontWeight: 800,
-                color: '#D4AF37',
-                letterSpacing: '-0.5px',
-              }}
-            >
-              X
-            </span>
-            <span
-              style={{
-                fontSize: '1.1rem',
-                fontWeight: 700,
-                color: isLight ? '#1F3A5F' : '#FFFFFF',
-                transition: 'color 0.3s ease',
-              }}
-            >
-              Drive Logistics
-            </span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 800, color: '#D4AF37' }}>X</span>
+            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: isLight ? '#1F3A5F' : '#FFFFFF' }}>Drive</span>
           </a>
 
-          <nav
-            aria-label="Main navigation"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-            }}
-            className="desktop-nav"
-          >
+          <nav aria-label="Main navigation" className="desktop-nav" style={{ display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
             {NAV_LINKS.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
                 style={{
-                  padding: '0.5rem 0.875rem',
-                  fontSize: '0.9rem',
-                  fontWeight: 500,
+                  padding: '0.45rem 0.65rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
                   color: isLight ? '#374151' : 'rgba(255,255,255,0.9)',
                   textDecoration: 'none',
                   borderRadius: '8px',
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = '#1F3A5F';
-                  e.currentTarget.style.backgroundColor = isLight ? 'rgba(31,58,95,0.06)' : 'rgba(255,255,255,0.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = isLight ? '#374151' : 'rgba(255,255,255,0.9)';
-                  e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
                 {link.label}
@@ -125,109 +81,41 @@ export function Navbar() {
             ))}
           </nav>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              flexShrink: 0,
-            }}
-          >
-            <a
-              href={phoneHref}
-              aria-label="Call us"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                color: isLight ? '#1F3A5F' : '#D4AF37',
-                textDecoration: 'none',
-                whiteSpace: 'nowrap',
-                transition: 'color 0.3s ease',
-              }}
-              className="phone-link"
-            >
-              <span>📞</span>
-              <span>{COMPANY_CONFIG.phoneDisplay}</span>
-            </a>
-
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
             <Link
               href="/request-quote"
               style={{
-                padding: '0.5rem 1.25rem',
-                fontSize: '0.875rem',
+                padding: '0.45rem 0.75rem',
+                fontSize: '0.78rem',
                 fontWeight: 700,
                 borderRadius: '8px',
                 backgroundColor: '#2E7D32',
                 color: '#FFFFFF',
                 textDecoration: 'none',
-                whiteSpace: 'nowrap',
-                boxShadow: '0 2px 10px rgba(46,125,50,0.3)',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#1B5E20';
-                e.currentTarget.style.boxShadow = '0 4px 16px rgba(46,125,50,0.45)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#2E7D32';
-                e.currentTarget.style.boxShadow = '0 2px 10px rgba(46,125,50,0.3)';
               }}
             >
-              🚀 Get Quote
+              Request / Post
             </Link>
-
-            <Link
-              href="/register"
-              style={{
-                padding: '0.5rem 1rem',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                borderRadius: '8px',
-                border: `1.5px solid ${isLight ? '#2E7D32' : '#81C784'}`,
-                backgroundColor: 'transparent',
-                color: isLight ? '#2E7D32' : '#81C784',
-                textDecoration: 'none',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Create account
-            </Link>
-
             <button
               onClick={() => setIsLoginModalOpen(true)}
               style={{
-                padding: '0.5rem 1.25rem',
-                fontSize: '0.875rem',
-                fontWeight: 600,
+                padding: '0.45rem 0.75rem',
+                fontSize: '0.78rem',
+                fontWeight: 700,
                 borderRadius: '8px',
                 border: `1.5px solid ${isLight ? '#1F3A5F' : '#D4AF37'}`,
-                backgroundColor: isLight ? '#1F3A5F' : 'transparent',
-                color: isLight ? '#FFFFFF' : '#D4AF37',
+                backgroundColor: 'transparent',
+                color: isLight ? '#1F3A5F' : '#D4AF37',
                 cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#2E7D32';
-                e.currentTarget.style.borderColor = '#2E7D32';
-                e.currentTarget.style.color = '#FFFFFF';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = isLight ? '#1F3A5F' : 'transparent';
-                e.currentTarget.style.borderColor = isLight ? '#1F3A5F' : '#D4AF37';
-                e.currentTarget.style.color = isLight ? '#FFFFFF' : '#D4AF37';
               }}
             >
               Login
             </button>
-
             <button
               onClick={() => setMenuOpen(!menuOpen)}
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={menuOpen}
+              className="mobile-menu-btn"
               style={{
                 display: 'none',
                 background: 'none',
@@ -235,10 +123,8 @@ export function Navbar() {
                 color: isLight ? '#1F3A5F' : '#FFFFFF',
                 cursor: 'pointer',
                 padding: '0.25rem',
-                fontSize: '1.5rem',
-                transition: 'color 0.3s ease',
+                fontSize: '1.35rem',
               }}
-              className="mobile-menu-btn"
             >
               {menuOpen ? '✕' : '☰'}
             </button>
@@ -248,11 +134,7 @@ export function Navbar() {
         {menuOpen && (
           <nav
             aria-label="Mobile navigation"
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderTop: '1px solid rgba(31,58,95,0.1)',
-              padding: '1rem 24px 1.5rem',
-            }}
+            style={{ backgroundColor: '#FFFFFF', borderTop: '1px solid rgba(31,58,95,0.1)', padding: '0.75rem 16px 1rem' }}
           >
             {NAV_LINKS.map((link) => (
               <a
@@ -261,9 +143,9 @@ export function Navbar() {
                 onClick={() => setMenuOpen(false)}
                 style={{
                   display: 'block',
-                  padding: '0.75rem 0',
-                  fontSize: '1rem',
-                  fontWeight: 500,
+                  padding: '0.7rem 0',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
                   color: '#374151',
                   textDecoration: 'none',
                   borderBottom: '1px solid rgba(31,58,95,0.06)',
@@ -273,33 +155,14 @@ export function Navbar() {
               </a>
             ))}
             <Link
-              href="/request-quote"
-              onClick={() => setMenuOpen(false)}
-              style={{
-                display: 'block',
-                marginTop: '1rem',
-                padding: '0.75rem 1.5rem',
-                fontSize: '1rem',
-                fontWeight: 700,
-                color: '#FFFFFF',
-                backgroundColor: '#2E7D32',
-                textDecoration: 'none',
-                borderRadius: '8px',
-                textAlign: 'center',
-                boxShadow: '0 2px 10px rgba(46,125,50,0.35)',
-              }}
-            >
-              🚀 Get Quote
-            </Link>
-            <Link
               href="/register"
               onClick={() => setMenuOpen(false)}
               style={{
                 display: 'block',
                 marginTop: '0.75rem',
-                padding: '0.75rem 1.5rem',
-                fontSize: '1rem',
-                fontWeight: 600,
+                padding: '0.75rem 1rem',
+                fontSize: '0.95rem',
+                fontWeight: 700,
                 color: '#FFFFFF',
                 backgroundColor: '#1F3A5F',
                 textDecoration: 'none',
@@ -307,35 +170,36 @@ export function Navbar() {
                 textAlign: 'center',
               }}
             >
-              Create account
+              Join as Carrier / Owner Operator
             </Link>
-            <a
-              href={phoneHref}
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                setIsLoginModalOpen(true);
+              }}
               style={{
-                display: 'block',
-                marginTop: '1rem',
-                padding: '0.75rem 1.5rem',
-                fontSize: '1rem',
-                fontWeight: 600,
-                color: '#FFFFFF',
-                backgroundColor: '#1F3A5F',
-                textDecoration: 'none',
+                width: '100%',
+                marginTop: '0.6rem',
+                padding: '0.75rem 1rem',
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                color: '#1F3A5F',
+                backgroundColor: 'transparent',
+                border: '1px solid #1F3A5F',
                 borderRadius: '8px',
                 textAlign: 'center',
+                cursor: 'pointer',
               }}
             >
-              📞 Call {COMPANY_CONFIG.phoneDisplay}
-            </a>
+              Login
+            </button>
           </nav>
         )}
       </header>
 
       <style jsx>{`
-        @media (max-width: 900px) {
+        @media (max-width: 980px) {
           .desktop-nav {
-            display: none !important;
-          }
-          .phone-link {
             display: none !important;
           }
           .mobile-menu-btn {
@@ -344,10 +208,7 @@ export function Navbar() {
         }
       `}</style>
 
-      <LoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-      />
+      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
     </>
   );
 }

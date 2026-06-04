@@ -1,127 +1,60 @@
-'use client';
-
+import Link from 'next/link';
 import { Section } from '../ui/Section';
 
-const BENEFITS = [
-  {
-    icon: '⏰',
-    title: '24/7 Availability',
-    description: 'Round-the-clock service for urgent deliveries',
-  },
-  {
-    icon: '✅',
-    title: 'Insurance Compliance',
-    description: 'Insurance documentation required for transport partners',
-  },
-  {
-    icon: '👨‍✈️',
-    title: 'Professional Drivers',
-    description: 'Experienced and vetted transport professionals',
-  },
-  {
-    icon: '💬',
-    title: 'Status Updates',
-    description: 'Receive service status communication during delivery',
-  },
-  {
-    icon: '💳',
-    title: 'Flexible Payment',
-    description: 'Multiple payment options to suit your needs',
-  },
-  {
-    icon: '🌟',
-    title: 'Competitive Rates',
-    description: 'Quality service at fair, transparent pricing',
-  },
+const OWNER_OPERATOR_CAPABILITIES = [
+  'Operate as company, dispatcher, and driver within one account context.',
+  'Find available work on the exchange and submit quotes.',
+  'Manage your own awarded jobs from assignment through delivery.',
+  'Complete deliveries, upload POD, and create invoices.',
 ];
 
 export function Benefits() {
   return (
-    <Section>
+    <Section backgroundColor="#0E253E">
       <div style={{ paddingTop: '4rem', paddingBottom: '4rem' }}>
-        {/* Section Header */}
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <h2
-            style={{
-              fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-              fontWeight: 'var(--font-weight-bold)',
-              color: 'var(--color-text-white)',
-              marginBottom: '1rem',
-            }}
-          >
-            Why Choose XDrive Logistics
-          </h2>
-          <p
-            style={{
-              fontSize: '1.1rem',
-              color: 'var(--color-text-white-transparent)',
-              maxWidth: '600px',
-              margin: '0 auto',
-            }}
-          >
-            Trusted by businesses across the UK and Europe for reliable transport solutions
-          </p>
-        </div>
-
-        {/* Benefits Grid */}
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '2rem',
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(212,175,55,0.35)',
+            borderRadius: '16px',
+            padding: '1.2rem',
           }}
         >
-          {BENEFITS.map((benefit) => (
-            <div
-              key={benefit.title}
+          <p style={{ margin: 0, marginBottom: '0.65rem', color: '#D4AF37', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.04em' }}>
+            OWNER OPERATOR MODE
+          </p>
+          <h2 style={{ margin: '0 0 0.75rem', color: '#FFFFFF', fontSize: 'clamp(1.6rem, 4vw, 2.2rem)' }}>
+            Owner Operators are a first-class user type on XDrive
+          </h2>
+          <p style={{ margin: '0 0 1rem', color: 'rgba(255,255,255,0.84)', lineHeight: 1.6 }}>
+            If you run solo, XDrive supports your full workflow: commercial, dispatch, and delivery execution.
+          </p>
+
+          <ul style={{ margin: 0, paddingLeft: '1.05rem', color: 'rgba(255,255,255,0.9)', lineHeight: 1.6 }}>
+            {OWNER_OPERATOR_CAPABILITIES.map((capability) => (
+              <li key={capability} style={{ marginBottom: '0.45rem' }}>{capability}</li>
+            ))}
+          </ul>
+
+          <div style={{ marginTop: '1rem' }}>
+            <Link
+              href="/register"
               style={{
-                backgroundColor: 'var(--glass-bg)',
-                border: '1px solid var(--glass-border)',
-                borderRadius: '20px',
-                padding: '2rem',
-                backdropFilter: 'blur(10px)',
-                transition: 'transform 0.3s ease, border-color 0.3s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.borderColor = 'var(--color-gold-primary)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.borderColor = 'var(--glass-border)';
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0.8rem 1rem',
+                borderRadius: '10px',
+                backgroundColor: '#2E7D32',
+                color: '#FFFFFF',
+                textDecoration: 'none',
+                fontWeight: 700,
+                fontSize: '0.9rem',
               }}
             >
-              <div
-                style={{
-                  fontSize: '3rem',
-                  marginBottom: '1rem',
-                }}
-              >
-                {benefit.icon}
-              </div>
-
-              <h3
-                style={{
-                  fontSize: '1.25rem',
-                  fontWeight: 'var(--font-weight-semibold)',
-                  color: 'var(--color-text-white)',
-                  marginBottom: '0.75rem',
-                }}
-              >
-                {benefit.title}
-              </h3>
-
-              <p
-                style={{
-                  fontSize: '0.95rem',
-                  color: 'var(--color-text-white-transparent)',
-                  lineHeight: '1.5',
-                }}
-              >
-                {benefit.description}
-              </p>
-            </div>
-          ))}
+              Register as Owner Operator
+            </Link>
+          </div>
         </div>
       </div>
     </Section>

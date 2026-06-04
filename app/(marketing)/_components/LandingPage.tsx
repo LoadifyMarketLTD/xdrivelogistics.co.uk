@@ -2,14 +2,14 @@ import dynamic from 'next/dynamic';
 import { Navbar } from './sections/Navbar';
 import { Hero } from './sections/Hero';
 
-// Below-the-fold sections: split into separate JS chunks so the browser
-// can defer parsing them until after the initial paint is complete.
-const KPIStats = dynamic(() => import('./sections/KPIStats').then((m) => ({ default: m.KPIStats })));
-const ForDrivers = dynamic(() => import('./sections/ForDrivers').then((m) => ({ default: m.ForDrivers })));
-const ForCompanies = dynamic(() => import('./sections/ForCompanies').then((m) => ({ default: m.ForCompanies })));
+const RoleCards = dynamic(() => import('./sections/KPIStats').then((m) => ({ default: m.KPIStats })));
+const MarketplaceExchange = dynamic(() => import('./sections/ForDrivers').then((m) => ({ default: m.ForDrivers })));
 const HowItWorks = dynamic(() => import('./sections/HowItWorks').then((m) => ({ default: m.HowItWorks })));
-const Benefits = dynamic(() => import('./sections/Benefits').then((m) => ({ default: m.Benefits })));
+const OperationsSection = dynamic(() => import('./sections/ForCompanies').then((m) => ({ default: m.ForCompanies })));
+const OwnerOperatorSection = dynamic(() => import('./sections/Benefits').then((m) => ({ default: m.Benefits })));
+const TrustCompliance = dynamic(() => import('./sections/TrustCompliance').then((m) => ({ default: m.TrustCompliance })));
 const FAQ = dynamic(() => import('./sections/FAQ').then((m) => ({ default: m.FAQ })));
+const FinalCTA = dynamic(() => import('./sections/FinalCTA').then((m) => ({ default: m.FinalCTA })));
 const Footer = dynamic(() => import('./sections/Footer').then((m) => ({ default: m.Footer })));
 
 export function LandingPage() {
@@ -25,18 +25,28 @@ export function LandingPage() {
       <div id="home">
         <Hero />
       </div>
-      <KPIStats />
-      <div id="for-drivers">
-        <ForDrivers />
+      <div id="roles">
+        <RoleCards />
       </div>
-      <div id="for-companies">
-        <ForCompanies />
+      <div id="exchange">
+        <MarketplaceExchange />
       </div>
       <div id="how-it-works">
         <HowItWorks />
       </div>
-      <Benefits />
+      <div id="operations">
+        <OperationsSection />
+      </div>
+      <div id="owner-operator">
+        <OwnerOperatorSection />
+      </div>
+      <div id="trust">
+        <TrustCompliance />
+      </div>
       <FAQ />
+      <div id="final-cta">
+        <FinalCTA />
+      </div>
       <div id="contact">
         <Footer />
       </div>

@@ -1,29 +1,10 @@
-'use client';
-
+import Link from 'next/link';
 import { Section } from '../ui/Section';
-import { PrimaryButton } from '../ui/PrimaryButton';
 
-const FEATURES = [
-  {
-    icon: '💰',
-    title: 'Competitive Rates',
-    description: 'Fair pricing with transparent invoicing',
-  },
-  {
-    icon: '📱',
-    title: 'Easy Communication',
-    description: 'Stay connected throughout delivery',
-  },
-  {
-    icon: '⚡',
-    title: 'Flexible Work',
-    description: 'Choose jobs that fit your schedule',
-  },
-  {
-    icon: '📊',
-    title: 'Track Earnings',
-    description: 'Monitor your performance and payments',
-  },
+const EXCHANGE_POINTS = [
+  'Brokers and load posters can publish transport work to the exchange board.',
+  'Carrier companies and owner operators can review work and send quotes.',
+  'Awarded work moves directly into the operational workflow for execution.',
 ];
 
 export function ForDrivers() {
@@ -33,95 +14,65 @@ export function ForDrivers() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1fr',
-            gap: '3rem',
+            gridTemplateColumns: 'minmax(0, 1fr)',
+            gap: '1.2rem',
+            backgroundColor: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(212,175,55,0.35)',
+            borderRadius: '16px',
+            padding: '1.2rem',
           }}
         >
-          {/* Left: Content */}
-          <div>
-            <div
+          <p style={{ margin: 0, color: '#D4AF37', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.04em' }}>
+            MARKETPLACE / WORK EXCHANGE
+          </p>
+          <h2 style={{ margin: 0, color: '#FFFFFF', fontSize: 'clamp(1.6rem, 4vw, 2.25rem)', lineHeight: 1.2 }}>
+            Exchange-first workflow for posting, quoting, and awarding transport work
+          </h2>
+          <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6 }}>
+            XDrive is designed as an operational exchange where work is posted, priced, awarded, then executed through delivery operations.
+          </p>
+
+          <ul style={{ margin: 0, paddingLeft: '1.05rem', color: 'rgba(255,255,255,0.88)', lineHeight: 1.6 }}>
+            {EXCHANGE_POINTS.map((point) => (
+              <li key={point} style={{ marginBottom: '0.35rem' }}>{point}</li>
+            ))}
+          </ul>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <Link
+              href="/request-quote"
               style={{
-                display: 'inline-block',
-                backgroundColor: 'var(--color-gold-primary)',
-                color: 'var(--color-primary-navy-dark)',
-                padding: '0.5rem 1rem',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '0.875rem',
-                fontWeight: 'var(--font-weight-semibold)',
-                marginBottom: '1.5rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0.8rem 1rem',
+                borderRadius: '10px',
+                backgroundColor: '#2E7D32',
+                color: '#FFFFFF',
+                textDecoration: 'none',
+                fontWeight: 700,
+                fontSize: '0.9rem',
               }}
             >
-              FOR DRIVERS
-            </div>
-
-            <h2
+              Post Work / Request Quote
+            </Link>
+            <Link
+              href="/register"
               style={{
-                fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-                fontWeight: 'var(--font-weight-bold)',
-                color: 'var(--color-text-white)',
-                marginBottom: '1rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0.8rem 1rem',
+                borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.3)',
+                color: '#FFFFFF',
+                textDecoration: 'none',
+                fontWeight: 700,
+                fontSize: '0.9rem',
               }}
             >
-              Join Our Network of Professional Drivers
-            </h2>
-
-            <p
-              style={{
-                fontSize: '1.1rem',
-                color: 'var(--color-text-white-transparent)',
-                marginBottom: '2rem',
-                lineHeight: '1.6',
-              }}
-            >
-              Access consistent work opportunities with competitive pay. 
-              Manage your jobs efficiently with our mobile-friendly platform.
-            </p>
-
-            {/* Features Grid */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1.5rem',
-                marginBottom: '2rem',
-              }}
-            >
-              {FEATURES.map((feature) => (
-                <div key={feature.title}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
-                    {feature.icon}
-                  </div>
-                  <h3
-                    style={{
-                      fontSize: '1.1rem',
-                      fontWeight: 'var(--font-weight-semibold)',
-                      color: 'var(--color-text-white)',
-                      marginBottom: '0.5rem',
-                    }}
-                  >
-                    {feature.title}
-                  </h3>
-                  <p
-                    style={{
-                      fontSize: '0.95rem',
-                      color: 'var(--color-text-white-transparent)',
-                      lineHeight: '1.5',
-                    }}
-                  >
-                    {feature.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <PrimaryButton href="/register" variant="primary" size="lg">
-                Join as Driver
-              </PrimaryButton>
-              <PrimaryButton href="/login" variant="secondary" size="lg">
-                Driver Login
-              </PrimaryButton>
-            </div>
+              Join to Quote as Carrier / Owner Operator
+            </Link>
           </div>
         </div>
       </div>
