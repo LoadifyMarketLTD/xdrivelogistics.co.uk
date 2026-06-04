@@ -32,7 +32,10 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
   const isAdminHome = pathname === '/admin';
 
   const role = (user?.role ?? null) as AppUserRole | null;
-  const navSections = getNavSectionsForRole(role);
+  const navSections = getNavSectionsForRole(role, {
+    membershipRole: user?.membershipRole ?? null,
+    financeAccess: user?.financeAccess ?? null,
+  });
   const navItems = navSections.flatMap((section) => section.items);
 
   const activeModule = useMemo(
@@ -42,7 +45,19 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
 
   const companyLabel = user?.companyId ? `Company ${user.companyId.slice(0, 8)}` : 'Company pending';
   const roleLabel = role ? ROLE_LABEL[role] ?? role : 'Role pending';
-  const workspaceLabel = role ? WORKSPACE_LABEL[role] ?? 'Workspace' : 'Workspace';
+  const ownerDriverBusinessWorkspace =
+    user?.ownerDriverWorkspace === true && role !== 'driver' && user?.canAccessDriverMode === true;
+  const ownerDriverDriverMode =
+    user?.ownerDriverWorkspace === true &&
+    user?.canAccessDriverMode === true &&
+    (role === 'driver' || user?.ownerDriverExecutionMode === true);
+  const workspaceLabel = ownerDriverBusinessWorkspace
+    ? 'Owner Driver Business Workspace'
+    : ownerDriverDriverMode
+      ? 'Owner Driver Driver Mode'
+      : role
+        ? WORKSPACE_LABEL[role] ?? 'Workspace'
+        : 'Workspace';
   const moduleLabel = activeModule?.label ?? 'Module workspace';
 
   if (isAdminHome) {
@@ -69,7 +84,7 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
               <div style={{ fontSize: '1.02rem', fontWeight: 700, color: '#0f172a', marginTop: '0.12rem' }}>{moduleLabel}</div>
             </div>
             <button
-              onClick={() => router.push('/admin')}
+              onClick={() => router.push(ownerDriverBusinessWorkspace ? '/admin/marketplace' : '/admin')}
               style={{
                 padding: '0.48rem 0.78rem',
                 border: '1px solid #cbd5e1',
@@ -139,4 +154,3 @@ function ShellContextCard({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-

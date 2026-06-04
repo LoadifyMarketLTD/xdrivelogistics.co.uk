@@ -21,6 +21,9 @@ type RouteAuthResult =
       role: AppUserRole;
       mustChangePassword: boolean;
       appAccess: boolean | null;
+      ownerDriverWorkspace: boolean;
+      ownerDriverExecutionMode: boolean;
+      canAccessDriverMode: boolean;
     };
 
 const buildRedirect = (request: NextRequest, pathname: string, clearCookie = false) => {
@@ -72,6 +75,63 @@ const buildLoginRedirect = (request: NextRequest, reason?: string) => {
 const readFallbackRole = (value: unknown) =>
   typeof value === 'string' && value.trim().length > 0 ? value : null;
 
+const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, key: string) => {
+  const value = metadata?.[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value : null;
+};
+
+const readMetadataFlag = (metadata: Record<string, unknown> | null | undefined, key: string) => {
+  const value = metadata?.[key];
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return false;
+  const normalized = value.toLowerCase().trim();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
+};
+
+const isOwnerDriverWorkspaceRequested = (
+  userMetadata: Record<string, unknown> | null | undefined,
+  appMetadata: Record<string, unknown> | null | undefined
+) => {
+  const tags = [
+    readMetadataRole(userMetadata, 'account_type'),
+    readMetadataRole(userMetadata, 'workspace_mode'),
+    readMetadataRole(userMetadata, 'requested_role'),
+    readMetadataRole(userMetadata, 'role'),
+    readMetadataRole(appMetadata, 'account_type'),
+    readMetadataRole(appMetadata, 'workspace_mode'),
+    readMetadataRole(appMetadata, 'requested_role'),
+    readMetadataRole(appMetadata, 'role'),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase().trim());
+
+  return (
+    readMetadataFlag(userMetadata, 'owner_driver_workspace') ||
+    readMetadataFlag(appMetadata, 'owner_driver_workspace') ||
+    tags.some((value) => value === 'owner_driver' || value === 'owner-driver' || value === 'sole_trader')
+  );
+};
+
+const isOwnerDriverExecutionModeRequested = (
+  userMetadata: Record<string, unknown> | null | undefined,
+  appMetadata: Record<string, unknown> | null | undefined
+) => {
+  const tags = [
+    readMetadataRole(userMetadata, 'workspace_mode'),
+    readMetadataRole(userMetadata, 'execution_mode'),
+    readMetadataRole(appMetadata, 'workspace_mode'),
+    readMetadataRole(appMetadata, 'execution_mode'),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase().trim());
+
+  return (
+    readMetadataFlag(userMetadata, 'owner_driver_execution_mode') ||
+    readMetadataFlag(appMetadata, 'owner_driver_execution_mode') ||
+    tags.some((value) => value === 'driver' || value === 'driver_mode' || value === 'execution')
+  );
+};
+
 const isServiceFailure = (message: string | null | undefined) => {
   const normalized = (message ?? '').toLowerCase();
   return (
@@ -99,10 +159,28 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
   }
 
   const fallbackRole = readFallbackRole(authData.user.app_metadata?.role);
+  const ownerDriverWorkspace = isOwnerDriverWorkspaceRequested(
+    authData.user.user_metadata as Record<string, unknown> | null | undefined,
+    authData.user.app_metadata as Record<string, unknown> | null | undefined
+  );
+  const ownerDriverExecutionMode = isOwnerDriverExecutionModeRequested(
+    authData.user.user_metadata as Record<string, unknown> | null | undefined,
+    authData.user.app_metadata as Record<string, unknown> | null | undefined
+  );
 
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     const role = mapAppRole(fallbackRole);
-    return role ? { kind: 'authenticated', role, mustChangePassword: false, appAccess: null } : { kind: 'forbidden' };
+    return role
+      ? {
+          kind: 'authenticated',
+          role,
+          mustChangePassword: false,
+          appAccess: null,
+          ownerDriverWorkspace,
+          ownerDriverExecutionMode,
+          canAccessDriverMode: ownerDriverWorkspace && role === 'driver',
+        }
+      : { kind: 'forbidden' };
   }
 
   const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
@@ -166,17 +244,30 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     hasCreatedCompany: creatorCompany != null,
     creatorCompanyType: creatorCompany?.company_type ?? null,
     fallbackRole,
+    ownerDriverWorkspaceRequested: ownerDriverWorkspace,
   });
 
   if (!role) {
     return { kind: 'forbidden' };
   }
 
+  const canAccessDriverMode =
+    ownerDriverWorkspace &&
+    (
+      driver != null ||
+      profile?.is_driver === true ||
+      mapAppRole(profile?.role ?? null) === 'driver' ||
+      mapAppRole(fallbackRole) === 'driver'
+    );
+
   return {
     kind: 'authenticated',
     role,
-    mustChangePassword: role === 'driver' && driver?.must_change_password === true,
-    appAccess: role === 'driver' ? (driver?.app_access ?? null) : null,
+    mustChangePassword: (role === 'driver' || canAccessDriverMode) && driver?.must_change_password === true,
+    appAccess: (role === 'driver' || canAccessDriverMode) ? (driver?.app_access ?? null) : null,
+    ownerDriverWorkspace,
+    ownerDriverExecutionMode,
+    canAccessDriverMode,
   };
 };
 
@@ -199,7 +290,10 @@ export async function middleware(request: NextRequest) {
     url.pathname === DRIVER_JOBS_PATH &&
     (url.searchParams.get('mock-dashboard') === '1' || url.searchParams.has('mock-dashboard'));
 
-  if (auth.role === 'driver') {
+  const driverRouteRequested = url.pathname === DRIVER_PATH || url.pathname.startsWith('/driver/');
+  const driverModeActive = auth.role === 'driver' || (auth.canAccessDriverMode && driverRouteRequested);
+
+  if (driverModeActive) {
     if (auth.appAccess === false) {
       return buildRedirect(request, FORBIDDEN_PATH);
     }
@@ -214,14 +308,38 @@ export async function middleware(request: NextRequest) {
   }
 
   if (url.pathname === DRIVER_PATH) {
+    if (auth.canAccessDriverMode) {
+      return buildRedirect(
+        request,
+        getPostLoginRoute({
+          role: auth.role,
+          mustChangePassword: auth.mustChangePassword,
+          ownerDriverWorkspace: auth.ownerDriverWorkspace,
+          canAccessDriverMode: true,
+          ownerDriverExecutionMode: true,
+        })
+      );
+    }
     return buildRedirect(
       request,
-      getPostLoginRoute({ role: auth.role, mustChangePassword: auth.mustChangePassword })
+      getPostLoginRoute({
+        role: auth.role,
+        mustChangePassword: auth.mustChangePassword,
+        ownerDriverWorkspace: auth.ownerDriverWorkspace,
+        canAccessDriverMode: auth.canAccessDriverMode,
+        ownerDriverExecutionMode: auth.ownerDriverExecutionMode,
+      })
     );
   }
 
-  if (!isRoleAllowedForPath(url.pathname, auth.role)) {
-    const canonicalPath = getPostLoginRoute({ role: auth.role, mustChangePassword: auth.mustChangePassword });
+  if (!isRoleAllowedForPath(url.pathname, auth.role, { canAccessDriverMode: auth.canAccessDriverMode })) {
+    const canonicalPath = getPostLoginRoute({
+      role: auth.role,
+      mustChangePassword: auth.mustChangePassword,
+      ownerDriverWorkspace: auth.ownerDriverWorkspace,
+      canAccessDriverMode: auth.canAccessDriverMode,
+      ownerDriverExecutionMode: auth.ownerDriverExecutionMode,
+    });
     return canonicalPath !== url.pathname
       ? buildRedirect(request, canonicalPath)
       : buildRedirect(request, FORBIDDEN_PATH);

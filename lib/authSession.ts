@@ -59,6 +59,10 @@ export type ResolvedAuthUser = {
   membershipRole: CompanyMembership['role_in_company'] | null;
   driverId: string | null;
   mustChangePassword: boolean;
+  ownerDriverWorkspace: boolean;
+  canAccessDriverMode: boolean;
+  ownerDriverExecutionMode: boolean;
+  financeAccess: 'full' | 'limited' | 'hidden';
 };
 
 const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, key: string) => {
@@ -98,6 +102,41 @@ const isOwnerDriverWorkspaceRequested = (sessionUser: SessionUser) => {
   );
 };
 
+const isOwnerDriverExecutionModeRequested = (sessionUser: SessionUser) => {
+  const tags = [
+    readMetadataRole(sessionUser.user_metadata, 'workspace_mode'),
+    readMetadataRole(sessionUser.user_metadata, 'execution_mode'),
+    readMetadataRole(sessionUser.app_metadata, 'workspace_mode'),
+    readMetadataRole(sessionUser.app_metadata, 'execution_mode'),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase().trim());
+
+  return (
+    readMetadataFlag(sessionUser.user_metadata, 'owner_driver_execution_mode') ||
+    readMetadataFlag(sessionUser.app_metadata, 'owner_driver_execution_mode') ||
+    tags.some((value) => value === 'driver' || value === 'driver_mode' || value === 'execution')
+  );
+};
+
+const resolveFinanceAccess = (
+  role: UserRole,
+  membershipRole: CompanyMembership['role_in_company'] | null,
+  sessionUser: SessionUser
+): 'full' | 'limited' | 'hidden' => {
+  if (role === 'owner' || role === 'company_admin') return 'full';
+  if (role !== 'company_staff') return 'hidden';
+
+  const explicitFinanceFlag =
+    readMetadataFlag(sessionUser.user_metadata, 'finance_view') ||
+    readMetadataFlag(sessionUser.app_metadata, 'finance_view') ||
+    readMetadataFlag(sessionUser.user_metadata, 'dispatcher_finance_access') ||
+    readMetadataFlag(sessionUser.app_metadata, 'dispatcher_finance_access');
+
+  if (explicitFinanceFlag || membershipRole === 'dispatcher') return 'limited';
+  return 'hidden';
+};
+
 export const resolveAuthenticatedUser = async (
   sessionUser: SessionUser
 ): Promise<AuthResolutionResult> => {
@@ -117,6 +156,7 @@ export const resolveAuthenticatedUser = async (
 
   const fallbackRole = getFallbackRole(sessionUser);
   const ownerDriverWorkspaceRequested = isOwnerDriverWorkspaceRequested(sessionUser);
+  const ownerDriverExecutionModeRequested = isOwnerDriverExecutionModeRequested(sessionUser);
   const profileLookupQuery = `profiles.select(role,status,is_driver,company_id).eq(user_id,${sessionUser.id}).maybeSingle()`;
   const membershipLookupQuery =
     `company_memberships.select(id,company_id,role_in_company,status).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc)`;
@@ -382,7 +422,22 @@ export const resolveAuthenticatedUser = async (
       resolvedMembership?.id ?? null,
       resolvedMembership?.role_in_company ?? null,
       driverId,
-      resolvedRole === 'driver' ? mustChangePassword : false
+      resolvedRole === 'driver' ? mustChangePassword : false,
+      {
+        ownerDriverWorkspace: ownerDriverWorkspaceRequested,
+        canAccessDriverMode:
+          ownerDriverWorkspaceRequested &&
+          (Boolean(driver) ||
+            profile?.is_driver === true ||
+            mapAppRole(profile?.role ?? null) === 'driver' ||
+            mapAppRole(fallbackRole) === 'driver'),
+        ownerDriverExecutionMode: ownerDriverExecutionModeRequested,
+        financeAccess: resolveFinanceAccess(
+          resolvedRole,
+          (resolvedMembership?.role_in_company as CompanyMembership['role_in_company'] | null) ?? null,
+          sessionUser
+        ),
+      }
     );
   }
 
@@ -409,7 +464,13 @@ const ok = (
   membershipId: string | null,
   membershipRole: CompanyMembership['role_in_company'] | null,
   driverId: string | null,
-  mustChangePassword: boolean
+  mustChangePassword: boolean,
+  options: {
+    ownerDriverWorkspace: boolean;
+    canAccessDriverMode: boolean;
+    ownerDriverExecutionMode: boolean;
+    financeAccess: 'full' | 'limited' | 'hidden';
+  }
 ): AuthResolutionResult => {
   const resolved: ResolvedAuthUser = {
     id: sessionUser.id,
@@ -420,12 +481,31 @@ const ok = (
     membershipRole,
     driverId,
     mustChangePassword,
+    ownerDriverWorkspace: options.ownerDriverWorkspace,
+    canAccessDriverMode: options.canAccessDriverMode,
+    ownerDriverExecutionMode: options.ownerDriverExecutionMode,
+    financeAccess: options.financeAccess,
   };
   console.debug('[XDrive Auth] resolved user', { role, companyId, userId: sessionUser.id });
   return { user: resolved, reason: null };
 };
 
-export const getPostLoginRoute = (currentUser: Pick<ResolvedAuthUser, 'role' | 'mustChangePassword'>) => {
+export const getPostLoginRoute = (
+  currentUser: Pick<
+    ResolvedAuthUser,
+    'role' | 'mustChangePassword' | 'ownerDriverWorkspace' | 'canAccessDriverMode' | 'ownerDriverExecutionMode'
+  >
+) => {
+  if (
+    currentUser.ownerDriverWorkspace &&
+    currentUser.canAccessDriverMode &&
+    currentUser.ownerDriverExecutionMode
+  ) {
+    return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
+  }
+  if (currentUser.ownerDriverWorkspace && currentUser.canAccessDriverMode) {
+    return '/admin/marketplace';
+  }
   if (currentUser.role === 'driver') return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
   if (currentUser.role === 'broker') return '/admin/marketplace';
   if (currentUser.role === 'customer') return '/customer';
@@ -433,5 +513,10 @@ export const getPostLoginRoute = (currentUser: Pick<ResolvedAuthUser, 'role' | '
   return '/admin';
 };
 
-export const roleCanAccessPath = (currentUser: Pick<ResolvedAuthUser, 'role'>, path: string) =>
-  isRoleAllowedForPath(path, mapAppRole(currentUser.role));
+export const roleCanAccessPath = (
+  currentUser: Pick<ResolvedAuthUser, 'role'> & { canAccessDriverMode?: boolean },
+  path: string
+) =>
+  isRoleAllowedForPath(path, mapAppRole(currentUser.role), {
+    canAccessDriverMode: currentUser.canAccessDriverMode === true,
+  });

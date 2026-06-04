@@ -47,6 +47,11 @@ export type NavSection = {
   items: NavItem[];
 };
 
+export type NavVisibilityContext = {
+  membershipRole?: string | null;
+  financeAccess?: 'full' | 'limited' | 'hidden' | null;
+};
+
 export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'home',
@@ -57,9 +62,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'marketplace',
     label: 'Marketplace / Loads',
-    // Brokers browse loads; owner/admin manage exchange listings
-    // Dispatchers (company_staff) do not have marketplace access
-    roles: ['owner', 'company_admin', 'broker'],
+    // Company staff can find work and convert won work; permissions stay policy-based.
+    roles: ['owner', 'company_admin', 'company_staff', 'broker'],
     items: [
       { id: 'marketplace', label: 'Load Board', icon: '🏪', href: '/admin/marketplace' },
     ],
@@ -67,8 +71,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'quotes_bids',
     label: 'Quotes & Bids',
-    // Commercial negotiation — owner, admin, broker only
-    roles: ['owner', 'company_admin', 'broker'],
+    // Company staff can price and quote; decision actions remain API/RLS protected.
+    roles: ['owner', 'company_admin', 'company_staff', 'broker'],
     items: [
       { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
       { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
@@ -123,8 +127,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'finance_module',
     label: 'Finance / Invoices',
-    // Finance is restricted to owner and admin — dispatchers have no invoice access
-    roles: ['owner', 'company_admin'],
+    // Finance visibility can be policy-gated for staff (limited mode).
+    roles: ['owner', 'company_admin', 'company_staff'],
     items: [
       { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
     ],
@@ -154,9 +158,22 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
  * Returns the nav sections visible for the given role.
  * Sections without a `roles` array are visible to all admin roles.
  */
-export const getNavSectionsForRole = (role: AppUserRole | null): NavSection[] => {
+const canShowFinanceSection = (
+  role: AppUserRole,
+  context: NavVisibilityContext
+) => {
+  if (role === 'owner' || role === 'company_admin') return true;
+  if (role !== 'company_staff') return false;
+  return context.financeAccess === 'full' || context.financeAccess === 'limited' || context.membershipRole === 'dispatcher';
+};
+
+export const getNavSectionsForRole = (role: AppUserRole | null, context: NavVisibilityContext = {}): NavSection[] => {
   if (!role) return PLATFORM_NAV_SECTIONS.filter((s) => !s.roles);
-  return PLATFORM_NAV_SECTIONS.filter((s) => !s.roles || s.roles.includes(role));
+  return PLATFORM_NAV_SECTIONS.filter((section) => {
+    if (section.roles && !section.roles.includes(role)) return false;
+    if (section.id === 'finance_module') return canShowFinanceSection(role, context);
+    return true;
+  });
 };
 
 /** @deprecated Use PLATFORM_NAV_SECTIONS; kept for compatibility. */
