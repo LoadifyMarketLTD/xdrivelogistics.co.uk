@@ -13,6 +13,7 @@ import {
   resolveInvoiceClientName,
   selectWithMissingColumnFallback,
 } from '../../lib/supabaseSchemaCompat';
+import { WORKFLOW_NAV_SECTIONS, WorkflowStageStrip } from './workflowUi';
 
 type DashboardOverview = {
   activeJobs: number;
@@ -164,26 +165,10 @@ const DEFAULT_DASHBOARD: DashboardState = {
   activity: [],
 };
 
-const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/admin' },
-  { id: 'marketplace', label: 'Marketplace', icon: '🏪', href: '/admin/marketplace' },
-  { id: 'diary', label: 'Diary / Operations', icon: '🗓️', href: '/admin/diary' },
-  { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
-  { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
-  { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
-  { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
-  { id: 'drivers', label: 'Drivers', icon: '👤', href: '/admin/drivers' },
-  { id: 'vehicles', label: 'Vehicles', icon: '🚛', href: '/admin/vehicles' },
-  { id: 'fleet', label: 'Fleet Tracking', icon: '🧭', href: '/admin/fleet' },
-  { id: 'companies', label: 'Companies', icon: '🏢', href: '/admin/companies' },
-  { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
-  { id: 'settings', label: 'Settings', icon: '⚙️', href: '/admin/settings' },
-];
-
 const quickActionTiles = [
   {
-    title: 'Open diary',
-    description: 'Work live allocations and in-progress jobs.',
+    title: 'Assign work',
+    description: 'Allocate unassigned jobs to available drivers.',
     href: '/admin/diary',
     icon: '🗓️',
     background: '#ecfdf5',
@@ -191,8 +176,8 @@ const quickActionTiles = [
     border: '#86efac',
   },
   {
-    title: 'Manage loads',
-    description: 'Review pickup/delivery jobs and dispatch actions.',
+    title: 'Complete work',
+    description: 'Run the operational jobs board and close deliveries.',
     href: '/admin/jobs',
     icon: '📦',
     background: '#eff6ff',
@@ -200,8 +185,8 @@ const quickActionTiles = [
     border: '#bfdbfe',
   },
   {
-    title: 'Action quotes',
-    description: 'Review received, submitted and won quotes.',
+    title: 'Price work',
+    description: 'Progress quote inbox, sent, won and rejected work.',
     href: '/admin/quotes',
     icon: '💬',
     background: '#fff7ed',
@@ -209,8 +194,8 @@ const quickActionTiles = [
     border: '#fed7aa',
   },
   {
-    title: 'Fleet tracking',
-    description: 'See vehicle status and latest tracked positions.',
+    title: 'Track work',
+    description: 'Monitor fleet availability and live tracked positions.',
     href: '/admin/fleet',
     icon: '🧭',
     background: '#eef2ff',
@@ -218,8 +203,8 @@ const quickActionTiles = [
     border: '#c7d2fe',
   },
   {
-    title: 'Review invoices',
-    description: 'Focus on outstanding and overdue finance items.',
+    title: 'Invoice work',
+    description: 'Prioritise overdue and outstanding invoice recovery.',
     href: '/admin/invoices',
     icon: '💰',
     background: '#ecfdf5',
@@ -227,8 +212,8 @@ const quickActionTiles = [
     border: '#a7f3d0',
   },
   {
-    title: 'Manage drivers',
-    description: 'Add, edit and remove drivers for your company.',
+    title: 'Manage resources',
+    description: 'Keep drivers ready and available for allocation.',
     href: '/admin/drivers',
     icon: '👤',
     background: '#f5f3ff',
@@ -815,56 +800,72 @@ export default function AdminPage() {
           <div style={{ padding: '1.1rem 1rem', borderBottom: '1px solid rgba(159, 180, 203, 0.22)' }}>
             <h1 style={{ fontSize: '1.02rem', fontWeight: '700', margin: 0, color: 'white', lineHeight: 1.35 }}>{COMPANY_CONFIG.legalName}</h1>
             <p style={{ fontSize: '0.74rem', margin: '0.3rem 0 0 0', color: ENTERPRISE_THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Operations Console
+              Dispatcher Workspace
             </p>
           </div>
 
-          <nav style={{ flex: 1, padding: '0.6rem' }}>
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <button
-                  className="nav-item"
-                  key={item.id}
-                  onClick={() => {
-                    router.push(item.href);
-                    if (isMobile) setSidebarOpen(false);
-                  }}
+          <nav style={{ flex: 1, padding: '0.6rem', overflowY: 'auto' }}>
+            {WORKFLOW_NAV_SECTIONS.map((section) => (
+              <div key={section.id} style={{ marginBottom: '0.7rem' }}>
+                <div
                   style={{
-                    width: '100%',
-                    padding: '0.58rem 0.72rem',
-                    backgroundColor: isActive ? 'rgba(63, 131, 248, 0.18)' : 'transparent',
-                    color: 'white',
-                    border: 'none',
-                    borderLeft: isActive ? `3px solid ${ENTERPRISE_THEME.colors.live}` : '3px solid transparent',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.55rem',
-                    fontSize: '0.84rem',
-                    fontWeight: isActive ? '600' : '500',
-                    borderRadius: '8px',
-                    transition: 'background-color 0.15s ease',
+                    fontSize: '0.67rem',
+                    color: ENTERPRISE_THEME.shellMuted,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    fontWeight: 700,
+                    margin: '0.35rem 0.5rem',
                   }}
                 >
-                  <span
-                    style={{
-                      width: '22px',
-                      height: '22px',
-                      borderRadius: '6px',
-                      display: 'grid',
-                      placeItems: 'center',
-                      fontSize: '0.88rem',
-                      backgroundColor: 'rgba(159, 180, 203, 0.2)',
-                    }}
-                  >
-                    {item.icon}
-                  </span>
-                  {item.label}
-                </button>
-              );
-            })}
+                  {section.label}
+                </div>
+                {section.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <button
+                      className="nav-item"
+                      key={item.id}
+                      onClick={() => {
+                        router.push(item.href);
+                        if (isMobile) setSidebarOpen(false);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '0.58rem 0.72rem',
+                        backgroundColor: isActive ? 'rgba(63, 131, 248, 0.18)' : 'transparent',
+                        color: 'white',
+                        border: 'none',
+                        borderLeft: isActive ? `3px solid ${ENTERPRISE_THEME.colors.live}` : '3px solid transparent',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.55rem',
+                        fontSize: '0.82rem',
+                        fontWeight: isActive ? '600' : '500',
+                        borderRadius: '8px',
+                        transition: 'background-color 0.15s ease',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '6px',
+                          display: 'grid',
+                          placeItems: 'center',
+                          fontSize: '0.88rem',
+                          backgroundColor: 'rgba(159, 180, 203, 0.2)',
+                        }}
+                      >
+                        {item.icon}
+                      </span>
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
 
           <div style={{ padding: '0.9rem', borderTop: '1px solid rgba(159, 180, 203, 0.22)' }}>
@@ -913,9 +914,9 @@ export default function AdminPage() {
           )}
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
             <div>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Dashboard</h2>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Command Centre</h2>
               <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: 0, maxWidth: '760px', fontSize: '0.86rem' }}>
-                Snapshot of today’s activity with quick links to operational pages.
+                Dispatcher-first workflow view across find, price, win, assign, track, complete and invoice.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
@@ -933,7 +934,7 @@ export default function AdminPage() {
                   color: 'white',
                 }}
               >
-                🗓️ Open Diary
+                🗓️ Open Allocation Diary
               </button>
             </div>
           </div>
@@ -954,6 +955,20 @@ export default function AdminPage() {
               {dashboardError}
             </div>
           )}
+
+          <WorkflowStageStrip
+            activeStage="assign"
+            counts={{
+              find: dashboard.market.incomingBids,
+              price: dashboard.overview.pendingQuotes,
+              win: dashboard.market.acceptedQuotes,
+              assign: dashboard.jobsByStatus.posted,
+              track: dashboard.jobsByStatus.inTransit,
+              complete: dashboard.overview.activeJobs,
+              invoice: dashboard.finance.outstandingInvoices,
+            }}
+            marginBottom="0.75rem"
+          />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
             {overviewCards.map((stat) => (

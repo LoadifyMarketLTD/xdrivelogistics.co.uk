@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import type { Vehicle } from '../../../lib/types/database';
+import { WorkflowStageStrip } from '../workflowUi';
 
 type FleetDriver = {
   id: string;
@@ -33,6 +35,7 @@ type SupabaseErrorLike = {
 };
 
 export default function FleetPage() {
+  const router = useRouter();
   const { user, hasSupabaseSession } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -117,11 +120,29 @@ export default function FleetPage() {
   return (
     <ProtectedRoute>
       <div style={{ minHeight: '100vh', background: '#f3f4f6', padding: '1rem' }}>
-        <div style={{ width: '100%' }}>
-          <h1 style={{ margin: 0, color: '#111827', fontSize: '2rem' }}>Fleet</h1>
-          <p style={{ margin: '0.4rem 0 1rem 0', color: '#6b7280' }}>Operational vehicle availability and tracking status.</p>
+        <div style={{ width: '100%', maxWidth: '1280px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div>
+              <h1 style={{ margin: 0, color: '#111827', fontSize: '2rem' }}>Fleet Workspace</h1>
+              <p style={{ margin: '0.4rem 0 1rem 0', color: '#6b7280' }}>Availability-first view for drivers, vehicles, and live tracking.</p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              <button onClick={() => router.push('/admin/drivers')} style={{ padding: '0.55rem 0.85rem', border: '1px solid #d1d5db', borderRadius: '8px', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#0f172a' }}>Drivers</button>
+              <button onClick={() => router.push('/admin/vehicles')} style={{ padding: '0.55rem 0.85rem', border: '1px solid #d1d5db', borderRadius: '8px', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#0f172a' }}>Vehicles</button>
+              <button onClick={() => router.push('/admin/documents')} style={{ padding: '0.55rem 0.85rem', border: '1px solid #d1d5db', borderRadius: '8px', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#0f172a' }}>Documents</button>
+            </div>
+          </div>
+
+          <WorkflowStageStrip
+            activeStage="track"
+            counts={{
+              assign: drivers.filter((driver) => driver.availability_status === 'available').length,
+              track: vehicles.length,
+              complete: drivers.filter((driver) => driver.availability_status === 'busy').length,
+            }}
+          />
         </div>
-        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', overflowX: 'auto', width: '100%' }}>
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', overflowX: 'auto', width: '100%', maxWidth: '1280px', margin: '0 auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '920px' }}>
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>

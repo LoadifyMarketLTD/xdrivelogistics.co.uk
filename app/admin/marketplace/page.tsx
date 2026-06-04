@@ -5,6 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { WorkflowStageStrip } from '../workflowUi';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -323,9 +324,9 @@ export default function MarketplacePage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   const tabs: Array<{ id: Tab; label: string; count?: number }> = [
-    { id: 'loads', label: 'Available Loads', count: loads.length },
-    { id: 'bids',  label: 'My Bids',         count: bids.length  },
-    { id: 'won',   label: 'Won Jobs',         count: wonJobs.length },
+    { id: 'loads', label: 'Find Work', count: loads.length },
+    { id: 'bids',  label: 'Price / Bid', count: bids.length  },
+    { id: 'won',   label: 'Won Work', count: wonJobs.length },
   ];
 
   return (
@@ -335,12 +336,22 @@ export default function MarketplacePage() {
         {/* Page header */}
         <div style={{ marginBottom: '1.5rem' }}>
           <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, color: '#111827' }}>
-            🏪 Marketplace
+            🏪 Work Exchange
           </h1>
           <p style={{ margin: '0.35rem 0 0 0', color: '#6b7280', fontSize: '0.9rem' }}>
-            Browse available loads, submit bids, and track your won contracts.
+            Find work, submit bids, and move won contracts into operations.
           </p>
         </div>
+
+        <WorkflowStageStrip
+          activeStage="find"
+          counts={{
+            find: loads.length,
+            price: bids.length,
+            win: wonJobs.length,
+          }}
+          marginBottom="1.25rem"
+        />
 
         {!isSupabaseConfigured && (
           <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1rem', color: '#92400e' }}>

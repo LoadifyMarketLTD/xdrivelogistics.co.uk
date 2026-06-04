@@ -7,6 +7,7 @@ import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { buildDriverAssignmentUpdate } from '../../../lib/jobAssignment';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { WorkflowStageStrip } from '../workflowUi';
 
 type DiaryJob = {
   id: string;
@@ -25,12 +26,12 @@ type DriverOption = {
 };
 
 const LANE_CONFIG: Array<{ key: string; label: string; statuses: string[] }> = [
-  { key: 'unallocated', label: 'Unallocated', statuses: ['draft', 'received', 'posted'] },
-  { key: 'allocated', label: 'Allocated', statuses: ['allocated'] },
-  { key: 'inProgress', label: 'In Progress', statuses: ['in_transit'] },
+  { key: 'unallocated', label: 'Needs Assigning', statuses: ['draft', 'received', 'posted'] },
+  { key: 'allocated', label: 'Assigned', statuses: ['allocated'] },
+  { key: 'inProgress', label: 'On The Road', statuses: ['in_transit'] },
   { key: 'completed', label: 'Completed', statuses: ['delivered'] },
   { key: 'cancelled', label: 'Cancelled', statuses: ['cancelled'] },
-  { key: 'awaitingFeedback', label: 'Awaiting Feedback', statuses: ['disputed'] },
+  { key: 'awaitingFeedback', label: 'Attention', statuses: ['disputed'] },
 ];
 
 export default function DiaryPage() {
@@ -177,15 +178,30 @@ export default function DiaryPage() {
   return (
     <ProtectedRoute>
       <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1.5rem' }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '2rem', color: '#111827' }}>Diary / Operations</h1>
-            <p style={{ margin: '0.35rem 0 0 0', color: '#6b7280' }}>Live working board grouped by operational status.</p>
+            <h1 style={{ margin: 0, fontSize: '2rem', color: '#111827' }}>Allocation Diary</h1>
+            <p style={{ margin: '0.35rem 0 0 0', color: '#6b7280' }}>Assign work first, then follow each lane through to completion.</p>
           </div>
-          <button onClick={() => router.push('/admin/jobs')} style={{ padding: '0.65rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', background: '#fff', color: '#0f172a', fontWeight: 600 }}>
-            Open Jobs / Loads
-          </button>
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <button onClick={() => router.push('/admin/jobs')} style={{ padding: '0.65rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', background: '#fff', color: '#0f172a', fontWeight: 600 }}>
+              Open Operations Workspace
+            </button>
+            <button onClick={() => router.push('/admin/fleet')} style={{ padding: '0.65rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', background: '#fff', color: '#0f172a', fontWeight: 600 }}>
+              Open Fleet Availability
+            </button>
+          </div>
         </div>
+
+        <WorkflowStageStrip
+          activeStage="assign"
+          counts={{
+            assign: (grouped.get('unallocated') ?? []).length,
+            track: (grouped.get('inProgress') ?? []).length,
+            complete: jobs.length,
+          }}
+        />
         {assignmentMessage && (
           <div
             style={{
@@ -294,6 +310,7 @@ export default function DiaryPage() {
             })}
           </div>
         )}
+        </div>
       </div>
     </ProtectedRoute>
   );
