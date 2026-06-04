@@ -198,15 +198,12 @@ export default function DriversPage() {
       email: string;
     }
   ) => fetch('/api/admin/drivers', {
-    method: 'POST',
+    method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
       Authorization: 'Bearer ' + accessToken,
     },
-    body: JSON.stringify({
-      action: 'send_password_setup',
-      ...payload,
-    }),
+    body: JSON.stringify(payload),
   });
 
   const handleCreate = async () => {

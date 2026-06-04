@@ -4,16 +4,20 @@ import { getResetPasswordEmailRedirectTo } from '../../../../lib/authFlow';
 
 const ADMIN_ROLES = new Set(['owner', 'admin']);
 
-type DispatcherAction = 'create' | 'send_password_setup';
 type DispatcherOnboardingOutcome = 'invite_sent' | 'password_setup_required' | 'temporary_password_created';
 
 type CreateDispatcherPayload = {
-  action?: DispatcherAction;
   companyId?: string;
   membershipId?: string | null;
   displayName?: string;
   email?: string;
   phone?: string;
+};
+
+type SendDispatcherPasswordSetupPayload = {
+  companyId?: string;
+  membershipId?: string | null;
+  email?: string;
 };
 
 const TEMP_PASSWORD_CHARSETS = {
@@ -84,7 +88,7 @@ const findAuthUserIdByEmail = async (email: string) => {
 
 const resolveAdminMembership = async (
   authUserId: string,
-  requestedCompanyId: string,
+  requestedCompanyId?: string | null,
   requestedMembershipId?: string | null
 ) => {
   if (!supabaseAdmin) return { data: null, error: new Error('Server auth is not configured.') };
@@ -94,8 +98,11 @@ const resolveAdminMembership = async (
     .select('id, company_id, role_in_company')
     .eq('user_id', authUserId)
     .eq('status', 'active')
-    .eq('company_id', requestedCompanyId)
     .in('role_in_company', Array.from(ADMIN_ROLES));
+
+  if (requestedCompanyId) {
+    membershipQuery = membershipQuery.eq('company_id', requestedCompanyId);
+  }
 
   if (requestedMembershipId) {
     membershipQuery = membershipQuery.eq('id', requestedMembershipId);
@@ -123,20 +130,15 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = (await request.json()) as CreateDispatcherPayload;
-    const action = payload.action ?? 'create';
     const requestedCompanyId = payload.companyId?.trim();
     const requestedMembershipId = payload.membershipId?.trim();
     const displayName = payload.displayName?.trim();
     const email = payload.email?.trim().toLowerCase();
     const phone = payload.phone?.trim() || null;
 
-    if (!requestedCompanyId) {
-      return respond(403, { error: 'Forbidden: missing company or membership context.' });
-    }
-
-    if (!email || (action !== 'send_password_setup' && !displayName)) {
+    if (!email || !displayName) {
       return respond(400, {
-        error: action === 'send_password_setup' ? 'email is required.' : 'displayName and email are required.',
+        error: 'displayName and email are required.',
       });
     }
 
@@ -155,35 +157,6 @@ export async function POST(request: NextRequest) {
     }
 
     const resolvedCompanyId = membership.company_id;
-
-    if (action === 'send_password_setup') {
-      const { data: dispatcherMembership, error: dispatcherMembershipError } = await supabaseAdmin
-        .from('company_memberships')
-        .select('id')
-        .eq('company_id', resolvedCompanyId)
-        .eq('role_in_company', 'dispatcher')
-        .eq('invited_email', email)
-        .limit(1)
-        .maybeSingle();
-
-      if (dispatcherMembershipError) {
-        return respond(500, { error: `Failed to load dispatcher account: ${dispatcherMembershipError.message}` });
-      }
-
-      if (!dispatcherMembership?.id) {
-        return respond(404, { error: 'Dispatcher account not found for this company.' });
-      }
-
-      const { error: passwordSetupError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-        redirectTo: getResetPasswordEmailRedirectTo(),
-      });
-
-      if (passwordSetupError) {
-        return respond(400, { error: passwordSetupError.message });
-      }
-
-      return respond(200, { success: true });
-    }
 
     let userId: string | null = null;
     let invited = true;
@@ -239,6 +212,80 @@ export async function POST(request: NextRequest) {
         }
 
         userId = createdUserData.user.id;
+      }
+    }
+
+    export async function PATCH(request: NextRequest) {
+      try {
+        if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+          return respond(503, { error: 'Server auth is not configured.' });
+        }
+
+        const token = getBearerToken(request);
+        if (!token) {
+          return respond(401, { error: 'Unauthorized: missing bearer token.' });
+        }
+
+        const validatorClient = supabaseValidator ?? supabaseAdmin;
+        const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
+
+        if (authError || !authData.user) {
+          return respond(401, { error: 'Unauthorized: invalid or expired token.' });
+        }
+
+        const payload = (await request.json()) as SendDispatcherPasswordSetupPayload;
+        const requestedCompanyId = payload.companyId?.trim();
+        const requestedMembershipId = payload.membershipId?.trim();
+        const email = payload.email?.trim().toLowerCase();
+
+        if (!email) {
+          return respond(400, { error: 'email is required.' });
+        }
+
+        const { data: membership, error: membershipError } = await resolveAdminMembership(
+          authData.user.id,
+          requestedCompanyId,
+          requestedMembershipId
+        );
+
+        if (membershipError) {
+          return respond(500, { error: membershipError.message });
+        }
+
+        if (!membership?.id || !membership.company_id) {
+          return respond(403, { error: 'Forbidden' });
+        }
+
+        const resolvedCompanyId = membership.company_id;
+        const { data: dispatcherMembership, error: dispatcherMembershipError } = await supabaseAdmin
+          .from('company_memberships')
+          .select('id')
+          .eq('company_id', resolvedCompanyId)
+          .eq('role_in_company', 'dispatcher')
+          .eq('invited_email', email)
+          .limit(1)
+          .maybeSingle();
+
+        if (dispatcherMembershipError) {
+          return respond(500, { error: `Failed to load dispatcher account: ${dispatcherMembershipError.message}` });
+        }
+
+        if (!dispatcherMembership?.id) {
+          return respond(404, { error: 'Dispatcher account not found for this company.' });
+        }
+
+        const { error: passwordSetupError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+          redirectTo: getResetPasswordEmailRedirectTo(),
+        });
+
+        if (passwordSetupError) {
+          return respond(400, { error: passwordSetupError.message });
+        }
+
+        return respond(200, { success: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unexpected error';
+        return respond(500, { error: message });
       }
     }
 

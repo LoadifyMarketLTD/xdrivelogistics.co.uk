@@ -5,15 +5,18 @@ import { logRuntimeProof } from '../../../../lib/runtimeProof';
 
 const ADMIN_ROLES = new Set(['owner', 'admin', 'dispatcher']);
 
-type DriverAction = 'create' | 'send_password_setup';
-
 type CreateDriverPayload = {
-  action?: DriverAction;
   companyId?: string;
   membershipId?: string | null;
   displayName?: string;
   email?: string;
   phone?: string;
+};
+
+type SendDriverPasswordSetupPayload = {
+  companyId?: string;
+  membershipId?: string | null;
+  email?: string;
 };
 
 type ForensicLogLevel = 'info' | 'warn' | 'error';
@@ -342,47 +345,26 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = (await request.json()) as CreateDriverPayload;
-    const action = payload.action ?? 'create';
     const requestedCompanyId = payload.companyId?.trim();
     const requestedMembershipId = payload.membershipId?.trim();
     const displayName = payload.displayName?.trim();
     const email = payload.email?.trim().toLowerCase();
     const phone = payload.phone?.trim() || null;
 
-    if (!email || (action !== 'send_password_setup' && !displayName)) {
+    if (!email || !displayName) {
       logForensicFailure(
         requestId,
         'request validation',
         'validate bearer token and request payload',
-        new Error(action === 'send_password_setup' ? 'email is required.' : 'displayName and email are required.'),
+        new Error('displayName and email are required.'),
         {
           callSiteStack: requestValidationStack,
         }
       );
       return respond(
         400,
-        { error: action === 'send_password_setup' ? 'email is required.' : 'displayName and email are required.' },
+        { error: 'displayName and email are required.' },
         'missing_required_fields'
-      );
-    }
-
-    if (!requestedCompanyId) {
-      logForensicFailure(
-        requestId,
-        'request validation',
-        'validate bearer token and request payload',
-        new Error('Forbidden: missing company or membership context.'),
-        {
-          callSiteStack: requestValidationStack,
-        }
-      );
-      return respond(
-        403,
-        {
-          error: 'Forbidden: missing company or membership context.',
-          code: 'auth_missing_membership_context',
-        },
-        'auth_missing_membership_context'
       );
     }
 
@@ -412,8 +394,11 @@ export async function POST(request: NextRequest) {
       .select('id, company_id, role_in_company')
       .eq('user_id', authData.user.id)
       .eq('status', 'active')
-      .eq('company_id', requestedCompanyId)
       .in('role_in_company', Array.from(ADMIN_ROLES));
+
+    if (requestedCompanyId) {
+      membershipQuery = membershipQuery.eq('company_id', requestedCompanyId);
+    }
 
     if (requestedMembershipId) {
       membershipQuery = membershipQuery.eq('id', requestedMembershipId);
@@ -460,38 +445,6 @@ export async function POST(request: NextRequest) {
     }
 
     const resolvedCompanyId = resolvedMembership.company_id;
-
-    if (action === 'send_password_setup') {
-      const { data: existingDriver, error: existingDriverError } = await supabaseAdmin
-        .from('drivers')
-        .select('id, user_id')
-        .eq('company_id', resolvedCompanyId)
-        .eq('email', email)
-        .limit(1)
-        .maybeSingle();
-
-      if (existingDriverError) {
-        return respond(
-          500,
-          { error: `Failed to load driver account: ${existingDriverError.message}` },
-          'driver_lookup_failed'
-        );
-      }
-
-      if (!existingDriver?.id) {
-        return respond(404, { error: 'Driver account not found for this company.' }, 'driver_not_found');
-      }
-
-      const { error: passwordSetupError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-        redirectTo: getResetPasswordEmailRedirectTo(),
-      });
-
-      if (passwordSetupError) {
-        return respond(400, { error: passwordSetupError.message }, 'password_setup_email_failed');
-      }
-
-      return respond(200, { success: true }, 'password_setup_email_sent');
-    }
 
     const companyLookupStack = logForensicStart(
       requestId,
@@ -712,6 +665,100 @@ export async function POST(request: NextRequest) {
               inviteFallbackReason,
             }
           );
+        }
+      }
+
+      export async function PATCH(request: NextRequest) {
+        const requestId = getRequestId(request);
+        const respond = (status: number, payload: Record<string, unknown>, reason: string) => {
+          logForensicEvent('info', requestId, 'final response', 'success', {
+            reason,
+            status,
+            response: sanitizeResponsePayload(payload),
+          });
+          return NextResponse.json(payload, { status });
+        };
+
+        try {
+          if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+            return respond(503, { error: 'Server auth is not configured.' }, 'supabase_admin_not_configured');
+          }
+
+          const token = getBearerToken(request);
+          if (!token) {
+            return respond(401, { error: 'Unauthorized: missing bearer token.' }, 'auth_missing_bearer_token');
+          }
+
+          const validatorClient = supabaseValidator ?? supabaseAdmin;
+          const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
+          if (authError || !authData.user) {
+            return respond(401, { error: 'Unauthorized: invalid or expired token.' }, 'auth_invalid_bearer_token');
+          }
+
+          const payload = (await request.json()) as SendDriverPasswordSetupPayload;
+          const requestedCompanyId = payload.companyId?.trim();
+          const requestedMembershipId = payload.membershipId?.trim();
+          const email = payload.email?.trim().toLowerCase();
+
+          if (!email) {
+            return respond(400, { error: 'email is required.' }, 'missing_required_fields');
+          }
+
+          let membershipQuery = supabaseAdmin
+            .from('company_memberships')
+            .select('id, company_id, role_in_company')
+            .eq('user_id', authData.user.id)
+            .eq('status', 'active')
+            .in('role_in_company', Array.from(ADMIN_ROLES));
+
+          if (requestedCompanyId) {
+            membershipQuery = membershipQuery.eq('company_id', requestedCompanyId);
+          }
+
+          if (requestedMembershipId) {
+            membershipQuery = membershipQuery.eq('id', requestedMembershipId);
+          }
+
+          const { data: membership, error: membershipLookupError } = await membershipQuery.maybeSingle();
+          if (membershipLookupError) {
+            return respond(500, { error: membershipLookupError.message }, 'membership_lookup_failed');
+          }
+
+          if (!membership?.id || !membership.company_id) {
+            return respond(403, { error: 'Forbidden' }, 'membership_not_resolved');
+          }
+
+          const resolvedCompanyId = membership.company_id;
+          const { data: existingDriver, error: existingDriverError } = await supabaseAdmin
+            .from('drivers')
+            .select('id, user_id')
+            .eq('company_id', resolvedCompanyId)
+            .eq('email', email)
+            .limit(1)
+            .maybeSingle();
+
+          if (existingDriverError) {
+            return respond(500, { error: `Failed to load driver account: ${existingDriverError.message}` }, 'driver_lookup_failed');
+          }
+
+          if (!existingDriver?.id) {
+            return respond(404, { error: 'Driver account not found for this company.' }, 'driver_not_found');
+          }
+
+          const { error: passwordSetupError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+            redirectTo: getResetPasswordEmailRedirectTo(),
+          });
+
+          if (passwordSetupError) {
+            return respond(400, { error: passwordSetupError.message }, 'password_setup_email_failed');
+          }
+
+          return respond(200, { success: true }, 'password_setup_email_sent');
+        } catch (error) {
+          logForensicFailure(requestId, 'unhandled exception', 'unexpected PATCH /api/admin/drivers failure', error, {
+            callSiteStack: new Error('[admin/drivers] unhandled PATCH exception').stack ?? null,
+          });
+          return respond(500, { error: 'Unexpected server error while sending password setup.' }, 'unexpected_exception');
         }
       }
     } else {
