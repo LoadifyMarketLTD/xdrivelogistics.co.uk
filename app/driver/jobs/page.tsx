@@ -100,8 +100,10 @@ const DRIVER_MENU_ITEMS = [
 
 const ENTERPRISE_THEME = {
   pageBg: '#eef2f6',
-  shellBg: '#0b1c2f',
-  shellMuted: '#9fb4cb',
+  shellBg: '#f8fafc',
+  shellBorder: '#d7e0ea',
+  shellMuted: '#64748b',
+  shellText: '#0f172a',
   cardBg: '#ffffff',
   cardBorder: '#d7e0ea',
   cardShadow: '0 6px 16px rgba(15, 23, 42, 0.08)',
@@ -616,6 +618,7 @@ export default function DriverJobsPage() {
     return <div style={{ minHeight: '100vh', backgroundColor: ENTERPRISE_THEME.pageBg }} />;
   }
 
+  const currentModuleLabel = 'Driver Workspace';
   const dashboard = (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: ENTERPRISE_THEME.pageBg }}>
       {isMobile && sidebarOpen && (
@@ -629,10 +632,10 @@ export default function DriverJobsPage() {
         style={{
           width: isMobile ? '270px' : '228px',
           backgroundColor: ENTERPRISE_THEME.shellBg,
-          color: '#ffffff',
+          color: ENTERPRISE_THEME.shellText,
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '2px 0 14px rgba(2, 6, 23, 0.24)',
+          borderRight: `1px solid ${ENTERPRISE_THEME.shellBorder}`,
           position: isMobile ? 'fixed' : 'relative',
           inset: isMobile ? '0 auto 0 0' : undefined,
           zIndex: isMobile ? 40 : undefined,
@@ -640,11 +643,23 @@ export default function DriverJobsPage() {
           transition: 'transform 0.2s ease',
         }}
       >
-        <div style={{ padding: '1.1rem 1rem', borderBottom: '1px solid rgba(159, 180, 203, 0.22)' }}>
-          <h1 style={{ fontSize: '1.02rem', fontWeight: 700, margin: 0, color: '#ffffff', lineHeight: 1.35 }}>{COMPANY_CONFIG.legalName}</h1>
+        <div style={{ padding: '1.1rem 1rem', borderBottom: `1px solid ${ENTERPRISE_THEME.shellBorder}` }}>
+          <h1 style={{ fontSize: '1.02rem', fontWeight: 700, margin: 0, color: ENTERPRISE_THEME.shellText, lineHeight: 1.35 }}>{COMPANY_CONFIG.legalName}</h1>
           <p style={{ fontSize: '0.74rem', margin: '0.3rem 0 0 0', color: ENTERPRISE_THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Driver Console
+            Driver workspace
           </p>
+          <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: ENTERPRISE_THEME.shellMuted }}>Role</span>
+              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#1d4ed8', backgroundColor: '#dbeafe', padding: '0.1rem 0.45rem', borderRadius: '999px' }}>
+                Driver
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: ENTERPRISE_THEME.shellMuted }}>Module</span>
+              <span style={{ fontSize: '0.72rem', color: ENTERPRISE_THEME.shellMuted }}>{currentModuleLabel}</span>
+            </div>
+          </div>
         </div>
 
         <nav style={{ flex: 1, padding: '0.6rem' }}>
@@ -664,8 +679,8 @@ export default function DriverJobsPage() {
                 style={{
                   width: '100%',
                   padding: '0.58rem 0.72rem',
-                  backgroundColor: isActive ? 'rgba(63, 131, 248, 0.18)' : 'transparent',
-                  color: '#ffffff',
+                  backgroundColor: isActive ? '#eff6ff' : 'transparent',
+                  color: ENTERPRISE_THEME.shellText,
                   borderTop: 'none',
                   borderRight: 'none',
                   borderBottom: 'none',
@@ -688,7 +703,7 @@ export default function DriverJobsPage() {
                     display: 'grid',
                     placeItems: 'center',
                     fontSize: '0.88rem',
-                    backgroundColor: 'rgba(159, 180, 203, 0.2)',
+                    backgroundColor: isActive ? '#dbeafe' : '#e2e8f0',
                   }}
                 >
                   {item.icon}
@@ -699,7 +714,7 @@ export default function DriverJobsPage() {
           })}
         </nav>
 
-        <div style={{ padding: '0.9rem', borderTop: '1px solid rgba(159, 180, 203, 0.22)' }}>
+        <div style={{ padding: '0.9rem', borderTop: `1px solid ${ENTERPRISE_THEME.shellBorder}` }}>
           <div style={{ fontSize: '0.74rem', color: ENTERPRISE_THEME.shellMuted, marginBottom: '0.35rem' }}>{driverName}</div>
           <div style={{ fontSize: '0.74rem', color: ENTERPRISE_THEME.shellMuted, marginBottom: '0.6rem', wordBreak: 'break-word' }}>
             {user?.email ?? driverPhone ?? 'Driver account'}
@@ -709,9 +724,9 @@ export default function DriverJobsPage() {
             style={{
               width: '100%',
               padding: '0.52rem',
-              backgroundColor: 'rgba(239, 68, 68, 0.8)',
-              color: '#ffffff',
-              border: 'none',
+              backgroundColor: '#fee2e2',
+              color: '#b91c1c',
+              border: '1px solid #fecaca',
               borderRadius: '6px',
               fontSize: '0.8rem',
               fontWeight: 600,
@@ -739,15 +754,18 @@ export default function DriverJobsPage() {
               fontSize: '0.83rem',
             }}
           >
-            ☰ Menu
+            ☰ Modules
           </button>
         )}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem', alignItems: 'flex-start' }}>
           <div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Driver Dashboard</h2>
+            <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Role workspace
+            </div>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Driver Workspace</h2>
             <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: 0, maxWidth: '760px', fontSize: '0.86rem' }}>
-              Live view of today&apos;s work, upcoming stops, POD tasks, earnings and account actions.
+              Live view of assigned jobs, POD tasks, availability, earnings, and account security inside the driver module.
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', alignItems: 'center' }}>

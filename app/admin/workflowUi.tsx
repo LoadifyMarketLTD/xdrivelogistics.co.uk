@@ -19,13 +19,13 @@ export type WorkflowStage = {
 };
 
 export const WORKFLOW_STAGES: WorkflowStage[] = [
-  { id: 'find', label: 'Find Work', href: '/admin/marketplace' },
-  { id: 'price', label: 'Price Work', href: '/admin/quotes' },
-  { id: 'win', label: 'Win Work', href: '/admin/bids' },
-  { id: 'assign', label: 'Assign Work', href: '/admin/diary' },
-  { id: 'track', label: 'Track Work', href: '/admin/fleet' },
-  { id: 'complete', label: 'Complete Work', href: '/admin/jobs' },
-  { id: 'invoice', label: 'Invoice Work', href: '/admin/invoices' },
+  { id: 'find', label: 'Marketplace / Loads', href: '/admin/marketplace' },
+  { id: 'price', label: 'Quotes', href: '/admin/quotes' },
+  { id: 'win', label: 'Bids', href: '/admin/bids' },
+  { id: 'assign', label: 'Diary / Operations', href: '/admin/diary' },
+  { id: 'track', label: 'Fleet', href: '/admin/fleet' },
+  { id: 'complete', label: 'Jobs', href: '/admin/jobs' },
+  { id: 'invoice', label: 'Finance / Invoices', href: '/admin/invoices' },
 ];
 
 /**
@@ -50,31 +50,37 @@ export type NavSection = {
 export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'home',
-    label: 'Platform',
-    items: [{ id: 'dashboard', label: 'Control Centre', icon: '🏠', href: '/admin' }],
+    label: 'Platform Home',
+    items: [{ id: 'dashboard', label: 'Platform Home', icon: '🏠', href: '/admin' }],
   },
   {
     id: 'marketplace',
-    label: 'Marketplace',
+    label: 'Marketplace / Loads',
     items: [
-      { id: 'marketplace', label: 'Find Work', icon: '🏪', href: '/admin/marketplace' },
-      { id: 'quotes', label: 'Quotes & Bids', icon: '💬', href: '/admin/quotes' },
+      { id: 'marketplace', label: 'Load Board', icon: '🏪', href: '/admin/marketplace' },
+    ],
+  },
+  {
+    id: 'quotes_bids',
+    label: 'Quotes & Bids',
+    items: [
+      { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
+      { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
     ],
   },
   {
     id: 'operations',
-    label: 'Operations',
+    label: 'Diary / Operations',
     items: [
-      { id: 'diary', label: 'Allocation Diary', icon: '🗓️', href: '/admin/diary' },
-      { id: 'jobs', label: 'Jobs Board', icon: '📦', href: '/admin/jobs' },
+      { id: 'diary', label: 'Diary', icon: '🗓️', href: '/admin/diary' },
+      { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
     ],
   },
   {
     id: 'fleet_module',
     label: 'Fleet',
     items: [
-      { id: 'fleet', label: 'Availability', icon: '🧭', href: '/admin/fleet' },
-      { id: 'vehicles', label: 'Vehicles', icon: '🚛', href: '/admin/vehicles' },
+      { id: 'fleet', label: 'Fleet Workspace', icon: '🧭', href: '/admin/fleet' },
     ],
   },
   {
@@ -82,29 +88,42 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     label: 'Drivers',
     items: [
       { id: 'drivers', label: 'Driver Roster', icon: '👤', href: '/admin/drivers' },
-      { id: 'dispatchers', label: 'Dispatchers', icon: '🎛️', href: '/admin/dispatchers' },
+    ],
+  },
+  {
+    id: 'vehicles_module',
+    label: 'Vehicles',
+    items: [
+      { id: 'vehicles', label: 'Vehicle Registry', icon: '🚛', href: '/admin/vehicles' },
     ],
   },
   {
     id: 'compliance_module',
-    label: 'Compliance',
+    label: 'Compliance / Documents',
     items: [
       { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
     ],
   },
   {
     id: 'finance_module',
-    label: 'Finance',
+    label: 'Finance / Invoices',
     items: [
       { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
     ],
   },
   {
-    id: 'platform_admin',
-    label: 'Platform Admin',
-    roles: ['owner', 'company_admin'],
+    id: 'network_module',
+    label: 'Network / Companies',
     items: [
       { id: 'companies', label: 'Companies', icon: '🏢', href: '/admin/companies' },
+    ],
+  },
+  {
+    id: 'platform_admin',
+    label: 'Administration',
+    roles: ['owner', 'company_admin'],
+    items: [
+      { id: 'dispatchers', label: 'Memberships', icon: '👥', href: '/admin/dispatchers' },
       { id: 'settings', label: 'Settings', icon: '⚙️', href: '/admin/settings' },
     ],
   },
@@ -143,7 +162,7 @@ export function WorkflowStageStrip({ activeStage, counts, marginBottom = '1rem' 
       }}
     >
       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: '0.5rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-        Workflow
+        Business flow
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '0.5rem' }}>
         {WORKFLOW_STAGES.map((stage) => {
