@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import { getResetPasswordEmailRedirectTo } from '../../../../lib/authFlow';
 
@@ -6,19 +7,17 @@ const ADMIN_ROLES = new Set(['owner', 'admin']);
 
 type DispatcherOnboardingOutcome = 'invite_sent' | 'password_setup_required' | 'temporary_password_created';
 
-type CreateDispatcherPayload = {
-  companyId?: string;
-  membershipId?: string | null;
-  displayName?: string;
-  email?: string;
-  phone?: string;
-};
-
 type SendDispatcherPasswordSetupPayload = {
   companyId?: string;
   membershipId?: string | null;
   email?: string;
 };
+
+const createDispatcherPayloadSchema = z.object({
+  displayName: z.string().trim().min(1),
+  email: z.string().trim().min(1).transform((value) => value.toLowerCase()),
+  phone: z.string().optional(),
+});
 
 const TEMP_PASSWORD_CHARSETS = {
   upper: 'ABCDEFGHJKLMNPQRSTUVWXYZ',
@@ -128,18 +127,23 @@ export async function POST(request: NextRequest) {
       return respond(403, { error: 'Forbidden' });
     }
 
-    const payload = (await request.json()) as CreateDispatcherPayload;
-    const displayName = payload.displayName?.trim();
-    const email = payload.email?.trim().toLowerCase();
-    const phone = payload.phone?.trim() || null;
+    let parsedPayload: z.infer<typeof createDispatcherPayloadSchema>;
+    try {
+      parsedPayload = createDispatcherPayloadSchema.parse(await request.json());
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return respond(400, {
+          error: 'displayName and email are required.',
+        });
+      }
+      throw error;
+    }
+
+    const displayName = parsedPayload.displayName;
+    const email = parsedPayload.email;
+    const phone = parsedPayload.phone?.trim() || null;
 
     const resolvedCompanyId = membership.company_id;
-
-    if (!email || !displayName) {
-      return respond(400, {
-        error: 'displayName and email are required.',
-      });
-    }
 
     let userId: string | null = null;
     let invited = true;
