@@ -256,7 +256,7 @@ export default function NewInvoicePage() {
                 Jobs
               </Link>
               {jobId && (
-                <Link href={`/admin/jobs/${jobId}`} style={{ color: '#fff', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.35)', padding: '0.55rem 0.9rem', borderRadius: '8px' }}>
+                <Link href={`/admin/jobs/${encodeURIComponent(jobId.trim())}`} style={{ color: '#fff', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.35)', padding: '0.55rem 0.9rem', borderRadius: '8px' }}>
                   Job Detail
                 </Link>
               )}
