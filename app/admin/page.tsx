@@ -13,7 +13,8 @@ import {
   resolveInvoiceClientName,
   selectWithMissingColumnFallback,
 } from '../../lib/supabaseSchemaCompat';
-import { WORKFLOW_NAV_SECTIONS, WorkflowStageStrip } from './workflowUi';
+import { getNavSectionsForRole, WorkflowStageStrip } from './workflowUi';
+import { mapAppRole } from '../../lib/authRole';
 
 type DashboardOverview = {
   activeJobs: number;
@@ -409,6 +410,20 @@ export default function AdminPage() {
   const [driverAvailability, setDriverAvailability] = useState<DriverAvailRow[]>([]);
   const [postedJobsForDispatch, setPostedJobsForDispatch] = useState<PostedJobDispatch[]>([]);
 
+  const activeRole = mapAppRole(user?.role ?? null);
+  const navSections = getNavSectionsForRole(activeRole);
+
+  const roleLabel: Record<string, string> = {
+    owner: 'Owner',
+    broker: 'Broker',
+    company_admin: 'Company Admin',
+    company_staff: 'Dispatcher',
+    driver: 'Driver',
+    customer: 'Customer',
+  };
+  const activeRoleLabel = activeRole ? (roleLabel[activeRole] ?? activeRole) : 'Platform';
+  const companyLabel = COMPANY_CONFIG.legalName;
+
   useEffect(() => {
     const updateIsMobile = () => setIsMobile(window.innerWidth <= 1024);
     updateIsMobile();
@@ -798,14 +813,23 @@ export default function AdminPage() {
           }}
         >
           <div style={{ padding: '1.1rem 1rem', borderBottom: '1px solid rgba(159, 180, 203, 0.22)' }}>
-            <h1 style={{ fontSize: '1.02rem', fontWeight: '700', margin: 0, color: 'white', lineHeight: 1.35 }}>{COMPANY_CONFIG.legalName}</h1>
-            <p style={{ fontSize: '0.74rem', margin: '0.3rem 0 0 0', color: ENTERPRISE_THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Dispatcher Workspace
-            </p>
+            <h1 style={{ fontSize: '1.02rem', fontWeight: '700', margin: 0, color: 'white', lineHeight: 1.35 }}>{companyLabel}</h1>
+            <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: ENTERPRISE_THEME.shellMuted }}>Role</span>
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#93c5fd', backgroundColor: 'rgba(59,130,246,0.18)', padding: '0.1rem 0.45rem', borderRadius: '999px' }}>
+                  {activeRoleLabel}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: ENTERPRISE_THEME.shellMuted }}>Module</span>
+                <span style={{ fontSize: '0.72rem', color: ENTERPRISE_THEME.shellMuted }}>Control Centre</span>
+              </div>
+            </div>
           </div>
 
           <nav style={{ flex: 1, padding: '0.6rem', overflowY: 'auto' }}>
-            {WORKFLOW_NAV_SECTIONS.map((section) => (
+            {navSections.map((section) => (
               <div key={section.id} style={{ marginBottom: '0.7rem' }}>
                 <div
                   style={{
@@ -914,9 +938,9 @@ export default function AdminPage() {
           )}
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
             <div>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Command Centre</h2>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Control Centre</h2>
               <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: 0, maxWidth: '760px', fontSize: '0.86rem' }}>
-                Dispatcher-first workflow view across find, price, win, assign, track, complete and invoice.
+                Platform overview — operations, marketplace, fleet, compliance and finance in one place.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>

@@ -105,64 +105,61 @@ export function LandingPage() {
   );
 
   return (
-    <div className="bg-[#030712] text-white">
-      <header className="sticky top-0 z-50 h-[100px] border-b border-white/10 bg-[#030712]/85 backdrop-blur-xl">
+    <div className="bg-white text-[#0f172a]">
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-50 h-[72px] border-b border-slate-200 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="text-xl font-semibold tracking-wide">
-            <span className="text-[#22c55e]">X</span>Drive Logistics
+          <Link href="/" className="text-xl font-bold tracking-tight text-[#0f172a]">
+            <span className="text-[#1d4ed8]">X</span>Drive Logistics
           </Link>
 
-          <nav className="hidden items-center gap-7 text-sm text-white/80 lg:flex">
+          <nav className="hidden items-center gap-7 text-sm text-slate-600 lg:flex">
             {navLinks.map((link) => (
-              <a key={link.label} href={link.href} className="transition hover:text-white">
+              <a key={link.label} href={link.href} className="transition hover:text-[#1d4ed8]">
                 {link.label}
               </a>
             ))}
           </nav>
 
           <div className="flex items-center gap-3 text-sm">
-            <Link href="/login" className="rounded-xl px-3 py-2 font-medium text-white/80 transition hover:bg-white/10 hover:text-white">
-              Login
+            <Link href="/login" className="rounded-lg px-3 py-2 font-medium text-slate-700 transition hover:bg-slate-100">
+              Log In
             </Link>
-            <Link href="/register" className="rounded-xl bg-[#22c55e] px-4 py-2.5 font-semibold text-[#042112] transition hover:bg-[#16a34a]">
+            <Link href="/register" className="rounded-lg bg-[#1d4ed8] px-4 py-2.5 font-semibold text-white transition hover:bg-[#1e40af]">
               Join Early Access
             </Link>
           </div>
         </div>
       </header>
 
-      <section className="relative flex min-h-[100vh] items-center border-b border-white/10 px-4 py-12 sm:px-6" id="industries">
-        <div className="absolute inset-0">
-          <Image src="/homepage/hero-composition.svg" alt="XDrive logistics technology ecosystem" fill className="object-cover opacity-30" priority />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(34,197,94,0.2),transparent_40%),linear-gradient(120deg,rgba(3,7,18,0.95),rgba(3,7,18,0.84),rgba(3,7,18,0.96))]" />
-        </div>
-
-        <div className="relative mx-auto grid w-full max-w-7xl gap-10 lg:grid-cols-2 lg:items-center">
+      {/* ── Hero ── */}
+      <section className="relative border-b border-slate-200 px-4 py-20 sm:px-6 lg:py-28" id="industries">
+        <div className="mx-auto grid w-full max-w-7xl gap-12 lg:grid-cols-2 lg:items-center">
           <div>
-            <span className="inline-flex rounded-full border border-[#22c55e]/40 bg-[#22c55e]/10 px-4 py-1.5 text-xs font-semibold tracking-[0.12em] text-[#86efac]">
+            <span className="inline-flex rounded-full border border-[#1d4ed8]/30 bg-[#eff6ff] px-4 py-1.5 text-xs font-semibold tracking-[0.1em] text-[#1d4ed8]">
               UK LOGISTICS TECHNOLOGY PLATFORM
             </span>
-            <h1 className="mt-6 text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl">
+            <h1 className="mt-6 text-4xl font-extrabold leading-tight text-[#0f172a] sm:text-5xl lg:text-6xl">
               Move Freight.
               <br />
               Manage Operations.
               <br />
               Grow Your Network.
             </h1>
-            <p className="mt-6 max-w-2xl text-lg text-white/80">
+            <p className="mt-6 max-w-2xl text-lg text-slate-600">
               One platform connecting transport customers, brokers, courier companies, owner operators and drivers.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/request-quote" className="rounded-xl bg-[#22c55e] px-6 py-3 text-sm font-semibold text-[#042112] transition hover:bg-[#16a34a]">
+              <Link href="/request-quote" className="rounded-lg bg-[#1d4ed8] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#1e40af]">
                 Request Transport
               </Link>
-              <Link href="/register" className="rounded-xl border border-white/30 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
+              <Link href="/register" className="rounded-lg border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
                 Join Early Access
               </Link>
             </div>
 
-            <div className="mt-8 space-y-1 text-sm text-white/70">
+            <div className="mt-8 space-y-1 text-sm text-slate-500">
               <p>Founded 1 February 2021</p>
               <p>Company No. 13171804</p>
               <p>United Kingdom</p>
@@ -170,48 +167,50 @@ export function LandingPage() {
           </div>
 
           <div className="space-y-4">
-            <div className="overflow-hidden rounded-3xl border border-white/15 bg-[#081127]/80 shadow-2xl backdrop-blur">
-              <Image src="/homepage/hero-composition.svg" alt="Monitor, marketplace, operations, driver app and UK vehicle environment" width={1600} height={900} className="h-auto w-full" />
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-lg">
+              <Image src="/homepage/hero-composition.svg" alt="XDrive logistics technology ecosystem" width={1600} height={900} className="h-auto w-full" priority />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/15 bg-[#09152f]/75 p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-white/60">Operations Dashboard</p>
-                <p className="mt-2 text-sm text-white/80">Dispatch board • Collections • Deliveries • Timeline</p>
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Operations Dashboard</p>
+                <p className="mt-2 text-sm text-slate-600">Dispatch board • Collections • Deliveries • Timeline</p>
               </div>
-              <div className="rounded-2xl border border-white/15 bg-[#09152f]/75 p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-white/60">Marketplace + Driver App</p>
-                <p className="mt-2 text-sm text-white/80">Loads • Quotes • Bids • Live route overlays</p>
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Marketplace + Driver App</p>
+                <p className="mt-2 text-sm text-slate-600">Loads • Quotes • Bids • Live route overlays</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="border-b border-white/10 bg-[#050b1b] px-4 py-8 sm:px-6">
+      {/* ── Trust bar ── */}
+      <section className="border-b border-slate-200 bg-slate-50 px-4 py-8 sm:px-6">
         <div className="mx-auto grid max-w-7xl gap-3 md:grid-cols-3 xl:grid-cols-6">
           {trustCards.map((card) => (
-            <article key={card.label} className="rounded-xl border border-white/10 bg-[#0a1631]/75 p-4 text-center">
-              <p className="text-xs uppercase tracking-[0.12em] text-white/55">{card.label}</p>
-              <p className="mt-2 text-sm font-semibold text-white">{card.value}</p>
+            <article key={card.label} className="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">{card.label}</p>
+              <p className="mt-2 text-sm font-semibold text-[#0f172a]">{card.value}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <section id="solutions" className="px-4 py-20 sm:px-6">
+      {/* ── Roles ── */}
+      <section id="solutions" className="border-b border-slate-200 px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
-            <h2 className="text-4xl font-bold">Built Around Every Logistics Role</h2>
-            <p className="mt-3 text-white/70">One ecosystem supporting every participant in the logistics chain.</p>
+            <h2 className="text-3xl font-bold text-[#0f172a] sm:text-4xl">Built Around Every Logistics Role</h2>
+            <p className="mt-3 text-slate-500">One ecosystem supporting every participant in the logistics chain.</p>
           </div>
 
           <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
             {roleCards.map((role) => (
-              <article key={role.title} className="overflow-hidden rounded-2xl border border-white/10 bg-[#081127] transition hover:-translate-y-1 hover:border-white/30">
+              <article key={role.title} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
                 <Image src={role.image} alt={role.title} width={1600} height={900} className="h-48 w-full object-cover" />
                 <div className="p-4">
-                  <h3 className="text-lg font-semibold">{role.title}</h3>
-                  <p className="mt-2 text-sm text-white/70">{role.subtitle}</p>
+                  <h3 className="text-base font-semibold text-[#0f172a]">{role.title}</h3>
+                  <p className="mt-2 text-sm text-slate-500">{role.subtitle}</p>
                 </div>
               </article>
             ))}
@@ -219,21 +218,22 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section id="platform" className="border-y border-white/10 bg-[#050b1b] px-4 py-20 sm:px-6">
+      {/* ── Platform modules ── */}
+      <section id="platform" className="border-b border-slate-200 bg-slate-50 px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
-            <h2 className="text-4xl font-bold">One Platform. Multiple Workspaces.</h2>
-            <p className="mt-3 text-white/70">Five integrated modules built for real logistics execution.</p>
+            <h2 className="text-3xl font-bold text-[#0f172a] sm:text-4xl">One Platform. Multiple Workspaces.</h2>
+            <p className="mt-3 text-slate-500">Five integrated modules built for real logistics execution.</p>
           </div>
 
           <div className="mt-10 grid gap-5 lg:grid-cols-2 xl:grid-cols-5">
             {platformModules.map((module) => (
-              <article key={module.key} className="overflow-hidden rounded-2xl border border-white/10 bg-[#0a142a]">
+              <article key={module.key} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <Image src={module.image} alt={`${module.title} workspace`} width={1600} height={900} className="h-40 w-full object-cover" />
                 <div className="p-4">
-                  <h3 className="text-base font-semibold">{module.title}</h3>
-                  <p className="mt-2 text-sm text-white/70">{module.summary}</p>
-                  <ul className="mt-3 space-y-1 text-xs text-white/60">
+                  <h3 className="text-base font-semibold text-[#0f172a]">{module.title}</h3>
+                  <p className="mt-2 text-sm text-slate-500">{module.summary}</p>
+                  <ul className="mt-3 space-y-1 text-xs text-slate-400">
                     {module.bullets.map((item) => (
                       <li key={item}>• {item}</li>
                     ))}
@@ -245,42 +245,44 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section id="how-it-works" className="px-4 py-20 sm:px-6">
+      {/* ── How it works ── */}
+      <section id="how-it-works" className="border-b border-slate-200 px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-7xl">
-          <h2 className="text-center text-4xl font-bold">How XDrive Works</h2>
+          <h2 className="text-center text-3xl font-bold text-[#0f172a] sm:text-4xl">How XDrive Works</h2>
           <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
             {workflow.map(({ title, detail, icon: Icon }, index) => (
-              <article key={title} className="relative rounded-2xl border border-white/10 bg-[#071025] p-4">
-                <div className="mb-3 inline-flex rounded-lg border border-white/15 bg-white/5 p-2 text-[#86efac]">
+              <article key={title} className="relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-3 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-2 text-[#1d4ed8]">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-sm font-semibold">{title}</h3>
-                <p className="mt-2 text-xs text-white/70">{detail}</p>
-                {index < workflow.length - 1 && <ArrowRight className="mt-3 h-4 w-4 text-white/40" />}
+                <h3 className="text-sm font-semibold text-[#0f172a]">{title}</h3>
+                <p className="mt-2 text-xs text-slate-500">{detail}</p>
+                {index < workflow.length - 1 && <ArrowRight className="mt-3 h-4 w-4 text-slate-300" />}
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="border-y border-white/10 bg-[#050b1b] px-4 py-20 sm:px-6" id="resources">
+      {/* ── Why XDrive exists ── */}
+      <section className="border-b border-slate-200 bg-slate-50 px-4 py-20 sm:px-6" id="resources">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
           <div>
-            <h2 className="text-4xl font-bold">Why XDrive Exists</h2>
-            <div className="mt-6 space-y-3 text-white/80">
+            <h2 className="text-3xl font-bold text-[#0f172a] sm:text-4xl">Why XDrive Exists</h2>
+            <div className="mt-6 space-y-3 text-slate-600">
               <p>Most logistics software solves only part of the workflow.</p>
               <p>Load boards find work.</p>
               <p>Dispatch systems manage operations.</p>
               <p>POD systems store delivery proof.</p>
               <p>Finance systems create invoices.</p>
-              <p>XDrive connects the entire logistics journey into one operational platform.</p>
+              <p className="font-semibold text-[#0f172a]">XDrive connects the entire logistics journey into one operational platform.</p>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-3xl border border-white/15">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
             <Image
               src="/homepage/why-exists-scene.svg"
-              alt="Night motorway, UK logistics environment, warehouse and vehicle activity"
+              alt="UK logistics environment, warehouse and vehicle activity"
               width={1600}
               height={900}
               className="h-auto w-full"
@@ -289,25 +291,29 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="px-4 py-20 sm:px-6">
+      {/* ── Core features ── */}
+      <section className="border-b border-slate-200 px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-7xl">
-          <h2 className="text-center text-4xl font-bold">Core Features</h2>
+          <h2 className="text-center text-3xl font-bold text-[#0f172a] sm:text-4xl">Core Features</h2>
           <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {featureCards.map(({ title, description, icon: Icon }) => (
-              <article key={title} className="rounded-2xl border border-white/10 bg-[#081127] p-6 transition hover:-translate-y-1 hover:border-[#22c55e]/60 hover:shadow-[0_20px_40px_rgba(34,197,94,0.12)]">
-                <Icon className="h-6 w-6 text-[#86efac]" />
-                <h3 className="mt-4 text-xl font-semibold">{title}</h3>
-                <p className="mt-2 text-sm text-white/70">{description}</p>
+              <article key={title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-[#1d4ed8]/40 hover:shadow-md">
+                <div className="inline-flex rounded-lg border border-slate-200 bg-[#eff6ff] p-2 text-[#1d4ed8]">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-4 text-lg font-semibold text-[#0f172a]">{title}</h3>
+                <p className="mt-2 text-sm text-slate-500">{description}</p>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="border-y border-white/10 bg-[#050b1b] px-4 py-20 sm:px-6">
+      {/* ── Platform preview ── */}
+      <section className="border-b border-slate-200 bg-slate-50 px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-7xl">
-          <h2 className="text-center text-4xl font-bold">Platform Preview</h2>
-          <p className="mt-3 text-center text-white/70">Explore each workspace view across the XDrive platform.</p>
+          <h2 className="text-center text-3xl font-bold text-[#0f172a] sm:text-4xl">Platform Preview</h2>
+          <p className="mt-3 text-center text-slate-500">Explore each workspace view across the XDrive platform.</p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             {platformModules.map((module) => (
@@ -315,8 +321,10 @@ export function LandingPage() {
                 key={module.key}
                 type="button"
                 onClick={() => setActivePreview(module.key)}
-                className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-                  activePreview === module.key ? 'bg-[#22c55e] text-[#042112]' : 'border border-white/20 bg-transparent text-white/80 hover:bg-white/10'
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                  activePreview === module.key
+                    ? 'bg-[#1d4ed8] text-white'
+                    : 'border border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 {module.title}
@@ -324,60 +332,58 @@ export function LandingPage() {
             ))}
           </div>
 
-          <div className="mt-8 overflow-hidden rounded-3xl border border-white/15 bg-[#081127]">
+          <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <Image src={selectedPreview.image} alt={`${selectedPreview.title} screenshot`} width={1600} height={900} className="h-auto w-full" />
-            <div className="border-t border-white/10 p-5">
-              <h3 className="text-xl font-semibold">{selectedPreview.title}</h3>
-              <p className="mt-2 text-sm text-white/70">{selectedPreview.summary}</p>
+            <div className="border-t border-slate-200 p-5">
+              <h3 className="text-lg font-semibold text-[#0f172a]">{selectedPreview.title}</h3>
+              <p className="mt-2 text-sm text-slate-500">{selectedPreview.summary}</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="relative overflow-hidden px-4 py-24 sm:px-6">
-        <div className="absolute inset-0">
-          <Image src="/homepage/launch-cta-bg.svg" alt="Premium logistics launch background" fill className="object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#030712]/95 via-[#030712]/75 to-[#030712]/85" />
-        </div>
-
-        <div className="relative mx-auto max-w-7xl">
-          <h2 className="text-4xl font-bold sm:text-5xl">Be Part of the XDrive Launch</h2>
-          <p className="mt-4 max-w-2xl text-white/80">
+      {/* ── CTA ── */}
+      <section className="border-b border-slate-200 bg-[#1d4ed8] px-4 py-24 sm:px-6">
+        <div className="mx-auto max-w-7xl">
+          <h2 className="text-4xl font-bold text-white sm:text-5xl">Be Part of the XDrive Launch</h2>
+          <p className="mt-4 max-w-2xl text-blue-100">
             Join the first wave of transport professionals helping shape the future of UK logistics.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/register" className="rounded-xl bg-[#22c55e] px-6 py-3 text-sm font-semibold text-[#042112] transition hover:bg-[#16a34a]">
+            <Link href="/register" className="rounded-lg bg-white px-6 py-3 text-sm font-semibold text-[#1d4ed8] transition hover:bg-blue-50">
               Join Early Access
             </Link>
-            <Link href="/request-quote" className="rounded-xl border border-white/30 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
+            <Link href="/request-quote" className="rounded-lg border border-white/40 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
               Request Demo
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="border-y border-white/10 bg-[#050b1b] px-4 py-20 sm:px-6">
+      {/* ── FAQ ── */}
+      <section className="border-b border-slate-200 px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-4xl">
-          <h2 className="text-center text-4xl font-bold">FAQ</h2>
+          <h2 className="text-center text-3xl font-bold text-[#0f172a] sm:text-4xl">FAQ</h2>
           <div className="mt-10 space-y-3">
             {faqs.map((faq) => (
-              <details key={faq.q} className="group rounded-2xl border border-white/10 bg-[#081127] p-5">
-                <summary className="cursor-pointer list-none text-left text-base font-semibold text-white">
+              <details key={faq.q} className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <summary className="cursor-pointer list-none text-left text-base font-semibold text-[#0f172a]">
                   {faq.q}
-                  <span className="float-right text-white/50 transition group-open:rotate-45">+</span>
+                  <span className="float-right text-slate-400 transition group-open:rotate-45">+</span>
                 </summary>
-                <p className="mt-3 text-sm text-white/75">{faq.a}</p>
+                <p className="mt-3 text-sm text-slate-500">{faq.a}</p>
               </details>
             ))}
           </div>
         </div>
       </section>
 
-      <footer id="contact" className="bg-[#030712] px-4 py-16 sm:px-6">
+      {/* ── Footer ── */}
+      <footer id="contact" className="bg-slate-900 px-4 py-16 sm:px-6">
         <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-4">
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-white/80">Platform</h3>
-            <ul className="mt-4 space-y-2 text-sm text-white/65">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">Platform</h3>
+            <ul className="mt-4 space-y-2 text-sm text-slate-400">
               <li>Marketplace</li>
               <li>Operations</li>
               <li>Fleet</li>
@@ -387,8 +393,8 @@ export function LandingPage() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-white/80">Solutions</h3>
-            <ul className="mt-4 space-y-2 text-sm text-white/65">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">Solutions</h3>
+            <ul className="mt-4 space-y-2 text-sm text-slate-400">
               <li>Owner Operators</li>
               <li>Courier Companies</li>
               <li>Load Posters</li>
@@ -398,8 +404,8 @@ export function LandingPage() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-white/80">Company</h3>
-            <ul className="mt-4 space-y-2 text-sm text-white/65">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">Company</h3>
+            <ul className="mt-4 space-y-2 text-sm text-slate-400">
               <li>About</li>
               <li>Launch</li>
               <li>Contact</li>
@@ -408,8 +414,8 @@ export function LandingPage() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-white/80">Legal</h3>
-            <ul className="mt-4 space-y-2 text-sm text-white/65">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">Legal</h3>
+            <ul className="mt-4 space-y-2 text-sm text-slate-400">
               <li>Privacy</li>
               <li>Terms</li>
               <li>Cookies</li>
@@ -418,7 +424,7 @@ export function LandingPage() {
           </div>
         </div>
 
-        <div className="mx-auto mt-12 flex max-w-7xl flex-col gap-2 border-t border-white/10 pt-6 text-xs text-white/55 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="mx-auto mt-12 flex max-w-7xl flex-col gap-2 border-t border-slate-700 pt-6 text-xs text-slate-500 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <span>XDrive Logistics Ltd</span>
           <span>Company No. 13171804</span>
           <span>Founded 1 February 2021</span>
@@ -429,3 +435,22 @@ export function LandingPage() {
     </div>
   );
 }
+
+
+const featureCards = [
+  { title: 'Marketplace', description: 'Connected load matching, bidding and routing intelligence.', icon: Route },
+  { title: 'Operations', description: 'End-to-end diary, dispatch and execution control.', icon: Layers },
+  { title: 'Dispatch', description: 'Awarding, assignment and workload balancing tools.', icon: ClipboardCheck },
+  { title: 'Driver Workflow', description: 'Mobile job execution with status and exception handling.', icon: Truck },
+  { title: 'POD', description: 'Structured proof capture with verification controls.', icon: FileCheck2 },
+  { title: 'Finance', description: 'Integrated invoicing, payment visibility and closure tracking.', icon: CircleDollarSign },
+];
+
+const faqs = [
+  { q: 'What is XDrive?', a: 'XDrive is a UK logistics technology platform connecting marketplace, operations, driver workflow and finance in one ecosystem.' },
+  { q: 'Who can use XDrive?', a: 'Owner operators, courier companies, load posters, customers and drivers can all operate inside the same platform.' },
+  { q: 'When is launch planned?', a: 'XDrive is currently in commercial early-access onboarding for launch participants in the United Kingdom.' },
+  { q: 'Can owner-drivers join?', a: 'Yes. Owner operators can join early access and use marketplace and operations workflows directly.' },
+  { q: 'How do I request early access?', a: 'Use the Join Early Access call-to-action to register your interest and onboarding details.' },
+];
+
