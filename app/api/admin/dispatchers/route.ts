@@ -135,10 +135,12 @@ export async function POST(request: NextRequest) {
     const email = payload.email?.trim().toLowerCase();
     const phone = payload.phone?.trim() || null;
 
-    if (
-      (requestedCompanyId && requestedCompanyId !== membership.company_id) ||
-      (requestedMembershipId && requestedMembershipId !== membership.id)
-    ) {
+    const resolvedCompanyId = membership.company_id;
+    const resolvedMembershipId = membership.id;
+    const scopedCompanyId = requestedCompanyId ?? resolvedCompanyId;
+    const scopedMembershipId = requestedMembershipId ?? resolvedMembershipId;
+
+    if (scopedCompanyId !== resolvedCompanyId || scopedMembershipId !== resolvedMembershipId) {
       return respond(403, { error: 'Forbidden' });
     }
 
@@ -147,8 +149,6 @@ export async function POST(request: NextRequest) {
         error: 'displayName and email are required.',
       });
     }
-
-    const resolvedCompanyId = membership.company_id;
 
     let userId: string | null = null;
     let invited = true;
@@ -310,10 +310,12 @@ export async function PATCH(request: NextRequest) {
       return respond(403, { error: 'Forbidden' });
     }
 
-    if (
-      (requestedCompanyId && requestedCompanyId !== membership.company_id) ||
-      (requestedMembershipId && requestedMembershipId !== membership.id)
-    ) {
+    const resolvedCompanyId = membership.company_id;
+    const resolvedMembershipId = membership.id;
+    const scopedCompanyId = requestedCompanyId ?? resolvedCompanyId;
+    const scopedMembershipId = requestedMembershipId ?? resolvedMembershipId;
+
+    if (scopedCompanyId !== resolvedCompanyId || scopedMembershipId !== resolvedMembershipId) {
       return respond(403, { error: 'Forbidden' });
     }
 
@@ -321,7 +323,6 @@ export async function PATCH(request: NextRequest) {
       return respond(400, { error: 'email is required.' });
     }
 
-    const resolvedCompanyId = membership.company_id;
     const { data: dispatcherMembership, error: dispatcherMembershipError } = await supabaseAdmin
       .from('company_memberships')
       .select('id')
