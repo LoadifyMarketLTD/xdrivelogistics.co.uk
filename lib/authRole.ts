@@ -57,6 +57,23 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
   return null;
 };
 
+/**
+ * Persist profile roles using the legacy-compatible database values so auth
+ * writes keep working even when production has not yet applied migration 063.
+ */
+export const normalizeProfileRoleForStorage = (value: string | null | undefined): string | null => {
+  const resolvedRole = mapAppRole(value);
+
+  if (resolvedRole === 'owner') return 'owner';
+  if (resolvedRole === 'broker') return 'company';
+  if (resolvedRole === 'company_admin') return 'admin';
+  if (resolvedRole === 'company_staff') return 'company';
+  if (resolvedRole === 'driver') return 'driver';
+  if (resolvedRole === 'customer') return 'customer';
+
+  return null;
+};
+
 export const shouldAutoProvisionCompany = ({
   fallbackRole,
   profileRole,
@@ -90,6 +107,7 @@ export const resolveAuthoritativeRole = ({
   fallbackRole?: string | null;
   ownerDriverWorkspaceRequested?: boolean;
 }): AppUserRole | null => {
+  const normalizedProfileRole = (profileRole ?? '').toLowerCase().trim();
   const resolvedProfileRole = mapAppRole(profileRole);
   const resolvedFallbackRole = mapAppRole(fallbackRole);
   const ownerDriverWorkspace =
@@ -102,6 +120,14 @@ export const resolveAuthoritativeRole = ({
 
   if (ownerDriverWorkspace && hasCreatedCompany) {
     return creatorCompanyType === 'admin' ? 'company_admin' : 'company_staff';
+  }
+
+  if (
+    resolvedFallbackRole &&
+    (normalizedProfileRole === 'admin' || normalizedProfileRole === 'company') &&
+    resolvedFallbackRole !== resolvedProfileRole
+  ) {
+    return resolvedFallbackRole;
   }
 
   if (resolvedProfileRole) return resolvedProfileRole;
