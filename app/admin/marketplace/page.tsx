@@ -5,7 +5,6 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import { WorkflowStageStrip } from '../workflowUi';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -343,16 +342,6 @@ export default function MarketplacePage() {
           </p>
         </div>
 
-        <WorkflowStageStrip
-          activeStage="find"
-          counts={{
-            find: loads.length,
-            price: bids.length,
-            win: wonJobs.length,
-          }}
-          marginBottom="1.25rem"
-        />
-
         {!isSupabaseConfigured && (
           <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1rem', color: '#92400e' }}>
             ⚠️ Supabase is not configured. Marketplace features are disabled.
@@ -372,9 +361,9 @@ export default function MarketplacePage() {
                 cursor: 'pointer',
                 fontWeight: 600,
                 fontSize: '0.88rem',
-                backgroundColor: tab === t.id ? '#0A2239' : 'transparent',
-                color: tab === t.id ? '#fff' : '#6b7280',
-                borderBottom: tab === t.id ? '2px solid #0A2239' : 'none',
+                backgroundColor: tab === t.id ? '#eff6ff' : 'transparent',
+                color: tab === t.id ? '#1d4ed8' : '#6b7280',
+                borderBottom: tab === t.id ? '2px solid #2563eb' : 'none',
                 marginBottom: '-2px',
                 transition: 'all 0.15s',
               }}
@@ -383,8 +372,8 @@ export default function MarketplacePage() {
               {t.count !== undefined && t.count > 0 && (
                 <span style={{
                   marginLeft: '0.5rem',
-                  backgroundColor: tab === t.id ? 'rgba(255,255,255,0.25)' : '#e5e7eb',
-                  color: tab === t.id ? '#fff' : '#374151',
+              backgroundColor: tab === t.id ? '#dbeafe' : '#e5e7eb',
+              color: tab === t.id ? '#1d4ed8' : '#374151',
                   borderRadius: '10px',
                   padding: '0.1rem 0.5rem',
                   fontSize: '0.78rem',
@@ -598,7 +587,7 @@ export default function MarketplacePage() {
                 <button
                   onClick={() => void submitBid()}
                   disabled={bidSubmitting}
-                  style={{ padding: '0.65rem 1.5rem', border: 'none', borderRadius: '8px', background: bidSubmitting ? '#9ca3af' : '#0A2239', color: '#fff', cursor: bidSubmitting ? 'not-allowed' : 'pointer', fontWeight: 700 }}
+                  style={{ padding: '0.65rem 1.5rem', border: 'none', borderRadius: '8px', background: bidSubmitting ? '#9ca3af' : '#2563eb', color: '#fff', cursor: bidSubmitting ? 'not-allowed' : 'pointer', fontWeight: 700 }}
                 >
                   {bidSubmitting ? 'Submitting…' : 'Submit Bid'}
                 </button>

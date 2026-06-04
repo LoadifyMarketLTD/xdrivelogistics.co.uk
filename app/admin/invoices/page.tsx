@@ -146,48 +146,22 @@ export default function InvoicesPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
-        {/* Header */}
-        <div style={{
-          backgroundColor: '#1e293b',
-          color: 'white',
-          padding: '1.5rem 2rem',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
-        }}>
-          <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-              <div>
-                <h1 style={{ fontSize: '1.875rem', fontWeight: '700', margin: '0 0 0.25rem 0' }}>
-                  Invoices
-                </h1>
-                <p style={{ margin: 0, opacity: 0.8, fontSize: '0.95rem' }}>
-                  Manage and track all invoices
-                </p>
-              </div>
-              <button
-                onClick={() => router.push('/admin')}
-                style={{
-                  padding: '0.625rem 1.25rem',
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  color: 'white',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: '6px',
-                  fontSize: '0.95rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
-              >
-                ← Back to Admin
-              </button>
-            </div>
-          </div>
-        </div>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1rem' }}>
 
         {/* Main Content */}
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div>
+              <h1 style={{ fontSize: '2rem', fontWeight: '700', margin: 0, color: '#111827' }}>Invoices</h1>
+              <p style={{ margin: '0.35rem 0 0 0', color: '#6b7280', fontSize: '0.9rem' }}>Manage invoice lifecycle and payment status.</p>
+            </div>
+            <button
+              onClick={() => router.push('/admin/invoices/new')}
+              style={{ padding: '0.65rem 1.2rem', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              + Create Invoice
+            </button>
+          </div>
           {loadError && (
             <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.9rem 1rem', marginBottom: '1rem', color: '#b91c1c' }}>
               {loadError}
@@ -197,10 +171,10 @@ export default function InvoicesPage() {
           {/* Controls */}
           <div style={{
             backgroundColor: 'white',
-            padding: '1.5rem',
+            padding: '1rem',
             borderRadius: '12px',
-            marginBottom: '1.5rem',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+            marginBottom: '1rem',
+            border: '1px solid #e5e7eb'
           }}>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', flex: 1 }}>
@@ -213,15 +187,12 @@ export default function InvoicesPage() {
                   style={{
                     flex: '1',
                     minWidth: '250px',
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
+                    padding: '0.65rem 0.85rem',
+                    border: '1px solid #d1d5db',
                     borderRadius: '8px',
-                    fontSize: '0.95rem',
-                    outline: 'none',
-                    transition: 'border-color 0.2s'
+                    fontSize: '0.9rem',
+                    outline: 'none'
                   }}
-                  onFocus={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
-                  onBlur={(e) => e.currentTarget.style.borderColor = '#e5e7eb'}
                 />
 
                 {/* Status Filter */}
@@ -229,10 +200,10 @@ export default function InvoicesPage() {
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as 'All' | 'Paid' | 'Pending' | 'Overdue')}
                   style={{
-                    padding: '0.75rem 1rem',
-                    border: '2px solid #e5e7eb',
+                    padding: '0.65rem 0.85rem',
+                    border: '1px solid #d1d5db',
                     borderRadius: '8px',
-                    fontSize: '0.95rem',
+                    fontSize: '0.9rem',
                     cursor: 'pointer',
                     backgroundColor: 'white',
                     outline: 'none'
@@ -245,26 +216,7 @@ export default function InvoicesPage() {
                 </select>
               </div>
 
-              {/* Create New Button */}
-              <button
-                onClick={() => router.push('/admin/invoices/new')}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '0.95rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.2s',
-                  whiteSpace: 'nowrap'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
-              >
-                + Create New Invoice
-              </button>
+              <button onClick={() => void loadInvoices()} style={{ padding: '0.65rem 0.9rem', backgroundColor: 'white', color: '#1f2937', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Refresh</button>
             </div>
           </div>
 
@@ -272,7 +224,7 @@ export default function InvoicesPage() {
           <div style={{
             backgroundColor: 'white',
             borderRadius: '12px',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+            border: '1px solid #e5e7eb',
             overflow: 'hidden'
           }}>
             {loading ? (
@@ -318,29 +270,29 @@ export default function InvoicesPage() {
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
-                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
+                    <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
                         Invoice #
                       </th>
-                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
                         Job Ref
                       </th>
-                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
                         Client
                       </th>
-                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
                         Date
                       </th>
-                      <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
                         Due Date
                       </th>
-                      <th style={{ padding: '1rem', textAlign: 'right', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
+                      <th style={{ padding: '0.8rem', textAlign: 'right', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
                         Amount
                       </th>
-                      <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
+                      <th style={{ padding: '0.8rem', textAlign: 'center', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
                         Status
                       </th>
-                      <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
+                      <th style={{ padding: '0.8rem', textAlign: 'center', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
                         Actions
                       </th>
                     </tr>
@@ -358,53 +310,44 @@ export default function InvoicesPage() {
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
                         onClick={() => router.push(`/admin/invoices/${invoice.id}`)}
                       >
-                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#1f2937', fontWeight: '500' }}>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937', fontWeight: '500' }}>
                           {invoice.invoiceNumber}
                         </td>
-                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#1f2937' }}>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937' }}>
                           {invoice.jobRef}
                         </td>
-                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#1f2937' }}>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937' }}>
                           {invoice.clientName}
                         </td>
-                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#6b7280' }}>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#6b7280' }}>
                           {new Date(invoice.date).toLocaleDateString('en-GB')}
                         </td>
-                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#6b7280' }}>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#6b7280' }}>
                           {new Date(invoice.dueDate).toLocaleDateString('en-GB')}
                         </td>
-                        <td style={{ padding: '1rem', fontSize: '0.95rem', color: '#1f2937', fontWeight: '600', textAlign: 'right' }}>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937', fontWeight: '600', textAlign: 'right' }}>
                           £{invoice.amount.toFixed(2)}
                         </td>
-                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                        <td style={{ padding: '0.8rem', textAlign: 'center' }}>
                           <span style={getStatusStyle(invoice.status)}>
                             {invoice.status}
                           </span>
                         </td>
-                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                        <td style={{ padding: '0.8rem', textAlign: 'center' }}>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               router.push(`/admin/invoices/${invoice.id}`);
                             }}
                             style={{
-                              padding: '0.5rem 1rem',
+                              padding: '0.4rem 0.8rem',
                               backgroundColor: '#eff6ff',
                               color: '#2563eb',
                               border: '1px solid #bfdbfe',
                               borderRadius: '6px',
-                              fontSize: '0.875rem',
+                              fontSize: '0.8rem',
                               fontWeight: '500',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#dbeafe';
-                              e.currentTarget.style.borderColor = '#93c5fd';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = '#eff6ff';
-                              e.currentTarget.style.borderColor = '#bfdbfe';
+                              cursor: 'pointer'
                             }}
                           >
                             View
@@ -428,9 +371,9 @@ export default function InvoicesPage() {
             }}>
               <div style={{
                 backgroundColor: 'white',
-                padding: '1.25rem',
+                padding: '1rem',
                 borderRadius: '8px',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+                border: '1px solid #e5e7eb',
                 borderLeft: '4px solid #3b82f6'
               }}>
                 <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>Total Invoices</div>
@@ -440,9 +383,9 @@ export default function InvoicesPage() {
               </div>
               <div style={{
                 backgroundColor: 'white',
-                padding: '1.25rem',
+                padding: '1rem',
                 borderRadius: '8px',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+                border: '1px solid #e5e7eb',
                 borderLeft: '4px solid #10b981'
               }}>
                 <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>Total Amount</div>
