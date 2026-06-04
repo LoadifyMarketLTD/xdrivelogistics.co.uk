@@ -403,7 +403,7 @@ export default function JobsPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1.5rem' }}>
+      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ marginBottom: '1rem' }}>
@@ -520,7 +520,7 @@ export default function JobsPage() {
           marginBottom: '2rem'
         }}>
           {[
-            { label: 'All Jobs', status: 'All', icon: '📦', color: '#0A2239' },
+            { label: 'All Jobs', status: 'All', icon: '📦', color: '#1d4ed8' },
             { label: 'Received', status: JOB_STATUS.RECEIVED, icon: '📥', color: '#fbbf24' },
             { label: 'Posted', status: JOB_STATUS.POSTED, icon: '📮', color: '#5C9FD8' },
             { label: 'Allocated', status: JOB_STATUS.ALLOCATED, icon: '🚚', color: '#a855f7' },
@@ -646,7 +646,7 @@ export default function JobsPage() {
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
                       >
-                        <td style={{ padding: '1rem', fontWeight: '600', color: '#0A2239', fontSize: '0.9rem' }}>
+                        <td style={{ padding: '1rem', fontWeight: '600', color: '#1d4ed8', fontSize: '0.9rem' }}>
                           {job.jobRef}
                         </td>
                         <td style={{ padding: '1rem', fontSize: '0.9rem' }}>
@@ -730,7 +730,7 @@ export default function JobsPage() {
                               onClick={() => router.push(`/admin/jobs/${job.id}`)}
                               style={{
                                 padding: '0.5rem 1rem',
-                                backgroundColor: '#0A2239',
+                                backgroundColor: '#16a34a',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '6px',
@@ -740,7 +740,7 @@ export default function JobsPage() {
                                 transition: 'background-color 0.2s'
                               }}
                               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e3a5f'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0A2239'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
                             >
                               View
                             </button>
@@ -789,7 +789,7 @@ export default function JobsPage() {
               <div style={{
                 padding: '1.5rem',
                 borderBottom: '1px solid #e5e7eb',
-                backgroundColor: '#0A2239',
+                backgroundColor: '#16a34a',
                 borderRadius: '12px 12px 0 0'
               }}>
                 <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: 'white' }}>

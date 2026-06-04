@@ -5,25 +5,40 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
+import type { AppUserRole } from '../../lib/authRole';
+import { getNavSectionsForRole } from './workflowUi';
 
-const ROLE_LABEL: Record<string, string> = {
-  owner: 'Owner',
-  broker: 'Broker',
-  company_admin: 'Company Admin',
-  company_staff: 'Dispatcher',
-  driver: 'Driver',
-  customer: 'Customer',
+/** Shorter labels for the compact top nav bar */
+const SHORT_LABEL: Record<string, string> = {
+  marketplace: 'LOADS',
+  quotes: 'QUOTES',
+  bids: 'BIDS',
+  diary: 'DIARY',
+  jobs: 'JOBS',
+  fleet: 'FLEET',
+  drivers: 'DRIVERS',
+  vehicles: 'VEHICLES',
+  documents: 'DOCS',
+  invoices: 'INVOICES',
+  companies: 'COMPANIES',
+  dispatchers: 'MEMBERS',
+  settings: 'SETTINGS',
 };
 
 export default function AdminPlatformShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [companyName, setCompanyName] = useState<string | null>(null);
 
-  const isAdminHome = pathname === '/admin';
-  const role = user?.role ?? null;
-  const roleLabel = role ? (ROLE_LABEL[role] ?? role) : null;
+  const role = (user?.role ?? null) as AppUserRole | null;
+  const sections = getNavSectionsForRole(role, {
+    membershipRole: user?.membershipRole ?? null,
+    financeAccess: user?.financeAccess ?? null,
+  });
+
+  // All nav items except the Platform Home entry (logo acts as Home button)
+  const navItems = sections.flatMap((s) => s.items).filter((item) => item.href !== '/admin');
 
   useEffect(() => {
     if (!user?.companyId || !isSupabaseConfigured) return;
@@ -39,65 +54,94 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
     return () => { cancelled = true; };
   }, [user?.companyId]);
 
-  if (isAdminHome) {
-    return <>{children}</>;
-  }
-
   return (
-    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh' }}>
-      {/* Slim context bar — company name, role badge, back link */}
-      <div
-        style={{
-          borderBottom: '1px solid #e2e8f0',
-          backgroundColor: '#ffffff',
-          padding: '0.5rem 1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '1rem',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '0.82rem' }}>
-          {companyName && (
-            <span style={{ fontWeight: 700, color: '#0f172a' }}>{companyName}</span>
-          )}
-          {companyName && roleLabel && (
-            <span style={{ color: '#cbd5e1' }}>·</span>
-          )}
-          {roleLabel && (
-            <span
-              style={{
-                backgroundColor: '#f1f5f9',
-                color: '#475569',
-                padding: '0.15rem 0.6rem',
-                borderRadius: '20px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-              }}
-            >
-              {roleLabel}
+    <div style={{ minHeight: '100vh', backgroundColor: '#f5f7fa', display: 'flex', flexDirection: 'column' }}>
+
+      {/* ── Sticky top navigation (CX-style) ────────────────────────────── */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 100, backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+
+        {/* Row 1 — Brand bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1.25rem', height: '52px', gap: '1rem' }}>
+
+          {/* Logo + company name */}
+          <button
+            onClick={() => router.push('/admin')}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+          >
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: '#fff', fontWeight: 900, fontSize: '1rem', letterSpacing: '-1px', fontFamily: 'sans-serif' }}>X</span>
+            </div>
+            <span style={{ fontWeight: 700, fontSize: '0.92rem', color: '#0f172a', whiteSpace: 'nowrap' }}>
+              {companyName ?? 'XDrive Logistics'}
             </span>
-          )}
+          </button>
+
+          {/* Right — primary action + user controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexShrink: 0 }}>
+            <button
+              onClick={() => router.push('/admin/marketplace')}
+              style={{ background: '#15803d', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.38rem 0.9rem', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap', letterSpacing: '0.02em' }}
+            >
+              + POST LOAD
+            </button>
+            {user?.email && (
+              <span style={{ fontSize: '0.72rem', color: '#94a3b8', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user.email}
+              </span>
+            )}
+            <button
+              onClick={() => router.push('/admin/settings')}
+              title="Settings"
+              style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.3rem 0.5rem', cursor: 'pointer', color: '#64748b', fontSize: '0.85rem', lineHeight: 1 }}
+            >
+              ⚙
+            </button>
+            <button
+              onClick={() => void logout()}
+              style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.3rem 0.65rem', cursor: 'pointer', color: '#64748b', fontSize: '0.72rem', fontWeight: 600 }}
+            >
+              Sign out
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => router.push('/admin')}
-          style={{
-            padding: '0.35rem 0.75rem',
-            border: '1px solid #cbd5e1',
-            borderRadius: '6px',
-            background: '#ffffff',
-            color: '#64748b',
-            fontWeight: 600,
-            cursor: 'pointer',
-            fontSize: '0.78rem',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          ← Platform Home
-        </button>
+
+        {/* Row 2 — Module tab bar */}
+        <nav style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', scrollbarWidth: 'none', borderTop: '1px solid #f1f5f9', padding: '0 1rem', gap: 0 }}>
+          {navItems.map((item) => {
+            const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href + '/'));
+            const label = SHORT_LABEL[item.id] ?? item.label.toUpperCase();
+            return (
+              <button
+                key={item.id}
+                onClick={() => router.push(item.href)}
+                style={{
+                  padding: '0.6rem 0.85rem',
+                  border: 'none',
+                  borderBottom: isActive ? '2px solid #1d4ed8' : '2px solid transparent',
+                  background: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                  color: isActive ? '#1d4ed8' : '#64748b',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  marginBottom: '-1px',
+                  transition: 'color 0.12s',
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
-      {children}
+      {/* ── Page content ────────────────────────────────────────────────── */}
+      <div style={{ flex: 1 }}>
+        {children}
+      </div>
+
     </div>
   );
 }

@@ -309,7 +309,7 @@ export default function DocumentsPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1rem' }}>
+      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
         <div style={{ width: '100%' }}>
           <div style={{ marginBottom: '1rem' }}>
             <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Documents</h1>

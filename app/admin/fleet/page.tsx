@@ -148,7 +148,7 @@ export default function FleetPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', background: '#eef2f6', padding: '1rem' }}>
+      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
         <div style={{ width: '100%', maxWidth: '1280px', margin: '0 auto' }}>
 
           {/* Header */}

@@ -18,10 +18,10 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 const QUOTE_TABS: Array<{ id: string; label: string; statuses: string[] }> = [
-  { id: 'received', label: 'Inbox', statuses: ['draft'] },
-  { id: 'submitted', label: 'Sent', statuses: ['sent'] },
-  { id: 'accepted', label: 'Won', statuses: ['accepted'] },
-  { id: 'rejected', label: 'Lost', statuses: ['declined'] },
+  { id: 'received', label: 'Received', statuses: ['draft'] },
+  { id: 'submitted', label: 'Submitted', statuses: ['sent'] },
+  { id: 'accepted', label: 'Accepted', statuses: ['accepted'] },
+  { id: 'rejected', label: 'Unsuccessful', statuses: ['declined'] },
 ] as const;
 
 export default function QuotesPage() {
@@ -198,183 +198,206 @@ export default function QuotesPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-            <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Quotes & Pricing Workspace</h1>
-              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Price work, progress quotes, and convert won quotes into jobs.</p>
-            </div>
-            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-              <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
-                + New Quote
-              </button>
-            </div>
-          </div>
+      <div style={{ display: 'flex', height: 'calc(100vh - 89px)', overflow: 'hidden', background: '#f5f7fa' }}>
+
+        {/* ── Left search panel ───────────────────────────────────────────── */}
+        <aside style={{ width: '200px', flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', padding: '0.85rem', overflowY: 'auto', fontSize: '0.78rem' }}>
+          <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.7rem', fontSize: '0.8rem' }}>🔍 Search Quotes</div>
 
           {!isSupabaseConfigured && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
-              ⚠️ Supabase is not configured. Database features are disabled.
-            </div>
+            <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '5px', padding: '0.45rem', marginBottom: '0.6rem', color: '#92400e', fontSize: '0.7rem' }}>⚠️ Supabase not configured</div>
           )}
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '1rem', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.85rem' }}>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <div style={qlabelStyle}>CUSTOMER / LOCATION</div>
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search…"
+              style={qInputStyle}
+            />
+          </div>
+
+          <div style={{ marginBottom: '0.5rem' }}>
+            <div style={qlabelStyle}>VEHICLE SIZE</div>
+            <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={qInputStyle}>
+              <option value="all">Any</option>
+              {VEHICLE_TYPES.map((t) => (
+                <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '0.9rem' }}>
+            <div style={qlabelStyle}>DATE</div>
+            <select style={qInputStyle}>
+              <option>Anytime</option>
+              <option>Today</option>
+              <option>This Week</option>
+              <option>This Month</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button style={{ flex: 1, background: '#16a34a', color: '#fff', border: 'none', borderRadius: '5px', padding: '0.5rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}>
+              Search
+            </button>
+            <button onClick={() => { setSearchTerm(''); setVehicleFilter('all'); }} style={{ padding: '0.5rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.78rem', color: '#64748b' }}>
+              Clear
+            </button>
+          </div>
+        </aside>
+
+        {/* ── Main content ─────────────────────────────────────────────────── */}
+        <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+
+          {/* Tab bar + New Quote button */}
+          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 0 }}>
               {QUOTE_TABS.map((tab) => {
-                const count = quotes.filter((quote) => tab.statuses.includes((quote.status || '').toLowerCase())).length;
+                const count = quotes.filter((q) => tab.statuses.includes((q.status || '').toLowerCase())).length;
                 const active = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     style={{
-                      padding: '0.5rem 0.8rem',
-                      borderRadius: '8px',
-                      border: active ? '1px solid #2563eb' : '1px solid #d1d5db',
-                      backgroundColor: active ? '#eff6ff' : '#fff',
-                      color: active ? '#1d4ed8' : '#374151',
-                      fontWeight: 600,
+                      padding: '0.65rem 0.85rem',
+                      border: 'none',
+                      borderBottom: active ? '2px solid #1d4ed8' : '2px solid transparent',
+                      background: 'none',
                       cursor: 'pointer',
+                      fontSize: '0.73rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.03em',
+                      color: active ? '#1d4ed8' : '#64748b',
+                      marginBottom: '-1px',
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    {tab.label} ({count})
+                    {tab.label}
+                    {count > 0 && (
+                      <span style={{ marginLeft: '0.3rem', background: active ? '#dbeafe' : '#f1f5f9', color: active ? '#1d4ed8' : '#64748b', borderRadius: '8px', padding: '0.05rem 0.38rem', fontSize: '0.68rem' }}>
+                        {count}
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.75rem' }}>
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search customer, pickup or delivery..."
-                style={{ ...inputStyle }}
-              />
-              <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={{ ...inputStyle }}>
-                <option value="all">All vehicle types</option>
-                {VEHICLE_TYPES.map((type) => (
-                  <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>
-                ))}
-              </select>
+            <button
+              onClick={() => setShowModal(true)}
+              style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.38rem 0.85rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              + New Quote
+            </button>
+          </div>
+
+          {/* Table */}
+          <div style={{ padding: '0.85rem', flex: 1, overflow: 'auto' }}>
+            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+              {loading ? (
+                <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>Loading…</div>
+              ) : filteredQuotes.length === 0 ? (
+                <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💬</div>
+                  <div style={{ fontSize: '0.88rem' }}>No quotes in this category.</div>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                        {['Customer', 'Pickup', 'Delivery', 'Vehicle', 'Amount', 'Status', 'Created', 'Actions'].map((h) => (
+                          <th key={h} style={{ padding: '0.6rem 0.85rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredQuotes.map((q, i) => {
+                        const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
+                        return (
+                          <tr key={q.id} style={{ borderBottom: i < filteredQuotes.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                            <td style={{ padding: '0.65rem 0.85rem', fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{q.customer_name || '—'}</td>
+                            <td style={{ padding: '0.65rem 0.85rem', color: '#374151', fontSize: '0.82rem' }}>{q.pickup_location || '—'}</td>
+                            <td style={{ padding: '0.65rem 0.85rem', color: '#374151', fontSize: '0.82rem' }}>{q.delivery_location || '—'}</td>
+                            <td style={{ padding: '0.65rem 0.85rem', color: '#64748b', fontSize: '0.8rem' }}>{q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
+                            <td style={{ padding: '0.65rem 0.85rem', fontWeight: 700, color: '#0f172a', fontSize: '0.85rem' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
+                            <td style={{ padding: '0.65rem 0.85rem' }}>
+                              <span style={{ background: sc.bg, color: sc.text, padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>{q.status}</span>
+                            </td>
+                            <td style={{ padding: '0.65rem 0.85rem', color: '#94a3b8', fontSize: '0.78rem' }}>{new Date(q.created_at).toLocaleDateString('en-GB')}</td>
+                            <td style={{ padding: '0.65rem 0.85rem' }}>
+                              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                                {q.status === 'draft' && (
+                                  <button onClick={() => handleUpdateStatus(q.id, 'sent')} style={actionBtn('#e0f2fe', '#075985')}>Send</button>
+                                )}
+                                {(q.status === 'draft' || q.status === 'sent') && (
+                                  <>
+                                    <button onClick={() => handleUpdateStatus(q.id, 'accepted')} style={actionBtn('#dcfce7', '#15803d')}>Accept</button>
+                                    <button onClick={() => handleUpdateStatus(q.id, 'declined')} style={actionBtn('#fee2e2', '#991b1b')}>Decline</button>
+                                  </>
+                                )}
+                                {q.status === 'accepted' && (
+                                  <button onClick={() => handleConvertToJob(q)} disabled={convertingId === q.id} style={{ padding: '0.25rem 0.6rem', border: 'none', borderRadius: '5px', background: '#16a34a', color: '#fff', cursor: convertingId === q.id ? 'not-allowed' : 'pointer', fontSize: '0.73rem', fontWeight: 700 }}>
+                                    {convertingId === q.id ? 'Converting…' : '→ Job'}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
-
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            {loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
-            ) : filteredQuotes.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💬</div>
-                <p>No quotes in this tab yet.</p>
-              </div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                    {['Customer', 'Pickup', 'Delivery', 'Vehicle', 'Amount', 'Status', 'Created', 'Actions'].map(h => (
-                      <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredQuotes.map((q, i) => {
-                    const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
-                    return (
-                      <tr key={q.id} style={{ borderBottom: i < quotes.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                        <td style={{ padding: '1rem', fontWeight: '600', color: '#1f2937' }}>{q.customer_name || '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{q.pickup_location || '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{q.delivery_location || '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
-                        <td style={{ padding: '1rem', fontWeight: '700', color: '#1f2937' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
-                        <td style={{ padding: '1rem' }}><span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{q.status}</span></td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{new Date(q.created_at).toLocaleDateString()}</td>
-                        <td style={{ padding: '1rem' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            {q.status === 'draft' && (
-                              <button
-                                onClick={() => handleUpdateStatus(q.id, 'sent')}
-                                style={{ padding: '0.35rem 0.75rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                              >
-                                Mark Sent
-                              </button>
-                            )}
-                            {(q.status === 'draft' || q.status === 'sent') && (
-                              <>
-                                <button
-                                  onClick={() => handleUpdateStatus(q.id, 'accepted')}
-                                  style={{ padding: '0.35rem 0.75rem', backgroundColor: '#d1fae5', color: '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                                >
-                                  Accept
-                                </button>
-                                <button
-                                  onClick={() => handleUpdateStatus(q.id, 'declined')}
-                                  style={{ padding: '0.35rem 0.75rem', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                                >
-                                  Decline
-                                </button>
-                              </>
-                            )}
-                            {q.status === 'accepted' && (
-                              <button
-                                onClick={() => handleConvertToJob(q)}
-                                disabled={convertingId === q.id}
-                                style={{ padding: '0.35rem 0.75rem', backgroundColor: '#0A2239', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: convertingId === q.id ? 'not-allowed' : 'pointer', opacity: convertingId === q.id ? 0.7 : 1 }}
-                              >
-                                {convertingId === q.id ? 'Converting…' : '→ Convert to Job'}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
+        </main>
 
         {showModal && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>New Quote</h2>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+            <div style={{ background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflow: 'auto' }}>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>New Quote</h2>
+                <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#64748b' }}>×</button>
               </div>
-              <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
+              <div style={{ padding: '1.25rem 1.5rem', display: 'grid', gap: '0.85rem' }}>
+                {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.65rem', color: '#dc2626', fontSize: '0.85rem' }}>{error}</div>}
                 <div>
                   <label style={labelStyle}>Company *</label>
-                  <select style={inputStyle} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})}>
+                  <select style={inputStyle} value={formData.company_id} onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}>
                     <option value="">Select a company…</option>
-                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
-                <div><label style={labelStyle}>Customer Name *</label><input style={inputStyle} value={formData.customer_name} onChange={e => setFormData({...formData, customer_name: e.target.value})} placeholder="John Smith" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={formData.customer_email} onChange={e => setFormData({...formData, customer_email: e.target.value})} placeholder="customer@email.com" /></div>
-                  <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.customer_phone} onChange={e => setFormData({...formData, customer_phone: e.target.value})} placeholder="07123456789" /></div>
+                <div><label style={labelStyle}>Customer Name *</label><input style={inputStyle} value={formData.customer_name} onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })} placeholder="John Smith" /></div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                  <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={formData.customer_email} onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })} placeholder="customer@email.com" /></div>
+                  <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.customer_phone} onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })} placeholder="07123456789" /></div>
                 </div>
-                <div><label style={labelStyle}>Pickup Location</label><input style={inputStyle} value={formData.pickup_location} onChange={e => setFormData({...formData, pickup_location: e.target.value})} placeholder="London, SW1A 1AA" /></div>
-                <div><label style={labelStyle}>Delivery Location</label><input style={inputStyle} value={formData.delivery_location} onChange={e => setFormData({...formData, delivery_location: e.target.value})} placeholder="Manchester, M1 1AE" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div><label style={labelStyle}>Pickup Location</label><input style={inputStyle} value={formData.pickup_location} onChange={(e) => setFormData({ ...formData, pickup_location: e.target.value })} placeholder="London, SW1A 1AA" /></div>
+                <div><label style={labelStyle}>Delivery Location</label><input style={inputStyle} value={formData.delivery_location} onChange={(e) => setFormData({ ...formData, delivery_location: e.target.value })} placeholder="Manchester, M1 1AE" /></div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
                   <div>
                     <label style={labelStyle}>Vehicle Type</label>
-                    <select style={inputStyle} value={formData.vehicle_type} onChange={e => setFormData({...formData, vehicle_type: e.target.value as VehicleType})}>
-                      {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+                    <select style={inputStyle} value={formData.vehicle_type} onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value as VehicleType })}>
+                      {VEHICLE_TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
                     </select>
                   </div>
                   <div>
                     <label style={labelStyle}>Cargo Type</label>
-                    <select style={inputStyle} value={formData.cargo_type} onChange={e => setFormData({...formData, cargo_type: e.target.value as CargoType})}>
-                      {CARGO_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    <select style={inputStyle} value={formData.cargo_type} onChange={(e) => setFormData({ ...formData, cargo_type: e.target.value as CargoType })}>
+                      {CARGO_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                 </div>
-                <div><label style={labelStyle}>Amount (£)</label><input style={inputStyle} type="number" step="0.01" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} placeholder="250.00" /></div>
+                <div><label style={labelStyle}>Amount (£)</label><input style={inputStyle} type="number" step="0.01" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} placeholder="250.00" /></div>
               </div>
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleCreate} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Create Quote</button>
+              <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button onClick={() => { setShowModal(false); setError(''); }} style={{ padding: '0.6rem 1.25rem', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: '7px', cursor: 'pointer', fontSize: '0.85rem' }}>Cancel</button>
+                <button onClick={handleCreate} style={{ padding: '0.6rem 1.25rem', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}>Create Quote</button>
               </div>
             </div>
           </div>
@@ -382,4 +405,31 @@ export default function QuotesPage() {
       </div>
     </ProtectedRoute>
   );
+}
+
+// ── Style helpers ──────────────────────────────────────────────────────────────
+
+const qlabelStyle: React.CSSProperties = {
+  fontSize: '0.65rem',
+  fontWeight: 700,
+  color: '#94a3b8',
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  marginBottom: '0.2rem',
+};
+
+const qInputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '0.35rem 0.45rem',
+  border: '1px solid #e2e8f0',
+  borderRadius: '4px',
+  fontSize: '0.76rem',
+  color: '#374151',
+  background: '#fff',
+  marginBottom: '0',
+  boxSizing: 'border-box',
+};
+
+function actionBtn(bg: string, color: string): React.CSSProperties {
+  return { padding: '0.22rem 0.55rem', border: 'none', borderRadius: '5px', background: bg, color, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 };
 }
