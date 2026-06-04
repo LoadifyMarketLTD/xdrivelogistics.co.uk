@@ -275,7 +275,7 @@ export function LandingPage() {
             </div>
           ))}
         </div>
-        <p className="mx-auto mt-10 max-w-7xl text-xs text-slate-500">© {new Date().getFullYear()} XDrive Logistics Ltd. All rights reserved.</p>
+        <p className="mx-auto mt-10 max-w-7xl text-xs text-slate-500">© 2021 - 2026 XDrive Logistics Ltd. All rights reserved.</p>
       </footer>
     </div>
   );
