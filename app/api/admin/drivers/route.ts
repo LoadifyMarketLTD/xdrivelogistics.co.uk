@@ -389,20 +389,12 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    let membershipQuery = supabaseAdmin
+    const membershipQuery = supabaseAdmin
       .from('company_memberships')
       .select('id, company_id, role_in_company')
       .eq('user_id', authData.user.id)
       .eq('status', 'active')
       .in('role_in_company', Array.from(ADMIN_ROLES));
-
-    if (requestedCompanyId) {
-      membershipQuery = membershipQuery.eq('company_id', requestedCompanyId);
-    }
-
-    if (requestedMembershipId) {
-      membershipQuery = membershipQuery.eq('id', requestedMembershipId);
-    }
 
     const { data: membership, error: membershipLookupError } = await membershipQuery.maybeSingle();
 
@@ -442,6 +434,25 @@ export async function POST(request: NextRequest) {
         }
       );
       return respond(403, { error: 'Forbidden' }, 'membership_not_resolved');
+    }
+
+    if (
+      (requestedCompanyId && requestedCompanyId !== resolvedMembership.company_id) ||
+      (requestedMembershipId && requestedMembershipId !== resolvedMembership.id)
+    ) {
+      logForensicFailure(
+        requestId,
+        'membership lookup',
+        'lookup active admin membership',
+        new Error('Forbidden'),
+        {
+          membershipId: resolvedMembership.id,
+          companyId: resolvedMembership.company_id,
+          requestedMembershipId: requestedMembershipId ?? null,
+          requestedCompanyId: requestedCompanyId ?? null,
+        }
+      );
+      return respond(403, { error: 'Forbidden' }, 'membership_scope_mismatch');
     }
 
     const resolvedCompanyId = resolvedMembership.company_id;
@@ -984,20 +995,12 @@ export async function PATCH(request: NextRequest) {
       return respond(400, { error: 'email is required.' }, 'missing_required_fields');
     }
 
-    let membershipQuery = supabaseAdmin
+    const membershipQuery = supabaseAdmin
       .from('company_memberships')
       .select('id, company_id, role_in_company')
       .eq('user_id', authData.user.id)
       .eq('status', 'active')
       .in('role_in_company', Array.from(ADMIN_ROLES));
-
-    if (requestedCompanyId) {
-      membershipQuery = membershipQuery.eq('company_id', requestedCompanyId);
-    }
-
-    if (requestedMembershipId) {
-      membershipQuery = membershipQuery.eq('id', requestedMembershipId);
-    }
 
     const { data: membership, error: membershipLookupError } = await membershipQuery.maybeSingle();
     if (membershipLookupError) {
@@ -1006,6 +1009,13 @@ export async function PATCH(request: NextRequest) {
 
     if (!membership?.id || !membership.company_id) {
       return respond(403, { error: 'Forbidden' }, 'membership_not_resolved');
+    }
+
+    if (
+      (requestedCompanyId && requestedCompanyId !== membership.company_id) ||
+      (requestedMembershipId && requestedMembershipId !== membership.id)
+    ) {
+      return respond(403, { error: 'Forbidden' }, 'membership_scope_mismatch');
     }
 
     const resolvedCompanyId = membership.company_id;
