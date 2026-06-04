@@ -1,195 +1,312 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Activity, FileCheck2, FileText, LayoutGrid, Map, ShieldCheck, Truck, Users } from 'lucide-react';
+import {
+  ArrowRight,
+  Briefcase,
+  CalendarDays,
+  ChevronRight,
+  CircleCheck,
+  Compass,
+  FileCheck2,
+  Globe,
+  Mail,
+  MapPinned,
+  Network,
+  Phone,
+  Receipt,
+  ShieldCheck,
+  Truck,
+  Users2,
+} from 'lucide-react';
 
 const roleCards = [
   {
-    title: 'Owner Drivers',
-    summary: 'Find available UK loads, quote quickly, and manage live delivery updates from one workflow.',
-    benefit: 'Get more booked work with less admin.',
-    cta: 'Join as Owner Driver',
+    title: 'Owner Operators',
+    summary: 'Find loads, submit quotes and run your jobs from one operational view.',
     href: '/register',
+    image: '/reference/courier-exchange/Screenshot%202026-06-04%20063844.png',
   },
   {
     title: 'Courier Companies',
-    summary: 'Coordinate teams, assign jobs, track progress, and close each movement with POD and invoicing.',
-    benefit: 'Improve fleet utilisation and delivery control.',
-    cta: 'Join as Carrier',
+    summary: 'Manage fleets, drivers, POD and invoices in one connected workflow.',
     href: '/register',
+    image: '/reference/courier-exchange/Screenshot%202026-06-04%20063820.png',
   },
   {
-    title: 'Load Posters / Brokers',
-    summary: 'Post transport requirements, compare quotes, award jobs, and monitor execution in real time.',
-    benefit: 'Source reliable capacity faster.',
-    cta: 'Post a Load',
+    title: 'Load Posters',
+    summary: 'Post transport work, compare quotes, award jobs and monitor progress.',
     href: '/request-quote',
+    image: '/reference/courier-exchange/Screenshot%202026-06-04%20063807.png',
   },
   {
     title: 'Customers',
-    summary: 'Request transport, get matched with trusted operators, and follow every milestone to completion.',
-    benefit: 'Gain visibility from request to proof of delivery.',
-    cta: 'Request Transport',
+    summary: 'Request transport and follow delivery, POD and invoicing milestones.',
     href: '/request-quote',
+    image: '/reference/courier-exchange/Screenshot%202026-06-04%20063730.png',
+  },
+  {
+    title: 'Drivers',
+    summary: 'View assignments, navigate routes and upload POD directly from mobile.',
+    href: '/register',
+    image: '/reference/courier-exchange/Screenshot%202026-06-04%20063834.png',
   },
 ];
 
 const previewCards = [
-  { title: 'Marketplace', detail: 'Live load board with quote visibility and route intelligence.', icon: LayoutGrid },
-  { title: 'Operations Diary', detail: 'Planning timeline for allocations, ETAs, and dispatch updates.', icon: Activity },
-  { title: 'Driver Dashboard', detail: 'Mobile-first job flow with milestone updates and proof capture.', icon: Truck },
-  { title: 'Fleet & Vehicles', detail: 'Vehicle availability, allocation status, and compliance tracking.', icon: Users },
-  { title: 'POD / Invoices', detail: 'Proof of delivery, signed records, and invoice-ready completion.', icon: FileText },
+  {
+    title: 'Marketplace',
+    detail: 'Live load board with route intelligence and fast quoting.',
+    image: '/reference/courier-exchange/Screenshot%202026-06-04%20063434.png',
+    href: '/request-quote',
+  },
+  {
+    title: 'Operations Diary',
+    detail: 'Plan collections, allocate drivers and keep dispatch synchronized.',
+    image: '/reference/courier-exchange/Screenshot%202026-06-04%20063533.png',
+    href: '/register',
+  },
+  {
+    title: 'Driver Dashboard',
+    detail: 'Driver-first navigation with POD capture and milestone updates.',
+    image: '/reference/courier-exchange/Screenshot%202026-06-04%20063730.png',
+    href: '/driver/jobs',
+  },
+  {
+    title: 'Finance',
+    detail: 'Invoice-ready completion flow with payable status visibility.',
+    image: '/reference/courier-exchange/Screenshot%202026-06-04%20063617.png',
+    href: '/register',
+  },
 ];
 
-const flowSteps = ['Post / Request', 'Quote', 'Award', 'Assign', 'Deliver', 'POD', 'Invoice'];
-
-const referenceShots = [
-  {
-    src: '/reference/courier-exchange/Screenshot%202026-06-04%20063434.png',
-    title: 'Exchange load board flow',
-  },
-  {
-    src: '/reference/courier-exchange/Screenshot%202026-06-04%20063533.png',
-    title: 'Live allocation workflow',
-  },
-  {
-    src: '/reference/courier-exchange/Screenshot%202026-06-04%20063730.png',
-    title: 'Route and dispatch snapshot',
-  },
-  {
-    src: '/reference/courier-exchange/Screenshot%202026-06-04%20063844.png',
-    title: 'Driver operations reference',
-  },
+const flowSteps = [
+  { title: 'Request Transport', detail: 'Create your transport request in seconds.', icon: Compass },
+  { title: 'Receive Quotes', detail: 'Carriers and owner operators submit offers.', icon: Briefcase },
+  { title: 'Award Job', detail: 'Choose the carrier and lock the assignment.', icon: CircleCheck },
+  { title: 'Assign Driver', detail: 'Dispatch to an available driver with full visibility.', icon: Users2 },
+  { title: 'Deliver', detail: 'Driver completes delivery and status updates.', icon: Truck },
+  { title: 'Upload POD', detail: 'Proof of delivery is uploaded in-app.', icon: FileCheck2 },
+  { title: 'Create Invoice', detail: 'Invoice is generated and ready to send.', icon: Receipt },
 ];
 
 const footerGroups = [
   { title: 'Platform', links: ['Marketplace', 'Operations Diary', 'Driver Dashboard', 'POD & Invoicing'] },
-  { title: 'For', links: ['Owner Drivers', 'Courier Companies', 'Load Posters / Brokers', 'Transport Customers'] },
-  { title: 'Company', links: ['About XDrive', 'Early Access Launch', 'Contact Team'] },
-  { title: 'Legal', links: ['Privacy', 'Terms', 'Cookies'] },
-  { title: 'Contact', links: ['support@xdrivelogistics.co.uk', 'United Kingdom'] },
+  { title: 'For', links: ['Owner Operators', 'Courier Companies', 'Load Posters', 'Customers', 'Drivers'] },
+  { title: 'Company', links: ['About XDrive', 'Careers', 'News', 'Contact'] },
+  { title: 'Contact', links: ['support@xdrivelogistics.co.uk', '+44 7584 123456', 'United Kingdom'] },
+];
+
+const trustPills = [
+  { label: 'Company No.', value: '13171804' },
+  { label: 'UK Based', value: 'Operations' },
+  { label: 'Built by', value: 'Transport Professionals' },
+  { label: 'Workflow', value: 'Exchange + Operations' },
+];
+
+const valueCards = [
+  {
+    title: 'Exchange Marketplace',
+    detail: 'Access more loads and more carriers in one live network.',
+    icon: Network,
+  },
+  {
+    title: 'Operations Control',
+    detail: 'Plan, assign and manage every job from one operational hub.',
+    icon: MapPinned,
+  },
+  {
+    title: 'Proof of Delivery',
+    detail: 'Capture POD with photo, signature and location in one flow.',
+    icon: ShieldCheck,
+  },
 ];
 
 export function LandingPage() {
   return (
-    <div className="bg-slate-50 text-slate-900">
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="text-sm font-semibold tracking-wide text-slate-900">XDrive Logistics</div>
-          <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
-            <a href="#platform">Platform</a>
-            <a href="#roles">Roles</a>
-            <a href="#how-it-works">How it Works</a>
-            <a href="#launch">Launch</a>
-            <a href="#contact">Contact</a>
+    <div className="bg-[#030d22] text-white">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#020919]/85 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
+          <div className="text-lg font-bold tracking-wide">
+            <span className="text-[#f5c247]">X</span>Drive
+            <span className="ml-2 text-xs font-medium tracking-[0.24em] text-white/60">LOGISTICS</span>
+          </div>
+          <nav className="hidden items-center gap-7 text-sm text-white/80 lg:flex">
+            <a href="#platform" className="hover:text-white">
+              Platform
+            </a>
+            <a href="#roles" className="hover:text-white">
+              Roles
+            </a>
+            <a href="#how-it-works" className="hover:text-white">
+              How it Works
+            </a>
+            <a href="#launch" className="hover:text-white">
+              Launch
+            </a>
+            <a href="#contact" className="hover:text-white">
+              Contact
+            </a>
           </nav>
-          <Link
-            href="/register"
-            className="rounded-lg border border-emerald-400/50 bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400"
-          >
-            Create Early Access Account
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/request-quote"
+              className="rounded-xl bg-[#22c55e] px-4 py-2 text-sm font-semibold text-[#032115] transition hover:bg-[#16a34a]"
+            >
+              Request Transport
+            </Link>
+            <Link
+              href="/register"
+              className="hidden rounded-xl border border-white/30 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 sm:inline-flex"
+            >
+              Join XDrive
+            </Link>
+          </div>
         </div>
       </header>
 
-      <section className="relative overflow-hidden border-b border-slate-200 px-6 pb-20 pt-14 md:pb-28 md:pt-20">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(56,189,248,0.18),transparent_35%),radial-gradient(circle_at_85%_5%,rgba(16,185,129,0.2),transparent_30%),radial-gradient(circle_at_50%_80%,rgba(249,115,22,0.16),transparent_35%)]" />
-        <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1.1fr_1fr]">
+      <section className="relative overflow-hidden border-b border-white/10">
+        <div className="absolute inset-0">
+          <Image
+            src="/reference/courier-exchange/Screenshot%202026-06-04%20063451.png"
+            alt="Logistics operations background"
+            fill
+            className="object-cover"
+            priority
+          />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(245,194,71,0.22),transparent_35%),radial-gradient(circle_at_85%_10%,rgba(34,197,94,0.14),transparent_30%),linear-gradient(120deg,rgba(2,7,21,0.88),rgba(2,7,21,0.7),rgba(2,7,21,0.92))]" />
+        </div>
+
+        <div className="relative mx-auto grid max-w-7xl gap-10 px-4 pb-16 pt-14 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:pb-20 lg:pt-20">
           <div>
-            <p className="mb-4 inline-flex rounded-full border border-sky-300/50 bg-sky-100 px-3 py-1 text-xs font-semibold tracking-[0.12em] text-sky-700">
-              UK LOGISTICS LAUNCH PLATFORM
+            <p className="inline-flex rounded-full border border-[#f5c247]/45 bg-[#f5c247]/10 px-3 py-1 text-xs font-semibold tracking-[0.12em] text-[#f5c247]">
+              FOUNDED FEBRUARY 2021
             </p>
-            <h1 className="max-w-2xl text-4xl font-bold leading-tight text-slate-900 md:text-6xl">
-              Find Loads. Manage Drivers. Deliver with Proof.
+            <h1 className="mt-5 max-w-2xl text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl">
+              MOVE FREIGHT. <br />
+              MANAGE OPERATIONS. <br />
+              <span className="text-[#f5c247]">GROW YOUR NETWORK.</span>
             </h1>
-            <p className="mt-6 max-w-2xl text-lg text-slate-700">
-              XDrive is a UK logistics exchange and operations platform built for owner drivers, courier companies, load posters and
-              transport customers.
+            <p className="mt-6 max-w-2xl text-lg text-white/80">
+              XDrive connects transport customers, brokers, carriers, owner operators and drivers in one operational logistics platform.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/request-quote"
-                className="rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400"
+                className="rounded-xl bg-[#22c55e] px-6 py-3 text-sm font-semibold text-[#042012] transition hover:bg-[#16a34a]"
               >
-                Post a Load / Request Transport
+                Request Transport
               </Link>
               <Link
                 href="/register"
-                className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+                className="rounded-xl border border-white/35 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
               >
-                Join as Carrier / Owner Driver
+                Join XDrive
               </Link>
+            </div>
+            <div className="mt-8 grid gap-3 text-sm text-white/80 sm:grid-cols-2 lg:grid-cols-4">
+              {trustPills.map((pill) => (
+                <div key={pill.label} className="rounded-xl border border-white/15 bg-[#03112f]/75 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.12em] text-white/60">{pill.label}</p>
+                  <p className="mt-1 font-semibold text-white">{pill.value}</p>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="relative rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-            <div className="absolute inset-6 rounded-2xl border border-sky-200/60 bg-[linear-gradient(145deg,rgba(240,249,255,0.98),rgba(241,245,249,0.95))]" />
-            <div className="relative">
-              <div className="mb-4 flex items-center justify-between text-xs font-semibold tracking-[0.14em] text-sky-700">
-                <span className="inline-flex items-center gap-2">
-                  <Map className="h-3.5 w-3.5" />
-                  UK ROUTE GRID
-                </span>
-                <span className="rounded-full bg-emerald-400/20 px-2 py-1 text-emerald-700">LIVE</span>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+          <div className="relative pt-2 lg:pt-8">
+            <div className="rounded-3xl border border-white/15 bg-[#04122f]/85 p-5 shadow-2xl backdrop-blur">
+              <p className="mb-4 text-sm font-semibold text-white/85">Marketplace</p>
+              <div className="space-y-3 text-sm">
                 {[
-                  ['Available Loads', '142 Open'],
-                  ['Active Jobs', '58 In Transit'],
-                  ['POD Uploaded', '41 Today'],
-                  ['Invoice Ready', '36 Complete'],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-xl border border-slate-200 bg-white p-4">
-                    <p className="text-xs uppercase tracking-[0.12em] text-slate-500">{label}</p>
-                    <p className="mt-2 text-xl font-semibold text-slate-900">{value}</p>
+                  ['Blackburn', 'London', '£420'],
+                  ['Manchester', 'Glasgow', '£580'],
+                  ['Leeds', 'Bristol', '£350'],
+                ].map(([from, to, value]) => (
+                  <div key={`${from}-${to}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                    <p className="text-white/85">
+                      {from} <span className="text-white/45">→</span> {to}
+                    </p>
+                    <p className="font-semibold text-[#f5c247]">{value}</p>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 rounded-xl border border-sky-300/40 bg-sky-50 p-3 text-xs text-slate-700">
-                London → Birmingham → Manchester → Leeds route allocation synced with operations diary.
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-[1.2fr_0.8fr]">
+              <div className="rounded-2xl border border-white/15 bg-[#04122f]/88 p-4 backdrop-blur">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">Operations Overview</p>
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  {[
+                    ['Active Jobs', '86'],
+                    ['In Transit', '58'],
+                    ['POD Uploaded', '41'],
+                    ['Invoice Ready', '36'],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                      <p className="text-white/65">{label}</p>
+                      <p className="text-xl font-semibold text-white">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-[#04122f]/88 backdrop-blur">
+                <Image
+                  src="/reference/courier-exchange/Screenshot%202026-06-04%20063730.png"
+                  alt="Driver app mock"
+                  width={460}
+                  height={660}
+                  className="h-full w-full object-cover"
+                />
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="roles" className="mx-auto max-w-7xl px-6 py-20">
-        <div className="mb-10">
-          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">Built around each logistics role</h2>
-        </div>
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          {roleCards.map((role) => (
-            <article key={role.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-slate-900">{role.title}</h3>
-              <p className="mt-3 text-sm text-slate-600">{role.summary}</p>
-              <p className="mt-4 text-sm font-medium text-emerald-700">{role.benefit}</p>
-              <Link
-                href={role.href}
-                className="mt-6 inline-flex w-full items-center justify-center rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
-              >
-                {role.cta}
-              </Link>
+      <section className="border-b border-white/10 bg-[#041128] px-4 py-12 sm:px-6">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8 text-center">
+            <h2 className="text-3xl font-bold">Built from real transport experience.</h2>
+            <p className="mt-3 text-white/70">Created after years of operational work across UK logistics and exchange networks.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <article className="rounded-2xl border border-white/12 bg-[#05142f] p-5">
+              <CalendarDays className="h-5 w-5 text-[#f5c247]" />
+              <p className="mt-4 text-sm text-white/65">Company Established</p>
+              <p className="text-3xl font-bold">2021</p>
             </article>
-          ))}
+            <article className="rounded-2xl border border-white/12 bg-[#05142f] p-5">
+              <MapPinned className="h-5 w-5 text-[#f5c247]" />
+              <p className="mt-4 text-sm text-white/65">Platform Focus</p>
+              <p className="text-3xl font-bold">UK Logistics</p>
+            </article>
+            <article className="rounded-2xl border border-white/12 bg-[#05142f] p-5">
+              <Network className="h-5 w-5 text-[#f5c247]" />
+              <p className="mt-4 text-sm text-white/65">Core Workflows</p>
+              <p className="text-3xl font-bold">Exchange + Operations</p>
+            </article>
+            <article className="rounded-2xl border border-white/12 bg-[#05142f] p-5">
+              <Users2 className="h-5 w-5 text-[#f5c247]" />
+              <p className="mt-4 text-sm text-white/65">User Types</p>
+              <p className="text-3xl font-bold">5</p>
+            </article>
+          </div>
         </div>
       </section>
 
-      <section id="platform" className="border-y border-slate-200 bg-white px-6 py-20">
+      <section id="roles" className="bg-[#f4f6fb] px-4 py-16 text-[#111827] sm:px-6">
         <div className="mx-auto max-w-7xl">
-          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">Platform preview</h2>
-          <p className="mt-4 max-w-2xl text-slate-600">A unified workspace for exchange activity and daily delivery operations.</p>
-          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {previewCards.map(({ title, detail, icon: Icon }) => (
-              <article key={title} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
-                <div className="mb-4 inline-flex rounded-lg border border-sky-300/40 bg-sky-100 p-2 text-sky-700">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-                <p className="mt-3 text-sm text-slate-600">{detail}</p>
-                <div className="mt-5 h-24 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-100 via-sky-50 to-slate-100 p-3">
-                  <div className="mb-2 h-2 w-20 rounded bg-slate-400/60" />
-                  <div className="mb-2 h-2 w-32 rounded bg-slate-400/40" />
-                  <div className="h-2 w-24 rounded bg-emerald-500/40" />
+          <h2 className="text-center text-4xl font-bold">One platform. Five user types.</h2>
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
+            {roleCards.map((role) => (
+              <article key={role.title} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <Image src={role.image} alt={role.title} width={560} height={360} className="h-44 w-full object-cover" />
+                <div className="p-4">
+                  <h3 className="text-lg font-semibold text-slate-900">{role.title}</h3>
+                  <p className="mt-2 text-sm text-slate-600">{role.summary}</p>
+                  <Link href={role.href} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#1745a8]">
+                    Learn more <ChevronRight className="h-4 w-4" />
+                  </Link>
                 </div>
               </article>
             ))}
@@ -197,112 +314,119 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-20">
-        <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">Reference workflow snapshots</h2>
-        <p className="mt-4 max-w-2xl text-slate-600">
-          Benchmark visuals used in ongoing UX alignment for exchange and dispatch experiences.
-        </p>
-        <div className="mt-8 grid gap-5 md:grid-cols-2">
-          {referenceShots.map((shot) => (
-            <article key={shot.src} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <Image src={shot.src} alt={shot.title} width={1200} height={675} className="h-52 w-full object-cover" />
-              <p className="px-4 py-3 text-sm font-medium text-slate-700">{shot.title}</p>
-            </article>
-          ))}
+      <section id="platform" className="bg-[#f4f6fb] px-4 pb-16 text-[#111827] sm:px-6">
+        <div className="mx-auto max-w-7xl">
+          <h2 className="text-center text-4xl font-bold">See the platform before launch.</h2>
+          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {previewCards.map((card) => (
+              <article key={card.title} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <Image src={card.image} alt={card.title} width={720} height={450} className="h-44 w-full object-cover" />
+                <div className="p-4">
+                  <h3 className="text-lg font-semibold text-slate-900">{card.title}</h3>
+                  <p className="mt-2 text-sm text-slate-600">{card.detail}</p>
+                  <Link href={card.href} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#1745a8]">
+                    View {card.title.toLowerCase()} <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section id="how-it-works" className="mx-auto max-w-7xl px-6 py-20">
-        <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">How it works</h2>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          {flowSteps.map((step, index) => (
-            <div key={step} className="flex items-center gap-3">
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800">{step}</div>
-              {index < flowSteps.length - 1 && <span className="text-slate-400">→</span>}
-            </div>
-          ))}
+      <section id="how-it-works" className="bg-[#f4f6fb] px-4 pb-16 text-[#111827] sm:px-6">
+        <div className="mx-auto max-w-7xl rounded-3xl bg-white px-5 py-10 shadow-sm sm:px-8">
+          <h2 className="text-center text-4xl font-bold">How XDrive works.</h2>
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
+            {flowSteps.map(({ title, detail, icon: Icon }) => (
+              <article key={title} className="rounded-2xl border border-slate-200 p-4">
+                <div className="mb-3 inline-flex rounded-full border border-slate-200 bg-slate-50 p-2 text-[#1745a8]">
+                  <Icon className="h-4 w-4" />
+                </div>
+                <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+                <p className="mt-2 text-xs text-slate-600">{detail}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="border-y border-slate-200 bg-white px-6 py-20">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_0.9fr]">
+      <section className="relative overflow-hidden border-y border-white/10">
+        <div className="absolute inset-0">
+          <Image
+            src="/reference/courier-exchange/Screenshot%202026-06-04%20063617.png"
+            alt="Truck background"
+            fill
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-[#020919]/85" />
+        </div>
+        <div className="relative mx-auto grid max-w-7xl gap-8 px-4 py-14 sm:px-6 lg:grid-cols-[1fr_1.2fr]">
           <div>
-            <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">Why XDrive</h2>
-            <p className="mt-5 max-w-2xl text-lg text-slate-600">
-              Not just a load board. Not just dispatch software. XDrive connects exchange, dispatch, driver workflow, POD and invoicing.
+            <h2 className="text-4xl font-bold">Why XDrive exists.</h2>
+            <p className="mt-4 max-w-xl text-white/75">
+              Most logistics tools solve only one part of the problem. XDrive connects exchange, operations, driver workflow, POD and
+              invoicing in one connected platform.
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-            <div className="space-y-4 text-sm text-slate-700">
-              <p className="flex items-center gap-3">
-                <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                Exchange plus operations in one delivery lifecycle
-              </p>
-              <p className="flex items-center gap-3">
-                <FileCheck2 className="h-4 w-4 text-emerald-500" />
-                Proof and finance steps integrated with dispatch activity
-              </p>
-              <p className="flex items-center gap-3">
-                <Truck className="h-4 w-4 text-emerald-500" />
-                Built for UK owner drivers, carriers, brokers and customers
-              </p>
-            </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {valueCards.map(({ title, detail, icon: Icon }) => (
+              <article key={title} className="rounded-2xl border border-white/15 bg-[#03122f]/70 p-5 backdrop-blur">
+                <Icon className="h-5 w-5 text-[#f5c247]" />
+                <h3 className="mt-4 text-lg font-semibold">{title}</h3>
+                <p className="mt-2 text-sm text-white/70">{detail}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-20">
-        <div className="rounded-3xl border border-slate-200 bg-gradient-to-r from-white to-slate-100 p-8">
-          <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Trust and credibility</h2>
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Legal Entity</p>
-              <p className="mt-2 font-semibold text-slate-900">XDrive Logistics Ltd</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Founded</p>
-              <p className="mt-2 font-semibold text-slate-900">1 February 2021</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Company No.</p>
-              <p className="mt-2 font-semibold text-slate-900">13171804</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Positioning</p>
-              <p className="mt-2 font-semibold text-slate-900">UK logistics technology platform</p>
-            </div>
-          </div>
-          <p className="mt-5 text-sm text-slate-600">Built from real transport experience across exchange workflows and operations delivery.</p>
+      <section id="launch" className="relative overflow-hidden border-b border-white/10">
+        <div className="absolute inset-0">
+          <Image
+            src="/reference/courier-exchange/Screenshot%202026-06-04%20063807.png"
+            alt="Commercial launch"
+            fill
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-[#020919]/80" />
         </div>
-      </section>
-
-      <section id="launch" className="border-y border-slate-200 bg-slate-100 px-6 py-20">
-        <div className="mx-auto max-w-5xl text-center">
-          <p className="mb-3 text-xs font-semibold tracking-[0.12em] text-emerald-700">EARLY ACCESS LAUNCH</p>
-          <h2 className="text-3xl font-bold text-slate-900 md:text-5xl">Be first on the XDrive commercial launch</h2>
-          <p className="mx-auto mt-5 max-w-2xl text-slate-600">
-            We are onboarding early users now across owner drivers, carriers, load posters and transport customers.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <Link href="/register" className="rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400">
-              Create Early Access Account
+        <div className="relative mx-auto flex max-w-7xl flex-col items-start gap-5 px-4 py-14 sm:px-6">
+          <h2 className="text-4xl font-bold">Be part of the commercial launch.</h2>
+          <p className="max-w-2xl text-white/80">Early access registrations are open now for carriers, owner operators, load posters and customers.</p>
+          <div className="flex flex-wrap gap-4">
+            <Link
+              href="/register"
+              className="rounded-xl bg-[#22c55e] px-6 py-3 text-sm font-semibold text-[#042012] transition hover:bg-[#16a34a]"
+            >
+              Join Early Access
             </Link>
             <Link
               href="/request-quote"
-              className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+              className="rounded-xl border border-white/35 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
             >
-              Request a Demo
+              Request Demo
             </Link>
           </div>
         </div>
       </section>
 
-      <footer id="contact" className="px-6 py-14">
-        <div className="mx-auto grid max-w-7xl gap-8 border-t border-slate-200 pt-10 md:grid-cols-5">
+      <footer id="contact" className="bg-[#010716] px-4 py-12 sm:px-6">
+        <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1.2fr_1fr_1fr_1fr_1fr]">
+          <div>
+            <p className="text-2xl font-bold">
+              <span className="text-[#f5c247]">X</span>Drive
+            </p>
+            <p className="mt-3 text-sm text-white/70">XDrive Logistics Ltd</p>
+            <p className="text-sm text-white/70">Founded February 2021</p>
+            <p className="text-sm text-white/70">Company No. 13171804</p>
+            <p className="text-sm text-white/70">United Kingdom</p>
+          </div>
+
           {footerGroups.map((group) => (
             <div key={group.title}>
-              <h3 className="text-sm font-semibold tracking-wide text-slate-900">{group.title}</h3>
-              <div className="mt-4 space-y-2 text-sm text-slate-600">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-white/85">{group.title}</h3>
+              <div className="mt-4 space-y-2 text-sm text-white/65">
                 {group.links.map((link) => (
                   <p key={link}>{link}</p>
                 ))}
@@ -310,7 +434,21 @@ export function LandingPage() {
             </div>
           ))}
         </div>
-        <p className="mx-auto mt-10 max-w-7xl text-xs text-slate-500">© 2021 - 2026 XDrive Logistics Ltd. All rights reserved.</p>
+
+        <div className="mx-auto mt-10 flex max-w-7xl flex-col gap-3 border-t border-white/10 pt-6 text-xs text-white/55 sm:flex-row sm:items-center sm:justify-between">
+          <p>© 2021 - 2026 XDrive Logistics Ltd. All rights reserved.</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="inline-flex items-center gap-1">
+              <Mail className="h-3.5 w-3.5" /> support@xdrivelogistics.co.uk
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Phone className="h-3.5 w-3.5" /> +44 7584 123456
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Globe className="h-3.5 w-3.5" /> Independent logistics technology platform
+            </span>
+          </div>
+        </div>
       </footer>
     </div>
   );
