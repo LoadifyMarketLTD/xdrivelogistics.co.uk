@@ -146,78 +146,67 @@ export default function InvoicesPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1rem' }}>
+      <div style={{ background: '#f5f7fa', minHeight: 'calc(100vh - 89px)' }}>
+
+        {/* SmartPay-style tab bar + create button */}
+        <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: 0 }}>
+            {(['All', 'Pending', 'Paid', 'Overdue'] as const).map((s) => {
+              const active = statusFilter === s;
+              const count = s === 'All' ? invoices.length : invoices.filter(i => i.status === s).length;
+              return (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  style={{
+                    padding: '0.65rem 0.85rem',
+                    border: 'none',
+                    borderBottom: active ? '2px solid #1d4ed8' : '2px solid transparent',
+                    background: 'none',
+                    cursor: 'pointer',
+                    fontSize: '0.73rem',
+                    fontWeight: 700,
+                    color: active ? '#1d4ed8' : '#64748b',
+                    marginBottom: '-1px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {s === 'All' ? 'All' : s === 'Pending' ? 'Awaiting Payment' : s}
+                  {count > 0 && (
+                    <span style={{ marginLeft: '0.3rem', background: active ? '#dbeafe' : '#f1f5f9', color: active ? '#1d4ed8' : '#64748b', borderRadius: '8px', padding: '0.05rem 0.38rem', fontSize: '0.68rem' }}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => router.push('/admin/invoices/new')}
+            style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.38rem 0.85rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            + Create Invoice
+          </button>
+        </div>
 
         {/* Main Content */}
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', margin: 0, color: '#111827' }}>Invoices</h1>
-              <p style={{ margin: '0.35rem 0 0 0', color: '#6b7280', fontSize: '0.9rem' }}>Manage invoice lifecycle and payment status.</p>
-            </div>
-            <button
-              onClick={() => router.push('/admin/invoices/new')}
-              style={{ padding: '0.65rem 1.2rem', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              + Create Invoice
-            </button>
-          </div>
+        <div style={{ padding: '0.85rem', maxWidth: '1400px', margin: '0 auto' }}>
           {loadError && (
-            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.9rem 1rem', marginBottom: '1rem', color: '#b91c1c' }}>
+            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.65rem 1rem', marginBottom: '0.85rem', color: '#b91c1c', fontSize: '0.85rem' }}>
               {loadError}
             </div>
           )}
 
-          {/* Controls */}
-          <div style={{
-            backgroundColor: 'white',
-            padding: '1rem',
-            borderRadius: '12px',
-            marginBottom: '1rem',
-            border: '1px solid #e5e7eb'
-          }}>
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', flex: 1 }}>
-                {/* Search */}
-                <input
-                  type="text"
-                  placeholder="Search invoices..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{
-                    flex: '1',
-                    minWidth: '250px',
-                    padding: '0.65rem 0.85rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                    outline: 'none'
-                  }}
-                />
-
-                {/* Status Filter */}
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as 'All' | 'Paid' | 'Pending' | 'Overdue')}
-                  style={{
-                    padding: '0.65rem 0.85rem',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                    cursor: 'pointer',
-                    backgroundColor: 'white',
-                    outline: 'none'
-                  }}
-                >
-                  <option value="All">All Status</option>
-                  <option value="Paid">Paid</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Overdue">Overdue</option>
-                </select>
-              </div>
-
-              <button onClick={() => void loadInvoices()} style={{ padding: '0.65rem 0.9rem', backgroundColor: 'white', color: '#1f2937', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Refresh</button>
-            </div>
+          {/* Search bar */}
+          <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '0.75rem', marginBottom: '0.85rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="Search invoices…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ flex: 1, minWidth: '200px', padding: '0.45rem 0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+            />
+            <button onClick={() => void loadInvoices()} style={{ padding: '0.45rem 0.75rem', background: '#fff', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>↻ Refresh</button>
           </div>
 
           {/* Invoices Table */}
