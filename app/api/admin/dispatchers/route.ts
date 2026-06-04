@@ -300,10 +300,6 @@ export async function PATCH(request: NextRequest) {
     const requestedMembershipId = payload.membershipId?.trim();
     const email = payload.email?.trim().toLowerCase();
 
-    if (!email) {
-      return respond(400, { error: 'email is required.' });
-    }
-
     const { data: membership, error: membershipError } = await resolveAdminMembership(authData.user.id);
 
     if (membershipError) {
@@ -319,6 +315,10 @@ export async function PATCH(request: NextRequest) {
       (requestedMembershipId && requestedMembershipId !== membership.id)
     ) {
       return respond(403, { error: 'Forbidden' });
+    }
+
+    if (!email) {
+      return respond(400, { error: 'email is required.' });
     }
 
     const resolvedCompanyId = membership.company_id;
