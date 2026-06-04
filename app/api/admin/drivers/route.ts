@@ -1,23 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import { getResetPasswordEmailRedirectTo } from '../../../../lib/authFlow';
 import { logRuntimeProof } from '../../../../lib/runtimeProof';
 
 const ADMIN_ROLES = new Set(['owner', 'admin', 'dispatcher']);
 
-type CreateDriverPayload = {
-  companyId?: string;
-  membershipId?: string | null;
-  displayName?: string;
-  email?: string;
-  phone?: string;
-};
-
 type SendDriverPasswordSetupPayload = {
   companyId?: string;
   membershipId?: string | null;
   email?: string;
 };
+
+const createDriverPayloadSchema = z.object({
+  companyId: z.string().optional(),
+  membershipId: z.string().nullable().optional(),
+  displayName: z.string().trim().min(1),
+  email: z.string().trim().min(1).transform((value) => value.toLowerCase()),
+  phone: z.string().optional(),
+});
 
 type ForensicLogLevel = 'info' | 'warn' | 'error';
 
@@ -344,12 +345,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const payload = (await request.json()) as CreateDriverPayload;
-    const requestedCompanyId = payload.companyId?.trim();
-    const requestedMembershipId = payload.membershipId?.trim();
-    const displayName = payload.displayName?.trim();
-    const email = payload.email?.trim().toLowerCase();
-    const phone = payload.phone?.trim() || null;
+    let parsedPayload: z.infer<typeof createDriverPayloadSchema>;
+    try {
+      parsedPayload = createDriverPayloadSchema.parse(await request.json());
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        logForensicFailure(
+          requestId,
+          'request validation',
+          'validate bearer token and request payload',
+          new Error('displayName and email are required.'),
+          {
+            callSiteStack: requestValidationStack,
+          }
+        );
+        return respond(
+          400,
+          { error: 'displayName and email are required.' },
+          'missing_required_fields'
+        );
+      }
+      throw error;
+    }
+    const requestedCompanyId = parsedPayload.companyId?.trim();
+    const requestedMembershipId = parsedPayload.membershipId?.trim();
+    const displayName = parsedPayload.displayName;
+    const email = parsedPayload.email;
+    const phone = parsedPayload.phone?.trim() || null;
 
     // Authorisation must be resolved before returning any payload-validation
     // error so that non-admin callers always receive 403, not 400.
@@ -431,23 +453,6 @@ export async function POST(request: NextRequest) {
         }
       );
       return respond(403, { error: 'Forbidden' }, 'membership_scope_mismatch');
-    }
-
-    if (!email || !displayName) {
-      logForensicFailure(
-        requestId,
-        'request validation',
-        'validate bearer token and request payload',
-        new Error('displayName and email are required.'),
-        {
-          callSiteStack: requestValidationStack,
-        }
-      );
-      return respond(
-        400,
-        { error: 'displayName and email are required.' },
-        'missing_required_fields'
-      );
     }
 
     logForensicSuccess(requestId, 'request validation', 'validate bearer token and request payload', {
