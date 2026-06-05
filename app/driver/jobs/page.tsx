@@ -93,6 +93,7 @@ const VEHICLE_TYPE_LABEL: Record<string, string> = {
 
 const DRIVER_MENU_ITEMS = [
   { id: 'dashboard', label: 'Dashboard',        icon: '🏠', href: '/driver/jobs' },
+  { id: 'todays-run', label: "Today's Run",     icon: '🚚', href: '/driver/jobs#todays-run' },
   { id: 'history',   label: 'History',          icon: '📚', href: '/driver/history' },
   { id: 'security',  label: 'Account Security', icon: '🔐', href: '/driver/change-password' },
 ];
@@ -255,6 +256,7 @@ export default function DriverJobsPage() {
   const [hydrated, setHydrated] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentHash, setCurrentHash] = useState('');
 
   useEffect(() => {
     setHydrated(true);
@@ -268,6 +270,13 @@ export default function DriverJobsPage() {
   useEffect(() => {
     if (!isMobile) setSidebarOpen(false);
   }, [isMobile]);
+
+  useEffect(() => {
+    const updateHash = () => setCurrentHash(window.location.hash || '');
+    updateHash();
+    window.addEventListener('hashchange', updateHash);
+    return () => window.removeEventListener('hashchange', updateHash);
+  }, []);
   const loadDriverProfile = useCallback(async () => {
     if (!user?.driverId || !isSupabaseConfigured) return;
 
@@ -655,7 +664,10 @@ export default function DriverJobsPage() {
 
         <nav style={{ flex: 1, padding: '0.5rem', overflowY: 'auto' }}>
           {DRIVER_MENU_ITEMS.map((item) => {
-            const isActive = pathname === item.href || (item.href === '/driver/jobs' && pathname.startsWith('/driver/jobs'));
+            const isRunLink = item.href.includes('#todays-run');
+            const isActive = isRunLink
+              ? pathname === '/driver/jobs' && currentHash === '#todays-run'
+              : pathname === item.href || (item.href === '/driver/jobs' && pathname.startsWith('/driver/jobs') && currentHash !== '#todays-run');
             return (
               <button
                 key={item.id}
@@ -848,7 +860,7 @@ export default function DriverJobsPage() {
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', alignItems: 'start' }}>
-          <section style={{ ...sectionCardStyle, gridColumn: isMobile ? 'auto' : 'span 2' }}>
+          <section id="todays-run" style={{ ...sectionCardStyle, gridColumn: isMobile ? 'auto' : 'span 2' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
               <SectionEyebrow>Today&apos;s Run Sheet</SectionEyebrow>
               <span style={{ fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.muted, fontWeight: 600 }}>
