@@ -16,6 +16,7 @@ import {
 import { downloadInvoicePdf } from '../../../../lib/invoicePdf';
 import { resolveActiveCompanyId } from '../../../../lib/activeCompany';
 import type { Invoice } from '../../../../lib/types/database';
+import { saveInvoiceWithSchemaCompat } from '../../../../lib/supabaseSchemaCompat';
 
 type InvoiceStatusHistoryItem = {
   id: string;
@@ -358,16 +359,16 @@ export default function InvoiceDetailPage() {
     if (isSupabaseConfigured && companyId) {
       const row = invoiceDataToDb(formData, companyId, user?.id);
       const { id: _id, company_id: _companyId, created_by: _createdBy, ...updateFields } = row;
-      const { error } = isNew
-        ? await supabase.from('invoices').insert([row])
-        : await supabase
-            .from('invoices')
-            .update({
-              ...updateFields,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', invoiceId)
-            .eq('company_id', companyId);
+      const { error } = await saveInvoiceWithSchemaCompat(supabase, {
+        isNew,
+        invoiceId,
+        companyId,
+        insertRow: row as Record<string, unknown>,
+        updateFields: {
+          ...updateFields,
+          updated_at: new Date().toISOString(),
+        } as Record<string, unknown>,
+      });
       if (!error) {
         setSaveMessage('Invoice saved successfully!');
         if (!isNew) {
