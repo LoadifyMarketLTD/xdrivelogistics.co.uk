@@ -91,39 +91,18 @@ const VEHICLE_TYPE_LABEL: Record<string, string> = {
   artic: 'Artic',
 };
 
-const DRIVER_MENU_GROUPS = [
-  {
-    label: 'Load Exchange',
-    items: [
-      { id: 'loads',      label: 'Available Loads',  icon: '📋', href: '/driver/loads' },
-      { id: 'search',     label: 'Search Loads',     icon: '🔍', href: '/driver/loads/search' },
-      { id: 'quotes',     label: 'My Quotes',        icon: '💬', href: '/driver/quotes' },
-      { id: 'won-work',   label: 'Won Work',         icon: '🏆', href: '/driver/won-work' },
-    ],
-  },
-  {
-    label: 'Operations',
-    items: [
-      { id: 'jobs',       label: 'Active Jobs',      icon: '🚚', href: '/driver/jobs' },
-      { id: 'history',    label: 'Job History',      icon: '📚', href: '/driver/history' },
-      { id: 'returns',    label: 'Return Journeys',  icon: '🔄', href: '/driver/returns' },
-    ],
-  },
-  {
-    label: 'Profile',
-    items: [
-      { id: 'availability', label: 'Availability',   icon: '📍', href: '/driver/availability' },
-      { id: 'security',   label: 'Account Security', icon: '🔐', href: '/driver/change-password' },
-    ],
-  },
+const DRIVER_MENU_ITEMS = [
+  { id: 'dashboard', label: 'Dashboard',        icon: '🏠', href: '/driver/jobs' },
+  { id: 'history',   label: 'History',          icon: '📚', href: '/driver/history' },
+  { id: 'security',  label: 'Account Security', icon: '🔐', href: '/driver/change-password' },
 ];
 
 const ENTERPRISE_THEME = {
   pageBg: '#eef2f6',
-  shellBg: '#f8fafc',
-  shellBorder: '#d7e0ea',
-  shellMuted: '#64748b',
-  shellText: '#0f172a',
+  shellBg: '#1e293b',
+  shellBorder: '#334155',
+  shellMuted: '#94a3b8',
+  shellText: '#f1f5f9',
   cardBg: '#ffffff',
   cardBorder: '#d7e0ea',
   cardShadow: '0 6px 16px rgba(15, 23, 42, 0.08)',
@@ -638,7 +617,6 @@ export default function DriverJobsPage() {
     return <div style={{ minHeight: '100vh', backgroundColor: ENTERPRISE_THEME.pageBg }} />;
   }
 
-  const currentModuleLabel = 'Driver Workspace';
   const dashboard = (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: ENTERPRISE_THEME.pageBg }}>
       {isMobile && sidebarOpen && (
@@ -666,76 +644,63 @@ export default function DriverJobsPage() {
         <div style={{ padding: '1.1rem 1rem', borderBottom: `1px solid ${ENTERPRISE_THEME.shellBorder}` }}>
           <h1 style={{ fontSize: '1.02rem', fontWeight: 700, margin: 0, color: ENTERPRISE_THEME.shellText, lineHeight: 1.35 }}>{COMPANY_CONFIG.legalName}</h1>
           <p style={{ fontSize: '0.74rem', margin: '0.3rem 0 0 0', color: ENTERPRISE_THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Driver workspace
+            Driver Console
           </p>
-          <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: ENTERPRISE_THEME.shellMuted }}>Role</span>
-              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#1d4ed8', backgroundColor: '#dbeafe', padding: '0.1rem 0.45rem', borderRadius: '999px' }}>
-                Driver
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: ENTERPRISE_THEME.shellMuted }}>Module</span>
-              <span style={{ fontSize: '0.72rem', color: ENTERPRISE_THEME.shellMuted }}>{currentModuleLabel}</span>
-            </div>
+          <div style={{ marginTop: '0.55rem' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#93c5fd', backgroundColor: 'rgba(59,130,246,0.2)', padding: '0.1rem 0.55rem', borderRadius: '999px' }}>
+              Driver
+            </span>
           </div>
         </div>
 
         <nav style={{ flex: 1, padding: '0.5rem', overflowY: 'auto' }}>
-          {DRIVER_MENU_GROUPS.map((group) => (
-            <div key={group.label} style={{ marginBottom: '0.55rem' }}>
-              <div style={{ fontSize: '0.66rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: ENTERPRISE_THEME.shellMuted, padding: '0.28rem 0.65rem 0.18rem' }}>
-                {group.label}
-              </div>
-              {group.items.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      router.push(item.href);
-                      if (isMobile) setSidebarOpen(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem 0.65rem',
-                      backgroundColor: isActive ? '#eff6ff' : 'transparent',
-                      color: ENTERPRISE_THEME.shellText,
-                      borderTop: 'none',
-                      borderRight: 'none',
-                      borderBottom: 'none',
-                      borderLeft: isActive ? `3px solid ${ENTERPRISE_THEME.colors.live}` : '3px solid transparent',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      fontSize: '0.83rem',
-                      fontWeight: isActive ? 600 : 500,
-                      borderRadius: '6px',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '6px',
-                        display: 'grid',
-                        placeItems: 'center',
-                        fontSize: '0.85rem',
-                        backgroundColor: isActive ? '#dbeafe' : '#e2e8f0',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {item.icon}
-                    </span>
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+          {DRIVER_MENU_ITEMS.map((item) => {
+            const isActive = pathname === item.href || (item.href === '/driver/jobs' && pathname.startsWith('/driver/jobs'));
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  router.push(item.href);
+                  if (isMobile) setSidebarOpen(false);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.6rem 0.8rem',
+                  backgroundColor: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  color: isActive ? '#ffffff' : ENTERPRISE_THEME.shellMuted,
+                  borderTop: 'none',
+                  borderRight: 'none',
+                  borderBottom: 'none',
+                  borderLeft: isActive ? `3px solid #3b82f6` : '3px solid transparent',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.55rem',
+                  fontSize: '0.87rem',
+                  fontWeight: isActive ? 700 : 500,
+                  borderRadius: '6px',
+                  marginBottom: '0.2rem',
+                }}
+              >
+                <span
+                  style={{
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '6px',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: '0.85rem',
+                    backgroundColor: isActive ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.08)',
+                    flexShrink: 0,
+                  }}
+                >
+                  {item.icon}
+                </span>
+                {item.label}
+              </button>
+            );
+          })}
         </nav>
 
         <div style={{ padding: '0.9rem', borderTop: `1px solid ${ENTERPRISE_THEME.shellBorder}` }}>
@@ -748,9 +713,9 @@ export default function DriverJobsPage() {
             style={{
               width: '100%',
               padding: '0.52rem',
-              backgroundColor: '#fee2e2',
-              color: '#b91c1c',
-              border: '1px solid #fecaca',
+              backgroundColor: 'rgba(239,68,68,0.15)',
+              color: '#fca5a5',
+              border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: '6px',
               fontSize: '0.8rem',
               fontWeight: 600,
@@ -784,12 +749,9 @@ export default function DriverJobsPage() {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Role workspace
-            </div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Driver Workspace</h2>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Driver Dashboard</h2>
             <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: 0, maxWidth: '760px', fontSize: '0.86rem' }}>
-              Live view of assigned jobs, POD tasks, availability, earnings, and account security inside the driver module.
+              Live view of today&apos;s work, upcoming stops, POD tasks, earnings and account actions.
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', alignItems: 'center' }}>
