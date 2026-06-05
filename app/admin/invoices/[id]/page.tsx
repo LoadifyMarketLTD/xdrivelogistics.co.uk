@@ -17,6 +17,24 @@ import { downloadInvoicePdf } from '../../../../lib/invoicePdf';
 import { resolveActiveCompanyId } from '../../../../lib/activeCompany';
 import type { Invoice } from '../../../../lib/types/database';
 
+type InvoiceStatusHistoryItem = {
+  id: string;
+  from_status: string | null;
+  to_status: string;
+  note: string | null;
+  changed_at: string;
+};
+
+type InvoicePaymentHistoryItem = {
+  id: string;
+  amount: number;
+  currency: string;
+  paid_at: string;
+  settlement_method: string;
+  external_reference: string | null;
+  note: string | null;
+};
+
 /** Map InvoiceData (UI shape) → Supabase invoice row (DB shape) */
 function invoiceDataToDb(inv: InvoiceData, companyId: string, userId?: string | null): Omit<Invoice, 'created_at' | 'updated_at'> {
   return {
@@ -128,6 +146,16 @@ export default function InvoiceDetailPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [statusHistory, setStatusHistory] = useState<InvoiceStatusHistoryItem[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<InvoicePaymentHistoryItem[]>([]);
+  const [recordingPayment, setRecordingPayment] = useState(false);
+  const [paymentInput, setPaymentInput] = useState({
+    amount: '',
+    method: 'bank_transfer',
+    paidAt: new Date().toISOString().slice(0, 16),
+    reference: '',
+    note: '',
+  });
 
   // Load the company ID for the current user (needed to write invoices to Supabase)
   useEffect(() => {
@@ -276,6 +304,28 @@ export default function InvoiceDetailPage() {
     }));
   };
 
+  const loadInvoiceLedger = async (targetInvoiceId: string, targetCompanyId: string) => {
+    if (!isSupabaseConfigured || !hasSupabaseSession || !targetInvoiceId || !targetCompanyId) return;
+
+    const [{ data: statusRows }, { data: paymentRows }] = await Promise.all([
+      supabase
+        .from('invoice_status_history')
+        .select('id, from_status, to_status, note, changed_at')
+        .eq('invoice_id', targetInvoiceId)
+        .eq('company_id', targetCompanyId)
+        .order('changed_at', { ascending: false }),
+      supabase
+        .from('invoice_payment_history')
+        .select('id, amount, currency, paid_at, settlement_method, external_reference, note')
+        .eq('invoice_id', targetInvoiceId)
+        .eq('company_id', targetCompanyId)
+        .order('paid_at', { ascending: false }),
+    ]);
+
+    setStatusHistory((statusRows ?? []) as InvoiceStatusHistoryItem[]);
+    setPaymentHistory((paymentRows ?? []) as InvoicePaymentHistoryItem[]);
+  };
+
   const loadInvoice = async () => {
     // Try Supabase first
     if (isSupabaseConfigured && hasSupabaseSession) {
@@ -291,6 +341,7 @@ export default function InvoiceDetailPage() {
         .single();
       if (!error && data) {
         setFormData(dbToInvoiceData(data as Invoice));
+        await loadInvoiceLedger(invoiceId, companyId);
         return;
       }
       if (error && error.code !== 'PGRST116') {
@@ -319,6 +370,9 @@ export default function InvoiceDetailPage() {
             .eq('company_id', companyId);
       if (!error) {
         setSaveMessage('Invoice saved successfully!');
+        if (!isNew) {
+          await loadInvoiceLedger(invoiceId, companyId);
+        }
         setTimeout(() => setSaveMessage(''), 3000);
         if (isNew) {
           setTimeout(() => router.push(`/admin/invoices/${row.id}`), 1000);
@@ -337,6 +391,49 @@ export default function InvoiceDetailPage() {
     }
     setSaveMessage('A live Supabase session is required to save invoices safely.');
     setTimeout(() => setSaveMessage(''), 3000);
+  };
+
+  const handleRecordPayment = async () => {
+    if (isNew || !companyId || !invoiceId) {
+      setSaveMessage('Save the invoice first before recording payments.');
+      return;
+    }
+
+    const amount = Number(paymentInput.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setSaveMessage('Enter a valid payment amount.');
+      return;
+    }
+
+    setRecordingPayment(true);
+    const { error } = await supabase.from('invoice_payment_history').insert({
+      invoice_id: invoiceId,
+      company_id: companyId,
+      recorded_by: user?.id ?? null,
+      amount,
+      currency: 'GBP',
+      paid_at: new Date(paymentInput.paidAt).toISOString(),
+      settlement_method: paymentInput.method,
+      external_reference: paymentInput.reference.trim() || null,
+      note: paymentInput.note.trim() || null,
+    });
+
+    if (error) {
+      setSaveMessage(`Error recording payment: ${error.message}`);
+      setRecordingPayment(false);
+      return;
+    }
+
+    await loadInvoice();
+    setPaymentInput({
+      amount: '',
+      method: 'bank_transfer',
+      paidAt: new Date().toISOString().slice(0, 16),
+      reference: '',
+      note: '',
+    });
+    setSaveMessage('Payment recorded successfully.');
+    setRecordingPayment(false);
   };
 
   const handleWhatsAppShare = () => {
@@ -559,6 +656,101 @@ export default function InvoiceDetailPage() {
                     }}
                   >
                     {saveMessage}
+                  </div>
+                )}
+
+                {!isNew && (
+                  <div style={{ marginTop: '1rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem', display: 'grid', gap: '0.75rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', color: '#1f2937' }}>Finance Tracking (recording only)</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.5rem' }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Amount (£)"
+                        value={paymentInput.amount}
+                        onChange={(e) => setPaymentInput((prev) => ({ ...prev, amount: e.target.value }))}
+                        style={inputStyle}
+                      />
+                      <input
+                        type="datetime-local"
+                        value={paymentInput.paidAt}
+                        onChange={(e) => setPaymentInput((prev) => ({ ...prev, paidAt: e.target.value }))}
+                        style={inputStyle}
+                      />
+                      <select
+                        value={paymentInput.method}
+                        onChange={(e) => setPaymentInput((prev) => ({ ...prev, method: e.target.value }))}
+                        style={inputStyle}
+                      >
+                        <option value="bank_transfer">Bank transfer</option>
+                        <option value="external_settlement">External settlement</option>
+                        <option value="cash">Cash</option>
+                        <option value="other">Other</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Reference"
+                        value={paymentInput.reference}
+                        onChange={(e) => setPaymentInput((prev) => ({ ...prev, reference: e.target.value }))}
+                        style={inputStyle}
+                      />
+                    </div>
+                    <textarea
+                      placeholder="Payment note (optional)"
+                      value={paymentInput.note}
+                      onChange={(e) => setPaymentInput((prev) => ({ ...prev, note: e.target.value }))}
+                      rows={2}
+                      style={inputStyle}
+                    />
+                    <button
+                      onClick={() => void handleRecordPayment()}
+                      disabled={recordingPayment}
+                      style={{
+                        padding: '0.625rem 1rem',
+                        borderRadius: '8px',
+                        border: 'none',
+                        backgroundColor: '#0f766e',
+                        color: '#fff',
+                        fontWeight: 600,
+                        cursor: recordingPayment ? 'not-allowed' : 'pointer',
+                        opacity: recordingPayment ? 0.7 : 1,
+                      }}
+                    >
+                      {recordingPayment ? '⏳ Recording…' : 'Record Payment'}
+                    </button>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
+                      <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.75rem', maxHeight: '200px', overflowY: 'auto' }}>
+                        <strong style={{ display: 'block', marginBottom: '0.5rem' }}>Status timeline</strong>
+                        {statusHistory.length === 0 ? (
+                          <div style={{ color: '#64748b', fontSize: '0.875rem' }}>No status history yet.</div>
+                        ) : (
+                          statusHistory.map((item) => (
+                            <div key={item.id} style={{ fontSize: '0.85rem', marginBottom: '0.5rem', color: '#334155' }}>
+                              <div>
+                                {item.from_status ?? '—'} → <strong>{item.to_status}</strong>
+                              </div>
+                              <div style={{ color: '#64748b' }}>{new Date(item.changed_at).toLocaleString('en-GB')}</div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.75rem', maxHeight: '200px', overflowY: 'auto' }}>
+                        <strong style={{ display: 'block', marginBottom: '0.5rem' }}>Payment history</strong>
+                        {paymentHistory.length === 0 ? (
+                          <div style={{ color: '#64748b', fontSize: '0.875rem' }}>No payments recorded yet.</div>
+                        ) : (
+                          paymentHistory.map((item) => (
+                            <div key={item.id} style={{ fontSize: '0.85rem', marginBottom: '0.5rem', color: '#334155' }}>
+                              <div>
+                                <strong>£{Number(item.amount).toFixed(2)}</strong> via {item.settlement_method}
+                              </div>
+                              <div style={{ color: '#64748b' }}>{new Date(item.paid_at).toLocaleString('en-GB')}</div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
