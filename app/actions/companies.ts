@@ -18,6 +18,7 @@ interface RegistrationResult {
 /**
  * Validează un număr de companie din UK prin intermediul Companies House API
  * și înregistrează entitatea în platforma XDrive doar dacă statusul este 'active'.
+ * Aliniat 100% cu structura reală a bazei de date (folosește 'company_number').
  */
 export async function registerValidatedCompany(
   companyNumber: string, 
@@ -30,7 +31,7 @@ export async function registerValidatedCompany(
       return { success: false, error: 'Configurație server invalidă. Contactați asistența.' };
     }
 
-    // 1. Apelăm API-ul oficial guvernamental din UK (Link corectat)
+    // 1. Apelăm API-ul oficial guvernamental din UK
     const authHeader = Buffer.from(`${apiKey}:`).toString('base64');
     const response = await fetch(`https://service.gov.uk{companyNumber}`, {
       method: 'GET',
@@ -55,14 +56,15 @@ export async function registerValidatedCompany(
       };
     }
 
-    // 3. Inserăm entitatea verificată în tabela 'companies' folosind drepturile admin
+    // 3. Inserăm entitatea în tabela 'companies' folosind denumirea exactă a coloanei tale: 'company_number'
     const { data: newCompany, error: dbError } = await supabaseAdmin
       .from('companies')
       .insert([
         {
           name: companyData.company_name,
-          registration_number: companyNumber,
-          status: 'pending_approval', // Intră automat în coada de verificare a asigurărilor din /super-admin
+          company_number: companyNumber, // Corectat conform structurii tale live din Supabase
+          status: 'pending_approval',   // Tipul USER-DEFINED enum acceptă acest string inițial
+          created_by: userId            // Coloana 'created_by' este obligatorie (NOT NULL) în tabela ta
         }
       ])
       .select('id')
@@ -73,15 +75,15 @@ export async function registerValidatedCompany(
       return { success: false, error: 'Eroare la salvarea profilului companiei în baza de date.' };
     }
 
-    // 4. Legăm automat utilizatorul care a inițiat cererea ca fiind Administrator (Company Admin) al noii firme
+    // 4. Legăm automat utilizatorul în tabela ta de joncțiune 'company_memberships'
     const { error: membershipError } = await supabaseAdmin
       .from('company_memberships')
       .insert([
         {
           company_id: newCompany.id,
-          member_id: userId,
-          role: 'company_admin',
-          status: 'accepted' // Acest utilizator este direct acceptat ca administrator al propriei firme
+          user_id: userId,            // Coloana ta reală se numește 'user_id' (nu member_id)
+          role_in_company: 'company_admin', // Coloana ta reală este 'role_in_company' (text)
+          status: 'accepted'          // Setează statusul direct ca acceptat
         }
       ]);
 
@@ -90,7 +92,7 @@ export async function registerValidatedCompany(
       return { success: false, error: 'Compania a fost creată, dar asocierea contului tău a eșuat.' };
     }
 
-    // Curățăm cache-ul paginii de aprobări din noul tău panou de Super Admin pentru a afișa datele instant
+    // Curățăm cache-ul paginii de aprobări din panoul de Super Admin pentru a afișa datele instant
     revalidatePath('/super-admin/companies/approvals');
     
     return { success: true, companyId: newCompany.id };
