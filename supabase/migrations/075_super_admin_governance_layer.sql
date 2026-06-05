@@ -7,12 +7,14 @@
 BEGIN;
 
 -- ── 1. Canonical company status values (legacy inactive kept) ───────────────
+-- companies.status may be a text column OR a company_status enum depending on
+-- production schema history.  Cast to text so the CHECK works in both cases.
 ALTER TABLE public.companies
   DROP CONSTRAINT IF EXISTS companies_status_canonical;
 
 ALTER TABLE public.companies
   ADD CONSTRAINT companies_status_canonical
-  CHECK (status IN ('active', 'inactive', 'pending_approval', 'rejected', 'suspended'));
+  CHECK (status::text IN ('active', 'inactive', 'pending_approval', 'rejected', 'suspended'));
 
 -- ── 2. Owner-level RLS policy for cross-company SELECT/UPDATE ───────────────
 DROP POLICY IF EXISTS companies_select_owner_all ON public.companies;
@@ -140,9 +142,10 @@ BEGIN
   PERFORM public.assert_company_status_transition(v_old_status, v_new_status);
   PERFORM set_config('app.company_status_change_context', 'governance_api', true);
 
-  UPDATE public.companies
-  SET status = v_new_status
-  WHERE id = p_target_company_id;
+  -- Dynamic SQL lets PostgreSQL coerce the text value to the column's actual
+  -- type at execution time (works for both text and company_status enum).
+  EXECUTE 'UPDATE public.companies SET status = $1 WHERE id = $2'
+  USING v_new_status, p_target_company_id;
 
   INSERT INTO public.owner_audit_log (
     actor_user_id,
@@ -182,7 +185,7 @@ DECLARE
   v_context text := COALESCE(current_setting('app.company_status_change_context', true), '');
 BEGIN
   IF NEW.status IS DISTINCT FROM OLD.status THEN
-    PERFORM public.assert_company_status_transition(OLD.status, NEW.status);
+    PERFORM public.assert_company_status_transition(OLD.status::text, NEW.status::text);
 
     IF v_context <> 'governance_api' THEN
       RAISE EXCEPTION 'Direct companies.status updates are blocked. Use set_company_status_governance().'
@@ -214,7 +217,7 @@ AS $$
     WHERE cm.company_id = cid
       AND cm.user_id = auth.uid()
       AND cm.status <> 'suspended'
-      AND c.status = 'active'
+      AND c.status::text = 'active'
   );
 $$;
 
@@ -232,7 +235,7 @@ AS $$
       AND cm.user_id = auth.uid()
       AND cm.status <> 'suspended'
       AND cm.role_in_company IN ('owner', 'admin')
-      AND c.status = 'active'
+      AND c.status::text = 'active'
   );
 $$;
 
