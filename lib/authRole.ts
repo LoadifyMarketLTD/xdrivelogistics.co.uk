@@ -54,14 +54,19 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
   if (normalized === 'customer') return 'customer';
 
   // Owner aliases
-  if (normalized === 'superadmin' || normalized === 'super_admin' || normalized === 'platform_owner') return 'owner';
+  if (
+    normalized === 'superadmin' ||
+    normalized === 'super_admin' ||
+    normalized === 'platform_owner' ||
+    normalized === 'platform_admin' ||
+    normalized === 'platform_administrator'
+  ) return 'owner';
 
   // Company admin aliases
   if (
     normalized === 'admin' ||
     normalized === 'admin_staff' ||
-    normalized === 'org_admin' ||
-    normalized === 'platform_admin'
+    normalized === 'org_admin'
   ) return 'company_admin';
 
   // Company staff aliases
@@ -183,6 +188,7 @@ export const isRoleAllowedForPath = (
   options?: { canAccessDriverMode?: boolean }
 ): boolean => {
   if (!role) return false;
+  if (pathname.startsWith('/super-admin')) return PLATFORM_ROUTE_ROLES.has(role);
   if (pathname.startsWith('/platform')) return PLATFORM_ROUTE_ROLES.has(role);
   if (pathname.startsWith('/admin')) return ADMIN_ROUTE_ROLES.has(role);
   if (pathname.startsWith('/broker')) return BROKER_ROUTE_ROLES.has(role);
