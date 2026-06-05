@@ -1,85 +1,70 @@
-'use client';
+import { createClient } from '@supabase/supabase-js';
+import ProtectedRoute from '@/app/components/ProtectedRoute'; // Corectat: import default (fără acolade)
 
-import { useState } from 'react';
-import { registerValidatedCompany } from '../../actions/companies';
+// Forțăm Next.js să citească mereu date proaspete din DB la fiecare vizită
+export const revalidate = 0;
 
-export default function TestCompaniesApiPage() {
-  const [companyNumber, setCompanyNumber] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; error?: string; companyId?: string } | null>(null);
+export default async function SuperAdminDashboardRootPage() {
+  // Inițializăm instanța securizată folosind variabilele din Netlify
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!companyNumber.trim()) return;
+  // Executăm interogările globale în paralel pentru performanță optimă
+  const [companiesRes, driversRes, jobsRes] = await Promise.all([
+    supabase.from('companies').select('id', { count: 'exact', head: true }),
+    supabase.from('drivers').select('id', { count: 'exact', head: true }),
+    supabase.from('jobs').select('id', { count: 'exact', head: true })
+  ]);
 
-    setLoading(true);
-    setResult(null);
-
-    try {
-      // Mocking a placeholder user ID for test execution safety
-      const testUserId = '00000000-0000-0000-0000-000000000000';
-      
-      const res = await registerValidatedCompany(companyNumber.trim(), testUserId);
-      setResult(res);
-    } catch (err) {
-      setResult({ success: false, error: 'An unexpected framework error occurred during testing.' });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const totalCompanies = companiesRes.count || 0;
+  const totalDrivers = driversRes.count || 0;
+  const totalJobs = jobsRes.count || 0;
 
   return (
-    <div className="max-w-xl mx-auto my-12 p-8 bg-white border border-zinc-200 rounded-2xl shadow-sm font-sans">
-      <h1 className="text-xl font-bold text-zinc-900 mb-2">UK Companies House Verification Lab</h1>
-      <p className="text-sm text-zinc-500 mb-6">
-        Test input execution against live UK government registries. Inputting a valid company number triggers an active lookup.
-      </p>
+    <ProtectedRoute allowedRoles={['owner']}>
+      <div className="max-w-6xl mx-auto my-10 p-6 font-sans">
+        
+        {/* Header Consolă */}
+        <div className="mb-8 border-b border-zinc-200 pb-5">
+          <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Global Platform Administration</h1>
+          <p className="text-sm text-zinc-500 mt-1">Operational infrastructure management and exchange governance for XDrive Logistics.</p>
+        </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-2">
-            UK Company Number (8 digits)
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={companyNumber}
-              onChange={(e) => setCompanyNumber(e.target.value)}
-              placeholder="e.g., 13171804"
-              maxLength={8}
-              className="flex-1 px-4 py-2.5 border border-zinc-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-zinc-900 transition"
-              disabled={loading}
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-xl disabled:bg-zinc-400 transition"
-            >
-              {loading ? 'Querying...' : 'Run Diagnostics'}
-            </button>
+        {/* Live KPI Grid (Cifrele vii din Supabase) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          
+          <div className="p-5 bg-white border border-zinc-200 rounded-2xl shadow-sm transition-all hover:border-zinc-300">
+            <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Registered Companies</div>
+            <div className="text-4xl font-black text-zinc-900 mt-2">{totalCompanies}</div>
+            <div className="text-xs text-emerald-600 font-medium mt-1">✓ Fleet networks active</div>
           </div>
-        </div>
-      </form>
 
-      {result && (
-        <div className={`mt-6 p-4 rounded-xl border text-sm ${
-          result.success 
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
-            : 'bg-red-50 border-red-200 text-red-800'
-        }`}>
-          {result.success ? (
-            <div>
-              <p className="font-semibold">🟢 Verification Success!</p>
-              <p className="mt-1 text-xs text-emerald-600 font-mono">Company registered in database under node ID: {result.companyId}</p>
-            </div>
-          ) : (
-            <div>
-              <p className="font-semibold">🔴 Diagnostics Failed</p>
-              <p className="mt-1 text-xs opacity-90">{result.error}</p>
-            </div>
-          )}
+          <div className="p-5 bg-white border border-zinc-200 rounded-2xl shadow-sm transition-all hover:border-zinc-300">
+            <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Verified Drivers</div>
+            <div className="text-4xl font-black text-zinc-900 mt-2">{totalDrivers}</div>
+            <div className="text-xs text-emerald-600 font-medium mt-1">✓ Drivers online nearby</div>
+          </div>
+
+          <div className="p-5 bg-white border border-zinc-200 rounded-2xl shadow-sm transition-all hover:border-zinc-300">
+            <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Live Exchange Loads</div>
+            <div className="text-4xl font-black text-zinc-900 mt-2">{totalJobs}</div>
+            <div className="text-xs text-zinc-500 font-medium mt-1">• Active tracking streams</div>
+          </div>
+
         </div>
-      )}
-    </div>
+
+        {/* Indicator de Stare a Infrastructurii */}
+        <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-xl flex items-center justify-between text-sm">
+          <div className="flex items-center gap-2 text-zinc-700">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-medium">Platform available · operations support active</span>
+          </div>
+          <div className="text-xs text-zinc-400 font-mono">XDRV-CORE-v2.6</div>
+        </div>
+
+      </div>
+    </ProtectedRoute>
   );
 }
