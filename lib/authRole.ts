@@ -7,6 +7,33 @@ export type AppUserRole =
   | 'customer';
 
 /**
+ * Driver persona classification — stored in driver profile metadata.
+ * Used for workspace defaults and load-board filters, NOT for cross-portal
+ * access control (all personas map to the single `driver` AppUserRole).
+ */
+export type DriverPersona =
+  | 'solo_driver'
+  | 'owner_operator'
+  | 'self_employed'
+  | 'company_driver';
+
+export const DRIVER_PERSONA_LABELS: Record<DriverPersona, string> = {
+  solo_driver: 'Solo Driver',
+  owner_operator: 'Owner Operator',
+  self_employed: 'Self Employed Driver',
+  company_driver: 'Company Driver',
+};
+
+export const mapDriverPersona = (value: string | null | undefined): DriverPersona | null => {
+  const v = (value ?? '').toLowerCase().trim();
+  if (v === 'solo_driver' || v === 'solo') return 'solo_driver';
+  if (v === 'owner_operator' || v === 'owner_driver') return 'owner_operator';
+  if (v === 'self_employed' || v === 'self_employed_driver') return 'self_employed';
+  if (v === 'company_driver' || v === 'company') return 'company_driver';
+  return null;
+};
+
+/**
  * Maps any profile.role value (canonical or legacy alias) to an AppUserRole.
  *
  * Canonical values:

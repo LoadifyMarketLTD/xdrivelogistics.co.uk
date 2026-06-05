@@ -91,11 +91,31 @@ const VEHICLE_TYPE_LABEL: Record<string, string> = {
   artic: 'Artic',
 };
 
-const DRIVER_MENU_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/driver/jobs' },
-  { id: 'run', label: "Today's Run", icon: '🗂️', href: '/driver/jobs#run-sheet' },
-  { id: 'history', label: 'History', icon: '📚', href: '/driver/jobs#history' },
-  { id: 'security', label: 'Account Security', icon: '🔐', href: '/driver/change-password' },
+const DRIVER_MENU_GROUPS = [
+  {
+    label: 'Load Exchange',
+    items: [
+      { id: 'loads',      label: 'Available Loads',  icon: '📋', href: '/driver/loads' },
+      { id: 'search',     label: 'Search Loads',     icon: '🔍', href: '/driver/loads/search' },
+      { id: 'quotes',     label: 'My Quotes',        icon: '💬', href: '/driver/quotes' },
+      { id: 'won-work',   label: 'Won Work',         icon: '🏆', href: '/driver/won-work' },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { id: 'jobs',       label: 'Active Jobs',      icon: '🚚', href: '/driver/jobs' },
+      { id: 'history',    label: 'Job History',      icon: '📚', href: '/driver/history' },
+      { id: 'returns',    label: 'Return Journeys',  icon: '🔄', href: '/driver/returns' },
+    ],
+  },
+  {
+    label: 'Profile',
+    items: [
+      { id: 'availability', label: 'Availability',   icon: '📍', href: '/driver/availability' },
+      { id: 'security',   label: 'Account Security', icon: '🔐', href: '/driver/change-password' },
+    ],
+  },
 ];
 
 const ENTERPRISE_THEME = {
@@ -662,56 +682,60 @@ export default function DriverJobsPage() {
           </div>
         </div>
 
-        <nav style={{ flex: 1, padding: '0.6rem' }}>
-          {DRIVER_MENU_ITEMS.map((item) => {
-            const isActive = pathname === item.href || (item.href.includes('#') && pathname === item.href.split('#')[0]);
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  if (item.href.includes('#')) {
-                    window.location.assign(item.href);
-                  } else {
-                    router.push(item.href);
-                  }
-                  if (isMobile) setSidebarOpen(false);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '0.58rem 0.72rem',
-                  backgroundColor: isActive ? '#eff6ff' : 'transparent',
-                  color: ENTERPRISE_THEME.shellText,
-                  borderTop: 'none',
-                  borderRight: 'none',
-                  borderBottom: 'none',
-                  borderLeft: isActive ? `3px solid ${ENTERPRISE_THEME.colors.live}` : '3px solid transparent',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.55rem',
-                  fontSize: '0.84rem',
-                  fontWeight: isActive ? 600 : 500,
-                  borderRadius: '8px',
-                }}
-              >
-                <span
-                  style={{
-                    width: '22px',
-                    height: '22px',
-                    borderRadius: '6px',
-                    display: 'grid',
-                    placeItems: 'center',
-                    fontSize: '0.88rem',
-                    backgroundColor: isActive ? '#dbeafe' : '#e2e8f0',
-                  }}
-                >
-                  {item.icon}
-                </span>
-                {item.label}
-              </button>
-            );
-          })}
+        <nav style={{ flex: 1, padding: '0.5rem', overflowY: 'auto' }}>
+          {DRIVER_MENU_GROUPS.map((group) => (
+            <div key={group.label} style={{ marginBottom: '0.55rem' }}>
+              <div style={{ fontSize: '0.66rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: ENTERPRISE_THEME.shellMuted, padding: '0.28rem 0.65rem 0.18rem' }}>
+                {group.label}
+              </div>
+              {group.items.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      router.push(item.href);
+                      if (isMobile) setSidebarOpen(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem 0.65rem',
+                      backgroundColor: isActive ? '#eff6ff' : 'transparent',
+                      color: ENTERPRISE_THEME.shellText,
+                      borderTop: 'none',
+                      borderRight: 'none',
+                      borderBottom: 'none',
+                      borderLeft: isActive ? `3px solid ${ENTERPRISE_THEME.colors.live}` : '3px solid transparent',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      fontSize: '0.83rem',
+                      fontWeight: isActive ? 600 : 500,
+                      borderRadius: '6px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '6px',
+                        display: 'grid',
+                        placeItems: 'center',
+                        fontSize: '0.85rem',
+                        backgroundColor: isActive ? '#dbeafe' : '#e2e8f0',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {item.icon}
+                    </span>
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <div style={{ padding: '0.9rem', borderTop: `1px solid ${ENTERPRISE_THEME.shellBorder}` }}>
