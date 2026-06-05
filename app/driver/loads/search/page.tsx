@@ -77,7 +77,7 @@ const selectStyle: CSSProperties = { ...inputStyle };
 export default function SearchLoadsPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const companyId = user?.companyId ?? null;
+  const companyId = user?.companyId ?? null; // eslint-disable-line @typescript-eslint/no-unused-vars
 
   // Filters
   const [pickupSearch, setPickupSearch] = useState('');
@@ -120,7 +120,7 @@ export default function SearchLoadsPage() {
     if (qErr) {
       setError(`Search failed: ${qErr.message}`);
     } else {
-      const normalized = ((data ?? []) as ExchangeLoad[]).map((load) => ({
+      const normalized = ((data ?? []) as unknown as ExchangeLoad[]).map((load) => ({
         ...load,
         companies: Array.isArray(load.companies) ? ((load.companies as Array<{ name: string }>)[0] ?? null) : (load.companies as { name: string } | null),
       }));

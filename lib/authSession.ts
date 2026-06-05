@@ -507,7 +507,8 @@ export const getPostLoginRoute = (
     return '/admin/marketplace';
   }
   if (currentUser.role === 'driver') return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
-  if (currentUser.role === 'broker') return '/admin/marketplace';
+  if (currentUser.role === 'owner') return '/platform';
+  if (currentUser.role === 'broker') return '/broker';
   if (currentUser.role === 'customer') return '/customer';
   if (currentUser.role === 'company_staff') return '/admin/jobs';
   return '/admin';

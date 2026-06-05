@@ -97,7 +97,7 @@ export default function WonWorkPage() {
     if (fetchError) {
       setError(`Failed to load won work: ${fetchError.message}`);
     } else {
-      const normalized = ((data ?? []) as WonJob[]).map((job) => ({
+      const normalized = ((data ?? []) as unknown as WonJob[]).map((job) => ({
         ...job,
         companies: Array.isArray(job.companies)
           ? ((job.companies as Array<{ name: string }>)[0] ?? null)

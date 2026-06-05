@@ -95,14 +95,17 @@ export default function MyQuotesPage() {
     if (fetchError) {
       setError(`Failed to load quotes: ${fetchError.message}`);
     } else {
-      const normalized = ((data ?? []) as BidRow[]).map((bid) => ({
+      const normalized = ((data ?? []) as unknown as BidRow[]).map((bid) => ({
         ...bid,
         jobs: bid.jobs
           ? {
               ...bid.jobs,
-              companies: Array.isArray((bid.jobs as { companies?: unknown }).companies)
-                ? (((bid.jobs as { companies: Array<{ name: string }> }).companies)[0] ?? null)
-                : ((bid.jobs as { companies: { name: string } | null }).companies ?? null),
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              companies: Array.isArray((bid.jobs as any).companies)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ? (((bid.jobs as any).companies as Array<{ name: string }>)[0] ?? null)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                : ((bid.jobs as any).companies as { name: string } | null ?? null),
             }
           : null,
       }));

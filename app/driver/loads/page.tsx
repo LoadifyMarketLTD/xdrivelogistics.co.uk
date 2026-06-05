@@ -100,7 +100,7 @@ export default function AvailableLoadsPage() {
       return;
     }
 
-    const loadIds = ((rawLoads ?? []) as ExchangeLoad[]).map((l) => l.id);
+    const loadIds = ((rawLoads ?? []) as unknown as ExchangeLoad[]).map((l) => l.id);
     let myBids: Array<{ job_id: string; status: string; bid_price_gbp: number | null; amount: number | null }> = [];
 
     if (loadIds.length > 0) {
@@ -114,7 +114,7 @@ export default function AvailableLoadsPage() {
 
     const bidMap = new Map(myBids.map((b) => [b.job_id, b]));
 
-    const enriched: LoadWithBidStatus[] = ((rawLoads ?? []) as ExchangeLoad[]).map((load) => {
+    const enriched: LoadWithBidStatus[] = ((rawLoads ?? []) as unknown as ExchangeLoad[]).map((load) => {
       const bid = bidMap.get(load.id);
       return {
         ...load,
