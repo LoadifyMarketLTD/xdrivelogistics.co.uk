@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import { ProtectedRoute } from '@/app/components/ProtectedRoute';
+import ProtectedRoute from '@/app/components/ProtectedRoute'; // Corectat: import default (fără acolade)
 
 // Forțăm Next.js să citească mereu date proaspete din DB la fiecare vizită
 export const revalidate = 0;
 
 export default async function SuperAdminDashboardRootPage() {
-  // Inițializăm instanța securizată folosind direct variabilele din Netlify (Bypass complet de importuri lipsă)
+  // Inițializăm instanța securizată folosind variabilele din Netlify
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
