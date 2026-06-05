@@ -415,6 +415,41 @@ export const resolveAuthenticatedUser = async (
       console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', resolvedRole, userId: sessionUser.id });
       return { user: null, reason: 'company_context_missing' };
     }
+
+    if (roleRequiresCompanyContext(resolvedRole) && companyId) {
+      const companyStatusRes = await supabase
+        .from('companies')
+        .select('status')
+        .eq('id', companyId)
+        .limit(1)
+        .maybeSingle();
+
+      if (companyStatusRes.error) {
+        return {
+          user: null,
+          reason: 'db_error',
+          dbError: {
+            query: `companies.select(status).eq(id,${companyId}).maybeSingle()`,
+            message: companyStatusRes.error.message,
+            code: companyStatusRes.error.code ?? null,
+            details: companyStatusRes.error.details ?? null,
+            hint: companyStatusRes.error.hint ?? null,
+          },
+        };
+      }
+
+      const companyStatus = String(companyStatusRes.data?.status ?? '').trim().toLowerCase();
+      if (companyStatus !== 'active') {
+        console.debug('[XDrive Auth] auth resolution failed', {
+          reason: 'account_blocked',
+          userId: sessionUser.id,
+          companyId,
+          companyStatus: companyStatus || null,
+        });
+        return { user: null, reason: 'account_blocked' };
+      }
+    }
+
     return ok(
       sessionUser,
       resolvedRole,

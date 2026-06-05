@@ -93,9 +93,10 @@ const resolveAdminMembership = async (
 
   return supabaseAdmin
     .from('company_memberships')
-    .select('id, company_id, role_in_company')
+    .select('id, company_id, role_in_company, companies!inner(status)')
     .eq('user_id', authUserId)
     .eq('status', 'active')
+    .eq('companies.status', 'active')
     .in('role_in_company', Array.from(ADMIN_ROLES))
     .maybeSingle();
 };

@@ -59,10 +59,11 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
-    .select('id, role_in_company')
+    .select('id, role_in_company, companies!inner(status)')
     .eq('user_id', user.id)
     .eq('company_id', job.company_id as string)
     .eq('status', 'active')
+    .eq('companies.status', 'active')
     .maybeSingle();
 
   if (membershipError || !membership) {
