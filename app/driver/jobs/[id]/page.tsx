@@ -271,16 +271,34 @@ export default function DriverJobDetailPage() {
   };
 
   const handleCollect = () =>
+  {
+    if (!collectionPhotoPreview) {
+      setError('Collection photo is required before marking the job as in transit.');
+      return;
+    }
     updateJobStatus('in_transit', {
-      collection_photo_url: collectionPhotoPreview ?? null,
+      collection_photo_url: collectionPhotoPreview,
     });
+  };
 
   const handleDeliver = () => {
     const sigData = getSignatureDataUrl();
+    if (!deliveryPhotoPreviews.length) {
+      setError('At least one delivery photo is required before marking as delivered.');
+      return;
+    }
+    if (!sigData) {
+      setError('Recipient signature is required before marking as delivered.');
+      return;
+    }
+    if (!sigClientName.trim()) {
+      setError('Recipient name is required before marking as delivered.');
+      return;
+    }
     updateJobStatus('delivered', {
-      delivery_photos: deliveryPhotoPreviews.length ? deliveryPhotoPreviews : null,
+      delivery_photos: deliveryPhotoPreviews,
       delivery_signature_data: sigData,
-      client_signature_name: sigClientName || null,
+      client_signature_name: sigClientName.trim(),
     });
   };
 

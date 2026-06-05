@@ -1,4 +1,7 @@
 import { MetadataRoute } from 'next'
+import { getCanonicalSiteOrigin } from '../lib/siteUrl'
+
+const canonicalSiteOrigin = getCanonicalSiteOrigin()
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -6,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
     },
-    sitemap: 'https://www.xdrivelogistics.co.uk/sitemap.xml',
+    sitemap: `${canonicalSiteOrigin}/sitemap.xml`,
   }
 }
