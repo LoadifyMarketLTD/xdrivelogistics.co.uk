@@ -170,7 +170,9 @@ export const resolveAuthoritativeRole = ({
   return null;
 };
 
+const PLATFORM_ROUTE_ROLES = new Set<AppUserRole>(['owner']);
 const ADMIN_ROUTE_ROLES = new Set<AppUserRole>(['broker', 'company_admin', 'company_staff', 'owner']);
+const BROKER_ROUTE_ROLES = new Set<AppUserRole>(['broker', 'owner']);
 const MOBILE_ROUTE_ROLES = new Set<AppUserRole>(['broker', 'company_admin', 'company_staff', 'owner']);
 const DRIVER_ROUTE_ROLES = new Set<AppUserRole>(['driver']);
 const CUSTOMER_ROUTE_ROLES = new Set<AppUserRole>(['customer']);
@@ -181,7 +183,9 @@ export const isRoleAllowedForPath = (
   options?: { canAccessDriverMode?: boolean }
 ): boolean => {
   if (!role) return false;
+  if (pathname.startsWith('/platform')) return PLATFORM_ROUTE_ROLES.has(role);
   if (pathname.startsWith('/admin')) return ADMIN_ROUTE_ROLES.has(role);
+  if (pathname.startsWith('/broker')) return BROKER_ROUTE_ROLES.has(role);
   if (pathname.startsWith('/driver')) {
     return DRIVER_ROUTE_ROLES.has(role) || options?.canAccessDriverMode === true;
   }

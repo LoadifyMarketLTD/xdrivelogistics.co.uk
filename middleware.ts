@@ -354,6 +354,10 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/platform',
+    '/platform/:path*',
+    '/broker',
+    '/broker/:path*',
     '/admin',
     '/admin/:path*',
     '/driver',

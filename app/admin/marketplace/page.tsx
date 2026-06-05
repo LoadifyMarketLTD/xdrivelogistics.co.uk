@@ -192,7 +192,7 @@ export default function MarketplacePage() {
         .in('job_id', jobIds);
 
       const bidsByJobId = new Map<string, BidRow>();
-      for (const b of (myBidsData ?? []) as BidRow[]) {
+      for (const b of (myBidsData ?? []) as unknown as BidRow[]) {
         bidsByJobId.set(b.job_id, b);
       }
       for (const load of loadsList) {
