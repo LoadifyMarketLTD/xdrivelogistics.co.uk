@@ -1,11 +1,17 @@
-import { createClient } from '@/utils/supabase/server'; // Adaptați calea dacă structura proiectului cere alt import
+import { createClient } from '@supabase/supabase-js';
 import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
-export default async function SuperAdminDashboardRootPage() {
-  // Inițializăm instanța securizată de Supabase pe server
-  const supabase = await createClient();
+// Forțăm Next.js să citească mereu date proaspete din DB la fiecare vizită
+export const revalidate = 0;
 
-  // Executăm interogările globale în paralel pentru performanță optimă (Logica migrată din /platform)
+export default async function SuperAdminDashboardRootPage() {
+  // Inițializăm instanța securizată folosind direct variabilele din Netlify (Bypass complet de importuri lipsă)
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Executăm interogările globale în paralel pentru performanță optimă
   const [companiesRes, driversRes, jobsRes] = await Promise.all([
     supabase.from('companies').select('id', { count: 'exact', head: true }),
     supabase.from('drivers').select('id', { count: 'exact', head: true }),
@@ -26,7 +32,7 @@ export default async function SuperAdminDashboardRootPage() {
           <p className="text-sm text-zinc-500 mt-1">Operational infrastructure management and exchange governance for XDrive Logistics.</p>
         </div>
 
-        {/* Live KPI Grid (Cifrele vii înlocuiesc liniuțele) */}
+        {/* Live KPI Grid (Cifrele vii din Supabase) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           
           <div className="p-5 bg-white border border-zinc-200 rounded-2xl shadow-sm transition-all hover:border-zinc-300">
