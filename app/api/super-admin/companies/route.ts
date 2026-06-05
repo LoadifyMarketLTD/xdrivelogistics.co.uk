@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+const ALLOWED_COMPANY_STATUSES = ['active', 'inactive', 'pending_approval', 'rejected', 'suspended'] as const;
+type CompanyStatusFilter = (typeof ALLOWED_COMPANY_STATUSES)[number];
 
 const resolveOwnerProfile = async (authUserId: string) => {
   if (!supabaseAdmin) return null;
@@ -27,7 +29,7 @@ const verifyOwner = async (request: NextRequest) => {
 };
 
 /**
- * GET /api/super-admin/companies?status=pending_approval|suspended|active
+ * GET /api/super-admin/companies?status=active|inactive|pending_approval|rejected|suspended
  * Returns companies filtered by status (owner only).
  */
 export async function GET(request: NextRequest) {
@@ -41,7 +43,16 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const status = searchParams.get('status') ?? 'pending_approval';
+  const requestedStatus = searchParams.get('status');
+  const status: CompanyStatusFilter = requestedStatus
+    ? (requestedStatus as CompanyStatusFilter)
+    : 'pending_approval';
+
+  if (!ALLOWED_COMPANY_STATUSES.includes(status)) {
+    return respond(400, {
+      error: `Invalid status filter. Allowed values: ${ALLOWED_COMPANY_STATUSES.join(', ')}.`,
+    });
+  }
 
   const { data, error } = await supabaseAdmin
     .from('companies')
