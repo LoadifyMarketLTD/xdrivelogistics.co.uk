@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase } from '../../../lib/supabaseClient';
+import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 
 export default function DriverChangePasswordPage() {
   const router = useRouter();
@@ -72,31 +73,23 @@ export default function DriverChangePasswordPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <div
-        style={{
-          minHeight: '100dvh',
-          backgroundColor: '#0A2239',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '1rem',
-        }}
-      >
+      <DriverWorkspaceShell subtitle="Update your account password to keep your driver access secure.">
         <div
           style={{
             width: '100%',
-            maxWidth: '420px',
-            backgroundColor: 'white',
+            maxWidth: '540px',
+            backgroundColor: '#ffffff',
             borderRadius: '12px',
             padding: '1.5rem',
-            boxShadow: '0 15px 40px rgba(0,0,0,0.25)',
+            border: '1px solid #d7e0ea',
+            boxShadow: '0 6px 16px rgba(15, 23, 42, 0.08)',
           }}
         >
-          <h1 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#0A2239', fontSize: '1.4rem' }}>
-            Change your temporary password
+          <h1 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#0f172a', fontSize: '1.35rem' }}>
+            Account Security
           </h1>
           <p style={{ marginTop: 0, color: '#475569', fontSize: '0.92rem', lineHeight: 1.5 }}>
-            For security, you must set a new password before accessing your driver dashboard.
+            Set a new password for your driver workspace account.
           </p>
 
           <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '0.9rem', marginTop: '1rem' }}>
@@ -150,7 +143,7 @@ export default function DriverChangePasswordPage() {
               style={{
                 width: '100%',
                 padding: '0.8rem',
-                backgroundColor: loading ? '#86efac' : '#1F7A3D',
+                backgroundColor: loading ? '#93c5fd' : '#1d4ed8',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
@@ -179,7 +172,7 @@ export default function DriverChangePasswordPage() {
             Sign out
           </button>
         </div>
-      </div>
+      </DriverWorkspaceShell>
     </ProtectedRoute>
   );
 }

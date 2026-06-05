@@ -9,18 +9,16 @@ import { COMPANY_CONFIG } from '../../config/company';
 
 const THEME = {
   pageBg: '#eef2f6',
-  shellBg: '#f8fafc',
-  shellBorder: '#d7e0ea',
-  shellMuted: '#64748b',
-  shellText: '#0f172a',
+  shellBg: '#111827',
+  shellBorder: '#1f2937',
+  shellMuted: '#9ca3af',
+  shellText: '#f9fafb',
   cardBg: '#ffffff',
   cardBorder: '#d7e0ea',
   cardShadow: '0 6px 16px rgba(15, 23, 42, 0.08)',
   radius: '10px',
   live: '#1d4ed8',
 };
-
-// ── Nav groups ────────────────────────────────────────────────────────────────
 
 type NavItem = {
   id: string;
@@ -29,36 +27,11 @@ type NavItem = {
   href: string;
 };
 
-type NavGroup = {
-  label: string;
-  items: NavItem[];
-};
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Load Exchange',
-    items: [
-      { id: 'loads',      label: 'Available Loads',  icon: '📋', href: '/driver/loads' },
-      { id: 'search',     label: 'Search Loads',     icon: '🔍', href: '/driver/loads/search' },
-      { id: 'quotes',     label: 'My Quotes',        icon: '💬', href: '/driver/quotes' },
-      { id: 'won-work',   label: 'Won Work',         icon: '🏆', href: '/driver/won-work' },
-    ],
-  },
-  {
-    label: 'Operations',
-    items: [
-      { id: 'jobs',       label: 'Active Jobs',      icon: '🚚', href: '/driver/jobs' },
-      { id: 'history',    label: 'Job History',      icon: '📚', href: '/driver/history' },
-      { id: 'returns',    label: 'Return Journeys',  icon: '🔄', href: '/driver/returns' },
-    ],
-  },
-  {
-    label: 'Profile',
-    items: [
-      { id: 'availability', label: 'Availability',   icon: '📍', href: '/driver/availability' },
-      { id: 'security',   label: 'Account Security', icon: '🔐', href: '/driver/change-password' },
-    ],
-  },
+const NAV_ITEMS: NavItem[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: '🏠', href: '/driver/jobs' },
+  { id: 'todays-run', label: "Today's Run", icon: '🚚', href: '/driver/jobs#todays-run' },
+  { id: 'history', label: 'History', icon: '📚', href: '/driver/history' },
+  { id: 'security', label: 'Account Security', icon: '🔐', href: '/driver/change-password' },
 ];
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -126,7 +99,7 @@ export default function DriverWorkspaceShell({
   const sidebarStyle: CSSProperties = {
     width: isMobile ? '270px' : '228px',
     backgroundColor: THEME.shellBg,
-    color: THEME.shellText,
+    color: '#ffffff',
     display: 'flex',
     flexDirection: 'column',
     borderRight: `1px solid ${THEME.shellBorder}`,
@@ -141,8 +114,8 @@ export default function DriverWorkspaceShell({
   const navButtonStyle = (active: boolean): CSSProperties => ({
     width: '100%',
     padding: '0.5rem 0.65rem',
-    backgroundColor: active ? '#eff6ff' : 'transparent',
-    color: THEME.shellText,
+    backgroundColor: active ? 'rgba(255,255,255,0.14)' : 'transparent',
+    color: active ? '#ffffff' : THEME.shellMuted,
     borderTop: 'none',
     borderRight: 'none',
     borderBottom: 'none',
@@ -153,7 +126,7 @@ export default function DriverWorkspaceShell({
     alignItems: 'center',
     gap: '0.5rem',
     fontSize: '0.83rem',
-    fontWeight: active ? 600 : 500,
+    fontWeight: active ? 700 : 500,
     borderRadius: '6px',
   });
 
@@ -164,7 +137,7 @@ export default function DriverWorkspaceShell({
     display: 'grid',
     placeItems: 'center',
     fontSize: '0.85rem',
-    backgroundColor: active ? '#dbeafe' : '#e2e8f0',
+    backgroundColor: active ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.08)',
     flexShrink: 0,
   });
 
@@ -190,11 +163,11 @@ export default function DriverWorkspaceShell({
           </p>
           <div style={{ marginTop: '0.4rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: THEME.shellMuted }}>Role</span>
-            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#1d4ed8', backgroundColor: '#dbeafe', padding: '0.1rem 0.4rem', borderRadius: '999px' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#93c5fd', backgroundColor: 'rgba(59,130,246,0.2)', padding: '0.1rem 0.4rem', borderRadius: '999px' }}>
               Driver
             </span>
             {personaLabel && (
-              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6d28d9', backgroundColor: '#ede9fe', padding: '0.1rem 0.4rem', borderRadius: '999px' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#c4b5fd', backgroundColor: 'rgba(109,40,217,0.3)', padding: '0.1rem 0.4rem', borderRadius: '999px' }}>
                 {personaLabel}
               </span>
             )}
@@ -203,29 +176,24 @@ export default function DriverWorkspaceShell({
 
         {/* Navigation */}
         <nav style={{ flex: 1, padding: '0.5rem', overflowY: 'auto' }}>
-          {NAV_GROUPS.map((group) => (
-            <div key={group.label} style={{ marginBottom: '0.6rem' }}>
-              <div style={{ fontSize: '0.66rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.shellMuted, padding: '0.3rem 0.65rem 0.2rem' }}>
-                {group.label}
-              </div>
-              {group.items.map((item) => {
-                const active = isActive(item.href);
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      router.push(item.href);
-                      if (isMobile) setSidebarOpen(false);
-                    }}
-                    style={navButtonStyle(active)}
-                  >
-                    <span style={iconBoxStyle(active)}>{item.icon}</span>
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+        {NAV_ITEMS.map((item) => {
+          const active = item.id === 'todays-run'
+            ? pathname === '/driver/jobs'
+            : isActive(item.href);
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                router.push(item.href);
+                if (isMobile) setSidebarOpen(false);
+              }}
+              style={navButtonStyle(active)}
+            >
+              <span style={iconBoxStyle(active)}>{item.icon}</span>
+              {item.label}
+            </button>
+          );
+        })}
         </nav>
 
         {/* Footer */}
@@ -233,7 +201,7 @@ export default function DriverWorkspaceShell({
           {availabilityLabel && (
             <div style={{ fontSize: '0.68rem', marginBottom: '0.3rem' }}>
               <span style={{ color: THEME.shellMuted }}>Status: </span>
-              <span style={{ fontWeight: 600, color: '#15803d' }}>{availabilityLabel}</span>
+              <span style={{ fontWeight: 600, color: '#86efac' }}>{availabilityLabel}</span>
             </div>
           )}
           <div style={{ fontSize: '0.72rem', color: THEME.shellMuted, marginBottom: '0.15rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -247,9 +215,9 @@ export default function DriverWorkspaceShell({
             style={{
               width: '100%',
               padding: '0.45rem',
-              backgroundColor: '#fee2e2',
-              color: '#b91c1c',
-              border: '1px solid #fecaca',
+              backgroundColor: 'rgba(239,68,68,0.15)',
+              color: '#fca5a5',
+              border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: '6px',
               fontSize: '0.78rem',
               fontWeight: 600,
