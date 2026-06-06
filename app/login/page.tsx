@@ -83,22 +83,12 @@ export default function LoginPage() {
   const showResetSuccess = searchParams.get('reset') === 'success';
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #0A2239 0%, #1E4E8C 100%)',
-      padding: '1rem'
-    }}>
-      <div style={{
-        background: 'white',
-        padding: '2.5rem',
-        borderRadius: '12px',
-        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
-        width: '100%',
-        maxWidth: '400px'
-      }}>
+    <div className="login-page">
+      <div className="login-shell">
+        <aside className="marketing-panel" aria-hidden>
+          <div className="marketing-overlay" />
+        </aside>
+        <div className="form-panel">
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ marginBottom: '1rem' }}>
             <Image src="/xdrive-logo.svg" alt="XDrive Logistics" width={180} height={40} priority style={{ width: 'auto', height: '40px' }} />
@@ -351,7 +341,65 @@ export default function LoginPage() {
             </p>
           </form>
         )}
+        </div>
       </div>
+      <style jsx>{`
+        .login-page {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, #0A2239 0%, #1E4E8C 100%);
+          padding: 1rem;
+        }
+
+        .login-shell {
+          width: 100%;
+          max-width: 1120px;
+          background: white;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .marketing-panel {
+          display: none;
+        }
+
+        .form-panel {
+          width: 100%;
+          max-width: 460px;
+          margin: 0 auto;
+          padding: 2.5rem;
+        }
+
+        @media (min-width: 1024px) {
+          .login-shell {
+            display: flex;
+            min-height: 680px;
+          }
+
+          .marketing-panel {
+            position: relative;
+            display: block;
+            flex: 1 1 auto;
+            background-image: url('/xdrive-login-banner.png');
+            background-size: cover;
+            background-position: center;
+          }
+
+          .marketing-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(160deg, rgba(10, 34, 57, 0.18) 0%, rgba(10, 34, 57, 0.06) 100%);
+          }
+
+          .form-panel {
+            flex: 0 0 420px;
+            max-width: 420px;
+          }
+        }
+      `}</style>
     </div>
   );
 }
