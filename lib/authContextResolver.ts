@@ -66,10 +66,17 @@ export const resolveAuthContext = ({
     };
   }
 
+  const ownerDriverBusinessRole =
+    ownerDriverWorkspaceRequested &&
+    isDriver &&
+    Boolean(companyId) &&
+    resolvedRole === 'driver';
+  const finalRole: AppUserRole = ownerDriverBusinessRole ? 'company_staff' : resolvedRole;
+
   return {
-    role: resolvedRole,
+    role: finalRole,
     companyId,
-    mustChangePassword: resolvedRole === 'driver' ? mustChangePassword : false,
+    mustChangePassword: finalRole === 'driver' ? mustChangePassword : false,
     profileRole: typeof profileRole === 'string' ? profileRole : null,
   };
 };

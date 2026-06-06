@@ -100,8 +100,7 @@ export default function BidsPage() {
       .from('job_bids')
       .select(
         'id, job_id, company_id, bidder_user_id, amount, bid_price_gbp, currency, message, status, created_at, ' +
-        'jobs!inner(id, company_id, pickup_location, delivery_location, pickup_datetime, vehicle_type, awarded_carrier_company_id, exchange_visibility), ' +
-        'companies(name)'
+        'jobs!inner(id, company_id, pickup_location, delivery_location, pickup_datetime, vehicle_type, awarded_carrier_company_id, exchange_visibility)'
       )
       .eq('jobs.company_id', companyId)
       .in('jobs.exchange_visibility', ['exchange', 'direct'])
@@ -113,9 +112,33 @@ export default function BidsPage() {
       return;
     }
 
+    const bidRows = (data ?? []) as unknown as BidWithJob[];
+    const bidderCompanyIds = Array.from(
+      new Set(bidRows.map((bid) => bid.company_id).filter((id): id is string => Boolean(id))),
+    );
+
+    let companyNameById = new Map<string, string>();
+    if (bidderCompanyIds.length > 0) {
+      const { data: companyRows } = await supabase
+        .from('companies')
+        .select('id, name')
+        .in('id', bidderCompanyIds);
+
+      companyNameById = new Map(
+        (companyRows ?? [])
+          .map((row) => [row.id, row.name] as const)
+          .filter((entry): entry is readonly [string, string] => typeof entry[0] === 'string' && typeof entry[1] === 'string'),
+      );
+    }
+
+    const enrichedBids = bidRows.map((bid) => ({
+      ...bid,
+      companies: bid.company_id && companyNameById.has(bid.company_id) ? { name: companyNameById.get(bid.company_id)! } : null,
+    }));
+
     // Group bids by job
     const groupMap = new Map<string, JobGroup>();
-    for (const raw of (data ?? []) as unknown as BidWithJob[]) {
+    for (const raw of enrichedBids) {
       const j = raw.jobs;
       if (!j) continue;
       if (!groupMap.has(raw.job_id)) {
@@ -197,22 +220,18 @@ export default function BidsPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
+      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
 
           {/* Header */}
-          <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ marginBottom: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>
-                💼 Received Bids
-              </h1>
-              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>
-                Review and accept or reject bids submitted by carrier companies on your exchange loads.
-              </p>
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>Received Bids</h2>
+              <p style={{ color: '#64748b', margin: '0.25rem 0 0 0', fontSize: '0.8rem' }}>Review and accept or reject bids on your exchange loads.</p>
             </div>
             <button
               onClick={() => void loadBids()}
-              style={{ padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontSize: '0.85rem', color: '#374151' }}
+              style={{ padding: '0.35rem 0.7rem', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontSize: '0.78rem', color: '#64748b' }}
             >
               ↻ Refresh
             </button>

@@ -265,7 +265,7 @@ export default function VehiclesPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1rem' }}>
+      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
         <div style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
@@ -289,7 +289,7 @@ export default function VehiclesPage() {
             </div>
           )}
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
             {!companyResolved || loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
             ) : !companyId ? (
@@ -307,7 +307,7 @@ export default function VehiclesPage() {
                   <thead>
                     <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                       {['Reg Plate', 'Type', 'Make / Model', 'Year', 'Payload (kg)', 'Tail Lift', 'Assigned Driver', 'Created', 'Actions'].map(h => (
-                        <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                        <th key={h} style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -316,15 +316,15 @@ export default function VehiclesPage() {
                       const assignedDriver = drivers.find(d => d.id === v.assigned_driver_id);
                       return (
                         <tr key={v.id} style={{ borderBottom: i < vehicles.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                          <td style={{ padding: '1rem', fontWeight: '600', color: '#1f2937' }}>{v.reg_plate || '—'}</td>
-                          <td style={{ padding: '1rem', color: '#6b7280' }}>{v.type.replace(/_/g, ' ')}</td>
-                          <td style={{ padding: '1rem', color: '#6b7280' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
-                          <td style={{ padding: '1rem', color: '#6b7280' }}>{v.manufacture_year ?? '—'}</td>
-                          <td style={{ padding: '1rem', color: '#6b7280' }}>{v.payload_kg ?? '—'}</td>
-                          <td style={{ padding: '1rem' }}>{v.has_tail_lift ? '✅' : '—'}</td>
-                          <td style={{ padding: '1rem', color: '#6b7280' }}>{assignedDriver?.display_name ?? '—'}</td>
-                          <td style={{ padding: '1rem', color: '#6b7280' }}>{formatDate(v.created_at)}</td>
-                          <td style={{ padding: '1rem' }}>
+                          <td style={{ padding: '0.8rem', fontWeight: '600', color: '#1f2937' }}>{v.reg_plate || '—'}</td>
+                          <td style={{ padding: '0.8rem', color: '#6b7280' }}>{v.type.replace(/_/g, ' ')}</td>
+                          <td style={{ padding: '0.8rem', color: '#6b7280' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
+                          <td style={{ padding: '0.8rem', color: '#6b7280' }}>{v.manufacture_year ?? '—'}</td>
+                          <td style={{ padding: '0.8rem', color: '#6b7280' }}>{v.payload_kg ?? '—'}</td>
+                          <td style={{ padding: '0.8rem' }}>{v.has_tail_lift ? '✅' : '—'}</td>
+                          <td style={{ padding: '0.8rem', color: '#6b7280' }}>{assignedDriver?.display_name ?? '—'}</td>
+                          <td style={{ padding: '0.8rem', color: '#6b7280' }}>{formatDate(v.created_at)}</td>
+                          <td style={{ padding: '0.8rem' }}>
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                               <button
                                 onClick={() => openEditModal(v)}

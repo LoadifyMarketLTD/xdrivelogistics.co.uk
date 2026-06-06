@@ -7,6 +7,33 @@ export type AppUserRole =
   | 'customer';
 
 /**
+ * Driver persona classification — stored in driver profile metadata.
+ * Used for workspace defaults and load-board filters, NOT for cross-portal
+ * access control (all personas map to the single `driver` AppUserRole).
+ */
+export type DriverPersona =
+  | 'solo_driver'
+  | 'owner_operator'
+  | 'self_employed'
+  | 'company_driver';
+
+export const DRIVER_PERSONA_LABELS: Record<DriverPersona, string> = {
+  solo_driver: 'Solo Driver',
+  owner_operator: 'Owner Operator',
+  self_employed: 'Self Employed Driver',
+  company_driver: 'Company Driver',
+};
+
+export const mapDriverPersona = (value: string | null | undefined): DriverPersona | null => {
+  const v = (value ?? '').toLowerCase().trim();
+  if (v === 'solo_driver' || v === 'solo') return 'solo_driver';
+  if (v === 'owner_operator' || v === 'owner_driver') return 'owner_operator';
+  if (v === 'self_employed' || v === 'self_employed_driver') return 'self_employed';
+  if (v === 'company_driver' || v === 'company') return 'company_driver';
+  return null;
+};
+
+/**
  * Maps any profile.role value (canonical or legacy alias) to an AppUserRole.
  *
  * Canonical values:
@@ -27,14 +54,19 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
   if (normalized === 'customer') return 'customer';
 
   // Owner aliases
-  if (normalized === 'superadmin' || normalized === 'super_admin' || normalized === 'platform_owner') return 'owner';
+  if (
+    normalized === 'superadmin' ||
+    normalized === 'super_admin' ||
+    normalized === 'platform_owner' ||
+    normalized === 'platform_admin' ||
+    normalized === 'platform_administrator'
+  ) return 'owner';
 
   // Company admin aliases
   if (
     normalized === 'admin' ||
     normalized === 'admin_staff' ||
-    normalized === 'org_admin' ||
-    normalized === 'platform_admin'
+    normalized === 'org_admin'
   ) return 'company_admin';
 
   // Company staff aliases
@@ -53,6 +85,23 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
 
   // Customer aliases
   if (normalized === 'shipper' || normalized === 'client' || normalized === 'viewer') return 'customer';
+
+  return null;
+};
+
+/**
+ * Persist profile roles using the legacy-compatible database values so auth
+ * writes keep working even when production has not yet applied migration 063.
+ */
+export const normalizeProfileRoleForStorage = (value: string | null | undefined): string | null => {
+  const resolvedRole = mapAppRole(value);
+
+  if (resolvedRole === 'owner') return 'owner';
+  if (resolvedRole === 'broker') return 'company';
+  if (resolvedRole === 'company_admin') return 'admin';
+  if (resolvedRole === 'company_staff') return 'company';
+  if (resolvedRole === 'driver') return 'driver';
+  if (resolvedRole === 'customer') return 'customer';
 
   return null;
 };
@@ -90,6 +139,7 @@ export const resolveAuthoritativeRole = ({
   fallbackRole?: string | null;
   ownerDriverWorkspaceRequested?: boolean;
 }): AppUserRole | null => {
+  const normalizedProfileRole = (profileRole ?? '').toLowerCase().trim();
   const resolvedProfileRole = mapAppRole(profileRole);
   const resolvedFallbackRole = mapAppRole(fallbackRole);
   const ownerDriverWorkspace =
@@ -102,6 +152,14 @@ export const resolveAuthoritativeRole = ({
 
   if (ownerDriverWorkspace && hasCreatedCompany) {
     return creatorCompanyType === 'admin' ? 'company_admin' : 'company_staff';
+  }
+
+  if (
+    resolvedFallbackRole &&
+    (normalizedProfileRole === 'admin' || normalizedProfileRole === 'company') &&
+    resolvedFallbackRole !== resolvedProfileRole
+  ) {
+    return resolvedFallbackRole;
   }
 
   if (resolvedProfileRole) return resolvedProfileRole;
@@ -117,15 +175,26 @@ export const resolveAuthoritativeRole = ({
   return null;
 };
 
+const PLATFORM_ROUTE_ROLES = new Set<AppUserRole>(['owner']);
 const ADMIN_ROUTE_ROLES = new Set<AppUserRole>(['broker', 'company_admin', 'company_staff', 'owner']);
+const BROKER_ROUTE_ROLES = new Set<AppUserRole>(['broker', 'owner']);
 const MOBILE_ROUTE_ROLES = new Set<AppUserRole>(['broker', 'company_admin', 'company_staff', 'owner']);
 const DRIVER_ROUTE_ROLES = new Set<AppUserRole>(['driver']);
 const CUSTOMER_ROUTE_ROLES = new Set<AppUserRole>(['customer']);
 
-export const isRoleAllowedForPath = (pathname: string, role: AppUserRole | null): boolean => {
+export const isRoleAllowedForPath = (
+  pathname: string,
+  role: AppUserRole | null,
+  options?: { canAccessDriverMode?: boolean }
+): boolean => {
   if (!role) return false;
+  if (pathname.startsWith('/super-admin')) return PLATFORM_ROUTE_ROLES.has(role);
+  if (pathname.startsWith('/platform')) return PLATFORM_ROUTE_ROLES.has(role);
   if (pathname.startsWith('/admin')) return ADMIN_ROUTE_ROLES.has(role);
-  if (pathname.startsWith('/driver')) return DRIVER_ROUTE_ROLES.has(role);
+  if (pathname.startsWith('/broker')) return BROKER_ROUTE_ROLES.has(role);
+  if (pathname.startsWith('/driver')) {
+    return DRIVER_ROUTE_ROLES.has(role) || options?.canAccessDriverMode === true;
+  }
   if (pathname.startsWith('/m')) return MOBILE_ROUTE_ROLES.has(role);
   if (pathname.startsWith('/customer')) return CUSTOMER_ROUTE_ROLES.has(role);
   return true;

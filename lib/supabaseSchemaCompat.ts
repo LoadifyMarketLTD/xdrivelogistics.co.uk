@@ -265,3 +265,100 @@ export const loadInvoicesWithSchemaCompat = async (
     error: { message: 'Invoice compatibility retry limit reached.' },
   };
 };
+
+const INVOICE_AMOUNT_COLUMN_FALLBACKS = ['subtotal', 'total_amount', 'total', 'invoice_total'] as const;
+
+type InvoiceMutationCompatInput = {
+  isNew: boolean;
+  invoiceId: string;
+  companyId: string;
+  insertRow: Record<string, unknown>;
+  updateFields: Record<string, unknown>;
+};
+
+export const saveInvoiceWithSchemaCompat = async (
+  supabase: SupabaseClient,
+  input: InvoiceMutationCompatInput
+): Promise<{
+  error: ErrorLike | null;
+  activeAmountColumn: string;
+  droppedColumns: Set<string>;
+}> => {
+  let amountColumn: string = 'amount';
+  let amountFallbackIndex = -1;
+  const droppedColumns = new Set<string>();
+  const insertRow = { ...input.insertRow };
+  const updateFields = { ...input.updateFields };
+  const amountValue = insertRow.amount;
+
+  const applyAmountColumn = (column: string) => {
+    delete insertRow.amount;
+    delete updateFields.amount;
+    INVOICE_AMOUNT_COLUMN_FALLBACKS.forEach((fallbackColumn) => {
+      delete insertRow[fallbackColumn];
+      delete updateFields[fallbackColumn];
+    });
+    amountColumn = column;
+    insertRow[column] = amountValue;
+    updateFields[column] = amountValue;
+  };
+
+  for (let attempts = 0; attempts < 16; attempts += 1) {
+    const result = input.isNew
+      ? await supabase.from('invoices').insert([insertRow])
+      : await supabase
+          .from('invoices')
+          .update(updateFields)
+          .eq('id', input.invoiceId)
+          .eq('company_id', input.companyId);
+
+    if (!result.error) {
+      return {
+        error: null,
+        activeAmountColumn: amountColumn,
+        droppedColumns,
+      };
+    }
+
+    const missingColumn = getMissingColumnFromError(result.error, 'invoices');
+    if (!missingColumn) {
+      return {
+        error: result.error,
+        activeAmountColumn: amountColumn,
+        droppedColumns,
+      };
+    }
+
+    if (missingColumn === amountColumn && amountValue !== undefined && amountFallbackIndex < INVOICE_AMOUNT_COLUMN_FALLBACKS.length - 1) {
+      amountFallbackIndex += 1;
+      applyAmountColumn(INVOICE_AMOUNT_COLUMN_FALLBACKS[amountFallbackIndex]);
+      continue;
+    }
+
+    let removed = false;
+    if (Object.prototype.hasOwnProperty.call(insertRow, missingColumn)) {
+      delete insertRow[missingColumn];
+      removed = true;
+    }
+    if (Object.prototype.hasOwnProperty.call(updateFields, missingColumn)) {
+      delete updateFields[missingColumn];
+      removed = true;
+    }
+    if (removed) {
+      droppedColumns.add(missingColumn);
+      continue;
+    }
+
+    return {
+      error: result.error,
+      activeAmountColumn: amountColumn,
+      droppedColumns,
+    };
+  }
+
+  return {
+    error: { message: 'Invoice mutation compatibility retry limit reached.' },
+    activeAmountColumn: amountColumn,
+    droppedColumns,
+  };
+};

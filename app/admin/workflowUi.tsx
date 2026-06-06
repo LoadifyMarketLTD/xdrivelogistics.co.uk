@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
+import type { AppUserRole } from '../../lib/authRole';
 
 export type WorkflowStageId =
   | 'find'
@@ -18,58 +19,165 @@ export type WorkflowStage = {
 };
 
 export const WORKFLOW_STAGES: WorkflowStage[] = [
-  { id: 'find', label: 'Find Work', href: '/admin/marketplace' },
-  { id: 'price', label: 'Price Work', href: '/admin/quotes' },
-  { id: 'win', label: 'Win Work', href: '/admin/bids' },
-  { id: 'assign', label: 'Assign Work', href: '/admin/diary' },
-  { id: 'track', label: 'Track Work', href: '/admin/fleet' },
-  { id: 'complete', label: 'Complete Work', href: '/admin/jobs' },
-  { id: 'invoice', label: 'Invoice Work', href: '/admin/invoices' },
+  { id: 'find', label: 'Marketplace / Loads', href: '/admin/marketplace' },
+  { id: 'price', label: 'Quotes', href: '/admin/quotes' },
+  { id: 'win', label: 'Bids', href: '/admin/bids' },
+  { id: 'assign', label: 'Diary / Operations', href: '/admin/diary' },
+  { id: 'track', label: 'Fleet', href: '/admin/fleet' },
+  { id: 'complete', label: 'Jobs', href: '/admin/jobs' },
+  { id: 'invoice', label: 'Finance / Invoices', href: '/admin/invoices' },
 ];
 
-export const WORKFLOW_NAV_SECTIONS = [
+/**
+ * Platform modules — each section maps to a distinct module with its own
+ * objective, KPIs and primary actions.  `roles` controls which AppUserRole
+ * values can see a section; omitting `roles` means visible to all admin roles.
+ */
+export type NavItem = {
+  id: string;
+  label: string;
+  icon: string;
+  href: string;
+};
+
+export type NavSection = {
+  id: string;
+  label: string;
+  roles?: ReadonlyArray<AppUserRole>;
+  items: NavItem[];
+};
+
+export type NavVisibilityContext = {
+  membershipRole?: string | null;
+  financeAccess?: 'full' | 'limited' | 'hidden' | null;
+};
+
+export const PLATFORM_NAV_SECTIONS: NavSection[] = [
   {
     id: 'home',
-    label: 'Home',
-    items: [{ id: 'dashboard', label: 'Command Centre', icon: '🏠', href: '/admin' }],
+    label: 'Platform Home',
+    // visible to all admin-area roles
+    items: [{ id: 'dashboard', label: 'Platform Home', icon: '🏠', href: '/admin' }],
+  },
+  {
+    id: 'marketplace',
+    label: 'Marketplace / Loads',
+    // Company staff can find work and convert won work; permissions stay policy-based.
+    roles: ['owner', 'company_admin', 'company_staff', 'broker'],
+    items: [
+      { id: 'marketplace', label: 'Load Board', icon: '🏪', href: '/admin/marketplace' },
+    ],
+  },
+  {
+    id: 'quotes_bids',
+    label: 'Quotes & Bids',
+    // Company staff can price and quote; decision actions remain API/RLS protected.
+    roles: ['owner', 'company_admin', 'company_staff', 'broker'],
+    items: [
+      { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
+      { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
+    ],
   },
   {
     id: 'operations',
-    label: 'Operations',
+    label: 'Diary / Operations',
+    // Dispatchers and admins manage day-to-day operations; brokers do not
+    roles: ['owner', 'company_admin', 'company_staff'],
     items: [
-      { id: 'diary', label: 'Allocation Diary', icon: '🗓️', href: '/admin/diary' },
-      { id: 'jobs', label: 'All Jobs', icon: '📦', href: '/admin/jobs' },
+      { id: 'diary', label: 'Diary', icon: '🗓️', href: '/admin/diary' },
+      { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
     ],
   },
   {
-    id: 'commercial',
-    label: 'Commercial',
-    items: [
-      { id: 'marketplace', label: 'Find Work', icon: '🏪', href: '/admin/marketplace' },
-      { id: 'quotes', label: 'Quotes & Bids', icon: '💬', href: '/admin/quotes' },
-      { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
-    ],
-  },
-  {
-    id: 'fleet',
+    id: 'fleet_module',
     label: 'Fleet',
+    // Fleet management: owner, admin, dispatcher
+    roles: ['owner', 'company_admin', 'company_staff'],
     items: [
-      { id: 'fleet', label: 'Availability', icon: '🧭', href: '/admin/fleet' },
-      { id: 'drivers', label: 'Drivers', icon: '👤', href: '/admin/drivers' },
-      { id: 'dispatchers', label: 'Dispatchers', icon: '🎛️', href: '/admin/dispatchers' },
-      { id: 'vehicles', label: 'Vehicles', icon: '🚛', href: '/admin/vehicles' },
+      { id: 'fleet', label: 'Fleet Workspace', icon: '🧭', href: '/admin/fleet' },
+    ],
+  },
+  {
+    id: 'drivers_module',
+    label: 'Drivers',
+    // Driver roster: owner, admin, dispatcher
+    roles: ['owner', 'company_admin', 'company_staff'],
+    items: [
+      { id: 'drivers', label: 'Driver Roster', icon: '👤', href: '/admin/drivers' },
+    ],
+  },
+  {
+    id: 'vehicles_module',
+    label: 'Vehicles',
+    // Vehicle registry: owner, admin, dispatcher
+    roles: ['owner', 'company_admin', 'company_staff'],
+    items: [
+      { id: 'vehicles', label: 'Vehicle Registry', icon: '🚛', href: '/admin/vehicles' },
+    ],
+  },
+  {
+    id: 'compliance_module',
+    label: 'Compliance / Documents',
+    // Document compliance: owner, admin, dispatcher
+    roles: ['owner', 'company_admin', 'company_staff'],
+    items: [
       { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
     ],
   },
   {
-    id: 'admin',
-    label: 'Admin',
+    id: 'finance_module',
+    label: 'Finance / Invoices',
+    // Finance visibility can be policy-gated for staff (limited mode).
+    roles: ['owner', 'company_admin', 'company_staff'],
+    items: [
+      { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
+    ],
+  },
+  {
+    id: 'network_module',
+    label: 'Network / Companies',
+    // Company directory: owner, admin, broker (network participants)
+    roles: ['owner', 'company_admin', 'broker'],
     items: [
       { id: 'companies', label: 'Companies', icon: '🏢', href: '/admin/companies' },
+    ],
+  },
+  {
+    id: 'platform_admin',
+    label: 'Administration',
+    // Team management and settings: owner and admin only
+    roles: ['owner', 'company_admin'],
+    items: [
+      { id: 'dispatchers', label: 'Memberships', icon: '👥', href: '/admin/dispatchers' },
       { id: 'settings', label: 'Settings', icon: '⚙️', href: '/admin/settings' },
     ],
   },
-] as const;
+];
+
+/**
+ * Returns the nav sections visible for the given role.
+ * Sections without a `roles` array are visible to all admin roles.
+ */
+const canShowFinanceSection = (
+  role: AppUserRole,
+  context: NavVisibilityContext
+) => {
+  if (role === 'owner' || role === 'company_admin') return true;
+  if (role !== 'company_staff') return false;
+  return context.financeAccess === 'full' || context.financeAccess === 'limited' || context.membershipRole === 'dispatcher';
+};
+
+export const getNavSectionsForRole = (role: AppUserRole | null, context: NavVisibilityContext = {}): NavSection[] => {
+  if (!role) return PLATFORM_NAV_SECTIONS.filter((s) => !s.roles);
+  return PLATFORM_NAV_SECTIONS.filter((section) => {
+    if (section.roles && !section.roles.includes(role)) return false;
+    if (section.id === 'finance_module') return canShowFinanceSection(role, context);
+    return true;
+  });
+};
+
+/** @deprecated Use PLATFORM_NAV_SECTIONS; kept for compatibility. */
+export const WORKFLOW_NAV_SECTIONS = PLATFORM_NAV_SECTIONS;
 
 type WorkflowStripProps = {
   activeStage?: WorkflowStageId;
@@ -92,7 +200,7 @@ export function WorkflowStageStrip({ activeStage, counts, marginBottom = '1rem' 
       }}
     >
       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: '0.5rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-        Workflow
+        Business flow
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '0.5rem' }}>
         {WORKFLOW_STAGES.map((stage) => {

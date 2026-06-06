@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
 import { getAuthCallbackEmailRedirectTo } from '../../lib/authFlow';
+import { normalizeProfileRoleForStorage } from '../../lib/authRole';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
 type RegisterRole = 'broker' | 'company_admin' | 'owner_driver';
@@ -42,6 +43,7 @@ export default function RegisterPage() {
 
     try {
       const normalizedRole = role === 'owner_driver' ? 'driver' : role;
+      const storedRole = normalizeProfileRoleForStorage(normalizedRole) ?? 'customer';
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -67,7 +69,7 @@ export default function RegisterPage() {
           .from('profiles')
           .upsert({
             user_id: signUpData.user.id,
-            role: normalizedRole,
+            role: storedRole,
             status: 'active',
             is_driver: role === 'owner_driver',
             updated_at: new Date().toISOString(),
