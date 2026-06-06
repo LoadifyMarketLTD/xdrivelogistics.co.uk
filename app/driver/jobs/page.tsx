@@ -8,6 +8,7 @@ import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { COMPANY_CONFIG } from '../../config/company';
+import { useDriverLocationPublisher } from '../../hooks/useDriverLocationPublisher';
 
 type AvailabilityStatus = 'available' | 'busy' | 'offline';
 
@@ -48,29 +49,39 @@ type JobRow = {
   status_history?: Array<{ status: string; timestamp: string }> | null;
 };
 
-const ACTIVE_STATUSES = ['allocated', 'in_transit'];
-const HISTORY_STATUSES = ['delivered', 'cancelled', 'disputed'];
+const ACTIVE_STATUSES = ['allocated', 'collected', 'in_transit'];
+const HISTORY_STATUSES = ['delivered', 'invoiced', 'paid', 'cancelled', 'disputed'];
 
 const STATUS_LABEL: Record<string, string> = {
-  draft: 'Received',
-  posted: 'Posted',
-  allocated: 'Allocated',
-  in_transit: 'In Transit',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  disputed: 'Disputed',
-  driver_declined: 'Declined',
+  draft:          'Received',
+  posted:         'Posted',
+  quoted:         'Quoted',
+  awarded:        'Awarded',
+  allocated:      'Allocated',
+  collected:      'Collected',
+  in_transit:     'In Transit',
+  delivered:      'Delivered',
+  invoiced:       'Invoiced',
+  paid:           'Paid',
+  cancelled:      'Cancelled',
+  disputed:       'Disputed',
+  driver_declined:'Declined',
 };
 
 const STATUS_COLORS: Record<string, { fg: string; bg: string }> = {
-  allocated: { fg: '#1d4ed8', bg: '#dbeafe' },
-  in_transit: { fg: '#b45309', bg: '#fef3c7' },
-  delivered: { fg: '#15803d', bg: '#dcfce7' },
-  cancelled: { fg: '#dc2626', bg: '#fee2e2' },
-  disputed: { fg: '#7c3aed', bg: '#ede9fe' },
-  posted: { fg: '#6d28d9', bg: '#f3e8ff' },
-  draft: { fg: '#374151', bg: '#e5e7eb' },
-  driver_declined: { fg: '#b91c1c', bg: '#fee2e2' },
+  allocated:      { fg: '#1d4ed8', bg: '#dbeafe' },
+  collected:      { fg: '#0369a1', bg: '#e0f2fe' },
+  in_transit:     { fg: '#b45309', bg: '#fef3c7' },
+  delivered:      { fg: '#15803d', bg: '#dcfce7' },
+  invoiced:       { fg: '#0f766e', bg: '#ccfbf1' },
+  paid:           { fg: '#166534', bg: '#bbf7d0' },
+  cancelled:      { fg: '#dc2626', bg: '#fee2e2' },
+  disputed:       { fg: '#7c3aed', bg: '#ede9fe' },
+  posted:         { fg: '#6d28d9', bg: '#f3e8ff' },
+  quoted:         { fg: '#9333ea', bg: '#fae8ff' },
+  awarded:        { fg: '#c026d3', bg: '#fdf4ff' },
+  draft:          { fg: '#374151', bg: '#e5e7eb' },
+  driver_declined:{ fg: '#b91c1c', bg: '#fee2e2' },
 };
 
 const AVAILABILITY_OPTIONS: Array<{ value: AvailabilityStatus; label: string; color: string; bg: string }> = [
@@ -400,6 +411,9 @@ export default function DriverJobsPage() {
     () => todayJobs.find((job) => ACTIVE_STATUSES.includes(job.status)) ?? todayJobs[0] ?? null,
     [todayJobs],
   );
+
+  // Publish GPS location while driver is on an active job
+  useDriverLocationPublisher(currentJob?.status, isSupabaseConfigured);
 
   const nextCollection = useMemo(
     () =>

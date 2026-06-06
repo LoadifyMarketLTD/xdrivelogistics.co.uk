@@ -30,15 +30,15 @@ type BidRow = {
   } | null;
 };
 
-type TabId = 'all' | 'pending' | 'accepted' | 'rejected';
+type TabId = 'all' | 'submitted' | 'accepted' | 'rejected';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
-  pending:  { bg: '#fef9c3', color: '#92400e' },
-  accepted: { bg: '#d1fae5', color: '#065f46' },
-  rejected: { bg: '#fee2e2', color: '#991b1b' },
-  withdrawn:{ bg: '#f3f4f6', color: '#6b7280' },
+  submitted: { bg: '#fef9c3', color: '#92400e' },
+  accepted:  { bg: '#d1fae5', color: '#065f46' },
+  rejected:  { bg: '#fee2e2', color: '#991b1b' },
+  withdrawn: { bg: '#f3f4f6', color: '#6b7280' },
 };
 
 function fmtDate(value: string | null) {
@@ -57,10 +57,10 @@ const card: CSSProperties = {
 };
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: 'all',      label: 'All Quotes' },
-  { id: 'pending',  label: 'Pending' },
-  { id: 'accepted', label: 'Accepted' },
-  { id: 'rejected', label: 'Unsuccessful' },
+  { id: 'all',       label: 'All Quotes' },
+  { id: 'submitted', label: 'Submitted' },
+  { id: 'accepted',  label: 'Accepted' },
+  { id: 'rejected',  label: 'Unsuccessful' },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -121,10 +121,10 @@ export default function MyQuotesPage() {
   const visibleBids = bids.filter((b) => activeTab === 'all' || b.status === activeTab);
 
   const counts = {
-    all: bids.length,
-    pending: bids.filter((b) => b.status === 'pending').length,
-    accepted: bids.filter((b) => b.status === 'accepted').length,
-    rejected: bids.filter((b) => b.status === 'rejected').length,
+    all:       bids.length,
+    submitted: bids.filter((b) => b.status === 'submitted').length,
+    accepted:  bids.filter((b) => b.status === 'accepted').length,
+    rejected:  bids.filter((b) => b.status === 'rejected').length,
   };
 
   return (
