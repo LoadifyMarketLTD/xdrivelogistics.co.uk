@@ -20,23 +20,21 @@ export function HomepageVisualCard({
   imageSrc,
   priority = false,
 }: HomepageVisualCardProps) {
-  const renderableImageSource = imageSrc;
+  if (!imageSrc) return null;
 
-  if (renderableImageSource) {
-    return (
-      <div className={`group relative overflow-hidden ${className}`}>
-        <Image
-          src={renderableImageSource}
-          alt={imageAlt}
-          width={1600}
-          height={900}
-          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
-          priority={priority}
-        />
-        <div className="pointer-events-none absolute inset-0 bg-black/25" />
-      </div>
-    );
-  }
+  const isSvg = imageSrc.toLowerCase().endsWith('.svg');
 
-  return null;
+  return (
+    <div className={`group relative overflow-hidden ${className}`}>
+      <Image
+        src={imageSrc}
+        alt={imageAlt}
+        width={1600}
+        height={900}
+        unoptimized={isSvg}
+        className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+        priority={priority}
+      />
+    </div>
+  );
 }
