@@ -95,6 +95,20 @@ export const platformModules = [
     image: '/marketplace-loading.webp',
     imageAlt: 'XDrive Marketplace workspace showing available loads, bids, quotes and route intelligence',
     icon: Route,
+    previewItems: [
+      {
+        label: 'Demo Queue',
+        desc: 'Sample available loads with pickup/delivery details, cargo type and posted rate.',
+      },
+      {
+        label: 'Demo Status',
+        desc: 'Quote submitted / Awaiting award / Job awarded — visible quote lifecycle states.',
+      },
+      {
+        label: 'Demo Records',
+        desc: 'Awarded load history with carrier, route and accepted rate for reference.',
+      },
+    ],
   },
   {
     key: 'operations',
@@ -104,6 +118,20 @@ export const platformModules = [
     image: '/operations-dispatch-office.webp',
     imageAlt: 'XDrive Operations Diary workspace showing collections, deliveries and job status',
     icon: ClipboardCheck,
+    previewItems: [
+      {
+        label: 'Demo Queue',
+        desc: 'Scheduled collections and deliveries with time windows and contact details.',
+      },
+      {
+        label: 'Demo Status',
+        desc: 'At Collection / In Transit / POD Pending — operational progress states.',
+      },
+      {
+        label: 'Demo Records',
+        desc: 'Completed diary entries with driver, vehicle, timestamps and exception notes.',
+      },
+    ],
   },
   {
     key: 'driver',
@@ -113,6 +141,20 @@ export const platformModules = [
     image: '/driver-workspace-vehicle.webp',
     imageAlt: 'XDrive Driver Workspace showing assigned jobs, route updates and proof of delivery',
     icon: UserRound,
+    previewItems: [
+      {
+        label: 'Demo Queue',
+        desc: 'Assigned job list with collection address, delivery address and cargo instructions.',
+      },
+      {
+        label: 'Demo Status',
+        desc: 'Accepted / Collected / En Route / Delivered — driver progress states.',
+      },
+      {
+        label: 'Demo Records',
+        desc: 'Delivery history with POD upload timestamps and any exception notes recorded.',
+      },
+    ],
   },
   {
     key: 'fleet',
@@ -122,6 +164,20 @@ export const platformModules = [
     image: '/fleet-management-yard.webp',
     imageAlt: 'XDrive Fleet Management showing vehicles, driver assignments and compliance records',
     icon: Truck,
+    previewItems: [
+      {
+        label: 'Demo Queue',
+        desc: 'Available vehicles with capacity, availability window and current assignment status.',
+      },
+      {
+        label: 'Demo Status',
+        desc: 'Active / Available / Maintenance — fleet readiness indicators per vehicle.',
+      },
+      {
+        label: 'Demo Records',
+        desc: 'Driver-vehicle assignment history with compliance document expiry tracking.',
+      },
+    ],
   },
   {
     key: 'finance',
@@ -131,6 +187,20 @@ export const platformModules = [
     image: '/finance-admin-office.webp',
     imageAlt: 'XDrive Finance workspace showing invoices, POD verification and payment status',
     icon: CircleDollarSign,
+    previewItems: [
+      {
+        label: 'Demo Queue',
+        desc: 'Invoices awaiting POD confirmation before payment status is updated.',
+      },
+      {
+        label: 'Demo Status',
+        desc: 'Invoice Issued / POD Verified / Payment Pending — finance visibility states.',
+      },
+      {
+        label: 'Demo Records',
+        desc: 'Closed invoice records with linked POD reference, amount and closure date.',
+      },
+    ],
   },
 ] as const;
 
