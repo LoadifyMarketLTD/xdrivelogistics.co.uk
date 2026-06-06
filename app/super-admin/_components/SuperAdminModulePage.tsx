@@ -1,8 +1,11 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { supabase } from '@/lib/supabaseClient';
+import { formatDateTime, routeSummary } from './superAdminFormatters';
 
 const THEME = {
   pageBg: '#0f172a',
@@ -21,6 +24,45 @@ interface SuperAdminModulePageProps {
   children?: ReactNode;
 }
 
+type PlatformStats = {
+  companiesTotal: number;
+  companiesActive: number;
+  jobsTotal: number;
+  jobsOpen: number;
+  driversTotal: number;
+  invoicesUnpaid: number;
+};
+
+type JobPreviewRow = {
+  id: string;
+  status: string;
+  posting_company_name: string;
+  pickup_location: string | null;
+  pickup_postcode: string | null;
+  delivery_location: string | null;
+  delivery_postcode: string | null;
+  created_at: string;
+  bids_count: number;
+};
+
+type QuotePreviewRow = {
+  id: string;
+  status: string;
+  company_name: string;
+  customer_name: string | null;
+  pickup_location: string | null;
+  delivery_location: string | null;
+  amount: number | null;
+  currency: string | null;
+  created_at: string;
+};
+
+async function getAuthHeader(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+  return ['Bearer', session.access_token].join(' ');
+}
+
 export default function SuperAdminModulePage({
   title,
   description,
@@ -28,6 +70,69 @@ export default function SuperAdminModulePage({
   icon = '🧩',
   children,
 }: SuperAdminModulePageProps) {
+  const [stats, setStats] = useState<PlatformStats | null>(null);
+  const [jobsPreview, setJobsPreview] = useState<JobPreviewRow[]>([]);
+  const [quotesPreview, setQuotesPreview] = useState<QuotePreviewRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const run = async () => {
+      setLoading(true);
+      setDataError(null);
+      try {
+        const auth = await getAuthHeader();
+        if (!auth) {
+          setDataError('No active session.');
+          setLoading(false);
+          return;
+        }
+
+        const [statsRes, jobsRes, quotesRes] = await Promise.all([
+          fetch('/api/super-admin/stats', { headers: { Authorization: auth } }),
+          fetch('/api/super-admin/operations?section=jobs&limit=6', { headers: { Authorization: auth } }),
+          fetch('/api/super-admin/operations?section=quotes&limit=6', { headers: { Authorization: auth } }),
+        ]);
+
+        const [statsBody, jobsBody, quotesBody] = await Promise.all([
+          statsRes.json().catch(() => ({})),
+          jobsRes.json().catch(() => ({})),
+          quotesRes.json().catch(() => ({})),
+        ]);
+
+        if (!statsRes.ok) {
+          setDataError((statsBody as { error?: string }).error ?? `HTTP ${statsRes.status}`);
+          setLoading(false);
+          return;
+        }
+
+        if (!jobsRes.ok) {
+          setDataError((jobsBody as { error?: string }).error ?? `HTTP ${jobsRes.status}`);
+          setLoading(false);
+          return;
+        }
+
+        if (!quotesRes.ok) {
+          setDataError((quotesBody as { error?: string }).error ?? `HTTP ${quotesRes.status}`);
+          setLoading(false);
+          return;
+        }
+
+        setStats(statsBody as PlatformStats);
+        setJobsPreview(((jobsBody as { rows?: JobPreviewRow[] }).rows ?? []) as JobPreviewRow[]);
+        setQuotesPreview(((quotesBody as { rows?: QuotePreviewRow[] }).rows ?? []) as QuotePreviewRow[]);
+      } catch (err) {
+        setDataError(err instanceof Error ? err.message : 'Data fetch failed.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (!children) {
+      void run();
+    }
+  }, [children]);
+
   return (
     <ProtectedRoute allowedRoles={['owner']}>
       <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
@@ -46,28 +151,75 @@ export default function SuperAdminModulePage({
 
         {children ?? (
           <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', padding: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '0.75rem', marginBottom: '1rem' }}>
-              <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem', color: THEME.muted, fontSize: '0.8rem' }}>
-                Filters and search area
+            {dataError && (
+              <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: '8px', padding: '0.65rem 0.9rem', color: '#ef4444', fontSize: '0.82rem', marginBottom: '1rem' }}>
+                ⚠️ {dataError}
               </div>
-              <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem', color: THEME.muted, fontSize: '0.8rem' }}>
-                Status chips
-              </div>
-              <button style={{ backgroundColor: THEME.accent, color: '#0f172a', border: 'none', borderRadius: '8px', padding: '0.6rem 0.9rem', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>
-                Export
-              </button>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.65rem', marginBottom: '1rem' }}>
+              {[
+                { label: 'Companies', value: stats?.companiesTotal ?? '—' },
+                { label: 'Active companies', value: stats?.companiesActive ?? '—' },
+                { label: 'Jobs total', value: stats?.jobsTotal ?? '—' },
+                { label: 'Jobs open', value: stats?.jobsOpen ?? '—' },
+                { label: 'Drivers', value: stats?.driversTotal ?? '—' },
+                { label: 'Unpaid invoices', value: stats?.invoicesUnpaid ?? '—' },
+              ].map((item) => (
+                <div key={item.label} style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem' }}>
+                  <div style={{ color: THEME.text, fontSize: '1rem', fontWeight: 700 }}>{loading ? '…' : item.value}</div>
+                  <div style={{ color: THEME.muted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</div>
+                </div>
+              ))}
             </div>
 
-            <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', minHeight: '280px', marginBottom: '1rem', padding: '1rem', color: THEME.muted, fontSize: '0.85rem' }}>
-              Platform-wide list/table placeholder
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.75rem', color: THEME.muted, fontSize: '0.8rem' }}>
-                Bulk actions toolbar
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.75rem' }}>
+              <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
+                <h3 style={{ margin: '0 0 0.5rem', color: THEME.text, fontSize: '0.84rem' }}>Recent platform jobs</h3>
+                {loading ? (
+                  <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>Loading…</div>
+                ) : jobsPreview.length === 0 ? (
+                  <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>No jobs found.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {jobsPreview.map((job) => (
+                      <div key={job.id} style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '7px', padding: '0.55rem' }}>
+                        <div style={{ color: THEME.text, fontWeight: 700, fontSize: '0.77rem' }}>
+                          {routeSummary(job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode)}
+                        </div>
+                        <div style={{ color: THEME.muted, fontSize: '0.72rem', marginTop: '0.15rem' }}>
+                          {job.posting_company_name} · {job.status} · bids {job.bids_count}
+                        </div>
+                        <div style={{ color: THEME.muted, fontSize: '0.68rem', marginTop: '0.1rem' }}>{formatDateTime(job.created_at)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.75rem', color: THEME.muted, fontSize: '0.8rem' }}>
-                Audit trail + pagination
+
+              <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
+                <h3 style={{ margin: '0 0 0.5rem', color: THEME.text, fontSize: '0.84rem' }}>Recent quote requests</h3>
+                {loading ? (
+                  <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>Loading…</div>
+                ) : quotesPreview.length === 0 ? (
+                  <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>No quotes found.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {quotesPreview.map((quote) => (
+                      <div key={quote.id} style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '7px', padding: '0.55rem' }}>
+                        <div style={{ color: THEME.text, fontWeight: 700, fontSize: '0.77rem' }}>
+                          {quote.company_name} · {quote.status}
+                        </div>
+                        <div style={{ color: THEME.muted, fontSize: '0.72rem', marginTop: '0.15rem' }}>
+                          {quote.customer_name ?? 'Unknown customer'} · {quote.pickup_location ?? '—'} → {quote.delivery_location ?? '—'}
+                        </div>
+                        <div style={{ color: THEME.muted, fontSize: '0.68rem', marginTop: '0.1rem' }}>
+                          {quote.amount ? `${quote.amount} ${quote.currency ?? ''}`.trim() : 'Amount pending'} · {formatDateTime(quote.created_at)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
