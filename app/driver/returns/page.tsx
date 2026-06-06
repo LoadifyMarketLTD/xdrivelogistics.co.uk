@@ -92,10 +92,30 @@ export default function ReturnJourneysPage() {
     } else {
       const row = (data ?? null) as DriverRow | null;
       setDriver(row);
-      if (row?.return_journey_from) setReturnFrom(row.return_journey_from);
-      if (row?.return_journey_to) setReturnTo(row.return_journey_to);
-      if (row?.return_journey_date) setReturnDate(row.return_journey_date.slice(0, 16));
-      if (row?.future_position) setFuturePosition(row.future_position);
+
+      // Prefer return_journeys table as canonical source
+      const { data: rjRow } = await supabase
+        .from('return_journeys')
+        .select('from_postcode, to_postcode, available_from')
+        .eq('driver_id', driverId)
+        .eq('status', 'available')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (rjRow) {
+        const rj = rjRow as { from_postcode?: string | null; to_postcode?: string | null; available_from?: string | null };
+        if (rj.from_postcode) setReturnFrom(rj.from_postcode);
+        if (rj.to_postcode)   setReturnTo(rj.to_postcode);
+        if (rj.available_from) setReturnDate(rj.available_from.slice(0, 16));
+      } else {
+        // Fall back to legacy drivers columns
+        if (row?.return_journey_from) setReturnFrom(row.return_journey_from);
+        if (row?.return_journey_to)   setReturnTo(row.return_journey_to);
+        if (row?.return_journey_date) setReturnDate(row.return_journey_date.slice(0, 16));
+      }
+
+      if (row?.future_position)      setFuturePosition(row.future_position);
       if (row?.future_position_date) setFutureDate(row.future_position_date.slice(0, 16));
     }
     setLoading(false);
@@ -111,23 +131,59 @@ export default function ReturnJourneysPage() {
     setSaving(true);
     setError('');
 
-    const update: Record<string, unknown> = {
+    // ── 1. Upsert into return_journeys table (canonical) ────────────────────────
+    // Retrieve the driver's company_id first
+    const { data: drvCompany } = await supabase
+      .from('drivers')
+      .select('company_id')
+      .eq('id', driverId)
+      .maybeSingle();
+
+    const companyId = (drvCompany as { company_id?: string | null } | null)?.company_id ?? null;
+
+    if (companyId) {
+      // Delete previous active return journey for this driver, then insert fresh
+      await supabase
+        .from('return_journeys')
+        .delete()
+        .eq('driver_id', driverId)
+        .eq('status', 'available');
+
+      if (returnFrom) {
+        const { error: rjErr } = await supabase.from('return_journeys').insert({
+          company_id:     companyId,
+          driver_id:      driverId,
+          from_postcode:  returnFrom || null,
+          to_postcode:    returnTo   || null,
+          available_from: returnDate ? new Date(returnDate).toISOString() : null,
+          status:         'available',
+        });
+
+        if (rjErr) {
+          setError(`Failed to save return journey: ${rjErr.message}`);
+          setSaving(false);
+          return;
+        }
+      }
+    }
+
+    // ── 2. Mirror to drivers flat columns (backward compat) ─────────────────────
+    const legacyUpdate: Record<string, unknown> = {
       return_journey_from: returnFrom || null,
-      return_journey_to: returnTo || null,
+      return_journey_to:   returnTo   || null,
       return_journey_date: returnDate || null,
     };
 
-    const { error: saveErr } = await supabase.from('drivers').update(update).eq('id', driverId);
-    if (saveErr) {
-      if (getMissingColumnFromError(saveErr, 'drivers')) {
-        setError('Return journey fields are not yet available in the database. Please apply the latest migration.');
-      } else {
-        setError(`Failed to save: ${saveErr.message}`);
-      }
-    } else {
-      setSuccessMsg('✅ Return journey saved.');
-      setTimeout(() => setSuccessMsg(''), 4000);
+    const { error: saveErr } = await supabase.from('drivers').update(legacyUpdate).eq('id', driverId);
+    if (saveErr && !getMissingColumnFromError(saveErr, 'drivers')) {
+      // Column missing is acceptable; any other error is not
+      setError(`Failed to sync legacy fields: ${saveErr.message}`);
+      setSaving(false);
+      return;
     }
+
+    setSuccessMsg('✅ Return journey saved.');
+    setTimeout(() => setSuccessMsg(''), 4000);
     setSaving(false);
   };
 
