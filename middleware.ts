@@ -12,7 +12,7 @@ const DRIVER_JOBS_PATH = '/driver/jobs';
 const DRIVER_CHANGE_PASSWORD_PATH = '/driver/change-password';
 const FORBIDDEN_PATH = '/forbidden';
 const LOGIN_PATH = '/login';
-const PROTECTED_PATH_PREFIXES = ['/super-admin', '/platform', '/broker', '/admin', '/driver', '/customer', '/m'];
+const PROTECTED_PATH_PREFIXES = ['/super-admin', '/broker', '/admin', '/driver', '/customer', '/m'];
 
 type RouteAuthResult =
   | { kind: 'unauthenticated' }
@@ -319,10 +319,6 @@ export async function middleware(request: NextRequest) {
   }
 
   const url = request.nextUrl.clone();
-
-  if (url.pathname === '/platform' || url.pathname.startsWith('/platform/')) {
-    return buildRedirect(request, url.pathname.replace('/platform', '/super-admin'));
-  }
 
   const hasMockDashboardParam =
     url.pathname === DRIVER_JOBS_PATH &&
