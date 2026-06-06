@@ -3,6 +3,9 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValid
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
+const PENDING_COMPANY_STATUSES = new Set(['pending', 'pending_approval']);
+const OPEN_JOB_STATUSES = new Set(['draft', 'posted', 'quoted', 'awarded', 'allocated', 'collected', 'in_transit']);
+
 const resolveOwnerProfile = async (authUserId: string) => {
   if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
@@ -35,42 +38,48 @@ export async function GET(request: NextRequest) {
     return respond(403, { error: 'Forbidden: owner role required.' });
   }
 
-  const [
-    companiesTotal,
+  const [companiesResult, driversTotal, jobsResult, invoicesResult] = await Promise.all([
+    supabaseAdmin.from('companies').select('status', { count: 'exact' }),
+    supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
+    supabaseAdmin.from('jobs').select('status', { count: 'exact' }),
+    supabaseAdmin.from('invoices').select('status', { count: 'exact' }),
+  ]);
+
+  if (companiesResult.error) {
+    return respond(500, { error: companiesResult.error.message });
+  }
+  if (driversTotal.error) {
+    return respond(500, { error: driversTotal.error.message });
+  }
+  if (jobsResult.error) {
+    return respond(500, { error: jobsResult.error.message });
+  }
+  if (invoicesResult.error) {
+    return respond(500, { error: invoicesResult.error.message });
+  }
+
+  const companyStatuses = (companiesResult.data ?? []).map((row) => String(row.status ?? '').trim().toLowerCase());
+  const companiesActive = companyStatuses.filter((status) => status === 'active').length;
+  const companiesSuspended = companyStatuses.filter((status) => status === 'suspended').length;
+  const companiesPending = companyStatuses.filter((status) => PENDING_COMPANY_STATUSES.has(status)).length;
+
+  const jobStatuses = (jobsResult.data ?? []).map((row) => String(row.status ?? '').trim().toLowerCase());
+  const jobsOpen = jobStatuses.filter((status) => OPEN_JOB_STATUSES.has(status)).length;
+  const jobsDelivered = jobStatuses.filter((status) => status === 'delivered').length;
+
+  const invoiceStatuses = (invoicesResult.data ?? []).map((row) => String(row.status ?? '').trim().toLowerCase());
+  const paidInvoicesCount = invoiceStatuses.filter((status) => status === 'paid').length;
+  const invoicesCount = invoicesResult.count ?? invoiceStatuses.length;
+
+  return respond(200, {
+    companiesTotal: companiesResult.count ?? companyStatuses.length,
     companiesActive,
     companiesSuspended,
     companiesPending,
-    driversTotal,
-    jobsTotal,
+    driversTotal: driversTotal.count ?? 0,
+    jobsTotal: jobsResult.count ?? jobStatuses.length,
     jobsOpen,
     jobsDelivered,
-    invoicesTotal,
-    paidInvoices,
-  ] = await Promise.all([
-    supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }),
-    supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-    supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'suspended'),
-    supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'pending_approval'),
-    supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
-    supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }),
-    supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).in('status', ['draft', 'posted', 'allocated', 'in_transit']),
-    supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered'),
-    supabaseAdmin.from('invoices').select('id', { count: 'exact', head: true }),
-    supabaseAdmin.from('invoices').select('id', { count: 'exact', head: true }).eq('status', 'Paid'),
-  ]);
-
-  const invoicesCount = invoicesTotal.count ?? 0;
-  const paidInvoicesCount = paidInvoices.count ?? 0;
-
-  return respond(200, {
-    companiesTotal: companiesTotal.count ?? 0,
-    companiesActive: companiesActive.count ?? 0,
-    companiesSuspended: companiesSuspended.count ?? 0,
-    companiesPending: companiesPending.count ?? 0,
-    driversTotal: driversTotal.count ?? 0,
-    jobsTotal: jobsTotal.count ?? 0,
-    jobsOpen: jobsOpen.count ?? 0,
-    jobsDelivered: jobsDelivered.count ?? 0,
     invoicesTotal: invoicesCount,
     invoicesUnpaid: Math.max(0, invoicesCount - paidInvoicesCount),
   });

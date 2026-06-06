@@ -28,6 +28,9 @@ const ACTION_TO_AUDIT_TYPE: Record<MarketplaceAction, string> = {
 
 const STATUS_MUTATION_ALLOWED = new Set<MarketplaceStatus>(['draft', 'posted', 'allocated', 'in_transit']);
 
+const hasMissingAuditStatusColumn = (message: string | undefined) =>
+  Boolean(message && (message.includes('owner_audit_log.old_status') || message.includes('owner_audit_log.new_status')));
+
 const resolveOwnerProfile = async (authUserId: string) => {
   if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
@@ -181,8 +184,23 @@ export async function PATCH(
       reason: auditReason,
     });
 
-  if (auditInsertError) {
-    return respond(500, { error: `Action applied but audit logging failed: ${auditInsertError.message}` });
+  let resolvedAuditInsertError = auditInsertError;
+  if (resolvedAuditInsertError && hasMissingAuditStatusColumn(resolvedAuditInsertError.message)) {
+    const fallback = await supabaseAdmin
+      .from('owner_audit_log')
+      .insert({
+        actor_user_id: owner.id,
+        target_company_id: currentJob.company_id,
+        action_type: auditActionType,
+        old_value: oldValue,
+        new_value: newValue,
+        reason: auditReason,
+      });
+    resolvedAuditInsertError = fallback.error;
+  }
+
+  if (resolvedAuditInsertError) {
+    return respond(500, { error: `Action applied but audit logging failed: ${resolvedAuditInsertError.message}` });
   }
 
   return respond(200, {
