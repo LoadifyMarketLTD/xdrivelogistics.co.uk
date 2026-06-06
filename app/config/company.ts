@@ -64,23 +64,48 @@ export const COMPANY_CONFIG = {
 };
 
 // Job status options (MASTER SPEC) — values match the Supabase public.job_status ENUM
+// Canonical chain: draft → posted → quoted → awarded → allocated → collected
+//                       → in_transit → delivered → invoiced → paid
 export const JOB_STATUS = {
-  RECEIVED: 'draft',       // new job awaiting posting
-  POSTED: 'posted',        // posted for driver bids
-  ALLOCATED: 'allocated',  // driver assigned
-  DELIVERED: 'delivered',  // job completed
+  RECEIVED:   'draft',       // new job awaiting posting
+  POSTED:     'posted',      // posted to marketplace for driver bids
+  QUOTED:     'quoted',      // carrier has quoted; awaiting award
+  AWARDED:    'awarded',     // quote accepted; awaiting driver allocation
+  ALLOCATED:  'allocated',   // driver assigned
+  COLLECTED:  'collected',   // cargo collected from pickup
+  IN_TRANSIT: 'in_transit',  // en route to delivery
+  DELIVERED:  'delivered',   // delivered; awaiting invoice
+  INVOICED:   'invoiced',    // invoice raised; awaiting payment
+  PAID:       'paid',        // payment received — terminal
+  CANCELLED:  'cancelled',   // terminal
+  DISPUTED:   'disputed',    // terminal
 } as const;
 
 // Human-readable labels for each DB status value
 export const JOB_STATUS_LABEL: Record<string, string> = {
-  draft: 'Received',
-  posted: 'Posted',
-  allocated: 'Allocated',
+  draft:      'Received',
+  posted:     'Posted',
+  quoted:     'Quoted',
+  awarded:    'Awarded',
+  allocated:  'Allocated',
+  collected:  'Collected',
   in_transit: 'In Transit',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  disputed: 'Disputed',
+  delivered:  'Delivered',
+  invoiced:   'Invoiced',
+  paid:       'Paid',
+  cancelled:  'Cancelled',
+  disputed:   'Disputed',
 };
+
+// Canonical bid status values — match job_bids.status CHECK constraint
+export const BID_STATUS = {
+  SUBMITTED:  'submitted',
+  ACCEPTED:   'accepted',
+  REJECTED:   'rejected',
+  WITHDRAWN:  'withdrawn',
+} as const;
+
+export type BidStatusValue = typeof BID_STATUS[keyof typeof BID_STATUS];
 
 // Delay update options (MASTER SPEC)
 export const DELAY_OPTIONS = [15, 30, 45, 60] as const;

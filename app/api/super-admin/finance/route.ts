@@ -1,0 +1,215 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+
+const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+
+const verifyOwner = async (request: NextRequest) => {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
+  const token = getBearerToken(request);
+  if (!token) return null;
+  const validatorClient = supabaseValidator ?? supabaseAdmin;
+  const { data: authData, error } = await validatorClient.auth.getUser(token);
+  if (error || !authData.user) return null;
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('role')
+    .eq('user_id', authData.user.id)
+    .maybeSingle();
+  if (!profile || profile.role !== 'owner') return null;
+  return authData.user;
+};
+
+type CompanyRow = { id: string; name: string };
+
+const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
+  if (!supabaseAdmin || ids.length === 0) return new Map();
+  const { data } = await supabaseAdmin.from('companies').select('id, name').in('id', ids);
+  return new Map((data as CompanyRow[] ?? []).map((c) => [c.id, c.name]));
+};
+
+export async function GET(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
+
+  const owner = await verifyOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+
+  const { searchParams } = new URL(request.url);
+  const section = (searchParams.get('section') ?? '').toLowerCase();
+  const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
+
+  // ── Invoices ────────────────────────────────────────────────────────────────
+  if (section === 'invoices') {
+    const { data, error } = await supabaseAdmin
+      .from('invoices')
+      .select('id, invoice_number, company_id, status, amount, currency, client_name, invoice_date, due_date, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) return respond(500, { error: error.message });
+
+    const rows = data ?? [];
+    const nameById = await companyNameMap(
+      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
+    );
+
+    const totalAmount = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const paidAmount = rows
+      .filter((r) => r.status === 'Paid')
+      .reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+    return respond(200, {
+      section,
+      rows: rows.map((r) => ({ ...r, company_name: nameById.get(r.company_id as string) ?? 'Unknown' })),
+      summary: {
+        total: rows.length,
+        paid: rows.filter((r) => r.status === 'Paid').length,
+        pending: rows.filter((r) => r.status === 'Pending').length,
+        overdue: rows.filter((r) => r.status === 'Overdue').length,
+        totalAmount,
+        paidAmount,
+        unpaidAmount: totalAmount - paidAmount,
+      },
+    });
+  }
+
+  // ── Payments ─────────────────────────────────────────────────────────────────
+  if (section === 'payments') {
+    const { data, error } = await supabaseAdmin
+      .from('payments')
+      .select('id, company_id, invoice_id, amount, currency, status, provider, provider_ref, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) return respond(500, { error: error.message });
+
+    const rows = data ?? [];
+    const nameById = await companyNameMap(
+      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
+    );
+
+    const totalAmount = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+    return respond(200, {
+      section,
+      rows: rows.map((r) => ({ ...r, company_name: nameById.get(r.company_id as string) ?? 'Unknown' })),
+      summary: {
+        total: rows.length,
+        completed: rows.filter((r) => r.status === 'completed').length,
+        pending: rows.filter((r) => r.status === 'pending').length,
+        failed: rows.filter((r) => r.status === 'failed').length,
+        totalAmount,
+      },
+    });
+  }
+
+  // ── Subscriptions ─────────────────────────────────────────────────────────────
+  if (section === 'subscriptions') {
+    const { data, error } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id, company_id, provider, provider_ref, status, current_period_end, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) return respond(500, { error: error.message });
+
+    const rows = data ?? [];
+    const nameById = await companyNameMap(
+      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
+    );
+
+    return respond(200, {
+      section,
+      rows: rows.map((r) => ({ ...r, company_name: nameById.get(r.company_id as string) ?? 'Unknown' })),
+      summary: {
+        total: rows.length,
+        active: rows.filter((r) => r.status === 'active').length,
+        inactive: rows.filter((r) => r.status === 'inactive').length,
+        cancelled: rows.filter((r) => r.status === 'cancelled').length,
+      },
+    });
+  }
+
+  // ── Revenue ──────────────────────────────────────────────────────────────────
+  if (section === 'revenue') {
+    const [paidResult, allResult] = await Promise.all([
+      supabaseAdmin
+        .from('invoices')
+        .select('id, amount, currency, invoice_date, company_id')
+        .eq('status', 'Paid')
+        .order('invoice_date', { ascending: false })
+        .limit(500),
+      supabaseAdmin
+        .from('invoices')
+        .select('id, amount, status')
+        .limit(2000),
+    ]);
+
+    if (paidResult.error) return respond(500, { error: paidResult.error.message });
+    if (allResult.error) return respond(500, { error: allResult.error.message });
+
+    const paidRows = paidResult.data ?? [];
+    const allRows = allResult.data ?? [];
+
+    const totalRevenue = paidRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const totalInvoiced = allRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+    const byMonth: Record<string, number> = {};
+    for (const inv of paidRows) {
+      if (!inv.invoice_date) continue;
+      const month = (inv.invoice_date as string).slice(0, 7);
+      byMonth[month] = (byMonth[month] ?? 0) + (Number(inv.amount) || 0);
+    }
+    const monthlyRevenue = Object.entries(byMonth)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .slice(0, 12)
+      .map(([month, amount]) => ({ month, amount: Math.round(amount * 100) / 100 }));
+
+    return respond(200, {
+      section,
+      summary: {
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        totalInvoiced: Math.round(totalInvoiced * 100) / 100,
+        collectionRate: totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0,
+        paidInvoices: paidRows.length,
+        totalInvoices: allRows.length,
+        unpaidAmount: Math.round((totalInvoiced - totalRevenue) * 100) / 100,
+      },
+      monthlyRevenue,
+      rows: paidRows.slice(0, limit),
+    });
+  }
+
+  // ── Platform Fees ────────────────────────────────────────────────────────────
+  if (section === 'fees') {
+    const { data, error } = await supabaseAdmin
+      .from('invoices')
+      .select('id, invoice_number, company_id, amount, net_amount, vat_amount, vat_rate, status, invoice_date, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) return respond(500, { error: error.message });
+
+    const rows = data ?? [];
+    const nameById = await companyNameMap(
+      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
+    );
+
+    const paidRows = rows.filter((r) => r.status === 'Paid');
+    const totalVat = paidRows.reduce((s, r) => s + (Number(r.vat_amount) || 0), 0);
+    const totalNet = paidRows.reduce((s, r) => s + (Number(r.net_amount) || 0), 0);
+
+    return respond(200, {
+      section,
+      rows: rows.map((r) => ({
+        ...r,
+        company_name: nameById.get(r.company_id as string) ?? 'Unknown',
+      })),
+      summary: {
+        totalVatCollected: Math.round(totalVat * 100) / 100,
+        totalNetRevenue: Math.round(totalNet * 100) / 100,
+        paidInvoices: paidRows.length,
+        totalInvoices: rows.length,
+      },
+    });
+  }
+
+  return respond(400, { error: 'Invalid section. Use invoices, payments, subscriptions, revenue, or fees.' });
+}

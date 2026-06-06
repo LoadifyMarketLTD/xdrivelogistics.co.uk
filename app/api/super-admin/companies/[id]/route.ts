@@ -3,16 +3,17 @@ import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-const GOVERNANCE_STATUSES = ['active', 'inactive', 'pending', 'pending_approval', 'rejected', 'suspended'] as const;
+const GOVERNANCE_STATUSES = ['active', 'inactive', 'pending_approval', 'pending', 'rejected', 'suspended'] as const;
 type CompanyGovernanceStatus = (typeof GOVERNANCE_STATUSES)[number];
 type CompanyGovernanceAction = 'approve' | 'reject' | 'reinstate' | 'suspend';
 
 const ALLOWED_TRANSITIONS: Record<CompanyGovernanceStatus, readonly CompanyGovernanceStatus[]> = {
   active: ['suspended'],
   inactive: [],
-  pending: ['active', 'rejected'],
   pending_approval: ['active', 'rejected'],
-  rejected: ['pending'],
+  // 'pending' is the legacy enum value on databases that don't have 'pending_approval' yet
+  pending: ['active', 'rejected'],
+  rejected: ['pending_approval', 'pending'],
   suspended: ['active'],
 };
 
@@ -49,11 +50,11 @@ const patchSchema = z.object({
 /**
  * PATCH /api/super-admin/companies/[id]
  * Owner-only: approve | reject | reinstate | suspend a company.
- * - pending|pending_approval -> active
- * - pending|pending_approval -> rejected
+ * - pending_approval -> active
+ * - pending_approval -> rejected
  * - active -> suspended
  * - suspended -> active
- * - rejected -> pending
+ * - rejected -> pending|pending_approval
  */
 export async function PATCH(
   request: NextRequest,

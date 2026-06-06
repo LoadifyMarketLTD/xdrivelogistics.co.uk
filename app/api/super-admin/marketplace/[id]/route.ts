@@ -4,7 +4,7 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValid
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
-type MarketplaceRow = {
+type MarketplaceGovernanceMutationRow = {
   id: string;
   status: string;
   company_id: string;
@@ -15,21 +15,6 @@ const patchSchema = z.object({
   action: z.enum(['publish_to_exchange', 'hide_from_exchange', 'force_dispute', 'force_cancel']),
   reason: z.string().trim().max(1000).optional(),
 });
-
-type MarketplaceAction = z.infer<typeof patchSchema>['action'];
-type MarketplaceStatus = 'draft' | 'posted' | 'allocated' | 'in_transit' | 'delivered' | 'cancelled' | 'disputed';
-
-const ACTION_TO_AUDIT_TYPE: Record<MarketplaceAction, string> = {
-  publish_to_exchange: 'marketplace_published',
-  hide_from_exchange: 'marketplace_hidden',
-  force_dispute: 'marketplace_job_disputed',
-  force_cancel: 'marketplace_job_cancelled',
-};
-
-const STATUS_MUTATION_ALLOWED = new Set<MarketplaceStatus>(['draft', 'posted', 'allocated', 'in_transit']);
-
-const hasMissingAuditStatusColumn = (message: string | undefined) =>
-  Boolean(message && (message.includes('owner_audit_log.old_status') || message.includes('owner_audit_log.new_status')));
 
 const resolveOwnerProfile = async (authUserId: string) => {
   if (!supabaseAdmin) return null;
@@ -52,58 +37,6 @@ const verifyOwner = async (request: NextRequest) => {
   const profile = await resolveOwnerProfile(authData.user.id);
   if (!profile || profile.role !== 'owner') return null;
   return authData.user;
-};
-
-const buildActionMutation = (job: MarketplaceRow, action: MarketplaceAction) => {
-  const normalizedStatus = String(job.status ?? '').trim().toLowerCase() as MarketplaceStatus;
-
-  if (action === 'publish_to_exchange') {
-    if (!['draft', 'posted'].includes(normalizedStatus)) {
-      return { error: `Cannot publish job in '${normalizedStatus}' status to exchange.` };
-    }
-    if (job.exchange_visibility === 'exchange') {
-      return { error: 'Job is already visible on exchange.' };
-    }
-    return {
-      patch: {
-        exchange_visibility: 'exchange',
-        exchange_posted_at: new Date().toISOString(),
-      },
-      oldValue: `visibility:${job.exchange_visibility}`,
-      newValue: 'visibility:exchange',
-    };
-  }
-
-  if (action === 'hide_from_exchange') {
-    if (job.exchange_visibility !== 'exchange') {
-      return { error: `Job visibility is '${job.exchange_visibility}', not exchange.` };
-    }
-    return {
-      patch: {
-        exchange_visibility: 'private',
-      },
-      oldValue: `visibility:${job.exchange_visibility}`,
-      newValue: 'visibility:private',
-    };
-  }
-
-  if (!STATUS_MUTATION_ALLOWED.has(normalizedStatus)) {
-    return { error: `Cannot change status from '${normalizedStatus}'.` };
-  }
-
-  if (action === 'force_dispute') {
-    return {
-      patch: { status: 'disputed' },
-      oldValue: normalizedStatus,
-      newValue: 'disputed',
-    };
-  }
-
-  return {
-    patch: { status: 'cancelled' },
-    oldValue: normalizedStatus,
-    newValue: 'cancelled',
-  };
 };
 
 export async function PATCH(
@@ -133,75 +66,32 @@ export async function PATCH(
 
   const { id: jobId } = await params;
   const { action, reason } = parsed.data;
+  const { data: mutationResult, error: mutationError } = await supabaseAdmin.rpc(
+    'apply_marketplace_governance_action',
+    {
+      p_actor_user_id: owner.id,
+      p_job_id: jobId,
+      p_action: action,
+      p_reason: reason?.trim() || null,
+    },
+  );
 
-  const { data: currentJob, error: currentJobError } = await supabaseAdmin
-    .from('jobs')
-    .select('id, status, company_id, exchange_visibility')
-    .eq('id', jobId)
-    .limit(1)
-    .maybeSingle();
-
-  if (currentJobError) {
-    return respond(500, { error: currentJobError.message });
-  }
-
-  if (!currentJob) {
-    return respond(404, { error: 'Marketplace job not found.' });
-  }
-
-  const mutation = buildActionMutation(currentJob as MarketplaceRow, action);
-  if ('error' in mutation) {
-    return respond(409, { error: mutation.error });
-  }
-
-  const { patch, oldValue, newValue } = mutation;
-  const auditReason = reason?.trim() || `Marketplace action '${action}' executed by owner governance.`;
-  const auditActionType = ACTION_TO_AUDIT_TYPE[action];
-
-  const { data: updatedJob, error: updateError } = await supabaseAdmin
-    .from('jobs')
-    .update(patch)
-    .eq('id', jobId)
-    .select('id, status, company_id, exchange_visibility')
-    .limit(1)
-    .maybeSingle();
-
-  if (updateError) {
-    if (updateError.code === '23514' || updateError.code === 'P0001') {
-      return respond(409, { error: updateError.message });
+  if (mutationError) {
+    if (mutationError.code === 'P0002') {
+      return respond(404, { error: mutationError.message });
     }
-    return respond(500, { error: updateError.message });
+    if (mutationError.code === '22P02') {
+      return respond(400, { error: mutationError.message });
+    }
+    if (mutationError.code === 'P0001' || mutationError.code === '23514' || mutationError.code === '23502') {
+      return respond(409, { error: mutationError.message });
+    }
+    return respond(500, { error: mutationError.message });
   }
 
-  const { error: auditInsertError } = await supabaseAdmin
-    .from('owner_audit_log')
-    .insert({
-      actor_user_id: owner.id,
-      target_company_id: currentJob.company_id,
-      action_type: auditActionType,
-      old_status: oldValue,
-      new_status: newValue,
-      reason: auditReason,
-    });
-
-  let resolvedAuditInsertError = auditInsertError;
-  if (resolvedAuditInsertError && hasMissingAuditStatusColumn(resolvedAuditInsertError.message)) {
-    const fallback = await supabaseAdmin
-      .from('owner_audit_log')
-      .insert({
-        actor_user_id: owner.id,
-        target_company_id: currentJob.company_id,
-        action_type: auditActionType,
-        old_value: oldValue,
-        new_value: newValue,
-        reason: auditReason,
-      });
-    resolvedAuditInsertError = fallback.error;
-  }
-
-  if (resolvedAuditInsertError) {
-    return respond(500, { error: `Action applied but audit logging failed: ${resolvedAuditInsertError.message}` });
-  }
+  const updatedJob = (Array.isArray(mutationResult) ? mutationResult[0] : mutationResult) as
+    | MarketplaceGovernanceMutationRow
+    | null;
 
   return respond(200, {
     success: true,

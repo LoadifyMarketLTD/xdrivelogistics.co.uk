@@ -1,14 +1,70 @@
 'use client';
 
-import SuperAdminModulePage from '@/app/super-admin/_components/SuperAdminModulePage';
+import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
+import { formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
+
+type Row = {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string | null;
+  message: string;
+  read: boolean;
+  created_at: string;
+};
 
 export default function Page() {
   return (
-    <SuperAdminModulePage
+    <SuperAdminLiveTablePage<Row>
       icon="🔔"
       title="System Notifications"
-      description="Platform-wide system notices, broadcasts, and urgent alerts."
-      section="Platform"
+      sectionLabel="Platform"
+      description="Platform-wide system notices, broadcasts, and user notification activity."
+      endpoint="/api/super-admin/platform?section=notifications"
+      summaryField="summary"
+      noteField="note"
+      emptyMessage="No notifications found."
+      columns={[
+        {
+          key: 'title',
+          label: 'Title',
+          render: (row) => (
+            <span style={{ fontSize: '0.78rem', fontWeight: row.read ? 400 : 700 }}>
+              {row.title ?? '(no title)'}
+            </span>
+          ),
+        },
+        {
+          key: 'type',
+          label: 'Type',
+          render: (row) => (
+            <span style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {row.type}
+            </span>
+          ),
+        },
+        {
+          key: 'message',
+          label: 'Message',
+          render: (row) => (
+            <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{row.message}</span>
+          ),
+        },
+        {
+          key: 'read',
+          label: 'Status',
+          render: (row) => (
+            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: row.read ? '#94a3b8' : '#f59e0b' }}>
+              {row.read ? 'Read' : 'Unread'}
+            </span>
+          ),
+        },
+        {
+          key: 'created_at',
+          label: 'Sent',
+          render: (row) => <span style={{ fontSize: '0.75rem' }}>{formatDateTime(row.created_at)}</span>,
+        },
+      ]}
     />
   );
 }

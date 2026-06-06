@@ -1,7 +1,19 @@
 export type CompanyRole = 'owner' | 'admin' | 'dispatcher' | 'member' | 'viewer';
 export type MembershipStatus = 'invited' | 'active' | 'suspended';
 export type DocStatus = 'pending' | 'approved' | 'rejected' | 'expired';
-export type JobStatus = 'draft' | 'posted' | 'allocated' | 'in_transit' | 'delivered' | 'cancelled' | 'disputed';
+export type JobStatus =
+  | 'draft'
+  | 'posted'
+  | 'quoted'
+  | 'awarded'
+  | 'allocated'
+  | 'collected'
+  | 'in_transit'
+  | 'delivered'
+  | 'invoiced'
+  | 'paid'
+  | 'cancelled'
+  | 'disputed';
 export type CargoType = 'documents' | 'packages' | 'pallets' | 'furniture' | 'equipment' | 'other';
 export type VehicleType = 'bicycle' | 'motorbike' | 'car' | 'van_small' | 'van_large' | 'luton' | 'truck_7_5t' | 'truck_18t' | 'artic';
 export type TrackingEventType = 'created' | 'allocated' | 'driver_en_route' | 'arrived_pickup' | 'collected' | 'in_transit' | 'arrived_delivery' | 'delivered' | 'failed' | 'cancelled' | 'note';

@@ -120,6 +120,34 @@ export default function FleetPage() {
     void load();
   }, [companyId]);
 
+  // ── Realtime: update fleet positions on new driver_locations rows ────────────
+  useEffect(() => {
+    if (!isSupabaseConfigured || !companyId) return;
+
+    const channel = supabase
+      .channel(`fleet-positions-${companyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event:  'INSERT',
+          schema: 'public',
+          table:  'driver_locations',
+          filter: `company_id=eq.${companyId}`,
+        },
+        (payload: { new: Record<string, unknown> }) => {
+          const newRow = payload.new as DriverLocationRow;
+          setLocations((prev: DriverLocationRow[]) => {
+            // Keep at most 300 rows; prepend the new one
+            const updated = [newRow, ...prev.filter((r: DriverLocationRow) => r.id !== newRow.id)];
+            return updated.slice(0, 300);
+          });
+        },
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [companyId]);
+
   const latestLocationByDriver = useMemo(() => {
     const map = new Map<string, DriverLocationRow>();
     for (const row of locations) {

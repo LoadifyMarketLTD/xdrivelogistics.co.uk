@@ -9,9 +9,9 @@ type GovernanceAuditRow = {
   id: string;
   target_company_id: string;
   action_type: string;
-  old_status: string;
-  new_status: string;
-  reason: string;
+  old_status?: string;
+  new_status?: string;
+  reason?: string;
   created_at: string;
 };
 
@@ -118,7 +118,22 @@ export async function GET(request: NextRequest) {
     companyQuery = companyQuery.eq('status', status);
   }
 
-  const { data, error } = await companyQuery;
+  let { data, error } = await companyQuery;
+
+  // If the query fails with an enum mismatch for 'pending_approval', retry
+  // with the legacy 'pending' value that may be stored in older databases.
+  if (error && status === 'pending_approval' && error.message?.includes('enum')) {
+    const legacyResult = await supabaseAdmin
+      .from('companies')
+      .select('id, name, company_number, email, status, company_type, created_at')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(300);
+    if (!legacyResult.error) {
+      data = legacyResult.data;
+      error = null;
+    }
+  }
 
   if (error) {
     return respond(500, { error: error.message });
@@ -130,13 +145,37 @@ export async function GET(request: NextRequest) {
     return isPendingStatus(normalized);
   });
 
-  const { data: auditRows, error: auditError } = await supabaseAdmin
+  // Query governance history defensively: try full column set first, then fall
+  // back to a minimal set if optional columns (old_status / new_status) do not
+  // exist in the current schema (they are added by migration 082, but may be
+  // absent in older or partially-migrated databases).
+  let auditRows: GovernanceAuditRow[] | null = null;
+  let auditError: { message: string } | null = null;
+
+  const fullAuditResult = await supabaseAdmin
     .from('owner_audit_log')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(400);
 
-  const governanceHistoryAvailable = !auditError;
+  if (!fullAuditResult.error) {
+    auditRows = (fullAuditResult.data ?? []) as GovernanceAuditRow[];
+  } else {
+    // Full select failed (likely missing column); fall back to safe minimal set
+    const minimalAuditResult = await supabaseAdmin
+      .from('owner_audit_log')
+      .select('id, target_company_id, action_type, created_at')
+      .order('created_at', { ascending: false })
+      .limit(400);
+
+    if (!minimalAuditResult.error) {
+      auditRows = (minimalAuditResult.data ?? []) as GovernanceAuditRow[];
+    } else {
+      auditError = { message: minimalAuditResult.error.message };
+    }
+  }
+
+  const governanceHistoryAvailable = auditError === null;
   const governanceHistoryError = auditError?.message ?? null;
   const normalizedAuditRows = governanceHistoryAvailable
     ? (auditRows ?? [])
