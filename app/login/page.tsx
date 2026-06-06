@@ -348,7 +348,7 @@ export default function LoginPage() {
             </p>
           </form>
         )}
-      </div>
+        </div>
       </div>
       <style jsx>{`
         .login-shell {
