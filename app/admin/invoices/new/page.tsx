@@ -158,7 +158,7 @@ export default function NewInvoicePage() {
     return () => {
       cancelled = true;
     };
-  }, [companyId, hasSupabaseSession, jobId]);
+  }, [companyId, hasSupabaseSession, jobId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const missingRequiredData = useMemo(() => {
     const missing: string[] = [];

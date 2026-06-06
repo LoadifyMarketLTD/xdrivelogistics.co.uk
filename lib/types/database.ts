@@ -30,7 +30,7 @@ export interface Company {
   city: string | null;
   postcode: string | null;
   country: string;
-  status: 'active' | 'inactive' | 'suspended';
+  status: 'active' | 'inactive' | 'pending_approval' | 'rejected' | 'suspended';
   company_type: 'admin' | 'standard' | null;
   created_by: string | null;
   created_at: string;

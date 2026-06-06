@@ -92,16 +92,18 @@ const VEHICLE_TYPE_LABEL: Record<string, string> = {
 };
 
 const DRIVER_MENU_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/driver/jobs' },
-  { id: 'run', label: "Today's Run", icon: '🗂️', href: '/driver/jobs#run-sheet' },
-  { id: 'history', label: 'History', icon: '📚', href: '/driver/jobs#history' },
-  { id: 'security', label: 'Account Security', icon: '🔐', href: '/driver/change-password' },
+  { id: 'dashboard', label: 'Dashboard',        icon: '🏠', href: '/driver/jobs' },
+  { id: 'todays-run', label: "Today's Run",     icon: '🚚', href: '/driver/jobs#todays-run' },
+  { id: 'history',   label: 'History',          icon: '📚', href: '/driver/history' },
+  { id: 'security',  label: 'Account Security', icon: '🔐', href: '/driver/change-password' },
 ];
 
 const ENTERPRISE_THEME = {
   pageBg: '#eef2f6',
-  shellBg: '#0b1c2f',
-  shellMuted: '#9fb4cb',
+  shellBg: '#1e293b',
+  shellBorder: '#334155',
+  shellMuted: '#94a3b8',
+  shellText: '#f1f5f9',
   cardBg: '#ffffff',
   cardBorder: '#d7e0ea',
   cardShadow: '0 6px 16px rgba(15, 23, 42, 0.08)',
@@ -254,6 +256,7 @@ export default function DriverJobsPage() {
   const [hydrated, setHydrated] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentHash, setCurrentHash] = useState('');
 
   useEffect(() => {
     setHydrated(true);
@@ -267,6 +270,13 @@ export default function DriverJobsPage() {
   useEffect(() => {
     if (!isMobile) setSidebarOpen(false);
   }, [isMobile]);
+
+  useEffect(() => {
+    const updateHash = () => setCurrentHash(window.location.hash || '');
+    updateHash();
+    window.addEventListener('hashchange', updateHash);
+    return () => window.removeEventListener('hashchange', updateHash);
+  }, []);
   const loadDriverProfile = useCallback(async () => {
     if (!user?.driverId || !isSupabaseConfigured) return;
 
@@ -629,10 +639,10 @@ export default function DriverJobsPage() {
         style={{
           width: isMobile ? '270px' : '228px',
           backgroundColor: ENTERPRISE_THEME.shellBg,
-          color: '#ffffff',
+          color: ENTERPRISE_THEME.shellText,
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '2px 0 14px rgba(2, 6, 23, 0.24)',
+          borderRight: `1px solid ${ENTERPRISE_THEME.shellBorder}`,
           position: isMobile ? 'fixed' : 'relative',
           inset: isMobile ? '0 auto 0 0' : undefined,
           zIndex: isMobile ? 40 : undefined,
@@ -640,44 +650,49 @@ export default function DriverJobsPage() {
           transition: 'transform 0.2s ease',
         }}
       >
-        <div style={{ padding: '1.1rem 1rem', borderBottom: '1px solid rgba(159, 180, 203, 0.22)' }}>
-          <h1 style={{ fontSize: '1.02rem', fontWeight: 700, margin: 0, color: '#ffffff', lineHeight: 1.35 }}>{COMPANY_CONFIG.legalName}</h1>
+        <div style={{ padding: '1.1rem 1rem', borderBottom: `1px solid ${ENTERPRISE_THEME.shellBorder}` }}>
+          <h1 style={{ fontSize: '1.02rem', fontWeight: 700, margin: 0, color: ENTERPRISE_THEME.shellText, lineHeight: 1.35 }}>{COMPANY_CONFIG.legalName}</h1>
           <p style={{ fontSize: '0.74rem', margin: '0.3rem 0 0 0', color: ENTERPRISE_THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Driver Console
           </p>
+          <div style={{ marginTop: '0.55rem' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#93c5fd', backgroundColor: 'rgba(59,130,246,0.2)', padding: '0.1rem 0.55rem', borderRadius: '999px' }}>
+              Driver
+            </span>
+          </div>
         </div>
 
-        <nav style={{ flex: 1, padding: '0.6rem' }}>
+        <nav style={{ flex: 1, padding: '0.5rem', overflowY: 'auto' }}>
           {DRIVER_MENU_ITEMS.map((item) => {
-            const isActive = pathname === item.href || (item.href.includes('#') && pathname === item.href.split('#')[0]);
+            const isRunLink = item.href.includes('#todays-run');
+            const isActive = isRunLink
+              ? pathname === '/driver/jobs' && currentHash === '#todays-run'
+              : pathname === item.href || (item.href === '/driver/jobs' && pathname.startsWith('/driver/jobs') && currentHash !== '#todays-run');
             return (
               <button
                 key={item.id}
                 onClick={() => {
-                  if (item.href.includes('#')) {
-                    window.location.assign(item.href);
-                  } else {
-                    router.push(item.href);
-                  }
+                  router.push(item.href);
                   if (isMobile) setSidebarOpen(false);
                 }}
                 style={{
                   width: '100%',
-                  padding: '0.58rem 0.72rem',
-                  backgroundColor: isActive ? 'rgba(63, 131, 248, 0.18)' : 'transparent',
-                  color: '#ffffff',
+                  padding: '0.6rem 0.8rem',
+                  backgroundColor: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  color: isActive ? '#ffffff' : ENTERPRISE_THEME.shellMuted,
                   borderTop: 'none',
                   borderRight: 'none',
                   borderBottom: 'none',
-                  borderLeft: isActive ? `3px solid ${ENTERPRISE_THEME.colors.live}` : '3px solid transparent',
+                  borderLeft: isActive ? `3px solid #3b82f6` : '3px solid transparent',
                   textAlign: 'left',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.55rem',
-                  fontSize: '0.84rem',
-                  fontWeight: isActive ? 600 : 500,
-                  borderRadius: '8px',
+                  fontSize: '0.87rem',
+                  fontWeight: isActive ? 700 : 500,
+                  borderRadius: '6px',
+                  marginBottom: '0.2rem',
                 }}
               >
                 <span
@@ -687,8 +702,9 @@ export default function DriverJobsPage() {
                     borderRadius: '6px',
                     display: 'grid',
                     placeItems: 'center',
-                    fontSize: '0.88rem',
-                    backgroundColor: 'rgba(159, 180, 203, 0.2)',
+                    fontSize: '0.85rem',
+                    backgroundColor: isActive ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.08)',
+                    flexShrink: 0,
                   }}
                 >
                   {item.icon}
@@ -699,7 +715,7 @@ export default function DriverJobsPage() {
           })}
         </nav>
 
-        <div style={{ padding: '0.9rem', borderTop: '1px solid rgba(159, 180, 203, 0.22)' }}>
+        <div style={{ padding: '0.9rem', borderTop: `1px solid ${ENTERPRISE_THEME.shellBorder}` }}>
           <div style={{ fontSize: '0.74rem', color: ENTERPRISE_THEME.shellMuted, marginBottom: '0.35rem' }}>{driverName}</div>
           <div style={{ fontSize: '0.74rem', color: ENTERPRISE_THEME.shellMuted, marginBottom: '0.6rem', wordBreak: 'break-word' }}>
             {user?.email ?? driverPhone ?? 'Driver account'}
@@ -709,9 +725,9 @@ export default function DriverJobsPage() {
             style={{
               width: '100%',
               padding: '0.52rem',
-              backgroundColor: 'rgba(239, 68, 68, 0.8)',
-              color: '#ffffff',
-              border: 'none',
+              backgroundColor: 'rgba(239,68,68,0.15)',
+              color: '#fca5a5',
+              border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: '6px',
               fontSize: '0.8rem',
               fontWeight: 600,
@@ -739,7 +755,7 @@ export default function DriverJobsPage() {
               fontSize: '0.83rem',
             }}
           >
-            ☰ Menu
+            ☰ Modules
           </button>
         )}
 
@@ -844,7 +860,7 @@ export default function DriverJobsPage() {
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', alignItems: 'start' }}>
-          <section style={{ ...sectionCardStyle, gridColumn: isMobile ? 'auto' : 'span 2' }}>
+          <section id="todays-run" style={{ ...sectionCardStyle, gridColumn: isMobile ? 'auto' : 'span 2' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
               <SectionEyebrow>Today&apos;s Run Sheet</SectionEyebrow>
               <span style={{ fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.muted, fontWeight: 600 }}>

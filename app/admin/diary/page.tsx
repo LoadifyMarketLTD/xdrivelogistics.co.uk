@@ -7,7 +7,6 @@ import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { buildDriverAssignmentUpdate } from '../../../lib/jobAssignment';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import { WorkflowStageStrip } from '../workflowUi';
 
 type DiaryJob = {
   id: string;
@@ -26,13 +25,25 @@ type DriverOption = {
 };
 
 const LANE_CONFIG: Array<{ key: string; label: string; statuses: string[] }> = [
-  { key: 'unallocated', label: 'Needs Assigning', statuses: ['draft', 'received', 'posted'] },
-  { key: 'allocated', label: 'Assigned', statuses: ['allocated'] },
-  { key: 'inProgress', label: 'On The Road', statuses: ['in_transit'] },
+  { key: 'unallocated', label: 'Unallocated', statuses: ['draft', 'received', 'posted'] },
+  { key: 'allocated', label: 'Allocated', statuses: ['allocated'] },
+  { key: 'inProgress', label: 'In Progress', statuses: ['in_transit', 'on_site'] },
   { key: 'completed', label: 'Completed', statuses: ['delivered'] },
   { key: 'cancelled', label: 'Cancelled', statuses: ['cancelled'] },
-  { key: 'awaitingFeedback', label: 'Attention', statuses: ['disputed'] },
+  { key: 'attention', label: 'Attention', statuses: ['disputed'] },
 ];
+
+const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+  draft:      { label: 'Draft',       bg: '#f1f5f9', color: '#475569' },
+  received:   { label: 'Received',    bg: '#fef3c7', color: '#92400e' },
+  posted:     { label: 'Posted',      bg: '#dbeafe', color: '#1e40af' },
+  allocated:  { label: 'Allocated',   bg: '#e0f2fe', color: '#0369a1' },
+  in_transit: { label: 'In Progress', bg: '#fef9c3', color: '#854d0e' },
+  on_site:    { label: 'On Site',     bg: '#fed7aa', color: '#9a3412' },
+  delivered:  { label: 'Delivered',   bg: '#dcfce7', color: '#15803d' },
+  cancelled:  { label: 'Cancelled',   bg: '#fee2e2', color: '#991b1b' },
+  disputed:   { label: 'Disputed',    bg: '#fef3c7', color: '#92400e' },
+};
 
 export default function DiaryPage() {
   const router = useRouter();
@@ -44,6 +55,7 @@ export default function DiaryPage() {
   const [assignmentMessage, setAssignmentMessage] = useState('');
   const [assigningJobId, setAssigningJobId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
     if (!hasSupabaseSession || !user?.id) return;
@@ -175,143 +187,263 @@ export default function DiaryPage() {
     return map;
   }, [jobs]);
 
+  const filteredJobs = useMemo(() => {
+    if (activeTab === 'all') return jobs;
+    const lane = LANE_CONFIG.find(l => l.key === activeTab);
+    if (!lane) return jobs;
+    return jobs.filter(j => lane.statuses.includes((j.status || '').toLowerCase()));
+  }, [jobs, activeTab]);
+
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1.5rem' }}>
-        <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '2rem', color: '#111827' }}>Allocation Diary</h1>
-            <p style={{ margin: '0.35rem 0 0 0', color: '#6b7280' }}>Assign work first, then follow each lane through to completion.</p>
-          </div>
-          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-            <button onClick={() => router.push('/admin/jobs')} style={{ padding: '0.65rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', background: '#fff', color: '#0f172a', fontWeight: 600 }}>
-              Open Operations Workspace
-            </button>
-            <button onClick={() => router.push('/admin/fleet')} style={{ padding: '0.65rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', background: '#fff', color: '#0f172a', fontWeight: 600 }}>
-              Open Fleet Availability
-            </button>
-          </div>
-        </div>
+      <div style={{ display: 'flex', height: 'calc(100vh - 89px)', overflow: 'hidden', background: '#f5f7fa' }}>
 
-        <WorkflowStageStrip
-          activeStage="assign"
-          counts={{
-            assign: (grouped.get('unallocated') ?? []).length,
-            track: (grouped.get('inProgress') ?? []).length,
-            complete: jobs.length,
-          }}
-        />
-        {assignmentMessage && (
-          <div
-            style={{
-              marginBottom: '1rem',
-              borderRadius: '10px',
-              padding: '0.8rem 1rem',
-              background: assignmentMessage.startsWith('Failed') ? '#fee2e2' : '#dcfce7',
-              color: assignmentMessage.startsWith('Failed') ? '#991b1b' : '#166534',
-              fontWeight: 600,
-            }}
-          >
-            {assignmentMessage}
-          </div>
-        )}
+        {/* ── Left panel: Search ─────────────────────────────────────────── */}
+        <aside style={{ width: '200px', flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', padding: '0.85rem', overflowY: 'auto', fontSize: '0.78rem' }}>
+          <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.6rem', fontSize: '0.8rem' }}>📋 Search Panel</div>
 
-        {loading ? (
-          <div style={{ background: '#fff', borderRadius: '12px', padding: '2rem', color: '#6b7280' }}>Loading diary…</div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.8rem' }}>
-            {LANE_CONFIG.map((lane) => {
-              const laneJobs = grouped.get(lane.key) ?? [];
-              return (
-                <section key={lane.key} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '0.8rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' }}>
-                    <h2 style={{ margin: 0, fontSize: '1rem', color: '#111827' }}>{lane.label}</h2>
-                    <span style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 600 }}>{laneJobs.length}</span>
-                  </div>
-                  {laneJobs.length === 0 ? (
-                    <div style={{ padding: '0.8rem', borderRadius: '8px', background: '#f9fafb', color: '#6b7280', fontSize: '0.85rem' }}>No jobs in this lane.</div>
-                  ) : (
-                    <div style={{ display: 'grid', gap: '0.55rem' }}>
-                      {laneJobs.map((job) => (
-                        <div
-                          key={job.id}
-                          style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.65rem', background: '#f8fafc' }}
-                        >
-                          <button
-                            onClick={() => router.push(`/admin/jobs/${job.id}`)}
-                            style={{ width: '100%', textAlign: 'left', border: 'none', padding: 0, background: 'transparent', cursor: 'pointer' }}
-                          >
-                            <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{job.client_name || 'No customer'}</div>
-                            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#111827', marginTop: '0.2rem' }}>{job.pickup_location || '—'} → {job.delivery_location || '—'}</div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.35rem', color: '#6b7280', fontSize: '0.72rem' }}>
-                              <span>{job.vehicle_type ? job.vehicle_type.replace(/_/g, ' ') : 'Vehicle n/a'}</span>
-                              <span>{new Date(job.updated_at).toLocaleDateString('en-GB')}</span>
-                            </div>
-                          </button>
-                          {lane.key === 'unallocated' && (
-                            <div style={{ marginTop: '0.7rem', display: 'grid', gap: '0.45rem' }}>
-                              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#334155' }}>Assign driver</label>
-                              <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
-                                <select
-                                  value={assignmentDrafts[job.id] ?? ''}
-                                  onChange={(event) =>
-                                    setAssignmentDrafts((prev) => ({
-                                      ...prev,
-                                      [job.id]: event.target.value,
-                                    }))
-                                  }
-                                  style={{
-                                    flex: 1,
-                                    minWidth: '150px',
-                                    padding: '0.55rem 0.65rem',
-                                    borderRadius: '8px',
-                                    border: '1px solid #cbd5e1',
-                                    background: '#fff',
-                                  }}
-                                >
-                                  <option value="">Select active driver…</option>
-                                  {drivers.map((driver) => (
-                                    <option key={driver.id} value={driver.id}>
-                                      {driver.display_name}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  type="button"
-                                  disabled={!assignmentDrafts[job.id] || assigningJobId === job.id}
-                                  onClick={() => void handleAssignDriver(job)}
-                                  style={{
-                                    padding: '0.55rem 0.9rem',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: !assignmentDrafts[job.id] || assigningJobId === job.id ? '#cbd5e1' : '#0f766e',
-                                    color: '#fff',
-                                    cursor: !assignmentDrafts[job.id] || assigningJobId === job.id ? 'not-allowed' : 'pointer',
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  {assigningJobId === job.id ? 'Assigning…' : 'Assign'}
-                                </button>
-                              </div>
-                              {drivers.length === 0 && (
-                                <span style={{ fontSize: '0.72rem', color: '#b45309' }}>
-                                  No active drivers available for assignment.
-                                </span>
-                              )}
-                            </div>
-                          )}
+          <div style={{ marginBottom: '0.55rem' }}>
+            <div style={labelStyle}>View</div>
+            <select style={panelInput}>
+              <option>All</option>
+              <option>Jobs Sub-contracted</option>
+              <option>Our Bookings</option>
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '0.55rem' }}>
+            <div style={labelStyle}>Date</div>
+            <select style={panelInput}>
+              <option>Anytime</option>
+              <option>Today</option>
+              <option>This Week</option>
+              <option>Last 30 Days</option>
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '0.55rem' }}>
+            <div style={labelStyle}>Pickup Time Within</div>
+            <select style={panelInput}>
+              <option>Any</option>
+              <option>1 hour</option>
+              <option>2 hours</option>
+              <option>4 hours</option>
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '0.55rem' }}>
+            <div style={labelStyle}>Load ID / Ref</div>
+            <input placeholder="Search…" style={panelInput} />
+          </div>
+
+          <div style={{ marginBottom: '0.55rem' }}>
+            <div style={labelStyle}>Driver</div>
+            <select style={panelInput}>
+              <option value="">Any driver</option>
+              {drivers.map(d => <option key={d.id} value={d.id}>{d.display_name}</option>)}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '0.85rem' }}>
+            <div style={labelStyle}>Customer Name</div>
+            <input placeholder="Search…" style={panelInput} />
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button
+              onClick={() => void loadJobs()}
+              style={{ flex: 1, background: '#16a34a', color: '#fff', border: 'none', borderRadius: '5px', padding: '0.5rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}
+            >
+              Search
+            </button>
+            <button
+              style={{ padding: '0.5rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.78rem', color: '#64748b' }}
+            >
+              Clear
+            </button>
+          </div>
+        </aside>
+
+        {/* ── Main diary content ────────────────────────────────────────── */}
+        <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+
+          {/* Header bar */}
+          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0.45rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: '1rem' }}>
+            <div style={{ fontSize: '0.82rem', color: '#374151', fontWeight: 600 }}>
+              📅 Diary — {jobs.length} bookings
+            </div>
+            <button
+              onClick={() => void loadJobs()}
+              style={{ padding: '0.28rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.73rem', color: '#64748b' }}
+            >
+              ↻ Refresh
+            </button>
+          </div>
+
+          {/* Status tab bar */}
+          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 0.85rem', display: 'flex', alignItems: 'center', flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
+            {[{ key: 'all', label: 'All', count: jobs.length }, ...LANE_CONFIG.map(l => ({ key: l.key, label: l.label, count: (grouped.get(l.key) ?? []).length }))].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  padding: '0.6rem 0.8rem',
+                  border: 'none',
+                  borderBottom: activeTab === tab.key ? '2px solid #1d4ed8' : '2px solid transparent',
+                  background: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.73rem',
+                  fontWeight: 700,
+                  color: activeTab === tab.key ? '#1d4ed8' : '#64748b',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  marginBottom: '-1px',
+                }}
+              >
+                {tab.label}
+                {tab.count > 0 && (
+                  <span style={{ marginLeft: '0.3rem', background: activeTab === tab.key ? '#dbeafe' : '#f1f5f9', color: activeTab === tab.key ? '#1d4ed8' : '#64748b', borderRadius: '8px', padding: '0.05rem 0.4rem', fontSize: '0.68rem' }}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Assignment message */}
+          {assignmentMessage && (
+            <div style={{ margin: '0.5rem 0.85rem', padding: '0.5rem 0.85rem', borderRadius: '6px', background: assignmentMessage.startsWith('Failed') ? '#fee2e2' : '#dcfce7', color: assignmentMessage.startsWith('Failed') ? '#991b1b' : '#166534', fontSize: '0.82rem', fontWeight: 600 }}>
+              {assignmentMessage}
+            </div>
+          )}
+
+          {/* Job list */}
+          <div style={{ padding: '0.75rem', flex: 1, overflowY: 'auto' }}>
+            {loading ? (
+              <div style={{ background: '#fff', borderRadius: '8px', padding: '2rem', textAlign: 'center', color: '#64748b', border: '1px solid #e2e8f0' }}>Loading diary…</div>
+            ) : filteredJobs.length === 0 ? (
+              <div style={{ background: '#fff', borderRadius: '8px', padding: '2.5rem', textAlign: 'center', color: '#64748b', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
+                <div style={{ fontSize: '0.88rem' }}>No bookings in this category.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {filteredJobs.map((job) => {
+                  const badge = STATUS_BADGE[job.status.toLowerCase()] ?? { label: job.status, bg: '#f1f5f9', color: '#475569' };
+                  const laneKey = LANE_CONFIG.find(l => l.statuses.includes(job.status.toLowerCase()))?.key ?? '';
+                  const isUnallocated = laneKey === 'unallocated';
+
+                  return (
+                    <div key={job.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: `3px solid ${badge.color === '#15803d' ? '#16a34a' : badge.color === '#991b1b' ? '#ef4444' : '#64748b'}`, borderRadius: '6px', overflow: 'hidden' }}>
+                      {/* Job details — 3 columns */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.75rem', padding: '0.75rem 1rem', alignItems: 'start' }}>
+
+                        {/* Column 1: From / To */}
+                        <div>
+                          <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline' }}>
+                            <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, minWidth: '28px' }}>From:</span>
+                            <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.85rem' }}>{job.client_name || 'Contact N/A'}</span>
+                          </div>
+                          <div style={{ fontSize: '0.8rem', color: '#374151', marginLeft: '36px', marginTop: '0.1rem' }}>{job.pickup_location || '—'}</div>
+                          <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline', marginTop: '0.4rem' }}>
+                            <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, minWidth: '28px' }}>To:</span>
+                            <span style={{ fontWeight: 600, color: '#374151', fontSize: '0.82rem' }}>{job.delivery_location || '—'}</span>
+                          </div>
                         </div>
-                      ))}
+
+                        {/* Column 2: Dates */}
+                        <div>
+                          <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline' }}>
+                            <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, minWidth: '44px' }}>Pickup:</span>
+                            <span style={{ fontSize: '0.8rem', color: '#374151' }}>{new Date(job.updated_at).toLocaleDateString('en-GB')}</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline', marginTop: '0.2rem' }}>
+                            <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, minWidth: '44px' }}>Vehicle:</span>
+                            <span style={{ fontSize: '0.78rem', color: '#64748b' }}>{job.vehicle_type ? job.vehicle_type.replace(/_/g, ' ') : '—'}</span>
+                          </div>
+                        </div>
+
+                        {/* Column 3: Status badge + load ID */}
+                        <div style={{ minWidth: '140px', textAlign: 'right' }}>
+                          <span style={{ display: 'inline-block', background: badge.bg, color: badge.color, padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.73rem', fontWeight: 700 }}>
+                            {badge.label}
+                          </span>
+                          <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '0.4rem' }}>
+                            Load ID: {job.id.slice(0, 8).toUpperCase()}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Footer: assign driver + action buttons */}
+                      <div style={{ borderTop: '1px solid #f1f5f9', padding: '0.4rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#fafbfc', flexWrap: 'wrap' }}>
+                        {isUnallocated && (
+                          <>
+                            <select
+                              value={assignmentDrafts[job.id] ?? ''}
+                              onChange={(e) => setAssignmentDrafts((prev) => ({ ...prev, [job.id]: e.target.value }))}
+                              style={{ padding: '0.28rem 0.5rem', border: '1px solid #e2e8f0', borderRadius: '5px', fontSize: '0.75rem', background: '#fff', color: '#374151', maxWidth: '180px' }}
+                            >
+                              <option value="">Assign driver…</option>
+                              {drivers.map((d) => (
+                                <option key={d.id} value={d.id}>{d.display_name}</option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => void handleAssignDriver(job)}
+                              disabled={!assignmentDrafts[job.id] || assigningJobId === job.id}
+                              style={{ padding: '0.28rem 0.65rem', border: 'none', borderRadius: '5px', background: !assignmentDrafts[job.id] ? '#e2e8f0' : '#0f766e', color: !assignmentDrafts[job.id] ? '#94a3b8' : '#fff', cursor: !assignmentDrafts[job.id] ? 'not-allowed' : 'pointer', fontSize: '0.73rem', fontWeight: 700 }}
+                            >
+                              {assigningJobId === job.id ? 'Assigning…' : 'Assign'}
+                            </button>
+                            <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }} />
+                          </>
+                        )}
+                        {[
+                          { label: 'Order', href: `/admin/jobs/${job.id}` },
+                          { label: 'Notes', href: `/admin/jobs/${job.id}` },
+                          { label: 'History', href: `/admin/jobs/${job.id}` },
+                          { label: 'Documents', href: `/admin/documents` },
+                        ].map(({ label, href }) => (
+                          <button
+                            key={label}
+                            onClick={() => router.push(href)}
+                            style={{ padding: '0.28rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.73rem', color: '#374151', fontWeight: 600 }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  )}
-                </section>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
-        </div>
+        </main>
       </div>
     </ProtectedRoute>
   );
 }
+
+// ── Style helpers ──────────────────────────────────────────────────────────────
+
+const labelStyle: React.CSSProperties = {
+  fontSize: '0.65rem',
+  fontWeight: 700,
+  color: '#94a3b8',
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  marginBottom: '0.2rem',
+};
+
+const panelInput: React.CSSProperties = {
+  width: '100%',
+  padding: '0.35rem 0.45rem',
+  border: '1px solid #e2e8f0',
+  borderRadius: '4px',
+  fontSize: '0.76rem',
+  color: '#374151',
+  background: '#fff',
+  marginBottom: '0',
+  boxSizing: 'border-box',
+};

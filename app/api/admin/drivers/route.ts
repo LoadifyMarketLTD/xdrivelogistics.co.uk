@@ -34,7 +34,7 @@ type ForensicErrorPayload = {
 
 const FORENSIC_SQL = {
   membershipLookup:
-    "select id, company_id, role_in_company from public.company_memberships where user_id = :auth_user_id and status = 'active' and company_id = :company_id and role_in_company in (:admin_roles) and (:membership_id is null or id = :membership_id) limit 1",
+    "select cm.id, cm.company_id, cm.role_in_company from public.company_memberships cm join public.companies c on c.id = cm.company_id where cm.user_id = :auth_user_id and cm.status = 'active' and c.status = 'active' and cm.company_id = :company_id and cm.role_in_company in (:admin_roles) and (:membership_id is null or cm.id = :membership_id) limit 1",
   companyLookup:
     'select id, name from public.companies where id = :company_id limit 1',
   existingDriverLookup:
@@ -391,9 +391,10 @@ export async function POST(request: NextRequest) {
 
     const membershipQuery = supabaseAdmin
       .from('company_memberships')
-      .select('id, company_id, role_in_company')
+      .select('id, company_id, role_in_company, companies!inner(status)')
       .eq('user_id', authData.user.id)
       .eq('status', 'active')
+      .eq('companies.status', 'active')
       .in('role_in_company', Array.from(ADMIN_ROLES));
 
     const { data: membership, error: membershipLookupError } = await membershipQuery.maybeSingle();
@@ -1000,9 +1001,10 @@ export async function PATCH(request: NextRequest) {
 
     const membershipQuery = supabaseAdmin
       .from('company_memberships')
-      .select('id, company_id, role_in_company')
+      .select('id, company_id, role_in_company, companies!inner(status)')
       .eq('user_id', authData.user.id)
       .eq('status', 'active')
+      .eq('companies.status', 'active')
       .in('role_in_company', Array.from(ADMIN_ROLES));
 
     const { data: membership, error: membershipLookupError } = await membershipQuery.maybeSingle();

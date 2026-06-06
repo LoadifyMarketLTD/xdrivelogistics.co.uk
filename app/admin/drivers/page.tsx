@@ -391,7 +391,7 @@ export default function DriversPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1rem' }}>
+      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
         <div style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
@@ -425,7 +425,7 @@ export default function DriversPage() {
             </div>
           )}
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
             {!companyResolved || loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
             ) : !companyId ? (
@@ -443,24 +443,24 @@ export default function DriversPage() {
                   <thead>
                     <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                       {['Name', 'Email', 'Phone', 'Status', 'App Access', 'Created', 'Actions'].map(h => (
-                        <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                        <th key={h} style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {drivers.map((d, i) => (
                       <tr key={d.id} style={{ borderBottom: i < drivers.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                        <td style={{ padding: '1rem', fontWeight: '600', color: '#1f2937' }}>{d.display_name}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{d.email || '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{d.phone || '—'}</td>
-                        <td style={{ padding: '1rem' }}>
+                        <td style={{ padding: '0.8rem', fontWeight: '600', color: '#1f2937' }}>{d.display_name}</td>
+                        <td style={{ padding: '0.8rem', color: '#6b7280' }}>{d.email || '—'}</td>
+                        <td style={{ padding: '0.8rem', color: '#6b7280' }}>{d.phone || '—'}</td>
+                        <td style={{ padding: '0.8rem' }}>
                           <span style={{ backgroundColor: d.status === 'active' ? '#d1fae5' : '#fee2e2', color: statusColor(d.status), padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{d.status}</span>
                         </td>
-                        <td style={{ padding: '1rem' }}>
+                        <td style={{ padding: '0.8rem' }}>
                           <span style={{ color: d.app_access ? '#1F7A3D' : '#9ca3af', fontWeight: '600', fontSize: '0.875rem' }}>{d.app_access ? '✓ Yes' : '✗ No'}</span>
                         </td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{formatDate(d.created_at)}</td>
-                        <td style={{ padding: '1rem' }}>
+                        <td style={{ padding: '0.8rem', color: '#6b7280' }}>{formatDate(d.created_at)}</td>
+                        <td style={{ padding: '0.8rem' }}>
                           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                             <button
                               onClick={() => openEditModal(d)}

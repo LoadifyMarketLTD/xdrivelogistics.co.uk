@@ -1,0 +1,174 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+
+const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+
+type MarketplaceRow = {
+  id: string;
+  status: string;
+  company_id: string;
+  awarded_carrier_company_id: string | null;
+  exchange_visibility: string;
+  exchange_posted_at: string | null;
+  created_at: string;
+  pickup_location: string | null;
+  pickup_postcode: string | null;
+  delivery_location: string | null;
+  delivery_postcode: string | null;
+  pickup_datetime: string | null;
+  delivery_datetime: string | null;
+};
+
+type CompanyRow = { id: string; name: string };
+type BidRow = { job_id: string };
+type MarketplaceAuditRow = {
+  id: string;
+  actor_user_id: string;
+  target_company_id: string;
+  action_type: string;
+  old_status: string;
+  new_status: string;
+  reason: string;
+  created_at: string;
+};
+
+const MARKETPLACE_AUDIT_ACTION_TYPES = [
+  'marketplace_published',
+  'marketplace_hidden',
+  'marketplace_job_disputed',
+  'marketplace_job_cancelled',
+] as const;
+
+const resolveOwnerProfile = async (authUserId: string) => {
+  if (!supabaseAdmin) return null;
+  const { data, error } = await supabaseAdmin
+    .from('profiles')
+    .select('role')
+    .eq('user_id', authUserId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data;
+};
+
+const verifyOwner = async (request: NextRequest) => {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
+  const token = getBearerToken(request);
+  if (!token) return null;
+  const validatorClient = supabaseValidator ?? supabaseAdmin;
+  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
+  if (authError || !authData.user) return null;
+  const profile = await resolveOwnerProfile(authData.user.id);
+  if (!profile || profile.role !== 'owner') return null;
+  return authData.user;
+};
+
+const queryMarketplaceRows = async (limit: number) =>
+  supabaseAdmin!
+    .from('jobs')
+    .select('id, status, company_id, awarded_carrier_company_id, exchange_visibility, exchange_posted_at, created_at, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+const enrichMarketplaceRows = async (marketplaceRows: MarketplaceRow[]) => {
+  if (marketplaceRows.length === 0) return [];
+
+  const companyIds = Array.from(
+    new Set(
+      marketplaceRows
+        .flatMap((job) => [job.company_id, job.awarded_carrier_company_id])
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+
+  const [companiesResult, bidCountsResult] = await Promise.all([
+    supabaseAdmin!.from('companies').select('id, name').in('id', companyIds),
+    supabaseAdmin!.from('job_bids').select('job_id').in('job_id', marketplaceRows.map((job) => job.id)),
+  ]);
+
+  if (companiesResult.error) {
+    return { error: companiesResult.error.message };
+  }
+
+  if (bidCountsResult.error) {
+    return { error: bidCountsResult.error.message };
+  }
+
+  const companyNameById = new Map<string, string>((companiesResult.data as CompanyRow[]).map((row) => [row.id, row.name]));
+  const bidCountByJobId = new Map<string, number>();
+  for (const row of (bidCountsResult.data as BidRow[])) {
+    bidCountByJobId.set(row.job_id, (bidCountByJobId.get(row.job_id) ?? 0) + 1);
+  }
+
+  return marketplaceRows.map((job) => ({
+    ...job,
+    posting_company_name: companyNameById.get(job.company_id) ?? 'Unknown company',
+    awarded_company_name: job.awarded_carrier_company_id
+      ? (companyNameById.get(job.awarded_carrier_company_id) ?? 'Unknown company')
+      : null,
+    bids_count: bidCountByJobId.get(job.id) ?? 0,
+  }));
+};
+
+const getMarketplaceAuditHistory = async (limit: number) => {
+  const { data, error } = await supabaseAdmin!
+    .from('owner_audit_log')
+    .select('id, actor_user_id, target_company_id, action_type, old_status, new_status, reason, created_at')
+    .in('action_type', [...MARKETPLACE_AUDIT_ACTION_TYPES])
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  return { data: (data ?? []) as MarketplaceAuditRow[], error };
+};
+
+export async function GET(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
+
+  const owner = await verifyOwner(request);
+  if (!owner) {
+    return respond(403, { error: 'Forbidden: owner role required.' });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
+  const auditLimit = Math.min(Number(searchParams.get('auditLimit') ?? 120) || 120, 400);
+
+  const { data: jobs, error: jobsError } = await queryMarketplaceRows(limit);
+
+  if (jobsError) {
+    return respond(500, { error: jobsError.message });
+  }
+
+  const marketplaceRows = (jobs ?? []) as MarketplaceRow[];
+  const enrichedRows = await enrichMarketplaceRows(marketplaceRows);
+
+  if ('error' in enrichedRows) {
+    return respond(500, { error: enrichedRows.error });
+  }
+
+  const { data: auditRows, error: auditError } = await getMarketplaceAuditHistory(auditLimit);
+  const governanceHistoryAvailable = !auditError;
+  const governanceHistoryError = auditError?.message ?? null;
+
+  const summary = {
+    totalJobs: enrichedRows.length,
+    exchangeVisible: enrichedRows.filter((row) => row.exchange_visibility === 'exchange').length,
+    posted: enrichedRows.filter((row) => row.status === 'posted').length,
+    allocated: enrichedRows.filter((row) => row.status === 'allocated').length,
+    inTransit: enrichedRows.filter((row) => row.status === 'in_transit').length,
+    disputed: enrichedRows.filter((row) => row.status === 'disputed').length,
+    cancelled: enrichedRows.filter((row) => row.status === 'cancelled').length,
+    delivered: enrichedRows.filter((row) => row.status === 'delivered').length,
+  };
+
+  return respond(200, {
+    jobs: enrichedRows,
+    summary,
+    governanceHistoryAvailable,
+    governanceHistoryError,
+    governanceHistoryRecent: governanceHistoryAvailable ? auditRows : [],
+    fetchedAt: new Date().toISOString(),
+    pollingSuggestedMs: 15000,
+  });
+}

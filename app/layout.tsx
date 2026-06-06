@@ -9,6 +9,10 @@ import '@fontsource/inter/800.css'
 import { AuthProvider } from './components/AuthContext'
 import { COMPANY_CONFIG } from './config/company'
 import ServiceWorkerRegistration from './components/ServiceWorkerRegistration'
+import { getCanonicalSiteOrigin, getCanonicalSiteUrl } from '../lib/siteUrl'
+
+const canonicalSiteUrl = getCanonicalSiteUrl()
+const canonicalSiteOrigin = getCanonicalSiteOrigin()
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -40,9 +44,9 @@ export const metadata: Metadata = {
   authors: [{ name: COMPANY_CONFIG.legalName }],
   creator: COMPANY_CONFIG.legalName,
   publisher: COMPANY_CONFIG.legalName,
-  metadataBase: new URL('https://www.xdrivelogistics.co.uk'),
+  metadataBase: canonicalSiteUrl,
   alternates: {
-    canonical: 'https://www.xdrivelogistics.co.uk',
+    canonical: canonicalSiteOrigin,
   },
   manifest: '/manifest.webmanifest',
   icons: {
@@ -52,7 +56,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_GB',
-    url: 'https://www.xdrivelogistics.co.uk',
+    url: canonicalSiteOrigin,
     title: 'XDrive Logistics - Premium Transport Services',
     description: `Independent transport platform by ${COMPANY_CONFIG.legalName} for UK and EU courier operations.`,
     siteName: 'XDrive Logistics',
@@ -95,8 +99,8 @@ export default async function RootLayout({
               "@type": "Organization",
               "name": "XDrive Logistics",
               "legalName": "XDrive Logistics Ltd",
-              "url": "https://www.xdrivelogistics.co.uk",
-              "logo": "https://www.xdrivelogistics.co.uk/icon-512.png",
+              "url": canonicalSiteOrigin,
+              "logo": `${canonicalSiteOrigin}/icon-512.png`,
               "address": {
                 "@type": "PostalAddress",
                 "streetAddress": "101 Cornelian Street",

@@ -13,7 +13,8 @@ import {
   resolveInvoiceClientName,
   selectWithMissingColumnFallback,
 } from '../../lib/supabaseSchemaCompat';
-import { WORKFLOW_NAV_SECTIONS, WorkflowStageStrip } from './workflowUi';
+import { getNavSectionsForRole } from './workflowUi';
+import { mapAppRole, type AppUserRole } from '../../lib/authRole';
 
 type DashboardOverview = {
   activeJobs: number;
@@ -165,67 +166,12 @@ const DEFAULT_DASHBOARD: DashboardState = {
   activity: [],
 };
 
-const quickActionTiles = [
-  {
-    title: 'Assign work',
-    description: 'Allocate unassigned jobs to available drivers.',
-    href: '/admin/diary',
-    icon: '🗓️',
-    background: '#ecfdf5',
-    color: '#166534',
-    border: '#86efac',
-  },
-  {
-    title: 'Complete work',
-    description: 'Run the operational jobs board and close deliveries.',
-    href: '/admin/jobs',
-    icon: '📦',
-    background: '#eff6ff',
-    color: '#1d4ed8',
-    border: '#bfdbfe',
-  },
-  {
-    title: 'Price work',
-    description: 'Progress quote inbox, sent, won and rejected work.',
-    href: '/admin/quotes',
-    icon: '💬',
-    background: '#fff7ed',
-    color: '#c2410c',
-    border: '#fed7aa',
-  },
-  {
-    title: 'Track work',
-    description: 'Monitor fleet availability and live tracked positions.',
-    href: '/admin/fleet',
-    icon: '🧭',
-    background: '#eef2ff',
-    color: '#4338ca',
-    border: '#c7d2fe',
-  },
-  {
-    title: 'Invoice work',
-    description: 'Prioritise overdue and outstanding invoice recovery.',
-    href: '/admin/invoices',
-    icon: '💰',
-    background: '#ecfdf5',
-    color: '#047857',
-    border: '#a7f3d0',
-  },
-  {
-    title: 'Manage resources',
-    description: 'Keep drivers ready and available for allocation.',
-    href: '/admin/drivers',
-    icon: '👤',
-    background: '#f5f3ff',
-    color: '#6d28d9',
-    border: '#ddd6fe',
-  },
-];
-
 const ENTERPRISE_THEME = {
   pageBg: '#eef2f6',
-  shellBg: '#0b1c2f',
-  shellMuted: '#9fb4cb',
+  shellBg: '#f8fafc',
+  shellBorder: '#d7e0ea',
+  shellMuted: '#64748b',
+  shellText: '#0f172a',
   cardBg: '#ffffff',
   cardBorder: '#d7e0ea',
   cardShadow: '0 6px 16px rgba(15, 23, 42, 0.08)',
@@ -408,6 +354,23 @@ export default function AdminPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [driverAvailability, setDriverAvailability] = useState<DriverAvailRow[]>([]);
   const [postedJobsForDispatch, setPostedJobsForDispatch] = useState<PostedJobDispatch[]>([]);
+
+  const activeRole = mapAppRole(user?.role ?? null);
+  const navSections = getNavSectionsForRole(activeRole, {
+    membershipRole: user?.membershipRole ?? null,
+    financeAccess: user?.financeAccess ?? null,
+  });
+
+  const roleLabel: Record<string, string> = {
+    owner: 'Owner',
+    broker: 'Broker',
+    company_admin: 'Company Admin',
+    company_staff: 'Dispatcher',
+    driver: 'Driver',
+    customer: 'Customer',
+  };
+  const activeRoleLabel = activeRole ? (roleLabel[activeRole] ?? activeRole) : 'Platform';
+  const companyLabel = COMPANY_CONFIG.legalName;
 
   useEffect(() => {
     const updateIsMobile = () => setIsMobile(window.innerWidth <= 1024);
@@ -708,63 +671,6 @@ export default function AdminPage() {
     };
   }, [companyResolved, resolvedCompanyId]);
 
-  const overviewCards = [
-    {
-      label: 'Active Jobs',
-      value: dashboard.overview.activeJobs,
-      icon: '🚚',
-      color: ENTERPRISE_THEME.colors.live,
-      subtitle: 'Live jobs in posted, allocated and in-transit states',
-      href: '/admin/jobs',
-      urgent: false,
-    },
-    {
-      label: 'Pending Quotes',
-      value: dashboard.overview.pendingQuotes,
-      icon: '💬',
-      color: dashboard.overview.pendingQuotes > 0 ? ENTERPRISE_THEME.colors.warning : ENTERPRISE_THEME.colors.driverQuote,
-      subtitle: 'Pricing requests waiting for conversion',
-      href: '/admin/quotes',
-      urgent: dashboard.overview.pendingQuotes > 0,
-    },
-    {
-      label: 'Active Drivers',
-      value: dashboard.overview.activeDrivers,
-      icon: '👤',
-      color: ENTERPRISE_THEME.colors.success,
-      subtitle: 'Drivers currently available for dispatch',
-      href: '/admin/drivers',
-      urgent: false,
-    },
-    {
-      label: 'Completed Today',
-      value: dashboard.overview.completedToday,
-      icon: '✅',
-      color: ENTERPRISE_THEME.colors.success,
-      subtitle: 'Delivery confirmations closed today',
-      href: '/admin/jobs',
-      urgent: false,
-    },
-    {
-      label: 'Outstanding Revenue',
-      value: formatCurrency(dashboard.finance.outstandingRevenue),
-      icon: '💷',
-      color: ENTERPRISE_THEME.colors.warning,
-      subtitle: 'Open invoice value to collect',
-      href: '/admin/invoices',
-      urgent: false,
-    },
-    {
-      label: 'Compliance Alerts',
-      value: dashboard.compliance.attentionRequired,
-      icon: '🛡️',
-      color: ENTERPRISE_THEME.colors.danger,
-      subtitle: 'Blocked or expired compliance documents',
-      href: '/admin/documents',
-      urgent: dashboard.compliance.attentionRequired > 0,
-    },
-  ];
-
   const sectionCardStyle: CSSProperties = {
     backgroundColor: ENTERPRISE_THEME.cardBg,
     padding: ENTERPRISE_THEME.spacing.lg,
@@ -772,6 +678,177 @@ export default function AdminPage() {
     border: `1px solid ${ENTERPRISE_THEME.cardBorder}`,
     boxShadow: ENTERPRISE_THEME.cardShadow,
   };
+
+  const availableDrivers = driverAvailability.filter((driver) => (driver.availability_status ?? driver.status ?? 'unknown') === 'available');
+  const visibleDriverCards = (availableDrivers.length > 0 ? availableDrivers : driverAvailability).slice(0, 6);
+  const currentModuleLabel = 'Platform Home';
+  const nextPriority = dashboard.jobsByStatus.posted > 0
+    ? `${dashboard.jobsByStatus.posted} load${dashboard.jobsByStatus.posted !== 1 ? 's' : ''} need allocation`
+    : dashboard.finance.overdueInvoices > 0
+      ? `${dashboard.finance.overdueInvoices} overdue invoice${dashboard.finance.overdueInvoices !== 1 ? 's' : ''}`
+      : dashboard.compliance.attentionRequired > 0
+        ? `${dashboard.compliance.attentionRequired} compliance alert${dashboard.compliance.attentionRequired !== 1 ? 's' : ''}`
+        : 'Review module activity';
+
+  const contextCards = [
+    {
+      label: 'Who is the user?',
+      value: user?.email ?? 'Signed-in user',
+      description: activeRoleLabel,
+    },
+    {
+      label: 'What module are they in?',
+      value: currentModuleLabel,
+      description: 'Module-first platform shell',
+    },
+    {
+      label: 'Which company context?',
+      value: resolvedCompanyId ? companyLabel : 'Company pending',
+      description: resolvedCompanyId ? 'Company workspace resolved' : 'Resolve company access to continue',
+    },
+    {
+      label: 'What action is next?',
+      value: nextPriority,
+      description: 'Open the linked module to continue',
+    },
+  ];
+
+  const moduleCards: Array<{
+    id: string;
+    label: string;
+    icon: string;
+    href: string;
+    summary: string;
+    metric: string | number;
+    metricLabel: string;
+    detail: string;
+    accent: string;
+    secondaryHref?: string;
+    secondaryLabel?: string;
+    roles?: AppUserRole[];
+  }> = [
+    {
+      id: 'marketplace',
+      label: 'Marketplace / Loads',
+      icon: '🏪',
+      href: '/admin/marketplace',
+      summary: 'Find loads, post work, and manage load-board visibility.',
+      metric: dashboard.jobsByStatus.posted,
+      metricLabel: 'Published loads',
+      detail: dashboard.jobsByStatus.posted > 0 ? 'Published loads are waiting for diary allocation.' : 'No published loads are waiting for allocation.',
+      accent: '#0f766e',
+    },
+    {
+      id: 'quotes-bids',
+      label: 'Quotes & Bids',
+      icon: '💬',
+      href: '/admin/quotes',
+      summary: 'Handle inbound quotes, outbound pricing, and bid outcomes.',
+      metric: dashboard.overview.pendingQuotes + dashboard.market.incomingBids,
+      metricLabel: 'Commercial actions',
+      detail: `${dashboard.overview.pendingQuotes} quotes pending • ${dashboard.market.incomingBids} bids received`,
+      accent: '#c2410c',
+      secondaryHref: '/admin/bids',
+      secondaryLabel: 'Open bids',
+    },
+    {
+      id: 'diary',
+      label: 'Diary / Operations',
+      icon: '🗓️',
+      href: '/admin/diary',
+      summary: 'Allocate loads, follow progress, and close operational work.',
+      metric: dashboard.overview.activeJobs,
+      metricLabel: 'Live jobs',
+      detail: `${dashboard.jobsByStatus.posted} awaiting allocation • ${dashboard.jobsByStatus.inTransit} in transit`,
+      accent: '#1d4ed8',
+      secondaryHref: '/admin/jobs',
+      secondaryLabel: 'Open jobs',
+    },
+    {
+      id: 'fleet',
+      label: 'Fleet',
+      icon: '🧭',
+      href: '/admin/fleet',
+      summary: 'Monitor available capacity, live positions, and future coverage.',
+      metric: dashboard.resources.fleetUnits,
+      metricLabel: 'Fleet units',
+      detail: `${dashboard.resources.driverCoverageGap} coverage gap • ${dashboard.jobsByStatus.inTransit} moving now`,
+      accent: '#4338ca',
+    },
+    {
+      id: 'drivers',
+      label: 'Drivers',
+      icon: '👤',
+      href: '/admin/drivers',
+      summary: 'Manage driver roster, app access, and readiness to operate.',
+      metric: dashboard.overview.activeDrivers,
+      metricLabel: 'Active drivers',
+      detail: `${availableDrivers.length} available right now`,
+      accent: '#15803d',
+    },
+    {
+      id: 'vehicles',
+      label: 'Vehicles',
+      icon: '🚛',
+      href: '/admin/vehicles',
+      summary: 'Maintain vehicle records, capability data, and assignments.',
+      metric: dashboard.resources.fleetUnits,
+      metricLabel: 'Vehicle records',
+      detail: 'Keep vehicle capacity and capability data up to date.',
+      accent: '#0f766e',
+    },
+    {
+      id: 'compliance',
+      label: 'Compliance / Documents',
+      icon: '📄',
+      href: '/admin/documents',
+      summary: 'Track document verification, expiry, and operating readiness.',
+      metric: dashboard.compliance.attentionRequired,
+      metricLabel: 'Alerts',
+      detail: `${dashboard.compliance.pendingDocs} pending • ${dashboard.compliance.expiringSoon} expiring soon`,
+      accent: '#7c3aed',
+    },
+    {
+      id: 'finance',
+      label: 'Finance / Invoices',
+      icon: '💰',
+      href: '/admin/invoices',
+      summary: 'Issue invoices, monitor receivables, and follow payment status.',
+      metric: dashboard.finance.outstandingInvoices,
+      metricLabel: 'Open invoices',
+      detail: `${dashboard.finance.overdueInvoices} overdue • ${formatCurrency(dashboard.finance.outstandingRevenue)} outstanding`,
+      accent: '#047857',
+      secondaryHref: '/admin/invoices/new',
+      secondaryLabel: 'Create invoice',
+    },
+    {
+      id: 'network',
+      label: 'Network / Companies',
+      icon: '🏢',
+      href: '/admin/companies',
+      summary: 'Manage companies, memberships, and trading relationships.',
+      metric: resolvedCompanyId ? 'Active' : 'Pending',
+      metricLabel: 'Company context',
+      detail: resolvedCompanyId ? `${companyLabel} is ready in the network workspace.` : 'Resolve company context before trading.',
+      accent: '#0f172a',
+    },
+    {
+      id: 'administration',
+      label: 'Administration',
+      icon: '⚙️',
+      href: '/admin/settings',
+      summary: 'Govern settings, memberships, defaults, and security.',
+      metric: activeRoleLabel,
+      metricLabel: 'Current role',
+      detail: 'Use settings and memberships to manage company governance.',
+      accent: '#334155',
+      secondaryHref: '/admin/dispatchers',
+      secondaryLabel: 'Open memberships',
+      roles: ['owner', 'company_admin'],
+    },
+  ];
+
+  const visibleModuleCards = moduleCards.filter((card) => !card.roles || (activeRole ? card.roles.includes(activeRole) : false));
 
   return (
     <ProtectedRoute>
@@ -786,10 +863,10 @@ export default function AdminPage() {
           style={{
             width: isMobile ? '270px' : '228px',
             backgroundColor: ENTERPRISE_THEME.shellBg,
-            color: 'white',
+            color: ENTERPRISE_THEME.shellText,
             display: 'flex',
             flexDirection: 'column',
-            boxShadow: '2px 0 14px rgba(2, 6, 23, 0.24)',
+            borderRight: `1px solid ${ENTERPRISE_THEME.shellBorder}`,
             position: isMobile ? 'fixed' : 'relative',
             inset: isMobile ? '0 auto 0 0' : undefined,
             zIndex: isMobile ? 40 : undefined,
@@ -797,15 +874,27 @@ export default function AdminPage() {
             transition: 'transform 0.2s ease',
           }}
         >
-          <div style={{ padding: '1.1rem 1rem', borderBottom: '1px solid rgba(159, 180, 203, 0.22)' }}>
-            <h1 style={{ fontSize: '1.02rem', fontWeight: '700', margin: 0, color: 'white', lineHeight: 1.35 }}>{COMPANY_CONFIG.legalName}</h1>
-            <p style={{ fontSize: '0.74rem', margin: '0.3rem 0 0 0', color: ENTERPRISE_THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Dispatcher Workspace
+          <div style={{ padding: '1.1rem 1rem', borderBottom: `1px solid ${ENTERPRISE_THEME.shellBorder}` }}>
+            <h1 style={{ fontSize: '1.02rem', fontWeight: '700', margin: 0, color: ENTERPRISE_THEME.shellText, lineHeight: 1.35 }}>{companyLabel}</h1>
+            <p style={{ fontSize: '0.72rem', margin: '0.3rem 0 0 0', color: ENTERPRISE_THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              XDrive platform
             </p>
+            <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: ENTERPRISE_THEME.shellMuted }}>Role</span>
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#1d4ed8', backgroundColor: '#dbeafe', padding: '0.1rem 0.45rem', borderRadius: '999px' }}>
+                  {activeRoleLabel}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: ENTERPRISE_THEME.shellMuted }}>Module</span>
+                <span style={{ fontSize: '0.72rem', color: ENTERPRISE_THEME.shellMuted }}>{currentModuleLabel}</span>
+              </div>
+            </div>
           </div>
 
           <nav style={{ flex: 1, padding: '0.6rem', overflowY: 'auto' }}>
-            {WORKFLOW_NAV_SECTIONS.map((section) => (
+            {navSections.map((section) => (
               <div key={section.id} style={{ marginBottom: '0.7rem' }}>
                 <div
                   style={{
@@ -832,9 +921,11 @@ export default function AdminPage() {
                       style={{
                         width: '100%',
                         padding: '0.58rem 0.72rem',
-                        backgroundColor: isActive ? 'rgba(63, 131, 248, 0.18)' : 'transparent',
-                        color: 'white',
-                        border: 'none',
+                        backgroundColor: isActive ? '#eff6ff' : 'transparent',
+                        color: ENTERPRISE_THEME.shellText,
+                        borderTop: 'none',
+                        borderRight: 'none',
+                        borderBottom: 'none',
                         borderLeft: isActive ? `3px solid ${ENTERPRISE_THEME.colors.live}` : '3px solid transparent',
                         textAlign: 'left',
                         cursor: 'pointer',
@@ -855,7 +946,7 @@ export default function AdminPage() {
                           display: 'grid',
                           placeItems: 'center',
                           fontSize: '0.88rem',
-                          backgroundColor: 'rgba(159, 180, 203, 0.2)',
+                          backgroundColor: isActive ? '#dbeafe' : '#e2e8f0',
                         }}
                       >
                         {item.icon}
@@ -868,19 +959,37 @@ export default function AdminPage() {
             ))}
           </nav>
 
-          <div style={{ padding: '0.9rem', borderTop: '1px solid rgba(159, 180, 203, 0.22)' }}>
-            <div style={{ fontSize: '0.74rem', color: ENTERPRISE_THEME.shellMuted, marginBottom: '0.6rem', wordBreak: 'break-word' }}>
+          <div style={{ padding: '0.9rem', borderTop: `1px solid ${ENTERPRISE_THEME.shellBorder}` }}>
+            <div style={{ fontSize: '0.74rem', color: ENTERPRISE_THEME.shellMuted, marginBottom: '0.35rem', wordBreak: 'break-word' }}>
               {user?.email}
             </div>
+            <button
+              className="panel-button"
+              onClick={() => router.push('/admin/settings')}
+              style={{
+                width: '100%',
+                padding: '0.52rem',
+                backgroundColor: '#ffffff',
+                color: ENTERPRISE_THEME.shellText,
+                border: `1px solid ${ENTERPRISE_THEME.cardBorder}`,
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                marginBottom: '0.45rem',
+              }}
+            >
+              Open settings
+            </button>
             <button
               className="panel-button"
               onClick={logout}
               style={{
                 width: '100%',
                 padding: '0.52rem',
-                backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                color: 'white',
-                border: 'none',
+                backgroundColor: '#fee2e2',
+                color: '#b91c1c',
+                border: '1px solid #fecaca',
                 borderRadius: '6px',
                 fontSize: '0.8rem',
                 fontWeight: '600',
@@ -909,34 +1018,70 @@ export default function AdminPage() {
                 fontSize: '0.83rem',
               }}
             >
-              ☰ Menu
+              ☰ Modules
             </button>
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
-            <div>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.2rem 0' }}>Command Centre</h2>
-              <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: 0, maxWidth: '760px', fontSize: '0.86rem' }}>
-                Dispatcher-first workflow view across find, price, win, assign, track, complete and invoice.
-              </p>
+
+          <section style={{ ...sectionCardStyle, marginBottom: '0.9rem', padding: isMobile ? '1rem' : '1.15rem 1.2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <div style={{ maxWidth: '760px' }}>
+                <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748b', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  XDrive Logistics Ltd
+                </div>
+                <h2 style={{ fontSize: '1.55rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.25rem 0' }}>Platform Home</h2>
+                <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: 0, fontSize: '0.9rem', lineHeight: 1.55 }}>
+                  Start from the right module for the role, company context, and next transport action. Marketplace, commercial work, operations, fleet, compliance, finance, network, and administration stay clearly separated.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/marketplace')}
+                  style={{
+                    padding: '0.58rem 0.95rem',
+                    backgroundColor: ENTERPRISE_THEME.colors.live,
+                    border: `1px solid ${ENTERPRISE_THEME.colors.live}`,
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.83rem',
+                    fontWeight: '600',
+                    color: 'white',
+                  }}
+                >
+                  Open marketplace
+                </button>
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/diary')}
+                  style={{
+                    padding: '0.58rem 0.95rem',
+                    backgroundColor: '#ffffff',
+                    border: `1px solid ${ENTERPRISE_THEME.cardBorder}`,
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.83rem',
+                    fontWeight: '600',
+                    color: ENTERPRISE_THEME.colors.text,
+                  }}
+                >
+                  Open diary
+                </button>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
-              <button
-                className="panel-button"
-                onClick={() => router.push('/admin/diary')}
-                style={{
-                  padding: '0.58rem 0.95rem',
-                  backgroundColor: ENTERPRISE_THEME.colors.success,
-                  border: `1px solid ${ENTERPRISE_THEME.colors.success}`,
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '0.83rem',
-                  fontWeight: '600',
-                  color: 'white',
-                }}
-              >
-                🗓️ Open Allocation Diary
-              </button>
-            </div>
+          </section>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem', marginBottom: '0.9rem' }}>
+            {contextCards.map((card) => (
+              <section key={card.label} style={{ ...sectionCardStyle, padding: '0.85rem 0.95rem' }}>
+                <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>
+                  {card.label}
+                </div>
+                <div style={{ fontSize: '0.96rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.text, marginBottom: '0.18rem', wordBreak: 'break-word' }}>
+                  {dashboardLoading && card.label === 'What action is next?' ? 'Loading…' : card.value}
+                </div>
+                <div style={{ fontSize: '0.76rem', color: ENTERPRISE_THEME.colors.muted }}>{card.description}</div>
+              </section>
+            ))}
           </div>
 
           {dashboardError && (
@@ -956,7 +1101,6 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Needs Attention alert bar */}
           {(dashboard.jobsByStatus.posted > 0 || dashboard.finance.overdueInvoices > 0 || dashboard.compliance.attentionRequired > 0) && (
             <div
               style={{
@@ -967,19 +1111,19 @@ export default function AdminPage() {
                 backgroundColor: '#fff7ed',
                 border: '1px solid #fed7aa',
                 borderRadius: '10px',
-                padding: '0.6rem 0.9rem',
-                marginBottom: '0.75rem',
+                padding: '0.65rem 0.9rem',
+                marginBottom: '0.9rem',
               }}
               data-testid="admin-needs-attention-bar"
             >
-              <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#9a3412', marginRight: '0.25rem' }}>⚠️ Needs Attention:</span>
+              <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#9a3412', marginRight: '0.25rem' }}>Needs attention</span>
               {dashboard.jobsByStatus.posted > 0 && (
                 <button
                   className="panel-button"
                   onClick={() => router.push('/admin/diary')}
                   style={{ backgroundColor: '#fbbf24', color: '#78350f', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
                 >
-                  {dashboard.jobsByStatus.posted} unallocated job{dashboard.jobsByStatus.posted !== 1 ? 's' : ''} →
+                  Diary / Operations: {dashboard.jobsByStatus.posted} awaiting allocation
                 </button>
               )}
               {dashboard.finance.overdueInvoices > 0 && (
@@ -988,7 +1132,7 @@ export default function AdminPage() {
                   onClick={() => router.push('/admin/invoices')}
                   style={{ backgroundColor: '#f87171', color: '#7f1d1d', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
                 >
-                  {dashboard.finance.overdueInvoices} overdue invoice{dashboard.finance.overdueInvoices !== 1 ? 's' : ''} →
+                  Finance / Invoices: {dashboard.finance.overdueInvoices} overdue
                 </button>
               )}
               {dashboard.compliance.attentionRequired > 0 && (
@@ -997,105 +1141,210 @@ export default function AdminPage() {
                   onClick={() => router.push('/admin/documents')}
                   style={{ backgroundColor: '#a78bfa', color: '#2e1065', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
                 >
-                  {dashboard.compliance.attentionRequired} compliance alert{dashboard.compliance.attentionRequired !== 1 ? 's' : ''} →
+                  Compliance / Documents: {dashboard.compliance.attentionRequired} alert{dashboard.compliance.attentionRequired !== 1 ? 's' : ''}
                 </button>
               )}
             </div>
           )}
 
-          <WorkflowStageStrip
-            activeStage="assign"
-            counts={{
-              find: dashboard.market.incomingBids,
-              price: dashboard.overview.pendingQuotes,
-              win: dashboard.market.acceptedQuotes,
-              assign: dashboard.jobsByStatus.posted,
-              track: dashboard.jobsByStatus.inTransit,
-              complete: dashboard.overview.activeJobs,
-              invoice: dashboard.finance.outstandingInvoices,
-            }}
-            marginBottom="0.75rem"
-          />
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
-            {overviewCards.map((stat) => (
-              <button
-                key={stat.label}
-                className="panel-button"
-                onClick={() => router.push(stat.href)}
-                style={{
-                  backgroundColor: stat.urgent ? '#fff7ed' : ENTERPRISE_THEME.cardBg,
-                  padding: '0.75rem',
-                  borderRadius: ENTERPRISE_THEME.radius,
-                  border: stat.urgent ? `1px solid #fb923c` : `1px solid ${ENTERPRISE_THEME.cardBorder}`,
-                  boxShadow: ENTERPRISE_THEME.cardShadow,
-                  borderLeft: `3px solid ${stat.color}`,
-                  minHeight: '110px',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  width: '100%',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.45rem' }}>
-                  <div>
-                    <div style={{ fontSize: '0.8rem', color: ENTERPRISE_THEME.colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{stat.label}</div>
-                    <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.12rem', lineHeight: 1.4 }}>{stat.subtitle}</div>
+          <section style={{ marginBottom: '0.9rem' }}>
+            <div style={{ marginBottom: '0.65rem' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Platform modules</h3>
+              <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.8rem' }}>
+                Open the correct workspace by business module, not from a single command-centre board.
+              </p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem' }}>
+              {visibleModuleCards.map((card) => (
+                <section key={card.id} className="module-card" style={{ ...sectionCardStyle, padding: '0.95rem', borderTop: `3px solid ${card.accent}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>
+                        {card.label}
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: ENTERPRISE_THEME.colors.muted, lineHeight: 1.45 }}>{card.summary}</div>
+                    </div>
+                    <span style={{ width: '32px', height: '32px', borderRadius: '10px', display: 'grid', placeItems: 'center', backgroundColor: '#f8fafc', fontSize: '1rem' }}>
+                      {card.icon}
+                    </span>
                   </div>
-                  <span style={{ fontSize: '1.1rem', width: '26px', height: '26px', borderRadius: '8px', backgroundColor: '#f1f5f9', display: 'grid', placeItems: 'center' }}>{stat.icon}</span>
-                </div>
-                <div style={{ fontSize: '1.52rem', fontWeight: '700', color: stat.urgent ? stat.color : ENTERPRISE_THEME.colors.text }}>{dashboardLoading ? '…' : stat.value}</div>
-              </button>
-            ))}
-          </div>
+                  <div style={{ marginBottom: '0.55rem' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.18rem' }}>
+                      {card.metricLabel}
+                    </div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: 700, color: card.accent }}>
+                      {dashboardLoading ? '…' : card.metric}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.76rem', color: ENTERPRISE_THEME.colors.muted, lineHeight: 1.45, marginBottom: '0.75rem' }}>
+                    {dashboardLoading ? 'Loading module summary…' : card.detail}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                    <button
+                      className="panel-button"
+                      onClick={() => router.push(card.href)}
+                      style={{
+                        padding: '0.46rem 0.72rem',
+                        borderRadius: '7px',
+                        border: 'none',
+                        backgroundColor: card.accent,
+                        color: 'white',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        fontSize: '0.76rem',
+                      }}
+                    >
+                      Open module
+                    </button>
+                    {card.secondaryHref && card.secondaryLabel && (
+                      <button
+                        className="panel-button"
+                        onClick={() => router.push(card.secondaryHref!)}
+                        style={{
+                          padding: '0.46rem 0.72rem',
+                          borderRadius: '7px',
+                          border: `1px solid ${ENTERPRISE_THEME.cardBorder}`,
+                          backgroundColor: '#ffffff',
+                          color: ENTERPRISE_THEME.colors.text,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          fontSize: '0.76rem',
+                        }}
+                      >
+                        {card.secondaryLabel}
+                      </button>
+                    )}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </section>
 
-          {/* Jobs Pipeline strip */}
-          <div style={{ marginBottom: '0.75rem' }}>
-            <section style={{ ...sectionCardStyle, padding: '0.75rem 1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.55rem' }}>
-                <h3 style={{ fontSize: '0.88rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Dispatch Pipeline</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem' }}>
+            <section style={sectionCardStyle} data-testid="admin-operations-watchlist">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.68rem', gap: '0.5rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Diary / Operations</h3>
+                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>
+                    Jobs currently waiting for allocation into the operations diary.
+                  </p>
+                </div>
                 <button
                   className="panel-button"
-                  onClick={() => router.push('/admin/jobs')}
+                  onClick={() => router.push('/admin/diary')}
                   style={{ background: 'none', border: 'none', fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.live, cursor: 'pointer', fontWeight: '600' }}
                 >
-                  View all →
+                  Open diary →
                 </button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
-                {[
-                  { label: 'Needs Dispatch', value: dashboard.jobsByStatus.posted, color: '#fbbf24', bg: '#fffbeb', urgent: dashboard.jobsByStatus.posted > 0 },
-                  { label: 'Allocated', value: dashboard.jobsByStatus.allocated, color: '#a855f7', bg: '#faf5ff', urgent: false },
-                  { label: 'In Transit', value: dashboard.jobsByStatus.inTransit, color: '#1d4ed8', bg: '#eff6ff', urgent: false },
-                  { label: 'Delivered', value: dashboard.jobsByStatus.delivered, color: '#15803d', bg: '#f0fdf4', urgent: false },
-                ].map((stage) => (
-                  <button
-                    key={stage.label}
-                    className="panel-button"
-                    onClick={() => router.push('/admin/jobs')}
-                    style={{
-                      backgroundColor: stage.urgent ? '#fffbeb' : stage.bg,
-                      border: stage.urgent ? `1px solid ${stage.color}` : '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      padding: '0.5rem 0.6rem',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      width: '100%',
-                    }}
-                  >
-                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600', marginBottom: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{stage.label}</div>
-                    <div style={{ fontSize: '1.35rem', fontWeight: '700', color: stage.urgent ? stage.color : ENTERPRISE_THEME.colors.text }}>{dashboardLoading ? '…' : stage.value}</div>
-                  </button>
-                ))}
-              </div>
+              {dashboardLoading ? (
+                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem' }}>Loading…</div>
+              ) : postedJobsForDispatch.length === 0 ? (
+                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem', padding: '0.4rem 0' }}>No jobs are currently awaiting allocation.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: '0.5rem' }}>
+                  {postedJobsForDispatch.map((job) => (
+                    <button
+                      key={job.id}
+                      className="activity-row"
+                      onClick={() => router.push('/admin/diary')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        width: '100%',
+                        padding: '0.58rem',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        backgroundColor: '#fffbeb',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                      data-testid={`admin-dispatch-job-${job.id}`}
+                    >
+                      <span style={{ fontSize: '1rem', width: '24px', display: 'grid', placeItems: 'center' }}>📦</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '700', color: ENTERPRISE_THEME.colors.text, marginBottom: '0.15rem', fontSize: '0.82rem' }}>
+                          #{job.id.slice(0, 8).toUpperCase()}
+                        </div>
+                        <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.76rem' }}>
+                          {job.pickup_location ?? 'Pickup TBC'} → {job.delivery_location ?? 'Delivery TBC'}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </section>
-          </div>
 
-          <div style={{ marginBottom: '0.75rem' }}>
+            <section style={sectionCardStyle} data-testid="admin-driver-availability-board">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.68rem', gap: '0.5rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Drivers</h3>
+                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>
+                    Driver readiness summary for the current company context.
+                  </p>
+                </div>
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/drivers')}
+                  style={{ background: 'none', border: 'none', fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.live, cursor: 'pointer', fontWeight: '600' }}
+                >
+                  Manage drivers →
+                </button>
+              </div>
+              {dashboardLoading ? (
+                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem' }}>Loading…</div>
+              ) : visibleDriverCards.length === 0 ? (
+                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem', padding: '0.4rem 0' }}>No active drivers found.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: '0.45rem' }}>
+                  {visibleDriverCards.map((driver) => {
+                    const availability = driver.availability_status ?? driver.status ?? 'unknown';
+                    const availabilityLabel = availability === 'available'
+                      ? 'Available'
+                      : availability === 'busy'
+                        ? 'On a job'
+                        : availability === 'offline'
+                          ? 'Offline'
+                          : availability;
+
+                    return (
+                      <div
+                        key={driver.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '0.6rem',
+                          backgroundColor: availability === 'available' ? '#f0fdf4' : '#f8fafc',
+                          border: `1px solid ${availability === 'available' ? '#bbf7d0' : '#e2e8f0'}`,
+                          borderRadius: '8px',
+                          padding: '0.55rem 0.7rem',
+                        }}
+                        data-testid={`admin-driver-avail-${driver.id}`}
+                      >
+                        <div>
+                          <div style={{ fontWeight: '700', fontSize: '0.82rem', color: ENTERPRISE_THEME.colors.text, marginBottom: '0.1rem' }}>
+                            {driver.display_name ?? 'Driver'}
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: ENTERPRISE_THEME.colors.muted }}>{availabilityLabel}</div>
+                        </div>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: availability === 'available' ? '#15803d' : '#475569' }}>
+                          {availability === 'available' ? 'Ready now' : 'Monitor'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
             <section style={sectionCardStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.68rem' }}>
                 <div>
-                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Latest activity</h3>
-                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Recent activity across jobs, quotes, invoices and bids.</p>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Platform activity</h3>
+                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Recent confirmed activity across jobs, quotes, bids, and invoices.</p>
                 </div>
               </div>
               {dashboard.activity.length === 0 ? (
@@ -1133,211 +1382,16 @@ export default function AdminPage() {
             </section>
           </div>
 
-          {/* Driver Availability Board */}
-          <div style={{ marginBottom: '0.75rem' }}>
-            <section style={sectionCardStyle} data-testid="admin-driver-availability-board">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.68rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Driver Availability Board</h3>
-                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Live availability status of all active drivers.</p>
-                </div>
-                <button
-                  className="panel-button"
-                  onClick={() => router.push('/admin/drivers')}
-                  style={{ background: 'none', border: 'none', fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.live, cursor: 'pointer', fontWeight: '600' }}
-                >
-                  Manage drivers →
-                </button>
-              </div>
-              {dashboardLoading ? (
-                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem' }}>Loading…</div>
-              ) : driverAvailability.length === 0 ? (
-                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem', padding: '0.4rem 0' }}>No active drivers found.</div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '0.5rem' }}>
-                  {driverAvailability.map((driver) => {
-                    const avail = driver.availability_status ?? driver.status ?? 'unknown';
-                    const availConfig: Record<string, { color: string; bg: string; label: string }> = {
-                      available: { color: '#15803d', bg: '#f0fdf4', label: '🟢 Available' },
-                      busy: { color: '#b45309', bg: '#fefce8', label: '🟡 On a Job' },
-                      offline: { color: '#dc2626', bg: '#fef2f2', label: '🔴 Offline' },
-                    };
-                    const cfg = availConfig[avail] ?? { color: '#64748b', bg: '#f8fafc', label: `⚪ ${avail}` };
-                    return (
-                     <div
-                        key={driver.id}
-                        style={{
-                          backgroundColor: cfg.bg,
-                          border: `1px solid ${cfg.color}33`,
-                          borderRadius: '8px',
-                          padding: '0.55rem 0.7rem',
-                        }}
-                        data-testid={`admin-driver-avail-${driver.id}`}
-                      >
-                        <div style={{ fontWeight: '700', fontSize: '0.82rem', color: ENTERPRISE_THEME.colors.text, marginBottom: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {driver.display_name ?? 'Driver'}
-                        </div>
-                        <div style={{ fontSize: '0.73rem', fontWeight: '600', color: cfg.color, marginBottom: avail === 'available' ? '0.4rem' : '0' }}>{cfg.label}</div>
-                        {avail === 'available' && (
-                          <button
-                            className="panel-button"
-                            onClick={() => router.push('/admin/diary')}
-                            style={{
-                              width: '100%',
-                              backgroundColor: '#15803d',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '5px',
-                              padding: '0.28rem 0.4rem',
-                              fontSize: '0.72rem',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Assign a Job →
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          </div>
-
-          {/* Quick Dispatch Allocation Widget */}
-          <div style={{ marginBottom: '0.75rem' }}>
-            <section style={sectionCardStyle} data-testid="admin-quick-dispatch-widget">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.68rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Quick Dispatch</h3>
-                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>
-                    Jobs awaiting dispatch allocation ({dashboard.jobsByStatus.posted} unallocated).
-                  </p>
-                </div>
-                <button
-                  className="panel-button"
-                  onClick={() => router.push('/admin/diary')}
-                  style={{ background: 'none', border: 'none', fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.live, cursor: 'pointer', fontWeight: '600' }}
-                >
-                  Open diary →
-                </button>
-              </div>
-              {dashboardLoading ? (
-                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem' }}>Loading…</div>
-              ) : postedJobsForDispatch.length === 0 ? (
-                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem', padding: '0.4rem 0' }}>
-                  ✅ No jobs currently awaiting dispatch.
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: '0.5rem' }}>
-                  {postedJobsForDispatch.map((job) => (
-                    <div
-                      key={job.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.6rem',
-                        backgroundColor: '#fffbeb',
-                        border: '1px solid #fbbf24',
-                        borderRadius: '8px',
-                        padding: '0.55rem 0.7rem',
-                      }}
-                      data-testid={`admin-dispatch-job-${job.id}`}
-                    >
-                      <span style={{ fontSize: '1rem' }}>📦</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: '700', fontSize: '0.82rem', color: ENTERPRISE_THEME.colors.text }}>
-                          #{job.id.slice(0, 8).toUpperCase()}
-                        </div>
-                        <div style={{ fontSize: '0.73rem', color: ENTERPRISE_THEME.colors.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {job.pickup_location ?? 'Pickup TBC'} → {job.delivery_location ?? 'Delivery TBC'}
-                        </div>
-                      </div>
-                      <button
-                        className="panel-button"
-                        onClick={() => router.push(`/admin/diary`)}
-                        style={{
-                          backgroundColor: ENTERPRISE_THEME.colors.live,
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '0.35rem 0.65rem',
-                          fontSize: '0.75rem',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        Dispatch →
-                      </button>
-                    </div>
-                  ))}
-                  {dashboard.jobsByStatus.posted > postedJobsForDispatch.length && (
-                    <button
-                      className="panel-button"
-                      onClick={() => router.push('/admin/diary')}
-                      style={{
-                        background: 'none',
-                        border: '1px dashed #cbd5e1',
-                        borderRadius: '8px',
-                        padding: '0.5rem',
-                        color: ENTERPRISE_THEME.colors.muted,
-                        fontSize: '0.78rem',
-                        cursor: 'pointer',
-                        fontWeight: '600',
-                        textAlign: 'center',
-                      }}
-                    >
-                      +{dashboard.jobsByStatus.posted - postedJobsForDispatch.length} more — view all →
-                    </button>
-                  )}
-                </div>
-              )}
-            </section>
-          </div>
-
-          <section style={sectionCardStyle}>
-            <div style={{ marginBottom: '0.7rem' }}>
-              <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Action hub</h3>
-              <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>Operational shortcuts for dispatch, bids, compliance and cash collection.</p>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(195px, 1fr))', gap: '0.55rem' }}>
-              {quickActionTiles.map((tile) => (
-                <button
-                  className="panel-button"
-                  key={tile.title}
-                  onClick={() => router.push(tile.href)}
-                  style={{
-                    padding: '0.66rem',
-                    borderRadius: '8px',
-                    border: `1px solid ${tile.border}`,
-                    backgroundColor: tile.background,
-                    color: tile.color,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    minHeight: '115px',
-                  }}
-                >
-                  <div style={{ fontSize: '1.05rem', marginBottom: '0.3rem' }}>{tile.icon}</div>
-                  <div style={{ fontWeight: '700', marginBottom: '0.2rem', fontSize: '0.82rem' }}>{tile.title}</div>
-                  <div style={{ fontSize: '0.73rem', lineHeight: 1.35, opacity: 0.92 }}>{tile.description}</div>
-                </button>
-              ))}
-            </div>
-          </section>
           <style jsx>{`
             .nav-item:hover {
-              background-color: rgba(159, 180, 203, 0.18);
+              background-color: #f1f5f9;
             }
             .panel-button:hover {
-              filter: brightness(0.97);
+              filter: brightness(0.98);
             }
-            .activity-row:hover {
-              background-color: #f1f5f9 !important;
-            }
-            .link-button:hover {
-              text-decoration: underline;
+            .activity-row:hover,
+            .module-card:hover {
+              background-color: #f8fafc;
             }
           `}</style>
         </main>
