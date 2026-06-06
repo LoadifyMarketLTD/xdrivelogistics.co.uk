@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { buildPathWithAuthParams, getBrowserAuthSignals, isRecoveryAuthFlow, RESET_PASSWORD_PATH } from '../../lib/authFlow';
 import { getPostLoginRoute, roleCanAccessPath } from '../../lib/authSession';
-import { COMPANY_CONFIG } from '../config/company';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,7 +20,7 @@ export default function LoginPage() {
   const [resetMessage, setResetMessage] = useState('');
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
-  const [heroImageSrc, setHeroImageSrc] = useState('https://github.com/user-attachments/assets/cfea874b-33aa-4821-9b8f-0f8d1602cd9d');
+  const [heroImageSrc, setHeroImageSrc] = useState('/xdrive-login-hero.webp');
   const { login, resetPassword, user, isLoading: authLoading } = useAuth();
   const nextPath = searchParams.get('next');
   const safeNextPath = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : null;
@@ -100,8 +99,8 @@ export default function LoginPage() {
           <Image src="/xdrive-logo.svg" alt="XDrive Logistics" width={168} height={40} priority />
         </div>
         <div className="login-form-header">
-          <h2>{showReset ? 'Reset your password' : 'Welcome back'}</h2>
-          <p>{showReset ? 'Enter your email to receive reset instructions' : `Sign in to your ${COMPANY_CONFIG.name} account`}</p>
+          <h2>{showReset ? 'Reset your password' : 'Welcome Back'}</h2>
+          <p>{showReset ? 'Enter your email to receive reset instructions' : 'Sign in to your account'}</p>
         </div>
 
         {showResetSuccess && !showReset && (
@@ -113,7 +112,7 @@ export default function LoginPage() {
         {!showReset ? (
           <form onSubmit={handleSubmit} className="login-form">
             <div className="field-group">
-              <label htmlFor="email">Email Address</label>
+              <label htmlFor="email">Email</label>
               <input
                 id="email"
                 type="email"
@@ -161,7 +160,7 @@ export default function LoginPage() {
               disabled={isLoading}
               className="signin-button"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
 
             <p className="register-row">
@@ -223,16 +222,16 @@ export default function LoginPage() {
     </div>
       <style jsx>{`
         .login-page {
-          width: 100%;
-          min-height: 100vh;
+          width: 100vw;
+          height: 100vh;
           margin: 0;
           padding: 0;
           background: #ffffff;
+          overflow: hidden;
         }
 
         .login-shell {
-          width: 100%;
-          min-height: 100vh;
+          width: 100vw;
           height: 100vh;
           display: grid;
           grid-template-columns: 70% 30%;
@@ -260,9 +259,8 @@ export default function LoginPage() {
           display: flex;
           flex-direction: column;
           justify-content: center;
-          min-height: 100vh;
+          height: 100vh;
           min-width: 420px;
-          border-left: 1px solid rgba(14, 36, 72, 0.12);
           overflow-y: auto;
         }
 
@@ -407,6 +405,7 @@ export default function LoginPage() {
             grid-template-rows: 40vh minmax(60vh, auto);
             min-height: 100vh;
             height: auto;
+            width: 100%;
           }
 
           .login-hero {
@@ -422,6 +421,7 @@ export default function LoginPage() {
           .login-form-panel {
             padding: 1.75rem 1.25rem;
             min-height: 60vh;
+            height: auto;
             min-width: 0;
             border-left: none;
           }
