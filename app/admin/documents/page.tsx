@@ -61,6 +61,8 @@ export default function DocumentsPage() {
   const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const DOCS_PER_PAGE = 12;
+  const [docsPage, setDocsPage] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -134,6 +136,9 @@ export default function DocumentsPage() {
   };
 
   useEffect(() => { loadDocs(); }, [tab, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setDocsPage(0);
+  }, [tab, docs.length]);
 
   useEffect(() => {
     if (!companyId || !isSupabaseConfigured) return;
@@ -306,6 +311,9 @@ export default function DocumentsPage() {
     padding: '0.75rem 1.5rem', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600' as const, cursor: 'pointer',
     backgroundColor: active ? '#1F7A3D' : 'white', color: active ? 'white' : '#6b7280',
   });
+  const totalDocsPages = Math.max(1, Math.ceil(docs.length / DOCS_PER_PAGE));
+  const safeDocsPage = Math.min(docsPage, totalDocsPages - 1);
+  const paginatedDocs = docs.slice(safeDocsPage * DOCS_PER_PAGE, (safeDocsPage + 1) * DOCS_PER_PAGE);
 
   return (
     <ProtectedRoute>
@@ -416,6 +424,7 @@ export default function DocumentsPage() {
                 <p>No documents found.</p>
               </div>
             ) : (
+              <>
               <div style={{ overflowX: 'auto', width: '100%' }}>
                 <table style={{ width: '100%', minWidth: '860px', borderCollapse: 'collapse' }}>
                   <thead>
@@ -426,10 +435,10 @@ export default function DocumentsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {docs.map((d, i) => {
+                    {paginatedDocs.map((d, i) => {
                       const sc = STATUS_COLORS[d.status] ?? STATUS_COLORS.pending;
                       return (
-                        <tr key={d.id} style={{ borderBottom: i < docs.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                        <tr key={d.id} style={{ borderBottom: i < paginatedDocs.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                           <td style={{ padding: '1rem', fontWeight: '600', color: '#1f2937' }}>{d.subject_name || '—'}</td>
                           <td style={{ padding: '1rem', color: '#6b7280' }}>{d.doc_type}</td>
                           <td style={{ padding: '1rem', color: '#6b7280' }}>{d.issued_date || '—'}</td>
@@ -460,6 +469,30 @@ export default function DocumentsPage() {
                   </tbody>
                 </table>
               </div>
+              {docs.length > DOCS_PER_PAGE && (
+                <div style={{ borderTop: '1px solid #e5e7eb', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#6b7280' }}>
+                  <span>
+                    Showing {safeDocsPage * DOCS_PER_PAGE + 1}–{Math.min((safeDocsPage + 1) * DOCS_PER_PAGE, docs.length)} of {docs.length}
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.45rem' }}>
+                    <button
+                      onClick={() => setDocsPage((prev) => Math.max(prev - 1, 0))}
+                      disabled={safeDocsPage === 0}
+                      style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeDocsPage === 0 ? '#f9fafb' : '#fff', cursor: safeDocsPage === 0 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setDocsPage((prev) => Math.min(prev + 1, totalDocsPages - 1))}
+                      disabled={safeDocsPage >= totalDocsPages - 1}
+                      style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeDocsPage >= totalDocsPages - 1 ? '#f9fafb' : '#fff', cursor: safeDocsPage >= totalDocsPages - 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </div>
         </div>

@@ -65,6 +65,8 @@ export default function InvoicesPage() {
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Paid' | 'Pending' | 'Overdue'>('All');
+  const INVOICES_PER_PAGE = 12;
+  const [invoicePage, setInvoicePage] = useState(0);
   const loadRequestRef = useRef(0);
 
   const calculateStatus = (dueDate: string, currentStatus: string): 'Paid' | 'Pending' | 'Overdue' => {
@@ -126,6 +128,17 @@ export default function InvoicesPage() {
 
     return matchesSearch && matchesStatus;
   });
+
+  useEffect(() => {
+    setInvoicePage(0);
+  }, [searchTerm, statusFilter, invoices.length]);
+
+  const totalInvoicePages = Math.max(1, Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE));
+  const safeInvoicePage = Math.min(invoicePage, totalInvoicePages - 1);
+  const paginatedInvoices = filteredInvoices.slice(
+    safeInvoicePage * INVOICES_PER_PAGE,
+    (safeInvoicePage + 1) * INVOICES_PER_PAGE,
+  );
 
   const handleMarkAsPaid = async (invoice: InvoiceListItem) => {
     if (!companyId || markingPaidId || invoice.status === 'Paid') return;
@@ -324,7 +337,7 @@ export default function InvoicesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredInvoices.map((invoice) => (
+                    {paginatedInvoices.map((invoice) => (
                       <tr
                         key={invoice.id}
                         style={{
@@ -410,6 +423,29 @@ export default function InvoicesPage() {
               </div>
             )}
           </div>
+          {!loading && filteredInvoices.length > INVOICES_PER_PAGE && (
+            <div style={{ marginTop: '0.65rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b' }}>
+              <span>
+                Showing {safeInvoicePage * INVOICES_PER_PAGE + 1}–{Math.min((safeInvoicePage + 1) * INVOICES_PER_PAGE, filteredInvoices.length)} of {filteredInvoices.length} invoices
+              </span>
+              <div style={{ display: 'flex', gap: '0.45rem' }}>
+                <button
+                  onClick={() => setInvoicePage((prev) => Math.max(prev - 1, 0))}
+                  disabled={safeInvoicePage === 0}
+                  style={{ padding: '0.32rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeInvoicePage === 0 ? '#f9fafb' : '#fff', cursor: safeInvoicePage === 0 ? 'not-allowed' : 'pointer' }}
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setInvoicePage((prev) => Math.min(prev + 1, totalInvoicePages - 1))}
+                  disabled={safeInvoicePage >= totalInvoicePages - 1}
+                  style={{ padding: '0.32rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeInvoicePage >= totalInvoicePages - 1 ? '#f9fafb' : '#fff', cursor: safeInvoicePage >= totalInvoicePages - 1 ? 'not-allowed' : 'pointer' }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Summary Stats */}
           {filteredInvoices.length > 0 && (
