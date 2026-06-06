@@ -1,5 +1,4 @@
 import { FaqSection } from './sections/FaqSection';
-import { FeaturesSection } from './sections/FeaturesSection';
 import { HeroSection } from './sections/HeroSection';
 import { LaunchSection } from './sections/LaunchSection';
 import { MarketingFooter } from './sections/MarketingFooter';
@@ -18,10 +17,9 @@ export function LandingPage() {
       <HeroSection />
       <TrustBarSection />
       <RolesSection />
-      <PlatformModulesSection />
       <WorkflowSection />
       <WhyExistsSection />
-      <FeaturesSection />
+      <PlatformModulesSection />
       <PlatformPreviewSection />
       <LaunchSection />
       <FaqSection />
