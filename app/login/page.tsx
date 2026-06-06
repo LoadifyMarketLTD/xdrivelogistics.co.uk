@@ -83,19 +83,11 @@ export default function LoginPage() {
   const showResetSuccess = searchParams.get('reset') === 'success';
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#0a1324',
-        padding: '1rem',
-      }}
-    >
+    <div className="login-page">
       <div className="login-shell">
         <div className="login-hero" aria-hidden="true" />
         <div className="login-form-panel">
+        <div className="login-form-inner">
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ marginBottom: '1rem' }}>
             <Image src="/xdrive-logo.svg" alt="XDrive Logistics" width={180} height={40} priority style={{ width: 'auto', height: '40px' }} />
@@ -349,25 +341,31 @@ export default function LoginPage() {
           </form>
         )}
         </div>
+        </div>
       </div>
       <style jsx>{`
+        .login-page {
+          width: 100vw;
+          min-height: 100vh;
+          margin: 0;
+          padding: 0;
+          background: #ffffff;
+        }
+
         .login-shell {
           width: 100%;
-          max-width: 1180px;
-          min-height: 720px;
-          border-radius: 16px;
-          overflow: hidden;
+          min-height: 100vh;
           display: grid;
-          grid-template-columns: 1.25fr 0.95fr;
-          box-shadow: 0 20px 45px rgba(4, 10, 24, 0.45);
+          grid-template-columns: 70% 30%;
           background: #ffffff;
         }
 
         .login-hero {
           background-image: linear-gradient(180deg, rgba(10, 22, 45, 0.12) 0%, rgba(10, 22, 45, 0.58) 100%), url('/xdrive-login-banner.png');
           background-size: cover;
-          background-position: center;
+          background-position: left center;
           background-repeat: no-repeat;
+          min-height: 100vh;
         }
 
         .login-form-panel {
@@ -376,13 +374,24 @@ export default function LoginPage() {
           display: flex;
           flex-direction: column;
           justify-content: center;
+          min-height: 100vh;
+          border-left: 1px solid rgba(14, 36, 72, 0.08);
+          overflow-y: auto;
+        }
+
+        .login-form-inner {
+          width: 100%;
+          max-width: 480px;
+          margin: 0 auto;
         }
 
         @media (max-width: 960px) {
+          .login-page {
+            width: 100%;
+          }
+
           .login-shell {
-            min-height: auto;
             grid-template-columns: 1fr;
-            max-width: 430px;
           }
 
           .login-hero {
@@ -391,6 +400,12 @@ export default function LoginPage() {
 
           .login-form-panel {
             padding: 2rem;
+            min-height: 100vh;
+            border-left: none;
+          }
+
+          .login-form-inner {
+            max-width: 430px;
           }
         }
       `}</style>
