@@ -16,7 +16,6 @@ export const navLinks = [
   { label: 'Platform', href: '#platform' },
   { label: 'Solutions', href: '#solutions' },
   { label: 'How It Works', href: '#how-it-works' },
-  { label: 'Industries', href: '#industries' },
   { label: 'Resources', href: '#resources' },
   { label: 'Contact', href: '#contact' },
 ] as const;
@@ -44,8 +43,8 @@ export const roleCards: ReadonlyArray<{
     title: 'Transport Customers',
     subtitle: 'Submit transport requirements and follow job progress from request to completion.',
     image:
-      'https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
-    imageAlt: 'Warehouse team loading pallets for outbound delivery',
+      'https://images.unsplash.com/photo-1553341640-9b68f04df073?auto=format&fit=crop&w=800&h=600&q=75&fm=webp',
+    imageAlt: 'Warehouse interior with forklifts and pallets ready for dispatch',
     tone: 'blue',
     visualLabel: 'Customer workflow',
   },
@@ -54,8 +53,8 @@ export const roleCards: ReadonlyArray<{
     title: 'Courier Companies',
     subtitle: 'Coordinate jobs, vehicles, drivers, PODs and operational records from one workspace.',
     image:
-      'https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
-    imageAlt: 'Transport planning team coordinating dispatch operations',
+      'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&h=600&q=75&fm=webp',
+    imageAlt: 'Transport operations coordinator managing dispatch on screens',
     tone: 'slate',
     visualLabel: 'Operations workspace',
   },
@@ -64,8 +63,8 @@ export const roleCards: ReadonlyArray<{
     title: 'Owner Operators',
     subtitle: 'Access suitable loads, manage quotes and keep delivery records organised.',
     image:
-      'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
-    imageAlt: 'Owner operator preparing a courier vehicle for loading',
+      'https://images.unsplash.com/photo-1494412651409-8963ce7935a7?auto=format&fit=crop&w=800&h=600&q=75&fm=webp',
+    imageAlt: 'White delivery van ready for loading at a logistics depot',
     tone: 'amber',
     visualLabel: 'Fleet readiness',
   },
@@ -74,8 +73,8 @@ export const roleCards: ReadonlyArray<{
     title: 'Drivers',
     subtitle: 'Receive assigned jobs, update progress and upload POD from a mobile-first workflow.',
     image:
-      'https://images.unsplash.com/photo-1556740762-16b083a5cc2d?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
-    imageAlt: 'Driver using a mobile device to manage proof of delivery',
+      'https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?auto=format&fit=crop&w=800&h=600&q=75&fm=webp',
+    imageAlt: 'Driver checking mobile device for job details and delivery updates',
     tone: 'emerald',
     visualLabel: 'Driver mobile',
   },
@@ -85,51 +84,51 @@ export const platformModules = [
   {
     key: 'marketplace',
     title: 'Marketplace',
-    summary: 'Loads, quotes, bids and route visibility.',
+    summary: 'Browse available loads, submit quotes and manage bids from one central marketplace workspace.',
     bullets: ['Loads', 'Quotes', 'Bids', 'Route visibility'],
     image:
-      'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
-    imageAlt: 'Forklift loading pallets into a trailer in a warehouse',
+      'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1200&h=700&q=70&fm=webp',
+    imageAlt: 'Logistics operations team coordinating freight dispatch from a central workspace',
     icon: Route,
   },
   {
     key: 'operations',
     title: 'Operations Diary',
-    summary: 'Collections, deliveries, status updates and exceptions.',
+    summary: 'Collections, deliveries, status updates and exceptions managed from one operational diary.',
     bullets: ['Collections', 'Deliveries', 'Status updates', 'Exceptions'],
     image:
-      'https://images.unsplash.com/photo-1517935706615-2717063c2225?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
-    imageAlt: 'Logistics dispatch office team coordinating operations',
+      'https://images.unsplash.com/photo-1553341640-9b68f04df073?auto=format&fit=crop&w=1200&h=700&q=70&fm=webp',
+    imageAlt: 'Warehouse operations with forklifts and pallets being coordinated for dispatch',
     icon: ClipboardCheck,
   },
   {
     key: 'driver',
     title: 'Driver Workspace',
-    summary: 'Assigned jobs, mobile updates and POD workflow.',
+    summary: 'Assigned jobs, mobile updates and POD workflow for drivers on the go.',
     bullets: ['Assigned jobs', 'Mobile updates', 'POD workflow'],
     image:
-      'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
-    imageAlt: 'Driver inside van cab using navigation and mobile workflow',
+      'https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?auto=format&fit=crop&w=1200&h=700&q=70&fm=webp',
+    imageAlt: 'Driver checking mobile phone for job assignments and delivery status updates',
     icon: UserRound,
   },
   {
     key: 'fleet',
     title: 'Fleet Management',
-    summary: 'Vehicles, drivers, availability and compliance records.',
+    summary: 'Vehicles, drivers, availability and compliance records managed in one place.',
     bullets: ['Vehicles', 'Drivers', 'Availability', 'Compliance records'],
     image:
-      'https://images.unsplash.com/photo-1465101178521-c1a9136a3a16?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
-    imageAlt: 'Commercial delivery fleet parked in a depot yard',
+      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=700&q=70&fm=webp',
+    imageAlt: 'Fleet of delivery vans lined up at a transport depot ready for dispatch',
     icon: Truck,
   },
   {
     key: 'finance',
     title: 'Finance',
-    summary: 'Invoices, POD verification and payment status tracking.',
+    summary: 'Invoices, POD verification and payment status tracking for every completed job.',
     bullets: ['Invoices', 'POD verification', 'Payment status'],
     image:
-      'https://images.unsplash.com/photo-1515168833906-d2a3b82b3029?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
-    imageAlt: 'Transport administration and finance desk with operational records',
+      'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&h=700&q=70&fm=webp',
+    imageAlt: 'Transport administrator reviewing financial records and invoice documentation',
     icon: CircleDollarSign,
   },
 ] as const;
@@ -223,19 +222,23 @@ export const faqs = [
     a: 'XDrive is an early-access UK logistics platform being built to connect transport customers, courier companies, owner operators and drivers in one workflow.',
   },
   {
+    q: 'Can owner-drivers join?',
+    a: 'Yes. Owner operators and owner-drivers can request early access for selected workflow testing.',
+  },
+  {
     q: 'Who can use XDrive?',
     a: 'Transport customers, courier companies, owner operators and drivers can request access based on the workflows being tested.',
+  },
+  {
+    q: 'How do I request early access?',
+    a: 'Use Join Early Access to submit your details, or request a demo and our team will follow up.',
   },
   {
     q: 'Is XDrive live now?',
     a: 'XDrive is currently in early-access/MVP development. Selected users may be invited to test workflows before wider launch.',
   },
   {
-    q: 'Can owner-drivers join?',
-    a: 'Yes. Owner operators and owner-drivers can request early access for selected workflow testing.',
-  },
-  {
-    q: 'How do I request early access?',
-    a: 'Use Join Early Access to submit your details, or request a demo and our team will follow up.',
+    q: 'Is there a cost during early access?',
+    a: 'Early access is provided at no cost. Pricing will be confirmed before the full commercial release.',
   },
 ] as const;
