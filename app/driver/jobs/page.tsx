@@ -947,13 +947,18 @@ export default function DriverJobsPage() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: '130px' }}>
                         {job.status === 'allocated' && (
                           <>
-                            <button onClick={() => void updateJobStatus(job, 'in_transit')} disabled={actionLoading} style={buildActionStyle(actionLoading, true)}>
+                            <button onClick={() => void updateJobStatus(job, 'collected')} disabled={actionLoading} style={buildActionStyle(actionLoading, true)}>
                               Mark Collected
                             </button>
                             <button onClick={() => void handleDeclineJob()} disabled={job.id !== currentJob?.id || actionLoading} style={buildActionStyle(job.id !== currentJob?.id || actionLoading)}>
                               Decline
                             </button>
                           </>
+                        )}
+                        {job.status === 'collected' && (
+                          <button onClick={() => void updateJobStatus(job, 'in_transit')} disabled={actionLoading} style={buildActionStyle(actionLoading, true)}>
+                            Mark In Transit
+                          </button>
                         )}
                         {job.status === 'in_transit' && (
                           <button onClick={() => void updateJobStatus(job, 'delivered')} disabled={actionLoading} style={buildActionStyle(actionLoading, true)}>
@@ -1038,11 +1043,18 @@ export default function DriverJobsPage() {
                     Decline Job
                   </button>
                   <button
-                    onClick={() => void updateJobStatus(currentJob, 'in_transit')}
+                    onClick={() => void updateJobStatus(currentJob, 'collected')}
                     disabled={!currentJob || currentJob.status !== 'allocated' || actionLoading}
                     style={buildActionStyle(!currentJob || currentJob.status !== 'allocated' || actionLoading)}
                   >
                     Mark Collected
+                  </button>
+                  <button
+                    onClick={() => void updateJobStatus(currentJob, 'in_transit')}
+                    disabled={!currentJob || currentJob.status !== 'collected' || actionLoading}
+                    style={buildActionStyle(!currentJob || currentJob.status !== 'collected' || actionLoading)}
+                  >
+                    Mark In Transit
                   </button>
                   <button
                     onClick={() => void updateJobStatus(currentJob, 'delivered')}

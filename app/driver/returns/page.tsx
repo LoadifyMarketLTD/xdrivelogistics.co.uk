@@ -13,11 +13,14 @@ type DriverRow = {
   id: string;
   future_position?: string | null;
   future_position_date?: string | null;
-  return_journey_from?: string | null;
-  return_journey_to?: string | null;
-  return_journey_date?: string | null;
   availability_status?: string | null;
   status?: string | null;
+};
+
+type ReturnJourneyRow = {
+  from_postcode: string | null;
+  to_postcode: string | null;
+  available_from: string | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,6 +71,7 @@ export default function ReturnJourneysPage() {
   // Future position form
   const [futurePosition, setFuturePosition] = useState('');
   const [futureDate, setFutureDate] = useState('');
+  const [currentReturnJourney, setCurrentReturnJourney] = useState<ReturnJourneyRow | null>(null);
 
   const loadDriver = useCallback(async () => {
     if (!driverId || !isSupabaseConfigured) {
@@ -77,7 +81,7 @@ export default function ReturnJourneysPage() {
     setLoading(true);
     const { data, error: fetchError } = await supabase
       .from('drivers')
-      .select('id, future_position, future_position_date, return_journey_from, return_journey_to, return_journey_date, availability_status, status')
+      .select('id, future_position, future_position_date, availability_status, status')
       .eq('id', driverId)
       .maybeSingle();
 
@@ -93,7 +97,6 @@ export default function ReturnJourneysPage() {
       const row = (data ?? null) as DriverRow | null;
       setDriver(row);
 
-      // Prefer return_journeys table as canonical source
       const { data: rjRow } = await supabase
         .from('return_journeys')
         .select('from_postcode, to_postcode, available_from')
@@ -104,15 +107,16 @@ export default function ReturnJourneysPage() {
         .maybeSingle();
 
       if (rjRow) {
-        const rj = rjRow as { from_postcode?: string | null; to_postcode?: string | null; available_from?: string | null };
-        if (rj.from_postcode) setReturnFrom(rj.from_postcode);
-        if (rj.to_postcode)   setReturnTo(rj.to_postcode);
-        if (rj.available_from) setReturnDate(rj.available_from.slice(0, 16));
+        const rj = rjRow as ReturnJourneyRow;
+        setCurrentReturnJourney(rj);
+        setReturnFrom(rj.from_postcode ?? '');
+        setReturnTo(rj.to_postcode ?? '');
+        setReturnDate(rj.available_from ? rj.available_from.slice(0, 16) : '');
       } else {
-        // Fall back to legacy drivers columns
-        if (row?.return_journey_from) setReturnFrom(row.return_journey_from);
-        if (row?.return_journey_to)   setReturnTo(row.return_journey_to);
-        if (row?.return_journey_date) setReturnDate(row.return_journey_date.slice(0, 16));
+        setCurrentReturnJourney(null);
+        setReturnFrom('');
+        setReturnTo('');
+        setReturnDate('');
       }
 
       if (row?.future_position)      setFuturePosition(row.future_position);
@@ -167,22 +171,8 @@ export default function ReturnJourneysPage() {
       }
     }
 
-    // ── 2. Mirror to drivers flat columns (backward compat) ─────────────────────
-    const legacyUpdate: Record<string, unknown> = {
-      return_journey_from: returnFrom || null,
-      return_journey_to:   returnTo   || null,
-      return_journey_date: returnDate || null,
-    };
-
-    const { error: saveErr } = await supabase.from('drivers').update(legacyUpdate).eq('id', driverId);
-    if (saveErr && !getMissingColumnFromError(saveErr, 'drivers')) {
-      // Column missing is acceptable; any other error is not
-      setError(`Failed to sync legacy fields: ${saveErr.message}`);
-      setSaving(false);
-      return;
-    }
-
     setSuccessMsg('✅ Return journey saved.');
+    await loadDriver();
     setTimeout(() => setSuccessMsg(''), 4000);
     setSaving(false);
   };
@@ -267,16 +257,16 @@ export default function ReturnJourneysPage() {
             )}
 
             {/* Current saved value */}
-            {driver?.return_journey_from && (
+            {currentReturnJourney?.from_postcode && (
               <div style={{ marginTop: '0.9rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '7px', padding: '0.7rem' }}>
                 <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#15803d', marginBottom: '0.25rem', textTransform: 'uppercase' }}>Current declaration</div>
                 <div style={{ fontSize: '0.84rem', color: '#0f172a' }}>
-                  {driver.return_journey_from}
-                  {driver.return_journey_to ? ` → ${driver.return_journey_to}` : ''}
+                  {currentReturnJourney.from_postcode}
+                  {currentReturnJourney.to_postcode ? ` → ${currentReturnJourney.to_postcode}` : ''}
                 </div>
-                {driver.return_journey_date && (
+                {currentReturnJourney.available_from && (
                   <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.2rem' }}>
-                    Available from: {new Date(driver.return_journey_date).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    Available from: {new Date(currentReturnJourney.available_from).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </div>
                 )}
               </div>

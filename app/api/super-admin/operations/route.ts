@@ -142,8 +142,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  if (!['jobs', 'allocations', 'deliveries', 'pods', 'active-jobs', 'pending-jobs', 'completed-jobs', 'driver-availability', 'disputes'].includes(section)) {
-    return respond(400, { error: 'Invalid section. Use jobs, quotes, allocations, deliveries, pods, active-jobs, pending-jobs, completed-jobs, driver-availability, or disputes.' });
+  if (!['jobs', 'allocations', 'deliveries', 'pods', 'active-jobs', 'pending-jobs', 'completed-jobs', 'driver-availability', 'fleet-positions', 'disputes'].includes(section)) {
+    return respond(400, { error: 'Invalid section. Use jobs, quotes, allocations, deliveries, pods, active-jobs, pending-jobs, completed-jobs, driver-availability, fleet-positions, or disputes.' });
   }
 
   // ── driver-availability section ───────────────────────────────────────────────
