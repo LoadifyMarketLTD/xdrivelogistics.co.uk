@@ -100,10 +100,10 @@ export default function Page() {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
         }),
       ] : [
-        Promise.resolve({ value: { service: 'Stats API', status: 'error' as const, detail: 'No session' } }),
-        Promise.resolve({ value: { service: 'Operations API', status: 'error' as const, detail: 'No session' } }),
-        Promise.resolve({ value: { service: 'Finance API', status: 'error' as const, detail: 'No session' } }),
-        Promise.resolve({ value: { service: 'Compliance API', status: 'error' as const, detail: 'No session' } }),
+        Promise.resolve({ service: 'Stats API', status: 'error' as const, detail: 'No session' }),
+        Promise.resolve({ service: 'Operations API', status: 'error' as const, detail: 'No session' }),
+        Promise.resolve({ service: 'Finance API', status: 'error' as const, detail: 'No session' }),
+        Promise.resolve({ service: 'Compliance API', status: 'error' as const, detail: 'No session' }),
       ]),
     ]);
 

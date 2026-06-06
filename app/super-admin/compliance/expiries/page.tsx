@@ -50,7 +50,7 @@ export default function Page() {
         {
           key: 'status',
           label: 'Doc Status',
-          render: (row) => <StatusChip status={row.status} />,
+          render: (row) => <StatusChip value={row.status} />,
         },
         {
           key: 'expiry_date',

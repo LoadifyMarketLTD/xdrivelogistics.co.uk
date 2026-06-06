@@ -20,6 +20,25 @@ const verifyOwner = async (request: NextRequest) => {
 };
 
 type CompanyRow = { id: string; name: string };
+type DisputeRow = {
+  id: string;
+  invoice_id: string | null;
+  company_id: string | null;
+  reason: string;
+  details: string | null;
+  status: string;
+  resolution_note: string | null;
+  created_at: string;
+  resolved_at: string | null;
+};
+type ReviewRow = {
+  id: string;
+  company_id: string | null;
+  reviewer_id: string | null;
+  rating: number | null;
+  comment: string | null;
+  created_at: string;
+};
 
 const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
   if (!supabaseAdmin || ids.length === 0) return new Map();
@@ -48,7 +67,7 @@ export async function GET(request: NextRequest) {
       .limit(limit);
     if (error) return respond(500, { error: error.message });
 
-    const rows = data ?? [];
+    const rows = (data as DisputeRow[] | null) ?? [];
     const nameById = await companyNameMap(
       Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
     );
@@ -75,8 +94,7 @@ export async function GET(request: NextRequest) {
       .from('reviews')
       .select('id, company_id, reviewer_id, rating, comment, created_at')
       .order('created_at', { ascending: false })
-      .limit(limit)
-      .catch(() => ({ data: null, error: { message: 'reviews table not available' } }));
+      .limit(limit);
 
     if (error) {
       // reviews table may not exist yet; return graceful empty response
@@ -88,7 +106,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const rows = data ?? [];
+    const rows = (data as ReviewRow[] | null) ?? [];
     const nameById = await companyNameMap(
       Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
     );
@@ -114,12 +132,11 @@ export async function GET(request: NextRequest) {
 
   // ── Tickets ───────────────────────────────────────────────────────────────────
   if (section === 'tickets') {
-    // No support tickets table yet — return informative empty response
     return respond(200, {
       section,
       rows: [],
       summary: { total: 0, open: 0, resolved: 0 },
-      note: 'Support ticket system not yet configured. Tickets will appear here once the ticketing integration is active.',
+      note: 'No support tickets available.',
     });
   }
 
