@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [resetMessage, setResetMessage] = useState('');
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [heroImageSrc, setHeroImageSrc] = useState('https://github.com/user-attachments/assets/cfea874b-33aa-4821-9b8f-0f8d1602cd9d');
   const { login, resetPassword, user, isLoading: authLoading } = useAuth();
   const nextPath = searchParams.get('next');
   const safeNextPath = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : null;
@@ -81,59 +82,23 @@ export default function LoginPage() {
   };
 
   const showResetSuccess = searchParams.get('reset') === 'success';
-  const marketingHighlights = [
-    'Built by logistics professionals',
-    'Secure. Compliant. Reliable.',
-    'Designed for real-world operations',
-  ];
-  const platformStats = [
-    { value: '15K+', label: 'Jobs Managed' },
-    { value: '2K+', label: 'Active Users' },
-    { value: '98%', label: 'On-Time Delivery' },
-    { value: '100%', label: 'POD Accuracy' },
-  ];
 
   return (
     <div className="login-page">
       <div className="login-shell">
         <section className="login-hero" aria-label="XDrive logistics platform introduction">
-          <div className="login-hero-overlay">
-            <div className="login-hero-top">
-              <Image src="/xdrive-logo.svg" alt="XDrive Logistics" width={168} height={40} priority />
-            </div>
-
-            <div className="login-hero-content">
-              <p className="login-hero-pill">UK Logistics Technology Platform</p>
-              <h1 className="login-hero-title">
-                Move Freight.
-                <br />
-                Manage Operations.
-                <br />
-                <span>Grow Your Network.</span>
-              </h1>
-              <p className="login-hero-description">
-                XDrive is an early-access logistics platform connecting transport customers, courier companies, owner
-                operators and drivers in one operational workflow.
-              </p>
-              <ul className="login-hero-highlights">
-                {marketingHighlights.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="login-hero-stats">
-              {platformStats.map((stat) => (
-                <div key={stat.label} className="login-hero-stat">
-                  <strong>{stat.value}</strong>
-                  <span>{stat.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <img
+            src={heroImageSrc}
+            alt="XDrive Logistics hero"
+            className="login-hero-image"
+            onError={() => setHeroImageSrc('/xdrive-login-banner.png')}
+          />
         </section>
         <aside className="login-form-panel">
         <div className="login-form-inner">
+        <div className="login-logo-row">
+          <Image src="/xdrive-logo.svg" alt="XDrive Logistics" width={168} height={40} priority />
+        </div>
         <div className="login-form-header">
           <h2>{showReset ? 'Reset your password' : 'Welcome back'}</h2>
           <p>{showReset ? 'Enter your email to receive reset instructions' : `Sign in to your ${COMPANY_CONFIG.name} account`}</p>
@@ -205,19 +170,6 @@ export default function LoginPage() {
                 Register
               </Link>
             </p>
-
-            <div className="continue-row">
-              <span />
-              <p>or continue with</p>
-              <span />
-            </div>
-
-            <div className="oauth-row">
-              <button type="button" className="oauth-button">Sign in with Google</button>
-              <button type="button" className="oauth-button">Sign in with Microsoft</button>
-            </div>
-
-            <p className="secure-note">Your data is secure and encrypted</p>
           </form>
         ) : (
           <form onSubmit={handleResetPassword} className="login-form">
@@ -275,152 +227,67 @@ export default function LoginPage() {
           min-height: 100vh;
           margin: 0;
           padding: 0;
-          background: #031f46;
+          background: #ffffff;
         }
 
         .login-shell {
           width: 100%;
-          height: 100vh;
           min-height: 100vh;
+          height: 100vh;
           display: grid;
           grid-template-columns: 70% 30%;
         }
 
         .login-hero {
-          position: relative;
-          isolation: isolate;
-          background-image: linear-gradient(140deg, rgba(2, 33, 77, 0.72) 0%, rgba(4, 40, 90, 0.55) 38%, rgba(3, 22, 50, 0.35) 70%, rgba(2, 15, 35, 0.35) 100%), url('/xdrive-login-banner.png');
-          background-size: cover;
-          background-position: center;
-          background-repeat: no-repeat;
+          width: 100%;
           min-height: 100vh;
+          height: 100%;
+          overflow: hidden;
         }
 
-        .login-hero-overlay {
+        .login-hero-image {
+          width: 100%;
+          height: 100%;
           min-height: 100vh;
-          padding: 2.25rem 3rem 2rem;
-          display: flex;
-          flex-direction: column;
-          color: #ffffff;
-        }
-
-        .login-hero-top {
-          margin-bottom: 2.75rem;
-        }
-
-        .login-hero-content {
-          max-width: 560px;
-        }
-
-        .login-hero-pill {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.35rem 0.95rem;
-          margin-bottom: 1.5rem;
-          border: 1px solid rgba(163, 196, 255, 0.45);
-          border-radius: 999px;
-          font-size: 0.95rem;
-          background: rgba(15, 65, 132, 0.28);
-        }
-
-        .login-hero-title {
-          margin: 0;
-          font-size: clamp(2.3rem, 3.45vw, 4rem);
-          line-height: 1.1;
-          color: #ffffff;
-          letter-spacing: -0.02em;
-        }
-
-        .login-hero-title span {
-          color: #f2c24b;
-        }
-
-        .login-hero-description {
-          max-width: 520px;
-          margin: 1.5rem 0 1.8rem;
-          color: rgba(236, 245, 255, 0.94);
-          font-size: 1.05rem;
-          line-height: 1.65;
-        }
-
-        .login-hero-highlights {
-          display: grid;
-          gap: 0.85rem;
-          margin: 0;
-          padding: 0;
-          list-style: none;
-        }
-
-        .login-hero-highlights li {
-          padding: 0;
-          color: #f4f8ff;
-          font-size: 1.02rem;
-          line-height: 1.35;
-        }
-
-        .login-hero-highlights li::before {
-          content: '•';
-          margin-right: 0.6rem;
-          color: #f2c24b;
-        }
-
-        .login-hero-stats {
-          margin-top: auto;
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 0.7rem;
-        }
-
-        .login-hero-stat {
-          padding: 0.8rem 0.95rem;
-          border: 1px solid rgba(173, 206, 255, 0.2);
-          background: rgba(1, 24, 58, 0.44);
-          border-radius: 0.75rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-        }
-
-        .login-hero-stat strong {
-          font-size: clamp(1.4rem, 2vw, 2.1rem);
-          color: #ffffff;
-          line-height: 1.05;
-        }
-
-        .login-hero-stat span {
-          color: rgba(219, 234, 255, 0.92);
-          font-size: 0.9rem;
+          object-fit: cover;
+          object-position: center;
+          display: block;
         }
 
         .login-form-panel {
           background: #ffffff;
-          padding: 2rem 2.4rem;
+          padding: 2rem 2.2rem;
           display: flex;
           flex-direction: column;
           justify-content: center;
           min-height: 100vh;
+          min-width: 420px;
           border-left: 1px solid rgba(14, 36, 72, 0.12);
           overflow-y: auto;
         }
 
         .login-form-inner {
           width: 100%;
-          max-width: 460px;
+          max-width: 440px;
           margin: 0 auto;
+        }
+
+        .login-logo-row {
+          margin-bottom: 1.5rem;
         }
 
         .login-form-header h2 {
           margin: 0 0 0.6rem;
           color: #111827;
-          font-size: clamp(2rem, 2.15vw, 2.6rem);
+          font-size: clamp(1.9rem, 2vw, 2.4rem);
           line-height: 1.05;
           letter-spacing: -0.02em;
         }
 
         .login-form-header p {
-          margin: 0 0 2rem;
+          margin: 0 0 1.7rem;
           color: #4b5563;
-          font-size: 1.08rem;
+          font-size: 1rem;
           line-height: 1.4;
         }
 
@@ -483,7 +350,7 @@ export default function LoginPage() {
           padding: 0.92rem 1rem;
           background: #1d64d8;
           color: #ffffff;
-          font-size: 1.55rem;
+          font-size: 1.15rem;
           font-weight: 600;
           cursor: pointer;
           transition: background-color 0.2s ease;
@@ -509,49 +376,6 @@ export default function LoginPage() {
           font-weight: 600;
         }
 
-        .continue-row {
-          margin-top: 0.2rem;
-          display: grid;
-          grid-template-columns: 1fr auto 1fr;
-          align-items: center;
-          gap: 0.8rem;
-        }
-
-        .continue-row span {
-          height: 1px;
-          background: #e5e7eb;
-        }
-
-        .continue-row p {
-          margin: 0;
-          color: #6b7280;
-          font-size: 1rem;
-        }
-
-        .oauth-row {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.7rem;
-        }
-
-        .oauth-button {
-          border: 1px solid #d5dae3;
-          background: #ffffff;
-          border-radius: 0.7rem;
-          padding: 0.85rem 0.6rem;
-          color: #111827;
-          font-size: 0.95rem;
-          font-weight: 500;
-          cursor: pointer;
-        }
-
-        .secure-note {
-          margin: 0.4rem 0 0;
-          text-align: center;
-          color: #4b5563;
-          font-size: 0.96rem;
-        }
-
         .login-message {
           padding: 0.75rem;
           border-radius: 0.55rem;
@@ -571,20 +395,34 @@ export default function LoginPage() {
           border-color: #bbf7d0;
         }
 
+        @media (max-width: 1400px) and (min-width: 961px) {
+          .login-shell {
+            grid-template-columns: 60% 40%;
+          }
+        }
+
         @media (max-width: 960px) {
           .login-shell {
             grid-template-columns: 1fr;
+            grid-template-rows: 40vh minmax(60vh, auto);
             min-height: 100vh;
             height: auto;
           }
 
           .login-hero {
-            display: none;
+            min-height: 0;
+            height: 40vh;
+          }
+
+          .login-hero-image {
+            min-height: 0;
+            height: 100%;
           }
 
           .login-form-panel {
             padding: 1.75rem 1.25rem;
-            min-height: 100vh;
+            min-height: 60vh;
+            min-width: 0;
             border-left: none;
           }
 
@@ -598,10 +436,6 @@ export default function LoginPage() {
 
           .signin-button {
             font-size: 1.35rem;
-          }
-
-          .oauth-row {
-            grid-template-columns: 1fr;
           }
         }
       `}</style>
