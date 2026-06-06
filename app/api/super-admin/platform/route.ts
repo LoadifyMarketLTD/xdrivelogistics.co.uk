@@ -95,9 +95,11 @@ export async function GET(request: NextRequest) {
 
   // ── Notifications ─────────────────────────────────────────────────────────────
   if (section === 'notifications') {
+    // The notifications table uses `body` (not `message`) and `read_at`
+    // (timestamptz, NULL = unread) rather than a boolean `read` column.
     const { data, error } = await supabaseAdmin
       .from('notifications')
-      .select('id, user_id, type, title, message, read, created_at, metadata')
+      .select('id, user_id, type, title, body, read_at, created_at')
       .order('created_at', { ascending: false })
       .limit(200);
 
@@ -110,7 +112,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const rows = data ?? [];
+    const rows = (data ?? []).map((r) => ({
+      id: r.id,
+      user_id: r.user_id,
+      type: r.type,
+      title: r.title,
+      message: (r.body as string | null) ?? '',
+      read: r.read_at !== null,
+      created_at: r.created_at,
+    }));
+
     return respond(200, {
       section,
       rows,
