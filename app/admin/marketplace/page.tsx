@@ -145,6 +145,8 @@ export default function MarketplacePage() {
   const [bids, setBids] = useState<BidRow[]>([]);
   const [bidsLoading, setBidsLoading] = useState(false);
   const [bidsError, setBidsError] = useState('');
+  const BIDS_PER_PAGE = 12;
+  const [bidsPage, setBidsPage] = useState(0);
 
   // Won Jobs state
   const [wonJobs, setWonJobs] = useState<WonJob[]>([]);
@@ -381,6 +383,12 @@ export default function MarketplacePage() {
     { id: 'bids',  label: 'My Bids',  count: bids.length  },
     { id: 'won',   label: 'Won Work', count: wonJobs.length },
   ];
+  useEffect(() => {
+    setBidsPage(0);
+  }, [tab, bids.length]);
+  const totalBidsPages = Math.max(1, Math.ceil(bids.length / BIDS_PER_PAGE));
+  const safeBidsPage = Math.min(bidsPage, totalBidsPages - 1);
+  const paginatedBids = bids.slice(safeBidsPage * BIDS_PER_PAGE, (safeBidsPage + 1) * BIDS_PER_PAGE);
 
   return (
     <ProtectedRoute allowedRoles={['owner', 'broker', 'company_admin', 'company_staff']}>
@@ -536,12 +544,12 @@ export default function MarketplacePage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {bids.map((bid, i) => {
+                          {paginatedBids.map((bid, i) => {
                             const job = bid.jobs;
                             const bStyle = BID_STATUS_STYLE[bid.status] ?? BID_STATUS_STYLE.submitted;
                             const bAmount = resolveBidAmountGbp(bid);
                             return (
-                              <tr key={bid.id} style={{ borderBottom: i < bids.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                              <tr key={bid.id} style={{ borderBottom: i < paginatedBids.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
                                 <td style={{ padding: '0.7rem 0.85rem' }}>
                                   <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>
                                     {job?.pickup_location || '—'} → {job?.delivery_location || '—'}
@@ -577,6 +585,29 @@ export default function MarketplacePage() {
                         </tbody>
                       </table>
                     </div>
+                    {bids.length > BIDS_PER_PAGE && (
+                      <div style={{ borderTop: '1px solid #e2e8f0', padding: '0.6rem 0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#64748b' }}>
+                        <span>
+                          Showing {safeBidsPage * BIDS_PER_PAGE + 1}–{Math.min((safeBidsPage + 1) * BIDS_PER_PAGE, bids.length)} of {bids.length}
+                        </span>
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <button
+                            onClick={() => setBidsPage((prev) => Math.max(prev - 1, 0))}
+                            disabled={safeBidsPage === 0}
+                            style={{ padding: '0.28rem 0.65rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeBidsPage === 0 ? '#f8fafc' : '#fff', cursor: safeBidsPage === 0 ? 'not-allowed' : 'pointer' }}
+                          >
+                            Previous
+                          </button>
+                          <button
+                            onClick={() => setBidsPage((prev) => Math.min(prev + 1, totalBidsPages - 1))}
+                            disabled={safeBidsPage >= totalBidsPages - 1}
+                            style={{ padding: '0.28rem 0.65rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeBidsPage >= totalBidsPages - 1 ? '#f8fafc' : '#fff', cursor: safeBidsPage >= totalBidsPages - 1 ? 'not-allowed' : 'pointer' }}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

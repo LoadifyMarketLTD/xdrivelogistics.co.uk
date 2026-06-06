@@ -30,6 +30,8 @@ export default function VehiclesPage() {
   const [editError, setEditError] = useState('');
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const VEHICLES_PER_PAGE = 12;
+  const [vehiclePage, setVehiclePage] = useState(0);
 
   const loadVehicles = async () => {
     setLoading(true);
@@ -145,6 +147,9 @@ export default function VehiclesPage() {
     if (drivers.some((driver) => driver.id === formData.assigned_driver_id)) return;
     setFormData((prev) => ({ ...prev, assigned_driver_id: '' }));
   }, [drivers, formData.assigned_driver_id]);
+  useEffect(() => {
+    setVehiclePage(0);
+  }, [vehicles.length]);
 
   const handleCreate = async () => {
     if (!companyId) { setError('Company is required'); return; }
@@ -262,6 +267,12 @@ export default function VehiclesPage() {
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleDateString();
   };
+  const totalVehiclePages = Math.max(1, Math.ceil(vehicles.length / VEHICLES_PER_PAGE));
+  const safeVehiclePage = Math.min(vehiclePage, totalVehiclePages - 1);
+  const paginatedVehicles = vehicles.slice(
+    safeVehiclePage * VEHICLES_PER_PAGE,
+    (safeVehiclePage + 1) * VEHICLES_PER_PAGE,
+  );
 
   return (
     <ProtectedRoute>
@@ -302,6 +313,7 @@ export default function VehiclesPage() {
                 <p>No vehicles yet. Add your first vehicle.</p>
               </div>
             ) : (
+              <>
               <div style={{ overflowX: 'auto', width: '100%' }}>
                 <table style={{ width: '100%', minWidth: '1120px', borderCollapse: 'collapse' }}>
                   <thead>
@@ -312,10 +324,10 @@ export default function VehiclesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {vehicles.map((v, i) => {
+                    {paginatedVehicles.map((v, i) => {
                       const assignedDriver = drivers.find(d => d.id === v.assigned_driver_id);
                       return (
-                        <tr key={v.id} style={{ borderBottom: i < vehicles.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                        <tr key={v.id} style={{ borderBottom: i < paginatedVehicles.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                           <td style={{ padding: '0.8rem', fontWeight: '600', color: '#1f2937' }}>{v.reg_plate || '—'}</td>
                           <td style={{ padding: '0.8rem', color: '#6b7280' }}>{v.type.replace(/_/g, ' ')}</td>
                           <td style={{ padding: '0.8rem', color: '#6b7280' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
@@ -346,6 +358,30 @@ export default function VehiclesPage() {
                   </tbody>
                 </table>
               </div>
+              {vehicles.length > VEHICLES_PER_PAGE && (
+                <div style={{ borderTop: '1px solid #e5e7eb', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#6b7280' }}>
+                  <span>
+                    Showing {safeVehiclePage * VEHICLES_PER_PAGE + 1}–{Math.min((safeVehiclePage + 1) * VEHICLES_PER_PAGE, vehicles.length)} of {vehicles.length}
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.45rem' }}>
+                    <button
+                      onClick={() => setVehiclePage((prev) => Math.max(prev - 1, 0))}
+                      disabled={safeVehiclePage === 0}
+                      style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeVehiclePage === 0 ? '#f9fafb' : '#fff', cursor: safeVehiclePage === 0 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setVehiclePage((prev) => Math.min(prev + 1, totalVehiclePages - 1))}
+                      disabled={safeVehiclePage >= totalVehiclePages - 1}
+                      style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeVehiclePage >= totalVehiclePages - 1 ? '#f9fafb' : '#fff', cursor: safeVehiclePage >= totalVehiclePages - 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </div>
         </div>

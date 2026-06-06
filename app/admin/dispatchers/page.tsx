@@ -39,6 +39,8 @@ export default function DispatchersPage() {
   const [creating, setCreating] = useState(false);
   const [createdDispatcher, setCreatedDispatcher] = useState<DispatcherSuccessState | null>(null);
   const [copiedTemporaryPassword, setCopiedTemporaryPassword] = useState(false);
+  const DISPATCHERS_PER_PAGE = 12;
+  const [dispatcherPage, setDispatcherPage] = useState(0);
   const [passwordSetupState, setPasswordSetupState] = useState<{ status: 'idle' | 'sending' | 'sent' | 'error'; message: string }>({
     status: 'idle',
     message: '',
@@ -350,6 +352,15 @@ export default function DispatchersPage() {
     color: '#374151',
     marginBottom: '0.5rem',
   };
+  useEffect(() => {
+    setDispatcherPage(0);
+  }, [dispatchers.length]);
+  const totalDispatcherPages = Math.max(1, Math.ceil(dispatchers.length / DISPATCHERS_PER_PAGE));
+  const safeDispatcherPage = Math.min(dispatcherPage, totalDispatcherPages - 1);
+  const paginatedDispatchers = dispatchers.slice(
+    safeDispatcherPage * DISPATCHERS_PER_PAGE,
+    (safeDispatcherPage + 1) * DISPATCHERS_PER_PAGE,
+  );
 
   return (
     <ProtectedRoute>
@@ -406,6 +417,7 @@ export default function DispatchersPage() {
                 <p>No dispatchers onboarded yet. Add your first dispatcher.</p>
               </div>
             ) : (
+              <>
               <div style={{ overflowX: 'auto', width: '100%' }}>
                 <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse' }}>
                   <thead>
@@ -416,8 +428,8 @@ export default function DispatchersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {dispatchers.map((dispatcher, index) => (
-                      <tr key={dispatcher.id} style={{ borderBottom: index < dispatchers.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                    {paginatedDispatchers.map((dispatcher, index) => (
+                      <tr key={dispatcher.id} style={{ borderBottom: index < paginatedDispatchers.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                         <td style={{ padding: '1rem', color: '#1f2937', fontWeight: 600 }}>{dispatcher.invited_email ?? '—'}</td>
                         <td style={{ padding: '1rem', color: '#6b7280' }}>Dispatcher</td>
                         <td style={{ padding: '1rem' }}>
@@ -432,6 +444,30 @@ export default function DispatchersPage() {
                   </tbody>
                 </table>
               </div>
+              {dispatchers.length > DISPATCHERS_PER_PAGE && (
+                <div style={{ borderTop: '1px solid #e5e7eb', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#6b7280' }}>
+                  <span>
+                    Showing {safeDispatcherPage * DISPATCHERS_PER_PAGE + 1}–{Math.min((safeDispatcherPage + 1) * DISPATCHERS_PER_PAGE, dispatchers.length)} of {dispatchers.length}
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.45rem' }}>
+                    <button
+                      onClick={() => setDispatcherPage((prev) => Math.max(prev - 1, 0))}
+                      disabled={safeDispatcherPage === 0}
+                      style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeDispatcherPage === 0 ? '#f9fafb' : '#fff', cursor: safeDispatcherPage === 0 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setDispatcherPage((prev) => Math.min(prev + 1, totalDispatcherPages - 1))}
+                      disabled={safeDispatcherPage >= totalDispatcherPages - 1}
+                      style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeDispatcherPage >= totalDispatcherPages - 1 ? '#f9fafb' : '#fff', cursor: safeDispatcherPage >= totalDispatcherPages - 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </div>
         </div>
