@@ -49,7 +49,7 @@ export default function Page() {
         {
           key: 'status',
           label: 'Status',
-          render: (row) => <StatusChip status={row.status} />,
+          render: (row) => <StatusChip value={row.status} />,
         },
         {
           key: 'issued_date',

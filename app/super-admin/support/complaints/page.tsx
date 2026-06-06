@@ -1,7 +1,7 @@
 'use client';
 
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
-import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
+import { formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
 
 type Row = {
   id: string;
