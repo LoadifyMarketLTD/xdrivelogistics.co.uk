@@ -43,7 +43,8 @@ export const roleCards: ReadonlyArray<{
     icon: Layers,
     title: 'Transport Customers',
     subtitle: 'Submit transport requirements and follow job progress from request to completion.',
-    image: '/images/homepage/warehouse-loading-pallets.jpg',
+    image:
+      'https://images.pexels.com/photos/4483611/pexels-photo-4483611.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
     imageAlt: 'Warehouse team loading pallets for outbound delivery',
     tone: 'blue',
     visualLabel: 'Customer workflow',
@@ -52,7 +53,8 @@ export const roleCards: ReadonlyArray<{
     icon: Users,
     title: 'Courier Companies',
     subtitle: 'Coordinate jobs, vehicles, drivers, PODs and operational records from one workspace.',
-    image: '/images/homepage/transport-planner-office.jpg',
+    image:
+      'https://images.pexels.com/photos/3057960/pexels-photo-3057960.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
     imageAlt: 'Transport planning team coordinating dispatch operations',
     tone: 'slate',
     visualLabel: 'Operations workspace',
@@ -61,7 +63,8 @@ export const roleCards: ReadonlyArray<{
     icon: Truck,
     title: 'Owner Operators',
     subtitle: 'Access suitable loads, manage quotes and keep delivery records organised.',
-    image: '/images/homepage/courier-van-loading.jpg',
+    image:
+      'https://images.pexels.com/photos/2533090/pexels-photo-2533090.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
     imageAlt: 'Owner operator preparing a courier vehicle for loading',
     tone: 'amber',
     visualLabel: 'Fleet readiness',
@@ -70,7 +73,8 @@ export const roleCards: ReadonlyArray<{
     icon: UserRound,
     title: 'Drivers',
     subtitle: 'Receive assigned jobs, update progress and upload POD from a mobile-first workflow.',
-    image: '/images/homepage/driver-pod-mobile.jpg',
+    image:
+      'https://images.pexels.com/photos/4391470/pexels-photo-4391470.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
     imageAlt: 'Driver using a mobile device to manage proof of delivery',
     tone: 'emerald',
     visualLabel: 'Driver mobile',
@@ -83,6 +87,9 @@ export const platformModules = [
     title: 'Marketplace',
     summary: 'Loads, quotes, bids and route visibility.',
     bullets: ['Loads', 'Quotes', 'Bids', 'Route visibility'],
+    image:
+      'https://images.pexels.com/photos/4481322/pexels-photo-4481322.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+    imageAlt: 'Forklift loading pallets into a trailer in a warehouse',
     icon: Route,
   },
   {
@@ -90,6 +97,9 @@ export const platformModules = [
     title: 'Operations Diary',
     summary: 'Collections, deliveries, status updates and exceptions.',
     bullets: ['Collections', 'Deliveries', 'Status updates', 'Exceptions'],
+    image:
+      'https://images.pexels.com/photos/3183198/pexels-photo-3183198.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+    imageAlt: 'Logistics dispatch office team coordinating operations',
     icon: ClipboardCheck,
   },
   {
@@ -97,6 +107,9 @@ export const platformModules = [
     title: 'Driver Workspace',
     summary: 'Assigned jobs, mobile updates and POD workflow.',
     bullets: ['Assigned jobs', 'Mobile updates', 'POD workflow'],
+    image:
+      'https://images.pexels.com/photos/2531734/pexels-photo-2531734.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+    imageAlt: 'Driver inside van cab using navigation and mobile workflow',
     icon: UserRound,
   },
   {
@@ -104,6 +117,9 @@ export const platformModules = [
     title: 'Fleet Management',
     summary: 'Vehicles, drivers, availability and compliance records.',
     bullets: ['Vehicles', 'Drivers', 'Availability', 'Compliance records'],
+    image:
+      'https://images.pexels.com/photos/2800121/pexels-photo-2800121.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+    imageAlt: 'Commercial delivery fleet parked in a depot yard',
     icon: Truck,
   },
   {
@@ -111,6 +127,9 @@ export const platformModules = [
     title: 'Finance',
     summary: 'Invoices, POD verification and payment status tracking.',
     bullets: ['Invoices', 'POD verification', 'Payment status'],
+    image:
+      'https://images.pexels.com/photos/4386370/pexels-photo-4386370.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+    imageAlt: 'Transport administration and finance desk with operational records',
     icon: CircleDollarSign,
   },
 ] as const;

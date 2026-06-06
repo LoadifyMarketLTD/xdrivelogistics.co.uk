@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 
 import { platformModules } from '../content';
+import { HomepageVisualCard } from '../HomepageVisualCard';
 
 export function PlatformPreviewSection() {
   const [activePreview, setActivePreview] =
@@ -39,6 +40,17 @@ export function PlatformPreviewSection() {
         </div>
 
         <div className="mt-8 overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_10px_28px_-20px_rgba(15,23,42,0.5)]">
+          <div className="group border-b border-[#e5e7eb] bg-slate-100 p-4">
+            <HomepageVisualCard
+              imageSrc={selectedPreview.image}
+              imageAlt={selectedPreview.imageAlt}
+              label={`${selectedPreview.title} visual`}
+              title={selectedPreview.title}
+              icon={selectedPreview.icon}
+              tone="slate"
+              className="h-[180px] w-full rounded-xl md:h-[220px] lg:h-[320px]"
+            />
+          </div>
           <div className="border-b border-[#e5e7eb] bg-slate-100 p-5">
             <div className="inline-flex items-center rounded-md border border-[#e5e7eb] bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#1d4ed8]">
               Demo Preview
