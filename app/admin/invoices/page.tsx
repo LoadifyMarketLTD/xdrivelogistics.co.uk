@@ -127,6 +127,39 @@ export default function InvoicesPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const handleMarkAsPaid = async (invoice: InvoiceListItem) => {
+    if (!companyId || markingPaidId || invoice.status === 'Paid') return;
+    setMarkingPaidId(invoice.id);
+    setLoadError('');
+
+    const nowIso = new Date().toISOString();
+    const { error: invoiceError } = await supabase
+      .from('invoices')
+      .update({ status: 'Paid', updated_at: nowIso })
+      .eq('id', invoice.id)
+      .eq('company_id', companyId);
+
+    if (invoiceError) {
+      setLoadError(`Failed to mark invoice paid: ${invoiceError.message}`);
+      setMarkingPaidId(null);
+      return;
+    }
+
+    if (invoice.jobId) {
+      const { error: jobError } = await supabase
+        .from('jobs')
+        .update({ status: 'paid', updated_at: nowIso })
+        .eq('id', invoice.jobId)
+        .eq('company_id', companyId);
+      if (jobError) {
+        setLoadError(`Invoice marked paid, but job status update failed: ${jobError.message}`);
+      }
+    }
+
+    await loadInvoices();
+    setMarkingPaidId(null);
+  };
+
   const getStatusStyle = (status: string) => {
     const baseStyle: React.CSSProperties = {
       padding: '0.375rem 0.75rem',
@@ -134,39 +167,6 @@ export default function InvoicesPage() {
       fontSize: '0.875rem',
       fontWeight: '600',
       display: 'inline-block',
-    };
-
-    const handleMarkAsPaid = async (invoice: InvoiceListItem) => {
-      if (!companyId || markingPaidId || invoice.status === 'Paid') return;
-      setMarkingPaidId(invoice.id);
-      setLoadError('');
-
-      const nowIso = new Date().toISOString();
-      const { error: invoiceError } = await supabase
-        .from('invoices')
-        .update({ status: 'Paid', updated_at: nowIso })
-        .eq('id', invoice.id)
-        .eq('company_id', companyId);
-
-      if (invoiceError) {
-        setLoadError(`Failed to mark invoice paid: ${invoiceError.message}`);
-        setMarkingPaidId(null);
-        return;
-      }
-
-      if (invoice.jobId) {
-        const { error: jobError } = await supabase
-          .from('jobs')
-          .update({ status: 'paid', updated_at: nowIso })
-          .eq('id', invoice.jobId)
-          .eq('company_id', companyId);
-        if (jobError) {
-          setLoadError(`Invoice marked paid, but job status update failed: ${jobError.message}`);
-        }
-      }
-
-      await loadInvoices();
-      setMarkingPaidId(null);
     };
 
     switch (status) {
