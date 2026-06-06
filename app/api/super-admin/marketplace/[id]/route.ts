@@ -16,8 +16,6 @@ const patchSchema = z.object({
   reason: z.string().trim().max(1000).optional(),
 });
 
-type MarketplaceAction = z.infer<typeof patchSchema>['action'];
-
 const resolveOwnerProfile = async (authUserId: string) => {
   if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
