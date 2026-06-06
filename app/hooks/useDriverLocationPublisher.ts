@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
 const PUBLISH_INTERVAL_MS = 30_000; // publish every 30 s
@@ -22,36 +22,19 @@ export function useDriverLocationPublisher(
 
   const isActive = enabled && Boolean(jobStatus && ACTIVE_STATUSES.includes(jobStatus));
 
-  useEffect(() => {
-    if (!isActive) {
-      cleanup();
-      return;
+  const cleanup = useCallback(() => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
     }
-
-    if (!('geolocation' in navigator)) {
-      return;
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
+    lastPositionRef.current = null;
+  }, []);
 
-    // Start watching position
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => { lastPositionRef.current = pos; },
-      () => { /* silently ignore geolocation errors */ },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 5_000 },
-    );
-
-    // Publish on a fixed interval regardless of movement
-    intervalRef.current = setInterval(() => {
-      void publishPosition();
-    }, PUBLISH_INTERVAL_MS);
-
-    // Publish immediately so the position appears right away
-    void publishPosition();
-
-    return () => { cleanup(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive]);
-
-  async function publishPosition() {
+  const publishPosition = useCallback(async () => {
     const pos = lastPositionRef.current;
     if (!pos) return;
 
@@ -81,17 +64,33 @@ export function useDriverLocationPublisher(
     } catch {
       // network errors are silently swallowed — telemetry is best-effort
     }
-  }
+  }, []);
 
-  function cleanup() {
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
+  useEffect(() => {
+    if (!isActive) {
+      cleanup();
+      return;
     }
-    if (intervalRef.current !== null) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+
+    if (!('geolocation' in navigator)) {
+      return;
     }
-    lastPositionRef.current = null;
-  }
+
+    // Start watching position
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => { lastPositionRef.current = pos; },
+      () => { /* silently ignore geolocation errors */ },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 5_000 },
+    );
+
+    // Publish on a fixed interval regardless of movement
+    intervalRef.current = setInterval(() => {
+      void publishPosition();
+    }, PUBLISH_INTERVAL_MS);
+
+    // Publish immediately so the position appears right away
+    void publishPosition();
+
+    return () => { cleanup(); };
+  }, [cleanup, isActive, publishPosition]);
 }
