@@ -11,9 +11,14 @@ import { useAuth } from '../../../components/AuthContext';
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Received',
   posted: 'Posted',
+  quoted: 'Quoted',
+  awarded: 'Awarded',
   allocated: 'Allocated',
+  collected: 'Collected',
   in_transit: 'In Transit',
   delivered: 'Delivered',
+  invoiced: 'Invoiced',
+  paid: 'Paid',
   cancelled: 'Cancelled',
   disputed: 'Disputed',
   // milestone events (stored in status_history only)
@@ -273,11 +278,22 @@ export default function DriverJobDetailPage() {
   const handleCollect = () =>
   {
     if (!collectionPhotoPreview) {
+      setError('Collection photo is required before confirming collection.');
+      return;
+    }
+    updateJobStatus('collected', {
+      collection_photo_url: collectionPhotoPreview,
+    });
+  };
+
+  const handleStartTransit = () => {
+    const collectionPhoto = collectionPhotoPreview ?? job?.collection_photo_url ?? null;
+    if (!collectionPhoto) {
       setError('Collection photo is required before marking the job as in transit.');
       return;
     }
     updateJobStatus('in_transit', {
-      collection_photo_url: collectionPhotoPreview,
+      collection_photo_url: collectionPhoto,
     });
   };
 
@@ -320,6 +336,7 @@ export default function DriverJobDetailPage() {
   }
 
   const canCollect = job.status === 'allocated';
+  const canStartTransit = job.status === 'collected';
   const canDeliver = job.status === 'in_transit';
   const clientFields = getJobClientFields(job);
   const hasEnRoute = milestones.has('driver_en_route');
@@ -460,8 +477,8 @@ export default function DriverJobDetailPage() {
           {job.weight_kg != null && <InfoRow icon="⚖️" label="Weight" value={`${job.weight_kg} kg`} />}
         </Section>
 
-        {/* Collection photo – shown when job is allocated */}
-        {canCollect && (
+        {/* Collection photo – shown until the trip starts */}
+        {(canCollect || canStartTransit) && (
           <Section title="Collection Photo">
             <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0 0 0.75rem' }}>
               Take a photo at collection before confirming pick-up.
@@ -593,7 +610,7 @@ export default function DriverJobDetailPage() {
       </div>
 
       {/* Action bar */}
-      {(canCollect || canDeliver) && (
+      {(canCollect || canStartTransit || canDeliver) && (
         <div
           style={{
             position: 'fixed',
@@ -615,6 +632,15 @@ export default function DriverJobDetailPage() {
               style={actionBtn('#1d4ed8')}
             >
               {actionLoading ? 'Updating…' : '🚚 Confirm Collection'}
+            </button>
+          )}
+          {canStartTransit && (
+            <button
+              onClick={handleStartTransit}
+              disabled={actionLoading}
+              style={actionBtn('#0f766e')}
+            >
+              {actionLoading ? 'Updating…' : '🛣️ Start Transit'}
             </button>
           )}
           {canDeliver && (

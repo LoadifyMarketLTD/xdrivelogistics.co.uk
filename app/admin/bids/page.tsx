@@ -313,7 +313,7 @@ function JobBidGroup({
             </span>
           ) : (
             <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '0.3rem 0.85rem', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 600 }}>
-              {group.bids.filter((b) => b.status === 'submitted').length} pending bid{group.bids.filter((b) => b.status === 'submitted').length !== 1 ? 's' : ''}
+              {group.bids.filter((b) => b.status === 'submitted').length} submitted bid{group.bids.filter((b) => b.status === 'submitted').length !== 1 ? 's' : ''}
             </span>
           )}
         </div>
