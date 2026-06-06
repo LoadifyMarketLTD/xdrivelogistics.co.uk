@@ -1,20 +1,22 @@
 import {
   CircleDollarSign,
+  ClipboardList,
   ClipboardCheck,
   FileCheck2,
   Layers,
   Route,
   ShieldCheck,
   Truck,
+  UserRound,
   Users,
   type LucideIcon,
 } from 'lucide-react';
+import type { HomepageVisualTone } from './HomepageVisualCard';
 
 export const navLinks = [
   { label: 'Platform', href: '#platform' },
   { label: 'Solutions', href: '#solutions' },
   { label: 'How It Works', href: '#how-it-works' },
-  { label: 'Industries', href: '#industries' },
   { label: 'Resources', href: '#resources' },
   { label: 'Contact', href: '#contact' },
 ] as const;
@@ -28,35 +30,59 @@ export const trustCards = [
   { label: 'Focus', value: 'Exchange + Operations' },
 ] as const;
 
-export const roleCards = [
+export const roleCards: ReadonlyArray<{
+  icon: LucideIcon;
+  image: string;
+  imageAlt: string;
+  subtitle: string;
+  title: string;
+  tone: HomepageVisualTone;
+  visualLabel: string;
+}> = [
   {
-    title: 'Owner Operators',
-    subtitle:
-      'Independent operators with complete load and operations visibility.',
-    image: '/homepage/role-owner-operators.svg',
+    icon: Layers,
+    title: 'Transport Customers',
+    subtitle: 'Submit transport requirements and follow job progress from request to completion.',
+    image: '/customers-warehouse.webp',
+    imageAlt: 'Transport customers tracking shipments, POD and invoices on the XDrive platform',
+    tone: 'blue',
+    visualLabel: 'Customer workflow',
   },
   {
+    icon: Users,
     title: 'Courier Companies',
-    subtitle:
-      'Modern dispatch coordination for teams, vehicles and delivery workflows.',
-    image: '/homepage/role-courier-companies.svg',
+    subtitle: 'Coordinate jobs, vehicles, drivers, PODs and operational records from one workspace.',
+    image: '/courier-fleet-depot.webp',
+    imageAlt: 'Courier company operations workspace with dispatch, jobs and fleet management',
+    tone: 'slate',
+    visualLabel: 'Operations workspace',
   },
   {
+    icon: Truck,
+    title: 'Owner Operators',
+    subtitle: 'Access suitable loads, manage quotes and keep delivery records organised.',
+    image: '/owner-operator-van.webp',
+    imageAlt: 'Owner operator accessing available loads, quotes and fleet readiness on XDrive',
+    tone: 'amber',
+    visualLabel: 'Fleet readiness',
+  },
+  {
+    icon: ClipboardList,
     title: 'Load Posters',
-    subtitle:
-      'Transport managers posting lanes and awarding trusted partners.',
-    image: '/homepage/role-load-posters.svg',
+    subtitle: 'Publish load requirements quickly and keep request details aligned with dispatch workflows.',
+    image: '/load-poster-office.webp',
+    imageAlt: 'Load posters managing shipment requests and publishing load details from office workspace',
+    tone: 'violet',
+    visualLabel: 'Load publishing',
   },
   {
-    title: 'Customers',
-    subtitle:
-      'Business teams managing requests, tracking milestones and financial closure.',
-    image: '/homepage/role-customers.svg',
-  },
-  {
+    icon: UserRound,
     title: 'Drivers',
-    subtitle: 'Driver-first mobile workspace for assignments, updates and POD.',
-    image: '/homepage/role-drivers.svg',
+    subtitle: 'Receive assigned jobs, update progress and upload POD from a mobile-first workflow.',
+    image: '/drivers-mobile-pod.webp',
+    imageAlt: 'Driver mobile workspace for assigned jobs, status updates and proof of delivery',
+    tone: 'emerald',
+    visualLabel: 'Driver mobile',
   },
 ] as const;
 
@@ -64,37 +90,47 @@ export const platformModules = [
   {
     key: 'marketplace',
     title: 'Marketplace',
-    summary: 'Available loads, quotes, bids and routes.',
-    bullets: ['Available loads', 'Quotes', 'Bids', 'Routes'],
-    image: '/homepage/module-marketplace.svg',
+    summary: 'Browse available loads, submit quotes and manage bids from one central marketplace workspace.',
+    bullets: ['Loads', 'Quotes', 'Bids', 'Route visibility'],
+    image: '/marketplace-loading.webp',
+    imageAlt: 'XDrive Marketplace workspace showing available loads, bids, quotes and route intelligence',
+    icon: Route,
   },
   {
     key: 'operations',
     title: 'Operations Diary',
-    summary: 'Dispatch board, collections, deliveries and timeline.',
-    bullets: ['Dispatch board', 'Collections', 'Deliveries', 'Timeline'],
-    image: '/homepage/module-operations.svg',
+    summary: 'Collections, deliveries, status updates and exceptions managed from one operational diary.',
+    bullets: ['Collections', 'Deliveries', 'Status updates', 'Exceptions'],
+    image: '/operations-dispatch-office.webp',
+    imageAlt: 'XDrive Operations Diary workspace showing collections, deliveries and job status',
+    icon: ClipboardCheck,
   },
   {
     key: 'driver',
     title: 'Driver Workspace',
-    summary: 'Assigned jobs, status updates and POD workflow.',
-    bullets: ['Assigned jobs', 'Status updates', 'POD workflow'],
-    image: '/homepage/module-driver.svg',
+    summary: 'Assigned jobs, mobile updates and POD workflow for drivers on the go.',
+    bullets: ['Assigned jobs', 'Mobile updates', 'POD workflow'],
+    image: '/driver-workspace-vehicle.webp',
+    imageAlt: 'XDrive Driver Workspace showing assigned jobs, route updates and proof of delivery',
+    icon: UserRound,
   },
   {
     key: 'fleet',
     title: 'Fleet Management',
-    summary: 'Vehicles, drivers, availability and compliance.',
-    bullets: ['Vehicles', 'Drivers', 'Availability', 'Compliance'],
-    image: '/homepage/module-fleet.svg',
+    summary: 'Vehicles, drivers, availability and compliance records managed in one place.',
+    bullets: ['Vehicles', 'Drivers', 'Availability', 'Compliance records'],
+    image: '/fleet-management-yard.webp',
+    imageAlt: 'XDrive Fleet Management showing vehicles, driver assignments and compliance records',
+    icon: Truck,
   },
   {
     key: 'finance',
     title: 'Finance',
-    summary: 'Invoices, payments and POD verification.',
-    bullets: ['Invoices', 'Payments', 'POD verification'],
-    image: '/homepage/module-finance.svg',
+    summary: 'Invoices, POD verification and payment status tracking for every completed job.',
+    bullets: ['Invoices', 'POD verification', 'Payment status'],
+    image: '/finance-admin-office.webp',
+    imageAlt: 'XDrive Finance workspace showing invoices, POD verification and payment status',
+    icon: CircleDollarSign,
   },
 ] as const;
 
@@ -107,37 +143,37 @@ export const workflow: ReadonlyArray<{
 }> = [
   {
     title: 'Request',
-    detail: 'A shipper submits a transport requirement in minutes.',
+    detail: 'Customer submits a transport request.',
     icon: Layers,
   },
   {
     title: 'Quote',
-    detail: 'Qualified partners provide route-aware commercial quotes.',
+    detail: 'Approved companies return rates.',
     icon: CircleDollarSign,
   },
   {
     title: 'Award',
-    detail: 'Work is awarded to the best operational fit.',
+    detail: 'Customer awards the selected quote.',
     icon: ClipboardCheck,
   },
   {
     title: 'Assign',
-    detail: 'Dispatch allocates vehicle and driver in one workflow.',
+    detail: 'Dispatcher assigns vehicle and driver.',
     icon: Users,
   },
   {
     title: 'Deliver',
-    detail: 'Delivery progress is tracked with live status updates.',
+    detail: 'Driver completes collection and delivery.',
     icon: Truck,
   },
   {
     title: 'POD',
-    detail: 'Proof of delivery is captured and verified digitally.',
+    detail: 'Proof of delivery is uploaded and checked.',
     icon: FileCheck2,
   },
   {
     title: 'Invoice',
-    detail: 'Finance closes the job with validated billing records.',
+    detail: 'Invoice is issued with linked delivery record.',
     icon: ShieldCheck,
   },
 ] as const;
@@ -184,22 +220,26 @@ export const featureCards: ReadonlyArray<{
 export const faqs = [
   {
     q: 'What is XDrive?',
-    a: 'XDrive is a UK logistics technology platform connecting marketplace, operations, driver workflow and finance in one ecosystem.',
-  },
-  {
-    q: 'Who can use XDrive?',
-    a: 'Owner operators, courier companies, load posters, customers and drivers can all operate inside the same platform.',
-  },
-  {
-    q: 'When is launch planned?',
-    a: 'XDrive is currently in commercial early-access onboarding for launch participants in the United Kingdom.',
+    a: 'XDrive is an early-access UK logistics platform being built to connect transport customers, courier companies, owner operators and drivers in one workflow.',
   },
   {
     q: 'Can owner-drivers join?',
-    a: 'Yes. Owner operators can join early access and use marketplace and operations workflows directly.',
+    a: 'Yes. Owner operators and owner-drivers can request early access for selected workflow testing.',
+  },
+  {
+    q: 'Who can use XDrive?',
+    a: 'Transport customers, courier companies, owner operators and drivers can request access based on the workflows being tested.',
   },
   {
     q: 'How do I request early access?',
-    a: 'Use the Join Early Access call-to-action to register your interest and onboarding details.',
+    a: 'Use Join Early Access to submit your details, or request a demo and our team will follow up.',
+  },
+  {
+    q: 'Is XDrive live now?',
+    a: 'XDrive is currently in early-access/MVP development. Selected users may be invited to test workflows before wider launch.',
+  },
+  {
+    q: 'Is there a cost during early access?',
+    a: 'Early access is provided at no cost. Pricing will be confirmed before the full commercial release.',
   },
 ] as const;

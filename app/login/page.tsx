@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { buildPathWithAuthParams, getBrowserAuthSignals, isRecoveryAuthFlow, RESET_PASSWORD_PATH } from '../../lib/authFlow';
@@ -99,6 +100,9 @@ export default function LoginPage() {
         maxWidth: '400px'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{ marginBottom: '1rem' }}>
+            <Image src="/xdrive-logo.svg" alt="XDrive Logistics" width={180} height={40} priority style={{ width: 'auto', height: '40px' }} />
+          </div>
           <h1 style={{
             fontSize: '2rem',
             fontWeight: '700',
