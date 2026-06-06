@@ -2,8 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-const ALLOWED_COMPANY_STATUSES = ['active', 'inactive', 'pending_approval', 'rejected', 'suspended'] as const;
+const ALLOWED_COMPANY_STATUSES = ['active', 'inactive', 'pending_approval', 'rejected', 'suspended', 'all'] as const;
 type CompanyStatusFilter = (typeof ALLOWED_COMPANY_STATUSES)[number];
+
+type GovernanceAuditRow = {
+  id: string;
+  target_company_id: string;
+  action_type: string;
+  old_status: string;
+  new_status: string;
+  reason: string;
+  created_at: string;
+};
 
 const resolveOwnerProfile = async (authUserId: string) => {
   if (!supabaseAdmin) return null;
@@ -29,7 +39,7 @@ const verifyOwner = async (request: NextRequest) => {
 };
 
 /**
- * GET /api/super-admin/companies?status=active|inactive|pending_approval|rejected|suspended
+ * GET /api/super-admin/companies?status=active|inactive|pending_approval|rejected|suspended|all
  * Returns companies filtered by status (owner only).
  */
 export async function GET(request: NextRequest) {
@@ -54,16 +64,51 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const { data, error } = await supabaseAdmin
+  let companyQuery = supabaseAdmin
     .from('companies')
     .select('id, name, company_number, email, status, company_type, created_at')
-    .eq('status', status)
     .order('created_at', { ascending: false })
-    .limit(200);
+    .limit(300);
+
+  if (status !== 'all') {
+    companyQuery = companyQuery.eq('status', status);
+  }
+
+  const { data, error } = await companyQuery;
 
   if (error) {
     return respond(500, { error: error.message });
   }
 
-  return respond(200, { companies: data ?? [] });
+  const companies = data ?? [];
+
+  const { data: auditRows, error: auditError } = await supabaseAdmin
+    .from('owner_audit_log')
+    .select('id, target_company_id, action_type, old_status, new_status, reason, created_at')
+    .order('created_at', { ascending: false })
+    .limit(400);
+
+  const governanceHistoryAvailable = !auditError;
+  const governanceHistoryError = auditError?.message ?? null;
+
+  const governanceHistoryByCompany = new Map<string, GovernanceAuditRow[]>();
+  if (governanceHistoryAvailable) {
+    for (const row of (auditRows ?? []) as GovernanceAuditRow[]) {
+      const existing = governanceHistoryByCompany.get(row.target_company_id) ?? [];
+      if (existing.length < 5) {
+        existing.push(row);
+        governanceHistoryByCompany.set(row.target_company_id, existing);
+      }
+    }
+  }
+
+  return respond(200, {
+    companies,
+    governanceHistoryAvailable,
+    governanceHistoryError,
+    governanceHistoryRecent: governanceHistoryAvailable ? (auditRows ?? []) : [],
+    governanceHistoryByCompany: governanceHistoryAvailable
+      ? Object.fromEntries(Array.from(governanceHistoryByCompany.entries()))
+      : {},
+  });
 }

@@ -38,28 +38,40 @@ export async function GET(request: NextRequest) {
   const [
     companiesTotal,
     companiesActive,
+    companiesSuspended,
     companiesPending,
     driversTotal,
     jobsTotal,
     jobsOpen,
+    jobsDelivered,
     invoicesTotal,
+    paidInvoices,
   ] = await Promise.all([
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+    supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'suspended'),
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'pending_approval'),
     supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }),
-    supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'posted'),
+    supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).in('status', ['draft', 'posted', 'allocated', 'in_transit']),
+    supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered'),
     supabaseAdmin.from('invoices').select('id', { count: 'exact', head: true }),
+    supabaseAdmin.from('invoices').select('id', { count: 'exact', head: true }).eq('status', 'Paid'),
   ]);
+
+  const invoicesCount = invoicesTotal.count ?? 0;
+  const paidInvoicesCount = paidInvoices.count ?? 0;
 
   return respond(200, {
     companiesTotal: companiesTotal.count ?? 0,
     companiesActive: companiesActive.count ?? 0,
+    companiesSuspended: companiesSuspended.count ?? 0,
     companiesPending: companiesPending.count ?? 0,
     driversTotal: driversTotal.count ?? 0,
     jobsTotal: jobsTotal.count ?? 0,
     jobsOpen: jobsOpen.count ?? 0,
-    invoicesTotal: invoicesTotal.count ?? 0,
+    jobsDelivered: jobsDelivered.count ?? 0,
+    invoicesTotal: invoicesCount,
+    invoicesUnpaid: Math.max(0, invoicesCount - paidInvoicesCount),
   });
 }

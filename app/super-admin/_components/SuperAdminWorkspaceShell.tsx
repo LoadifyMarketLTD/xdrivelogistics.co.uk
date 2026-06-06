@@ -54,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Operations',
     items: [
+      { id: 'ops-marketplace', label: 'Marketplace', icon: '🌍', href: '/super-admin/marketplace' },
       { id: 'ops-jobs', label: 'All Jobs', icon: '📦', href: '/super-admin/operations/jobs' },
       { id: 'ops-quotes', label: 'All Quotes', icon: '💬', href: '/super-admin/operations/quotes' },
       { id: 'ops-allocations', label: 'All Allocations', icon: '🧩', href: '/super-admin/operations/allocations' },
