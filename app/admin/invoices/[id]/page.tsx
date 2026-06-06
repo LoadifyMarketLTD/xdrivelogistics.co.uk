@@ -37,14 +37,14 @@ type InvoicePaymentHistoryItem = {
 };
 
 /** Map InvoiceData (UI shape) → Supabase invoice row (DB shape) */
-function invoiceDataToDb(inv: InvoiceData, companyId: string, userId?: string | null): Omit<Invoice, 'created_at' | 'updated_at'> {
+function invoiceDataToDb(inv: InvoiceData, companyId: string, jobId: string | null, userId?: string | null): Omit<Invoice, 'created_at' | 'updated_at'> {
   return {
     id: inv.id,
     company_id: companyId,
     created_by: userId ?? null,
     invoice_number: inv.invoiceNumber,
     job_ref: inv.jobRef,
-    job_id: null,
+    job_id: jobId,
     invoice_date: inv.date,
     due_date: inv.dueDate,
     status: inv.status,
@@ -119,6 +119,7 @@ export default function InvoiceDetailPage() {
   const prefillDeliveryLocation = searchParams?.get('deliveryLocation') ?? '';
   const prefillDeliveryDateTime = searchParams?.get('deliveryDateTime') ?? '';
   const prefillServiceDescription = searchParams?.get('serviceDescription') ?? '';
+  const prefillJobId = searchParams?.get('jobId');
 
   const [formData, setFormData] = useState<InvoiceData>({
     id: '',
@@ -150,6 +151,8 @@ export default function InvoiceDetailPage() {
   const [statusHistory, setStatusHistory] = useState<InvoiceStatusHistoryItem[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<InvoicePaymentHistoryItem[]>([]);
   const [recordingPayment, setRecordingPayment] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState(false);
+  const [linkedJobId, setLinkedJobId] = useState<string | null>(prefillJobId);
   const [paymentInput, setPaymentInput] = useState({
     amount: '',
     method: 'bank_transfer',
@@ -342,6 +345,7 @@ export default function InvoiceDetailPage() {
         .single();
       if (!error && data) {
         setFormData(dbToInvoiceData(data as Invoice));
+        setLinkedJobId(typeof data.job_id === 'string' ? data.job_id : null);
         await loadInvoiceLedger(invoiceId, companyId);
         return;
       }
@@ -357,7 +361,7 @@ export default function InvoiceDetailPage() {
   const handleSave = async () => {
     // Save to Supabase when available
     if (isSupabaseConfigured && companyId) {
-      const row = invoiceDataToDb(formData, companyId, user?.id);
+      const row = invoiceDataToDb(formData, companyId, linkedJobId, user?.id);
       const { id: _id, company_id: _companyId, created_by: _createdBy, ...updateFields } = row;
       const { error } = await saveInvoiceWithSchemaCompat(supabase, {
         isNew,
@@ -435,6 +439,38 @@ export default function InvoiceDetailPage() {
     });
     setSaveMessage('Payment recorded successfully.');
     setRecordingPayment(false);
+  };
+
+  const handleMarkAsPaid = async () => {
+    if (isNew || !companyId || !invoiceId || formData.status === 'Paid' || markingPaid) return;
+    setMarkingPaid(true);
+    const nowIso = new Date().toISOString();
+    const { error: invoiceError } = await supabase
+      .from('invoices')
+      .update({ status: 'Paid', updated_at: nowIso })
+      .eq('id', invoiceId)
+      .eq('company_id', companyId);
+
+    if (invoiceError) {
+      setSaveMessage(`Error marking invoice as paid: ${invoiceError.message}`);
+      setMarkingPaid(false);
+      return;
+    }
+
+    if (linkedJobId) {
+      const { error: jobError } = await supabase
+        .from('jobs')
+        .update({ status: 'paid', updated_at: nowIso })
+        .eq('id', linkedJobId)
+        .eq('company_id', companyId);
+      if (jobError) {
+        setSaveMessage(`Invoice marked as paid, but linked job update failed: ${jobError.message}`);
+      }
+    }
+
+    await loadInvoice();
+    setSaveMessage('Invoice marked as paid.');
+    setMarkingPaid(false);
   };
 
   const handleWhatsAppShare = () => {
@@ -624,6 +660,26 @@ export default function InvoiceDetailPage() {
                   >
                     {downloadingPdf ? '⏳ Preparing PDF…' : '⬇️ Download PDF'}
                   </button>
+                  {!isNew && formData.status !== 'Paid' && (
+                    <button
+                      onClick={() => void handleMarkAsPaid()}
+                      disabled={markingPaid}
+                      style={{
+                        padding: '0.75rem 1.25rem',
+                        backgroundColor: '#166534',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '0.95rem',
+                        fontWeight: '600',
+                        cursor: markingPaid ? 'not-allowed' : 'pointer',
+                        opacity: markingPaid ? 0.7 : 1,
+                        transition: 'background-color 0.2s',
+                      }}
+                    >
+                      {markingPaid ? '⏳ Updating…' : '✅ Mark as Paid'}
+                    </button>
+                  )}
                   <button
                     onClick={handleWhatsAppShare}
                     style={{
