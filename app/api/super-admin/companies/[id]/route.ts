@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-const GOVERNANCE_STATUSES = ['active', 'inactive', 'pending_approval', 'rejected', 'suspended'] as const;
+const GOVERNANCE_STATUSES = ['active', 'inactive', 'pending_approval', 'pending', 'rejected', 'suspended'] as const;
 type CompanyGovernanceStatus = (typeof GOVERNANCE_STATUSES)[number];
 type CompanyGovernanceAction = 'approve' | 'reject' | 'reinstate' | 'suspend';
 
@@ -11,6 +11,8 @@ const ALLOWED_TRANSITIONS: Record<CompanyGovernanceStatus, readonly CompanyGover
   active: ['suspended'],
   inactive: [],
   pending_approval: ['active', 'rejected'],
+  // 'pending' is the legacy enum value on databases that don't have 'pending_approval' yet
+  pending: ['active', 'rejected'],
   rejected: ['pending_approval'],
   suspended: ['active'],
 };
