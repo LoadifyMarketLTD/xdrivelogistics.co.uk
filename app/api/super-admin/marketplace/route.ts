@@ -32,6 +32,19 @@ type MarketplaceAuditRow = {
   created_at: string;
 };
 
+type RawMarketplaceAuditRow = {
+  id?: unknown;
+  actor_user_id?: unknown;
+  target_company_id?: unknown;
+  action_type?: unknown;
+  old_status?: unknown;
+  old_value?: unknown;
+  new_status?: unknown;
+  new_value?: unknown;
+  reason?: unknown;
+  created_at?: unknown;
+};
+
 const MARKETPLACE_AUDIT_ACTION_TYPES = [
   'marketplace_published',
   'marketplace_hidden',
@@ -112,12 +125,42 @@ const enrichMarketplaceRows = async (marketplaceRows: MarketplaceRow[]) => {
 const getMarketplaceAuditHistory = async (limit: number) => {
   const { data, error } = await supabaseAdmin!
     .from('owner_audit_log')
-    .select('id, actor_user_id, target_company_id, action_type, old_status, new_status, reason, created_at')
+    .select('*')
     .in('action_type', [...MARKETPLACE_AUDIT_ACTION_TYPES])
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  return { data: (data ?? []) as MarketplaceAuditRow[], error };
+  const rows = (data ?? [])
+    .map((row) => {
+      const raw = row as RawMarketplaceAuditRow;
+      const id = typeof raw.id === 'string' ? raw.id : null;
+      const actorUserId = typeof raw.actor_user_id === 'string' ? raw.actor_user_id : null;
+      const targetCompanyId = typeof raw.target_company_id === 'string' ? raw.target_company_id : null;
+      const actionType = typeof raw.action_type === 'string' ? raw.action_type : null;
+      const oldStatus = typeof raw.old_status === 'string'
+        ? raw.old_status
+        : (typeof raw.old_value === 'string' ? raw.old_value : null);
+      const newStatus = typeof raw.new_status === 'string'
+        ? raw.new_status
+        : (typeof raw.new_value === 'string' ? raw.new_value : null);
+      const createdAt = typeof raw.created_at === 'string' ? raw.created_at : null;
+      if (!id || !actorUserId || !targetCompanyId || !actionType || !oldStatus || !newStatus || !createdAt) {
+        return null;
+      }
+      return {
+        id,
+        actor_user_id: actorUserId,
+        target_company_id: targetCompanyId,
+        action_type: actionType,
+        old_status: oldStatus,
+        new_status: newStatus,
+        reason: typeof raw.reason === 'string' ? raw.reason : '',
+        created_at: createdAt,
+      };
+    })
+    .filter((row): row is MarketplaceAuditRow => Boolean(row));
+
+  return { data: rows, error };
 };
 
 export async function GET(request: NextRequest) {

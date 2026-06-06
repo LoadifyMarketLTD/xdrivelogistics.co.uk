@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
-import SuperAdminWorkspaceShell from '@/app/super-admin/_components/SuperAdminWorkspaceShell';
 import { supabase } from '@/lib/supabaseClient';
 
 const THEME = {
@@ -48,7 +47,7 @@ function ApprovalsContent() {
       const auth = await getAuthHeader();
       if (!auth) { setError('No active session.'); setLoading(false); return; }
 
-      const res = await fetch('/api/super-admin/companies?status=pending_approval', {
+      const res = await fetch('/api/super-admin/companies?status=pending', {
         headers: { Authorization: auth },
       });
       if (!res.ok) {
@@ -133,7 +132,7 @@ function ApprovalsContent() {
             No companies pending approval.
             <br />
             <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>
-              Companies with status <code style={{ backgroundColor: '#0b1220', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>pending_approval</code> will appear here.
+            Companies with status <code style={{ backgroundColor: '#0b1220', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>pending</code> (legacy: <code style={{ backgroundColor: '#0b1220', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>pending_approval</code>) will appear here.
             </span>
           </div>
         ) : (
@@ -189,9 +188,7 @@ function ApprovalsContent() {
 export default function Page() {
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <SuperAdminWorkspaceShell>
-        <ApprovalsContent />
-      </SuperAdminWorkspaceShell>
+      <ApprovalsContent />
     </ProtectedRoute>
   );
 }

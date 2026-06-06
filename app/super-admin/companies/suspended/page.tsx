@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
-import SuperAdminWorkspaceShell from '@/app/super-admin/_components/SuperAdminWorkspaceShell';
 import { supabase } from '@/lib/supabaseClient';
 
 const THEME = {
@@ -177,9 +176,7 @@ function SuspendedContent() {
 export default function Page() {
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <SuperAdminWorkspaceShell>
-        <SuspendedContent />
-      </SuperAdminWorkspaceShell>
+      <SuspendedContent />
     </ProtectedRoute>
   );
 }
