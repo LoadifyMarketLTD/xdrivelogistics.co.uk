@@ -52,9 +52,14 @@ async function getAuthHeader(): Promise<string | null> {
   return ['Bearer', session.access_token].join(' ');
 }
 
-function getActionsForStatus(status: string): ActionType[] {
+function isPendingCompanyStatus(status: string): boolean {
   const normalized = status.toLowerCase();
-  if (normalized === 'pending_approval') return ['approve', 'reject'];
+  return normalized === 'pending' || normalized === 'pending_approval';
+}
+
+function getActionsForStatus(status: string): ActionType[] {
+  if (isPendingCompanyStatus(status)) return ['approve', 'reject'];
+  const normalized = status.toLowerCase();
   if (normalized === 'active') return ['suspend'];
   if (normalized === 'suspended') return ['reinstate'];
   return [];
@@ -77,7 +82,7 @@ export default function Page() {
       const status = company.status.toLowerCase();
       if (status === 'active') counts.active += 1;
       if (status === 'suspended') counts.suspended += 1;
-      if (status === 'pending_approval') counts.pending += 1;
+      if (isPendingCompanyStatus(status)) counts.pending += 1;
       if (status === 'rejected') counts.rejected += 1;
     });
     return counts;
