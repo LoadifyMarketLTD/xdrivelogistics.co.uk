@@ -1,4 +1,5 @@
-import Image from 'next/image';
+import { Truck } from 'lucide-react';
+import { HomepageVisualCard } from '../HomepageVisualCard';
 
 export function WhyExistsSection() {
   return (
@@ -19,13 +20,14 @@ export function WhyExistsSection() {
         </div>
 
         <div className="overflow-hidden rounded-[24px] border border-[#e5e7eb] shadow-[0_12px_32px_-20px_rgba(15,23,42,0.45)]">
-          {/* TODO: Replace placeholder with licensed real UK/EU fleet yard image. */}
-          <Image
-            src="/images/homepage/fleet-vehicles-yard.jpg"
-            alt="Fleet vehicles parked in a logistics yard"
-            width={1600}
-            height={900}
-            className="h-[280px] min-h-[280px] w-full object-cover sm:h-[360px] sm:min-h-[360px]"
+          <HomepageVisualCard
+            imageSrc="/images/homepage/fleet-vehicles-yard.jpg"
+            imageAlt="Fleet vehicles parked in a logistics yard"
+            label="Fleet visual"
+            title="Licensed yard and fleet imagery pending"
+            icon={Truck}
+            tone="slate"
+            className="h-[280px] min-h-[280px] w-full sm:h-[360px] sm:min-h-[360px]"
           />
         </div>
       </div>

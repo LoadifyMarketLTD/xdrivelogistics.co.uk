@@ -1,5 +1,4 @@
-import Image from 'next/image';
-
+import { HomepageVisualCard } from '../HomepageVisualCard';
 import { roleCards } from '../content';
 
 export function RolesSection() {
@@ -16,7 +15,15 @@ export function RolesSection() {
         <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {roleCards.map((role) => (
             <article key={role.title} className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_24px_-20px_rgba(15,23,42,0.45)]">
-              <Image src={role.image} alt={`${role.title} logistics workflow context`} width={1600} height={900} className="h-[150px] w-full object-cover sm:h-[180px]" />
+              <HomepageVisualCard
+                imageSrc={role.image}
+                imageAlt={role.imageAlt}
+                label={role.visualLabel}
+                title={role.title}
+                icon={role.icon}
+                tone={role.tone}
+                className="h-[150px] w-full sm:h-[180px]"
+              />
               <div className="p-4">
                 <h3 className="text-base font-semibold text-[#0f172a]">{role.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{role.subtitle}</p>
