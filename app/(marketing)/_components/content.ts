@@ -6,6 +6,7 @@ import {
   Route,
   ShieldCheck,
   Truck,
+  UserRound,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -30,33 +31,28 @@ export const trustCards = [
 
 export const roleCards = [
   {
-    title: 'Owner Operators',
-    subtitle:
-      'Independent operators with complete load and operations visibility.',
-    image: '/homepage/role-owner-operators.svg',
+    title: 'Transport Customers',
+    subtitle: 'Submit transport requirements and follow job progress from request to completion.',
+    // TODO: Replace with licensed real UK/EU logistics image.
+    image: '/images/homepage/warehouse-loading-pallets.jpg',
   },
   {
     title: 'Courier Companies',
-    subtitle:
-      'Modern dispatch coordination for teams, vehicles and delivery workflows.',
-    image: '/homepage/role-courier-companies.svg',
+    subtitle: 'Coordinate jobs, vehicles, drivers, PODs and operational records from one workspace.',
+    // TODO: Replace with licensed real UK/EU logistics image.
+    image: '/images/homepage/transport-planner-office.jpg',
   },
   {
-    title: 'Load Posters',
-    subtitle:
-      'Transport managers posting lanes and awarding trusted partners.',
-    image: '/homepage/role-load-posters.svg',
-  },
-  {
-    title: 'Customers',
-    subtitle:
-      'Business teams managing requests, tracking milestones and financial closure.',
-    image: '/homepage/role-customers.svg',
+    title: 'Owner Operators',
+    subtitle: 'Access suitable loads, manage quotes and keep delivery records organised.',
+    // TODO: Replace with licensed real UK/EU logistics image.
+    image: '/images/homepage/courier-van-loading.jpg',
   },
   {
     title: 'Drivers',
-    subtitle: 'Driver-first mobile workspace for assignments, updates and POD.',
-    image: '/homepage/role-drivers.svg',
+    subtitle: 'Receive assigned jobs, update progress and upload POD from a mobile-first workflow.',
+    // TODO: Replace with licensed real UK/EU logistics image.
+    image: '/images/homepage/driver-pod-mobile.jpg',
   },
 ] as const;
 
@@ -64,37 +60,37 @@ export const platformModules = [
   {
     key: 'marketplace',
     title: 'Marketplace',
-    summary: 'Available loads, quotes, bids and routes.',
-    bullets: ['Available loads', 'Quotes', 'Bids', 'Routes'],
-    image: '/homepage/module-marketplace.svg',
+    summary: 'Loads, quotes, bids and route visibility.',
+    bullets: ['Loads', 'Quotes', 'Bids', 'Route visibility'],
+    icon: Route,
   },
   {
     key: 'operations',
     title: 'Operations Diary',
-    summary: 'Dispatch board, collections, deliveries and timeline.',
-    bullets: ['Dispatch board', 'Collections', 'Deliveries', 'Timeline'],
-    image: '/homepage/module-operations.svg',
+    summary: 'Collections, deliveries, status updates and exceptions.',
+    bullets: ['Collections', 'Deliveries', 'Status updates', 'Exceptions'],
+    icon: ClipboardCheck,
   },
   {
     key: 'driver',
     title: 'Driver Workspace',
-    summary: 'Assigned jobs, status updates and POD workflow.',
-    bullets: ['Assigned jobs', 'Status updates', 'POD workflow'],
-    image: '/homepage/module-driver.svg',
+    summary: 'Assigned jobs, mobile updates and POD workflow.',
+    bullets: ['Assigned jobs', 'Mobile updates', 'POD workflow'],
+    icon: UserRound,
   },
   {
     key: 'fleet',
     title: 'Fleet Management',
-    summary: 'Vehicles, drivers, availability and compliance.',
-    bullets: ['Vehicles', 'Drivers', 'Availability', 'Compliance'],
-    image: '/homepage/module-fleet.svg',
+    summary: 'Vehicles, drivers, availability and compliance records.',
+    bullets: ['Vehicles', 'Drivers', 'Availability', 'Compliance records'],
+    icon: Truck,
   },
   {
     key: 'finance',
     title: 'Finance',
-    summary: 'Invoices, payments and POD verification.',
-    bullets: ['Invoices', 'Payments', 'POD verification'],
-    image: '/homepage/module-finance.svg',
+    summary: 'Invoices, POD verification and payment status tracking.',
+    bullets: ['Invoices', 'POD verification', 'Payment status'],
+    icon: CircleDollarSign,
   },
 ] as const;
 
@@ -107,37 +103,37 @@ export const workflow: ReadonlyArray<{
 }> = [
   {
     title: 'Request',
-    detail: 'A shipper submits a transport requirement in minutes.',
+    detail: 'Customer submits a transport request.',
     icon: Layers,
   },
   {
     title: 'Quote',
-    detail: 'Qualified partners provide route-aware commercial quotes.',
+    detail: 'Approved companies return rates.',
     icon: CircleDollarSign,
   },
   {
     title: 'Award',
-    detail: 'Work is awarded to the best operational fit.',
+    detail: 'Customer awards the selected quote.',
     icon: ClipboardCheck,
   },
   {
     title: 'Assign',
-    detail: 'Dispatch allocates vehicle and driver in one workflow.',
+    detail: 'Dispatcher assigns vehicle and driver.',
     icon: Users,
   },
   {
     title: 'Deliver',
-    detail: 'Delivery progress is tracked with live status updates.',
+    detail: 'Driver completes collection and delivery.',
     icon: Truck,
   },
   {
     title: 'POD',
-    detail: 'Proof of delivery is captured and verified digitally.',
+    detail: 'Proof of delivery is uploaded and checked.',
     icon: FileCheck2,
   },
   {
     title: 'Invoice',
-    detail: 'Finance closes the job with validated billing records.',
+    detail: 'Invoice is issued with linked delivery record.',
     icon: ShieldCheck,
   },
 ] as const;
@@ -184,22 +180,22 @@ export const featureCards: ReadonlyArray<{
 export const faqs = [
   {
     q: 'What is XDrive?',
-    a: 'XDrive is a UK logistics technology platform connecting marketplace, operations, driver workflow and finance in one ecosystem.',
+    a: 'XDrive is an early-access UK logistics platform being built to connect transport customers, courier companies, owner operators and drivers in one workflow.',
   },
   {
     q: 'Who can use XDrive?',
-    a: 'Owner operators, courier companies, load posters, customers and drivers can all operate inside the same platform.',
+    a: 'Transport customers, courier companies, owner operators and drivers can request access based on the workflows being tested.',
   },
   {
-    q: 'When is launch planned?',
-    a: 'XDrive is currently in commercial early-access onboarding for launch participants in the United Kingdom.',
+    q: 'Is XDrive live now?',
+    a: 'XDrive is currently in early-access/MVP development. Selected users may be invited to test workflows before wider launch.',
   },
   {
     q: 'Can owner-drivers join?',
-    a: 'Yes. Owner operators can join early access and use marketplace and operations workflows directly.',
+    a: 'Yes. Owner operators and owner-drivers can request early access for selected workflow testing.',
   },
   {
     q: 'How do I request early access?',
-    a: 'Use the Join Early Access call-to-action to register your interest and onboarding details.',
+    a: 'Use Join Early Access to submit your details, or request a demo and our team will follow up.',
   },
 ] as const;
