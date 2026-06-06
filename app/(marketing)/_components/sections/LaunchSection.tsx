@@ -4,12 +4,11 @@ import Link from 'next/link';
 export function LaunchSection() {
   return (
     <section className="relative overflow-hidden border-b border-[#e5e7eb]" id="launch">
-      {/* Custom SVG background */}
+      {/* Launch background photography */}
       <Image
-        src="/homepage/launch-cta-bg.svg"
+        src="/marketplace-loading.webp"
         alt=""
         fill
-        unoptimized
         className="object-cover object-center"
         aria-hidden="true"
       />

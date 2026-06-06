@@ -4,7 +4,7 @@
   "name": "XDrive Logistics",
   "legalName": "XDrive Logistics Ltd",
   "url": "https://www.xdrivelogistics.co.uk",
-  "logo": "https://www.xdrivelogistics.co.uk/icon-512.png",
+  "logo": "https://www.xdrivelogistics.co.uk/xdrive-logo.svg",
   "address": {
     "@type": "PostalAddress",
     "streetAddress": "101 Cornelian Street",

@@ -53,13 +53,13 @@ export function HeroSection() {
 
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-slate-50 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]">
           <HomepageVisualCard
-            imageSrc="/homepage/hero-composition.svg"
+            imageSrc="/hero-dispatch-control.webp"
             imageAlt="XDrive Platform Command Centre — Marketplace, Operations and Driver Workspace"
             label="Platform overview"
             title="XDrive Platform Command Centre"
             icon={Route}
             tone="blue"
-            className="h-[220px] w-full md:h-[280px] lg:h-[400px]"
+            className="h-[260px] w-full md:h-[340px] lg:h-[420px]"
             priority
           />
         </div>
