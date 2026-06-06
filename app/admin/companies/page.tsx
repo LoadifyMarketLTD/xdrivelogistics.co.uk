@@ -27,6 +27,8 @@ export default function CompaniesPage() {
   const [editError, setEditError] = useState('');
   const [switchError, setSwitchError] = useState('');
   const [saving, setSaving] = useState(false);
+  const COMPANIES_PER_PAGE = 12;
+  const [companyPage, setCompanyPage] = useState(0);
 
   const loadCompanies = async () => {
     setLoading(true);
@@ -71,6 +73,9 @@ export default function CompaniesPage() {
     if (!companyId) return;
     loadCompanies();
   }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setCompanyPage(0);
+  }, [companies.length]);
 
   const handleCreate = async () => {
     if (!formData.name.trim()) { setError('Company name is required'); return; }
@@ -188,6 +193,12 @@ export default function CompaniesPage() {
     borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const,
   };
   const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
+  const totalCompanyPages = Math.max(1, Math.ceil(companies.length / COMPANIES_PER_PAGE));
+  const safeCompanyPage = Math.min(companyPage, totalCompanyPages - 1);
+  const paginatedCompanies = companies.slice(
+    safeCompanyPage * COMPANIES_PER_PAGE,
+    (safeCompanyPage + 1) * COMPANIES_PER_PAGE,
+  );
 
   return (
     <ProtectedRoute>
@@ -243,8 +254,8 @@ export default function CompaniesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {companies.map((c, i) => (
-                    <tr key={c.id} style={{ borderBottom: i < companies.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                  {paginatedCompanies.map((c, i) => (
+                    <tr key={c.id} style={{ borderBottom: i < paginatedCompanies.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                       <td style={{ padding: '0.8rem', fontWeight: '600', color: '#1f2937' }}>{c.name}</td>
                       <td style={{ padding: '0.8rem', color: '#6b7280' }}>{c.company_number || '—'}</td>
                       <td style={{ padding: '0.8rem', color: '#6b7280' }}>{c.email || '—'}</td>
@@ -263,6 +274,29 @@ export default function CompaniesPage() {
                   ))}
                 </tbody>
               </table>
+            )}
+            {companies.length > COMPANIES_PER_PAGE && (
+              <div style={{ borderTop: '1px solid #e5e7eb', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#6b7280' }}>
+                <span>
+                  Showing {safeCompanyPage * COMPANIES_PER_PAGE + 1}–{Math.min((safeCompanyPage + 1) * COMPANIES_PER_PAGE, companies.length)} of {companies.length}
+                </span>
+                <div style={{ display: 'flex', gap: '0.45rem' }}>
+                  <button
+                    onClick={() => setCompanyPage((prev) => Math.max(prev - 1, 0))}
+                    disabled={safeCompanyPage === 0}
+                    style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeCompanyPage === 0 ? '#f9fafb' : '#fff', cursor: safeCompanyPage === 0 ? 'not-allowed' : 'pointer' }}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setCompanyPage((prev) => Math.min(prev + 1, totalCompanyPages - 1))}
+                    disabled={safeCompanyPage >= totalCompanyPages - 1}
+                    style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeCompanyPage >= totalCompanyPages - 1 ? '#f9fafb' : '#fff', cursor: safeCompanyPage >= totalCompanyPages - 1 ? 'not-allowed' : 'pointer' }}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>

@@ -44,6 +44,8 @@ export default function AdminDisputesPage() {
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | DisputeStatus>('all');
   const [selectedDisputeId, setSelectedDisputeId] = useState<string | null>(null);
+  const DISPUTES_PER_PAGE = 10;
+  const [disputePage, setDisputePage] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +119,15 @@ export default function AdminDisputesPage() {
     () => disputes.filter((item) => statusFilter === 'all' || item.status === statusFilter),
     [disputes, statusFilter]
   );
+  useEffect(() => {
+    setDisputePage(0);
+  }, [statusFilter, disputes.length]);
+  const totalDisputePages = Math.max(1, Math.ceil(filtered.length / DISPUTES_PER_PAGE));
+  const safeDisputePage = Math.min(disputePage, totalDisputePages - 1);
+  const paginatedDisputes = filtered.slice(
+    safeDisputePage * DISPUTES_PER_PAGE,
+    (safeDisputePage + 1) * DISPUTES_PER_PAGE,
+  );
 
   const selectedDispute = filtered.find((item) => item.id === selectedDisputeId) ?? filtered[0] ?? null;
 
@@ -161,11 +172,11 @@ export default function AdminDisputesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((dispute, index) => {
+                    {paginatedDisputes.map((dispute, index) => {
                       const style = STATUS_STYLE[dispute.status];
                       const active = selectedDispute?.id === dispute.id;
                       return (
-                        <tr key={dispute.id} style={{ borderBottom: index < filtered.length - 1 ? '1px solid #f1f5f9' : 'none', background: active ? '#eff6ff' : '#fff' }}>
+                        <tr key={dispute.id} style={{ borderBottom: index < paginatedDisputes.length - 1 ? '1px solid #f1f5f9' : 'none', background: active ? '#eff6ff' : '#fff' }}>
                           <td style={{ padding: '0.75rem' }}>
                             <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.86rem' }}>{dispute.jobs?.pickup_location ?? '—'} → {dispute.jobs?.delivery_location ?? '—'}</div>
                             <div style={{ marginTop: '0.15rem', color: '#94a3b8', fontSize: '0.74rem' }}>Job #{dispute.job_id.slice(0, 8)}</div>
@@ -185,6 +196,29 @@ export default function AdminDisputesPage() {
                   </tbody>
                 </table>
               </div>
+              {filtered.length > DISPUTES_PER_PAGE && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', padding: '0.6rem 0.75rem', fontSize: '0.78rem', color: '#64748b' }}>
+                  <span>
+                    Showing {safeDisputePage * DISPUTES_PER_PAGE + 1}–{Math.min((safeDisputePage + 1) * DISPUTES_PER_PAGE, filtered.length)} of {filtered.length}
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button
+                      onClick={() => setDisputePage((prev) => Math.max(prev - 1, 0))}
+                      disabled={safeDisputePage === 0}
+                      style={{ padding: '0.28rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: safeDisputePage === 0 ? '#f8fafc' : '#fff', cursor: safeDisputePage === 0 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setDisputePage((prev) => Math.min(prev + 1, totalDisputePages - 1))}
+                      disabled={safeDisputePage >= totalDisputePages - 1}
+                      style={{ padding: '0.28rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: safeDisputePage >= totalDisputePages - 1 ? '#f8fafc' : '#fff', cursor: safeDisputePage >= totalDisputePages - 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {selectedDispute && (
