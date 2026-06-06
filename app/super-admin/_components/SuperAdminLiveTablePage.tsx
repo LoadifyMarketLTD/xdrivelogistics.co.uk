@@ -17,6 +17,8 @@ type SuperAdminLiveTablePageProps<T extends Record<string, unknown>> = {
   description: string;
   endpoint: string;
   rowsField?: string;
+  summaryField?: string;
+  noteField?: string;
   columns: TableColumn<T>[];
   emptyMessage: string;
 };
@@ -44,10 +46,14 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
   description,
   endpoint,
   rowsField = 'rows',
+  summaryField,
+  noteField,
   columns,
   emptyMessage,
 }: SuperAdminLiveTablePageProps<T>) {
   const [rows, setRows] = useState<T[]>([]);
+  const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +81,15 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
 
         const fieldValue = (body as Record<string, unknown>)[rowsField];
         setRows(Array.isArray(fieldValue) ? (fieldValue as T[]) : []);
+
+        if (summaryField) {
+          const summaryValue = (body as Record<string, unknown>)[summaryField];
+          setSummary(summaryValue && typeof summaryValue === 'object' ? (summaryValue as Record<string, unknown>) : null);
+        }
+        if (noteField) {
+          const noteValue = (body as Record<string, unknown>)[noteField];
+          setNote(typeof noteValue === 'string' ? noteValue : null);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Fetch failed.');
       } finally {
@@ -83,7 +98,7 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
     };
 
     void run();
-  }, [endpoint, rowsField]);
+  }, [endpoint, rowsField, summaryField, noteField]);
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
@@ -104,6 +119,33 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
         {error && (
           <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
             ⚠️ {error}
+          </div>
+        )}
+
+        {note && !loading && (
+          <div style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: `1px solid rgba(245,158,11,0.3)`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.accent, fontSize: '0.8rem', marginBottom: '1rem' }}>
+            ℹ️ {note}
+          </div>
+        )}
+
+        {summary && !loading && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem', marginBottom: '1rem' }}>
+            {Object.entries(summary).map(([key, value]) => (
+              <div key={key} style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.6rem 0.75rem' }}>
+                <div style={{ color: THEME.text, fontSize: '1rem', fontWeight: 700 }}>
+                  {typeof value === 'number'
+                    ? key.toLowerCase().includes('amount') || key.toLowerCase().includes('revenue') || key.toLowerCase().includes('vat') || key.toLowerCase().includes('net')
+                      ? `£${value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : key.toLowerCase().includes('rate')
+                        ? `${value}%`
+                        : value.toLocaleString()
+                    : String(value ?? '—')}
+                </div>
+                <div style={{ color: THEME.muted, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '0.15rem' }}>
+                  {key.replace(/_/g, ' ')}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

@@ -1,14 +1,127 @@
 'use client';
 
-import SuperAdminModulePage from '@/app/super-admin/_components/SuperAdminModulePage';
+import { useCallback, useEffect, useState } from 'react';
+import ProtectedRoute from '@/app/components/ProtectedRoute';
+import { supabase } from '@/lib/supabaseClient';
+
+const THEME = {
+  pageBg: '#0f172a',
+  cardBg: '#1e293b',
+  cardBorder: '#334155',
+  text: '#f1f5f9',
+  muted: '#94a3b8',
+  accent: '#f59e0b',
+  green: '#22c55e',
+};
+
+type RevenueSummary = {
+  totalRevenue: number;
+  totalInvoiced: number;
+  collectionRate: number;
+  paidInvoices: number;
+  totalInvoices: number;
+  unpaidAmount: number;
+};
+
+type MonthlyRevenue = { month: string; amount: number };
+
+async function getAuthHeader(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+  return ['Bearer', session.access_token].join(' ');
+}
 
 export default function Page() {
+  const [summary, setSummary] = useState<RevenueSummary | null>(null);
+  const [monthly, setMonthly] = useState<MonthlyRevenue[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) { setError('No active session.'); setLoading(false); return; }
+      const res = await fetch('/api/super-admin/finance?section=revenue&limit=500', { headers: { Authorization: auth } });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(body.error ?? `HTTP ${res.status}`); setLoading(false); return; }
+      setSummary(body.summary ?? null);
+      setMonthly(body.monthlyRevenue ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fetch failed.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const maxAmount = monthly.length > 0 ? Math.max(...monthly.map((m) => m.amount)) : 1;
+
   return (
-    <SuperAdminModulePage
-      icon="📈"
-      title="Revenue Reports"
-      description="Marketplace revenue reporting and trend analysis."
-      section="Finance"
-    />
+    <ProtectedRoute allowedRoles={['owner']}>
+      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          <span style={{ fontSize: '1.5rem' }}>📈</span>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Revenue Reports</h1>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Finance</span>
+            </div>
+            <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>Marketplace revenue reporting and collection rate trend analysis.</p>
+          </div>
+        </div>
+
+        {error && (
+          <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: '8px', padding: '0.65rem 0.9rem', color: '#ef4444', fontSize: '0.82rem', marginBottom: '1rem' }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div style={{ color: THEME.muted, padding: '2rem', textAlign: 'center' }}>Loading…</div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.65rem', marginBottom: '1.25rem' }}>
+              {[
+                { label: 'Total Revenue', value: `£${(summary?.totalRevenue ?? 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, highlight: true },
+                { label: 'Total Invoiced', value: `£${(summary?.totalInvoiced ?? 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+                { label: 'Unpaid', value: `£${(summary?.unpaidAmount ?? 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+                { label: 'Collection Rate', value: `${summary?.collectionRate ?? 0}%`, highlight: (summary?.collectionRate ?? 0) >= 80 },
+                { label: 'Paid Invoices', value: `${summary?.paidInvoices ?? 0} / ${summary?.totalInvoices ?? 0}` },
+              ].map((item) => (
+                <div key={item.label} style={{ backgroundColor: '#0b1220', border: `1px solid ${item.highlight ? THEME.green : THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem' }}>
+                  <div style={{ color: item.highlight ? THEME.green : THEME.text, fontSize: '1.05rem', fontWeight: 700 }}>{item.value}</div>
+                  <div style={{ color: THEME.muted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {monthly.length > 0 && (
+              <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
+                <h3 style={{ color: THEME.text, fontSize: '0.9rem', fontWeight: 700, margin: '0 0 1rem' }}>Monthly Revenue (last 12 months)</h3>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', height: '120px', padding: '0 0.25rem' }}>
+                  {monthly.slice().reverse().map((m) => {
+                    const pct = maxAmount > 0 ? (m.amount / maxAmount) * 100 : 0;
+                    return (
+                      <div key={m.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', minWidth: 0 }}>
+                        <div
+                          style={{ width: '100%', backgroundColor: THEME.accent, borderRadius: '3px 3px 0 0', height: `${Math.max(pct, 2)}%`, transition: 'height 0.3s ease' }}
+                          title={`£${m.amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        />
+                        <div style={{ color: THEME.muted, fontSize: '0.55rem', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                          {m.month}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </ProtectedRoute>
   );
 }
