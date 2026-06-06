@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { buildPathWithAuthParams, getBrowserAuthSignals, isRecoveryAuthFlow, RESET_PASSWORD_PATH } from '../../lib/authFlow';
 import { getPostLoginRoute, roleCanAccessPath } from '../../lib/authSession';
-import { COMPANY_CONFIG } from '../config/company';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,6 +20,7 @@ export default function LoginPage() {
   const [resetMessage, setResetMessage] = useState('');
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [heroImageSrc, setHeroImageSrc] = useState('/xdrive-login-hero.webp');
   const { login, resetPassword, user, isLoading: authLoading } = useAuth();
   const nextPath = searchParams.get('next');
   const safeNextPath = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : null;
@@ -83,144 +83,74 @@ export default function LoginPage() {
   const showResetSuccess = searchParams.get('reset') === 'success';
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#0a1324',
-        padding: '1rem',
-      }}
-    >
+    <div className="login-page">
       <div className="login-shell">
-        <div className="login-hero" aria-hidden="true" />
-        <div className="login-form-panel">
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ marginBottom: '1rem' }}>
-            <Image src="/xdrive-logo.svg" alt="XDrive Logistics" width={180} height={40} priority style={{ width: 'auto', height: '40px' }} />
-          </div>
-          <h1 style={{
-            fontSize: '2rem',
-            fontWeight: '700',
-            color: '#0A2239',
-            marginBottom: '0.5rem'
-          }}>
-            {COMPANY_CONFIG.name}
-          </h1>
-          <p style={{ color: '#5B6B85', fontSize: '0.95rem' }}>
-            {showReset ? 'Reset your password' : 'Sign in to your account'}
-          </p>
+        <section className="login-hero" aria-label="XDrive logistics platform introduction">
+          <img
+            src={heroImageSrc}
+            alt="XDrive Logistics hero"
+            className="login-hero-image"
+            onError={() => setHeroImageSrc('/xdrive-login-banner.png')}
+          />
+        </section>
+        <aside className="login-form-panel">
+        <div className="login-form-inner">
+        <div className="login-logo-row">
+          <Image src="/xdrive-logo.svg" alt="XDrive Logistics" width={168} height={40} priority />
+        </div>
+        <div className="login-form-header">
+          <h2>{showReset ? 'Reset your password' : 'Welcome Back'}</h2>
+          <p>{showReset ? 'Enter your email to receive reset instructions' : 'Sign in to your account'}</p>
         </div>
 
         {showResetSuccess && !showReset && (
-          <div style={{
-            padding: '0.75rem',
-            marginBottom: '1.5rem',
-            backgroundColor: '#dcfce7',
-            color: '#166534',
-            borderRadius: '6px',
-            fontSize: '0.9rem',
-            border: '1px solid #bbf7d0'
-          }}>
+          <div className="login-message success">
             Password updated successfully. Sign in with your new password.
           </div>
         )}
 
         {!showReset ? (
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label htmlFor="email" style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                color: '#0B1B33',
-                fontWeight: '500',
-                fontSize: '0.95rem'
-              }}>
-                Email Address
-              </label>
+          <form onSubmit={handleSubmit} className="login-form">
+            <div className="field-group">
+              <label htmlFor="email">Email</label>
               <input
                 id="email"
                 type="email"
                 autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email address"
                 required
                 disabled={isLoading}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid rgba(14, 36, 72, 0.12)',
-                  borderRadius: '6px',
-                  fontSize: '1rem',
-                  transition: 'border-color 0.2s',
-                  outline: 'none'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#1E4E8C'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(14, 36, 72, 0.12)'}
               />
             </div>
 
-            <div style={{ marginBottom: '0.5rem' }}>
-              <label htmlFor="password" style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                color: '#0B1B33',
-                fontWeight: '500',
-                fontSize: '0.95rem'
-              }}>
-                Password
-              </label>
+            <div className="field-group">
+              <label htmlFor="password">Password</label>
               <input
                 id="password"
                 type="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
                 required
                 disabled={isLoading}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid rgba(14, 36, 72, 0.12)',
-                  borderRadius: '6px',
-                  fontSize: '1rem',
-                  transition: 'border-color 0.2s',
-                  outline: 'none'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#1E4E8C'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(14, 36, 72, 0.12)'}
               />
             </div>
 
-            <div style={{ textAlign: 'right', marginBottom: '1.5rem' }}>
+            <div className="forgot-row">
               <button
                 type="button"
                 onClick={handleShowReset}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#1E4E8C',
-                  fontSize: '0.875rem',
-                  cursor: 'pointer',
-                  padding: 0,
-                  textDecoration: 'underline'
-                }}
+                className="link-button"
               >
                 Forgot password?
               </button>
             </div>
 
             {error && (
-              <div style={{
-                padding: '0.75rem',
-                marginBottom: '1.5rem',
-                backgroundColor: '#fee2e2',
-                color: '#dc2626',
-                borderRadius: '6px',
-                fontSize: '0.9rem',
-                border: '1px solid #fecaca'
-              }}>
+              <div className="login-message error">
                 {error}
               </div>
             )}
@@ -228,85 +158,42 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              style={{
-                width: '100%',
-                padding: '0.875rem',
-                backgroundColor: isLoading ? '#86efac' : '#1F7A3D',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                transition: 'background-color 0.2s'
-              }}
+              className="signin-button"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
 
-            <p style={{ marginTop: '1rem', marginBottom: 0, color: '#5B6B85', textAlign: 'center' }}>
+            <p className="register-row">
               Need an account?{' '}
-              <Link href="/register" style={{ color: '#1E4E8C', fontWeight: 600 }}>
+              <Link href="/register">
                 Register
               </Link>
             </p>
           </form>
         ) : (
-          <form onSubmit={handleResetPassword}>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label htmlFor="reset-email" style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                color: '#0B1B33',
-                fontWeight: '500',
-                fontSize: '0.95rem'
-              }}>
-                Email Address
-              </label>
+          <form onSubmit={handleResetPassword} className="login-form">
+            <div className="field-group">
+              <label htmlFor="reset-email">Email Address</label>
               <input
                 id="reset-email"
                 type="email"
                 autoComplete="email"
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="Enter your email address"
                 required
                 disabled={resetLoading}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid rgba(14, 36, 72, 0.12)',
-                  borderRadius: '6px',
-                  fontSize: '1rem',
-                  transition: 'border-color 0.2s',
-                  outline: 'none'
-                }}
               />
             </div>
 
             {resetError && (
-              <div style={{
-                padding: '0.75rem',
-                marginBottom: '1.5rem',
-                backgroundColor: '#fee2e2',
-                color: '#dc2626',
-                borderRadius: '6px',
-                fontSize: '0.9rem',
-                border: '1px solid #fecaca'
-              }}>
+              <div className="login-message error">
                 {resetError}
               </div>
             )}
 
             {resetMessage && (
-              <div style={{
-                padding: '0.75rem',
-                marginBottom: '1.5rem',
-                backgroundColor: '#dcfce7',
-                color: '#166534',
-                borderRadius: '6px',
-                fontSize: '0.9rem',
-                border: '1px solid #bbf7d0'
-              }}>
+              <div className="login-message success">
                 {resetMessage}
               </div>
             )}
@@ -314,34 +201,16 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={resetLoading}
-              style={{
-                width: '100%',
-                padding: '0.875rem',
-                backgroundColor: resetLoading ? '#86efac' : '#1F7A3D',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: resetLoading ? 'not-allowed' : 'pointer',
-                transition: 'background-color 0.2s'
-              }}
+              className="signin-button"
             >
               {resetLoading ? 'Sending...' : 'Send Reset Email'}
             </button>
 
-            <p style={{ marginTop: '1rem', marginBottom: 0, textAlign: 'center' }}>
+            <p className="register-row">
               <button
                 type="button"
                 onClick={handleBackToSignIn}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#1E4E8C',
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  textDecoration: 'underline'
-                }}
+                className="link-button"
               >
                 Back to sign in
               </button>
@@ -349,48 +218,224 @@ export default function LoginPage() {
           </form>
         )}
         </div>
-      </div>
+      </aside>
+    </div>
       <style jsx>{`
-        .login-shell {
-          width: 100%;
-          max-width: 1180px;
-          min-height: 720px;
-          border-radius: 16px;
-          overflow: hidden;
-          display: grid;
-          grid-template-columns: 1.25fr 0.95fr;
-          box-shadow: 0 20px 45px rgba(4, 10, 24, 0.45);
+        .login-page {
+          width: 100vw;
+          height: 100vh;
+          margin: 0;
+          padding: 0;
           background: #ffffff;
+          overflow: hidden;
+        }
+
+        .login-shell {
+          width: 100vw;
+          height: 100vh;
+          display: grid;
+          grid-template-columns: 70% 30%;
         }
 
         .login-hero {
-          background-image: linear-gradient(180deg, rgba(10, 22, 45, 0.12) 0%, rgba(10, 22, 45, 0.58) 100%), url('/xdrive-login-banner.png');
-          background-size: cover;
-          background-position: center;
-          background-repeat: no-repeat;
+          width: 100%;
+          min-height: 100vh;
+          height: 100%;
+          overflow: hidden;
+        }
+
+        .login-hero-image {
+          width: 100%;
+          height: 100%;
+          min-height: 100vh;
+          object-fit: cover;
+          object-position: center;
+          display: block;
         }
 
         .login-form-panel {
           background: #ffffff;
-          padding: 2.5rem;
+          padding: 2rem 2.2rem;
           display: flex;
           flex-direction: column;
           justify-content: center;
+          height: 100vh;
+          min-width: 420px;
+          overflow-y: auto;
+        }
+
+        .login-form-inner {
+          width: 100%;
+          max-width: 440px;
+          margin: 0 auto;
+        }
+
+        .login-logo-row {
+          margin-bottom: 1.5rem;
+        }
+
+        .login-form-header h2 {
+          margin: 0 0 0.6rem;
+          color: #111827;
+          font-size: clamp(1.9rem, 2vw, 2.4rem);
+          line-height: 1.05;
+          letter-spacing: -0.02em;
+        }
+
+        .login-form-header p {
+          margin: 0 0 1.7rem;
+          color: #4b5563;
+          font-size: 1rem;
+          line-height: 1.4;
+        }
+
+        .login-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .field-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .field-group label {
+          margin: 0;
+          color: #111827;
+          font-size: 0.96rem;
+          font-weight: 600;
+        }
+
+        .field-group :global(input) {
+          width: 100%;
+          border: 1px solid #d6dbe3;
+          border-radius: 0.65rem;
+          background: #ffffff;
+          color: #111827;
+          font-size: 1rem;
+          line-height: 1.2;
+          padding: 0.95rem 1rem;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .field-group :global(input:focus) {
+          outline: none;
+          border-color: #2563eb;
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+        }
+
+        .forgot-row {
+          display: flex;
+          justify-content: flex-end;
+        }
+
+        .link-button {
+          border: none;
+          background: none;
+          color: #2563eb;
+          font-size: 0.96rem;
+          font-weight: 500;
+          padding: 0;
+          cursor: pointer;
+        }
+
+        .signin-button {
+          width: 100%;
+          border: none;
+          border-radius: 0.7rem;
+          padding: 0.92rem 1rem;
+          background: #1d64d8;
+          color: #ffffff;
+          font-size: 1.15rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+        }
+
+        .signin-button:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+
+        .signin-button:not(:disabled):hover {
+          background: #1553c0;
+        }
+
+        .register-row {
+          margin: 0.1rem 0 0;
+          text-align: center;
+          color: #4b5563;
+        }
+
+        .register-row :global(a) {
+          color: #2563eb;
+          font-weight: 600;
+        }
+
+        .login-message {
+          padding: 0.75rem;
+          border-radius: 0.55rem;
+          font-size: 0.9rem;
+          border: 1px solid transparent;
+        }
+
+        .login-message.error {
+          background: #fee2e2;
+          color: #dc2626;
+          border-color: #fecaca;
+        }
+
+        .login-message.success {
+          background: #dcfce7;
+          color: #166534;
+          border-color: #bbf7d0;
+        }
+
+        @media (max-width: 1400px) and (min-width: 961px) {
+          .login-shell {
+            grid-template-columns: 60% 40%;
+          }
         }
 
         @media (max-width: 960px) {
           .login-shell {
-            min-height: auto;
             grid-template-columns: 1fr;
-            max-width: 430px;
+            grid-template-rows: 40vh minmax(60vh, auto);
+            min-height: 100vh;
+            height: auto;
+            width: 100%;
           }
 
           .login-hero {
-            display: none;
+            min-height: 0;
+            height: 40vh;
+          }
+
+          .login-hero-image {
+            min-height: 0;
+            height: 100%;
           }
 
           .login-form-panel {
-            padding: 2rem;
+            padding: 1.75rem 1.25rem;
+            min-height: 60vh;
+            height: auto;
+            min-width: 0;
+            border-left: none;
+          }
+
+          .login-form-inner {
+            max-width: 560px;
+          }
+
+          .login-form-header h2 {
+            font-size: 2rem;
+          }
+
+          .signin-button {
+            font-size: 1.35rem;
           }
         }
       `}</style>
