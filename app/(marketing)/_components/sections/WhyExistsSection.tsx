@@ -19,15 +19,15 @@ export function WhyExistsSection() {
           </ul>
         </div>
 
-        <div className="overflow-hidden rounded-[24px] border border-[#e5e7eb] shadow-[0_12px_32px_-20px_rgba(15,23,42,0.45)]">
+        <div className="group overflow-hidden rounded-2xl border border-[#e5e7eb] shadow-[0_12px_32px_-20px_rgba(15,23,42,0.45)]">
           <HomepageVisualCard
-            imageSrc="/images/homepage/fleet-vehicles-yard.jpg"
-            imageAlt="Fleet vehicles parked in a logistics yard"
-            label="Fleet visual"
-            title="Licensed yard and fleet imagery pending"
+            imageSrc="https://images.pexels.com/photos/6169660/pexels-photo-6169660.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600"
+            imageAlt="Transport planner working at desk with multiple planning screens"
+            label="Load planner"
+            title="Transport planner office"
             icon={Truck}
             tone="slate"
-            className="h-[280px] min-h-[280px] w-full sm:h-[360px] sm:min-h-[360px]"
+            className="h-[180px] w-full md:h-[220px] lg:h-[320px]"
           />
         </div>
       </div>

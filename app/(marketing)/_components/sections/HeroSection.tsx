@@ -11,11 +11,11 @@ export function HeroSection() {
             UK Logistics Technology Platform
           </span>
           <h1 className="mt-6 text-4xl font-extrabold leading-tight text-[#0f172a] sm:text-5xl">
-            Move Freight.
+            Launching Soon.
             <br />
-            Manage Operations.
+            Join the First Wave of
             <br />
-            Grow Your Network.
+            UK Logistics Professionals.
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-slate-600">
             XDrive is an early-access UK logistics platform designed to connect transport customers, courier companies, owner operators and
@@ -38,15 +38,15 @@ export function HeroSection() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[24px] border border-[#e5e7eb] bg-slate-50 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]">
+        <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-slate-50 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]">
           <HomepageVisualCard
-            imageSrc="/images/homepage/hero-dispatch-control.jpg"
+            imageSrc="https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600"
             imageAlt="Logistics dispatch control desk with route planning screens"
             label="Dispatch visual"
-            title="Real dispatch-floor photography pending approval"
+            title="Logistics control room"
             icon={Route}
             tone="blue"
-            className="h-[280px] w-full sm:h-[360px] lg:max-h-[430px]"
+            className="h-[180px] w-full md:h-[220px] lg:h-[320px]"
             priority
           />
         </div>

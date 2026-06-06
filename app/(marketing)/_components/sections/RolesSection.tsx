@@ -14,7 +14,7 @@ export function RolesSection() {
 
         <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {roleCards.map((role) => (
-            <article key={role.title} className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_24px_-20px_rgba(15,23,42,0.45)]">
+            <article key={role.title} className="group overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_24px_-20px_rgba(15,23,42,0.45)]">
               <HomepageVisualCard
                 imageSrc={role.image}
                 imageAlt={role.imageAlt}
@@ -22,7 +22,7 @@ export function RolesSection() {
                 title={role.title}
                 icon={role.icon}
                 tone={role.tone}
-                className="h-[150px] w-full sm:h-[180px]"
+                className="h-[180px] w-full md:h-[220px] lg:h-[320px]"
               />
               <div className="p-4">
                 <h3 className="text-base font-semibold text-[#0f172a]">{role.title}</h3>
