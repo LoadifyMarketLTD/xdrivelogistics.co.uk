@@ -15,12 +15,14 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   sent: { bg: '#e0f2fe', text: '#075985' },
   accepted: { bg: '#d1fae5', text: '#065f46' },
   declined: { bg: '#fee2e2', text: '#991b1b' },
+  converted: { bg: '#ede9fe', text: '#5b21b6' },
 };
 
 const QUOTE_TABS: Array<{ id: string; label: string; statuses: string[] }> = [
   { id: 'received', label: 'Received', statuses: ['draft'] },
   { id: 'submitted', label: 'Submitted', statuses: ['sent'] },
   { id: 'accepted', label: 'Accepted', statuses: ['accepted'] },
+  { id: 'converted', label: 'Converted', statuses: ['converted'] },
   { id: 'rejected', label: 'Unsuccessful', statuses: ['declined'] },
 ] as const;
 
@@ -43,6 +45,9 @@ export default function QuotesPage() {
   const [activeTab, setActiveTab] = useState('received');
   const [searchTerm, setSearchTerm] = useState('');
   const [vehicleFilter, setVehicleFilter] = useState('all');
+  const QUOTES_PER_PAGE = 12;
+  const [quotePage, setQuotePage] = useState(0);
+  const [flowMessage, setFlowMessage] = useState('');
 
   const loadCompanyId = async (userId: string) => {
     // bootstrap_company_membership() returns profiles.company_id and ensures
@@ -139,6 +144,7 @@ export default function QuotesPage() {
   const handleConvertToJob = async (quote: Quote) => {
     if (!companyId || !isSupabaseConfigured || !hasSupabaseSession) return;
     setConvertingId(quote.id);
+    setFlowMessage('');
     try {
       const { data: jobData, error: jobError } = await supabase
         .from('jobs')
@@ -161,13 +167,14 @@ export default function QuotesPage() {
         console.error('Failed to create job from quote:', jobError.message);
         return;
       }
-      // Mark quote as accepted
+      // Mark quote as converted
       await supabase
         .from('quotes')
-        .update({ status: 'accepted' })
+        .update({ status: 'converted' })
         .eq('id', quote.id)
         .eq('company_id', companyId);
       loadQuotes();
+      setFlowMessage('Quote converted to job successfully.');
       if (jobData?.id) {
         router.push(`/admin/jobs/${jobData.id}`);
       }
@@ -195,6 +202,14 @@ export default function QuotesPage() {
         .some((value) => String(value).toLowerCase().includes(term));
     });
   }, [quotes, activeTab, vehicleFilter, searchTerm]);
+
+  useEffect(() => {
+    setQuotePage(0);
+  }, [activeTab, vehicleFilter, searchTerm, quotes.length]);
+
+  const totalQuotePages = Math.max(1, Math.ceil(filteredQuotes.length / QUOTES_PER_PAGE));
+  const safeQuotePage = Math.min(quotePage, totalQuotePages - 1);
+  const paginatedQuotes = filteredQuotes.slice(safeQuotePage * QUOTES_PER_PAGE, (safeQuotePage + 1) * QUOTES_PER_PAGE);
 
   return (
     <ProtectedRoute>
@@ -292,6 +307,11 @@ export default function QuotesPage() {
               + New Quote
             </button>
           </div>
+          {flowMessage && (
+            <div style={{ margin: '0.85rem 0.85rem 0', background: '#ecfdf5', border: '1px solid #86efac', borderRadius: '8px', padding: '0.65rem 0.8rem', color: '#166534', fontSize: '0.82rem', fontWeight: 600 }}>
+              {flowMessage}
+            </div>
+          )}
 
           {/* Table */}
           <div style={{ padding: '0.85rem', flex: 1, overflow: 'auto' }}>
@@ -314,10 +334,10 @@ export default function QuotesPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredQuotes.map((q, i) => {
+                      {paginatedQuotes.map((q, i) => {
                         const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
                         return (
-                          <tr key={q.id} style={{ borderBottom: i < filteredQuotes.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                          <tr key={q.id} style={{ borderBottom: i < paginatedQuotes.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
                             <td style={{ padding: '0.65rem 0.85rem', fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{q.customer_name || '—'}</td>
                             <td style={{ padding: '0.65rem 0.85rem', color: '#374151', fontSize: '0.82rem' }}>{q.pickup_location || '—'}</td>
                             <td style={{ padding: '0.65rem 0.85rem', color: '#374151', fontSize: '0.82rem' }}>{q.delivery_location || '—'}</td>
@@ -353,6 +373,29 @@ export default function QuotesPage() {
                 </div>
               )}
             </div>
+            {!loading && filteredQuotes.length > QUOTES_PER_PAGE && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem', fontSize: '0.75rem', color: '#64748b' }}>
+                <span>
+                  Showing {safeQuotePage * QUOTES_PER_PAGE + 1}–{Math.min((safeQuotePage + 1) * QUOTES_PER_PAGE, filteredQuotes.length)} of {filteredQuotes.length}
+                </span>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button
+                    onClick={() => setQuotePage((prev) => Math.max(prev - 1, 0))}
+                    disabled={safeQuotePage === 0}
+                    style={{ padding: '0.3rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '6px', background: safeQuotePage === 0 ? '#f8fafc' : '#fff', color: '#334155', cursor: safeQuotePage === 0 ? 'not-allowed' : 'pointer' }}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setQuotePage((prev) => Math.min(prev + 1, totalQuotePages - 1))}
+                    disabled={safeQuotePage >= totalQuotePages - 1}
+                    style={{ padding: '0.3rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '6px', background: safeQuotePage >= totalQuotePages - 1 ? '#f8fafc' : '#fff', color: '#334155', cursor: safeQuotePage >= totalQuotePages - 1 ? 'not-allowed' : 'pointer' }}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </main>
 
