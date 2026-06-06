@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
     companiesTotal,
     companiesActive,
     companiesSuspended,
-    companiesPending,
+    companiesPendingApproval,
+    companiesPendingLegacy,
     driversTotal,
     jobsTotal,
     jobsOpen,
@@ -50,7 +51,10 @@ export async function GET(request: NextRequest) {
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'suspended'),
+    // 'pending_approval' is the canonical value; may fail if the enum doesn't include it yet
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'pending_approval'),
+    // Fallback: 'pending' is the legacy enum value on some deployments
+    supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).in('status', ['draft', 'posted', 'allocated', 'in_transit']),
@@ -59,6 +63,11 @@ export async function GET(request: NextRequest) {
     supabaseAdmin.from('invoices').select('id', { count: 'exact', head: true }).eq('status', 'Paid'),
   ]);
 
+  // Combine pending counts: use whichever query succeeded
+  const pendingCount =
+    (!companiesPendingApproval.error ? (companiesPendingApproval.count ?? 0) : 0) +
+    (!companiesPendingLegacy.error ? (companiesPendingLegacy.count ?? 0) : 0);
+
   const invoicesCount = invoicesTotal.count ?? 0;
   const paidInvoicesCount = paidInvoices.count ?? 0;
 
@@ -66,7 +75,7 @@ export async function GET(request: NextRequest) {
     companiesTotal: companiesTotal.count ?? 0,
     companiesActive: companiesActive.count ?? 0,
     companiesSuspended: companiesSuspended.count ?? 0,
-    companiesPending: companiesPending.count ?? 0,
+    companiesPending: pendingCount,
     driversTotal: driversTotal.count ?? 0,
     jobsTotal: jobsTotal.count ?? 0,
     jobsOpen: jobsOpen.count ?? 0,
