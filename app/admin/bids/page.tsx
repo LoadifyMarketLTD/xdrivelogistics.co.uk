@@ -281,8 +281,8 @@ function JobBidGroup({
 }: {
   group: JobGroup;
   actionLoading: string | null;
-  onAccept: (bidId: string) => void;
-  onReject: (bidId: string) => void;
+  onAccept: (bidId: string) => void | Promise<void>;
+  onReject: (bidId: string) => void | Promise<void>;
 }) {
   const BIDS_PER_PAGE = 8;
   const [groupPage, setGroupPage] = useState(0);
