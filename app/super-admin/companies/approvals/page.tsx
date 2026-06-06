@@ -132,7 +132,7 @@ function ApprovalsContent() {
             No companies pending approval.
             <br />
             <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>
-              Companies with status <code style={{ backgroundColor: '#0b1220', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>pending_approval</code> will appear here.
+              Companies with status <code style={{ backgroundColor: '#0b1220', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>pending_approval</code> or <code style={{ backgroundColor: '#0b1220', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>pending</code> will appear here.
             </span>
           </div>
         ) : (
