@@ -115,6 +115,15 @@ type DocRow = {
   expiry_date: string | null;
 };
 
+type ExpiryAlertRow = {
+  id: string;
+  doc_type: string;
+  expiry_date: string;
+  status: string;
+  entity_name: string;
+  entity_kind: 'driver' | 'vehicle';
+};
+
 type DriverAvailRow = {
   id: string;
   display_name: string | null;
@@ -354,6 +363,7 @@ export default function AdminPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [driverAvailability, setDriverAvailability] = useState<DriverAvailRow[]>([]);
   const [postedJobsForDispatch, setPostedJobsForDispatch] = useState<PostedJobDispatch[]>([]);
+  const [expiryAlerts, setExpiryAlerts] = useState<ExpiryAlertRow[]>([]);
 
   const activeRole = mapAppRole(user?.role ?? null);
   const navSections = getNavSectionsForRole(activeRole, {
@@ -670,6 +680,70 @@ export default function AdminPage() {
       cancelled = true;
     };
   }, [companyResolved, resolvedCompanyId]);
+
+  // ── Compliance expiry alerts (detailed) ────────────────────────────────────
+  useEffect(() => {
+    if (!resolvedCompanyId || !isSupabaseConfigured) return;
+    let active = true;
+
+    const loadExpiry = async () => {
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      const cutoff = thirtyDaysFromNow.toISOString().slice(0, 10);
+      const today = new Date().toISOString().slice(0, 10);
+
+      const [ddRes, vdRes] = await Promise.all([
+        supabase
+          .from('driver_documents')
+          .select('id, doc_type, expiry_date, status, drivers!inner(company_id, display_name)')
+          .eq('drivers.company_id', resolvedCompanyId)
+          .gte('expiry_date', today)
+          .lte('expiry_date', cutoff)
+          .neq('status', 'expired')
+          .order('expiry_date', { ascending: true })
+          .limit(10),
+        supabase
+          .from('vehicle_documents')
+          .select('id, doc_type, expiry_date, status, vehicles!inner(company_id, reg_plate)')
+          .eq('vehicles.company_id', resolvedCompanyId)
+          .gte('expiry_date', today)
+          .lte('expiry_date', cutoff)
+          .neq('status', 'expired')
+          .order('expiry_date', { ascending: true })
+          .limit(10),
+      ]);
+
+      if (!active) return;
+
+      type RawDriverDoc = { id: string; doc_type: string; expiry_date: string; status: string; drivers: { display_name: string | null } | Array<{ display_name: string | null }> | null };
+      type RawVehicleDoc = { id: string; doc_type: string; expiry_date: string; status: string; vehicles: { reg_plate: string | null } | Array<{ reg_plate: string | null }> | null };
+
+      const driverAlerts: ExpiryAlertRow[] = ((ddRes.data ?? []) as unknown as RawDriverDoc[]).map((d) => ({
+        id: d.id,
+        doc_type: d.doc_type,
+        expiry_date: d.expiry_date,
+        status: d.status,
+        entity_name: (Array.isArray(d.drivers) ? d.drivers[0]?.display_name : d.drivers?.display_name) ?? 'Unknown driver',
+        entity_kind: 'driver' as const,
+      }));
+      const vehicleAlerts: ExpiryAlertRow[] = ((vdRes.data ?? []) as unknown as RawVehicleDoc[]).map((v) => ({
+        id: v.id,
+        doc_type: v.doc_type,
+        expiry_date: v.expiry_date,
+        status: v.status,
+        entity_name: (Array.isArray(v.vehicles) ? v.vehicles[0]?.reg_plate : v.vehicles?.reg_plate) ?? 'Unknown vehicle',
+        entity_kind: 'vehicle' as const,
+      }));
+
+      const combined = [...driverAlerts, ...vehicleAlerts]
+        .sort((a, b) => a.expiry_date.localeCompare(b.expiry_date))
+        .slice(0, 10);
+      setExpiryAlerts(combined);
+    };
+
+    void loadExpiry();
+    return () => { active = false; };
+  }, [resolvedCompanyId]);
 
   const sectionCardStyle: CSSProperties = {
     backgroundColor: ENTERPRISE_THEME.cardBg,
@@ -1332,6 +1406,71 @@ export default function AdminPage() {
                         </div>
                         <span style={{ fontSize: '0.72rem', fontWeight: 700, color: availability === 'available' ? '#15803d' : '#475569' }}>
                           {availability === 'available' ? 'Ready now' : 'Monitor'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* ── Compliance Expiry Alerts widget ──────────────────────── */}
+            <section style={{ ...sectionCardStyle, borderTop: '3px solid #a78bfa' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.68rem', gap: '0.5rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Compliance Expiry Alerts</h3>
+                  <p style={{ color: ENTERPRISE_THEME.colors.muted, margin: '0.25rem 0 0 0', fontSize: '0.78rem' }}>
+                    Documents expiring within the next 30 days.
+                  </p>
+                </div>
+                <button
+                  className="panel-button"
+                  onClick={() => router.push('/admin/documents')}
+                  style={{ background: 'none', border: 'none', fontSize: '0.75rem', color: ENTERPRISE_THEME.colors.live, cursor: 'pointer', fontWeight: '600' }}
+                >
+                  View all →
+                </button>
+              </div>
+              {dashboardLoading ? (
+                <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem' }}>Loading…</div>
+              ) : expiryAlerts.length === 0 ? (
+                <div style={{ color: '#15803d', fontSize: '0.82rem', padding: '0.4rem 0', fontWeight: 600 }}>✓ No documents expiring in the next 30 days.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: '0.45rem' }}>
+                  {expiryAlerts.map((alert) => {
+                    const daysLeft = Math.ceil((new Date(alert.expiry_date).getTime() - Date.now()) / 86_400_000);
+                    const urgent = daysLeft <= 7;
+                    return (
+                      <div
+                        key={alert.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '0.6rem',
+                          backgroundColor: urgent ? '#fef3c7' : '#f8fafc',
+                          border: `1px solid ${urgent ? '#fcd34d' : '#e2e8f0'}`,
+                          borderRadius: '8px',
+                          padding: '0.55rem 0.7rem',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: '700', fontSize: '0.82rem', color: ENTERPRISE_THEME.colors.text, marginBottom: '0.1rem' }}>
+                            {alert.doc_type.replace(/_/g, ' ')} — {alert.entity_name}
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: ENTERPRISE_THEME.colors.muted }}>
+                            {alert.entity_kind === 'driver' ? '👤 Driver' : '🚛 Vehicle'} · Expires {new Date(alert.expiry_date).toLocaleDateString('en-GB')}
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            color: urgent ? '#92400e' : '#475569',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {daysLeft}d left
                         </span>
                       </div>
                     );
