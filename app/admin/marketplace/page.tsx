@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
@@ -126,6 +126,13 @@ export default function MarketplacePage() {
   const [loads, setLoads] = useState<ExchangeLoad[]>([]);
   const [loadsLoading, setLoadsLoading] = useState(false);
   const [loadsError, setLoadsError] = useState('');
+  const [vehicleFilter, setVehicleFilter] = useState('any');
+  const [pickupPostcodeFilter, setPickupPostcodeFilter] = useState('');
+  const [cargoTypeFilter, setCargoTypeFilter] = useState('');
+  const [weightMinFilter, setWeightMinFilter] = useState('');
+  const [dateFromFilter, setDateFromFilter] = useState('');
+  const [dateToFilter, setDateToFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'price_desc' | 'price_asc'>('date_desc');
 
   // Bid modal state
   const [bidTarget, setBidTarget] = useState<ExchangeLoad | null>(null);
@@ -320,10 +327,57 @@ export default function MarketplacePage() {
     if (!error) void loadMyBids();
   };
 
+  const clearFilters = () => {
+    setVehicleFilter('any');
+    setPickupPostcodeFilter('');
+    setCargoTypeFilter('');
+    setWeightMinFilter('');
+    setDateFromFilter('');
+    setDateToFilter('');
+    setSortBy('date_desc');
+  };
+
+  const filteredLoads = useMemo(() => {
+    const postcodeNeedle = pickupPostcodeFilter.trim().toLowerCase();
+    const cargoNeedle = cargoTypeFilter.trim().toLowerCase();
+    const minWeight = Number(weightMinFilter);
+    const fromDate = dateFromFilter ? new Date(`${dateFromFilter}T00:00:00`).getTime() : null;
+    const toDate = dateToFilter ? new Date(`${dateToFilter}T23:59:59`).getTime() : null;
+
+    const filtered = loads.filter((load) => {
+      if (vehicleFilter !== 'any' && load.vehicle_type !== vehicleFilter) return false;
+      if (postcodeNeedle && !(load.pickup_postcode ?? '').toLowerCase().includes(postcodeNeedle)) return false;
+      if (cargoNeedle && !(load.cargo_type ?? '').toLowerCase().includes(cargoNeedle)) return false;
+      if (!Number.isNaN(minWeight) && weightMinFilter.trim() && (load.weight_kg ?? 0) < minWeight) return false;
+      if ((fromDate || toDate) && load.pickup_datetime) {
+        const pickupTs = new Date(load.pickup_datetime).getTime();
+        if (fromDate && pickupTs < fromDate) return false;
+        if (toDate && pickupTs > toDate) return false;
+      }
+      if ((fromDate || toDate) && !load.pickup_datetime) return false;
+      return true;
+    });
+
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.exchange_posted_at ?? a.pickup_datetime ?? 0).getTime();
+      const dateB = new Date(b.exchange_posted_at ?? b.pickup_datetime ?? 0).getTime();
+      const priceA = a.budget_amount ?? 0;
+      const priceB = b.budget_amount ?? 0;
+      switch (sortBy) {
+        case 'date_asc': return dateA - dateB;
+        case 'price_desc': return priceB - priceA;
+        case 'price_asc': return priceA - priceB;
+        case 'date_desc':
+        default:
+          return dateB - dateA;
+      }
+    });
+  }, [loads, vehicleFilter, pickupPostcodeFilter, cargoTypeFilter, weightMinFilter, dateFromFilter, dateToFilter, sortBy]);
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   const tabs: Array<{ id: Tab; label: string; count?: number }> = [
-    { id: 'loads', label: 'All Live', count: loads.length },
+    { id: 'loads', label: 'All Live', count: filteredLoads.length },
     { id: 'bids',  label: 'My Bids',  count: bids.length  },
     { id: 'won',   label: 'Won Work', count: wonJobs.length },
   ];
@@ -343,35 +397,49 @@ export default function MarketplacePage() {
           )}
 
           <FieldLabel>FROM:</FieldLabel>
-          <input placeholder="Enter Location" style={inputStyle} />
+          <input
+            value={pickupPostcodeFilter}
+            onChange={(e) => setPickupPostcodeFilter(e.target.value)}
+            placeholder="Pickup postcode"
+            style={inputStyle}
+          />
 
           <FieldLabel>TO:</FieldLabel>
           <input placeholder="United Kingdom" style={inputStyle} />
 
           <FieldLabel>VEHICLE SIZE:</FieldLabel>
-          <select style={inputStyle}>
-            <option>Any</option>
-            <option>Bicycle / Motorbike</option>
-            <option>Car</option>
-            <option>Small Van</option>
-            <option>Large Van</option>
-            <option>Luton Van</option>
-            <option>7.5t Truck</option>
-            <option>18t Truck</option>
-            <option>Artic</option>
+          <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={inputStyle}>
+            <option value="any">Any</option>
+            <option value="bicycle">Bicycle</option>
+            <option value="motorbike">Motorbike</option>
+            <option value="car">Car</option>
+            <option value="van_small">Small Van</option>
+            <option value="van_large">Large Van</option>
+            <option value="luton">Luton Van</option>
+            <option value="truck_7_5t">7.5t Truck</option>
+            <option value="truck_18t">18t Truck</option>
+            <option value="artic">Artic</option>
           </select>
 
-          <FieldLabel>DATE:</FieldLabel>
-          <select style={inputStyle}>
-            <option>Anytime</option>
-            <option>Today</option>
-            <option>Today + 7 Days</option>
-            <option>Today + 10 Days</option>
-            <option>Today + 30 Days</option>
-          </select>
+          <FieldLabel>DATE FROM:</FieldLabel>
+          <input type="date" value={dateFromFilter} onChange={(e) => setDateFromFilter(e.target.value)} style={inputStyle} />
+
+          <FieldLabel>DATE TO:</FieldLabel>
+          <input type="date" value={dateToFilter} onChange={(e) => setDateToFilter(e.target.value)} style={inputStyle} />
 
           <FieldLabel>FREIGHT TYPE:</FieldLabel>
-          <input placeholder="e.g. Pallet, Parcel" style={{ ...inputStyle, marginBottom: '0.9rem' }} />
+          <input value={cargoTypeFilter} onChange={(e) => setCargoTypeFilter(e.target.value)} placeholder="e.g. pallets" style={inputStyle} />
+
+          <FieldLabel>MIN WEIGHT (KG):</FieldLabel>
+          <input type="number" min="0" value={weightMinFilter} onChange={(e) => setWeightMinFilter(e.target.value)} placeholder="0" style={inputStyle} />
+
+          <FieldLabel>SORT:</FieldLabel>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as 'date_desc' | 'date_asc' | 'price_desc' | 'price_asc')} style={{ ...inputStyle, marginBottom: '0.9rem' }}>
+            <option value="date_desc">Date (newest)</option>
+            <option value="date_asc">Date (oldest)</option>
+            <option value="price_desc">Price (high-low)</option>
+            <option value="price_asc">Price (low-high)</option>
+          </select>
 
           <div style={{ display: 'flex', gap: '0.4rem' }}>
             <button
@@ -381,6 +449,7 @@ export default function MarketplacePage() {
               Search
             </button>
             <button
+              onClick={clearFilters}
               style={{ padding: '0.5rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.78rem', color: '#64748b' }}
             >
               Clear
@@ -437,10 +506,10 @@ export default function MarketplacePage() {
                 {loadsError && <ErrorBanner msg={loadsError} />}
                 {loadsLoading ? (
                   <LoadingCard text="Loading exchange loads…" />
-                ) : loads.length === 0 ? (
-                  <EmptyCard icon="📭" text="No loads available on the exchange right now. Check back soon." />
+                ) : filteredLoads.length === 0 ? (
+                  <EmptyCard icon="📭" text="No loads match your current filters." />
                 ) : (
-                  loads.map((load) => (
+                  filteredLoads.map((load) => (
                     <LoadCard key={load.id} load={load} onBid={() => openBidModal(load)} />
                   ))
                 )}

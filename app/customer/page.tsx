@@ -1,10 +1,55 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '../components/AuthContext';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import type { Quote, VehicleType, CargoType } from '../../lib/types/database';
+import { downloadInvoicePdf } from '../../lib/invoicePdf';
+import { loadCompanySettings } from '../../lib/companySettings';
+import type { InvoiceData } from '../components/InvoiceTemplate';
+
+type CustomerJob = {
+  id: string;
+  status: string;
+  pickup_location: string | null;
+  delivery_location: string | null;
+  pickup_datetime: string | null;
+  delivery_datetime: string | null;
+  delivery_photos: string[] | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type CustomerInvoice = {
+  id: string;
+  invoice_number: string;
+  job_ref: string;
+  invoice_date: string;
+  due_date: string;
+  status: 'Paid' | 'Pending' | 'Overdue';
+  amount: number;
+  net_amount: number;
+  vat_amount: number;
+  vat_rate: 0 | 5 | 20;
+  payment_terms: string;
+  late_fee: string | null;
+  client_name: string;
+  client_email: string | null;
+  client_address: string | null;
+  pickup_location: string | null;
+  pickup_datetime: string | null;
+  delivery_location: string | null;
+  delivery_datetime: string | null;
+  delivery_recipient: string | null;
+  service_description: string | null;
+  pod_photos: string[] | null;
+  signature: string | null;
+  recipient_name: string | null;
+  created_at: string;
+};
+
+type CustomerTab = 'quotes' | 'jobs' | 'invoices';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'equipment', 'other'];
@@ -14,13 +59,62 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   sent: { bg: '#e0f2fe', text: '#075985' },
   accepted: { bg: '#d1fae5', text: '#065f46' },
   declined: { bg: '#fee2e2', text: '#991b1b' },
+  posted: { bg: '#dbeafe', text: '#1d4ed8' },
+  awarded: { bg: '#f3e8ff', text: '#6d28d9' },
+  allocated: { bg: '#e0f2fe', text: '#0c4a6e' },
+  collected: { bg: '#fef3c7', text: '#92400e' },
+  in_transit: { bg: '#ede9fe', text: '#5b21b6' },
+  delivered: { bg: '#dcfce7', text: '#166534' },
+  invoiced: { bg: '#cffafe', text: '#155e75' },
+  paid: { bg: '#dcfce7', text: '#14532d' },
+  Pending: { bg: '#fef3c7', text: '#92400e' },
+  Overdue: { bg: '#fee2e2', text: '#991b1b' },
+  Paid: { bg: '#d1fae5', text: '#065f46' },
 };
+
+const dateDisplay = (value: string | null) => {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleString('en-GB');
+};
+
+const toInvoiceData = (invoice: CustomerInvoice): InvoiceData => ({
+  id: invoice.id,
+  invoiceNumber: invoice.invoice_number,
+  jobRef: invoice.job_ref,
+  date: invoice.invoice_date,
+  dueDate: invoice.due_date,
+  status: invoice.status,
+  clientName: invoice.client_name,
+  clientAddress: invoice.client_address ?? '',
+  clientEmail: invoice.client_email ?? '',
+  pickupLocation: invoice.pickup_location ?? '',
+  pickupDateTime: invoice.pickup_datetime ?? '',
+  deliveryLocation: invoice.delivery_location ?? '',
+  deliveryDateTime: invoice.delivery_datetime ?? '',
+  deliveryRecipient: invoice.delivery_recipient ?? '',
+  serviceDescription: invoice.service_description ?? '',
+  amount: Number(invoice.amount ?? 0),
+  netAmount: Number(invoice.net_amount ?? invoice.amount ?? 0),
+  vatAmount: Number(invoice.vat_amount ?? 0),
+  vatRate: invoice.vat_rate,
+  paymentTerms: invoice.payment_terms === 'Pay now' || invoice.payment_terms === '30 days' ? invoice.payment_terms : '14 days',
+  lateFee: invoice.late_fee ?? '',
+  podPhotos: invoice.pod_photos ?? undefined,
+  signature: invoice.signature ?? undefined,
+  recipientName: invoice.recipient_name ?? undefined,
+});
 
 export default function CustomerPage() {
   const { user, logout } = useAuth();
   const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [jobs, setJobs] = useState<CustomerJob[]>([]);
+  const [invoices, setInvoices] = useState<CustomerInvoice[]>([]);
+  const [activeTab, setActiveTab] = useState<CustomerTab>('quotes');
   const [loading, setLoading] = useState(true);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formError, setFormError] = useState('');
@@ -55,40 +149,69 @@ export default function CustomerPage() {
         setResolvedCompanyId((membership?.company_id as string) ?? null);
       }
     };
-    resolveCompanyId();
+    void resolveCompanyId();
     return () => {
       cancelled = true;
     };
   }, [user?.id, user?.companyId]);
 
-  const loadQuotes = async () => {
+  const loadPortalData = async () => {
     setLoading(true);
     setPageMessage('');
-    if (!isSupabaseConfigured || !user?.email) { setLoading(false); return; }
-    if (!resolvedCompanyId) {
-      setQuotes([]);
-      setPageMessage('Your customer account is not linked to a company yet. Quote history and quote requests stay disabled until a company invites you.');
+    if (!isSupabaseConfigured || !user?.email) {
       setLoading(false);
       return;
     }
-    const { data, error } = await supabase
-      .from('quotes')
-      .select('id, company_id, created_by, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at')
-      .eq('company_id', resolvedCompanyId)
-      .eq('customer_email', user.email)
-      .order('created_at', { ascending: false });
-    if (!error && data) {
-      setQuotes(data as Quote[]);
-    } else if (error) {
+    if (!resolvedCompanyId) {
       setQuotes([]);
-      setPageMessage(`Unable to load quotes: ${error.message}`);
+      setJobs([]);
+      setInvoices([]);
+      setPageMessage('Your customer account is not linked to a company yet. Portal data is unavailable until a company invites you.');
+      setLoading(false);
+      return;
     }
+
+    const [quoteRes, jobsRes, invoicesRes] = await Promise.all([
+      supabase
+        .from('quotes')
+        .select('id, company_id, created_by, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at')
+        .eq('company_id', resolvedCompanyId)
+        .eq('customer_email', user.email)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('jobs')
+        .select('id, status, pickup_location, delivery_location, pickup_datetime, delivery_datetime, delivery_photos, created_at, updated_at')
+        .eq('company_id', resolvedCompanyId)
+        .eq('client_email', user.email)
+        .order('updated_at', { ascending: false }),
+      supabase
+        .from('invoices')
+        .select('id, invoice_number, job_ref, invoice_date, due_date, status, amount, net_amount, vat_amount, vat_rate, payment_terms, late_fee, client_name, client_email, client_address, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, pod_photos, signature, recipient_name, created_at')
+        .eq('company_id', resolvedCompanyId)
+        .eq('client_email', user.email)
+        .order('created_at', { ascending: false }),
+    ]);
+
+    if (quoteRes.error || jobsRes.error || invoicesRes.error) {
+      const message = quoteRes.error?.message ?? jobsRes.error?.message ?? invoicesRes.error?.message ?? 'Unable to load portal data.';
+      setPageMessage(`Unable to load portal data: ${message}`);
+      setQuotes([]);
+      setJobs([]);
+      setInvoices([]);
+      setLoading(false);
+      return;
+    }
+
+    setQuotes((quoteRes.data ?? []) as Quote[]);
+    setJobs((jobsRes.data ?? []) as CustomerJob[]);
+    setInvoices((invoicesRes.data ?? []) as CustomerInvoice[]);
     setLoading(false);
   };
 
   useEffect(() => {
-    if (user?.email) loadQuotes();
-  }, [user?.email, resolvedCompanyId]); // eslint-disable-line react-hooks/exhaustive-deps
+    void loadPortalData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.email, resolvedCompanyId]);
 
   const handleRequestQuote = async () => {
     setFormError('');
@@ -115,8 +238,30 @@ export default function CustomerPage() {
     setFormData({ pickup_location: '', delivery_location: '', vehicle_type: 'van_large', cargo_type: 'packages', customer_phone: '' });
     setSubmitSuccess(true);
     setTimeout(() => setSubmitSuccess(false), 4000);
-    loadQuotes();
+    void loadPortalData();
   };
+
+  const handleDownloadInvoice = async (invoice: CustomerInvoice) => {
+    if (!resolvedCompanyId) return;
+    setDownloadingInvoiceId(invoice.id);
+    try {
+      const companySettings = await loadCompanySettings(supabase, resolvedCompanyId);
+      await downloadInvoicePdf({
+        invoice: toInvoiceData(invoice),
+        companySettings,
+      });
+    } catch (error) {
+      setPageMessage(error instanceof Error ? `Unable to download invoice PDF: ${error.message}` : 'Unable to download invoice PDF.');
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
+  };
+
+  const tabCounts = useMemo(() => ({
+    quotes: quotes.length,
+    jobs: jobs.length,
+    invoices: invoices.length,
+  }), [quotes.length, jobs.length, invoices.length]);
 
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
   const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
@@ -124,7 +269,6 @@ export default function CustomerPage() {
   return (
     <ProtectedRoute allowedRoles={['customer']}>
       <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
-        {/* Header */}
         <header style={{ backgroundColor: '#0A2239', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <div>
             <p style={{ color: '#93c5fd', fontSize: '0.75rem', margin: 0 }}>Welcome back</p>
@@ -132,86 +276,155 @@ export default function CustomerPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <span style={{ color: '#cbd5e1', fontSize: '0.85rem', wordBreak: 'break-word' }}>{user?.email}</span>
-            <button
-              onClick={() => logout()}
-              style={{ padding: '0.5rem 1rem', backgroundColor: 'transparent', color: '#cbd5e1', border: '1px solid #4b5563', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}
-            >
+            <button onClick={() => logout()} style={{ padding: '0.5rem 1rem', backgroundColor: 'transparent', color: '#cbd5e1', border: '1px solid #4b5563', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
               Logout
             </button>
           </div>
         </header>
 
         <main style={{ width: '100%', padding: '1rem' }}>
-          {pageMessage && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#92400e', fontWeight: '600' }}>
-              {pageMessage}
+          {pageMessage && <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#92400e', fontWeight: '600' }}>{pageMessage}</div>}
+
+          {submitSuccess && <div style={{ backgroundColor: '#dcfce7', border: '1px solid #1F7A3D', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#14532d', fontWeight: '600' }}>✅ Your quote request has been submitted. We&apos;ll be in touch shortly.</div>}
+
+          <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '1rem', display: 'flex', flexWrap: 'wrap' }}>
+            {([
+              ['quotes', 'Quotes'],
+              ['jobs', 'Jobs & POD'],
+              ['invoices', 'Invoices'],
+            ] as Array<[CustomerTab, string]>).map(([tab, label]) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  border: 'none',
+                  borderBottom: activeTab === tab ? '2px solid #1d4ed8' : '2px solid transparent',
+                  background: 'none',
+                  padding: '0.75rem 1rem',
+                  color: activeTab === tab ? '#1d4ed8' : '#64748b',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {label} ({tabCounts[tab]})
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'quotes' && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>My Quote Requests</h2>
+                <button onClick={() => setShowModal(true)} disabled={!resolvedCompanyId} style={{ padding: '0.7rem 1.2rem', backgroundColor: resolvedCompanyId ? '#1F7A3D' : '#9ca3af', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: '600', cursor: resolvedCompanyId ? 'pointer' : 'not-allowed' }}>
+                  + Request a Quote
+                </button>
+              </div>
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                {loading ? <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading…</div> : quotes.length === 0 ? <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No quote requests yet.</div> : (
+                  <div style={{ overflowX: 'auto', width: '100%' }}>
+                    <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse' }}>
+                      <thead><tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>{['Pickup', 'Delivery', 'Vehicle', 'Cargo', 'Amount', 'Status', 'Date'].map((h) => <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280' }}>{h}</th>)}</tr></thead>
+                      <tbody>
+                        {quotes.map((q, i) => {
+                          const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
+                          return (
+                            <tr key={q.id} style={{ borderBottom: i < quotes.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                              <td style={{ padding: '1rem' }}>{q.pickup_location || '—'}</td>
+                              <td style={{ padding: '1rem' }}>{q.delivery_location || '—'}</td>
+                              <td style={{ padding: '1rem', color: '#6b7280' }}>{q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
+                              <td style={{ padding: '1rem', color: '#6b7280' }}>{q.cargo_type || '—'}</td>
+                              <td style={{ padding: '1rem', fontWeight: 700 }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
+                              <td style={{ padding: '1rem' }}><span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{q.status}</span></td>
+                              <td style={{ padding: '1rem', color: '#6b7280', fontSize: '0.85rem' }}>{new Date(q.created_at).toLocaleDateString()}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {activeTab === 'jobs' && (
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              {loading ? <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>Loading jobs…</div> : jobs.length === 0 ? <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '1.2rem', color: '#6b7280' }}>No jobs found for your account yet.</div> : jobs.map((job) => {
+                const color = STATUS_COLORS[job.status] ?? STATUS_COLORS.draft;
+                return (
+                  <div key={job.id} style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{job.pickup_location || '—'} → {job.delivery_location || '—'}</div>
+                      <span style={{ background: color.bg, color: color.text, padding: '0.2rem 0.6rem', borderRadius: '999px', fontWeight: 700, fontSize: '0.78rem' }}>{job.status}</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.7rem' }}>
+                      <div style={{ fontSize: '0.83rem', color: '#475569' }}>Pickup: {dateDisplay(job.pickup_datetime)}</div>
+                      <div style={{ fontSize: '0.83rem', color: '#475569' }}>Delivery: {dateDisplay(job.delivery_datetime)}</div>
+                    </div>
+                    <div style={{ marginTop: '0.6rem', fontSize: '0.78rem', color: '#94a3b8' }}>Last update: {dateDisplay(job.updated_at)}</div>
+                    <div style={{ marginTop: '0.7rem' }}>
+                      <strong style={{ fontSize: '0.83rem', color: '#334155' }}>Proof of delivery</strong>
+                      {job.delivery_photos && job.delivery_photos.length > 0 ? (
+                        <div style={{ marginTop: '0.55rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.55rem' }}>
+                          {job.delivery_photos.map((photo, index) => (
+                            <a key={`${job.id}-${index}`} href={photo} target="_blank" rel="noreferrer" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.4rem', textDecoration: 'none', color: '#1d4ed8', fontSize: '0.8rem', background: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              POD photo {index + 1}
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: '#64748b' }}>No POD uploaded yet.</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
-          {submitSuccess && (
-            <div style={{ backgroundColor: '#dcfce7', border: '1px solid #1F7A3D', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#14532d', fontWeight: '600' }}>
-              ✅ Your quote request has been submitted. We&apos;ll be in touch shortly.
+          {activeTab === 'invoices' && (
+            <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+              {loading ? <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>Loading invoices…</div> : invoices.length === 0 ? <div style={{ padding: '1.4rem', textAlign: 'center', color: '#6b7280' }}>No invoices available for your account.</div> : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '780px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+                        {['Invoice #', 'Job Ref', 'Date', 'Due', 'Amount', 'Status', 'Actions'].map((h) => (
+                          <th key={h} style={{ padding: '0.8rem', textAlign: h === 'Amount' ? 'right' : 'left', fontSize: '0.8rem', color: '#64748b' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.map((invoice, index) => {
+                        const color = STATUS_COLORS[invoice.status] ?? STATUS_COLORS.Pending;
+                        return (
+                          <tr key={invoice.id} style={{ borderBottom: index < invoices.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                            <td style={{ padding: '0.8rem', fontWeight: 600 }}>{invoice.invoice_number}</td>
+                            <td style={{ padding: '0.8rem' }}>{invoice.job_ref || '—'}</td>
+                            <td style={{ padding: '0.8rem' }}>{new Date(invoice.invoice_date).toLocaleDateString('en-GB')}</td>
+                            <td style={{ padding: '0.8rem' }}>{new Date(invoice.due_date).toLocaleDateString('en-GB')}</td>
+                            <td style={{ padding: '0.8rem', textAlign: 'right', fontWeight: 700 }}>£{Number(invoice.amount ?? 0).toFixed(2)}</td>
+                            <td style={{ padding: '0.8rem' }}><span style={{ background: color.bg, color: color.text, padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700 }}>{invoice.status}</span></td>
+                            <td style={{ padding: '0.8rem' }}>
+                              <button
+                                onClick={() => void handleDownloadInvoice(invoice)}
+                                disabled={downloadingInvoiceId === invoice.id}
+                                style={{ padding: '0.35rem 0.7rem', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', borderRadius: '6px', cursor: downloadingInvoiceId === invoice.id ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.78rem' }}
+                              >
+                                {downloadingInvoiceId === invoice.id ? 'Preparing…' : 'Download PDF'}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
-
-          {/* Action bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>My Quote Requests</h2>
-              <p style={{ color: '#6b7280', margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>Track and manage your delivery quote requests</p>
-            </div>
-            <button
-              onClick={() => setShowModal(true)}
-              disabled={!resolvedCompanyId}
-              style={{ padding: '0.75rem 1.5rem', backgroundColor: resolvedCompanyId ? '#1F7A3D' : '#9ca3af', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: resolvedCompanyId ? 'pointer' : 'not-allowed' }}
-            >
-              + Request a Quote
-            </button>
-          </div>
-
-          {/* Quote list */}
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            {loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading…</div>
-            ) : quotes.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📦</div>
-                <p style={{ fontWeight: '600', marginBottom: '0.5rem' }}>No quote requests yet</p>
-                <p style={{ fontSize: '0.9rem' }}>Click &quot;Request a Quote&quot; to get started with your first delivery.</p>
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto', width: '100%' }}>
-                <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                      {['Pickup', 'Delivery', 'Vehicle', 'Cargo', 'Amount', 'Status', 'Date'].map(h => (
-                        <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {quotes.map((q, i) => {
-                      const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
-                      return (
-                        <tr key={q.id} style={{ borderBottom: i < quotes.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                          <td style={{ padding: '1rem', color: '#1f2937', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.pickup_location || '—'}</td>
-                          <td style={{ padding: '1rem', color: '#1f2937', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.delivery_location || '—'}</td>
-                          <td style={{ padding: '1rem', color: '#6b7280' }}>{q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
-                          <td style={{ padding: '1rem', color: '#6b7280' }}>{q.cargo_type || '—'}</td>
-                          <td style={{ padding: '1rem', fontWeight: '700', color: '#1f2937' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
-                          <td style={{ padding: '1rem' }}><span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{q.status}</span></td>
-                          <td style={{ padding: '1rem', color: '#6b7280', fontSize: '0.85rem' }}>{new Date(q.created_at).toLocaleDateString()}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
         </main>
 
-        {/* New Quote Modal */}
         {showModal && (
           <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
             <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
