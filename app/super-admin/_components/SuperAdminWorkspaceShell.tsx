@@ -56,10 +56,16 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'ops-marketplace', label: 'Marketplace', icon: '🌍', href: '/super-admin/marketplace' },
       { id: 'ops-jobs', label: 'All Jobs', icon: '📦', href: '/super-admin/operations/jobs' },
+      { id: 'ops-active-jobs', label: 'Active Jobs', icon: '🟢', href: '/super-admin/operations/active-jobs' },
+      { id: 'ops-pending-jobs', label: 'Pending Jobs', icon: '🕒', href: '/super-admin/operations/pending-jobs' },
+      { id: 'ops-completed-jobs', label: 'Completed Jobs', icon: '✅', href: '/super-admin/operations/completed-jobs' },
       { id: 'ops-quotes', label: 'All Quotes', icon: '💬', href: '/super-admin/operations/quotes' },
       { id: 'ops-allocations', label: 'All Allocations', icon: '🧩', href: '/super-admin/operations/allocations' },
       { id: 'ops-deliveries', label: 'All Deliveries', icon: '🚚', href: '/super-admin/operations/deliveries' },
-      { id: 'ops-pods', label: 'All PODs', icon: '📸', href: '/super-admin/operations/pods' },
+      { id: 'ops-driver-availability', label: 'Driver Availability', icon: '🧭', href: '/super-admin/operations/driver-availability' },
+      { id: 'ops-fleet-positions', label: 'Fleet Positions', icon: '📍', href: '/super-admin/operations/fleet-positions' },
+      { id: 'ops-disputes', label: 'Disputes', icon: '⚖️', href: '/super-admin/operations/disputes' },
+      { id: 'ops-pods', label: 'POD Queue', icon: '📸', href: '/super-admin/operations/pods' },
     ],
   },
   {

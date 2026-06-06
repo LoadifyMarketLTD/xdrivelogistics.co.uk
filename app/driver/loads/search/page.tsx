@@ -104,7 +104,7 @@ export default function SearchLoadsPage() {
       .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, weight_kg, pallets, budget_amount, is_fixed_price, currency, load_details, exchange_posted_at, companies(name)')
       .not('exchange_posted_at', 'is', null)
       .is('awarded_carrier_company_id', null)
-      .in('status', ['posted', 'open', 'exchange_posted'])
+      .in('status', ['posted'])
       .order('exchange_posted_at', { ascending: false })
       .limit(100);
 

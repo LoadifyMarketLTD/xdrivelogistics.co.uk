@@ -1,0 +1,63 @@
+'use client';
+
+import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
+import { StatusChip, formatDateTime, routeSummary } from '@/app/super-admin/_components/superAdminFormatters';
+
+type Row = {
+  id: string;
+  status: string;
+  posting_company_name: string;
+  assigned_driver_name: string | null;
+  assigned_driver_company_name: string | null;
+  pickup_location: string | null;
+  pickup_postcode: string | null;
+  delivery_location: string | null;
+  delivery_postcode: string | null;
+  pickup_datetime: string | null;
+  created_at: string;
+};
+
+export default function Page() {
+  return (
+    <SuperAdminLiveTablePage<Row>
+      icon="🚛"
+      title="Active Jobs"
+      sectionLabel="Operations"
+      description="Jobs currently in progress — allocated, collected, or in transit."
+      endpoint="/api/super-admin/operations?section=active-jobs&limit=250"
+      emptyMessage="No active jobs found."
+      columns={[
+        {
+          key: 'route',
+          label: 'Route',
+          render: (row) => routeSummary(row.pickup_location, row.pickup_postcode, row.delivery_location, row.delivery_postcode),
+        },
+        {
+          key: 'status',
+          label: 'Status',
+          render: (row) => <StatusChip value={row.status} />,
+        },
+        {
+          key: 'driver',
+          label: 'Driver',
+          render: (row) => row.assigned_driver_name ?? '—',
+        },
+        {
+          key: 'driverCompany',
+          label: 'Carrier',
+          render: (row) => row.assigned_driver_company_name ?? '—',
+        },
+        {
+          key: 'posting',
+          label: 'Shipper',
+          render: (row) => row.posting_company_name,
+        },
+        {
+          key: 'pickup',
+          label: 'Pickup',
+          render: (row) => formatDateTime(row.pickup_datetime),
+        },
+      ]}
+    />
+  );
+}

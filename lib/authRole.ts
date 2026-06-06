@@ -189,7 +189,6 @@ export const isRoleAllowedForPath = (
 ): boolean => {
   if (!role) return false;
   if (pathname.startsWith('/super-admin')) return PLATFORM_ROUTE_ROLES.has(role);
-  if (pathname.startsWith('/platform')) return PLATFORM_ROUTE_ROLES.has(role);
   if (pathname.startsWith('/admin')) return ADMIN_ROUTE_ROLES.has(role);
   if (pathname.startsWith('/broker')) return BROKER_ROUTE_ROLES.has(role);
   if (pathname.startsWith('/driver')) {

@@ -13,11 +13,14 @@ type DriverRow = {
   id: string;
   future_position?: string | null;
   future_position_date?: string | null;
-  return_journey_from?: string | null;
-  return_journey_to?: string | null;
-  return_journey_date?: string | null;
   availability_status?: string | null;
   status?: string | null;
+};
+
+type ReturnJourneyRow = {
+  from_postcode: string | null;
+  to_postcode: string | null;
+  available_from: string | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,6 +71,7 @@ export default function ReturnJourneysPage() {
   // Future position form
   const [futurePosition, setFuturePosition] = useState('');
   const [futureDate, setFutureDate] = useState('');
+  const [currentReturnJourney, setCurrentReturnJourney] = useState<ReturnJourneyRow | null>(null);
 
   const loadDriver = useCallback(async () => {
     if (!driverId || !isSupabaseConfigured) {
@@ -77,7 +81,7 @@ export default function ReturnJourneysPage() {
     setLoading(true);
     const { data, error: fetchError } = await supabase
       .from('drivers')
-      .select('id, future_position, future_position_date, return_journey_from, return_journey_to, return_journey_date, availability_status, status')
+      .select('id, future_position, future_position_date, availability_status, status')
       .eq('id', driverId)
       .maybeSingle();
 
@@ -92,10 +96,30 @@ export default function ReturnJourneysPage() {
     } else {
       const row = (data ?? null) as DriverRow | null;
       setDriver(row);
-      if (row?.return_journey_from) setReturnFrom(row.return_journey_from);
-      if (row?.return_journey_to) setReturnTo(row.return_journey_to);
-      if (row?.return_journey_date) setReturnDate(row.return_journey_date.slice(0, 16));
-      if (row?.future_position) setFuturePosition(row.future_position);
+
+      const { data: rjRow } = await supabase
+        .from('return_journeys')
+        .select('from_postcode, to_postcode, available_from')
+        .eq('driver_id', driverId)
+        .eq('status', 'available')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (rjRow) {
+        const rj = rjRow as ReturnJourneyRow;
+        setCurrentReturnJourney(rj);
+        setReturnFrom(rj.from_postcode ?? '');
+        setReturnTo(rj.to_postcode ?? '');
+        setReturnDate(rj.available_from ? rj.available_from.slice(0, 16) : '');
+      } else {
+        setCurrentReturnJourney(null);
+        setReturnFrom('');
+        setReturnTo('');
+        setReturnDate('');
+      }
+
+      if (row?.future_position)      setFuturePosition(row.future_position);
       if (row?.future_position_date) setFutureDate(row.future_position_date.slice(0, 16));
     }
     setLoading(false);
@@ -111,23 +135,45 @@ export default function ReturnJourneysPage() {
     setSaving(true);
     setError('');
 
-    const update: Record<string, unknown> = {
-      return_journey_from: returnFrom || null,
-      return_journey_to: returnTo || null,
-      return_journey_date: returnDate || null,
-    };
+    // ── 1. Upsert into return_journeys table (canonical) ────────────────────────
+    // Retrieve the driver's company_id first
+    const { data: drvCompany } = await supabase
+      .from('drivers')
+      .select('company_id')
+      .eq('id', driverId)
+      .maybeSingle();
 
-    const { error: saveErr } = await supabase.from('drivers').update(update).eq('id', driverId);
-    if (saveErr) {
-      if (getMissingColumnFromError(saveErr, 'drivers')) {
-        setError('Return journey fields are not yet available in the database. Please apply the latest migration.');
-      } else {
-        setError(`Failed to save: ${saveErr.message}`);
+    const companyId = (drvCompany as { company_id?: string | null } | null)?.company_id ?? null;
+
+    if (companyId) {
+      // Delete previous active return journey for this driver, then insert fresh
+      await supabase
+        .from('return_journeys')
+        .delete()
+        .eq('driver_id', driverId)
+        .eq('status', 'available');
+
+      if (returnFrom) {
+        const { error: rjErr } = await supabase.from('return_journeys').insert({
+          company_id:     companyId,
+          driver_id:      driverId,
+          from_postcode:  returnFrom || null,
+          to_postcode:    returnTo   || null,
+          available_from: returnDate ? new Date(returnDate).toISOString() : null,
+          status:         'available',
+        });
+
+        if (rjErr) {
+          setError(`Failed to save return journey: ${rjErr.message}`);
+          setSaving(false);
+          return;
+        }
       }
-    } else {
-      setSuccessMsg('✅ Return journey saved.');
-      setTimeout(() => setSuccessMsg(''), 4000);
     }
+
+    setSuccessMsg('✅ Return journey saved.');
+    await loadDriver();
+    setTimeout(() => setSuccessMsg(''), 4000);
     setSaving(false);
   };
 
@@ -211,16 +257,16 @@ export default function ReturnJourneysPage() {
             )}
 
             {/* Current saved value */}
-            {driver?.return_journey_from && (
+            {currentReturnJourney?.from_postcode && (
               <div style={{ marginTop: '0.9rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '7px', padding: '0.7rem' }}>
                 <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#15803d', marginBottom: '0.25rem', textTransform: 'uppercase' }}>Current declaration</div>
                 <div style={{ fontSize: '0.84rem', color: '#0f172a' }}>
-                  {driver.return_journey_from}
-                  {driver.return_journey_to ? ` → ${driver.return_journey_to}` : ''}
+                  {currentReturnJourney.from_postcode}
+                  {currentReturnJourney.to_postcode ? ` → ${currentReturnJourney.to_postcode}` : ''}
                 </div>
-                {driver.return_journey_date && (
+                {currentReturnJourney.available_from && (
                   <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.2rem' }}>
-                    Available from: {new Date(driver.return_journey_date).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    Available from: {new Date(currentReturnJourney.available_from).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </div>
                 )}
               </div>
