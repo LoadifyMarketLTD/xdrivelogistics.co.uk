@@ -10,6 +10,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
+import type { HomepageVisualTone } from './HomepageVisualCard';
 
 export const navLinks = [
   { label: 'Platform', href: '#platform' },
@@ -29,30 +30,50 @@ export const trustCards = [
   { label: 'Focus', value: 'Exchange + Operations' },
 ] as const;
 
-export const roleCards = [
+export const roleCards: ReadonlyArray<{
+  icon: LucideIcon;
+  image: string;
+  imageAlt: string;
+  subtitle: string;
+  title: string;
+  tone: HomepageVisualTone;
+  visualLabel: string;
+}> = [
   {
+    icon: Layers,
     title: 'Transport Customers',
     subtitle: 'Submit transport requirements and follow job progress from request to completion.',
-    // TODO: Replace with licensed real UK/EU logistics image.
     image: '/images/homepage/warehouse-loading-pallets.jpg',
+    imageAlt: 'Warehouse team loading pallets for outbound delivery',
+    tone: 'blue',
+    visualLabel: 'Customer workflow',
   },
   {
+    icon: Users,
     title: 'Courier Companies',
     subtitle: 'Coordinate jobs, vehicles, drivers, PODs and operational records from one workspace.',
-    // TODO: Replace with licensed real UK/EU logistics image.
     image: '/images/homepage/transport-planner-office.jpg',
+    imageAlt: 'Transport planning team coordinating dispatch operations',
+    tone: 'slate',
+    visualLabel: 'Operations workspace',
   },
   {
+    icon: Truck,
     title: 'Owner Operators',
     subtitle: 'Access suitable loads, manage quotes and keep delivery records organised.',
-    // TODO: Replace with licensed real UK/EU logistics image.
     image: '/images/homepage/courier-van-loading.jpg',
+    imageAlt: 'Owner operator preparing a courier vehicle for loading',
+    tone: 'amber',
+    visualLabel: 'Fleet readiness',
   },
   {
+    icon: UserRound,
     title: 'Drivers',
     subtitle: 'Receive assigned jobs, update progress and upload POD from a mobile-first workflow.',
-    // TODO: Replace with licensed real UK/EU logistics image.
     image: '/images/homepage/driver-pod-mobile.jpg',
+    imageAlt: 'Driver using a mobile device to manage proof of delivery',
+    tone: 'emerald',
+    visualLabel: 'Driver mobile',
   },
 ] as const;
 

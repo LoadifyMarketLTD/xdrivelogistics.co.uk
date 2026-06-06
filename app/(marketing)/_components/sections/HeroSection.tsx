@@ -1,5 +1,6 @@
-import Image from 'next/image';
+import { Route } from 'lucide-react';
 import Link from 'next/link';
+import { HomepageVisualCard } from '../HomepageVisualCard';
 
 export function HeroSection() {
   return (
@@ -38,13 +39,14 @@ export function HeroSection() {
         </div>
 
         <div className="overflow-hidden rounded-[24px] border border-[#e5e7eb] bg-slate-50 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]">
-          {/* TODO: Replace placeholder with licensed real UK/EU dispatch-control image. */}
-          <Image
-            src="/images/homepage/hero-dispatch-control.jpg"
-            alt="Logistics dispatch control desk with route planning screens"
-            width={1600}
-            height={900}
-            className="h-[280px] w-full object-cover sm:h-[360px] lg:max-h-[430px]"
+          <HomepageVisualCard
+            imageSrc="/images/homepage/hero-dispatch-control.jpg"
+            imageAlt="Logistics dispatch control desk with route planning screens"
+            label="Dispatch visual"
+            title="Real dispatch-floor photography pending approval"
+            icon={Route}
+            tone="blue"
+            className="h-[280px] w-full sm:h-[360px] lg:max-h-[430px]"
             priority
           />
         </div>

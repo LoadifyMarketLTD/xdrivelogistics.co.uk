@@ -1,6 +1,6 @@
-Placeholder image files in this directory are temporary 1x1 JPG assets.
+These files must be replaced with licensed production images before final launch.
 
-Replace each file below with licensed, high-quality UK/EU logistics photography before production launch:
+Keep the filenames below reserved for approved UK/EU logistics photography:
 
 - hero-dispatch-control.jpg
 - warehouse-loading-pallets.jpg
