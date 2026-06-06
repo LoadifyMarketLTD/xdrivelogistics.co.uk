@@ -21,7 +21,7 @@ export function WhyExistsSection() {
 
         <div className="group overflow-hidden rounded-2xl border border-[#e5e7eb] shadow-[0_12px_32px_-20px_rgba(15,23,42,0.45)]">
           <HomepageVisualCard
-            imageSrc="https://images.pexels.com/photos/6169660/pexels-photo-6169660.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600"
+            imageSrc="https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp"
             imageAlt="Transport planner working at desk with multiple planning screens"
             label="Load planner"
             title="Transport planner office"
