@@ -1,6 +1,12 @@
-import { Route } from 'lucide-react';
+import { CheckCircle2, Route } from 'lucide-react';
 import Link from 'next/link';
 import { HomepageVisualCard } from '../HomepageVisualCard';
+
+const trustBadges = [
+  'Built by logistics professionals',
+  'Early access platform',
+  'UK registered company',
+] as const;
 
 export function HeroSection() {
   return (
@@ -11,11 +17,11 @@ export function HeroSection() {
             UK Logistics Technology Platform
           </span>
           <h1 className="mt-6 text-4xl font-extrabold leading-tight text-[#0f172a] sm:text-5xl">
-            Launching Soon.
+            Move Freight.
             <br />
-            Join the First Wave of
+            Manage Operations.
             <br />
-            UK Logistics Professionals.
+            Grow Your Network.
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-slate-600">
             XDrive is an early-access UK logistics platform designed to connect transport customers, courier companies, owner operators and
@@ -31,22 +37,29 @@ export function HeroSection() {
             </Link>
           </div>
 
-          <p className="mt-4 text-sm text-slate-500">Built by logistics professionals · Early access platform · UK registered company</p>
+          <div className="mt-5 flex flex-wrap gap-4">
+            {trustBadges.map((badge) => (
+              <span key={badge} className="flex items-center gap-1.5 text-sm text-slate-600">
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-[#1d4ed8]" />
+                {badge}
+              </span>
+            ))}
+          </div>
 
-          <div className="mt-6 text-xs text-slate-500">
-            XDrive Logistics Ltd · Company No. 13171804 · Founded 1 February 2021
+          <div className="mt-5 text-xs text-slate-400">
+            XDrive Logistics Ltd &bull; Company No. 13171804 &bull; Founded 1 February 2021
           </div>
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-slate-50 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]">
           <HomepageVisualCard
-            imageSrc="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp"
-            imageAlt="Logistics dispatch control desk with route planning screens"
+            imageSrc="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp"
+            imageAlt="Logistics operations control centre with multiple monitoring screens showing route maps and data"
             label="Dispatch visual"
             title="Logistics control room"
             icon={Route}
             tone="blue"
-            className="h-[180px] w-full md:h-[220px] lg:h-[320px]"
+            className="h-[220px] w-full md:h-[280px] lg:h-[400px]"
             priority
           />
         </div>

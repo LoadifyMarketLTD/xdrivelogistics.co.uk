@@ -1,21 +1,43 @@
+import Image from 'next/image';
 import Link from 'next/link';
 
 export function LaunchSection() {
   return (
-    <section className="border-b border-[#e5e7eb] bg-[#1d4ed8] px-4 py-12 sm:px-6 sm:py-20" id="launch">
-      <div className="mx-auto max-w-[1200px]">
-        <h2 className="text-4xl font-bold text-white sm:text-5xl">Be Part of the XDrive Early Access Launch</h2>
-        <p className="mt-4 max-w-2xl text-blue-100">
-          We are inviting selected UK transport customers, courier companies, owner operators and drivers to test the platform before wider
-          release.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/register" className="rounded-lg bg-white px-6 py-3 text-sm font-semibold text-[#1d4ed8] transition hover:bg-blue-50">
-            Join Early Access
-          </Link>
-          <Link href="/request-quote" className="rounded-lg border border-white/40 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
-            Request Demo
-          </Link>
+    <section className="relative overflow-hidden border-b border-[#e5e7eb]" id="launch">
+      {/* Background highway photo */}
+      <Image
+        src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&h=600&q=60&fm=webp"
+        alt="Highway motorway at night representing logistics movement across the UK"
+        fill
+        className="object-cover object-center"
+        quality={60}
+      />
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-[#0f172a]/75" />
+
+      <div className="relative px-4 py-16 sm:px-6 sm:py-24">
+        <div className="mx-auto flex max-w-[1200px] flex-col items-start gap-8 md:flex-row md:items-center md:justify-between">
+          <div className="max-w-xl">
+            <h2 className="text-3xl font-bold text-white sm:text-4xl">Be Part of the XDrive Early Access Launch</h2>
+            <p className="mt-4 text-blue-100">
+              We are inviting selected UK transport customers, courier companies, owner operators and drivers to test the platform before
+              wider release.
+            </p>
+          </div>
+          <div className="flex flex-shrink-0 flex-wrap gap-3">
+            <Link
+              href="/register"
+              className="rounded-lg bg-white px-6 py-3 text-sm font-semibold text-[#1d4ed8] transition hover:bg-blue-50"
+            >
+              Join Early Access
+            </Link>
+            <Link
+              href="/request-quote"
+              className="rounded-lg border border-white/40 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/20"
+            >
+              Request Demo
+            </Link>
+          </div>
         </div>
       </div>
     </section>
