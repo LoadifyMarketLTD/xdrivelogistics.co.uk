@@ -41,10 +41,10 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   disputed: { bg: '#9a3412', text: '#ffedd5' },
   active: { bg: '#166534', text: '#dcfce7' },
   suspended: { bg: '#991b1b', text: '#fee2e2' },
+  pending: { bg: '#854d0e', text: '#fef9c3' },
   pending_approval: { bg: '#854d0e', text: '#fef9c3' },
   rejected: { bg: '#9a3412', text: '#ffedd5' },
   paid: { bg: '#166534', text: '#dcfce7' },
-  pending: { bg: '#854d0e', text: '#fef9c3' },
 };
 
 export function StatusChip({ value }: { value: string | null | undefined }) {

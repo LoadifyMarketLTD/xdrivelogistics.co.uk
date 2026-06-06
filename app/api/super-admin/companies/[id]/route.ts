@@ -13,7 +13,7 @@ const ALLOWED_TRANSITIONS: Record<CompanyGovernanceStatus, readonly CompanyGover
   pending_approval: ['active', 'rejected'],
   // 'pending' is the legacy enum value on databases that don't have 'pending_approval' yet
   pending: ['active', 'rejected'],
-  rejected: ['pending_approval'],
+  rejected: ['pending_approval', 'pending'],
   suspended: ['active'],
 };
 
@@ -54,7 +54,7 @@ const patchSchema = z.object({
  * - pending_approval -> rejected
  * - active -> suspended
  * - suspended -> active
- * - rejected -> pending_approval
+ * - rejected -> pending|pending_approval
  */
 export async function PATCH(
   request: NextRequest,

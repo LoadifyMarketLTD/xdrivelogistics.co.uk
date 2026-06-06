@@ -19,9 +19,9 @@ type AuditRow = {
   id: string;
   target_company_id: string;
   action_type: string;
-  old_status?: string;
-  new_status?: string;
-  reason?: string;
+  old_status: string;
+  new_status: string;
+  reason: string;
   created_at: string;
 };
 
@@ -52,9 +52,14 @@ async function getAuthHeader(): Promise<string | null> {
   return ['Bearer', session.access_token].join(' ');
 }
 
-function getActionsForStatus(status: string): ActionType[] {
+function isPendingCompanyStatus(status: string): boolean {
   const normalized = status.toLowerCase();
-  if (normalized === 'pending_approval' || normalized === 'pending') return ['approve', 'reject'];
+  return normalized === 'pending' || normalized === 'pending_approval';
+}
+
+function getActionsForStatus(status: string): ActionType[] {
+  if (isPendingCompanyStatus(status)) return ['approve', 'reject'];
+  const normalized = status.toLowerCase();
   if (normalized === 'active') return ['suspend'];
   if (normalized === 'suspended') return ['reinstate'];
   return [];
@@ -77,7 +82,7 @@ export default function Page() {
       const status = company.status.toLowerCase();
       if (status === 'active') counts.active += 1;
       if (status === 'suspended') counts.suspended += 1;
-      if (status === 'pending_approval' || status === 'pending') counts.pending += 1;
+      if (isPendingCompanyStatus(status)) counts.pending += 1;
       if (status === 'rejected') counts.rejected += 1;
     });
     return counts;
@@ -316,8 +321,8 @@ export default function Page() {
               {governanceHistoryRecent.slice(0, 12).map((event) => (
                 <div key={event.id} style={{ fontSize: '0.78rem', color: THEME.text }}>
                   <span style={{ color: THEME.accent, fontWeight: 700 }}>{event.action_type}</span>
-                  <span style={{ color: THEME.muted }}> · {formatDateTime(event.created_at)}{event.old_status !== undefined ? ` · ${event.old_status} → ${event.new_status ?? '?'}` : ''}</span>
-                  {event.reason && <div style={{ color: THEME.muted, marginTop: '0.1rem' }}>{event.reason}</div>}
+                  <span style={{ color: THEME.muted }}> · {formatDateTime(event.created_at)} · {event.old_status} → {event.new_status}</span>
+                  <div style={{ color: THEME.muted, marginTop: '0.1rem' }}>{event.reason}</div>
                 </div>
               ))}
             </div>
