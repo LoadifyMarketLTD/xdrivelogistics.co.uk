@@ -40,7 +40,7 @@ export function HeroSection() {
 
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-slate-50 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]">
           <HomepageVisualCard
-            imageSrc="https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600"
+            imageSrc="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp"
             imageAlt="Logistics dispatch control desk with route planning screens"
             label="Dispatch visual"
             title="Logistics control room"

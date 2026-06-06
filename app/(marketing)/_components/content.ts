@@ -44,7 +44,7 @@ export const roleCards: ReadonlyArray<{
     title: 'Transport Customers',
     subtitle: 'Submit transport requirements and follow job progress from request to completion.',
     image:
-      'https://images.pexels.com/photos/4483611/pexels-photo-4483611.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+      'https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
     imageAlt: 'Warehouse team loading pallets for outbound delivery',
     tone: 'blue',
     visualLabel: 'Customer workflow',
@@ -54,7 +54,7 @@ export const roleCards: ReadonlyArray<{
     title: 'Courier Companies',
     subtitle: 'Coordinate jobs, vehicles, drivers, PODs and operational records from one workspace.',
     image:
-      'https://images.pexels.com/photos/3057960/pexels-photo-3057960.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+      'https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
     imageAlt: 'Transport planning team coordinating dispatch operations',
     tone: 'slate',
     visualLabel: 'Operations workspace',
@@ -64,7 +64,7 @@ export const roleCards: ReadonlyArray<{
     title: 'Owner Operators',
     subtitle: 'Access suitable loads, manage quotes and keep delivery records organised.',
     image:
-      'https://images.pexels.com/photos/2533090/pexels-photo-2533090.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+      'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
     imageAlt: 'Owner operator preparing a courier vehicle for loading',
     tone: 'amber',
     visualLabel: 'Fleet readiness',
@@ -74,7 +74,7 @@ export const roleCards: ReadonlyArray<{
     title: 'Drivers',
     subtitle: 'Receive assigned jobs, update progress and upload POD from a mobile-first workflow.',
     image:
-      'https://images.pexels.com/photos/4391470/pexels-photo-4391470.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+      'https://images.unsplash.com/photo-1556740762-16b083a5cc2d?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
     imageAlt: 'Driver using a mobile device to manage proof of delivery',
     tone: 'emerald',
     visualLabel: 'Driver mobile',
@@ -88,7 +88,7 @@ export const platformModules = [
     summary: 'Loads, quotes, bids and route visibility.',
     bullets: ['Loads', 'Quotes', 'Bids', 'Route visibility'],
     image:
-      'https://images.pexels.com/photos/4481322/pexels-photo-4481322.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+      'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
     imageAlt: 'Forklift loading pallets into a trailer in a warehouse',
     icon: Route,
   },
@@ -98,7 +98,7 @@ export const platformModules = [
     summary: 'Collections, deliveries, status updates and exceptions.',
     bullets: ['Collections', 'Deliveries', 'Status updates', 'Exceptions'],
     image:
-      'https://images.pexels.com/photos/3183198/pexels-photo-3183198.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+      'https://images.unsplash.com/photo-1517935706615-2717063c2225?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
     imageAlt: 'Logistics dispatch office team coordinating operations',
     icon: ClipboardCheck,
   },
@@ -108,7 +108,7 @@ export const platformModules = [
     summary: 'Assigned jobs, mobile updates and POD workflow.',
     bullets: ['Assigned jobs', 'Mobile updates', 'POD workflow'],
     image:
-      'https://images.pexels.com/photos/2531734/pexels-photo-2531734.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+      'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
     imageAlt: 'Driver inside van cab using navigation and mobile workflow',
     icon: UserRound,
   },
@@ -118,7 +118,7 @@ export const platformModules = [
     summary: 'Vehicles, drivers, availability and compliance records.',
     bullets: ['Vehicles', 'Drivers', 'Availability', 'Compliance records'],
     image:
-      'https://images.pexels.com/photos/2800121/pexels-photo-2800121.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+      'https://images.unsplash.com/photo-1465101178521-c1a9136a3a16?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
     imageAlt: 'Commercial delivery fleet parked in a depot yard',
     icon: Truck,
   },
@@ -128,7 +128,7 @@ export const platformModules = [
     summary: 'Invoices, POD verification and payment status tracking.',
     bullets: ['Invoices', 'POD verification', 'Payment status'],
     image:
-      'https://images.pexels.com/photos/4386370/pexels-photo-4386370.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600',
+      'https://images.unsplash.com/photo-1515168833906-d2a3b82b3029?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp',
     imageAlt: 'Transport administration and finance desk with operational records',
     icon: CircleDollarSign,
   },
