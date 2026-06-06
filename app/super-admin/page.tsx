@@ -20,11 +20,14 @@ const THEME = {
 type PlatformStats = {
   companiesTotal: number;
   companiesActive: number;
+  companiesSuspended: number;
   companiesPending: number;
   driversTotal: number;
   jobsTotal: number;
   jobsOpen: number;
+  jobsDelivered: number;
   invoicesTotal: number;
+  invoicesUnpaid: number;
 };
 
 const GRID_PANELS = [
@@ -37,6 +40,7 @@ const GRID_PANELS = [
 ] as const;
 
 const QUICK_ACTION_LINKS = [
+  { label: 'Marketplace', href: '/super-admin/marketplace' },
   { label: 'Approve company', href: '/super-admin/companies/approvals' },
   { label: 'Suspended companies', href: '/super-admin/companies/suspended' },
   { label: 'All companies', href: '/super-admin/companies' },
@@ -94,12 +98,14 @@ function DashboardContent() {
   const kpiCards = [
     { label: 'Total companies', value: stats?.companiesTotal ?? '—', icon: '🏢' },
     { label: 'Active companies', value: stats?.companiesActive ?? '—', icon: '🟢' },
+    { label: 'Suspended companies', value: stats?.companiesSuspended ?? '—', icon: '🚫' },
     { label: 'Pending approval', value: stats?.companiesPending ?? '—', icon: '⏳' },
     { label: 'Total drivers', value: stats?.driversTotal ?? '—', icon: '🚚' },
     { label: 'Total jobs', value: stats?.jobsTotal ?? '—', icon: '📦' },
     { label: 'Open jobs', value: stats?.jobsOpen ?? '—', icon: '📬' },
+    { label: 'Delivered jobs', value: stats?.jobsDelivered ?? '—', icon: '✅' },
     { label: 'Total invoices', value: stats?.invoicesTotal ?? '—', icon: '🧾' },
-    { label: 'MRR', value: '—', icon: '💷' },
+    { label: 'Unpaid invoices', value: stats?.invoicesUnpaid ?? '—', icon: '⚠️' },
   ];
 
   return (

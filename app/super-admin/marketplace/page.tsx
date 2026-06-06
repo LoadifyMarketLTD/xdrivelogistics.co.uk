@@ -3,7 +3,7 @@
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
 import { StatusChip, formatDateTime, routeSummary } from '@/app/super-admin/_components/superAdminFormatters';
 
-type Row = {
+type MarketplaceJobRow = {
   id: string;
   status: string;
   posting_company_name: string;
@@ -14,26 +14,36 @@ type Row = {
   pickup_postcode: string | null;
   delivery_location: string | null;
   delivery_postcode: string | null;
+  pickup_datetime: string | null;
+  delivery_datetime: string | null;
 };
 
 export default function Page() {
   return (
-    <SuperAdminLiveTablePage<Row>
-      icon="📦"
-      title="All Jobs"
-      sectionLabel="Operations"
-      description="Platform-wide jobs ledger with status, posting company, awards, and bid activity."
-      endpoint="/api/super-admin/operations?section=jobs&limit=250"
-      emptyMessage="No jobs found."
+    <SuperAdminLiveTablePage<MarketplaceJobRow>
+      icon="🌍"
+      title="Marketplace Activity"
+      sectionLabel="Marketplace"
+      description="Owner-level global exchange jobs activity across all companies."
+      endpoint="/api/super-admin/marketplace?limit=250"
+      rowsField="jobs"
+      emptyMessage="No marketplace jobs found."
       columns={[
         {
           key: 'route',
-          label: 'Route',
-          render: (row) => routeSummary(row.pickup_location, row.pickup_postcode, row.delivery_location, row.delivery_postcode),
+          label: 'Pickup / Delivery',
+          render: (row) => (
+            <div>
+              <div style={{ fontWeight: 700 }}>{routeSummary(row.pickup_location, row.pickup_postcode, row.delivery_location, row.delivery_postcode)}</div>
+              <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                Pickup: {formatDateTime(row.pickup_datetime)} · Delivery: {formatDateTime(row.delivery_datetime)}
+              </div>
+            </div>
+          ),
         },
         {
           key: 'status',
-          label: 'Status',
+          label: 'Job Status',
           render: (row) => <StatusChip value={row.status} />,
         },
         {
