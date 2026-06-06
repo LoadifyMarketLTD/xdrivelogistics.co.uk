@@ -20,6 +20,7 @@ import { clearRouteAuthCookie, writeRouteAuthCookie } from '../../lib/routeAuthC
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
 const LOGIN_TIMEOUT_MS = 45_000;
+const LOGIN_BOOTSTRAP_RETRY_DELAY_MS = 1_500;
 const LOGIN_UNAVAILABLE_ERROR = 'Login service unavailable. Please try again.';
 const RESET_PASSWORD_COOLDOWN_MS = 60_000;
 const RESET_PASSWORD_COOLDOWN_KEY = 'xdrive:last-password-reset-request-at';
@@ -194,11 +195,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const bootstrapAuth = async () => {
       try {
+        const getSessionWithRetry = async () => {
+          let lastError: unknown = null;
+
+          for (let attempt = 0; attempt < 2; attempt += 1) {
+            try {
+              const result = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
+              if (result.error) throw result.error;
+              return result;
+            } catch (error) {
+              lastError = error;
+              const canRetry = isServiceUnavailableError(error) && attempt === 0 && !isPasswordSetupContext();
+              if (!canRetry) throw error;
+              await new Promise((resolve) => setTimeout(resolve, LOGIN_BOOTSTRAP_RETRY_DELAY_MS));
+            }
+          }
+
+          throw lastError;
+        };
+
         const {
           data: { session },
-          error,
-        } = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
-        if (error) throw error;
+        } = await getSessionWithRetry();
 
         if (session?.user) {
           syncRouteAuthCookie(session);
