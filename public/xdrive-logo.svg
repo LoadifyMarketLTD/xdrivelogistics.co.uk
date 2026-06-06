@@ -1,1 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 110" width="460" height="110" role="img" aria-label="XDrive Logistics">
+  <title>XDrive Logistics</title>
+  <defs>
+    <linearGradient id="xdl-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFC320"/>
+      <stop offset="100%" stop-color="#F08500"/>
+    </linearGradient>
+    <linearGradient id="xdl-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3A7BE0"/>
+      <stop offset="100%" stop-color="#1232A8"/>
+    </linearGradient>
+    <linearGradient id="xdl-text-blue" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3A7BE0"/>
+      <stop offset="100%" stop-color="#1232A8"/>
+    </linearGradient>
+  </defs>
 
+  <!-- === D monogram (blue, rendered behind X) === -->
+  <!-- D left vertical bar -->
+  <rect x="58" y="8" width="18" height="94" rx="3" fill="url(#xdl-blue)"/>
+  <!-- D outer arc fill -->
+  <path d="M68 8 L82 8 Q148 8 148 55 Q148 102 82 102 L68 102 L68 85 L82 85 Q122 85 122 55 Q122 25 82 25 L68 25 Z" fill="url(#xdl-blue)"/>
+
+  <!-- === X monogram (gold, rendered on top of D) === -->
+  <!-- X left-top to right-bottom stroke -->
+  <polygon points="6,8 34,8 99,102 71,102" fill="url(#xdl-gold)"/>
+  <!-- X right-top to left-bottom stroke -->
+  <polygon points="71,8 99,8 34,102 6,102" fill="url(#xdl-gold)"/>
+
+  <!-- === Separator line === -->
+  <line x1="170" y1="18" x2="170" y2="92" stroke="#3A7BE0" stroke-width="2.5"/>
+
+  <!-- === Text: "x" in gold === -->
+  <text x="183" y="71" font-family="'Arial Black','Arial','Helvetica',sans-serif" font-size="54" font-weight="900" fill="url(#xdl-gold)">x</text>
+
+  <!-- === Text: "Drive" in blue === -->
+  <text x="219" y="71" font-family="'Arial Black','Arial','Helvetica',sans-serif" font-size="54" font-weight="900" fill="url(#xdl-text-blue)">Drive</text>
+
+  <!-- Gold dot replacing dot on "i" in "Drive" -->
+  <circle cx="286" cy="20" r="5.5" fill="url(#xdl-gold)"/>
+
+  <!-- === Text: "Logistics" in dark navy === -->
+  <text x="219" y="102" font-family="'Arial','Helvetica',sans-serif" font-size="30" font-weight="700" fill="#1232A8">Logistics</text>
+</svg>
