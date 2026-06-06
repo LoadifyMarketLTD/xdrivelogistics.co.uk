@@ -39,6 +39,8 @@ interface Job {
   distanceMiles: string;
   vehicleType: string;
   paymentTerms: string;
+  exchange_visibility?: string | null;
+  awarded_carrier_company_id?: string | null;
 }
 
 const CARGO_TYPES = [
@@ -61,6 +63,8 @@ export default function JobsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
+  const [jobsPage, setJobsPage] = useState(0);
+  const JOBS_PER_PAGE = 20;
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [pickupFilter, setPickupFilter] = useState('');
@@ -69,6 +73,12 @@ export default function JobsPage() {
   const [customerFilter, setCustomerFilter] = useState('');
   const [driverFilter, setDriverFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
+  // Direct invite state
+  const [directInviteJob, setDirectInviteJob] = useState<Job | null>(null);
+  const [carrierCompanies, setCarrierCompanies] = useState<Array<{ id: string; name: string }>>([]);
+  const [directInviteCarrierId, setDirectInviteCarrierId] = useState('');
+  const [directInviteSending, setDirectInviteSending] = useState(false);
+  const [directInviteError, setDirectInviteError] = useState('');
   const [formData, setFormData] = useState({
     clientName: '',
     clientEmail: '',
@@ -127,7 +137,7 @@ export default function JobsPage() {
 
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, job_distance_miles, created_at, updated_at')
+        .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, job_distance_miles, exchange_visibility, awarded_carrier_company_id, created_at, updated_at')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
@@ -181,6 +191,8 @@ export default function JobsPage() {
             distanceMiles,
             vehicleType: ((row.cargo_type as string) || 'unknown').replace(/_/g, ' '),
             paymentTerms: 'Not provided',
+            exchange_visibility: (row.exchange_visibility as string | null) ?? null,
+            awarded_carrier_company_id: (row.awarded_carrier_company_id as string | null) ?? null,
           };
         });
         setJobs(mapped);
@@ -233,6 +245,43 @@ export default function JobsPage() {
     }
 
     setFilteredJobs(filtered);
+    setJobsPage(0);
+  };
+
+  const openDirectInvite = async (job: Job) => {
+    setDirectInviteJob(job);
+    setDirectInviteCarrierId('');
+    setDirectInviteError('');
+    if (!isSupabaseConfigured) return;
+    // Load carrier companies (all companies except the current one)
+    const { data } = await supabase
+      .from('companies')
+      .select('id, name')
+      .neq('id', companyId ?? '')
+      .eq('status', 'active')
+      .order('name');
+    setCarrierCompanies((data ?? []) as Array<{ id: string; name: string }>);
+  };
+
+  const sendDirectInvite = async () => {
+    if (!directInviteJob || !directInviteCarrierId || !isSupabaseConfigured) return;
+    setDirectInviteSending(true);
+    setDirectInviteError('');
+    const { error } = await supabase
+      .from('jobs')
+      .update({
+        exchange_visibility: 'direct',
+        awarded_carrier_company_id: directInviteCarrierId,
+      })
+      .eq('id', directInviteJob.id)
+      .eq('company_id', companyId ?? '');
+    if (error) {
+      setDirectInviteError(`Failed to send invitation: ${error.message}`);
+    } else {
+      setDirectInviteJob(null);
+      void loadJobs();
+    }
+    setDirectInviteSending(false);
   };
 
   const validateForm = () => {
@@ -634,13 +683,13 @@ export default function JobsPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredJobs.map((job, index) => {
+                  filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map((job, index) => {
                     const statusColor = getStatusColor(job.status);
                     return (
                       <tr
                         key={job.id}
                         style={{
-                          borderBottom: index < filteredJobs.length - 1 ? '1px solid #e5e7eb' : 'none',
+                          borderBottom: index < Math.min(JOBS_PER_PAGE, filteredJobs.length) - 1 ? '1px solid #e5e7eb' : 'none',
                           transition: 'background-color 0.2s'
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
@@ -744,6 +793,19 @@ export default function JobsPage() {
                             >
                               View
                             </button>
+                            {(!job.exchange_visibility || job.exchange_visibility === 'private') && (
+                              <button
+                                onClick={() => void openDirectInvite(job)}
+                                style={{ padding: '0.5rem 0.85rem', backgroundColor: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer' }}
+                              >
+                                Invite Carrier
+                              </button>
+                            )}
+                            {job.exchange_visibility === 'direct' && (
+                              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#7c3aed', backgroundColor: '#ede9fe', padding: '0.2rem 0.5rem', borderRadius: '999px' }}>
+                                Direct ✓
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -753,6 +815,29 @@ export default function JobsPage() {
               </tbody>
             </table>
           </div>
+          {filteredJobs.length > JOBS_PER_PAGE && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderTop: '1px solid #e5e7eb' }}>
+              <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
+                Showing {jobsPage * JOBS_PER_PAGE + 1}–{Math.min((jobsPage + 1) * JOBS_PER_PAGE, filteredJobs.length)} of {filteredJobs.length} jobs
+              </span>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button
+                  onClick={() => setJobsPage((p) => Math.max(0, p - 1))}
+                  disabled={jobsPage === 0}
+                  style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: jobsPage === 0 ? '#f9fafb' : '#fff', cursor: jobsPage === 0 ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
+                >
+                  ← Prev
+                </button>
+                <button
+                  onClick={() => setJobsPage((p) => p + 1)}
+                  disabled={(jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length}
+                  style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: (jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length ? '#f9fafb' : '#fff', cursor: (jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Create Job Modal */}
@@ -1201,6 +1286,74 @@ export default function JobsPage() {
                   onMouseLeave={(e) => { if (!isSubmitting) e.currentTarget.style.backgroundColor = '#1F7A3D'; }}
                 >
                   {isSubmitting ? '⏳ Saving...' : 'Create Job'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Direct Carrier Invitation Modal */}
+        {directInviteJob && (
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '460px', padding: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#1f2937' }}>Invite Carrier Directly</h2>
+                <button onClick={() => setDirectInviteJob(null)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+              </div>
+
+              <div style={{ backgroundColor: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.85rem', color: '#4c1d95' }}>
+                <div style={{ fontWeight: 700 }}>
+                  {directInviteJob.pickup.location || '—'} → {directInviteJob.delivery.location || '—'}
+                </div>
+                <div style={{ marginTop: '0.2rem', fontSize: '0.78rem', color: '#6d28d9' }}>
+                  Job #{directInviteJob.jobRef} · {directInviteJob.status}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' }}>
+                  Select Carrier Company *
+                </label>
+                <select
+                  value={directInviteCarrierId}
+                  onChange={(e) => setDirectInviteCarrierId(e.target.value)}
+                  style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem' }}
+                >
+                  <option value="">Choose a carrier…</option>
+                  {carrierCompanies.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                {carrierCompanies.length === 0 && (
+                  <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.3rem' }}>
+                    No other active companies found.
+                  </div>
+                )}
+              </div>
+
+              {directInviteError && (
+                <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '6px', padding: '0.6rem', fontSize: '0.83rem', marginBottom: '0.75rem' }}>
+                  {directInviteError}
+                </div>
+              )}
+
+              <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '1rem' }}>
+                The selected carrier will see this load marked as a direct invitation. The load will not appear on the open exchange.
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.65rem', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setDirectInviteJob(null)}
+                  style={{ padding: '0.55rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#374151', fontSize: '0.85rem' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void sendDirectInvite()}
+                  disabled={!directInviteCarrierId || directInviteSending}
+                  style={{ padding: '0.55rem 1.25rem', border: 'none', borderRadius: '6px', background: !directInviteCarrierId || directInviteSending ? '#9ca3af' : '#7c3aed', color: '#fff', cursor: !directInviteCarrierId || directInviteSending ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.85rem' }}
+                >
+                  {directInviteSending ? 'Sending…' : 'Send Invitation'}
                 </button>
               </div>
             </div>
