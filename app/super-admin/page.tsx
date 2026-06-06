@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../components/ProtectedRoute';
-import SuperAdminWorkspaceShell from './_components/SuperAdminWorkspaceShell';
 import { supabase } from '../../lib/supabaseClient';
 
 const THEME = {
@@ -173,9 +172,7 @@ function DashboardContent() {
 export default function SuperAdminDashboardPage() {
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <SuperAdminWorkspaceShell>
-        <DashboardContent />
-      </SuperAdminWorkspaceShell>
+      <DashboardContent />
     </ProtectedRoute>
   );
 }
