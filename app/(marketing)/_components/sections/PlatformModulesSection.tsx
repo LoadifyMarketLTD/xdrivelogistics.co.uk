@@ -1,3 +1,4 @@
+import { HomepageVisualCard } from '../HomepageVisualCard';
 import { platformModules } from '../content';
 
 export function PlatformModulesSection() {
@@ -9,14 +10,24 @@ export function PlatformModulesSection() {
           <p className="mt-3 text-slate-500">Five compact modules designed for practical logistics execution.</p>
         </div>
 
-        <div className="mt-10 grid gap-5 lg:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {platformModules.map((module) => (
-            <article key={module.key} className="rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-[0_8px_24px_-20px_rgba(15,23,42,0.45)]">
-              <div className="inline-flex rounded-lg border border-[#e5e7eb] bg-slate-50 p-2 text-[#1d4ed8]">
-                <module.icon className="h-5 w-5" />
+            <article key={module.key} className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_24px_-20px_rgba(15,23,42,0.45)]">
+              <div className="border-b border-[#e5e7eb] bg-slate-100 p-3">
+                <HomepageVisualCard
+                  imageSrc={module.image}
+                  imageAlt={module.imageAlt}
+                  label={`${module.title} module`}
+                  title={module.title}
+                  icon={module.icon}
+                  tone="slate"
+                  className="h-[180px] w-full rounded-xl"
+                />
               </div>
-              <h3 className="mt-4 text-base font-semibold text-[#0f172a]">{module.title}</h3>
-              <p className="mt-2 text-sm text-slate-500">{module.summary}</p>
+              <div className="p-5">
+                <h3 className="text-base font-semibold text-[#0f172a]">{module.title}</h3>
+                <p className="mt-2 text-sm text-slate-500">{module.summary}</p>
+              </div>
             </article>
           ))}
         </div>

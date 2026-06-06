@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 const footerColumns = {
   platform: [
@@ -49,8 +50,8 @@ export function MarketingFooter() {
       <div className="mx-auto grid max-w-[1200px] gap-8 md:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
         {/* Brand column */}
         <div>
-          <Link href="/" className="text-xl font-bold tracking-tight text-white">
-            <span className="text-[#3b82f6]">X</span>Drive Logistics
+          <Link href="/" className="inline-flex items-center">
+            <Image src="/xdrive-logo.svg" alt="XDrive Logistics" width={170} height={38} className="h-9 w-auto" />
           </Link>
           <p className="mt-4 max-w-[220px] text-sm leading-relaxed text-slate-400">
             Early-access logistics platform connecting transport customers, courier companies, owner operators and drivers.
