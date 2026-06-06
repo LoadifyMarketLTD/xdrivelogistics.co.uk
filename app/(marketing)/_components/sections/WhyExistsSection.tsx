@@ -30,10 +30,10 @@ export function WhyExistsSection() {
 
         <div className="group overflow-hidden rounded-2xl border border-[#e5e7eb] shadow-[0_12px_32px_-20px_rgba(15,23,42,0.45)]">
           <HomepageVisualCard
-            imageSrc="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=800&q=75&fm=webp"
-            imageAlt="Fleet of white delivery vans and trucks parked at a logistics depot at dusk"
-            label="Fleet depot"
-            title="Logistics fleet depot"
+            imageSrc="/homepage/why-exists-scene.svg"
+            imageAlt="XDrive operational workflow scene showing the daily reality of logistics management"
+            label="Logistics scene"
+            title="Logistics daily workflow"
             icon={Truck}
             tone="slate"
             className="h-[220px] w-full md:h-[280px] lg:h-[360px]"

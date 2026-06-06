@@ -53,10 +53,10 @@ export function HeroSection() {
 
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-slate-50 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]">
           <HomepageVisualCard
-            imageSrc="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1600&h=900&q=70&fm=webp"
-            imageAlt="Logistics operations control centre with multiple monitoring screens showing route maps and data"
-            label="Dispatch visual"
-            title="Logistics control room"
+            imageSrc="/homepage/hero-composition.svg"
+            imageAlt="XDrive Platform Command Centre — Marketplace, Operations and Driver Workspace"
+            label="Platform overview"
+            title="XDrive Platform Command Centre"
             icon={Route}
             tone="blue"
             className="h-[220px] w-full md:h-[280px] lg:h-[400px]"

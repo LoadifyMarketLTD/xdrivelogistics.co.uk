@@ -4,16 +4,17 @@ import Link from 'next/link';
 export function LaunchSection() {
   return (
     <section className="relative overflow-hidden border-b border-[#e5e7eb]" id="launch">
-      {/* Background highway photo */}
+      {/* Custom SVG background */}
       <Image
-        src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&h=600&q=60&fm=webp"
-        alt="Highway motorway at night representing logistics movement across the UK"
+        src="/homepage/launch-cta-bg.svg"
+        alt=""
         fill
+        unoptimized
         className="object-cover object-center"
-        quality={60}
+        aria-hidden="true"
       />
       {/* Dark overlay */}
-      <div className="absolute inset-0 bg-[#0f172a]/75" />
+      <div className="absolute inset-0 bg-[#0f172a]/70" />
 
       <div className="relative px-4 py-16 sm:px-6 sm:py-24">
         <div className="mx-auto flex max-w-[1200px] flex-col items-start gap-8 md:flex-row md:items-center md:justify-between">

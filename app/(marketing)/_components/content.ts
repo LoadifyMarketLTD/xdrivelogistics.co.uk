@@ -42,9 +42,8 @@ export const roleCards: ReadonlyArray<{
     icon: Layers,
     title: 'Transport Customers',
     subtitle: 'Submit transport requirements and follow job progress from request to completion.',
-    image:
-      'https://images.unsplash.com/photo-1553341640-9b68f04df073?auto=format&fit=crop&w=800&h=600&q=75&fm=webp',
-    imageAlt: 'Warehouse interior with forklifts and pallets ready for dispatch',
+    image: '/homepage/role-customers.svg',
+    imageAlt: 'Transport customers tracking shipments, POD and invoices on the XDrive platform',
     tone: 'blue',
     visualLabel: 'Customer workflow',
   },
@@ -52,9 +51,8 @@ export const roleCards: ReadonlyArray<{
     icon: Users,
     title: 'Courier Companies',
     subtitle: 'Coordinate jobs, vehicles, drivers, PODs and operational records from one workspace.',
-    image:
-      'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&h=600&q=75&fm=webp',
-    imageAlt: 'Transport operations coordinator managing dispatch on screens',
+    image: '/homepage/role-courier-companies.svg',
+    imageAlt: 'Courier company operations workspace with dispatch, jobs and fleet management',
     tone: 'slate',
     visualLabel: 'Operations workspace',
   },
@@ -62,9 +60,8 @@ export const roleCards: ReadonlyArray<{
     icon: Truck,
     title: 'Owner Operators',
     subtitle: 'Access suitable loads, manage quotes and keep delivery records organised.',
-    image:
-      'https://images.unsplash.com/photo-1494412651409-8963ce7935a7?auto=format&fit=crop&w=800&h=600&q=75&fm=webp',
-    imageAlt: 'White delivery van ready for loading at a logistics depot',
+    image: '/homepage/role-owner-operators.svg',
+    imageAlt: 'Owner operator accessing available loads, quotes and fleet readiness on XDrive',
     tone: 'amber',
     visualLabel: 'Fleet readiness',
   },
@@ -72,9 +69,8 @@ export const roleCards: ReadonlyArray<{
     icon: UserRound,
     title: 'Drivers',
     subtitle: 'Receive assigned jobs, update progress and upload POD from a mobile-first workflow.',
-    image:
-      'https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?auto=format&fit=crop&w=800&h=600&q=75&fm=webp',
-    imageAlt: 'Driver checking mobile device for job details and delivery updates',
+    image: '/homepage/role-drivers.svg',
+    imageAlt: 'Driver mobile workspace for assigned jobs, status updates and proof of delivery',
     tone: 'emerald',
     visualLabel: 'Driver mobile',
   },
@@ -86,9 +82,8 @@ export const platformModules = [
     title: 'Marketplace',
     summary: 'Browse available loads, submit quotes and manage bids from one central marketplace workspace.',
     bullets: ['Loads', 'Quotes', 'Bids', 'Route visibility'],
-    image:
-      'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1200&h=700&q=70&fm=webp',
-    imageAlt: 'Logistics operations team coordinating freight dispatch from a central workspace',
+    image: '/homepage/module-marketplace.svg',
+    imageAlt: 'XDrive Marketplace workspace showing available loads, bids, quotes and route intelligence',
     icon: Route,
   },
   {
@@ -96,9 +91,8 @@ export const platformModules = [
     title: 'Operations Diary',
     summary: 'Collections, deliveries, status updates and exceptions managed from one operational diary.',
     bullets: ['Collections', 'Deliveries', 'Status updates', 'Exceptions'],
-    image:
-      'https://images.unsplash.com/photo-1553341640-9b68f04df073?auto=format&fit=crop&w=1200&h=700&q=70&fm=webp',
-    imageAlt: 'Warehouse operations with forklifts and pallets being coordinated for dispatch',
+    image: '/homepage/module-operations.svg',
+    imageAlt: 'XDrive Operations Diary workspace showing collections, deliveries and job status',
     icon: ClipboardCheck,
   },
   {
@@ -106,9 +100,8 @@ export const platformModules = [
     title: 'Driver Workspace',
     summary: 'Assigned jobs, mobile updates and POD workflow for drivers on the go.',
     bullets: ['Assigned jobs', 'Mobile updates', 'POD workflow'],
-    image:
-      'https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?auto=format&fit=crop&w=1200&h=700&q=70&fm=webp',
-    imageAlt: 'Driver checking mobile phone for job assignments and delivery status updates',
+    image: '/homepage/module-driver.svg',
+    imageAlt: 'XDrive Driver Workspace showing assigned jobs, route updates and proof of delivery',
     icon: UserRound,
   },
   {
@@ -116,9 +109,8 @@ export const platformModules = [
     title: 'Fleet Management',
     summary: 'Vehicles, drivers, availability and compliance records managed in one place.',
     bullets: ['Vehicles', 'Drivers', 'Availability', 'Compliance records'],
-    image:
-      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=700&q=70&fm=webp',
-    imageAlt: 'Fleet of delivery vans lined up at a transport depot ready for dispatch',
+    image: '/homepage/module-fleet.svg',
+    imageAlt: 'XDrive Fleet Management showing vehicles, driver assignments and compliance records',
     icon: Truck,
   },
   {
@@ -126,9 +118,8 @@ export const platformModules = [
     title: 'Finance',
     summary: 'Invoices, POD verification and payment status tracking for every completed job.',
     bullets: ['Invoices', 'POD verification', 'Payment status'],
-    image:
-      'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&h=700&q=70&fm=webp',
-    imageAlt: 'Transport administrator reviewing financial records and invoice documentation',
+    image: '/homepage/module-finance.svg',
+    imageAlt: 'XDrive Finance workspace showing invoices, POD verification and payment status',
     icon: CircleDollarSign,
   },
 ] as const;
