@@ -73,7 +73,7 @@ export default function PrivacyPage() {
             <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               <li>Provide and manage platform services</li>
               <li>Verify driver qualifications and identity</li>
-              <li>Process payments and issue invoices</li>
+              <li>Record invoice details, payment status, and related finance history</li>
               <li>Communicate about your bookings and account</li>
               <li>Improve our platform and services</li>
               <li>Comply with legal obligations</li>
