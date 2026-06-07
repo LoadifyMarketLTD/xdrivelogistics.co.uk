@@ -61,12 +61,19 @@ export default function JobHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const normalizedDriverId = driverId.trim();
 
   // Totals
   const [earnings, setEarnings] = useState({ total: 0, delivered: 0 });
 
   const fetchHistory = useCallback(async () => {
-    if (!driverId || !isSupabaseConfigured) {
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
+
+    if (!normalizedDriverId) {
+      setError('Driver session not ready. Please wait and refresh.');
       setLoading(false);
       return;
     }
@@ -76,7 +83,7 @@ export default function JobHistoryPage() {
     const { data, error: fetchError } = await supabase
       .from('jobs')
       .select('id, status, pickup_location, delivery_location, collection_window_start, delivery_window_start, deadline_at, budget_amount, updated_at, created_at, delivery_photos')
-      .eq('assigned_driver_id', driverId)
+      .eq('assigned_driver_id', normalizedDriverId)
       .in('status', ['delivered', 'cancelled', 'disputed', 'driver_declined'])
       .order('updated_at', { ascending: false })
       .limit(200);
@@ -92,10 +99,10 @@ export default function JobHistoryPage() {
       setEarnings({ total, delivered: rows.filter((j) => j.status === 'delivered').length });
     }
     setLoading(false);
-  }, [driverId]);
+  }, [normalizedDriverId]);
 
   useEffect(() => {
-    if (user?.driverId) setDriverId(user.driverId);
+    if (typeof user?.driverId === 'string') setDriverId(user.driverId.trim());
   }, [user?.driverId]);
 
   useEffect(() => {
