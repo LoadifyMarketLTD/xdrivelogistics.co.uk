@@ -1,4 +1,4 @@
-import { FaqSection } from './sections/FaqSection';
+import { FAQ } from './sections/FAQ';
 import { HeroSection } from './sections/HeroSection';
 import { LaunchSection } from './sections/LaunchSection';
 import { MarketingFooter } from './sections/MarketingFooter';
@@ -24,7 +24,7 @@ export function LandingPage() {
       <PlatformModulesSection />
       <PlatformPreviewSection />
       <LaunchSection />
-      <FaqSection />
+      <FAQ />
       <MarketingFooter />
     </div>
   );
