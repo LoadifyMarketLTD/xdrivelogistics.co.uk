@@ -93,7 +93,7 @@ export default function RequestQuotePage() {
           }}
         >
           <div style={{ marginBottom: '1rem' }}>
-            <Image src="/logo-svg.jpeg" alt="XDrive Logistics" width={180} height={40} style={{ width: 'auto', height: '40px', margin: '0 auto' }} />
+            <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={180} height={40} style={{ width: 'auto', height: '40px', margin: '0 auto' }} />
           </div>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
           <h1 style={{ margin: '0 0 0.75rem', fontSize: '1.8rem', color: '#fff' }}>
@@ -176,7 +176,7 @@ export default function RequestQuotePage() {
     >
       <div style={{ maxWidth: '980px', margin: '0 auto', display: 'grid', gap: '1.5rem' }}>
         <div>
-          <Image src="/logo-svg.jpeg" alt="XDrive Logistics" width={180} height={40} priority style={{ width: 'auto', height: '40px' }} />
+          <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={180} height={40} priority style={{ width: 'auto', height: '40px' }} />
         </div>
         <a href="/" style={{ color: '#D4AF37', textDecoration: 'none', fontWeight: 700 }}>
           ← Back to homepage
