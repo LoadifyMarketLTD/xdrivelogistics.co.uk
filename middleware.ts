@@ -343,10 +343,6 @@ export async function middleware(request: NextRequest) {
     if (auth.mustChangePassword && url.pathname !== DRIVER_CHANGE_PASSWORD_PATH) {
       return buildRedirect(request, DRIVER_CHANGE_PASSWORD_PATH);
     }
-
-    if (!auth.mustChangePassword && url.pathname === DRIVER_CHANGE_PASSWORD_PATH) {
-      return buildRedirect(request, DRIVER_JOBS_PATH);
-    }
   }
 
   if (url.pathname === DRIVER_PATH) {

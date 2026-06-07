@@ -1,13 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
-import { useAuth } from '../../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
 
 type ExchangeLoad = {
   id: string;
@@ -28,28 +25,60 @@ type ExchangeLoad = {
   currency: string;
   load_details: string | null;
   exchange_posted_at: string | null;
-  companies: { name: string } | null;
+  companies: { name: string } | Array<{ name: string }> | null;
 };
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+type SearchFilters = {
+  pickupSearch: string;
+  deliverySearch: string;
+  vehicleType: string;
+  cargoType: string;
+  radiusKm: string;
+  minBudget: string;
+  maxBudget: string;
+};
 
 const VEHICLE_TYPES = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 const VEHICLE_LABELS: Record<string, string> = {
-  bicycle: 'Bicycle', motorbike: 'Motorbike', car: 'Car',
-  van_small: 'Small Van', van_large: 'Large Van', luton: 'Luton Van',
-  truck_7_5t: '7.5t Truck', truck_18t: '18t Truck', artic: 'Artic',
+  bicycle: 'Bicycle',
+  motorbike: 'Motorbike',
+  car: 'Car',
+  van_small: 'Small Van',
+  van_large: 'Large Van',
+  luton: 'Luton Van',
+  truck_7_5t: '7.5t Truck',
+  truck_18t: '18t Truck',
+  artic: 'Artic',
 };
 const CARGO_TYPES = ['documents', 'packages', 'pallets', 'furniture', 'equipment', 'other'];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const RESULT_PAGE_SIZE = 12;
+const DEFAULT_FILTERS: SearchFilters = {
+  pickupSearch: '',
+  deliverySearch: '',
+  vehicleType: '',
+  cargoType: '',
+  radiusKm: '',
+  minBudget: '',
+  maxBudget: '',
+};
 
 function fmtDate(value: string | null) {
   if (!value) return 'Not set';
   try {
-    return new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return new Date(value).toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   } catch {
     return value;
   }
+}
+
+function normalizeCompany(company: ExchangeLoad['companies']) {
+  if (!company) return null;
+  return Array.isArray(company) ? (company[0] ?? null) : company;
 }
 
 const card: CSSProperties = {
@@ -70,34 +99,28 @@ const inputStyle: CSSProperties = {
   width: '100%',
 };
 
-const selectStyle: CSSProperties = { ...inputStyle };
-
-// ── Component ─────────────────────────────────────────────────────────────────
-
 export default function SearchLoadsPage() {
-  const { user } = useAuth();
   const router = useRouter();
-  const companyId = user?.companyId ?? null; // eslint-disable-line @typescript-eslint/no-unused-vars
-
-  // Filters
-  const [pickupSearch, setPickupSearch] = useState('');
-  const [deliverySearch, setDeliverySearch] = useState('');
-  const [vehicleType, setVehicleType] = useState('');
-  const [cargoType, setCargoType] = useState('');
-  const [radiusKm, setRadiusKm] = useState('');
-  const [minBudget, setMinBudget] = useState('');
-  const [maxBudget, setMaxBudget] = useState('');
-
+  const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<SearchFilters | null>(null);
   const [loads, setLoads] = useState<ExchangeLoad[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
   const [error, setError] = useState('');
+  const [visibleCount, setVisibleCount] = useState(RESULT_PAGE_SIZE);
 
-  const runSearch = useCallback(async () => {
-    if (!isSupabaseConfigured) return;
+  const hasSearched = appliedFilters !== null;
+  const visibleLoads = useMemo(() => loads.slice(0, visibleCount), [loads, visibleCount]);
+  const canLoadMore = visibleCount < loads.length;
+
+  const runSearch = async (activeFilters: SearchFilters) => {
+    if (!isSupabaseConfigured) {
+      setLoads([]);
+      return;
+    }
+
     setLoading(true);
     setError('');
-    setSearched(true);
+    setVisibleCount(RESULT_PAGE_SIZE);
 
     let query = supabase
       .from('jobs')
@@ -106,140 +129,168 @@ export default function SearchLoadsPage() {
       .is('awarded_carrier_company_id', null)
       .in('status', ['posted'])
       .order('exchange_posted_at', { ascending: false })
-      .limit(100);
+      .limit(120);
 
-    if (vehicleType) query = query.eq('vehicle_type', vehicleType);
-    if (cargoType) query = query.eq('cargo_type', cargoType);
-    if (pickupSearch.trim()) query = query.ilike('pickup_location', `%${pickupSearch.trim()}%`);
-    if (deliverySearch.trim()) query = query.ilike('delivery_location', `%${deliverySearch.trim()}%`);
-    if (minBudget) query = query.gte('budget_amount', parseFloat(minBudget));
-    if (maxBudget) query = query.lte('budget_amount', parseFloat(maxBudget));
+    if (activeFilters.vehicleType) query = query.eq('vehicle_type', activeFilters.vehicleType);
+    if (activeFilters.cargoType) query = query.eq('cargo_type', activeFilters.cargoType);
+    if (activeFilters.pickupSearch.trim()) query = query.ilike('pickup_location', `%${activeFilters.pickupSearch.trim()}%`);
+    if (activeFilters.deliverySearch.trim()) query = query.ilike('delivery_location', `%${activeFilters.deliverySearch.trim()}%`);
+    if (activeFilters.minBudget) query = query.gte('budget_amount', parseFloat(activeFilters.minBudget));
+    if (activeFilters.maxBudget) query = query.lte('budget_amount', parseFloat(activeFilters.maxBudget));
 
-    const { data, error: qErr } = await query;
+    const { data, error: queryError } = await query;
 
-    if (qErr) {
-      setError(`Search failed: ${qErr.message}`);
+    if (queryError) {
+      setError(`Search failed: ${queryError.message}`);
+      setLoads([]);
     } else {
-      const normalized = ((data ?? []) as unknown as ExchangeLoad[]).map((load) => ({
-        ...load,
-        companies: Array.isArray(load.companies) ? ((load.companies as Array<{ name: string }>)[0] ?? null) : (load.companies as { name: string } | null),
-      }));
-      setLoads(normalized);
+      setLoads(
+        ((data ?? []) as ExchangeLoad[]).map((load) => ({
+          ...load,
+          companies: normalizeCompany(load.companies),
+        }))
+      );
     }
-    setLoading(false);
-  }, [pickupSearch, deliverySearch, vehicleType, cargoType, minBudget, maxBudget]);
 
-  // Run initial search on mount to show all available loads
-  useEffect(() => {
-    void runSearch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setLoading(false);
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    const nextFilters = { ...filters };
+    setAppliedFilters(nextFilters);
+    await runSearch(nextFilters);
+  };
+
+  const resetSearch = () => {
+    setFilters(DEFAULT_FILTERS);
+    setAppliedFilters(null);
+    setLoads([]);
+    setError('');
+    setVisibleCount(RESULT_PAGE_SIZE);
+  };
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell
-        subtitle="Filter available loads by route, vehicle type, cargo, radius, and budget."
-      >
+      <DriverWorkspaceShell subtitle="Submit a targeted load search when you are ready. Typing no longer triggers repeat searches.">
         <h2 style={{ margin: '0 0 1rem', fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>Search Loads</h2>
 
-        {/* Filter panel */}
-        <div style={{ ...card, marginBottom: '1rem' }}>
+        <form onSubmit={handleSubmit} style={{ ...card, marginBottom: '1rem' }}>
           <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.8rem' }}>
-            Filters
+            Search filters
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.7rem' }}>
             <div>
               <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Pickup location</label>
-              <input style={inputStyle} value={pickupSearch} onChange={(e) => setPickupSearch(e.target.value)} placeholder="City, postcode…" />
+              <input style={inputStyle} value={filters.pickupSearch} onChange={(e) => setFilters((current) => ({ ...current, pickupSearch: e.target.value }))} placeholder="City, postcode…" />
             </div>
             <div>
               <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Delivery location</label>
-              <input style={inputStyle} value={deliverySearch} onChange={(e) => setDeliverySearch(e.target.value)} placeholder="City, postcode…" />
+              <input style={inputStyle} value={filters.deliverySearch} onChange={(e) => setFilters((current) => ({ ...current, deliverySearch: e.target.value }))} placeholder="City, postcode…" />
             </div>
             <div>
               <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Vehicle type</label>
-              <select style={selectStyle} value={vehicleType} onChange={(e) => setVehicleType(e.target.value)}>
+              <select style={inputStyle} value={filters.vehicleType} onChange={(e) => setFilters((current) => ({ ...current, vehicleType: e.target.value }))}>
                 <option value="">Any vehicle</option>
-                {VEHICLE_TYPES.map((v) => <option key={v} value={v}>{VEHICLE_LABELS[v]}</option>)}
+                {VEHICLE_TYPES.map((vehicleType) => (
+                  <option key={vehicleType} value={vehicleType}>
+                    {VEHICLE_LABELS[vehicleType]}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Freight type</label>
-              <select style={selectStyle} value={cargoType} onChange={(e) => setCargoType(e.target.value)}>
+              <select style={inputStyle} value={filters.cargoType} onChange={(e) => setFilters((current) => ({ ...current, cargoType: e.target.value }))}>
                 <option value="">Any freight</option>
-                {CARGO_TYPES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                {CARGO_TYPES.map((cargoType) => (
+                  <option key={cargoType} value={cargoType}>
+                    {cargoType.charAt(0).toUpperCase() + cargoType.slice(1)}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Radius (km)</label>
-              <input style={inputStyle} type="number" min="0" value={radiusKm} onChange={(e) => setRadiusKm(e.target.value)} placeholder="e.g. 50" />
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.2rem' }}>Postcode-based radius coming soon</div>
+              <input style={inputStyle} type="number" min="0" value={filters.radiusKm} onChange={(e) => setFilters((current) => ({ ...current, radiusKm: e.target.value }))} placeholder="e.g. 50" />
+              <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.2rem' }}>Postcode-based radius filtering is still coming soon.</div>
             </div>
             <div>
               <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Budget range (£)</label>
               <div style={{ display: 'flex', gap: '0.4rem' }}>
-                <input style={{ ...inputStyle, width: '50%' }} type="number" min="0" value={minBudget} onChange={(e) => setMinBudget(e.target.value)} placeholder="Min" />
-                <input style={{ ...inputStyle, width: '50%' }} type="number" min="0" value={maxBudget} onChange={(e) => setMaxBudget(e.target.value)} placeholder="Max" />
+                <input style={{ ...inputStyle, width: '50%' }} type="number" min="0" value={filters.minBudget} onChange={(e) => setFilters((current) => ({ ...current, minBudget: e.target.value }))} placeholder="Min" />
+                <input style={{ ...inputStyle, width: '50%' }} type="number" min="0" value={filters.maxBudget} onChange={(e) => setFilters((current) => ({ ...current, maxBudget: e.target.value }))} placeholder="Max" />
               </div>
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.9rem', flexWrap: 'wrap' }}>
             <button
-              onClick={() => void runSearch()}
+              type="submit"
               disabled={loading}
               style={{ padding: '0.6rem 1.2rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
             >
-              {loading ? 'Searching…' : 'Search'}
+              {loading ? 'Searching…' : hasSearched ? 'Update search' : 'Search loads'}
             </button>
             <button
-              onClick={() => {
-                setPickupSearch(''); setDeliverySearch(''); setVehicleType(''); setCargoType('');
-                setRadiusKm(''); setMinBudget(''); setMaxBudget('');
-                void runSearch();
-              }}
+              type="button"
+              onClick={resetSearch}
               style={{ padding: '0.6rem 1rem', backgroundColor: '#f1f5f9', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '7px', fontWeight: 600, cursor: 'pointer' }}
             >
-              Clear Filters
+              Clear search
             </button>
             <button
+              type="button"
               onClick={() => router.push('/driver/loads')}
               style={{ padding: '0.6rem 1rem', backgroundColor: '#f1f5f9', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '7px', fontWeight: 600, cursor: 'pointer' }}
             >
-              ← All Loads
+              Open load board
             </button>
           </div>
-        </div>
+        </form>
 
-        {/* Error */}
         {error && (
           <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.7rem', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
             {error}
           </div>
         )}
 
-        {/* Results */}
         {loading ? (
-          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>Searching…</div>
-        ) : searched && loads.length === 0 ? (
+          <div style={{ ...card, color: '#64748b', padding: '2rem', textAlign: 'center' }}>Searching available loads…</div>
+        ) : !hasSearched ? (
+          <div style={{ ...card, textAlign: 'center', padding: '2.25rem' }}>
+            <div style={{ fontSize: '1.9rem', marginBottom: '0.45rem' }}>🔎</div>
+            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>Search is now explicit</div>
+            <div style={{ fontSize: '0.84rem', color: '#64748b' }}>
+              Enter the route or load details you care about, then submit the search when you are ready.
+            </div>
+          </div>
+        ) : loads.length === 0 ? (
           <div style={{ ...card, textAlign: 'center', padding: '2rem' }}>
-            <div style={{ fontSize: '1.8rem', marginBottom: '0.4rem' }}>🔍</div>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>No loads match your filters</div>
-            <div style={{ fontSize: '0.84rem', color: '#64748b' }}>Try broadening your search or clearing some filters.</div>
+            <div style={{ fontSize: '1.8rem', marginBottom: '0.4rem' }}>📭</div>
+            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>No loads match this search</div>
+            <div style={{ fontSize: '0.84rem', color: '#64748b', marginBottom: '0.85rem' }}>
+              Try broadening the route, vehicle, or budget filters and submit again.
+            </div>
+            <button
+              type="button"
+              onClick={resetSearch}
+              style={{ padding: '0.6rem 1rem', backgroundColor: '#f8fafc', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '7px', fontWeight: 600, cursor: 'pointer' }}
+            >
+              Start a new search
+            </button>
           </div>
         ) : (
           <>
-            {searched && (
-              <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '0.6rem', fontWeight: 600 }}>
-                {loads.length} result{loads.length !== 1 ? 's' : ''}
-              </div>
-            )}
+            <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '0.6rem', fontWeight: 600 }}>
+              Showing {visibleLoads.length} of {loads.length} search result{loads.length !== 1 ? 's' : ''}
+            </div>
             <div style={{ display: 'grid', gap: '0.7rem' }}>
-              {loads.map((load) => (
+              {visibleLoads.map((load) => (
                 <div key={load.id} style={{ ...card, borderLeft: '3px solid #1d4ed8' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' }}>
                     <div>
-                      <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>{load.companies?.name ?? 'Unknown shipper'}</span>
+                      <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>{normalizeCompany(load.companies)?.name ?? 'Unknown shipper'}</span>
                       {load.vehicle_type && (
                         <span style={{ marginLeft: '0.45rem', fontSize: '0.7rem', backgroundColor: '#e0f2fe', color: '#075985', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
                           {VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type}
@@ -280,13 +331,25 @@ export default function SearchLoadsPage() {
                     onClick={() => router.push('/driver/loads')}
                     style={{ padding: '0.48rem 0.9rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}
                   >
-                    View &amp; Quote →
+                    View on load board
                   </button>
 
                   <div style={{ marginTop: '0.45rem', fontSize: '0.7rem', color: '#94a3b8' }}>Posted: {fmtDate(load.exchange_posted_at)}</div>
                 </div>
               ))}
             </div>
+
+            {canLoadMore && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((current) => current + RESULT_PAGE_SIZE)}
+                  style={{ padding: '0.7rem 1rem', backgroundColor: '#f8fafc', color: '#0f172a', border: '1px solid #d7e0ea', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Load more results
+                </button>
+              </div>
+            )}
           </>
         )}
       </DriverWorkspaceShell>
