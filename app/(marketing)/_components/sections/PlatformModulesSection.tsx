@@ -7,10 +7,10 @@ export function PlatformModulesSection() {
       <div className="mx-auto max-w-[1200px]">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-[#0f172a] sm:text-4xl">Operational Modules</h2>
-          <p className="mt-3 text-slate-500">Seven focused product areas designed to show the actual depth of the XDrive workflow vision.</p>
+          <p className="mt-3 text-slate-500">Five focused product areas designed for practical UK logistics execution.</p>
         </div>
 
-        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {platformModules.map((module) => (
             <article key={module.key} className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_24px_-20px_rgba(15,23,42,0.45)]">
               <div className="border-b border-[#e5e7eb] bg-slate-100 p-3">

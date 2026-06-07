@@ -59,7 +59,7 @@ export function PlatformPreviewSection() {
               {selectedPreview.status}
             </div>
             <h3 className="mt-3 text-lg font-semibold text-[#0f172a]">{selectedPreview.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">{selectedPreview.summary}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">{selectedPreview.previewDescription}</p>
           </div>
           <div className="grid gap-4 p-5 md:grid-cols-3">
             {selectedPreview.previewItems.map((item) => (
@@ -71,7 +71,7 @@ export function PlatformPreviewSection() {
           </div>
         </div>
         <p className="mt-4 text-center text-xs text-slate-500">
-          Preview screens are for MVP / early-access demonstration only and should not be read as a claim of a fully public live network.
+          Demo content shown for early-access product illustration only.
         </p>
       </div>
     </section>
