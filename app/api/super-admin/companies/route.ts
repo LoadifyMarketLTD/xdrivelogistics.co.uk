@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
 
   // Query governance history defensively: try full column set first, then fall
   // back to a minimal set if optional columns (old_status / new_status) do not
-  // exist in the current schema (they are added by migration 082, but may be
+  // exist in the current schema (they are added by migration 087, but may be
   // absent in older or partially-migrated databases).
   let auditRows: GovernanceAuditRow[] | null = null;
   let auditError: { message: string } | null = null;

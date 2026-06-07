@@ -1,5 +1,5 @@
 -- ============================================================
--- Migration 082 — Fix Super Admin Schema Mismatches
+-- Migration 087 — Fix Super Admin Schema Mismatches
 -- ============================================================
 -- Fixes two production issues identified in the Super Admin pages:
 --
