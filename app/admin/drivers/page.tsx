@@ -33,6 +33,7 @@ export default function DriversPage() {
   const [companies, setCompanies] = useState<Pick<Company, 'id' | 'name'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [driverPage, setDriverPage] = useState(0);
+  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'app-disabled'>('all');
   const DRIVERS_PER_PAGE = 15;
   const [showModal, setShowModal] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
@@ -166,6 +167,10 @@ export default function DriversPage() {
     }
     void Promise.all([loadDrivers(companyId), loadCompanies(companyId)]);
   }, [companyResolved, companyId]);
+
+  useEffect(() => {
+    setDriverPage(0);
+  }, [activeTab]);
 
   const getAccessToken = async (): Promise<{ accessToken: string | null; error: string | null }> => {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -416,14 +421,52 @@ export default function DriversPage() {
     return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleDateString();
   };
 
+  const activeDriverCount = drivers.filter((driver) => driver.status === 'active').length;
+  const inactiveDriverCount = drivers.filter((driver) => driver.status !== 'active').length;
+  const appDisabledCount = drivers.filter((driver) => !driver.app_access).length;
+  const filteredDrivers = drivers.filter((driver) => {
+    if (activeTab === 'active') return driver.status === 'active';
+    if (activeTab === 'app-disabled') return !driver.app_access;
+    return true;
+  });
+  const paginatedDrivers = filteredDrivers.slice(driverPage * DRIVERS_PER_PAGE, (driverPage + 1) * DRIVERS_PER_PAGE);
+
   return (
     <ProtectedRoute>
-      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
-        <div style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+      <div style={{ background: '#eef2f7', minHeight: '100vh', padding: '1rem' }}>
+        <div style={{ background: '#111827', color: '#e5e7eb', borderRadius: '14px', border: '1px solid #1f2937', padding: '0.8rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontWeight: '600' }}>
+            <span style={{ width: '0.6rem', height: '0.6rem', borderRadius: '999px', background: '#4ade80' }} />
+            Driver Operations Board
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {[
+              `All ${drivers.length}`,
+              `Active ${activeDriverCount}`,
+              `Attention ${inactiveDriverCount}`,
+            ].map((item) => (
+              <span key={item} style={{ border: '1px solid #374151', borderRadius: '999px', padding: '0.25rem 0.65rem', fontSize: '0.75rem', color: '#cbd5e1' }}>{item}</span>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'minmax(220px, 260px) minmax(0, 1fr)' }}>
+          <aside style={{ background: '#f8fafc', border: '1px solid #dbe3ef', borderRadius: '14px', padding: '1rem', display: 'grid', gap: '1rem', alignContent: 'start' }}>
             <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Drivers</h1>
-              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage drivers for your company</p>
+              <h2 style={{ margin: 0, fontSize: '0.88rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6b7280' }}>Driver filters</h2>
+              <p style={{ margin: '0.45rem 0 0 0', fontSize: '0.88rem', color: '#64748b' }}>Company: {companies[0]?.name ?? 'Current account company'}</p>
+            </div>
+            <div style={{ display: 'grid', gap: '0.6rem' }}>
+              {[
+                { label: 'Total drivers', value: drivers.length.toString() },
+                { label: 'App access disabled', value: appDisabledCount.toString() },
+                { label: 'Suspended / inactive', value: inactiveDriverCount.toString() },
+              ].map((item) => (
+                <div key={item.label} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '0.72rem 0.78rem' }}>
+                  <div style={{ fontSize: '0.76rem', color: '#6b7280' }}>{item.label}</div>
+                  <div style={{ marginTop: '0.3rem', fontSize: '1.15rem', fontWeight: '700', color: '#0f172a' }}>{item.value}</div>
+                </div>
+              ))}
             </div>
             <button
               onClick={() => {
@@ -434,119 +477,150 @@ export default function DriversPage() {
                 setShowModal(true);
               }}
               disabled={!companyResolved || !companyId}
-              style={{ padding: '0.75rem 1.5rem', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}
+              style={{ padding: '0.72rem 0.9rem', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '10px', fontSize: '0.9rem', fontWeight: '600', cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}
             >
               + Add Driver
             </button>
-          </div>
+          </aside>
 
-          {companyError && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
-              {companyError}
+          <section style={{ background: '#fff', border: '1px solid #dbe3ef', borderRadius: '14px', overflow: 'hidden' }}>
+            <div style={{ borderBottom: '1px solid #e5e7eb', padding: '1rem', display: 'grid', gap: '0.9rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div>
+                  <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#111827' }}>Drivers</h1>
+                  <p style={{ margin: '0.35rem 0 0 0', color: '#64748b', fontSize: '0.9rem' }}>Manage driver accounts with board-style visibility.</p>
+                </div>
+              </div>
+
+              {companyError && (
+                <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '10px', padding: '0.85rem', color: '#92400e', fontSize: '0.9rem' }}>
+                  {companyError}
+                </div>
+              )}
+              {!isSupabaseConfigured && (
+                <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '10px', padding: '0.85rem', color: '#92400e', fontSize: '0.9rem' }}>
+                  ⚠️ Supabase is not configured. Database features are disabled.
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {[
+                  { key: 'all' as const, label: `All Drivers (${drivers.length})` },
+                  { key: 'active' as const, label: `Active (${activeDriverCount})` },
+                  { key: 'app-disabled' as const, label: `App Disabled (${appDisabledCount})` },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    style={{
+                      border: activeTab === tab.key ? '1px solid #1d4ed8' : '1px solid #d1d5db',
+                      background: activeTab === tab.key ? '#eff6ff' : '#f8fafc',
+                      color: activeTab === tab.key ? '#1d4ed8' : '#475569',
+                      borderRadius: '999px',
+                      padding: '0.42rem 0.85rem',
+                      fontSize: '0.82rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
 
-          {!isSupabaseConfigured && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
-              ⚠️ Supabase is not configured. Database features are disabled.
-            </div>
-          )}
-
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
             {!companyResolved || loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
             ) : !companyId ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                 <p>Company profile not available. Drivers are hidden until company access resolves.</p>
               </div>
-            ) : drivers.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚚</div>
-                <p>No drivers yet. Add your first driver.</p>
+            ) : filteredDrivers.length === 0 ? (
+              <div style={{ padding: '3rem', display: 'grid', placeItems: 'center' }}>
+                <div style={{ width: '100%', maxWidth: '560px', border: '1px dashed #cbd5e1', borderRadius: '16px', background: '#f8fafc', padding: '2.2rem', textAlign: 'center', color: '#64748b' }}>
+                  <div style={{ fontSize: '2.3rem', marginBottom: '0.85rem' }}>🚚</div>
+                  <p style={{ margin: 0, fontWeight: '600', color: '#334155' }}>
+                    {drivers.length === 0 ? 'No drivers yet. Add your first driver.' : 'No drivers match this tab filter.'}
+                  </p>
+                  <p style={{ margin: '0.6rem 0 0 0', fontSize: '0.88rem' }}>
+                    Use the Add Driver action to onboard new team members and populate this board.
+                  </p>
+                </div>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto', width: '100%' }}>
-                <table style={{ width: '100%', minWidth: '980px', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                      {['Name', 'Email', 'Phone', 'Status', 'App Access', 'Created', 'Actions'].map(h => (
-                        <th key={h} style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {drivers.slice(driverPage * DRIVERS_PER_PAGE, (driverPage + 1) * DRIVERS_PER_PAGE).map((d, i) => (
-                      <tr key={d.id} style={{ borderBottom: i < Math.min(DRIVERS_PER_PAGE, drivers.length) - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                        <td style={{ padding: '0.8rem', fontWeight: '600', color: '#1f2937' }}>{d.display_name}</td>
-                        <td style={{ padding: '0.8rem', color: '#6b7280' }}>{d.email || '—'}</td>
-                        <td style={{ padding: '0.8rem', color: '#6b7280' }}>{d.phone || '—'}</td>
-                        <td style={{ padding: '0.8rem' }}>
-                          <span style={{ backgroundColor: statusBg(d.status), color: statusColor(d.status), padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{d.status}</span>
-                        </td>
-                        <td style={{ padding: '0.8rem' }}>
-                          <span style={{ color: d.app_access ? '#1F7A3D' : '#9ca3af', fontWeight: '600', fontSize: '0.875rem' }}>{d.app_access ? '✓ Yes' : '✗ No'}</span>
-                        </td>
-                        <td style={{ padding: '0.8rem', color: '#6b7280' }}>{formatDate(d.created_at)}</td>
-                        <td style={{ padding: '0.8rem' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            <button
-                              onClick={() => openEditModal(d)}
-                              style={{ padding: '0.35rem 0.75rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleToggleStatus(d)}
-                              style={{ padding: '0.35rem 0.75rem', backgroundColor: d.status === 'active' ? '#fee2e2' : '#d1fae5', color: d.status === 'active' ? '#991b1b' : '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                            >
-                              {d.status === 'active' ? 'Deactivate' : 'Activate'}
-                            </button>
-                            {d.status !== 'suspended' && (
-                              <button
-                                onClick={() => void handleSuspendDriver(d)}
-                                style={{ padding: '0.35rem 0.75rem', backgroundColor: '#fef3c7', color: '#92400e', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                              >
-                                Suspend
-                              </button>
-                            )}
-                            <button
-                              onClick={() => void handleRemoveDriver(d)}
-                              style={{ padding: '0.35rem 0.75rem', backgroundColor: '#dc2626', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div style={{ padding: '1rem', display: 'grid', gap: '0.75rem' }}>
+                {paginatedDrivers.map((d) => (
+                  <article key={d.id} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', background: '#ffffff', padding: '0.9rem', display: 'grid', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontWeight: '700', color: '#0f172a' }}>{d.display_name}</div>
+                        <div style={{ color: '#64748b', fontSize: '0.86rem', marginTop: '0.25rem' }}>{d.email || '—'} • {d.phone || 'No phone'}</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span style={{ backgroundColor: statusBg(d.status), color: statusColor(d.status), padding: '0.25rem 0.7rem', borderRadius: '999px', fontSize: '0.76rem', fontWeight: '600' }}>{d.status}</span>
+                        <span style={{ border: '1px solid #d1d5db', borderRadius: '999px', padding: '0.25rem 0.7rem', color: d.app_access ? '#166534' : '#64748b', fontSize: '0.76rem', fontWeight: '600' }}>
+                          {d.app_access ? 'App access enabled' : 'App access disabled'}
+                        </span>
+                        <span style={{ color: '#64748b', fontSize: '0.78rem' }}>Created {formatDate(d.created_at)}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => openEditModal(d)}
+                        style={{ padding: '0.4rem 0.8rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => void handleToggleStatus(d)}
+                        style={{ padding: '0.4rem 0.8rem', backgroundColor: d.status === 'active' ? '#fee2e2' : '#d1fae5', color: d.status === 'active' ? '#991b1b' : '#065f46', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                      >
+                        {d.status === 'active' ? 'Deactivate' : 'Activate'}
+                      </button>
+                      {d.status !== 'suspended' && (
+                        <button
+                          onClick={() => void handleSuspendDriver(d)}
+                          style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fef3c7', color: '#92400e', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                        >
+                          Suspend
+                        </button>
+                      )}
+                      <button
+                        onClick={() => void handleRemoveDriver(d)}
+                        style={{ padding: '0.4rem 0.8rem', backgroundColor: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </article>
+                ))}
               </div>
             )}
-            {drivers.length > DRIVERS_PER_PAGE && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderTop: '1px solid #e5e7eb' }}>
-                  <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
-                    Showing {driverPage * DRIVERS_PER_PAGE + 1}–{Math.min((driverPage + 1) * DRIVERS_PER_PAGE, drivers.length)} of {drivers.length} drivers
-                  </span>
-                  <div style={{ display: 'flex', gap: '0.4rem' }}>
-                    <button
-                      onClick={() => setDriverPage((p) => Math.max(0, p - 1))}
-                      disabled={driverPage === 0}
-                      style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: driverPage === 0 ? '#f9fafb' : '#fff', cursor: driverPage === 0 ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
-                    >
-                      ← Prev
-                    </button>
-                    <button
-                      onClick={() => setDriverPage((p) => p + 1)}
-                      disabled={(driverPage + 1) * DRIVERS_PER_PAGE >= drivers.length}
-                      style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: (driverPage + 1) * DRIVERS_PER_PAGE >= drivers.length ? '#f9fafb' : '#fff', cursor: (driverPage + 1) * DRIVERS_PER_PAGE >= drivers.length ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
-                    >
-                      Next →
-                    </button>
-                  </div>
+
+            {filteredDrivers.length > DRIVERS_PER_PAGE && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 1rem', borderTop: '1px solid #e5e7eb', background: '#f8fafc' }}>
+                <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
+                  Showing {driverPage * DRIVERS_PER_PAGE + 1}–{Math.min((driverPage + 1) * DRIVERS_PER_PAGE, filteredDrivers.length)} of {filteredDrivers.length} drivers
+                </span>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button
+                    onClick={() => setDriverPage((p) => Math.max(0, p - 1))}
+                    disabled={driverPage === 0}
+                    style={{ padding: '0.35rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '8px', background: driverPage === 0 ? '#f1f5f9' : '#fff', cursor: driverPage === 0 ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
+                  >
+                    ← Prev
+                  </button>
+                  <button
+                    onClick={() => setDriverPage((p) => p + 1)}
+                    disabled={(driverPage + 1) * DRIVERS_PER_PAGE >= filteredDrivers.length}
+                    style={{ padding: '0.35rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '8px', background: (driverPage + 1) * DRIVERS_PER_PAGE >= filteredDrivers.length ? '#f1f5f9' : '#fff', cursor: (driverPage + 1) * DRIVERS_PER_PAGE >= filteredDrivers.length ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
+                  >
+                    Next →
+                  </button>
                 </div>
-              )}
-          </div>
+              </div>
+            )}
+          </section>
         </div>
 
         {/* Create Driver Modal */}
