@@ -73,7 +73,7 @@ export default function PrivacyPage() {
             <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               <li>Provide and manage platform services</li>
               <li>Verify driver qualifications and identity</li>
-              <li>Process payments and issue invoices</li>
+              <li>Record invoice details, payment status, and related finance history</li>
               <li>Communicate about your bookings and account</li>
               <li>Improve our platform and services</li>
               <li>Comply with legal obligations</li>
@@ -94,7 +94,7 @@ export default function PrivacyPage() {
             We do not sell your personal data. We may share your data with:
             <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               <li>Drivers and clients as necessary to facilitate a booking</li>
-              <li>Payment processors (e.g., Stripe, GoCardless)</li>
+              <li>Approved payment service providers used for manual reconciliation flows</li>
               <li>Cloud service providers (e.g., Supabase/AWS) for data hosting</li>
               <li>Legal authorities when required by law</li>
             </ul>

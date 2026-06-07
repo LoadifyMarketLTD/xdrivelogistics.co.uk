@@ -30,6 +30,12 @@ type DriverRow = {
   max_radius_km?: number | null;
 };
 
+type SlotKey = `${number}_${'AM' | 'PM' | 'EVENING'}`;
+
+// day_of_week 0=Monday … 6=Sunday
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const SLOTS: Array<'AM' | 'PM' | 'EVENING'> = ['AM', 'PM', 'EVENING'];
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const AVAILABILITY_OPTIONS: Array<{ value: AvailabilityStatus; label: string; description: string; color: string; bg: string }> = [
@@ -89,6 +95,11 @@ export default function AvailabilityPage() {
   const [homePostcode, setHomePostcode] = useState('');
   const [maxRadiusKm, setMaxRadiusKm] = useState('');
 
+  // Weekly calendar slots: key = `${dayOfWeek}_${slot}`, value = true (available) / false (unavailable)
+  const [weeklySlots, setWeeklySlots] = useState<Record<SlotKey, boolean>>({} as Record<SlotKey, boolean>);
+  const [calendarLoading, setCalendarLoading] = useState(true);
+  const [calendarSaving, setCalendarSaving] = useState<SlotKey | null>(null);
+
   const loadData = useCallback(async () => {
     if (!driverId || !isSupabaseConfigured) {
       setLoading(false);
@@ -135,9 +146,33 @@ export default function AvailabilityPage() {
     setLoading(false);
   }, [driverId]);
 
+  const loadCalendar = useCallback(async () => {
+    if (!driverId || !isSupabaseConfigured) { setCalendarLoading(false); return; }
+    setCalendarLoading(true);
+    const { data, error: calErr } = await supabase
+      .from('driver_availability_slots')
+      .select('day_of_week, slot, available')
+      .eq('driver_id', driverId);
+
+    if (!calErr && data) {
+      const map: Record<SlotKey, boolean> = {} as Record<SlotKey, boolean>;
+      for (const row of data as Array<{ day_of_week: number; slot: string; available: boolean }>) {
+        if (row.slot === 'AM' || row.slot === 'PM' || row.slot === 'EVENING') {
+          map[`${row.day_of_week}_${row.slot}` as SlotKey] = row.available;
+        }
+      }
+      setWeeklySlots(map);
+    }
+    setCalendarLoading(false);
+  }, [driverId]);
+
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    void loadCalendar();
+  }, [loadCalendar]);
 
   const handleAvailabilityChange = async (next: AvailabilityStatus) => {
     if (!driverId || !isSupabaseConfigured || saving) return;
@@ -176,6 +211,29 @@ export default function AvailabilityPage() {
     setSaving(false);
   };
 
+  const toggleSlot = async (day: number, slot: 'AM' | 'PM' | 'EVENING') => {
+    if (!driverId || !isSupabaseConfigured) return;
+    const key: SlotKey = `${day}_${slot}`;
+    const current = weeklySlots[key] ?? true; // default: available
+    const next = !current;
+    setCalendarSaving(key);
+    // Optimistic update
+    setWeeklySlots((prev) => ({ ...prev, [key]: next }));
+
+    const { error: upsertErr } = await supabase
+      .from('driver_availability_slots')
+      .upsert(
+        { driver_id: driverId, day_of_week: day, slot, available: next, updated_at: new Date().toISOString() },
+        { onConflict: 'driver_id,day_of_week,slot' }
+      );
+
+    if (upsertErr) {
+      // Revert on failure
+      setWeeklySlots((prev) => ({ ...prev, [key]: current }));
+    }
+    setCalendarSaving(null);
+  };
+
   const currentOption = AVAILABILITY_OPTIONS.find((o) => o.value === availability) ?? AVAILABILITY_OPTIONS[0];
 
   return (
@@ -197,7 +255,7 @@ export default function AvailabilityPage() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
 
           {/* Availability status */}
           <div style={card}>
@@ -329,6 +387,79 @@ export default function AvailabilityPage() {
                 <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Contact your dispatcher to assign a vehicle.</div>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* ── Weekly Availability Calendar ─────────────────────────────────── */}
+        <div style={card}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '0.85rem' }}>
+            Weekly Schedule
+          </div>
+          <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '1rem' }}>
+            Click a slot to toggle availability. Green = available, grey = not available.
+          </div>
+          {calendarLoading ? (
+            <div style={{ color: '#64748b' }}>Loading schedule…</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: '420px' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '0.4rem 0.5rem', width: '60px', fontSize: '0.72rem', color: '#94a3b8', fontWeight: 700, textAlign: 'left' }}>Slot</th>
+                    {DAYS.map((d) => (
+                      <th key={d} style={{ padding: '0.4rem 0.5rem', fontSize: '0.75rem', fontWeight: 700, color: '#374151', textAlign: 'center', minWidth: '56px' }}>{d}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {SLOTS.map((slot) => (
+                    <tr key={slot}>
+                      <td style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', fontWeight: 700, color: '#64748b' }}>{slot}</td>
+                      {DAYS.map((_, dayIdx) => {
+                        const key: SlotKey = `${dayIdx}_${slot}`;
+                        const isAvailable = weeklySlots[key] !== false; // default to available
+                        const isSaving = calendarSaving === key;
+                        return (
+                          <td key={dayIdx} style={{ padding: '0.25rem 0.35rem', textAlign: 'center' }}>
+                            <button
+                              onClick={() => void toggleSlot(dayIdx, slot)}
+                              disabled={isSaving}
+                              title={isAvailable ? 'Available — click to mark unavailable' : 'Unavailable — click to mark available'}
+                              style={{
+                                width: '44px',
+                                height: '30px',
+                                borderRadius: '6px',
+                                border: '1px solid',
+                                borderColor: isAvailable ? '#86efac' : '#e2e8f0',
+                                backgroundColor: isAvailable ? '#dcfce7' : '#f1f5f9',
+                                color: isAvailable ? '#15803d' : '#94a3b8',
+                                cursor: isSaving ? 'wait' : 'pointer',
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                opacity: isSaving ? 0.6 : 1,
+                                transition: 'background 0.15s',
+                              }}
+                            >
+                              {isSaving ? '…' : isAvailable ? '✓' : '–'}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1rem', fontSize: '0.72rem', color: '#64748b' }}>
+            <span>
+              <span style={{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: '#dcfce7', border: '1px solid #86efac', borderRadius: '3px', verticalAlign: 'middle', marginRight: '0.25rem' }} />
+              Available
+            </span>
+            <span>
+              <span style={{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '3px', verticalAlign: 'middle', marginRight: '0.25rem' }} />
+              Not available
+            </span>
           </div>
         </div>
       </DriverWorkspaceShell>

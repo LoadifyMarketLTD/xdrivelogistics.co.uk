@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
@@ -76,6 +76,13 @@ export default function AvailableLoadsPage() {
   const [bidMessage, setBidMessage] = useState('');
   const [bidLoading, setBidLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [vehicleFilter, setVehicleFilter] = useState('any');
+  const [pickupPostcodeFilter, setPickupPostcodeFilter] = useState('');
+  const [cargoTypeFilter, setCargoTypeFilter] = useState('');
+  const [weightMinFilter, setWeightMinFilter] = useState('');
+  const [dateFromFilter, setDateFromFilter] = useState('');
+  const [dateToFilter, setDateToFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'price_desc' | 'price_asc'>('date_desc');
 
   const fetchLoads = useCallback(async () => {
     if (!isSupabaseConfigured || !companyId) {
@@ -132,6 +139,43 @@ export default function AvailableLoadsPage() {
     void fetchLoads();
   }, [fetchLoads]);
 
+  const filteredLoads = useMemo(() => {
+    const postcodeNeedle = pickupPostcodeFilter.trim().toLowerCase();
+    const cargoNeedle = cargoTypeFilter.trim().toLowerCase();
+    const minWeight = Number(weightMinFilter);
+    const fromDate = dateFromFilter ? new Date(`${dateFromFilter}T00:00:00`).getTime() : null;
+    const toDate = dateToFilter ? new Date(`${dateToFilter}T23:59:59`).getTime() : null;
+
+    const filtered = loads.filter((load) => {
+      if (vehicleFilter !== 'any' && load.vehicle_type !== vehicleFilter) return false;
+      if (postcodeNeedle && !(load.pickup_postcode ?? '').toLowerCase().includes(postcodeNeedle)) return false;
+      if (cargoNeedle && !(load.cargo_type ?? '').toLowerCase().includes(cargoNeedle)) return false;
+      if (!Number.isNaN(minWeight) && weightMinFilter.trim() && (load.weight_kg ?? 0) < minWeight) return false;
+      if ((fromDate || toDate) && load.pickup_datetime) {
+        const pickupTs = new Date(load.pickup_datetime).getTime();
+        if (fromDate && pickupTs < fromDate) return false;
+        if (toDate && pickupTs > toDate) return false;
+      }
+      if ((fromDate || toDate) && !load.pickup_datetime) return false;
+      return true;
+    });
+
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.exchange_posted_at ?? a.pickup_datetime ?? 0).getTime();
+      const dateB = new Date(b.exchange_posted_at ?? b.pickup_datetime ?? 0).getTime();
+      const priceA = a.budget_amount ?? 0;
+      const priceB = b.budget_amount ?? 0;
+      switch (sortBy) {
+        case 'date_asc': return dateA - dateB;
+        case 'price_desc': return priceB - priceA;
+        case 'price_asc': return priceA - priceB;
+        case 'date_desc':
+        default:
+          return dateB - dateA;
+      }
+    });
+  }, [loads, vehicleFilter, pickupPostcodeFilter, cargoTypeFilter, weightMinFilter, dateFromFilter, dateToFilter, sortBy]);
+
   const handleBidSubmit = async (loadId: string) => {
     if (!companyId || !bidAmount || bidLoading) return;
     const amount = parseFloat(bidAmount);
@@ -185,7 +229,7 @@ export default function AvailableLoadsPage() {
           <div>
             <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>Available Loads</h2>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#64748b' }}>
-              {loading ? 'Loading…' : `${loads.length} load${loads.length !== 1 ? 's' : ''} available`}
+              {loading ? 'Loading…' : `${filteredLoads.length} load${filteredLoads.length !== 1 ? 's' : ''} available`}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -204,18 +248,58 @@ export default function AvailableLoadsPage() {
           </div>
         </div>
 
+        <div style={{ ...card, marginBottom: '0.85rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.55rem' }}>
+          <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={{ padding: '0.55rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.82rem' }}>
+            <option value="any">Any vehicle</option>
+            <option value="bicycle">Bicycle</option>
+            <option value="motorbike">Motorbike</option>
+            <option value="car">Car</option>
+            <option value="van_small">Small Van</option>
+            <option value="van_large">Large Van</option>
+            <option value="luton">Luton Van</option>
+            <option value="truck_7_5t">7.5t Truck</option>
+            <option value="truck_18t">18t Truck</option>
+            <option value="artic">Artic</option>
+          </select>
+          <input value={pickupPostcodeFilter} onChange={(e) => setPickupPostcodeFilter(e.target.value)} placeholder="Pickup postcode" style={{ padding: '0.55rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.82rem' }} />
+          <input value={cargoTypeFilter} onChange={(e) => setCargoTypeFilter(e.target.value)} placeholder="Cargo type" style={{ padding: '0.55rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.82rem' }} />
+          <input type="number" min="0" value={weightMinFilter} onChange={(e) => setWeightMinFilter(e.target.value)} placeholder="Min weight (kg)" style={{ padding: '0.55rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.82rem' }} />
+          <input type="date" value={dateFromFilter} onChange={(e) => setDateFromFilter(e.target.value)} style={{ padding: '0.55rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.82rem' }} />
+          <input type="date" value={dateToFilter} onChange={(e) => setDateToFilter(e.target.value)} style={{ padding: '0.55rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.82rem' }} />
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as 'date_desc' | 'date_asc' | 'price_desc' | 'price_asc')} style={{ padding: '0.55rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.82rem' }}>
+            <option value="date_desc">Date newest</option>
+            <option value="date_asc">Date oldest</option>
+            <option value="price_desc">Price high-low</option>
+            <option value="price_asc">Price low-high</option>
+          </select>
+          <button
+            onClick={() => {
+              setVehicleFilter('any');
+              setPickupPostcodeFilter('');
+              setCargoTypeFilter('');
+              setWeightMinFilter('');
+              setDateFromFilter('');
+              setDateToFilter('');
+              setSortBy('date_desc');
+            }}
+            style={{ padding: '0.55rem', backgroundColor: '#f8fafc', border: '1px solid #d7e0ea', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}
+          >
+            Clear filters
+          </button>
+        </div>
+
         {/* Loads */}
         {loading ? (
           <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading exchange loads…</div>
-        ) : loads.length === 0 ? (
+        ) : filteredLoads.length === 0 ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>No loads available right now</div>
-            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Check back shortly — new loads are posted throughout the day.</div>
+            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>No loads match your filters</div>
+            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Adjust filters or clear them to view more loads.</div>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: '0.75rem' }}>
-            {loads.map((load) => (
+            {filteredLoads.map((load) => (
               <div key={load.id} style={{ ...card, borderLeft: `3px solid ${load.myBidStatus ? '#7c3aed' : '#1d4ed8'}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.7rem' }}>
                   <div>

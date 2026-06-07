@@ -32,6 +32,8 @@ export default function DriversPage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [companies, setCompanies] = useState<Pick<Company, 'id' | 'name'>[]>([]);
   const [loading, setLoading] = useState(true);
+  const [driverPage, setDriverPage] = useState(0);
+  const DRIVERS_PER_PAGE = 15;
   const [showModal, setShowModal] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [formData, setFormData] = useState({ display_name: '', phone: '', email: '' });
@@ -314,6 +316,30 @@ export default function DriversPage() {
     await loadDrivers(companyId);
   };
 
+  const handleSuspendDriver = async (driver: Driver) => {
+    if (!companyId || !isSupabaseConfigured) return;
+    await supabase
+      .from('drivers')
+      .update({ status: 'suspended', app_access: false })
+      .eq('id', driver.id)
+      .eq('company_id', companyId);
+    await loadDrivers(companyId);
+  };
+
+  const handleRemoveDriver = async (driver: Driver) => {
+    if (!companyId || !isSupabaseConfigured) return;
+    const confirmed = window.confirm(
+      `Remove driver "${driver.display_name}"?\n\nThis will permanently delete the driver record. This action cannot be undone.`
+    );
+    if (!confirmed) return;
+    await supabase
+      .from('drivers')
+      .delete()
+      .eq('id', driver.id)
+      .eq('company_id', companyId);
+    await loadDrivers(companyId);
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setError('');
@@ -382,7 +408,8 @@ export default function DriversPage() {
 
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const };
   const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
-  const statusColor = (s: string) => s === 'active' ? '#1F7A3D' : '#ef4444';
+  const statusColor = (s: string) => s === 'active' ? '#1F7A3D' : s === 'suspended' ? '#92400e' : '#ef4444';
+  const statusBg = (s: string) => s === 'active' ? '#d1fae5' : s === 'suspended' ? '#fef3c7' : '#fee2e2';
   const formatDate = (value: string | null | undefined) => {
     if (!value) return '—';
     const parsed = new Date(value);
@@ -448,13 +475,13 @@ export default function DriversPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {drivers.map((d, i) => (
-                      <tr key={d.id} style={{ borderBottom: i < drivers.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                    {drivers.slice(driverPage * DRIVERS_PER_PAGE, (driverPage + 1) * DRIVERS_PER_PAGE).map((d, i) => (
+                      <tr key={d.id} style={{ borderBottom: i < Math.min(DRIVERS_PER_PAGE, drivers.length) - 1 ? '1px solid #e5e7eb' : 'none' }}>
                         <td style={{ padding: '0.8rem', fontWeight: '600', color: '#1f2937' }}>{d.display_name}</td>
                         <td style={{ padding: '0.8rem', color: '#6b7280' }}>{d.email || '—'}</td>
                         <td style={{ padding: '0.8rem', color: '#6b7280' }}>{d.phone || '—'}</td>
                         <td style={{ padding: '0.8rem' }}>
-                          <span style={{ backgroundColor: d.status === 'active' ? '#d1fae5' : '#fee2e2', color: statusColor(d.status), padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{d.status}</span>
+                          <span style={{ backgroundColor: statusBg(d.status), color: statusColor(d.status), padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{d.status}</span>
                         </td>
                         <td style={{ padding: '0.8rem' }}>
                           <span style={{ color: d.app_access ? '#1F7A3D' : '#9ca3af', fontWeight: '600', fontSize: '0.875rem' }}>{d.app_access ? '✓ Yes' : '✗ No'}</span>
@@ -474,6 +501,20 @@ export default function DriversPage() {
                             >
                               {d.status === 'active' ? 'Deactivate' : 'Activate'}
                             </button>
+                            {d.status !== 'suspended' && (
+                              <button
+                                onClick={() => void handleSuspendDriver(d)}
+                                style={{ padding: '0.35rem 0.75rem', backgroundColor: '#fef3c7', color: '#92400e', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                              >
+                                Suspend
+                              </button>
+                            )}
+                            <button
+                              onClick={() => void handleRemoveDriver(d)}
+                              style={{ padding: '0.35rem 0.75rem', backgroundColor: '#dc2626', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                            >
+                              Remove
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -482,6 +523,29 @@ export default function DriversPage() {
                 </table>
               </div>
             )}
+            {drivers.length > DRIVERS_PER_PAGE && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderTop: '1px solid #e5e7eb' }}>
+                  <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
+                    Showing {driverPage * DRIVERS_PER_PAGE + 1}–{Math.min((driverPage + 1) * DRIVERS_PER_PAGE, drivers.length)} of {drivers.length} drivers
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button
+                      onClick={() => setDriverPage((p) => Math.max(0, p - 1))}
+                      disabled={driverPage === 0}
+                      style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: driverPage === 0 ? '#f9fafb' : '#fff', cursor: driverPage === 0 ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
+                    >
+                      ← Prev
+                    </button>
+                    <button
+                      onClick={() => setDriverPage((p) => p + 1)}
+                      disabled={(driverPage + 1) * DRIVERS_PER_PAGE >= drivers.length}
+                      style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: (driverPage + 1) * DRIVERS_PER_PAGE >= drivers.length ? '#f9fafb' : '#fff', cursor: (driverPage + 1) * DRIVERS_PER_PAGE >= drivers.length ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
           </div>
         </div>
 
