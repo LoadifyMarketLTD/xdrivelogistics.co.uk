@@ -14,7 +14,7 @@ export interface InvoiceData {
   jobRef: string;
   date: string;
   dueDate: string;
-  status: 'Paid' | 'Pending' | 'Overdue';
+  status: 'Paid' | 'Pending' | 'Overdue' | 'Submitted' | 'Approved' | 'Disputed';
   clientName: string;
   clientAddress: string;
   clientEmail: string;
@@ -197,9 +197,15 @@ export default function InvoiceTemplate({
                 fontWeight: '600',
                 backgroundColor: 
                   invoice.status === 'Paid' ? '#d1fae5' :
+                  invoice.status === 'Approved' ? '#dbeafe' :
+                  invoice.status === 'Submitted' ? '#e0e7ff' :
+                  invoice.status === 'Disputed' ? '#fce7f3' :
                   invoice.status === 'Pending' ? '#fef3c7' : '#fee2e2',
                 color:
                   invoice.status === 'Paid' ? '#065f46' :
+                  invoice.status === 'Approved' ? '#1e40af' :
+                  invoice.status === 'Submitted' ? '#3730a3' :
+                  invoice.status === 'Disputed' ? '#9d174d' :
                   invoice.status === 'Pending' ? '#92400e' : '#991b1b',
               }}>
                 {invoice.status}
