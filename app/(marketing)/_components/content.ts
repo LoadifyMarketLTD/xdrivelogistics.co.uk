@@ -30,11 +30,46 @@ export const trustCards = [
   { label: 'Focus', value: 'Marketplace + operations' },
 ] as const;
 
-export const whyExistsPoints = [
-  'Built from real UK courier and transport experience rather than a generic software concept.',
-  'Designed to bring requests, quotes, assignments, PODs, invoices and records into one operating flow.',
-  'Intended for transport customers, courier companies, owner operators, load posters and drivers.',
-  'Focused on practical workflow visibility without pretending the platform is already a mature public exchange.',
+export const whyExistsCards = [
+  {
+    title: 'Built from real courier experience',
+    text: 'Created around the practical problems seen in daily UK transport work: job updates, driver communication, POD handling, invoices and operational visibility.',
+  },
+  {
+    title: 'Not a fake live marketplace',
+    text: 'XDrive is currently in MVP / early-access development. The platform is being tested and refined before wider public release.',
+  },
+  {
+    title: 'Designed for workflow control',
+    text: 'The goal is to connect requests, quotes, assignments, delivery progress, POD records and finance visibility in one structured workspace.',
+  },
+] as const;
+
+export const problemCards = [
+  {
+    title: 'Lost job information',
+    text: 'Job details can get buried in emails, calls and WhatsApp messages. XDrive is designed to keep requests, quotes, allocations and updates attached to the same job record.',
+  },
+  {
+    title: 'Driver communication gaps',
+    text: 'Dispatchers need to know what is happening without constant phone calls. XDrive is designed to support driver status updates, collection progress, delivery progress and POD upload from one workflow.',
+  },
+  {
+    title: 'PODs disconnected from jobs',
+    text: 'Proof of delivery is valuable only when it stays linked to the completed job. XDrive is designed to keep PODs, delivery records and job history together.',
+  },
+  {
+    title: 'Invoice visibility problems',
+    text: 'Completed work, POD checks, invoices and payment status should not sit in separate places. XDrive is designed to connect finance records to the operational job history.',
+  },
+  {
+    title: 'Fleet and availability confusion',
+    text: 'Courier companies need clearer visibility over drivers, vehicles, availability and future positions. XDrive is being shaped to support fleet and driver coordination.',
+  },
+  {
+    title: 'Too many disconnected tools',
+    text: 'XDrive is not just another form or dashboard. The goal is to reduce reliance on spreadsheets, duplicated messages and disconnected systems.',
+  },
 ] as const;
 
 export const statusHighlights = [
@@ -66,23 +101,23 @@ export const earlyAccessBenefits = [
     description: 'There is no charge during MVP testing while selected workflows are being refined.',
   },
   {
-    title: 'Help shape the product',
-    description: 'Feedback from early users can directly influence workflow structure, visibility and operational priorities.',
-  },
-  {
     title: 'Test selected workflows',
     description: 'Access is focused on practical journey testing such as quoting, dispatch, POD and record visibility.',
   },
   {
-    title: 'Suitable for selected UK transport users',
-    description: 'Early access is being positioned for transport customers, courier companies, owner operators and drivers involved in UK logistics workflows.',
+    title: 'Help shape the product',
+    description: 'Feedback from early users can directly influence workflow structure, visibility and operational priorities.',
   },
   {
-    title: 'No long-term commitment during MVP',
+    title: 'Provide operational feedback',
+    description: 'Share how the platform performs against real courier and transport needs so the product can be refined before wider release.',
+  },
+  {
+    title: 'No long-term commitment during MVP testing',
     description: 'Testing is intended to be practical and low-friction without implying a locked commercial contract during the MVP phase.',
   },
   {
-    title: 'Pricing confirmed later',
+    title: 'Pricing confirmed before commercial release',
     description: 'Any subscription or membership model will be confirmed before wider commercial release, not assumed today.',
   },
 ] as const;
@@ -99,7 +134,7 @@ export const roleCards: ReadonlyArray<{
   {
     icon: Layers,
     title: 'Transport Customers',
-    subtitle: 'Request transport, compare courier responses, monitor job progress and keep delivery records organised.',
+    subtitle: 'Request transport, compare courier responses, follow job progress and keep delivery records organised from request to completion.',
     image: '/customers-warehouse.webp',
     imageAlt: 'Transport customer reviewing shipment activity, courier responses and delivery records in a structured workspace',
     tone: 'blue',
@@ -109,15 +144,15 @@ export const roleCards: ReadonlyArray<{
     icon: Users,
     title: 'Courier Companies',
     subtitle: 'Manage incoming work, quotes, drivers, vehicles, PODs, invoices and operational history from one workspace.',
-    image: '/operations-dispatch-office.webp',
-    imageAlt: 'Dispatch coordination workspace with jobs, drivers, vehicles and operational status updates',
+    image: '/fleet-management-yard.webp',
+    imageAlt: 'Courier company fleet yard showing vehicles, driver assignments and operational readiness',
     tone: 'slate',
     visualLabel: 'Dispatch coordination',
   },
   {
     icon: Truck,
     title: 'Owner Operators',
-    subtitle: 'Find suitable work, quote clearly, manage assigned jobs and keep proof of completed deliveries.',
+    subtitle: 'Find suitable work, submit clear quotes, manage awarded jobs and keep delivery records connected to completed transport.',
     image: '/owner-operator-van.webp',
     imageAlt: 'Owner operator managing route readiness, assigned work and delivery records',
     tone: 'amber',
@@ -126,7 +161,7 @@ export const roleCards: ReadonlyArray<{
   {
     icon: ClipboardList,
     title: 'Load Posters',
-    subtitle: 'Create transport requests, manage responses and track awarded work through a structured workflow.',
+    subtitle: 'Create structured transport requests, receive responses and track awarded work without losing key job details.',
     image: '/load-poster-office.webp',
     imageAlt: 'Load poster preparing a transport request and reviewing awarded workflow history',
     tone: 'violet',
@@ -135,7 +170,7 @@ export const roleCards: ReadonlyArray<{
   {
     icon: UserRound,
     title: 'Drivers',
-    subtitle: 'View assigned jobs, update delivery status, upload PODs and keep communication clear.',
+    subtitle: 'View assigned jobs, update progress, confirm collection and delivery milestones, and upload PODs through a mobile-first workflow.',
     image: '/drivers-mobile-pod.webp',
     imageAlt: 'Driver using a mobile workflow to update status and upload proof of delivery',
     tone: 'emerald',
@@ -148,7 +183,9 @@ export const platformModules = [
     key: 'marketplace',
     title: 'Marketplace',
     summary:
-      'Intended for available loads, quote management, bid tracking, awarded jobs and marketplace history as early-access workflows expand.',
+      'Browse available loads, submit quotes, track bid status and keep awarded work linked to operational records.',
+    previewDescription:
+      'A workspace for available load opportunities, submitted quotes, bid status and awarded work records.',
     bullets: ['Available loads', 'Quotes and bids', 'Awarded jobs', 'Marketplace history'],
     image: '/marketplace-loading.webp',
     imageAlt: 'Marketplace-style workspace showing load opportunities, quote activity and route details',
@@ -164,16 +201,16 @@ export const platformModules = [
     status: 'Planned for early-access rollout',
     previewItems: [
       {
-        label: 'Workflow View',
-        desc: 'Illustrative load and quote screens designed for staged marketplace testing rather than a live public network.',
+        label: 'Available Loads',
+        desc: 'Pickup, delivery, cargo type, vehicle requirement, timing window and posted rate.',
       },
       {
-        label: 'Commercial Visibility',
-        desc: 'Route, cargo and quote details intended to help users review opportunities before work is awarded.',
+        label: 'Quote Lifecycle',
+        desc: 'Submitted, awaiting decision, accepted, declined or awarded.',
       },
       {
-        label: 'History Records',
-        desc: 'Marketplace history is designed to retain award and quote context for later operational reference.',
+        label: 'Awarded Work',
+        desc: 'Carrier, route, accepted rate, delivery reference and operational history.',
       },
     ],
   },
@@ -181,7 +218,9 @@ export const platformModules = [
     key: 'operations',
     title: 'Operations Diary',
     summary:
-      'Collections, deliveries, active jobs, exceptions and status updates managed from one operational diary.',
+      'Manage collections, deliveries, active jobs, status updates, POD exceptions and dispatch visibility from one operational diary.',
+    previewDescription:
+      'A dispatch-focused view for managing collections, deliveries, active jobs, exceptions and delivery progress.',
     bullets: ['Collections', 'Deliveries', 'Active jobs', 'Exceptions'],
     image: '/operations-dispatch-office.webp',
     imageAlt: 'Operations diary workspace showing dispatch coordination, scheduled jobs and live status updates',
@@ -197,16 +236,16 @@ export const platformModules = [
     status: 'In MVP build',
     previewItems: [
       {
-        label: 'Diary View',
-        desc: 'Collections and deliveries are presented as structured diary entries with operational checkpoints.',
+        label: "Today's Jobs",
+        desc: 'Collections, deliveries, time windows and current job status.',
       },
       {
-        label: 'Progress Status',
-        desc: 'Job stages such as at collection, in transit and POD pending are designed to keep teams aligned.',
+        label: 'Exceptions',
+        desc: 'Delays, missing PODs, failed delivery notes and operational issues.',
       },
       {
-        label: 'Exception Records',
-        desc: 'Operational notes and exceptions are intended to remain attached to the job record for audit visibility.',
+        label: 'Job Timeline',
+        desc: 'Request, quote, award, assign, collect, deliver and invoice history.',
       },
     ],
   },
@@ -214,7 +253,9 @@ export const platformModules = [
     key: 'driver',
     title: 'Driver Workspace',
     summary:
-      'Assigned jobs, mobile workflow, route updates, POD upload and driver communication in one driver-facing area.',
+      'Give drivers a mobile-first workflow for assigned jobs, collection updates, delivery status, route notes and POD upload.',
+    previewDescription:
+      'A mobile-first workflow for drivers to receive job details, update status and upload proof of delivery.',
     bullets: ['Assigned jobs', 'Mobile updates', 'Route actions', 'Driver communication'],
     image: '/driver-workspace-vehicle.webp',
     imageAlt: 'Driver workspace showing assigned jobs, vehicle context and route progress updates',
@@ -230,16 +271,16 @@ export const platformModules = [
     status: 'In MVP build',
     previewItems: [
       {
-        label: 'Driver Queue',
-        desc: 'Assigned jobs are intended to be visible in one mobile-oriented list with addresses and instructions.',
+        label: 'Active Job',
+        desc: 'Pickup address, delivery address, contact notes and required vehicle.',
       },
       {
-        label: 'Job Actions',
-        desc: 'Status actions are designed for accepted, collected, en route and delivered checkpoints.',
+        label: 'Driver Actions',
+        desc: 'On route, arrived, collected, delivered and POD uploaded.',
       },
       {
-        label: 'Communication Trail',
-        desc: 'Driver notes and updates are planned to remain linked to the job record for clearer follow-up.',
+        label: 'POD Upload',
+        desc: 'Delivery evidence attached directly to the completed job record.',
       },
     ],
   },
@@ -247,7 +288,9 @@ export const platformModules = [
     key: 'fleet',
     title: 'Fleet Management',
     summary:
-      'Vehicle records, availability, assignments, future positions and fleet visibility organised in one place.',
+      'Manage vehicles, drivers, availability, compliance records and future positions from one structured fleet workspace.',
+    previewDescription:
+      'A workspace for vehicles, drivers, availability, compliance and future fleet planning.',
     bullets: ['Vehicles', 'Availability', 'Assignments', 'Future positions'],
     image: '/fleet-management-yard.webp',
     imageAlt: 'Fleet management view showing vehicles, readiness and assignment visibility',
@@ -263,16 +306,16 @@ export const platformModules = [
     status: 'Early-access workflow planning',
     previewItems: [
       {
-        label: 'Availability View',
-        desc: 'Vehicle availability and assignment state are intended to be visible without jumping between separate records.',
+        label: 'Vehicle Availability',
+        desc: 'Available, assigned, off-road, maintenance or future-position status.',
       },
       {
-        label: 'Readiness Status',
-        desc: 'Fleet indicators are designed to show active, available and unavailable states with clearer context.',
+        label: 'Driver Assignment',
+        desc: 'Link drivers to jobs, vehicles and operational records.',
       },
       {
-        label: 'Assignment History',
-        desc: 'Driver and vehicle movements are planned to remain linked to operational history for later review.',
+        label: 'Compliance Records',
+        desc: 'MOT, insurance, vehicle documents and expiry reminders.',
       },
     ],
   },
@@ -280,7 +323,9 @@ export const platformModules = [
     key: 'finance',
     title: 'Finance',
     summary:
-      'Invoices, payment status, payment history, finance records and disputes tracked without XDrive holding client funds.',
+      'Track invoices, POD verification, payment status, job finance history and dispute records without XDrive holding client funds.',
+    previewDescription:
+      'A finance visibility area for invoices, POD verification, payment status and job-related records.',
     bullets: ['Invoices', 'Payment status', 'History', 'Disputes'],
     image: '/finance-admin-office.webp',
     imageAlt: 'Finance dashboard showing invoice records, POD checks and payment-status visibility',
@@ -297,81 +342,15 @@ export const platformModules = [
     previewItems: [
       {
         label: 'Invoice Records',
-        desc: 'Finance views are intended to show invoice lifecycle, reference data and linked job records in one place.',
+        desc: 'Invoice number, job reference, rate, VAT status and customer record.',
+      },
+      {
+        label: 'POD Verification',
+        desc: 'Confirm invoice readiness against completed delivery evidence.',
       },
       {
         label: 'Payment Status',
-        desc: 'Payment tracking is designed around visibility and audit history, not fund holding or payment processing by XDrive.',
-      },
-      {
-        label: 'Dispute Support',
-        desc: 'Dispute and follow-up records are planned to sit alongside invoice and POD evidence for review.',
-      },
-    ],
-  },
-  {
-    key: 'pod-records',
-    title: 'POD & Records',
-    summary:
-      'Proof of delivery uploads, completion evidence, document records and audit history designed for operational accountability.',
-    bullets: ['POD uploads', 'Completion evidence', 'Document records', 'Audit trail'],
-    image: '/drivers-mobile-pod.webp',
-    imageAlt: 'Proof of delivery workflow showing document upload and delivery confirmation',
-    icon: FileCheck2,
-    audience: 'Drivers, dispatchers, operations teams, finance admins and transport customers.',
-    problem:
-      'Makes delivery evidence easier to capture and review so completed jobs, follow-up questions and commercial records all have clearer supporting documents.',
-    actions: [
-      'Upload POD and supporting delivery evidence',
-      'Attach documents to job completion records',
-      'Retain an audit trail for later operational or finance review',
-    ],
-    status: 'In MVP build',
-    previewItems: [
-      {
-        label: 'POD Capture',
-        desc: 'POD workflows are being built around mobile upload and structured delivery confirmation.',
-      },
-      {
-        label: 'Document History',
-        desc: 'Records are intended to stay attached to the job so operational and finance teams can review the same evidence.',
-      },
-      {
-        label: 'Audit Support',
-        desc: 'Upload timestamps and related notes are planned to support dispute review and job closure checks.',
-      },
-    ],
-  },
-  {
-    key: 'governance',
-    title: 'Super Admin Governance',
-    summary:
-      'Owner-level oversight, marketplace governance, audit logs and intervention tools for platform control and staged rollout.',
-    bullets: ['Platform oversight', 'Marketplace governance', 'Audit logs', 'Intervention tools'],
-    image: '/xdrive-login-banner.png',
-    imageAlt: 'Administrative platform view representing owner-level governance and oversight controls',
-    icon: ShieldCheck,
-    audience: 'XDrive owner, internal administrators and future governance roles.',
-    problem:
-      'Provides visibility and control over onboarding, workflow integrity and operational auditing so the platform can be managed responsibly as it grows.',
-    actions: [
-      'Review governance and audit records',
-      'Monitor marketplace and workflow health from an owner-level view',
-      'Use intervention tools to support staged rollout and platform control',
-    ],
-    status: 'Owner/testing controls active',
-    previewItems: [
-      {
-        label: 'Governance View',
-        desc: 'Oversight screens are intended to give owner-level visibility into platform activity, rollout and intervention points.',
-      },
-      {
-        label: 'Audit Coverage',
-        desc: 'Audit-focused records are designed to support platform control, issue review and workflow accountability.',
-      },
-      {
-        label: 'Rollout Control',
-        desc: 'Governance tooling supports staged access decisions rather than pretending the marketplace is already open at scale.',
+        desc: 'Track unpaid, pending, paid or disputed job records.',
       },
     ],
   },
@@ -386,37 +365,37 @@ export const workflow: ReadonlyArray<{
 }> = [
   {
     title: 'Request',
-    detail: 'A transport request is created with route, timing and job requirements.',
+    detail: 'Customer submits collection, delivery, vehicle and timing requirements.',
     icon: Layers,
   },
   {
     title: 'Quote',
-    detail: 'Courier companies or operators review the request and return a rate where that workflow is enabled.',
+    detail: 'Approved courier companies or operators return rates for the requested work.',
     icon: CircleDollarSign,
   },
   {
     title: 'Award',
-    detail: 'The selected quote is awarded and the job record moves into operational handling.',
+    detail: 'The customer selects the preferred quote and the job becomes an operational record.',
     icon: ClipboardCheck,
   },
   {
     title: 'Assign',
-    detail: 'Vehicle and driver allocation are recorded so the delivery workflow has clear ownership.',
+    detail: 'The courier company assigns the vehicle, driver and collection instructions.',
     icon: Users,
   },
   {
     title: 'Deliver',
-    detail: 'Collection, transit and delivery progress are updated as the job moves forward.',
+    detail: 'The driver completes collection, transit and delivery updates through the workflow.',
     icon: Truck,
   },
   {
     title: 'POD',
-    detail: 'Proof of delivery and supporting records are uploaded against the completed job.',
+    detail: 'Proof of delivery is uploaded and kept linked to the completed job.',
     icon: FileCheck2,
   },
   {
     title: 'Invoice',
-    detail: 'Invoice and payment-status records are linked back to the operational history for reference.',
+    detail: 'Invoice and payment status records remain connected to the job history.',
     icon: ShieldCheck,
   },
 ] as const;
@@ -461,92 +440,62 @@ export const featureCards: ReadonlyArray<{
 export const faqs = [
   {
     q: 'What is XDrive?',
-    a: `XDrive is a UK-focused logistics management platform being built around marketplace, dispatch, proof-of-delivery and operational-record workflows. It is designed to connect transport customers, courier companies, owner operators and drivers in a structured digital environment.
-
-The platform aims to cover the full job lifecycle — from initial transport request and quoting, through driver assignment and live operational status, to delivery confirmation, POD capture and invoice management. XDrive is currently positioned as MVP and early-access software. Selected users are being invited to test and validate workflows ahead of broader commercial release.`,
+    a: 'XDrive is an early-access UK logistics technology platform being built to connect transport customers, courier companies, owner operators and drivers in one operational workflow. The platform is designed to support transport requests, quoting, job allocation, delivery progress, POD records, invoice visibility and operational history from one workspace. XDrive is currently in MVP / early-access development and is not being presented as a fully public live marketplace yet.',
   },
   {
     q: 'Who is XDrive designed for?',
-    a: `XDrive is being built for multiple user groups operating within the UK courier and transport sector. Those groups currently include transport customers who need to request and track deliveries, courier companies and carrier businesses managing drivers and fleets, owner operators running their own vehicle and job workflows, load posters and brokers publishing available work to the exchange, and drivers executing delivery assignments.
-
-Each user type will have a dedicated workspace tailored to their operational needs, rather than a single generic interface shared across all roles.`,
+    a: 'XDrive is designed for transport customers who need to request work, courier companies that manage jobs and drivers, owner operators looking for structured work opportunities, load posters who need clearer request management, and drivers who need a simple workflow for assigned jobs, status updates and POD upload. The platform is being shaped around practical UK logistics workflows rather than generic business software.',
   },
   {
     q: 'Is XDrive a load exchange?',
-    a: `Marketplace and exchange functionality is a core part of the platform direction. The intended model includes load posting, quote submission, job awarding, driver assignment and job history — consistent with how a transport exchange operates.
-
-However, the platform is currently in early-access and MVP development. Not all exchange features are fully active at this stage. The homepage describes the intended operating model and platform depth, not a claim that a fully public marketplace is already live and open to all users today. Rollout is happening in stages.`,
+    a: 'XDrive includes marketplace-style workflows, but it is not intended to be only a load board. The wider goal is to connect marketplace activity with operations, driver updates, POD records, fleet visibility and finance tracking. This means the platform is being designed around the full lifecycle of a transport job, from request and quote through to delivery record and invoice visibility.',
   },
   {
     q: 'Is XDrive live now?',
-    a: `XDrive is currently in active MVP and early-access development. Core workflows are being built, tested and refined internally before being opened to selected external users. The platform is not yet available as a fully public open-access service.
-
-Selected users and companies may be invited to participate in early access testing based on their role and suitability. A staged rollout approach is being followed to ensure quality and stability before broader commercial release.`,
+    a: 'XDrive is currently in MVP / early-access development. Core workflows are being built, reviewed and tested before selected external users are invited. The platform should not be treated as a fully public live exchange yet. Early access is intended for controlled testing, feedback and staged rollout.',
   },
   {
     q: 'How does early access work?',
-    a: `Early access allows selected users and companies to be invited into specific workflow testing before the platform is fully public. The process is not automatic open registration — it involves the XDrive team reviewing expressions of interest and matching users to the current MVP scope.
-
-Users can submit a request or book a demo through the homepage. The team will then assess suitability and communicate next steps. Early access participants may be asked to provide feedback, test specific workflows or complete onboarding steps relevant to their role. This approach allows the platform to develop responsibly with real-world input.`,
+    a: 'Early access allows selected users to review and test specific XDrive workflows before wider launch. Users may be invited to try parts of the platform, provide operational feedback and help shape how the product develops. Access may be limited depending on the type of user, workflow being tested and readiness of each module.',
   },
   {
     q: 'Can owner-drivers join?',
-    a: `Yes. Owner-drivers and owner operators are part of the intended user base and a dedicated workspace is being built to serve their needs. This includes quoting for available loads, managing accepted jobs, recording delivery execution, capturing PODs and tracking invoice and payment status.
-
-Owner operators who wish to participate in early access can express interest through the homepage. Suitability will be assessed against the current MVP stage and the workflows actively being tested. Access may be invited gradually rather than immediately granted to all applicants.`,
+    a: 'Yes. Owner operators and owner-drivers can request early access. The platform is being designed to support users who manage their own vehicle, quote for work, complete deliveries and keep POD and job records organised. Early access may initially be limited to selected users while workflows are tested.',
   },
   {
     q: 'Can courier companies manage multiple drivers and vehicles?',
-    a: `Yes. Supporting multi-driver and multi-vehicle operations is one of the primary goals of the platform for courier companies. The company workspace is being built to allow administrators to manage driver accounts, assign vehicles, monitor job status, review delivery outcomes, track fleet activity and maintain compliance records from a central administrative view.
-
-Companies joining through early access will be able to test and validate these operational workflows. The level of functionality available at any given point will depend on the current MVP stage, and the XDrive team will confirm which modules are active during onboarding.`,
+    a: 'Yes, this is part of the intended XDrive workflow. Courier companies should be able to manage drivers, vehicles, assignments, availability, operational records and PODs from one workspace. Some features may be introduced in stages during MVP and early-access testing.',
   },
   {
     q: 'What operational modules are planned?',
-    a: `The platform is being developed across several operational areas. These currently include a Marketplace for load posting and job quoting, an Operations Diary for job scheduling and status management, a Driver Workspace for assignment execution and POD capture, Fleet Management for vehicle and driver oversight, a Finance module for invoice and payment record tracking, a POD and Records area for delivery evidence and document retention, and a Super Admin layer for governance and platform-level administration.
-
-These modules describe the intended scope and depth of the platform. MVP status applies differently to each area, and the XDrive team will confirm which modules are active at the point of onboarding for any given user or company.`,
+    a: 'The core platform areas include Marketplace, Operations Diary, Driver Workspace, Fleet Management, Finance, POD & Records and Super Admin Governance. These modules are intended to support the full movement of a job from request and quote to assignment, delivery, proof of delivery, invoice visibility and operational audit history.',
   },
   {
     q: 'How are POD records handled?',
-    a: `Proof-of-delivery workflows are being built to capture and store delivery confirmation evidence against completed jobs. This is expected to include upload support for documents, signatures or images, retention of those records within the job history, and linkage between POD evidence and the associated invoice or payment record.
-
-The focus is on creating a traceable and auditable delivery record rather than a loose file-sharing system. POD records are intended to serve as the foundation for invoice verification, dispute resolution and compliance evidence where required by trading parties.`,
+    a: 'XDrive is being designed so that proof of delivery records stay linked to the relevant job. Drivers or operators should be able to upload POD evidence, and the completed delivery record should remain connected to job history, invoice readiness and operational review. The goal is to reduce lost PODs and disconnected delivery evidence.',
   },
   {
     q: 'Does XDrive hold customer funds?',
-    a: `No. XDrive does not currently act as a payment intermediary and does not currently hold or process client funds. Commercial payments are arranged directly between the trading parties involved in each job.
-
-The platform focuses on operational records, proof-of-delivery documentation, invoice generation and status tracking, payment history records, audit trails and dispute logging. These tools are designed to give both parties visibility and evidence around commercial transactions without the platform sitting between them financially. Any changes to this position would be communicated clearly before implementation.`,
+    a: 'No. XDrive does not currently act as a payment intermediary and does not currently hold or process client funds. Commercial payments remain arranged directly between the trading parties. The platform focuses on operational records, PODs, invoices, payment status/history, audit records and dispute visibility.',
   },
   {
     q: 'How are invoices and payment records managed?',
-    a: `The finance module is being designed to allow companies and owner operators to raise invoices against completed jobs, attach supporting POD evidence, track the current payment status of each invoice, maintain a payment history log, and record any dispute notes or resolution activity.
-
-XDrive does not currently act as a payment intermediary and does not hold or process client funds. Commercial payments are arranged directly between trading parties. The platform provides the record-keeping, visibility and audit infrastructure around those payments rather than processing them directly.`,
+    a: 'XDrive is being designed to keep invoice records connected to the relevant completed job, POD evidence and payment status. The finance area is intended for visibility and record keeping, not for holding client money. Users should be able to track whether work is unpaid, pending, paid or disputed.',
   },
   {
     q: 'Is XDrive available across the UK?',
-    a: `XDrive is being positioned as a UK-focused courier and transport platform. The initial rollout is targeting UK-based companies, owner operators and drivers operating domestic routes.
-
-Wider geographic expansion and any international capability would be considered at a later stage once the core platform is stable and the UK base has been established. The current homepage and onboarding process should be read as UK-focused in scope. If you are based outside the UK and wish to express interest, you are welcome to submit a request and the team will advise on availability.`,
+    a: 'XDrive is being developed for UK logistics workflows and is intended to support UK transport customers, courier companies, owner operators and drivers. Availability during early access may be limited while workflows are tested and refined before wider rollout.',
   },
   {
     q: 'What documents may be required for onboarding?',
-    a: `Document requirements will vary depending on the user role and the workflows being tested. For courier companies, onboarding may involve company registration details and compliance-related records. For owner operators and drivers, this could include vehicle documents, driving licence information or insurance evidence where relevant.
-
-Exact requirements will be confirmed by the XDrive team as part of the early-access review process. The platform is being built to support document management and compliance record retention as part of the driver and fleet administration workflows. No documents will be requested before a formal onboarding conversation has taken place.`,
+    a: 'Depending on the type of account, users may be asked for business details, contact information, vehicle details, insurance evidence, compliance documents or identity-related information. Exact onboarding requirements may depend on the workflow being tested and the role of the user.',
   },
   {
     q: 'Will there be a subscription or membership fee?',
-    a: `Early access participation is currently intended to be available without a fee while workflows are being tested and refined. The priority at this stage is building a platform that works well for the people using it, rather than charging before that value has been demonstrated.
-
-Any future subscription, membership or transaction-based pricing structure will be communicated clearly and in advance before broader commercial release. Users participating in early access will be informed of any planned changes to the commercial model before they take effect.`,
+    a: 'Early access is currently intended to be free for selected users during MVP testing. Future pricing, subscription or membership options will be confirmed before any full commercial release. XDrive should not be presented as charging users before pricing is formally announced.',
   },
   {
     q: 'How can I request access or a demo?',
-    a: `You can express interest or request a demo through the early-access section on the homepage. Submitting a request allows the XDrive team to review your role, use case and suitability against the current MVP scope.
-
-Following your submission, the team may contact you to discuss the platform in more detail, arrange a walkthrough of relevant workflows, or invite you into early-access testing if your use case is a match. There is no commitment required at the point of expressing interest. If you represent a company or have a specific operational requirement, you are encouraged to include that context in your request.`,
+    a: 'Visitors can use "Join Early Access" to register interest or "Request Demo" to ask for a walkthrough. The XDrive team may follow up depending on the type of user, the workflows currently being tested and the stage of product readiness.',
   },
 ] as const;

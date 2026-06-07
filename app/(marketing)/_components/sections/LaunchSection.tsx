@@ -23,10 +23,10 @@ export function LaunchSection() {
             <span className="inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-100">
               Early Access Benefits
             </span>
-            <h2 className="mt-4 text-3xl font-bold text-white sm:text-4xl">A practical reason to engage before wider release</h2>
+            <h2 className="mt-4 text-3xl font-bold text-white sm:text-4xl">Help Shape XDrive Before Wider Launch</h2>
             <p className="mt-4 max-w-2xl text-blue-100">
-              Early access is currently free and focused on selected workflow testing. It is designed for users who want to help shape the
-              product, validate practical transport workflows and understand the platform before broader commercial rollout.
+              We are inviting selected UK transport customers, courier companies, owner operators and drivers to test selected workflows
+              during early access.
             </p>
           </div>
 
