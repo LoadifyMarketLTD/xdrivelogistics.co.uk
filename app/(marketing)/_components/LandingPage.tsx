@@ -1,10 +1,11 @@
-import { FaqSection } from './sections/FaqSection';
+import { FAQ } from './sections/FAQ';
 import { HeroSection } from './sections/HeroSection';
 import { LaunchSection } from './sections/LaunchSection';
 import { MarketingFooter } from './sections/MarketingFooter';
 import { MarketingHeader } from './sections/MarketingHeader';
 import { PlatformModulesSection } from './sections/PlatformModulesSection';
 import { PlatformPreviewSection } from './sections/PlatformPreviewSection';
+import { ProblemsSection } from './sections/ProblemsSection';
 import { RolesSection } from './sections/RolesSection';
 import { TrustBarSection } from './sections/TrustBarSection';
 import { WhyExistsSection } from './sections/WhyExistsSection';
@@ -16,13 +17,14 @@ export function LandingPage() {
       <MarketingHeader />
       <HeroSection />
       <TrustBarSection />
+      <WhyExistsSection />
+      <ProblemsSection />
       <RolesSection />
       <WorkflowSection />
-      <WhyExistsSection />
       <PlatformModulesSection />
       <PlatformPreviewSection />
       <LaunchSection />
-      <FaqSection />
+      <FAQ />
       <MarketingFooter />
     </div>
   );

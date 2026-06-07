@@ -46,15 +46,21 @@ function EnvelopeIcon() {
 
 export function MarketingFooter() {
   return (
-    <footer id="contact" className="bg-slate-900 px-4 py-12 sm:px-6 sm:py-16">
-      <div className="mx-auto grid max-w-[1200px] gap-8 md:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
+    <footer id="contact" className="bg-slate-900 px-4 py-10 sm:px-6 sm:py-12">
+      <div className="mx-auto grid max-w-[1200px] gap-6 md:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
         {/* Brand column */}
         <div>
           <Link href="/" className="inline-flex items-center">
-            <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={190} height={44} className="h-11 w-auto" />
+            <Image
+              src="/xdrive-logo.jpeg"
+              alt="XDrive Logistics"
+              width={266}
+              height={62}
+              className="h-[62px] w-auto drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)]"
+            />
           </Link>
-          <p className="mt-4 max-w-[220px] text-sm leading-relaxed text-slate-400">
-            Early-access logistics platform connecting transport customers, courier companies, owner operators and drivers.
+          <p className="mt-4 max-w-[240px] text-sm leading-relaxed text-slate-400">
+            MVP / early-access logistics platform for selected UK workflow testing across marketplace, operations, POD and finance records.
           </p>
           <div className="mt-5 flex gap-3 text-slate-400">
             <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="transition hover:text-white">
@@ -123,7 +129,7 @@ export function MarketingFooter() {
         </div>
       </div>
 
-      <div className="mx-auto mt-12 max-w-[1200px] border-t border-slate-700 pt-6 text-xs text-slate-500">
+      <div className="mx-auto mt-8 max-w-[1200px] border-t border-slate-700 pt-6 text-xs text-slate-500">
         XDrive Logistics Ltd &bull; Company No. 13171804 &bull; Founded 1 February 2021 &bull; &copy; 2026 XDrive Logistics Ltd &bull; All Rights Reserved
       </div>
     </footer>
