@@ -17,7 +17,7 @@ export function PlatformPreviewSection() {
   );
 
   return (
-    <section className="border-b border-[#e5e7eb] bg-slate-50 px-4 py-12 sm:px-6 sm:py-20">
+    <section className="border-b border-[#e5e7eb] bg-slate-50 px-4 py-12 sm:px-6 sm:py-14">
       <div className="mx-auto max-w-[1200px]">
         <h2 className="text-center text-3xl font-bold text-[#0f172a] sm:text-4xl">Platform Preview</h2>
         <p className="mt-3 text-center text-slate-500">Early-access workspace examples for the XDrive operating model.</p>

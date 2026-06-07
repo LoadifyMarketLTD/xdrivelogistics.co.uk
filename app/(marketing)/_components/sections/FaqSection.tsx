@@ -2,10 +2,10 @@ import { faqs } from '../content';
 
 export function FaqSection() {
   return (
-    <section className="border-b border-slate-200 px-4 py-20 sm:px-6">
+    <section className="border-b border-slate-200 px-4 py-12 sm:px-6 sm:py-14">
       <div className="mx-auto max-w-[1200px]">
         <h2 className="text-center text-3xl font-bold text-[#0f172a] sm:text-4xl">FAQ</h2>
-        <div className="mt-10 grid gap-3 md:grid-cols-2">
+        <div className="mt-8 grid gap-3 md:grid-cols-2">
           {faqs.map((faq) => (
             <details key={faq.q} className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <summary className="flex cursor-pointer list-none items-center justify-between text-left text-base font-semibold text-[#0f172a]">

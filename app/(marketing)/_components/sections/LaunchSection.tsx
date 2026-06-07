@@ -6,7 +6,7 @@ export function LaunchSection() {
     <section className="relative overflow-hidden border-b border-[#e5e7eb]" id="launch">
       {/* Launch background photography */}
       <Image
-        src="/courier-fleet-depot.webp"
+        src="/finance-admin-office.webp"
         alt=""
         fill
         className="object-cover object-center"
@@ -15,8 +15,8 @@ export function LaunchSection() {
       {/* Dark overlay */}
       <div className="absolute inset-0 bg-[#0f172a]/70" />
 
-      <div className="relative px-4 py-16 sm:px-6 sm:py-24">
-        <div className="mx-auto flex max-w-[1200px] flex-col items-start gap-8 md:flex-row md:items-center md:justify-between">
+      <div className="relative px-4 py-12 sm:px-6 sm:py-16">
+        <div className="mx-auto flex max-w-[1200px] flex-col items-start gap-6 md:flex-row md:items-center md:justify-between">
           <div className="max-w-xl">
             <h2 className="text-3xl font-bold text-white sm:text-4xl">Be Part of the XDrive Early Access Launch</h2>
             <p className="mt-4 text-blue-100">

@@ -3,7 +3,7 @@ import { roleCards } from '../content';
 
 export function RolesSection() {
   return (
-    <section id="solutions" className="border-b border-[#e5e7eb] px-4 py-12 sm:px-6 sm:py-20">
+    <section id="solutions" className="border-b border-[#e5e7eb] px-4 py-12 sm:px-6 sm:py-14">
       <div className="mx-auto max-w-[1200px]">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-[#0f172a] sm:text-4xl">Built for Real UK Logistics Workflows</h2>
@@ -12,7 +12,7 @@ export function RolesSection() {
           </p>
         </div>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {roleCards.map((role) => (
             <article key={role.title} className="group overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_24px_-20px_rgba(15,23,42,0.45)]">
               <HomepageVisualCard
