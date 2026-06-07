@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
