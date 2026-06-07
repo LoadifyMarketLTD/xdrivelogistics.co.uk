@@ -62,7 +62,7 @@ export const metadata: Metadata = {
     siteName: 'XDrive Logistics',
     images: [
       {
-        url: '/xdrive-logo.svg',
+        url: '/logo-svg.jpeg',
         alt: 'XDrive Logistics',
       },
     ],
@@ -71,7 +71,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'XDrive Logistics - Premium Transport Services',
     description: `Independent transport platform by ${COMPANY_CONFIG.legalName} for UK and EU courier operations.`,
-    images: ['/xdrive-logo.svg'],
+    images: ['/logo-svg.jpeg'],
   },
   robots: {
     index: true,
@@ -107,7 +107,7 @@ export default async function RootLayout({
               "name": "XDrive Logistics",
               "legalName": "XDrive Logistics Ltd",
               "url": canonicalSiteOrigin,
-              "logo": `${canonicalSiteOrigin}/xdrive-logo.svg`,
+              "logo": `${canonicalSiteOrigin}/logo-svg.jpeg`,
               "address": {
                 "@type": "PostalAddress",
                 "streetAddress": "101 Cornelian Street",

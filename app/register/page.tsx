@@ -117,7 +117,7 @@ export default function RegisterPage() {
       >
         <h1 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#0A2239' }}>Create account</h1>
         <div style={{ marginBottom: '1rem' }}>
-          <Image src="/xdrive-logo.svg" alt="XDrive Logistics" width={180} height={40} priority style={{ width: 'auto', height: '40px' }} />
+          <Image src="/logo-svg.jpeg" alt="XDrive Logistics" width={180} height={40} priority style={{ width: 'auto', height: '40px' }} />
         </div>
         <p style={{ marginTop: 0, color: '#5B6B85', marginBottom: '1.5rem' }}>
           Register as broker, fleet/courier company, or owner-driver.
