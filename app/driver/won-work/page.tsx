@@ -73,6 +73,7 @@ const card: CSSProperties = {
 export default function WonWorkPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const userId = user?.id ?? null;
   const companyId = user?.companyId ?? null;
 
   const [jobs, setJobs] = useState<WonJob[]>([]);
@@ -80,33 +81,72 @@ export default function WonWorkPage() {
   const [error, setError] = useState('');
 
   const fetchWonWork = useCallback(async () => {
-    if (!isSupabaseConfigured || !companyId) {
+    if (!isSupabaseConfigured || !userId) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
 
-    const { data, error: fetchError } = await supabase
-      .from('jobs')
-      .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, cargo_type, status, currency, budget_amount, company_id, awarded_carrier_company_id, created_at, assigned_driver_id, companies(name)')
-      .eq('awarded_carrier_company_id', companyId)
-      .order('created_at', { ascending: false })
-      .limit(100);
+    if (companyId) {
+      const { data, error: fetchError } = await supabase
+        .from('jobs')
+        .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, cargo_type, status, currency, budget_amount, company_id, awarded_carrier_company_id, created_at, assigned_driver_id, companies(name)')
+        .eq('awarded_carrier_company_id', companyId)
+        .order('created_at', { ascending: false })
+        .limit(100);
 
-    if (fetchError) {
-      setError(`Failed to load won work: ${fetchError.message}`);
+      if (fetchError) {
+        setError(`Failed to load won work: ${fetchError.message}`);
+      } else {
+        const normalized = ((data ?? []) as unknown as WonJob[]).map((job) => ({
+          ...job,
+          companies: Array.isArray(job.companies)
+            ? ((job.companies as Array<{ name: string }>)[0] ?? null)
+            : (job.companies as { name: string } | null),
+        }));
+        setJobs(normalized);
+      }
     } else {
-      const normalized = ((data ?? []) as unknown as WonJob[]).map((job) => ({
-        ...job,
-        companies: Array.isArray(job.companies)
-          ? ((job.companies as Array<{ name: string }>)[0] ?? null)
-          : (job.companies as { name: string } | null),
-      }));
-      setJobs(normalized);
+      const { data: acceptedBidRows, error: acceptedBidsError } = await supabase
+        .from('job_bids')
+        .select('job_id')
+        .eq('bidder_user_id', userId)
+        .eq('status', 'accepted')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (acceptedBidsError) {
+        setError(`Failed to load won work: ${acceptedBidsError.message}`);
+      } else {
+        const wonJobIds = Array.from(
+          new Set((acceptedBidRows ?? []).map((row) => row.job_id).filter((jobId): jobId is string => typeof jobId === 'string'))
+        );
+        if (!wonJobIds.length) {
+          setJobs([]);
+        } else {
+          const { data, error: fetchError } = await supabase
+            .from('jobs')
+            .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, cargo_type, status, currency, budget_amount, company_id, awarded_carrier_company_id, created_at, assigned_driver_id, companies(name)')
+            .in('id', wonJobIds)
+            .order('created_at', { ascending: false })
+            .limit(100);
+          if (fetchError) {
+            setError(`Failed to load won work: ${fetchError.message}`);
+          } else {
+            const normalized = ((data ?? []) as unknown as WonJob[]).map((job) => ({
+              ...job,
+              companies: Array.isArray(job.companies)
+                ? ((job.companies as Array<{ name: string }>)[0] ?? null)
+                : (job.companies as { name: string } | null),
+            }));
+            setJobs(normalized);
+          }
+        }
+      }
     }
     setLoading(false);
-  }, [companyId]);
+  }, [companyId, userId]);
 
   useEffect(() => {
     void fetchWonWork();

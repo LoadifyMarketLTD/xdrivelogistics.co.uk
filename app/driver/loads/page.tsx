@@ -66,6 +66,7 @@ const card: CSSProperties = {
 export default function AvailableLoadsPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const userId = user?.id ?? null;
   const companyId = user?.companyId ?? null;
 
   const [loads, setLoads] = useState<LoadWithBidStatus[]>([]);
@@ -85,7 +86,7 @@ export default function AvailableLoadsPage() {
   const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'price_desc' | 'price_asc'>('date_desc');
 
   const fetchLoads = useCallback(async () => {
-    if (!isSupabaseConfigured || !companyId) {
+    if (!isSupabaseConfigured || !userId) {
       setLoading(false);
       return;
     }
@@ -111,11 +112,12 @@ export default function AvailableLoadsPage() {
     let myBids: Array<{ job_id: string; status: string; bid_price_gbp: number | null; amount: number | null }> = [];
 
     if (loadIds.length > 0) {
-      const { data: bidsData } = await supabase
+      let bidsQuery = supabase
         .from('job_bids')
         .select('job_id, status, bid_price_gbp, amount')
-        .eq('company_id', companyId)
         .in('job_id', loadIds);
+      bidsQuery = companyId ? bidsQuery.eq('company_id', companyId) : bidsQuery.eq('bidder_user_id', userId);
+      const { data: bidsData } = await bidsQuery;
       myBids = (bidsData ?? []) as typeof myBids;
     }
 
@@ -133,7 +135,7 @@ export default function AvailableLoadsPage() {
 
     setLoads(enriched);
     setLoading(false);
-  }, [companyId]);
+  }, [companyId, userId]);
 
   useEffect(() => {
     void fetchLoads();
@@ -177,7 +179,7 @@ export default function AvailableLoadsPage() {
   }, [loads, vehicleFilter, pickupPostcodeFilter, cargoTypeFilter, weightMinFilter, dateFromFilter, dateToFilter, sortBy]);
 
   const handleBidSubmit = async (loadId: string) => {
-    if (!companyId || !bidAmount || bidLoading) return;
+    if (!userId || !bidAmount || bidLoading) return;
     const amount = parseFloat(bidAmount);
     if (Number.isNaN(amount) || amount <= 0) {
       setError('Enter a valid bid amount.');
@@ -188,6 +190,7 @@ export default function AvailableLoadsPage() {
     const { error: bidError } = await supabase.from('job_bids').insert({
       job_id: loadId,
       company_id: companyId,
+      bidder_user_id: userId,
       bid_price_gbp: amount,
       amount,
       currency: 'GBP',

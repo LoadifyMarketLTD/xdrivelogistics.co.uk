@@ -76,14 +76,8 @@ const NAV_ITEMS = [
   { id: 'bids', label: 'BIDS', href: '/driver/loads' },
   { id: 'diary', label: 'DIARY', href: '/driver/history' },
   { id: 'jobs', label: 'JOBS', href: '/driver/jobs' },
-  { id: 'disputes', label: 'DISPUTES', href: '/driver/returns' },
-  { id: 'fleet', label: 'FLEET', href: '/driver/availability' },
-  { id: 'drivers', label: 'DRIVERS', href: '/driver/jobs' },
-  { id: 'vehicles', label: 'VEHICLES', href: '/driver/jobs' },
-  { id: 'docs', label: 'DOCS', href: '/driver/jobs' },
-  { id: 'invoices', label: 'INVOICES', href: '/driver/jobs' },
-  { id: 'companies', label: 'COMPANIES', href: '/driver/jobs' },
-  { id: 'members', label: 'MEMBERS', href: '/driver/jobs' },
+  { id: 'returns', label: 'RETURNS', href: '/driver/returns' },
+  { id: 'availability', label: 'AVAILABILITY', href: '/driver/availability' },
   { id: 'settings', label: 'SETTINGS', href: '/driver/change-password' },
 ] as const;
 
@@ -152,6 +146,7 @@ export default function DriverJobsPage() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
+  const userId = user?.id ?? null;
   const companyId = user?.companyId ?? null;
 
   const [tab, setTab] = useState<TabId>('loads');
@@ -172,20 +167,23 @@ export default function DriverJobsPage() {
   const [wonJobs, setWonJobs] = useState<Array<WonJob & { companies: { name: string } | null }>>([]);
 
   const fetchBoard = useCallback(async () => {
-    if (!isSupabaseConfigured || !companyId) return;
+    if (!isSupabaseConfigured || !userId) return;
 
     setLoading(true);
     setError('');
 
-    const { data: loadsData, error: loadsError } = await supabase
+    let loadsQuery = supabase
       .from('jobs')
       .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, weight_kg, pallets, budget_amount, currency, load_details, exchange_posted_at, companies(name)')
       .eq('exchange_visibility', 'exchange')
       .eq('status', 'posted')
       .is('awarded_carrier_company_id', null)
-      .neq('company_id', companyId)
       .order('exchange_posted_at', { ascending: false })
       .limit(100);
+    if (companyId) {
+      loadsQuery = loadsQuery.neq('company_id', companyId);
+    }
+    const { data: loadsData, error: loadsError } = await loadsQuery;
 
     if (loadsError) {
       setError(`Failed to load board: ${loadsError.message}`);
@@ -234,12 +232,13 @@ export default function DriverJobsPage() {
 
     setLoads(filteredLoads);
 
-    const { data: bidsData, error: bidsError } = await supabase
+    let bidsQuery = supabase
       .from('job_bids')
       .select('id, job_id, amount, bid_price_gbp, currency, status, created_at, jobs(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, companies(name))')
-      .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(100);
+    bidsQuery = companyId ? bidsQuery.eq('company_id', companyId) : bidsQuery.eq('bidder_user_id', userId);
+    const { data: bidsData, error: bidsError } = await bidsQuery;
 
     if (bidsError) {
       setError(`Failed to load bids: ${bidsError.message}`);
@@ -254,28 +253,72 @@ export default function DriverJobsPage() {
       })),
     );
 
-    const { data: wonData, error: wonError } = await supabase
-      .from('jobs')
-      .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, budget_amount, currency, companies(name)')
-      .eq('awarded_carrier_company_id', companyId)
-      .order('created_at', { ascending: false })
-      .limit(100);
+    if (companyId) {
+      const { data: wonData, error: wonError } = await supabase
+        .from('jobs')
+        .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, budget_amount, currency, companies(name)')
+        .eq('awarded_carrier_company_id', companyId)
+        .order('created_at', { ascending: false })
+        .limit(100);
 
-    if (wonError) {
-      setError(`Failed to load won work: ${wonError.message}`);
-      setLoading(false);
-      return;
+      if (wonError) {
+        setError(`Failed to load won work: ${wonError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      setWonJobs(
+        ((wonData ?? []) as WonJob[]).map((item) => ({
+          ...item,
+          companies: normalizeCompany(item.companies),
+        })),
+      );
+    } else {
+      const { data: acceptedBidRows, error: acceptedBidsError } = await supabase
+        .from('job_bids')
+        .select('job_id')
+        .eq('bidder_user_id', userId)
+        .eq('status', 'accepted')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (acceptedBidsError) {
+        setError(`Failed to load won work: ${acceptedBidsError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      const wonJobIds = Array.from(
+        new Set((acceptedBidRows ?? []).map((row) => row.job_id).filter((jobId): jobId is string => typeof jobId === 'string'))
+      );
+
+      if (!wonJobIds.length) {
+        setWonJobs([]);
+      } else {
+        const { data: wonData, error: wonError } = await supabase
+          .from('jobs')
+          .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, budget_amount, currency, companies(name)')
+          .in('id', wonJobIds)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        if (wonError) {
+          setError(`Failed to load won work: ${wonError.message}`);
+          setLoading(false);
+          return;
+        }
+
+        setWonJobs(
+          ((wonData ?? []) as WonJob[]).map((item) => ({
+            ...item,
+            companies: normalizeCompany(item.companies),
+          })),
+        );
+      }
     }
 
-    setWonJobs(
-      ((wonData ?? []) as WonJob[]).map((item) => ({
-        ...item,
-        companies: normalizeCompany(item.companies),
-      })),
-    );
-
     setLoading(false);
-  }, [cargoType, companyId, dateFrom, dateTo, deliveryCountry, pickupPostcode, sortBy, vehicleFilter, weightMin]);
+  }, [cargoType, companyId, dateFrom, dateTo, deliveryCountry, pickupPostcode, sortBy, userId, vehicleFilter, weightMin]);
 
   useEffect(() => {
     void fetchBoard();
@@ -300,9 +343,6 @@ export default function DriverJobsPage() {
               <span style={{ color: '#0f172a', fontSize: '1.05rem', fontWeight: 700 }}>XDrive Logistics</span>
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-              <button onClick={() => router.push('/driver/loads/search')} style={{ background: '#15803d', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.55rem 1rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
-                + POST LOAD
-              </button>
               <span style={{ color: '#94a3b8', fontSize: '0.82rem', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email ?? ''}</span>
               <button onClick={() => router.push('/driver/change-password')} style={{ border: '1px solid #dbe3ee', borderRadius: '8px', background: '#fff', color: '#64748b', padding: '0.35rem 0.55rem', cursor: 'pointer' }}>⚙</button>
               <button onClick={() => void logout()} style={{ border: '1px solid #dbe3ee', borderRadius: '8px', background: '#fff', color: '#64748b', padding: '0.38rem 0.75rem', cursor: 'pointer', fontWeight: 600 }}>

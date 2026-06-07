@@ -67,6 +67,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
 
 export default function MyQuotesPage() {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const companyId = user?.companyId ?? null;
 
   const [bids, setBids] = useState<BidRow[]>([]);
@@ -75,22 +76,23 @@ export default function MyQuotesPage() {
   const [activeTab, setActiveTab] = useState<TabId>('all');
 
   const fetchBids = useCallback(async () => {
-    if (!isSupabaseConfigured || !companyId) {
+    if (!isSupabaseConfigured || !userId) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
 
-    const { data, error: fetchError } = await supabase
+    let bidsQuery = supabase
       .from('job_bids')
       .select(`
         id, job_id, company_id, bid_price_gbp, amount, currency, message, status, created_at,
         jobs(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, budget_amount, status, companies(name))
       `)
-      .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(100);
+    bidsQuery = companyId ? bidsQuery.eq('company_id', companyId) : bidsQuery.eq('bidder_user_id', userId);
+    const { data, error: fetchError } = await bidsQuery;
 
     if (fetchError) {
       setError(`Failed to load quotes: ${fetchError.message}`);
@@ -112,19 +114,20 @@ export default function MyQuotesPage() {
       setBids(normalized);
     }
     setLoading(false);
-  }, [companyId]);
+  }, [companyId, userId]);
 
   useEffect(() => {
     void fetchBids();
   }, [fetchBids]);
 
   const handleWithdrawBid = async (bidId: string) => {
-    if (!isSupabaseConfigured || !companyId) return;
-    const { error: withdrawError } = await supabase
+    if (!isSupabaseConfigured || !userId) return;
+    let withdrawQuery = supabase
       .from('job_bids')
       .update({ status: 'withdrawn' })
-      .eq('id', bidId)
-      .eq('company_id', companyId);
+      .eq('id', bidId);
+    withdrawQuery = companyId ? withdrawQuery.eq('company_id', companyId) : withdrawQuery.eq('bidder_user_id', userId);
+    const { error: withdrawError } = await withdrawQuery;
     if (!withdrawError) void fetchBids();
     else setError(`Failed to withdraw bid: ${withdrawError.message}`);
   };
