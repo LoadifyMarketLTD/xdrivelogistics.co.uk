@@ -30,9 +30,9 @@ export function WhyExistsSection() {
 
         <div className="group overflow-hidden rounded-2xl border border-[#e5e7eb] shadow-[0_12px_32px_-20px_rgba(15,23,42,0.45)]">
           <HomepageVisualCard
-            imageSrc="/operations-dispatch-office.webp"
-            imageAlt="XDrive operational workflow scene showing the daily reality of logistics management"
-            label="Logistics scene"
+            imageSrc="/fleet-management-yard.webp"
+            imageAlt="XDrive fleet yard showing vehicles, driver assignments and daily operational readiness"
+            label="Fleet operations"
             title="Logistics daily workflow"
             icon={Truck}
             tone="slate"

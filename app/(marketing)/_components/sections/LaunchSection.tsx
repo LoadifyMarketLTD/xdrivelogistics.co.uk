@@ -6,7 +6,7 @@ export function LaunchSection() {
     <section className="relative overflow-hidden border-b border-[#e5e7eb]" id="launch">
       {/* Launch background photography */}
       <Image
-        src="/marketplace-loading.webp"
+        src="/courier-fleet-depot.webp"
         alt=""
         fill
         className="object-cover object-center"
