@@ -16,6 +16,20 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
+    const INVALID_RESET_LINK_MESSAGE =
+      'The link is invalid, expired, or has already been used. Please request a new link.';
+    const normalizeSignal = (value: string | null) => value?.trim() ?? '';
+    const isPkceVerifierMissingError = (message: string) => {
+      const normalized = message.toLowerCase();
+      return normalized.includes('code verifier') || normalized.includes('both auth code and code verifier');
+    };
+    const getOtpType = (queryType: string | null, hashType: string | null, flow: string | null) => {
+      const normalizedType = (queryType ?? hashType ?? flow ?? '').trim().toLowerCase();
+      if (normalizedType === 'invite') return 'invite' as const;
+      if (normalizedType === 'recovery') return 'recovery' as const;
+      return 'recovery' as const;
+    };
+
     const clearBrowserTokens = () => {
       if (typeof window === 'undefined') return;
       window.history.replaceState(null, '', '/reset-password');
@@ -30,38 +44,61 @@ export default function ResetPasswordPage() {
 
       try {
         const signals = getBrowserAuthSignals();
+        const accessToken = normalizeSignal(signals?.accessToken ?? null);
+        const refreshToken = normalizeSignal(signals?.refreshToken ?? null);
+        const code = normalizeSignal(signals?.code ?? null);
+        const tokenHash = normalizeSignal(signals?.tokenHash ?? null);
+        const otpType = getOtpType(signals?.queryType ?? null, signals?.hashType ?? null, signals?.flow ?? null);
+        const hasSessionTokens = Boolean(accessToken && refreshToken);
+        const hasCode = Boolean(code);
+        const hasTokenHash = Boolean(tokenHash);
+        const hasAnyAuthSignal = hasSessionTokens || hasCode || hasTokenHash;
 
         const { data: initialSession, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError;
 
         let handoffSucceeded = false;
 
-        if (!initialSession.session?.user && signals) {
-          const { data: setSessionData } = await supabase.auth.setSession({
-            access_token: signals.accessToken ?? '',
-            refresh_token: signals.refreshToken ?? '',
-          });
-          if (setSessionData.user) {
-            handoffSucceeded = true;
+        if (!initialSession.session?.user && !hasAnyAuthSignal) {
+          setError(INVALID_RESET_LINK_MESSAGE);
+          setHasPasswordSetupSession(false);
+          setIsCheckingSession(false);
+          return;
+        }
+
+        if (!initialSession.session?.user && hasAnyAuthSignal) {
+          if (hasSessionTokens) {
+            const { data: setSessionData } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (setSessionData.user) {
+              handoffSucceeded = true;
+            }
           }
 
-          if (!handoffSucceeded) {
-            const { data: exchangeData } = await supabase.auth.exchangeCodeForSession(signals.code ?? '');
+          if (!handoffSucceeded && hasCode) {
+            const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            if (exchangeError && isPkceVerifierMissingError(exchangeError.message)) {
+              setError(
+                'This reset link cannot be completed in this browser session. Please request a new reset link and open it in the same browser.'
+              );
+              setHasPasswordSetupSession(false);
+              setIsCheckingSession(false);
+              return;
+            }
             if (exchangeData.user) {
               handoffSucceeded = true;
             }
           }
 
-          if (!handoffSucceeded) {
-            for (const otpType of ['recovery', 'invite'] as const) {
-              const { data: verifyData } = await supabase.auth.verifyOtp({
-                token_hash: signals.tokenHash ?? '',
-                type: otpType,
-              });
-              if (verifyData.user) {
-                handoffSucceeded = true;
-                break;
-              }
+          if (!handoffSucceeded && hasTokenHash) {
+            const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+              token_hash: tokenHash,
+              type: otpType,
+            });
+            if (!verifyError && verifyData.user) {
+              handoffSucceeded = true;
             }
           }
         }
@@ -74,7 +111,7 @@ export default function ResetPasswordPage() {
         if (checkedSessionError) throw checkedSessionError;
 
         if (!checkedSession.session?.user) {
-          setError('Password setup link is invalid or expired. Please request a new email.');
+          setError(INVALID_RESET_LINK_MESSAGE);
           setHasPasswordSetupSession(false);
           setIsCheckingSession(false);
           return;
@@ -151,7 +188,7 @@ export default function ResetPasswordPage() {
               cursor: 'pointer',
             }}
           >
-            Back to sign in
+            Request a new reset link
           </button>
         </section>
       </main>
