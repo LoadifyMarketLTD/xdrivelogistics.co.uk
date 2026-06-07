@@ -59,8 +59,8 @@ export function MarketingFooter() {
               className="h-[62px] w-auto drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)]"
             />
           </Link>
-          <p className="mt-4 max-w-[220px] text-sm leading-relaxed text-slate-400">
-            Early-access logistics platform connecting transport customers, courier companies, owner operators and drivers.
+          <p className="mt-4 max-w-[240px] text-sm leading-relaxed text-slate-400">
+            MVP / early-access logistics platform for selected UK workflow testing across marketplace, operations, POD and finance records.
           </p>
           <div className="mt-5 flex gap-3 text-slate-400">
             <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="transition hover:text-white">

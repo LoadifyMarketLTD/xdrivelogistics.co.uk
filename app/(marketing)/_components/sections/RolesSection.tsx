@@ -8,7 +8,8 @@ export function RolesSection() {
         <div className="text-center">
           <h2 className="text-3xl font-bold text-[#0f172a] sm:text-4xl">Built for Real UK Logistics Workflows</h2>
           <p className="mt-3 text-slate-500">
-            From job requests to POD and invoice closure, XDrive is being built around the practical steps transport teams handle every day.
+            Each workspace is intended to answer a practical commercial question: what does this user gain from XDrive today as the platform
+            is being built out?
           </p>
         </div>
 
@@ -26,7 +27,7 @@ export function RolesSection() {
               />
               <div className="p-4">
                 <h3 className="text-base font-semibold text-[#0f172a]">{role.title}</h3>
-                <p className="mt-2 text-sm text-slate-500">{role.subtitle}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">{role.subtitle}</p>
               </div>
             </article>
           ))}

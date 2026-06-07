@@ -1,5 +1,7 @@
+import { CurrentPlatformStatusSection } from './sections/CurrentPlatformStatusSection';
 import { FaqSection } from './sections/FaqSection';
 import { HeroSection } from './sections/HeroSection';
+import { InsidePlatformSection } from './sections/InsidePlatformSection';
 import { LaunchSection } from './sections/LaunchSection';
 import { MarketingFooter } from './sections/MarketingFooter';
 import { MarketingHeader } from './sections/MarketingHeader';
@@ -15,11 +17,13 @@ export function LandingPage() {
     <div className="bg-white text-[#0f172a]">
       <MarketingHeader />
       <HeroSection />
+      <WhyExistsSection />
+      <CurrentPlatformStatusSection />
       <TrustBarSection />
       <RolesSection />
       <WorkflowSection />
-      <WhyExistsSection />
       <PlatformModulesSection />
+      <InsidePlatformSection />
       <PlatformPreviewSection />
       <LaunchSection />
       <FaqSection />

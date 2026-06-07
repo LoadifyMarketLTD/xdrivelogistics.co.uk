@@ -20,7 +20,7 @@ export function PlatformPreviewSection() {
     <section className="border-b border-[#e5e7eb] bg-slate-50 px-4 py-12 sm:px-6 sm:py-14">
       <div className="mx-auto max-w-[1200px]">
         <h2 className="text-center text-3xl font-bold text-[#0f172a] sm:text-4xl">Platform Preview</h2>
-        <p className="mt-3 text-center text-slate-500">Early-access workspace examples for the XDrive operating model.</p>
+        <p className="mt-3 text-center text-slate-500">Illustrative workspace previews for the MVP and early-access operating model.</p>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           {platformModules.map((module) => (
@@ -55,8 +55,11 @@ export function PlatformPreviewSection() {
             <div className="inline-flex items-center rounded-md border border-[#e5e7eb] bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#1d4ed8]">
               Demo Preview
             </div>
+            <div className="ml-2 inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+              {selectedPreview.status}
+            </div>
             <h3 className="mt-3 text-lg font-semibold text-[#0f172a]">{selectedPreview.title}</h3>
-            <p className="mt-2 text-sm text-slate-500">{selectedPreview.summary}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">{selectedPreview.summary}</p>
           </div>
           <div className="grid gap-4 p-5 md:grid-cols-3">
             {selectedPreview.previewItems.map((item) => (
@@ -67,7 +70,9 @@ export function PlatformPreviewSection() {
             ))}
           </div>
         </div>
-        <p className="mt-4 text-center text-xs text-slate-500">Preview screens are for early-access demonstration only.</p>
+        <p className="mt-4 text-center text-xs text-slate-500">
+          Preview screens are for MVP / early-access demonstration only and should not be read as a claim of a fully public live network.
+        </p>
       </div>
     </section>
   );
