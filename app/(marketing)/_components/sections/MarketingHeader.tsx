@@ -5,10 +5,10 @@ import { navLinks } from '../content';
 
 export function MarketingHeader() {
   return (
-    <header className="sticky top-0 z-50 h-[72px] border-b border-slate-200 bg-white/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 h-[80px] border-b border-slate-200 bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center">
-          <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={200} height={48} priority className="h-12 w-auto" />
+          <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={250} height={60} priority className="h-[60px] w-auto" />
         </Link>
 
         <nav className="hidden items-center gap-7 text-sm text-slate-600 lg:flex">

@@ -10,7 +10,7 @@ const features = [
 
 export function WhyExistsSection() {
   return (
-    <section className="border-b border-[#e5e7eb] bg-white px-4 py-12 sm:px-6 sm:py-20" id="resources">
+    <section className="border-b border-[#e5e7eb] bg-white px-4 py-12 sm:px-6 sm:py-14" id="resources">
       <div className="mx-auto grid max-w-[1200px] gap-8 lg:grid-cols-[1fr_1fr] lg:items-center">
         <div>
           <h2 className="text-3xl font-bold text-[#0f172a] sm:text-4xl">Designed Around the Daily Reality of Logistics</h2>
@@ -30,9 +30,9 @@ export function WhyExistsSection() {
 
         <div className="group overflow-hidden rounded-2xl border border-[#e5e7eb] shadow-[0_12px_32px_-20px_rgba(15,23,42,0.45)]">
           <HomepageVisualCard
-            imageSrc="/fleet-management-yard.webp"
-            imageAlt="XDrive fleet yard showing vehicles, driver assignments and daily operational readiness"
-            label="Fleet operations"
+            imageSrc="/drivers-mobile-pod.webp"
+            imageAlt="Driver using mobile app workflow to update delivery status and upload POD in real time"
+            label="Driver POD workflow"
             title="Logistics daily workflow"
             icon={Truck}
             tone="slate"

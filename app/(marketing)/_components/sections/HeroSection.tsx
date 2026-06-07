@@ -10,8 +10,8 @@ const trustBadges = [
 
 export function HeroSection() {
   return (
-    <section className="relative border-b border-[#e5e7eb] px-4 py-12 sm:px-6 sm:py-20" id="industries">
-      <div className="mx-auto grid w-full max-w-[1200px] gap-10 lg:grid-cols-2 lg:items-center">
+    <section className="relative border-b border-[#e5e7eb] px-4 py-12 sm:px-6 sm:py-14" id="industries">
+      <div className="mx-auto grid w-full max-w-[1200px] gap-8 lg:grid-cols-2 lg:items-center">
         <div>
           <span className="inline-flex rounded-full border border-[#1d4ed8]/30 bg-[#eff6ff] px-4 py-1.5 text-xs font-semibold tracking-[0.1em] text-[#1d4ed8]">
             UK Logistics Technology Platform
@@ -53,7 +53,7 @@ export function HeroSection() {
 
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-slate-50 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]">
           <HomepageVisualCard
-            imageSrc="/hero-dispatch-control.webp"
+            imageSrc="/xdrive-login-hero.webp"
             imageAlt="XDrive Platform Command Centre — Marketplace, Operations and Driver Workspace"
             label="Platform overview"
             title="XDrive Platform Command Centre"
