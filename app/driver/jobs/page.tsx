@@ -71,20 +71,14 @@ type WonJob = {
 };
 
 const NAV_ITEMS = [
-  { id: 'loads', label: 'LOADS', href: '/driver/jobs' },
-  { id: 'quotes', label: 'QUOTES', href: '/driver/quotes' },
-  { id: 'bids', label: 'BIDS', href: '/driver/loads' },
-  { id: 'diary', label: 'DIARY', href: '/driver/history' },
-  { id: 'jobs', label: 'JOBS', href: '/driver/jobs' },
-  { id: 'disputes', label: 'DISPUTES', href: '/driver/returns' },
-  { id: 'fleet', label: 'FLEET', href: '/driver/availability' },
-  { id: 'drivers', label: 'DRIVERS', href: '/driver/jobs' },
-  { id: 'vehicles', label: 'VEHICLES', href: '/driver/jobs' },
-  { id: 'docs', label: 'DOCS', href: '/driver/jobs' },
-  { id: 'invoices', label: 'INVOICES', href: '/driver/jobs' },
-  { id: 'companies', label: 'COMPANIES', href: '/driver/jobs' },
-  { id: 'members', label: 'MEMBERS', href: '/driver/jobs' },
-  { id: 'settings', label: 'SETTINGS', href: '/driver/change-password' },
+  { id: 'loads',    label: 'LOADS',     href: '/driver/jobs' },
+  { id: 'quotes',   label: 'QUOTES',    href: '/driver/quotes' },
+  { id: 'bids',     label: 'BIDS',      href: '/driver/loads' },
+  { id: 'diary',    label: 'DIARY',     href: '/driver/history' },
+  { id: 'won',      label: 'WON WORK',  href: '/driver/won-work' },
+  { id: 'disputes', label: 'DISPUTES',  href: '/driver/returns' },
+  { id: 'fleet',    label: 'FLEET',     href: '/driver/availability' },
+  { id: 'settings', label: 'SETTINGS',  href: '/driver/change-password' },
 ] as const;
 
 const VEHICLE_LABELS: Record<string, string> = {
@@ -172,20 +166,24 @@ export default function DriverJobsPage() {
   const [wonJobs, setWonJobs] = useState<Array<WonJob & { companies: { name: string } | null }>>([]);
 
   const fetchBoard = useCallback(async () => {
-    if (!isSupabaseConfigured || !companyId) return;
+    if (!isSupabaseConfigured) return;
 
     setLoading(true);
     setError('');
 
-    const { data: loadsData, error: loadsError } = await supabase
+    let loadsQuery = supabase
       .from('jobs')
       .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, weight_kg, pallets, budget_amount, currency, load_details, exchange_posted_at, companies(name)')
       .eq('exchange_visibility', 'exchange')
       .eq('status', 'posted')
       .is('awarded_carrier_company_id', null)
-      .neq('company_id', companyId)
       .order('exchange_posted_at', { ascending: false })
       .limit(100);
+
+    // Exclude own company's loads when companyId is known
+    if (companyId) loadsQuery = loadsQuery.neq('company_id', companyId);
+
+    const { data: loadsData, error: loadsError } = await loadsQuery;
 
     if (loadsError) {
       setError(`Failed to load board: ${loadsError.message}`);
@@ -234,12 +232,15 @@ export default function DriverJobsPage() {
 
     setLoads(filteredLoads);
 
-    const { data: bidsData, error: bidsError } = await supabase
+    // Fetch bids: filter by company_id if available, otherwise rely on RLS (driver self-select)
+    let bidsQuery = supabase
       .from('job_bids')
       .select('id, job_id, amount, bid_price_gbp, currency, status, created_at, jobs(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, companies(name))')
-      .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(100);
+    if (companyId) bidsQuery = bidsQuery.eq('company_id', companyId);
+
+    const { data: bidsData, error: bidsError } = await bidsQuery;
 
     if (bidsError) {
       setError(`Failed to load bids: ${bidsError.message}`);
@@ -254,25 +255,28 @@ export default function DriverJobsPage() {
       })),
     );
 
-    const { data: wonData, error: wonError } = await supabase
-      .from('jobs')
-      .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, budget_amount, currency, companies(name)')
-      .eq('awarded_carrier_company_id', companyId)
-      .order('created_at', { ascending: false })
-      .limit(100);
+    // Won work is only meaningful when companyId is known
+    if (companyId) {
+      const { data: wonData, error: wonError } = await supabase
+        .from('jobs')
+        .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, budget_amount, currency, companies(name)')
+        .eq('awarded_carrier_company_id', companyId)
+        .order('created_at', { ascending: false })
+        .limit(100);
 
-    if (wonError) {
-      setError(`Failed to load won work: ${wonError.message}`);
-      setLoading(false);
-      return;
+      if (wonError) {
+        setError(`Failed to load won work: ${wonError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      setWonJobs(
+        ((wonData ?? []) as WonJob[]).map((item) => ({
+          ...item,
+          companies: normalizeCompany(item.companies),
+        })),
+      );
     }
-
-    setWonJobs(
-      ((wonData ?? []) as WonJob[]).map((item) => ({
-        ...item,
-        companies: normalizeCompany(item.companies),
-      })),
-    );
 
     setLoading(false);
   }, [cargoType, companyId, dateFrom, dateTo, deliveryCountry, pickupPostcode, sortBy, vehicleFilter, weightMin]);

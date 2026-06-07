@@ -28,10 +28,14 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: '🏠', href: '/driver/jobs' },
-  { id: 'todays-run', label: "Today's Run", icon: '🚚', href: '/driver/jobs#todays-run' },
-  { id: 'history', label: 'History', icon: '📚', href: '/driver/history' },
-  { id: 'security', label: 'Account Security', icon: '🔐', href: '/driver/change-password' },
+  { id: 'dashboard',  label: 'Exchange Board',    icon: '📋', href: '/driver/jobs' },
+  { id: 'loads',      label: 'Available Loads',   icon: '🚚', href: '/driver/loads' },
+  { id: 'quotes',     label: 'My Quotes',         icon: '💬', href: '/driver/quotes' },
+  { id: 'won-work',   label: 'Won Work',          icon: '🏆', href: '/driver/won-work' },
+  { id: 'history',    label: 'Job History',       icon: '📚', href: '/driver/history' },
+  { id: 'fleet',      label: 'Availability',      icon: '📅', href: '/driver/availability' },
+  { id: 'returns',    label: 'Return Journeys',   icon: '↩️',  href: '/driver/returns' },
+  { id: 'security',   label: 'Account Security',  icon: '🔐', href: '/driver/change-password' },
 ];
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -177,9 +181,7 @@ export default function DriverWorkspaceShell({
         {/* Navigation */}
         <nav style={{ flex: 1, padding: '0.5rem', overflowY: 'auto' }}>
         {NAV_ITEMS.map((item) => {
-          const active = item.id === 'todays-run'
-            ? pathname === '/driver/jobs'
-            : isActive(item.href);
+          const active = isActive(item.href);
           return (
             <button
               key={item.id}
