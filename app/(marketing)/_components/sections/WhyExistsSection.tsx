@@ -1,43 +1,35 @@
-import { CheckCircle2, Truck } from 'lucide-react';
-import { HomepageVisualCard } from '../HomepageVisualCard';
-
-const features = [
-  'Job request and quote workflow',
-  'Driver assignment and status updates',
-  'POD capture and delivery records',
-  'Finance visibility without holding client funds',
-] as const;
+import { whyExistsCards } from '../content';
 
 export function WhyExistsSection() {
   return (
-    <section className="border-b border-[#e5e7eb] bg-white px-4 py-12 sm:px-6 sm:py-20" id="resources">
-      <div className="mx-auto grid max-w-[1200px] gap-8 lg:grid-cols-[1fr_1fr] lg:items-center">
+    <section className="border-b border-[#e5e7eb] bg-white px-4 py-12 sm:px-6 sm:py-14" id="resources">
+      <div className="mx-auto grid max-w-[1200px] gap-10 lg:grid-cols-2 lg:items-start">
+        {/* Left: title + body */}
         <div>
-          <h2 className="text-3xl font-bold text-[#0f172a] sm:text-4xl">Designed Around the Daily Reality of Logistics</h2>
-          <p className="mt-6 text-slate-600">
-            Logistics work is not just about finding a load. It is about managing collections, delivery windows, drivers, customer updates,
-            PODs, invoices and exceptions without losing visibility.
+          <span className="inline-flex rounded-full border border-[#1d4ed8]/20 bg-[#eff6ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1d4ed8]">
+            Why XDrive Exists
+          </span>
+          <h2 className="mt-4 text-3xl font-bold text-[#0f172a] sm:text-4xl">
+            Built from real UK courier and transport experience
+          </h2>
+          <p className="mt-4 text-[15px] font-semibold italic text-slate-500">
+            XDrive is being built from real UK courier and transport experience, not as a generic software idea.
           </p>
-          <ul className="mt-6 space-y-3">
-            {features.map((feature) => (
-              <li key={feature} className="flex items-start gap-2 text-slate-600">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#1d4ed8]" />
-                {feature}
-              </li>
-            ))}
-          </ul>
+          <p className="mt-4 text-slate-600 leading-7">
+            Transport work is often managed across phone calls, WhatsApp messages, spreadsheets, emails, separate POD files and disconnected
+            finance records. XDrive is being developed to bring those daily workflows into one operational workspace, helping transport
+            customers, courier companies, owner operators and drivers keep jobs, updates, documents and records connected.
+          </p>
         </div>
 
-        <div className="group overflow-hidden rounded-2xl border border-[#e5e7eb] shadow-[0_12px_32px_-20px_rgba(15,23,42,0.45)]">
-          <HomepageVisualCard
-            imageSrc="/fleet-management-yard.webp"
-            imageAlt="XDrive fleet yard showing vehicles, driver assignments and daily operational readiness"
-            label="Fleet operations"
-            title="Logistics daily workflow"
-            icon={Truck}
-            tone="slate"
-            className="h-[220px] w-full md:h-[280px] lg:h-[360px]"
-          />
+        {/* Right: 3 trust cards */}
+        <div className="flex flex-col gap-4">
+          {whyExistsCards.map((card) => (
+            <article key={card.title} className="rounded-xl border border-[#e5e7eb] bg-slate-50 p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-[#0f172a]">{card.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-500">{card.text}</p>
+            </article>
+          ))}
         </div>
       </div>
     </section>
