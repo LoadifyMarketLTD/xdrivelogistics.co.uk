@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useAuth } from '../../components/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import type { Vehicle } from '../../../lib/types/database';
+import type { FleetPin } from './_components/FleetMap';
+
+const FleetMap = lazy(() => import('./_components/FleetMap'));
 
 type FleetDriver = {
   id: string;
@@ -174,6 +177,27 @@ export default function FleetPage() {
     return counts;
   }, [vehicles, driverById]);
 
+  const mapPins = useMemo((): FleetPin[] => {
+    const pins: FleetPin[] = [];
+    for (const v of vehicles) {
+      if (!v.assigned_driver_id) continue;
+      const driver = driverById.get(v.assigned_driver_id);
+      const loc = latestLocationByDriver.get(v.assigned_driver_id);
+      if (!loc || loc.lat == null || loc.lng == null) continue;
+      pins.push({
+        driverId: v.assigned_driver_id,
+        driverName: driver?.display_name ?? 'Unknown driver',
+        vehicleReg: v.reg_plate ?? '',
+        vehicleType: v.type ?? 'unknown',
+        availabilityStatus: driver?.availability_status ?? null,
+        lat: loc.lat,
+        lng: loc.lng,
+        trackedAt: loc.recorded_at,
+      });
+    }
+    return pins;
+  }, [vehicles, driverById, latestLocationByDriver]);
+
   return (
     <ProtectedRoute>
       <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
@@ -186,6 +210,16 @@ export default function FleetPage() {
               <p style={{ margin: '0.25rem 0 0 0', color: '#6b7280', fontSize: '0.84rem' }}>Live vehicle and driver availability.</p>
             </div>
           </div>
+
+          {/* Live map */}
+          {!loading && (
+            <Suspense fallback={<div style={{ background: '#f1f5f9', borderRadius: '12px', height: '340px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>Loading map…</div>}>
+              <FleetMap
+                pins={mapPins}
+                style={{ height: '340px', marginBottom: '1rem' }}
+              />
+            </Suspense>
+          )}
 
           {/* Availability summary bar */}
           {!loading && (

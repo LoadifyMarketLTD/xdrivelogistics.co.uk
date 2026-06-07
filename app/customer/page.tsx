@@ -49,7 +49,7 @@ type CustomerInvoice = {
   created_at: string;
 };
 
-type CustomerTab = 'quotes' | 'jobs' | 'invoices';
+type CustomerTab = 'quotes' | 'jobs' | 'book' | 'invoices';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'equipment', 'other'];
@@ -119,6 +119,17 @@ export default function CustomerPage() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formError, setFormError] = useState('');
   const [pageMessage, setPageMessage] = useState('');
+  const [bookingError, setBookingError] = useState('');
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingForm, setBookingForm] = useState({
+    pickup_location: '',
+    delivery_location: '',
+    pickup_datetime: '',
+    vehicle_type: 'van_large' as VehicleType,
+    cargo_type: 'packages' as CargoType,
+    notes: '',
+  });
   const [formData, setFormData] = useState({
     pickup_location: '',
     delivery_location: '',
@@ -257,6 +268,31 @@ export default function CustomerPage() {
     }
   };
 
+  const handleBookDelivery = async () => {
+    setBookingError('');
+    setBookingSuccess(false);
+    if (!bookingForm.pickup_location.trim()) { setBookingError('Pickup location is required'); return; }
+    if (!bookingForm.delivery_location.trim()) { setBookingError('Delivery location is required'); return; }
+    if (!isSupabaseConfigured || !user?.id || !resolvedCompanyId) { setBookingError('Your account is not linked to a company. Booking unavailable.'); return; }
+    setBookingLoading(true);
+    const { error } = await supabase.from('jobs').insert([{
+      company_id: resolvedCompanyId,
+      created_by: user.id,
+      status: 'draft',
+      pickup_location: bookingForm.pickup_location,
+      delivery_location: bookingForm.delivery_location,
+      pickup_datetime: bookingForm.pickup_datetime || null,
+      vehicle_type: bookingForm.vehicle_type,
+      cargo_type: bookingForm.cargo_type,
+      notes: bookingForm.notes || null,
+    }]);
+    setBookingLoading(false);
+    if (error) { setBookingError(error.message); return; }
+    setBookingSuccess(true);
+    setBookingForm({ pickup_location: '', delivery_location: '', pickup_datetime: '', vehicle_type: 'van_large', cargo_type: 'packages', notes: '' });
+    await loadPortalData();
+  };
+
   const tabCounts = useMemo(() => ({
     quotes: quotes.length,
     jobs: jobs.length,
@@ -289,9 +325,10 @@ export default function CustomerPage() {
 
           <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '1rem', display: 'flex', flexWrap: 'wrap' }}>
             {([
-              ['quotes', 'Quotes'],
-              ['jobs', 'Jobs & POD'],
-              ['invoices', 'Invoices'],
+              ['quotes', `Quotes (${tabCounts.quotes})`],
+              ['jobs', `Jobs & POD (${tabCounts.jobs})`],
+              ['book', '📦 Book Delivery'],
+              ['invoices', `Invoices (${tabCounts.invoices})`],
             ] as Array<[CustomerTab, string]>).map(([tab, label]) => (
               <button
                 key={tab}
@@ -306,7 +343,7 @@ export default function CustomerPage() {
                   cursor: 'pointer',
                 }}
               >
-                {label} ({tabCounts[tab]})
+                {label}
               </button>
             ))}
           </div>
@@ -379,6 +416,54 @@ export default function CustomerPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {activeTab === 'book' && (
+            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', maxWidth: '560px' }}>
+              <h2 style={{ margin: '0 0 1rem', fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>📦 Book a Delivery</h2>
+              <p style={{ margin: '0 0 1.25rem', fontSize: '0.88rem', color: '#64748b' }}>Submit a delivery booking directly. Our team will review and allocate a driver.</p>
+              {bookingSuccess && <div style={{ background: '#dcfce7', border: '1px solid #1F7A3D', borderRadius: '8px', padding: '0.85rem 1rem', marginBottom: '1rem', color: '#14532d', fontWeight: 600 }}>✅ Booking submitted! Check the Jobs tab to track progress.</div>}
+              {bookingError && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', color: '#dc2626', fontSize: '0.9rem' }}>{bookingError}</div>}
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                <div>
+                  <label style={labelStyle}>Pickup Location *</label>
+                  <input style={inputStyle} value={bookingForm.pickup_location} onChange={e => setBookingForm({...bookingForm, pickup_location: e.target.value})} placeholder="e.g. London, SW1A 1AA" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Delivery Location *</label>
+                  <input style={inputStyle} value={bookingForm.delivery_location} onChange={e => setBookingForm({...bookingForm, delivery_location: e.target.value})} placeholder="e.g. Manchester, M1 1AE" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Requested Pickup Date & Time</label>
+                  <input style={inputStyle} type="datetime-local" value={bookingForm.pickup_datetime} onChange={e => setBookingForm({...bookingForm, pickup_datetime: e.target.value})} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={labelStyle}>Vehicle Type</label>
+                    <select style={inputStyle} value={bookingForm.vehicle_type} onChange={e => setBookingForm({...bookingForm, vehicle_type: e.target.value as VehicleType})}>
+                      {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Cargo Type</label>
+                    <select style={inputStyle} value={bookingForm.cargo_type} onChange={e => setBookingForm({...bookingForm, cargo_type: e.target.value as CargoType})}>
+                      {CARGO_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Additional Notes</label>
+                  <textarea style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }} value={bookingForm.notes} onChange={e => setBookingForm({...bookingForm, notes: e.target.value})} placeholder="Any special instructions, fragile items, access restrictions…" />
+                </div>
+                <button
+                  onClick={() => { void handleBookDelivery(); }}
+                  disabled={bookingLoading || !resolvedCompanyId}
+                  style={{ padding: '0.85rem', background: resolvedCompanyId ? '#1d4ed8' : '#9ca3af', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: resolvedCompanyId ? 'pointer' : 'not-allowed', fontSize: '0.95rem' }}
+                >
+                  {bookingLoading ? 'Submitting…' : 'Submit Booking'}
+                </button>
+              </div>
             </div>
           )}
 
