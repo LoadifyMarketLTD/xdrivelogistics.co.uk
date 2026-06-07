@@ -120,7 +120,7 @@ export const shouldAutoProvisionCompany = ({
 };
 
 export const roleRequiresCompanyContext = (role: AppUserRole | null) =>
-  role === 'broker' || role === 'company_admin' || role === 'company_staff' || role === 'driver';
+  role === 'broker' || role === 'company_admin' || role === 'company_staff';
 
 export const resolveAuthoritativeRole = ({
   membershipRole,

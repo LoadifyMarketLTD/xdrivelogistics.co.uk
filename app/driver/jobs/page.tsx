@@ -71,13 +71,13 @@ type WonJob = {
 };
 
 const NAV_ITEMS = [
-  { id: 'loads',    label: 'LOADS',     href: '/driver/jobs' },
-  { id: 'quotes',   label: 'QUOTES',    href: '/driver/quotes' },
-  { id: 'bids',     label: 'BIDS',      href: '/driver/loads' },
-  { id: 'diary',    label: 'DIARY',     href: '/driver/history' },
-  { id: 'won',      label: 'WON WORK',  href: '/driver/won-work' },
-  { id: 'disputes', label: 'DISPUTES',  href: '/driver/returns' },
-  { id: 'fleet',    label: 'FLEET',     href: '/driver/availability' },
+  { id: 'dashboard', label: 'DASHBOARD', href: '/driver/jobs' },
+  { id: 'loads',     label: 'LOADS',     href: '/driver/loads' },
+  { id: 'quotes',    label: 'QUOTES',    href: '/driver/quotes' },
+  { id: 'won',       label: 'WON WORK',  href: '/driver/won-work' },
+  { id: 'history',   label: 'HISTORY',   href: '/driver/history' },
+  { id: 'returns',   label: 'RETURNS',   href: '/driver/returns' },
+  { id: 'availability', label: 'AVAILABILITY', href: '/driver/availability' },
   { id: 'settings', label: 'SETTINGS',  href: '/driver/change-password' },
 ] as const;
 
@@ -147,6 +147,7 @@ export default function DriverJobsPage() {
   const { user, logout } = useAuth();
 
   const companyId = user?.companyId ?? null;
+  const userId = user?.id ?? null;
 
   const [tab, setTab] = useState<TabId>('loads');
   const [loading, setLoading] = useState(false);
@@ -232,13 +233,16 @@ export default function DriverJobsPage() {
 
     setLoads(filteredLoads);
 
-    // Fetch bids: filter by company_id if available, otherwise rely on RLS (driver self-select)
     let bidsQuery = supabase
       .from('job_bids')
       .select('id, job_id, amount, bid_price_gbp, currency, status, created_at, jobs(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, companies(name))')
       .order('created_at', { ascending: false })
       .limit(100);
-    if (companyId) bidsQuery = bidsQuery.eq('company_id', companyId);
+    if (companyId) {
+      bidsQuery = bidsQuery.eq('company_id', companyId);
+    } else if (userId) {
+      bidsQuery = bidsQuery.eq('bidder_user_id', userId);
+    }
 
     const { data: bidsData, error: bidsError } = await bidsQuery;
 
@@ -255,7 +259,6 @@ export default function DriverJobsPage() {
       })),
     );
 
-    // Won work is only meaningful when companyId is known
     if (companyId) {
       const { data: wonData, error: wonError } = await supabase
         .from('jobs')
@@ -276,10 +279,47 @@ export default function DriverJobsPage() {
           companies: normalizeCompany(item.companies),
         })),
       );
+    } else if (userId) {
+      const { data: wonData, error: wonError } = await supabase
+        .from('job_bids')
+        .select(`
+          jobs!inner(
+            id,
+            pickup_location,
+            delivery_location,
+            pickup_datetime,
+            vehicle_type,
+            budget_amount,
+            currency,
+            companies(name)
+          )
+        `)
+        .eq('bidder_user_id', userId)
+        .eq('status', 'accepted')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (wonError) {
+        setError(`Failed to load won work: ${wonError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      setWonJobs(
+        ((wonData ?? []) as Array<{ jobs: WonJob | WonJob[] | null }>)
+          .map((item) => (Array.isArray(item.jobs) ? item.jobs[0] ?? null : item.jobs))
+          .filter((item): item is WonJob => Boolean(item))
+          .map((item) => ({
+            ...item,
+            companies: normalizeCompany(item.companies),
+          })),
+      );
+    } else {
+      setWonJobs([]);
     }
 
     setLoading(false);
-  }, [cargoType, companyId, dateFrom, dateTo, deliveryCountry, pickupPostcode, sortBy, vehicleFilter, weightMin]);
+  }, [cargoType, companyId, dateFrom, dateTo, deliveryCountry, pickupPostcode, sortBy, userId, vehicleFilter, weightMin]);
 
   useEffect(() => {
     void fetchBoard();
@@ -304,8 +344,8 @@ export default function DriverJobsPage() {
               <span style={{ color: '#0f172a', fontSize: '1.05rem', fontWeight: 700 }}>XDrive Logistics</span>
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-              <button onClick={() => router.push('/driver/loads/search')} style={{ background: '#15803d', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.55rem 1rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
-                + POST LOAD
+              <button onClick={() => router.push('/driver/loads')} style={{ background: '#15803d', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.55rem 1rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
+                VIEW LOADS
               </button>
               <span style={{ color: '#94a3b8', fontSize: '0.82rem', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email ?? ''}</span>
               <button onClick={() => router.push('/driver/change-password')} style={{ border: '1px solid #dbe3ee', borderRadius: '8px', background: '#fff', color: '#64748b', padding: '0.35rem 0.55rem', cursor: 'pointer' }}>⚙</button>

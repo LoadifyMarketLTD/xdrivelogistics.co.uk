@@ -67,6 +67,7 @@ export default function AvailableLoadsPage() {
   const { user } = useAuth();
   const router = useRouter();
   const companyId = user?.companyId ?? null;
+  const userId = user?.id ?? null;
 
   const [loads, setLoads] = useState<LoadWithBidStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,11 +123,11 @@ export default function AvailableLoadsPage() {
         .eq('company_id', companyId)
         .in('job_id', loadIds);
       myBids = (bidsData ?? []) as typeof myBids;
-    } else if (loadIds.length > 0) {
-      // fallback: query by bidder_user_id when companyId is not available
+    } else if (loadIds.length > 0 && userId) {
       const { data: bidsData } = await supabase
         .from('job_bids')
         .select('job_id, status, bid_price_gbp, amount')
+        .eq('bidder_user_id', userId)
         .in('job_id', loadIds);
       myBids = (bidsData ?? []) as typeof myBids;
     }
@@ -145,7 +146,7 @@ export default function AvailableLoadsPage() {
 
     setLoads(enriched);
     setLoading(false);
-  }, [companyId]);
+  }, [companyId, userId]);
 
   useEffect(() => {
     void fetchLoads();
@@ -189,7 +190,7 @@ export default function AvailableLoadsPage() {
   }, [loads, vehicleFilter, pickupPostcodeFilter, cargoTypeFilter, weightMinFilter, dateFromFilter, dateToFilter, sortBy]);
 
   const handleBidSubmit = async (loadId: string) => {
-    if (!companyId || !bidAmount || bidLoading) return;
+    if (!userId || !bidAmount || bidLoading) return;
     const amount = parseFloat(bidAmount);
     if (Number.isNaN(amount) || amount <= 0) {
       setError('Enter a valid bid amount.');
@@ -200,7 +201,8 @@ export default function AvailableLoadsPage() {
     const { error: bidError } = await supabase.from('job_bids').insert({
       job_id: loadId,
       company_id: companyId,
-      bidder_user_id: user?.id ?? null,
+      bidder_user_id: userId,
+      bidder_driver_id: user?.driverId ?? null,
       bid_price_gbp: amount,
       amount,
       currency: 'GBP',
