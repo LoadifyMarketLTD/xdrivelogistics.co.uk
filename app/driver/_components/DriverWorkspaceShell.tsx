@@ -33,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'quotes', label: 'My Quotes', icon: '💬', href: '/driver/quotes' },
   { id: 'won-work', label: 'Won Work', icon: '🏆', href: '/driver/won-work' },
   { id: 'history', label: 'Job History', icon: '📚', href: '/driver/history' },
+  { id: 'finance', label: 'Finance', icon: '💷', href: '/driver/finance' },
   { id: 'availability', label: 'Availability', icon: '📅', href: '/driver/availability' },
   { id: 'vehicles', label: 'Vehicles', icon: '🚛', href: '/driver/vehicles' },
   { id: 'documents', label: 'Documents', icon: '🗂️', href: '/driver/documents' },

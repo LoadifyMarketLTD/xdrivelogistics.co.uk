@@ -67,6 +67,12 @@ function invoiceDataToDb(inv: InvoiceData, companyId: string, jobId: string | nu
     pod_photos: inv.podPhotos ?? null,
     signature: inv.signature ?? null,
     recipient_name: inv.recipientName ?? null,
+    submitted_at: null,
+    submitted_by: null,
+    approved_at: null,
+    approved_by: null,
+    disputed_at: null,
+    paid_at: null,
   };
 }
 
@@ -880,11 +886,14 @@ export default function InvoiceDetailPage() {
                     <label style={labelStyle}>Status</label>
                     <select
                       value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Paid' | 'Pending' | 'Overdue' })}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Paid' | 'Pending' | 'Overdue' | 'Submitted' | 'Approved' | 'Disputed' })}
                       style={inputStyle}
                     >
                       <option value="Pending">Pending</option>
+                      <option value="Submitted">Submitted</option>
+                      <option value="Approved">Approved</option>
                       <option value="Paid">Paid</option>
+                      <option value="Disputed">Disputed</option>
                       <option value="Overdue">Overdue</option>
                     </select>
                   </div>

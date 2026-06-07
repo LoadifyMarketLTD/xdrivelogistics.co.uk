@@ -23,7 +23,8 @@ function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): Invo
   const dueDate = typeof row.due_date === 'string' ? row.due_date : invoiceDate;
   const paymentTerms = row.payment_terms === 'Pay now' || row.payment_terms === '30 days' ? row.payment_terms : '14 days';
   const status =
-    row.status === 'Paid' || row.status === 'Overdue' || row.status === 'Pending'
+    row.status === 'Paid' || row.status === 'Overdue' || row.status === 'Pending' ||
+    row.status === 'Submitted' || row.status === 'Approved' || row.status === 'Disputed'
       ? row.status
       : 'Pending';
   return {
