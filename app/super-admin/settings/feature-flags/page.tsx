@@ -49,9 +49,9 @@ const PLATFORM_FLAGS = [
     category: 'Finance',
   },
   {
-    key: 'subscription_plans',
-    label: 'Subscription Plans',
-    description: 'Paid subscription tiers for company access to premium features.',
+    key: 'stripe_billing_future_phase',
+    label: 'Stripe Billing (Future Phase)',
+    description: 'Stripe checkout/connect automation is explicitly out of MVP scope.',
     status: 'pending',
     category: 'Finance',
   },
