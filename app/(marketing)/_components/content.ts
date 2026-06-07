@@ -461,62 +461,92 @@ export const featureCards: ReadonlyArray<{
 export const faqs = [
   {
     q: 'What is XDrive?',
-    a: 'XDrive is a UK logistics platform being built around marketplace, dispatch, POD and operational-record workflows. It is currently positioned as MVP / early-access software rather than a fully public live exchange.',
+    a: `XDrive is a UK-focused logistics management platform being built around marketplace, dispatch, proof-of-delivery and operational-record workflows. It is designed to connect transport customers, courier companies, owner operators and drivers in a structured digital environment.
+
+The platform aims to cover the full job lifecycle — from initial transport request and quoting, through driver assignment and live operational status, to delivery confirmation, POD capture and invoice management. XDrive is currently positioned as MVP and early-access software. Selected users are being invited to test and validate workflows ahead of broader commercial release.`,
   },
   {
     q: 'Who is XDrive designed for?',
-    a: 'XDrive is being designed for transport customers, courier companies, owner operators, load posters and drivers. The goal is to give each of those user groups a clearer place to manage requests, jobs, PODs, invoices and records.',
+    a: `XDrive is being built for multiple user groups operating within the UK courier and transport sector. Those groups currently include transport customers who need to request and track deliveries, courier companies and carrier businesses managing drivers and fleets, owner operators running their own vehicle and job workflows, load posters and brokers publishing available work to the exchange, and drivers executing delivery assignments.
+
+Each user type will have a dedicated workspace tailored to their operational needs, rather than a single generic interface shared across all roles.`,
   },
   {
     q: 'Is XDrive a load exchange?',
-    a: 'Marketplace functionality is part of the intended platform direction, including available loads, quotes, awarded work and history. The homepage should be understood as describing that operating model, not claiming a mature public marketplace is already active.',
+    a: `Marketplace and exchange functionality is a core part of the platform direction. The intended model includes load posting, quote submission, job awarding, driver assignment and job history — consistent with how a transport exchange operates.
+
+However, the platform is currently in early-access and MVP development. Not all exchange features are fully active at this stage. The homepage describes the intended operating model and platform depth, not a claim that a fully public marketplace is already live and open to all users today. Rollout is happening in stages.`,
   },
   {
     q: 'Is XDrive live now?',
-    a: 'XDrive is currently in MVP / early-access development. Core workflows are being built and tested internally first, with selected users expected to be invited gradually as the staged rollout develops.',
+    a: `XDrive is currently in active MVP and early-access development. Core workflows are being built, tested and refined internally before being opened to selected external users. The platform is not yet available as a fully public open-access service.
+
+Selected users and companies may be invited to participate in early access testing based on their role and suitability. A staged rollout approach is being followed to ensure quality and stability before broader commercial release.`,
   },
   {
     q: 'How does early access work?',
-    a: 'Users can request access or a demo and may be invited into selected workflow testing depending on suitability and rollout stage. Early access is not presented as immediate open admission for everyone.',
+    a: `Early access allows selected users and companies to be invited into specific workflow testing before the platform is fully public. The process is not automatic open registration — it involves the XDrive team reviewing expressions of interest and matching users to the current MVP scope.
+
+Users can submit a request or book a demo through the homepage. The team will then assess suitability and communicate next steps. Early access participants may be asked to provide feedback, test specific workflows or complete onboarding steps relevant to their role. This approach allows the platform to develop responsibly with real-world input.`,
   },
   {
     q: 'Can owner-drivers join?',
-    a: 'Yes. Owner-drivers and owner operators are part of the intended audience and may be invited into selected workflow testing where their use case matches the current MVP scope.',
+    a: `Yes. Owner-drivers and owner operators are part of the intended user base and a dedicated workspace is being built to serve their needs. This includes quoting for available loads, managing accepted jobs, recording delivery execution, capturing PODs and tracking invoice and payment status.
+
+Owner operators who wish to participate in early access can express interest through the homepage. Suitability will be assessed against the current MVP stage and the workflows actively being tested. Access may be invited gradually rather than immediately granted to all applicants.`,
   },
   {
     q: 'Can courier companies manage multiple drivers and vehicles?',
-    a: 'That is one of the core platform goals. XDrive is being built to support driver, vehicle, assignment, POD and operational visibility from a central workspace for courier companies.',
+    a: `Yes. Supporting multi-driver and multi-vehicle operations is one of the primary goals of the platform for courier companies. The company workspace is being built to allow administrators to manage driver accounts, assign vehicles, monitor job status, review delivery outcomes, track fleet activity and maintain compliance records from a central administrative view.
+
+Companies joining through early access will be able to test and validate these operational workflows. The level of functionality available at any given point will depend on the current MVP stage, and the XDrive team will confirm which modules are active during onboarding.`,
   },
   {
     q: 'What operational modules are planned?',
-    a: 'Current homepage modules include Marketplace, Operations Diary, Driver Workspace, Fleet Management, Finance, POD & Records and Super Admin Governance. These modules describe the intended depth of the platform while remaining honest about MVP and planned status where appropriate.',
+    a: `The platform is being developed across several operational areas. These currently include a Marketplace for load posting and job quoting, an Operations Diary for job scheduling and status management, a Driver Workspace for assignment execution and POD capture, Fleet Management for vehicle and driver oversight, a Finance module for invoice and payment record tracking, a POD and Records area for delivery evidence and document retention, and a Super Admin layer for governance and platform-level administration.
+
+These modules describe the intended scope and depth of the platform. MVP status applies differently to each area, and the XDrive team will confirm which modules are active at the point of onboarding for any given user or company.`,
   },
   {
     q: 'How are POD records handled?',
-    a: 'POD workflows are intended to support proof-of-delivery uploads, document retention and job-completion evidence tied to the operational record. The focus is on traceable records rather than loose file sharing.',
+    a: `Proof-of-delivery workflows are being built to capture and store delivery confirmation evidence against completed jobs. This is expected to include upload support for documents, signatures or images, retention of those records within the job history, and linkage between POD evidence and the associated invoice or payment record.
+
+The focus is on creating a traceable and auditable delivery record rather than a loose file-sharing system. POD records are intended to serve as the foundation for invoice verification, dispute resolution and compliance evidence where required by trading parties.`,
   },
   {
     q: 'Does XDrive hold customer funds?',
-    a: 'No. XDrive does not currently act as a payment intermediary and does not currently hold or process client funds. Commercial payments are arranged directly between the trading parties while the platform focuses on records, invoice visibility, payment status and disputes.',
+    a: `No. XDrive does not currently act as a payment intermediary and does not currently hold or process client funds. Commercial payments are arranged directly between the trading parties involved in each job.
+
+The platform focuses on operational records, proof-of-delivery documentation, invoice generation and status tracking, payment history records, audit trails and dispute logging. These tools are designed to give both parties visibility and evidence around commercial transactions without the platform sitting between them financially. Any changes to this position would be communicated clearly before implementation.`,
   },
   {
     q: 'How are invoices and payment records managed?',
-    a: 'The finance area is being designed to track invoice status, related POD evidence, payment history and dispute notes against completed jobs. This is intended to improve commercial visibility without implying automated fund handling by the platform.',
+    a: `The finance module is being designed to allow companies and owner operators to raise invoices against completed jobs, attach supporting POD evidence, track the current payment status of each invoice, maintain a payment history log, and record any dispute notes or resolution activity.
+
+XDrive does not currently act as a payment intermediary and does not hold or process client funds. Commercial payments are arranged directly between trading parties. The platform provides the record-keeping, visibility and audit infrastructure around those payments rather than processing them directly.`,
   },
   {
     q: 'Is XDrive available across the UK?',
-    a: 'The platform is being positioned around UK courier and transport workflows. Wider external rollout is expected to happen in stages, so the homepage should be read as UK-focused direction rather than confirmation of a fully open nationwide network today.',
+    a: `XDrive is being positioned as a UK-focused courier and transport platform. The initial rollout is targeting UK-based companies, owner operators and drivers operating domestic routes.
+
+Wider geographic expansion and any international capability would be considered at a later stage once the core platform is stable and the UK base has been established. The current homepage and onboarding process should be read as UK-focused in scope. If you are based outside the UK and wish to express interest, you are welcome to submit a request and the team will advise on availability.`,
   },
   {
     q: 'What documents may be required for onboarding?',
-    a: 'That can depend on the role and workflow being tested, but onboarding may include company, vehicle, compliance or identity-related records where relevant. Exact requirements can be confirmed during the early-access review process.',
+    a: `Document requirements will vary depending on the user role and the workflows being tested. For courier companies, onboarding may involve company registration details and compliance-related records. For owner operators and drivers, this could include vehicle documents, driving licence information or insurance evidence where relevant.
+
+Exact requirements will be confirmed by the XDrive team as part of the early-access review process. The platform is being built to support document management and compliance record retention as part of the driver and fleet administration workflows. No documents will be requested before a formal onboarding conversation has taken place.`,
   },
   {
     q: 'Will there be a subscription or membership fee?',
-    a: 'Early access is currently intended to be free while workflows are tested and refined. Any future subscription, membership or pricing structure will be confirmed before broader commercial release.',
+    a: `Early access participation is currently intended to be available without a fee while workflows are being tested and refined. The priority at this stage is building a platform that works well for the people using it, rather than charging before that value has been demonstrated.
+
+Any future subscription, membership or transaction-based pricing structure will be communicated clearly and in advance before broader commercial release. Users participating in early access will be informed of any planned changes to the commercial model before they take effect.`,
   },
   {
     q: 'How can I request access or a demo?',
-    a: 'Use the homepage request and early-access actions to share interest in the platform. The XDrive team can then decide whether to offer a demo, discuss suitability or invite the user into selected workflow testing.',
+    a: `You can express interest or request a demo through the early-access section on the homepage. Submitting a request allows the XDrive team to review your role, use case and suitability against the current MVP scope.
+
+Following your submission, the team may contact you to discuss the platform in more detail, arrange a walkthrough of relevant workflows, or invite you into early-access testing if your use case is a match. There is no commitment required at the point of expressing interest. If you represent a company or have a specific operational requirement, you are encouraged to include that context in your request.`,
   },
 ] as const;
