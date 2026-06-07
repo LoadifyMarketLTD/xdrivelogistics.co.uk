@@ -54,6 +54,15 @@ export default function AuthCallbackPage() {
       }
       return 'other';
     };
+    const getOtpType = (queryType: string | null, hashType: string | null, flow: string | null): OtpType | null => {
+      const normalizedType = (queryType ?? hashType ?? flow ?? '').trim().toLowerCase();
+      if (normalizedType === 'invite') return 'invite';
+      if (normalizedType === 'recovery') return 'recovery';
+      if (normalizedType === 'signup') return 'signup';
+      if (normalizedType === 'email') return 'email';
+      if (normalizedType === 'email_change') return 'email_change';
+      return null;
+    };
 
     const normalizeSignal = (value: string | null) => value?.trim() ?? '';
     const isPkceVerifierMissingError = (message: string) => {
@@ -105,6 +114,7 @@ export default function AuthCallbackPage() {
         const hasTokenHash = Boolean(tokenHash);
         const hasAnyAuthSignal = hasSessionTokens || hasCode || hasTokenHash;
         const callbackRecoveryType = getCallbackRecoveryType(signals.queryType, signals.hashType, signals.flow);
+        const otpType = getOtpType(signals.queryType, signals.hashType, signals.flow) ?? 'recovery';
         setRecoveryType(callbackRecoveryType);
 
         let sessionUser: SessionUser | null = null;
@@ -159,22 +169,17 @@ export default function AuthCallbackPage() {
         }
 
         if (!sessionUser && hasTokenHash) {
-          const otpTypes: OtpType[] = ['invite', 'recovery', 'signup', 'email', 'email_change'];
-          for (const otpType of otpTypes) {
-            const { data: verifyData, error: verifyError } = await withTimeout(
-              supabase.auth.verifyOtp({
-                token_hash: tokenHash,
-                type: otpType,
-              }),
-              AUTH_CALLBACK_TIMEOUT_MS
-            );
-            if (verifyError) continue;
-            if (verifyData.user) {
-              sessionUser = verifyData.user;
-              verifiedOtpType = otpType;
-              consumedBrowserTokens = true;
-              break;
-            }
+          const { data: verifyData, error: verifyError } = await withTimeout(
+            supabase.auth.verifyOtp({
+              token_hash: tokenHash,
+              type: otpType,
+            }),
+            AUTH_CALLBACK_TIMEOUT_MS
+          );
+          if (!verifyError && verifyData.user) {
+            sessionUser = verifyData.user;
+            verifiedOtpType = otpType;
+            consumedBrowserTokens = true;
           }
         }
 

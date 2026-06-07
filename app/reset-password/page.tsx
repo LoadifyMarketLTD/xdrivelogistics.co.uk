@@ -23,6 +23,12 @@ export default function ResetPasswordPage() {
       const normalized = message.toLowerCase();
       return normalized.includes('code verifier') || normalized.includes('both auth code and code verifier');
     };
+    const getOtpType = (queryType: string | null, hashType: string | null, flow: string | null) => {
+      const normalizedType = (queryType ?? hashType ?? flow ?? '').trim().toLowerCase();
+      if (normalizedType === 'invite') return 'invite' as const;
+      if (normalizedType === 'recovery') return 'recovery' as const;
+      return 'recovery' as const;
+    };
 
     const clearBrowserTokens = () => {
       if (typeof window === 'undefined') return;
@@ -42,6 +48,7 @@ export default function ResetPasswordPage() {
         const refreshToken = normalizeSignal(signals?.refreshToken ?? null);
         const code = normalizeSignal(signals?.code ?? null);
         const tokenHash = normalizeSignal(signals?.tokenHash ?? null);
+        const otpType = getOtpType(signals?.queryType ?? null, signals?.hashType ?? null, signals?.flow ?? null);
         const hasSessionTokens = Boolean(accessToken && refreshToken);
         const hasCode = Boolean(code);
         const hasTokenHash = Boolean(tokenHash);
@@ -86,16 +93,12 @@ export default function ResetPasswordPage() {
           }
 
           if (!handoffSucceeded && hasTokenHash) {
-            for (const otpType of ['recovery', 'invite'] as const) {
-              const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-                token_hash: tokenHash,
-                type: otpType,
-              });
-              if (verifyError) continue;
-              if (verifyData.user) {
-                handoffSucceeded = true;
-                break;
-              }
+            const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+              token_hash: tokenHash,
+              type: otpType,
+            });
+            if (!verifyError && verifyData.user) {
+              handoffSucceeded = true;
             }
           }
         }
