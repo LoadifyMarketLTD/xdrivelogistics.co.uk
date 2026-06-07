@@ -8,7 +8,7 @@ export function WorkflowSection() {
       <div className="mx-auto max-w-[1200px]">
         <h2 className="text-center text-3xl font-bold text-[#0f172a] sm:text-4xl">How XDrive Works</h2>
         <p className="mx-auto mt-3 max-w-3xl text-center text-slate-500">
-          A simple operating flow for transport jobs, from first request to final delivery record.
+          An illustrative operating flow showing how XDrive is intended to move a job from request through POD and finance records.
         </p>
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
           {workflow.map(({ title, detail, icon: Icon }, index) => (

@@ -3,9 +3,9 @@ import Link from 'next/link';
 import { HomepageVisualCard } from '../HomepageVisualCard';
 
 const trustBadges = [
-  'Built by logistics professionals',
-  'Early access platform',
-  'UK registered company',
+  'Built from UK logistics experience',
+  'MVP / early-access positioning',
+  'Selected workflow testing',
 ] as const;
 
 export function HeroSection() {
@@ -14,18 +14,22 @@ export function HeroSection() {
       <div className="mx-auto grid w-full max-w-[1200px] gap-8 lg:grid-cols-2 lg:items-center">
         <div>
           <span className="inline-flex rounded-full border border-[#1d4ed8]/30 bg-[#eff6ff] px-4 py-1.5 text-xs font-semibold tracking-[0.1em] text-[#1d4ed8]">
-            UK Logistics Technology Platform
+            UK Logistics MVP / Early Access
           </span>
           <h1 className="mt-6 text-4xl font-extrabold leading-tight text-[#0f172a] sm:text-5xl">
-            Move Freight.
+            One platform for
             <br />
-            Manage Operations.
+            UK courier and
             <br />
-            Grow Your Network.
+            transport workflows.
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-slate-600">
-            XDrive is an early-access UK logistics platform designed to connect transport customers, courier companies, owner operators and
-            drivers in one operational workflow.
+            XDrive is an MVP / early-access platform being built to help transport customers, courier companies, owner operators and drivers
+            manage requests, quotes, dispatch, PODs, invoices and operational records in one place.
+          </p>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
+            The platform is not being presented as a fully public live exchange yet. Current usage is centred on internal and test-account
+            workflow validation before selected external users are invited.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3">
@@ -54,9 +58,9 @@ export function HeroSection() {
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-slate-50 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]">
           <HomepageVisualCard
             imageSrc="/xdrive-login-hero.webp"
-            imageAlt="XDrive Platform Command Centre — Marketplace, Operations and Driver Workspace"
-            label="Platform overview"
-            title="XDrive Platform Command Centre"
+            imageAlt="XDrive platform preview showing early-access workspace concepts for marketplace, operations and driver workflows"
+            label="MVP platform preview"
+            title="XDrive workflow preview"
             icon={Route}
             tone="blue"
             className="h-[260px] w-full md:h-[340px] lg:h-[420px]"
