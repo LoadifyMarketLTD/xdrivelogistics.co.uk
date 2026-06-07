@@ -96,7 +96,7 @@ export default function LoginPage() {
         <aside className="login-form-panel">
         <div className="login-form-inner">
         <div className="login-logo-row">
-          <Image src="/logo-svg.jpeg" alt="XDrive Logistics" width={168} height={40} priority />
+          <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={168} height={40} priority />
         </div>
         <div className="login-form-header">
           <h2>{showReset ? 'Reset your password' : 'Welcome Back'}</h2>
