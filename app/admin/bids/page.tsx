@@ -281,13 +281,21 @@ function JobBidGroup({
 }: {
   group: JobGroup;
   actionLoading: string | null;
-  onAccept: (bidId: string) => void;
-  onReject: (bidId: string) => void;
+  onAccept: (bidId: string) => void | Promise<void>;
+  onReject: (bidId: string) => void | Promise<void>;
 }) {
+  const BIDS_PER_PAGE = 8;
+  const [groupPage, setGroupPage] = useState(0);
   const isAwarded = !!group.awardedCarrierCompanyId;
   const awardedBid = isAwarded
     ? group.bids.find((b) => b.company_id === group.awardedCarrierCompanyId && b.status === 'accepted')
     : null;
+  useEffect(() => {
+    setGroupPage(0);
+  }, [group.jobId, group.bids.length]);
+  const totalGroupPages = Math.max(1, Math.ceil(group.bids.length / BIDS_PER_PAGE));
+  const safeGroupPage = Math.min(groupPage, totalGroupPages - 1);
+  const visibleBids = group.bids.slice(safeGroupPage * BIDS_PER_PAGE, (safeGroupPage + 1) * BIDS_PER_PAGE);
 
   return (
     <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden', border: isAwarded ? '1px solid #86efac' : '1px solid #e5e7eb' }}>
@@ -329,7 +337,7 @@ function JobBidGroup({
           </tr>
         </thead>
         <tbody>
-          {group.bids.map((bid, i) => {
+          {visibleBids.map((bid, i) => {
             const sc = STATUS_COLORS[bid.status] ?? STATUS_COLORS.submitted;
             const isActioning = actionLoading === bid.id;
             const canAccept = !isAwarded && bid.status === 'submitted';
@@ -337,7 +345,7 @@ function JobBidGroup({
             const bidAmount = resolveBidAmountGbp(bid);
 
             return (
-              <tr key={bid.id} style={{ borderBottom: i < group.bids.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+              <tr key={bid.id} style={{ borderBottom: i < visibleBids.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
                 <td style={{ padding: '0.85rem 1rem' }}>
                   <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.88rem' }}>
                     {bid.companies?.name || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Unknown carrier</span>}
@@ -393,6 +401,29 @@ function JobBidGroup({
           })}
         </tbody>
       </table>
+      {group.bids.length > BIDS_PER_PAGE && (
+        <div style={{ borderTop: '1px solid #f3f4f6', padding: '0.65rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#6b7280' }}>
+          <span>
+            Showing {safeGroupPage * BIDS_PER_PAGE + 1}–{Math.min((safeGroupPage + 1) * BIDS_PER_PAGE, group.bids.length)} of {group.bids.length}
+          </span>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button
+              onClick={() => setGroupPage((prev) => Math.max(prev - 1, 0))}
+              disabled={safeGroupPage === 0}
+              style={{ padding: '0.28rem 0.65rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeGroupPage === 0 ? '#f9fafb' : '#fff', cursor: safeGroupPage === 0 ? 'not-allowed' : 'pointer' }}
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setGroupPage((prev) => Math.min(prev + 1, totalGroupPages - 1))}
+              disabled={safeGroupPage >= totalGroupPages - 1}
+              style={{ padding: '0.28rem 0.65rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeGroupPage >= totalGroupPages - 1 ? '#f9fafb' : '#fff', cursor: safeGroupPage >= totalGroupPages - 1 ? 'not-allowed' : 'pointer' }}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

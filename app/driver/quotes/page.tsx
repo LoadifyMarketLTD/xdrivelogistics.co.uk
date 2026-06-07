@@ -118,6 +118,17 @@ export default function MyQuotesPage() {
     void fetchBids();
   }, [fetchBids]);
 
+  const handleWithdrawBid = async (bidId: string) => {
+    if (!isSupabaseConfigured || !companyId) return;
+    const { error: withdrawError } = await supabase
+      .from('job_bids')
+      .update({ status: 'withdrawn' })
+      .eq('id', bidId)
+      .eq('company_id', companyId);
+    if (!withdrawError) void fetchBids();
+    else setError(`Failed to withdraw bid: ${withdrawError.message}`);
+  };
+
   const visibleBids = bids.filter((b) => activeTab === 'all' || b.status === activeTab);
 
   const counts = {
@@ -229,6 +240,16 @@ export default function MyQuotesPage() {
                   )}
 
                   <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Submitted: {fmtDate(bid.created_at)}</div>
+                  {bid.status === 'submitted' && (
+                    <div style={{ marginTop: '0.6rem' }}>
+                      <button
+                        onClick={() => void handleWithdrawBid(bid.id)}
+                        style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff', color: '#374151', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
+                      >
+                        Withdraw Bid
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}

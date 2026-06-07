@@ -86,6 +86,7 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     items: [
       { id: 'diary', label: 'Diary', icon: '🗓️', href: '/admin/diary' },
       { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
+      { id: 'disputes', label: 'Disputes', icon: '⚖️', href: '/admin/disputes' },
     ],
   },
   {

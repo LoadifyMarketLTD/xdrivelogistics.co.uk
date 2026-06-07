@@ -11,7 +11,9 @@ import {
   resolveInvoiceClientName,
 } from '../../../lib/supabaseSchemaCompat';
 
-function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): InvoiceData {
+type InvoiceListItem = InvoiceData & { jobId: string | null };
+
+function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): InvoiceListItem {
   const invoiceDate =
     typeof row.invoice_date === 'string'
       ? row.invoice_date
@@ -49,6 +51,7 @@ function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): Invo
     podPhotos: Array.isArray(row.pod_photos) ? row.pod_photos as string[] : undefined,
     signature: typeof row.signature === 'string' ? row.signature : undefined,
     recipientName: typeof row.recipient_name === 'string' ? row.recipient_name : undefined,
+    jobId: typeof row.job_id === 'string' ? row.job_id : null,
   };
 }
 
@@ -56,11 +59,14 @@ export default function InvoicesPage() {
   const router = useRouter();
   const { user } = useAuth();
   const companyId = user?.companyId ?? null;
-  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Paid' | 'Pending' | 'Overdue'>('All');
+  const INVOICES_PER_PAGE = 12;
+  const [invoicePage, setInvoicePage] = useState(0);
   const loadRequestRef = useRef(0);
 
   const calculateStatus = (dueDate: string, currentStatus: string): 'Paid' | 'Pending' | 'Overdue' => {
@@ -122,6 +128,50 @@ export default function InvoicesPage() {
 
     return matchesSearch && matchesStatus;
   });
+
+  useEffect(() => {
+    setInvoicePage(0);
+  }, [searchTerm, statusFilter, invoices.length]);
+
+  const totalInvoicePages = Math.max(1, Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE));
+  const safeInvoicePage = Math.min(invoicePage, totalInvoicePages - 1);
+  const paginatedInvoices = filteredInvoices.slice(
+    safeInvoicePage * INVOICES_PER_PAGE,
+    (safeInvoicePage + 1) * INVOICES_PER_PAGE,
+  );
+
+  const handleMarkAsPaid = async (invoice: InvoiceListItem) => {
+    if (!companyId || markingPaidId || invoice.status === 'Paid') return;
+    setMarkingPaidId(invoice.id);
+    setLoadError('');
+
+    const nowIso = new Date().toISOString();
+    const { error: invoiceError } = await supabase
+      .from('invoices')
+      .update({ status: 'Paid', updated_at: nowIso })
+      .eq('id', invoice.id)
+      .eq('company_id', companyId);
+
+    if (invoiceError) {
+      setLoadError(`Failed to mark invoice paid: ${invoiceError.message}`);
+      setMarkingPaidId(null);
+      return;
+    }
+
+    if (invoice.jobId) {
+      const { error: jobError } = await supabase
+        .from('jobs')
+        .update({ status: 'paid', updated_at: nowIso })
+        .eq('id', invoice.jobId)
+        .eq('company_id', companyId);
+      if (jobError) {
+        setLoadError(`Invoice marked paid, but job status update failed: ${jobError.message}`);
+      }
+    }
+
+    await loadInvoices();
+    setMarkingPaidId(null);
+  };
 
   const getStatusStyle = (status: string) => {
     const baseStyle: React.CSSProperties = {
@@ -287,7 +337,7 @@ export default function InvoicesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredInvoices.map((invoice) => (
+                    {paginatedInvoices.map((invoice) => (
                       <tr
                         key={invoice.id}
                         style={{
@@ -323,24 +373,48 @@ export default function InvoicesPage() {
                           </span>
                         </td>
                         <td style={{ padding: '0.8rem', textAlign: 'center' }}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/admin/invoices/${invoice.id}`);
-                            }}
-                            style={{
-                              padding: '0.4rem 0.8rem',
-                              backgroundColor: '#eff6ff',
-                              color: '#2563eb',
-                              border: '1px solid #bfdbfe',
-                              borderRadius: '6px',
-                              fontSize: '0.8rem',
-                              fontWeight: '500',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            View
-                          </button>
+                          <div style={{ display: 'inline-flex', gap: '0.45rem' }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/admin/invoices/${invoice.id}`);
+                              }}
+                              style={{
+                                padding: '0.4rem 0.8rem',
+                                backgroundColor: '#eff6ff',
+                                color: '#2563eb',
+                                border: '1px solid #bfdbfe',
+                                borderRadius: '6px',
+                                fontSize: '0.8rem',
+                                fontWeight: '500',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              View
+                            </button>
+                            {invoice.status !== 'Paid' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleMarkAsPaid(invoice);
+                                }}
+                                disabled={markingPaidId === invoice.id}
+                                style={{
+                                  padding: '0.4rem 0.8rem',
+                                  backgroundColor: '#dcfce7',
+                                  color: '#166534',
+                                  border: '1px solid #bbf7d0',
+                                  borderRadius: '6px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: '600',
+                                  cursor: markingPaidId === invoice.id ? 'not-allowed' : 'pointer',
+                                  opacity: markingPaidId === invoice.id ? 0.75 : 1,
+                                }}
+                              >
+                                {markingPaidId === invoice.id ? 'Saving…' : 'Mark as Paid'}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -349,6 +423,29 @@ export default function InvoicesPage() {
               </div>
             )}
           </div>
+          {!loading && filteredInvoices.length > INVOICES_PER_PAGE && (
+            <div style={{ marginTop: '0.65rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b' }}>
+              <span>
+                Showing {safeInvoicePage * INVOICES_PER_PAGE + 1}–{Math.min((safeInvoicePage + 1) * INVOICES_PER_PAGE, filteredInvoices.length)} of {filteredInvoices.length} invoices
+              </span>
+              <div style={{ display: 'flex', gap: '0.45rem' }}>
+                <button
+                  onClick={() => setInvoicePage((prev) => Math.max(prev - 1, 0))}
+                  disabled={safeInvoicePage === 0}
+                  style={{ padding: '0.32rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeInvoicePage === 0 ? '#f9fafb' : '#fff', cursor: safeInvoicePage === 0 ? 'not-allowed' : 'pointer' }}
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setInvoicePage((prev) => Math.min(prev + 1, totalInvoicePages - 1))}
+                  disabled={safeInvoicePage >= totalInvoicePages - 1}
+                  style={{ padding: '0.32rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeInvoicePage >= totalInvoicePages - 1 ? '#f9fafb' : '#fff', cursor: safeInvoicePage >= totalInvoicePages - 1 ? 'not-allowed' : 'pointer' }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Summary Stats */}
           {filteredInvoices.length > 0 && (

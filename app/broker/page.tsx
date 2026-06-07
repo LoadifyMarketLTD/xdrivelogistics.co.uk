@@ -27,9 +27,9 @@ export default function BrokerDashboardPage() {
         {/* Module cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
           {[
-            { icon: '📋', label: 'Load Board',       desc: 'Browse and manage published loads on the exchange.',    href: '/admin/marketplace' },
-            { icon: '💼', label: 'Bid Book',          desc: 'Review all incoming bids and carrier proposals.',        href: '/admin/bids' },
-            { icon: '🏆', label: 'Award Decisions',   desc: 'Accept bids and confirm carrier assignments.',           href: '/admin/bids' },
+            { icon: '📋', label: 'Load Board',       desc: 'Browse and manage published loads on the exchange.',    href: '/broker/loads' },
+            { icon: '💼', label: 'My Bids',           desc: 'Review all bids your company has submitted.',           href: '/broker/bids' },
+            { icon: '🏆', label: 'Awarded Contracts', desc: 'Track jobs your company has been awarded.',             href: '/broker/awards' },
             { icon: '💬', label: 'Quotes',            desc: 'Manage quote requests from customers.',                  href: '/admin/quotes' },
             { icon: '📦', label: 'Jobs',              desc: 'Track job progress and delivery milestones.',            href: '/admin/jobs' },
             { icon: '💰', label: 'Invoices',          desc: 'Finance visibility: invoice and payment records.',       href: '/admin/invoices' },
@@ -49,10 +49,6 @@ export default function BrokerDashboardPage() {
             </div>
           ))}
         </div>
-
-        <p style={{ color: '#475569', fontSize: '0.75rem', marginTop: '2rem' }}>
-          Note: Dedicated broker module routes will be progressively migrated from /admin/* to /broker/* in Phase 3 (Workspace Separation).
-        </p>
       </div>
     </ProtectedRoute>
   );
