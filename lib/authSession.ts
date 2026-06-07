@@ -531,15 +531,8 @@ export const getPostLoginRoute = (
     'role' | 'mustChangePassword' | 'ownerDriverWorkspace' | 'canAccessDriverMode' | 'ownerDriverExecutionMode'
   >
 ) => {
-  if (
-    currentUser.ownerDriverWorkspace &&
-    currentUser.canAccessDriverMode &&
-    currentUser.ownerDriverExecutionMode
-  ) {
-    return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
-  }
   if (currentUser.ownerDriverWorkspace && currentUser.canAccessDriverMode) {
-    return '/admin/marketplace';
+    return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
   }
   if (currentUser.role === 'driver') return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
   if (currentUser.role === 'owner') return '/super-admin';
