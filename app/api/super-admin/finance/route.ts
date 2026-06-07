@@ -102,32 +102,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ── Subscriptions ─────────────────────────────────────────────────────────────
-  if (section === 'subscriptions') {
-    const { data, error } = await supabaseAdmin
-      .from('subscriptions')
-      .select('id, company_id, provider, provider_ref, status, current_period_end, created_at')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    if (error) return respond(500, { error: error.message });
-
-    const rows = data ?? [];
-    const nameById = await companyNameMap(
-      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
-    );
-
-    return respond(200, {
-      section,
-      rows: rows.map((r) => ({ ...r, company_name: nameById.get(r.company_id as string) ?? 'Unknown' })),
-      summary: {
-        total: rows.length,
-        active: rows.filter((r) => r.status === 'active').length,
-        inactive: rows.filter((r) => r.status === 'inactive').length,
-        cancelled: rows.filter((r) => r.status === 'cancelled').length,
-      },
-    });
-  }
-
   // ── Revenue ──────────────────────────────────────────────────────────────────
   if (section === 'revenue') {
     const [paidResult, allResult] = await Promise.all([
@@ -211,5 +185,5 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return respond(400, { error: 'Invalid section. Use invoices, payments, subscriptions, revenue, or fees.' });
+  return respond(400, { error: 'Invalid section. Use invoices, payments, revenue, or fees.' });
 }

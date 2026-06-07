@@ -74,7 +74,6 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'finance-invoices', label: 'Platform Invoices', icon: '🧾', href: '/super-admin/finance/invoices' },
       { id: 'finance-fees', label: 'Platform Fees', icon: '💷', href: '/super-admin/finance/fees' },
       { id: 'finance-revenue', label: 'Revenue Reports', icon: '📈', href: '/super-admin/finance/revenue' },
-      { id: 'finance-subscriptions', label: 'Subscription Plans', icon: '📦', href: '/super-admin/finance/subscriptions' },
       { id: 'finance-payments', label: 'Payment History', icon: '💳', href: '/super-admin/finance/payments' },
     ],
   },
