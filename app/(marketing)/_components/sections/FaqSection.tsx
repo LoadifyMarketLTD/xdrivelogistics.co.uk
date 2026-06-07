@@ -15,7 +15,11 @@ export function FaqSection() {
                 {faq.q}
                 <span className="ml-3 flex-shrink-0 text-slate-400 transition-transform group-open:rotate-45">+</span>
               </summary>
-              <p className="mt-3 text-sm leading-6 text-slate-500">{faq.a}</p>
+              <div className="mt-3 space-y-2 text-sm leading-6 text-slate-500">
+                {faq.a.split('\n\n').map((para, i) => (
+                  <p key={i}>{para.trim()}</p>
+                ))}
+              </div>
             </details>
           ))}
         </div>
