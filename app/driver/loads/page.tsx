@@ -85,19 +85,24 @@ export default function AvailableLoadsPage() {
   const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'price_desc' | 'price_asc'>('date_desc');
 
   const fetchLoads = useCallback(async () => {
-    if (!isSupabaseConfigured || !companyId) {
+    if (!isSupabaseConfigured) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
 
-    const { data: rawLoads, error: loadsError } = await supabase
+    let query = supabase
       .from('jobs')
       .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, weight_kg, pallets, budget_amount, is_fixed_price, currency, load_details, exchange_posted_at, awarded_carrier_company_id, companies(name)')
       .not('exchange_posted_at', 'is', null)
       .is('awarded_carrier_company_id', null)
-      .in('status', ['posted'])
+      .in('status', ['posted']);
+
+    // Exclude own company's loads when companyId is known
+    if (companyId) query = query.neq('company_id', companyId);
+
+    const { data: rawLoads, error: loadsError } = await query
       .order('exchange_posted_at', { ascending: false })
       .limit(50);
 
@@ -110,11 +115,18 @@ export default function AvailableLoadsPage() {
     const loadIds = ((rawLoads ?? []) as unknown as ExchangeLoad[]).map((l) => l.id);
     let myBids: Array<{ job_id: string; status: string; bid_price_gbp: number | null; amount: number | null }> = [];
 
-    if (loadIds.length > 0) {
+    if (loadIds.length > 0 && companyId) {
       const { data: bidsData } = await supabase
         .from('job_bids')
         .select('job_id, status, bid_price_gbp, amount')
         .eq('company_id', companyId)
+        .in('job_id', loadIds);
+      myBids = (bidsData ?? []) as typeof myBids;
+    } else if (loadIds.length > 0) {
+      // fallback: query by bidder_user_id when companyId is not available
+      const { data: bidsData } = await supabase
+        .from('job_bids')
+        .select('job_id, status, bid_price_gbp, amount')
         .in('job_id', loadIds);
       myBids = (bidsData ?? []) as typeof myBids;
     }
@@ -188,6 +200,7 @@ export default function AvailableLoadsPage() {
     const { error: bidError } = await supabase.from('job_bids').insert({
       job_id: loadId,
       company_id: companyId,
+      bidder_user_id: user?.id ?? null,
       bid_price_gbp: amount,
       amount,
       currency: 'GBP',
