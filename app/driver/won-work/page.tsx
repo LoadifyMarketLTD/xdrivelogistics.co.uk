@@ -26,6 +26,13 @@ type WonJob = {
   assigned_driver_id: string | null;
 };
 
+type WonBidRow = {
+  jobs:
+    | (Omit<WonJob, 'companies'> & { companies: { name: string } | Array<{ name: string }> | null })
+    | Array<Omit<WonJob, 'companies'> & { companies: { name: string } | Array<{ name: string }> | null }>
+    | null;
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
@@ -136,7 +143,7 @@ export default function WonWorkPage() {
       if (fetchError) {
         setError(`Failed to load won work: ${fetchError.message}`);
       } else {
-        const normalized = ((data ?? []) as Array<{ jobs: WonJob | WonJob[] | null }>)
+        const normalized = ((data ?? []) as WonBidRow[])
           .map((row) => (Array.isArray(row.jobs) ? row.jobs[0] ?? null : row.jobs))
           .filter((job): job is WonJob => Boolean(job))
           .map((job) => ({
