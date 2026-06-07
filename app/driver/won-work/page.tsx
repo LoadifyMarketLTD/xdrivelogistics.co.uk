@@ -74,39 +74,82 @@ export default function WonWorkPage() {
   const { user } = useAuth();
   const router = useRouter();
   const companyId = user?.companyId ?? null;
+  const userId = user?.id ?? null;
 
   const [jobs, setJobs] = useState<WonJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const fetchWonWork = useCallback(async () => {
-    if (!isSupabaseConfigured || !companyId) {
+    if (!isSupabaseConfigured || (!companyId && !userId)) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
 
-    const { data, error: fetchError } = await supabase
-      .from('jobs')
-      .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, cargo_type, status, currency, budget_amount, company_id, awarded_carrier_company_id, created_at, assigned_driver_id, companies(name)')
-      .eq('awarded_carrier_company_id', companyId)
-      .order('created_at', { ascending: false })
-      .limit(100);
+    if (companyId) {
+      const { data, error: fetchError } = await supabase
+        .from('jobs')
+        .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, cargo_type, status, currency, budget_amount, company_id, awarded_carrier_company_id, created_at, assigned_driver_id, companies(name)')
+        .eq('awarded_carrier_company_id', companyId)
+        .order('created_at', { ascending: false })
+        .limit(100);
 
-    if (fetchError) {
-      setError(`Failed to load won work: ${fetchError.message}`);
+      if (fetchError) {
+        setError(`Failed to load won work: ${fetchError.message}`);
+      } else {
+        const normalized = ((data ?? []) as unknown as WonJob[]).map((job) => ({
+          ...job,
+          companies: Array.isArray(job.companies)
+            ? ((job.companies as Array<{ name: string }>)[0] ?? null)
+            : (job.companies as { name: string } | null),
+        }));
+        setJobs(normalized);
+      }
     } else {
-      const normalized = ((data ?? []) as unknown as WonJob[]).map((job) => ({
-        ...job,
-        companies: Array.isArray(job.companies)
-          ? ((job.companies as Array<{ name: string }>)[0] ?? null)
-          : (job.companies as { name: string } | null),
-      }));
-      setJobs(normalized);
+      const { data, error: fetchError } = await supabase
+        .from('job_bids')
+        .select(`
+          jobs!inner(
+            id,
+            pickup_location,
+            delivery_location,
+            pickup_datetime,
+            vehicle_type,
+            cargo_type,
+            status,
+            currency,
+            budget_amount,
+            company_id,
+            awarded_carrier_company_id,
+            created_at,
+            assigned_driver_id,
+            companies(name)
+          )
+        `)
+        .eq('bidder_user_id', userId as string)
+        .eq('status', 'accepted')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (fetchError) {
+        setError(`Failed to load won work: ${fetchError.message}`);
+      } else {
+        const normalized = ((data ?? []) as Array<{ jobs: WonJob | WonJob[] | null }>)
+          .map((row) => (Array.isArray(row.jobs) ? row.jobs[0] ?? null : row.jobs))
+          .filter((job): job is WonJob => Boolean(job))
+          .map((job) => ({
+            ...job,
+            companies: Array.isArray(job.companies)
+              ? ((job.companies as Array<{ name: string }>)[0] ?? null)
+              : (job.companies as { name: string } | null),
+          }));
+        setJobs(normalized);
+      }
     }
     setLoading(false);
-  }, [companyId]);
+  }, [companyId, userId]);
 
   useEffect(() => {
     void fetchWonWork();

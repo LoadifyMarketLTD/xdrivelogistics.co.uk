@@ -286,6 +286,17 @@ export const resolveAuthenticatedUser = async (
   }
 
   let companyId = profile?.company_id ?? membership?.company_id ?? driver?.company_id ?? creatorCompany?.id ?? null;
+  const isStandaloneDriverAccount =
+    !companyId &&
+    !membership?.company_id &&
+    !driver?.company_id &&
+    !creatorCompany?.id &&
+    (
+      profile?.is_driver === true ||
+      mapAppRole(profile?.role ?? null) === 'driver' ||
+      mapAppRole(fallbackRole) === 'driver' ||
+      Boolean(driver)
+    );
 
   const isMissingCompanyProvisionRpc = (error: { message?: string | null; details?: string | null; hint?: string | null } | null | undefined) => {
     if (!error) return false;
@@ -299,6 +310,7 @@ export const resolveAuthenticatedUser = async (
 
   if (
     !companyId &&
+    !isStandaloneDriverAccount &&
     ownerDriverWorkspaceRequested &&
     (mapAppRole(profile?.role) === 'driver' || mapAppRole(fallbackRole) === 'driver')
   ) {
@@ -318,6 +330,7 @@ export const resolveAuthenticatedUser = async (
 
   if (
     !companyId &&
+    !isStandaloneDriverAccount &&
     shouldAutoProvisionCompany({
       fallbackRole,
       profileRole: profile?.role,
