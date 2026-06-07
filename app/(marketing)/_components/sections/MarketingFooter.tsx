@@ -51,7 +51,7 @@ export function MarketingFooter() {
         {/* Brand column */}
         <div>
           <Link href="/" className="inline-flex items-center">
-            <Image src="/xdrive-logo.svg" alt="XDrive Logistics" width={170} height={38} className="h-9 w-auto" />
+            <Image src="/logo-svg.jpeg" alt="XDrive Logistics" width={170} height={38} className="h-9 w-auto" />
           </Link>
           <p className="mt-4 max-w-[220px] text-sm leading-relaxed text-slate-400">
             Early-access logistics platform connecting transport customers, courier companies, owner operators and drivers.
