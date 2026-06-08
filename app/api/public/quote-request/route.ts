@@ -34,7 +34,23 @@ const resolveDefaultCompanyId = async (): Promise<string | null> => {
     return null;
   }
 
-  return data?.[0]?.id ?? null;
+  if (data?.[0]?.id) return data[0].id;
+
+  const { data: created, error: createError } = await supabaseAdmin
+    .from('companies')
+    .insert({
+      name: 'Public Quote Intake',
+      email: 'intake@xdrivelogistics.co.uk',
+    })
+    .select('id')
+    .single();
+
+  if (createError) {
+    console.error('[quote-request] failed to bootstrap public intake company', { code: createError.code });
+    return null;
+  }
+
+  return created.id;
 };
 
 const CARGO_TO_DB: Record<
