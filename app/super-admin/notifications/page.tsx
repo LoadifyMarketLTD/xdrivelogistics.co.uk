@@ -30,7 +30,7 @@ export default function Page() {
           key: 'title',
           label: 'Title',
           render: (row) => (
-            <span style={{ fontSize: '0.78rem', fontWeight: row.read ? 400 : 700 }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: row.processed ? 400 : 700 }}>
               {row.title ?? '(no title)'}
             </span>
           ),
