@@ -40,8 +40,6 @@ type ReviewRow = {
   comment: string | null;
   created_at: string;
 };
-type NotificationTicketRow = never; // kept for backwards compatibility if needed — table data now sourced from support_tickets
-
 type SupportTicketRow = {
   id: string;
   company_id: string | null;

@@ -35,6 +35,8 @@ Add the following to your `.env.test` or supply via CI secrets:
 - `E2E_BASE_URL` — your staging or production deployment root URL (e.g. https://staging.xdrivelogistics.co.uk)
 - `E2E_ADMIN_EMAIL` — admin user email
 - `E2E_ADMIN_PASSWORD` — admin password
+- `E2E_OWNER_EMAIL` — super-admin owner email (used for `/super-admin/*` runtime validations)
+- `E2E_OWNER_PASSWORD` — super-admin owner password
 - `E2E_DRIVER_EMAIL` — driver user email (test)
 - `E2E_DRIVER_PASSWORD` — driver password (test)
 
@@ -55,6 +57,12 @@ Run the full test suite (headless):
 
 ```
 npm run test:e2e
+
+Run only Super Admin FR-003 runtime validation suite:
+
+```
+npx playwright test e2e/super-admin.spec.ts --project=chromium
+```
 ```
 
 Run in headed (show browser):
@@ -99,4 +107,3 @@ npm run test:e2e
   - Screenshots, reports, and traces
 - `E2E_FORENSIC_AUDIT_REPORT.md`
   - Markdown audit template populated after test run
-
