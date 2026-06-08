@@ -574,7 +574,7 @@ export default function DriverInvoiceDetailPage({
               {payments.map((p) => (
                 <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.83rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <span style={{ fontWeight: 700, color: '#065f46' }}>{fmtCurrency(Number(p.amount), p.currency)}</span>
-                  <span style={{ color: '#64748b' }}>{p.settlement_method}</span>
+                  <span style={{ color: '#64748b' }}>Method: {p.settlement_method}</span>
                   {p.external_reference && <span style={{ color: '#94a3b8' }}>Ref: {p.external_reference}</span>}
                   <span style={{ color: '#94a3b8' }}>{fmtDate(p.paid_at)}</span>
                 </div>

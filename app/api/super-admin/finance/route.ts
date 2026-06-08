@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
       summary: {
         totalRevenue: Math.round(totalRevenue * 100) / 100,
         totalInvoiced: Math.round(totalInvoiced * 100) / 100,
-        collectionRate: totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0,
+        paymentStatusRate: totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0,
         paidInvoices: paidRows.length,
         totalInvoices: allRows.length,
         unpaidAmount: Math.round((totalInvoiced - totalRevenue) * 100) / 100,
@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ── Platform Fees ────────────────────────────────────────────────────────────
+  // ── Invoice Financial Breakdown ──────────────────────────────────────────────
   if (section === 'fees') {
     const { data, error } = await supabaseAdmin
       .from('invoices')
