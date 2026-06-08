@@ -75,7 +75,90 @@ export interface Driver {
   temp_password_generated_at: string | null;
   last_app_login: string | null;
   device_token: string | null;
+  dob: string | null;
+  nationality: string | null;
+  residential_address: string | null;
+  proof_of_address_path: string | null;
+  right_to_work_evidence_path: string | null;
+  visa_type: string | null;
+  immigration_status: string | null;
+  share_code: string | null;
+  settled_status: boolean | null;
+  pre_settled_status: boolean | null;
+  identity_verification_status: 'unverified' | 'under_review' | 'verified' | 'rejected' | null;
   created_at: string;
+}
+
+export interface OnboardingApplication {
+  id: string;
+  user_id: string;
+  email: string;
+  account_type: 'broker_shipper' | 'fleet_courier' | 'owner_driver';
+  status: 'draft' | 'in_progress' | 'submitted' | 'under_review' | 'compliance_review' | 'admin_approval' | 'approved' | 'rejected' | 'request_changes';
+  current_step: string;
+  completion_percentage: number;
+  token_hash: string | null;
+  token_expires_at: string | null;
+  token_activated_at: string | null;
+  token_last_sent_at: string | null;
+  last_activity_at: string;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  review_notes: string | null;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanyDocument {
+  id: string;
+  company_id: string;
+  onboarding_application_id: string | null;
+  doc_type:
+    | 'operator_licence'
+    | 'public_liability'
+    | 'goods_in_transit'
+    | 'vehicle_insurance'
+    | 'vat_registration'
+    | 'company_registration';
+  file_path: string | null;
+  status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'expired';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  expiry_date: string | null;
+  review_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DriverIdentityDocument {
+  id: string;
+  onboarding_application_id: string;
+  doc_type: 'driving_licence' | 'cpc' | 'proof_of_address' | 'right_to_work' | 'visa_document' | 'insurance';
+  file_path: string | null;
+  upload_status: 'missing' | 'uploaded';
+  verification_status: 'unverified' | 'under_review' | 'verified' | 'rejected';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_notes: string | null;
+  expiry_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OwnerDriverVehicle {
+  id: string;
+  onboarding_application_id: string;
+  registration: string;
+  make: string | null;
+  model: string | null;
+  payload: string | null;
+  dimensions: string | null;
+  tail_lift: boolean | null;
+  insurance_details: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Vehicle {
