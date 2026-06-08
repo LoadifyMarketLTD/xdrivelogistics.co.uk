@@ -73,7 +73,8 @@ Never commit passwords, API keys, tokens, or real login pairs to source control.
 
 - Set `XDRIVE_DEFAULT_COMPANY_ID` in Netlify and local `.env.local` to pin quote intake to a specific company.
 - `/api/public/quote-request` inserts public requests into `public.quotes` using that company ID, or falls back to the oldest company if unset.
-- The public quote form returns HTTP `503` only when no company can be resolved (for example, empty companies table).
+- If no company exists yet, the API bootstraps a `Public Quote Intake` company record automatically and stores the request there.
+- The public quote form returns HTTP `503` only when Supabase admin access is unavailable.
 
 ## Notifications Deployment
 
