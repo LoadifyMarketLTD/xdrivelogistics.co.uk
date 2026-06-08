@@ -60,7 +60,7 @@ export function MarketingFooter() {
             />
           </Link>
           <p className="mt-4 max-w-[240px] text-sm leading-relaxed text-slate-400">
-            MVP / early-access logistics platform for selected UK workflow testing across marketplace, operations, POD and finance records.
+            MVP / early-access logistics platform for approved UK users across marketplace, operations, POD and finance records.
           </p>
           <div className="mt-5 flex gap-3 text-slate-400">
             <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="transition hover:text-white">

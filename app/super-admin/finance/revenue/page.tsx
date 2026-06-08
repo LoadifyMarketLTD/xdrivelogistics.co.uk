@@ -17,7 +17,7 @@ const THEME = {
 type RevenueSummary = {
   totalRevenue: number;
   totalInvoiced: number;
-  collectionRate: number;
+  paymentStatusRate: number;
   paidInvoices: number;
   totalInvoices: number;
   unpaidAmount: number;
@@ -66,10 +66,10 @@ export default function Page() {
           <span style={{ fontSize: '1.5rem' }}>📈</span>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Revenue Reports</h1>
+              <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Financial Reporting</h1>
               <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Finance</span>
             </div>
-            <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>Marketplace revenue reporting and collection rate trend analysis.</p>
+            <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>Invoice tracking, payment-status reporting and operational finance analysis.</p>
           </div>
         </div>
 
@@ -85,10 +85,10 @@ export default function Page() {
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.65rem', marginBottom: '1.25rem' }}>
               {[
-                { label: 'Total Revenue', value: `£${(summary?.totalRevenue ?? 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, highlight: true },
+                { label: 'Recorded Paid Amount', value: `£${(summary?.totalRevenue ?? 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, highlight: true },
                 { label: 'Total Invoiced', value: `£${(summary?.totalInvoiced ?? 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
                 { label: 'Unpaid', value: `£${(summary?.unpaidAmount ?? 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
-                { label: 'Collection Rate', value: `${summary?.collectionRate ?? 0}%`, highlight: (summary?.collectionRate ?? 0) >= 80 },
+                { label: 'Payment Status Rate', value: `${summary?.paymentStatusRate ?? 0}%`, highlight: (summary?.paymentStatusRate ?? 0) >= 80 },
                 { label: 'Paid Invoices', value: `${summary?.paidInvoices ?? 0} / ${summary?.totalInvoices ?? 0}` },
               ].map((item) => (
                 <div key={item.label} style={{ backgroundColor: '#0b1220', border: `1px solid ${item.highlight ? THEME.green : THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem' }}>
@@ -100,7 +100,7 @@ export default function Page() {
 
             {monthly.length > 0 && (
               <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
-                <h3 style={{ color: THEME.text, fontSize: '0.9rem', fontWeight: 700, margin: '0 0 1rem' }}>Monthly Revenue (last 12 months)</h3>
+                <h3 style={{ color: THEME.text, fontSize: '0.9rem', fontWeight: 700, margin: '0 0 1rem' }}>Monthly Paid Invoice Records (last 12 months)</h3>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', height: '120px', padding: '0 0.25rem' }}>
                   {monthly.slice().reverse().map((m) => {
                     const pct = maxAmount > 0 ? (m.amount / maxAmount) * 100 : 0;

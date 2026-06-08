@@ -21,7 +21,7 @@ export default function Page() {
       icon="💳"
       title="Payment History"
       sectionLabel="Finance"
-      description="Cross-platform payment events with provider, reference, and failure tracking."
+      description="Cross-platform payment status records with reference and failure tracking."
       endpoint="/api/super-admin/finance?section=payments&limit=250"
       summaryField="summary"
       emptyMessage="No payment records found."
@@ -47,7 +47,7 @@ export default function Page() {
         },
         {
           key: 'provider',
-          label: 'Provider',
+          label: 'Source',
           render: (row) => (
             <span style={{ fontSize: '0.75rem' }}>{row.provider ?? 'manual'}</span>
           ),
