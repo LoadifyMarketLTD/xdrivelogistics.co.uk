@@ -13,11 +13,29 @@ const payloadSchema = z.object({
   notes: z.string().trim().max(2000).optional().default(''),
 });
 
-const DEFAULT_COMPANY_ID =
+const CONFIGURED_DEFAULT_COMPANY_ID =
   process.env.XDRIVE_DEFAULT_COMPANY_ID?.trim() ||
   process.env.DEFAULT_COMPANY_ID?.trim() ||
   process.env.NEXT_PUBLIC_DEFAULT_COMPANY_ID?.trim() ||
   '';
+
+const resolveDefaultCompanyId = async (): Promise<string | null> => {
+  if (CONFIGURED_DEFAULT_COMPANY_ID) return CONFIGURED_DEFAULT_COMPANY_ID;
+  if (!supabaseAdmin) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from('companies')
+    .select('id')
+    .order('created_at', { ascending: true })
+    .limit(1);
+
+  if (error) {
+    console.error('[quote-request] failed to resolve default company', { code: error.code });
+    return null;
+  }
+
+  return data?.[0]?.id ?? null;
+};
 
 const CARGO_TO_DB: Record<
   z.infer<typeof payloadSchema>['cargoType'],
@@ -31,13 +49,6 @@ const CARGO_TO_DB: Record<
 };
 
 export async function POST(request: Request) {
-  if (!DEFAULT_COMPANY_ID) {
-    return NextResponse.json(
-      { error: 'Quote intake is unavailable. Missing default company configuration.' },
-      { status: 503 }
-    );
-  }
-
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return NextResponse.json(
       { error: 'Quote intake is unavailable. Missing Supabase admin configuration.' },
@@ -52,8 +63,16 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
+  const defaultCompanyId = await resolveDefaultCompanyId();
+  if (!defaultCompanyId) {
+    return NextResponse.json(
+      { error: 'Quote intake is unavailable. Missing default company configuration.' },
+      { status: 503 }
+    );
+  }
+
   const { error } = await supabaseAdmin.from('quotes').insert({
-    company_id: DEFAULT_COMPANY_ID,
+    company_id: defaultCompanyId,
     customer_name: data.fullName,
     customer_email: data.email,
     customer_phone: data.phone || null,
