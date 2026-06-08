@@ -10,8 +10,9 @@ type Row = {
   amount: number;
   currency: string;
   status: string;
-  provider: string | null;
-  provider_ref: string | null;
+  settlement_method: string | null;
+  external_reference: string | null;
+  paid_at: string | null;
   created_at: string;
 };
 
@@ -19,9 +20,9 @@ export default function Page() {
   return (
     <SuperAdminLiveTablePage<Row>
       icon="💳"
-      title="Payment History"
+      title="Payment Ledger"
       sectionLabel="Finance"
-      description="Cross-platform payment status records with reference and failure tracking."
+      description="Canonical invoice payment-history ledger across all companies."
       endpoint="/api/super-admin/finance?section=payments&limit=250"
       summaryField="summary"
       emptyMessage="No payment records found."
@@ -46,25 +47,25 @@ export default function Page() {
           render: (row) => <StatusChip value={row.status} />,
         },
         {
-          key: 'provider',
-          label: 'Source',
+          key: 'settlement_method',
+          label: 'Method',
           render: (row) => (
-            <span style={{ fontSize: '0.75rem' }}>{row.provider ?? 'manual'}</span>
+            <span style={{ fontSize: '0.75rem' }}>{row.settlement_method ?? 'bank_transfer'}</span>
           ),
         },
         {
-          key: 'provider_ref',
+          key: 'external_reference',
           label: 'Reference',
           render: (row) => (
             <span style={{ fontSize: '0.72rem', fontFamily: 'monospace' }}>
-              {row.provider_ref ?? '—'}
+              {row.external_reference ?? '—'}
             </span>
           ),
         },
         {
-          key: 'created_at',
-          label: 'Date',
-          render: (row) => <span style={{ fontSize: '0.75rem' }}>{formatDateTime(row.created_at)}</span>,
+          key: 'paid_at',
+          label: 'Paid at',
+          render: (row) => <span style={{ fontSize: '0.75rem' }}>{formatDateTime(row.paid_at ?? row.created_at)}</span>,
         },
       ]}
     />

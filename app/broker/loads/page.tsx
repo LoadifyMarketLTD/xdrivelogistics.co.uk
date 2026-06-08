@@ -74,17 +74,19 @@ export default function BrokerLoadsPage() {
   useEffect(() => { void loadBoard(); }, [loadBoard]);
 
   const handleBid = async () => {
-    if (!bidLoadId || !companyId) return;
+    if (!bidLoadId || !companyId || !user?.id) return;
     const price = parseFloat(bidAmount);
     if (Number.isNaN(price) || price <= 0) { setBidSuccess(''); setError('Enter a valid bid amount'); return; }
     setBidSubmitting(true);
-    const { error: err } = await supabase.from('bids').insert([{
+    const { error: err } = await supabase.from('job_bids').insert([{
       job_id: bidLoadId,
       company_id: companyId,
+      bidder_user_id: user.id,
       bid_price_gbp: price,
+      amount: price,
       currency: 'GBP',
       message: bidMessage || null,
-      status: 'pending',
+      status: 'submitted',
     }]);
     setBidSubmitting(false);
     if (err) { setError(err.message); return; }

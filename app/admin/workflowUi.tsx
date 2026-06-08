@@ -177,9 +177,6 @@ export const getNavSectionsForRole = (role: AppUserRole | null, context: NavVisi
   });
 };
 
-/** @deprecated Use PLATFORM_NAV_SECTIONS; kept for compatibility. */
-export const WORKFLOW_NAV_SECTIONS = PLATFORM_NAV_SECTIONS;
-
 type WorkflowStripProps = {
   activeStage?: WorkflowStageId;
   counts?: Partial<Record<WorkflowStageId, number>>;

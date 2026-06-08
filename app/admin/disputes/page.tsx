@@ -14,6 +14,8 @@ type DisputeRow = {
   raised_by_company_id: string;
   status: DisputeStatus;
   description: string;
+  resolution_note: string | null;
+  resolved_at: string | null;
   created_at: string;
   jobs: {
     id: string;
@@ -47,6 +49,13 @@ export default function AdminDisputesPage() {
   const DISPUTES_PER_PAGE = 10;
   const [disputePage, setDisputePage] = useState(0);
 
+  // Resolution panel state
+  const [resolveStatus, setResolveStatus] = useState<DisputeStatus>('resolved');
+  const [resolveNote, setResolveNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState('');
+
   useEffect(() => {
     let cancelled = false;
     const resolveCompany = async () => {
@@ -77,7 +86,7 @@ export default function AdminDisputesPage() {
 
     const { data, error: queryError } = await supabase
       .from('job_disputes')
-      .select('id, job_id, raised_by_company_id, status, description, created_at, jobs(id, pickup_location, delivery_location, pickup_datetime, delivery_datetime, status), companies:raised_by_company_id(id, name)')
+      .select('id, job_id, raised_by_company_id, status, description, resolution_note, resolved_at, created_at, jobs(id, pickup_location, delivery_location, pickup_datetime, delivery_datetime, status), companies:raised_by_company_id(id, name)')
       .eq('raised_by_company_id', companyId)
       .order('created_at', { ascending: false });
 
@@ -97,6 +106,8 @@ export default function AdminDisputesPage() {
         raised_by_company_id: row.raised_by_company_id as string,
         status: (row.status as DisputeStatus) ?? 'open',
         description: (row.description as string) ?? '',
+        resolution_note: (row.resolution_note as string | null) ?? null,
+        resolved_at: (row.resolved_at as string | null) ?? null,
         created_at: (row.created_at as string) ?? new Date().toISOString(),
         jobs: Array.isArray(jobsJoin) ? (jobsJoin[0] ?? null) : (jobsJoin ?? null),
         companies: Array.isArray(companiesJoin) ? (companiesJoin[0] ?? null) : (companiesJoin ?? null),
@@ -115,6 +126,42 @@ export default function AdminDisputesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
+  // Pre-fill resolution form when selected dispute changes
+  useEffect(() => {
+    const d = disputes.find(x => x.id === selectedDisputeId);
+    if (d) {
+      setResolveStatus(d.status === 'open' ? 'investigating' : d.status);
+      setResolveNote(d.resolution_note ?? '');
+    }
+    setSaveError('');
+    setSaveSuccess('');
+  }, [selectedDisputeId, disputes]);
+
+  const handleSaveResolution = async () => {
+    if (!selectedDisputeId) return;
+    setSaving(true);
+    setSaveError('');
+    setSaveSuccess('');
+    const updatePayload: Record<string, unknown> = {
+      status: resolveStatus,
+      resolution_note: resolveNote.trim() || null,
+    };
+    if (resolveStatus === 'resolved' || resolveStatus === 'closed') {
+      updatePayload.resolved_at = new Date().toISOString();
+    }
+    const { error: updateErr } = await supabase
+      .from('job_disputes')
+      .update(updatePayload)
+      .eq('id', selectedDisputeId);
+    setSaving(false);
+    if (updateErr) {
+      setSaveError(updateErr.message);
+      return;
+    }
+    setSaveSuccess('Dispute updated successfully.');
+    await loadDisputes();
+  };
+
   const filtered = useMemo(
     () => disputes.filter((item) => statusFilter === 'all' || item.status === statusFilter),
     [disputes, statusFilter]
@@ -131,13 +178,18 @@ export default function AdminDisputesPage() {
 
   const selectedDispute = filtered.find((item) => item.id === selectedDisputeId) ?? filtered[0] ?? null;
 
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '0.55rem 0.7rem', border: '1px solid #d1d5db',
+    borderRadius: '7px', fontSize: '0.86rem', boxSizing: 'border-box',
+  };
+
   return (
     <ProtectedRoute allowedRoles={['owner', 'company_admin', 'company_staff']}>
       <div style={{ backgroundColor: '#f5f7fa', minHeight: 'calc(100vh - 89px)', padding: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '1.55rem', color: '#0f172a' }}>Dispute Management</h1>
-            <p style={{ margin: '0.3rem 0 0', color: '#64748b', fontSize: '0.88rem' }}>Review and track disputes from the `job_disputes` queue.</p>
+            <p style={{ margin: '0.3rem 0 0', color: '#64748b', fontSize: '0.88rem' }}>Review and resolve disputes from the job_disputes queue.</p>
           </div>
           <div style={{ display: 'flex', gap: '0.55rem' }}>
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'all' | DisputeStatus)} style={{ padding: '0.5rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.82rem' }}>
@@ -253,8 +305,62 @@ export default function AdminDisputesPage() {
                     {selectedDispute.description}
                   </div>
                 </div>
+                {selectedDispute.resolved_at && (
+                  <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                    Resolved at {new Date(selectedDispute.resolved_at).toLocaleString('en-GB')}
+                  </div>
+                )}
                 <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
                   Raised at {new Date(selectedDispute.created_at).toLocaleString('en-GB')}
+                </div>
+
+                {/* ── Resolution Panel ── */}
+                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '0.9rem' }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#374151', marginBottom: '0.65rem' }}>⚖️ Update / Resolve Dispute</div>
+
+                  {saveError && (
+                    <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '7px', padding: '0.55rem 0.75rem', marginBottom: '0.65rem', color: '#dc2626', fontSize: '0.82rem' }}>
+                      {saveError}
+                    </div>
+                  )}
+                  {saveSuccess && (
+                    <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: '7px', padding: '0.55rem 0.75rem', marginBottom: '0.65rem', color: '#14532d', fontWeight: 600, fontSize: '0.82rem' }}>
+                      ✅ {saveSuccess}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'grid', gap: '0.65rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#374151', marginBottom: '0.3rem' }}>New Status</label>
+                      <select
+                        value={resolveStatus}
+                        onChange={e => setResolveStatus(e.target.value as DisputeStatus)}
+                        style={inputStyle}
+                      >
+                        <option value="open">Open</option>
+                        <option value="investigating">Investigating</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#374151', marginBottom: '0.3rem' }}>Resolution Note</label>
+                      <textarea
+                        value={resolveNote}
+                        onChange={e => setResolveNote(e.target.value)}
+                        placeholder="Describe the outcome, investigation findings, or reason for closure…"
+                        rows={4}
+                        style={{ ...inputStyle, resize: 'vertical', minHeight: '80px' }}
+                      />
+                    </div>
+                    <button
+                      onClick={() => { void handleSaveResolution(); }}
+                      disabled={saving}
+                      style={{ padding: '0.6rem', background: saving ? '#93c5fd' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: '0.86rem' }}
+                    >
+                      {saving ? 'Saving…' : 'Save Resolution'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

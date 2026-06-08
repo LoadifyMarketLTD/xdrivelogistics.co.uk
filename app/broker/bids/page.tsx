@@ -10,6 +10,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 type BidRow = {
   id: string;
   job_id: string;
+  amount: number | null;
   bid_price_gbp: number | null;
   currency: string;
   message: string | null;
@@ -27,7 +28,7 @@ type BidRow = {
 };
 
 const BID_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  pending:  { bg: '#fef9c3', text: '#92400e' },
+  submitted:  { bg: '#fef9c3', text: '#92400e' },
   accepted: { bg: '#dcfce7', text: '#14532d' },
   rejected: { bg: '#fee2e2', text: '#991b1b' },
   withdrawn:{ bg: '#f3f4f6', text: '#6b7280' },
@@ -62,8 +63,8 @@ export default function BrokerBidsPage() {
     setLoading(true);
     setError('');
     const { data, error: err } = await supabase
-      .from('bids')
-      .select('id, job_id, bid_price_gbp, currency, message, status, created_at, jobs:job_id(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, status, companies:company_id(name))')
+      .from('job_bids')
+      .select('id, job_id, amount, bid_price_gbp, currency, message, status, created_at, jobs:job_id(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, status, companies:company_id(name))')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(200);
@@ -76,14 +77,14 @@ export default function BrokerBidsPage() {
 
   const handleWithdraw = async (bidId: string) => {
     setWithdrawingId(bidId);
-    await supabase.from('bids').update({ status: 'withdrawn' }).eq('id', bidId);
+    await supabase.from('job_bids').update({ status: 'withdrawn' }).eq('id', bidId).eq('status', 'submitted');
     setWithdrawingId(null);
     void loadBids();
   };
 
-  const pending  = bids.filter(b => b.status === 'pending');
+  const pending  = bids.filter(b => b.status === 'submitted');
   const accepted = bids.filter(b => b.status === 'accepted');
-  const other    = bids.filter(b => !['pending','accepted'].includes(b.status));
+  const other    = bids.filter(b => !['submitted','accepted'].includes(b.status));
 
   const BidCard = ({ bid }: { bid: BidRow }) => {
     const color = BID_STATUS_COLORS[bid.status] ?? BID_STATUS_COLORS.pending;
@@ -101,14 +102,14 @@ export default function BrokerBidsPage() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#1d4ed8' }}>
-              £{Number(bid.bid_price_gbp ?? 0).toFixed(2)}
+              £{Number(bid.bid_price_gbp ?? bid.amount ?? 0).toFixed(2)}
             </div>
             <span style={{ background: color.bg, color: color.text, padding: '0.2rem 0.55rem', borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700 }}>{bid.status}</span>
           </div>
         </div>
         {bid.message && <p style={{ margin: '0.5rem 0 0', fontSize: '0.82rem', color: '#475569' }}>Note: {bid.message}</p>}
         <div style={{ fontSize: '0.76rem', color: '#94a3b8', marginTop: '0.4rem' }}>Submitted: {new Date(bid.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</div>
-        {bid.status === 'pending' && (
+        {bid.status === 'submitted' && (
           <button
             onClick={() => { void handleWithdraw(bid.id); }}
             disabled={withdrawingId === bid.id}

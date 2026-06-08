@@ -7,10 +7,13 @@ type Row = {
   id: string;
   company_name: string;
   subject: string | null;
+  description: string | null;
+  category: string | null;
   status: string;
   priority: string | null;
   created_at: string | null;
   resolved_at: string | null;
+  closed_at: string | null;
 };
 
 export default function Page() {
@@ -36,6 +39,11 @@ export default function Page() {
           render: (row) => <span style={{ fontSize: '0.75rem' }}>{row.subject ?? '—'}</span>,
         },
         {
+          key: 'category',
+          label: 'Category',
+          render: (row) => <span style={{ fontSize: '0.75rem', textTransform: 'capitalize' }}>{row.category ?? '—'}</span>,
+        },
+        {
           key: 'status',
           label: 'Status',
           render: (row) => <StatusChip value={row.status} />,
@@ -43,7 +51,7 @@ export default function Page() {
         {
           key: 'priority',
           label: 'Priority',
-          render: (row) => <span style={{ fontSize: '0.75rem' }}>{row.priority ?? '—'}</span>,
+          render: (row) => <span style={{ fontSize: '0.75rem', textTransform: 'capitalize' }}>{row.priority ?? '—'}</span>,
         },
         {
           key: 'created_at',
