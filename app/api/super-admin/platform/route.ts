@@ -19,6 +19,52 @@ const verifyOwner = async (request: NextRequest) => {
   return authData.user;
 };
 
+type NotificationEventRow = {
+  id: string;
+  event_type: string;
+  entity_id: string;
+  recipient_user_id: string | null;
+  payload: Record<string, unknown> | null;
+  status: string;
+  created_at: string;
+  processed_at: string | null;
+};
+
+const getNotificationTitle = (eventType: string) => {
+  switch (eventType) {
+    case 'job_assigned':
+      return 'Job assigned';
+    case 'bid_accepted':
+      return 'Bid accepted';
+    case 'pod_uploaded':
+      return 'POD uploaded';
+    default:
+      return 'Notification event';
+  }
+};
+
+const getNotificationMessage = (row: NotificationEventRow) => {
+  const payload = row.payload ?? {};
+  const pickup = typeof payload.pickup_location === 'string' ? payload.pickup_location : null;
+  const delivery = typeof payload.delivery_location === 'string' ? payload.delivery_location : null;
+
+  switch (row.event_type) {
+    case 'job_assigned':
+      return `${pickup ?? 'TBC'} → ${delivery ?? 'TBC'}`;
+    case 'bid_accepted': {
+      const amountCandidates = [payload.bid_price_gbp, payload.amount, payload.bid_amount];
+      const numericAmount = amountCandidates.find((value) => typeof value === 'number');
+      return typeof numericAmount === 'number'
+        ? `Accepted amount: £${numericAmount.toFixed(2)}`
+        : 'A carrier bid has been accepted.';
+    }
+    case 'pod_uploaded':
+      return `${pickup ?? 'Pickup'} → ${delivery ?? 'Delivery'} marked delivered.`;
+    default:
+      return `Entity ${row.entity_id}`;
+  }
+};
+
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
@@ -95,11 +141,9 @@ export async function GET(request: NextRequest) {
 
   // ── Notifications ─────────────────────────────────────────────────────────────
   if (section === 'notifications') {
-    // The notifications table uses `body` (not `message`) and `read_at`
-    // (timestamptz, NULL = unread) rather than a boolean `read` column.
     const { data, error } = await supabaseAdmin
-      .from('notifications')
-      .select('id, user_id, type, title, body, read_at, created_at')
+      .from('notification_events')
+      .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at')
       .order('created_at', { ascending: false })
       .limit(200);
 
@@ -112,13 +156,14 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const rows = (data ?? []).map((r) => ({
+    const rows = ((data ?? []) as NotificationEventRow[]).map((r) => ({
       id: r.id,
-      user_id: r.user_id,
-      type: r.type,
-      title: r.title,
-      message: (r.body as string | null) ?? '',
-      read: r.read_at !== null,
+      user_id: r.recipient_user_id,
+      type: r.event_type,
+      title: getNotificationTitle(r.event_type),
+      message: getNotificationMessage(r),
+      status: r.status,
+      processed: r.processed_at !== null,
       created_at: r.created_at,
     }));
 
@@ -127,8 +172,10 @@ export async function GET(request: NextRequest) {
       rows,
       summary: {
         total: rows.length,
-        unread: rows.filter((r) => !r.read).length,
-        read: rows.filter((r) => r.read).length,
+        pending: rows.filter((r) => r.status === 'pending').length,
+        sent: rows.filter((r) => r.status === 'sent').length,
+        failed: rows.filter((r) => r.status === 'failed').length,
+        skipped: rows.filter((r) => r.status === 'skipped').length,
       },
     });
   }

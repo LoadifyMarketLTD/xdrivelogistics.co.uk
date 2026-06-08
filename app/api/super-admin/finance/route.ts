@@ -24,6 +24,19 @@ const verifyOwner = async (request: NextRequest) => {
 };
 
 type CompanyRow = { id: string; name: string };
+type InvoicePaymentHistoryRow = {
+  id: string;
+  company_id: string;
+  invoice_id: string;
+  amount: number | string | null;
+  currency: string | null;
+  settlement_method: string | null;
+  external_reference: string | null;
+  note: string | null;
+  status_after: string | null;
+  paid_at: string | null;
+  created_at: string;
+};
 
 const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
   if (!supabaseAdmin || ids.length === 0) return new Map();
@@ -82,13 +95,13 @@ export async function GET(request: NextRequest) {
   // ── Payments ─────────────────────────────────────────────────────────────────
   if (section === 'payments') {
     const { data, error } = await supabaseAdmin
-      .from('payments')
-      .select('id, company_id, invoice_id, amount, currency, status, provider, provider_ref, created_at')
-      .order('created_at', { ascending: false })
+      .from('invoice_payment_history')
+      .select('id, company_id, invoice_id, amount, currency, settlement_method, external_reference, note, status_after, paid_at, created_at')
+      .order('paid_at', { ascending: false })
       .limit(limit);
     if (error) return respond(500, { error: error.message });
 
-    const rows = data ?? [];
+    const rows = (data ?? []) as InvoicePaymentHistoryRow[];
     const nameById = await companyNameMap(
       Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
     );
@@ -97,12 +110,16 @@ export async function GET(request: NextRequest) {
 
     return respond(200, {
       section,
-      rows: rows.map((r) => ({ ...r, company_name: nameById.get(r.company_id as string) ?? 'Unknown' })),
+      rows: rows.map((r) => ({
+        ...r,
+        company_name: nameById.get(r.company_id as string) ?? 'Unknown',
+        status: r.status_after ?? 'Recorded',
+      })),
       summary: {
         total: rows.length,
-        completed: rows.filter((r) => r.status === 'completed').length,
-        pending: rows.filter((r) => r.status === 'pending').length,
-        failed: rows.filter((r) => r.status === 'failed').length,
+        paid: rows.filter((r) => r.status_after === 'Paid').length,
+        disputed: rows.filter((r) => r.status_after === 'Disputed').length,
+        recorded: rows.filter((r) => !r.status_after).length,
         totalAmount,
       },
     });
