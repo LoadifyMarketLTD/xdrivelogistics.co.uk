@@ -25,7 +25,7 @@ export const trustCards = [
   { label: 'Founded', value: '1 February 2021' },
   { label: 'Company', value: 'XDrive Logistics Ltd' },
   { label: 'Current Stage', value: 'MVP / Early Access' },
-  { label: 'Access', value: 'Selected workflow testing' },
+  { label: 'Access', value: 'Approved users across all roles' },
   { label: 'Coverage', value: 'UK-focused rollout' },
   { label: 'Focus', value: 'Marketplace + operations' },
 ] as const;
@@ -79,14 +79,14 @@ export const statusHighlights = [
       'Core workflows are being built and refined now, with the homepage presenting the intended operating model rather than a claim of full public rollout.',
   },
   {
-    title: 'Internal and owner-led testing first',
+    title: 'Approved-user access',
     description:
-      'Current use is centred on internal, owner and test-account validation so workflows can be tightened before selected external users are invited.',
+      'During Early Access, approved users can use all current modules without a paid subscription requirement.',
   },
   {
-    title: 'Selected user onboarding',
+    title: 'Early Access pricing lock',
     description:
-      'Early access is intended for staged workflow testing, feedback and controlled onboarding instead of immediate open access for everyone.',
+      'Plan: Early Access · Price: £0.00 · Valid until: 31 December 2026.',
   },
   {
     title: 'Operational records, not fund holding',
@@ -97,28 +97,28 @@ export const statusHighlights = [
 
 export const earlyAccessBenefits = [
   {
-    title: 'Free during early access',
-    description: 'There is no charge during MVP testing while selected workflows are being refined.',
+    title: 'Early Access plan',
+    description: 'All approved users are assigned to the Early Access plan during MVP.',
   },
   {
-    title: 'Test selected workflows',
-    description: 'Access is focused on practical journey testing such as quoting, dispatch, POD and record visibility.',
+    title: 'Price locked at £0.00',
+    description: 'No paid subscription is required for approved users during Early Access.',
   },
   {
-    title: 'Help shape the product',
-    description: 'Feedback from early users can directly influence workflow structure, visibility and operational priorities.',
+    title: 'Valid until 31 December 2026',
+    description: 'The free-access period is locked through 31 December 2026.',
   },
   {
-    title: 'Provide operational feedback',
-    description: 'Share how the platform performs against real courier and transport needs so the product can be refined before wider release.',
+    title: 'All approved logistics roles included',
+    description: 'Transport Customers, Courier Companies, Owner Drivers, Drivers, Load Posters and Dispatch Teams are included.',
   },
   {
-    title: 'No long-term commitment during MVP testing',
-    description: 'Testing is intended to be practical and low-friction without implying a locked commercial contract during the MVP phase.',
+    title: 'No paywall blocks',
+    description: 'Approved users should not be blocked from features due to subscription payment status during Early Access.',
   },
   {
-    title: 'Pricing confirmed before commercial release',
-    description: 'Any subscription or membership model will be confirmed before wider commercial release, not assumed today.',
+    title: 'Subscriptions preserved for future',
+    description: 'Billing and subscription infrastructure remains in place for future commercial phases.',
   },
 ] as const;
 
@@ -452,15 +452,15 @@ export const faqs = [
   },
   {
     q: 'Is XDrive live now?',
-    a: 'XDrive is currently in MVP / early-access development. Core workflows are being built, reviewed and tested before selected external users are invited. The platform should not be treated as a fully public live exchange yet. Early access is intended for controlled testing, feedback and staged rollout.',
+    a: 'XDrive is currently in MVP / early-access development. Core workflows are being built, reviewed and tested. Access is available to approved users across supported logistics roles under the Early Access policy.',
   },
   {
     q: 'How does early access work?',
-    a: 'Early access allows selected users to review and test specific XDrive workflows before wider launch. Users may be invited to try parts of the platform, provide operational feedback and help shape how the product develops. Access may be limited depending on the type of user, workflow being tested and readiness of each module.',
+    a: 'Approved users receive Plan: Early Access, Price: £0.00, Valid Until: 31 December 2026. No paid subscription is required to use current platform features during this period.',
   },
   {
     q: 'Can owner-drivers join?',
-    a: 'Yes. Owner operators and owner-drivers can request early access. The platform is being designed to support users who manage their own vehicle, quote for work, complete deliveries and keep POD and job records organised. Early access may initially be limited to selected users while workflows are tested.',
+    a: 'Yes. Owner operators and owner-drivers are included in Early Access alongside transport customers, courier companies, drivers, load posters and dispatch teams.',
   },
   {
     q: 'Can courier companies manage multiple drivers and vehicles?',
@@ -484,7 +484,7 @@ export const faqs = [
   },
   {
     q: 'Is XDrive available across the UK?',
-    a: 'XDrive is being developed for UK logistics workflows and is intended to support UK transport customers, courier companies, owner operators and drivers. Availability during early access may be limited while workflows are tested and refined before wider rollout.',
+    a: 'XDrive is being developed for UK logistics workflows and supports approved users across transport customers, courier companies, owner operators, drivers, load posters and dispatch teams.',
   },
   {
     q: 'What documents may be required for onboarding?',
@@ -492,7 +492,7 @@ export const faqs = [
   },
   {
     q: 'Will there be a subscription or membership fee?',
-    a: 'Early access is currently intended to be free for selected users during MVP testing. Future pricing, subscription or membership options will be confirmed before any full commercial release. XDrive should not be presented as charging users before pricing is formally announced.',
+    a: 'During Early Access, approved users are on Plan: Early Access at £0.00 until 31 December 2026. Subscription infrastructure is preserved for future phases, but no feature requires payment during this period.',
   },
   {
     q: 'How can I request access or a demo?',

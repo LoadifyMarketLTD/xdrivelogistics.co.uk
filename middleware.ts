@@ -152,6 +152,13 @@ const canonicalHost = canonicalSiteUrl.host.toLowerCase();
 const shouldEnforceCanonicalHost = () =>
   process.env.NODE_ENV === 'production' || process.env.XDRIVE_FORCE_CANONICAL_HOST === 'true';
 
+const isNetlifyPreviewHost = (host: string) =>
+  host.endsWith('.netlify.app') && (
+    host.startsWith('deploy-preview-') ||
+    host.startsWith('branch-') ||
+    host.includes('--')
+  );
+
 const isProtectedPath = (pathname: string) =>
   PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
@@ -160,6 +167,7 @@ const buildCanonicalHostRedirect = (request: NextRequest) => {
 
   const incomingHost = request.headers.get('host')?.toLowerCase();
   if (!incomingHost || incomingHost === canonicalHost) return null;
+  if (isNetlifyPreviewHost(incomingHost)) return null;
 
   const redirectUrl = request.nextUrl.clone();
   redirectUrl.protocol = canonicalSiteUrl.protocol;
@@ -334,10 +342,6 @@ export async function middleware(request: NextRequest) {
 
     if (auth.mustChangePassword && url.pathname !== DRIVER_CHANGE_PASSWORD_PATH) {
       return buildRedirect(request, DRIVER_CHANGE_PASSWORD_PATH);
-    }
-
-    if (!auth.mustChangePassword && url.pathname === DRIVER_CHANGE_PASSWORD_PATH) {
-      return buildRedirect(request, DRIVER_JOBS_PATH);
     }
   }
 

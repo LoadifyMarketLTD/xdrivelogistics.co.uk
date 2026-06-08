@@ -233,7 +233,16 @@ export interface ReturnJourney {
   created_at: string;
 }
 
-export type InvoiceStatus = 'Pending' | 'Paid' | 'Overdue';
+export type InvoiceStatus =
+  | 'Draft'
+  | 'Sent'
+  | 'Overdue'
+  | 'Paid'
+  | 'Disputed'
+  | 'Cancelled'
+  | 'Pending'
+  | 'Submitted'
+  | 'Approved';
 
 export interface Invoice {
   id: string;
@@ -264,8 +273,26 @@ export interface Invoice {
   pod_photos: string[] | null;
   signature: string | null;
   recipient_name: string | null;
+  submitted_at: string | null;
+  submitted_by: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+  disputed_at: string | null;
+  paid_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface InvoiceDocument {
+  id: string;
+  invoice_id: string;
+  company_id: string;
+  uploaded_by: string | null;
+  doc_type: 'invoice_pdf' | 'pod_photo' | 'pod_signature' | 'other';
+  file_url: string;
+  file_name: string | null;
+  file_size_bytes: number | null;
+  created_at: string;
 }
 
 export interface Quote {

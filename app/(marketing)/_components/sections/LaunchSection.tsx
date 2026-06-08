@@ -25,8 +25,8 @@ export function LaunchSection() {
             </span>
             <h2 className="mt-4 text-3xl font-bold text-white sm:text-4xl">Help Shape XDrive Before Wider Launch</h2>
             <p className="mt-4 max-w-2xl text-blue-100">
-              We are inviting selected UK transport customers, courier companies, owner operators and drivers to test selected workflows
-              during early access.
+              Early Access is open to approved UK transport customers, courier companies, owner drivers, drivers, load posters and dispatch
+              teams.
             </p>
           </div>
 
@@ -41,8 +41,7 @@ export function LaunchSection() {
 
           <div className="mt-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <p className="max-w-2xl text-sm leading-6 text-blue-100">
-              Suitable users may be invited into selected workflows. Pricing will be confirmed before commercial release, and MVP testing does
-              not imply a long-term commitment.
+              Plan: Early Access • Price: £0.00 • Valid until 31 December 2026. Subscription architecture remains in place for future phases.
             </p>
             <div className="flex flex-shrink-0 flex-wrap gap-3">
               <Link
