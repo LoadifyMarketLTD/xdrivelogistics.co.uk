@@ -15,7 +15,7 @@ export interface InvoiceData {
   jobRef: string;
   date: string;
   dueDate: string;
-  status: 'Draft' | 'Sent' | 'Overdue' | 'Paid' | 'Disputed' | 'Cancelled' | 'Pending' | 'Submitted' | 'Approved';
+  status: 'Draft' | 'Sent' | 'Overdue' | 'Paid' | 'Disputed' | 'Cancelled';
   clientName: string;
   clientAddress: string;
   clientEmail: string;
