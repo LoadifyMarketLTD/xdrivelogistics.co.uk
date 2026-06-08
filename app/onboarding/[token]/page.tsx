@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 
@@ -40,7 +40,7 @@ export default function OnboardingTokenPage() {
     return brokerDocs;
   }, [accountType]);
 
-  const authHeaders = async () => {
+  const authHeaders = async (): Promise<Record<string, string>> => {
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -49,7 +49,7 @@ export default function OnboardingTokenPage() {
     return { Authorization: 'Bearer ' + session.access_token };
   };
 
-  const loadSession = async () => {
+  const loadSession = useCallback(async () => {
     setLoading(true);
     setError('');
 
@@ -78,11 +78,11 @@ export default function OnboardingTokenPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     void loadSession();
-  }, [token]);
+  }, [loadSession]);
 
   const updateField = (key: string, value: string) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
