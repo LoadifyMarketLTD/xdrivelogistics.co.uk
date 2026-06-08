@@ -31,6 +31,7 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
   const router = useRouter();
   const { user, logout } = useAuth();
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const role = (user?.role ?? null) as AppUserRole | null;
   const sections = getNavSectionsForRole(role, {
@@ -54,6 +55,22 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
       });
     return () => { cancelled = true; };
   }, [user?.companyId]);
+
+  // Poll unread notification count every 60 s
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from('notification_events')
+        .select('id', { count: 'exact', head: true })
+        .eq('recipient_user_id', user.id)
+        .eq('status', 'pending');
+      setUnreadCount(count ?? 0);
+    };
+    void fetchCount();
+    const interval = setInterval(() => { void fetchCount(); }, 60_000);
+    return () => clearInterval(interval);
+  }, [user?.id]);
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f5f7fa', display: 'flex', flexDirection: 'column' }}>
@@ -88,6 +105,11 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
             {user?.email && (
               <span style={{ fontSize: '0.72rem', color: '#94a3b8', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user.email}
+              </span>
+            )}
+            {unreadCount > 0 && (
+              <span title={`${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '20px', height: '20px', background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.68rem', fontWeight: 700, padding: '0 4px', cursor: 'default' }}>
+                {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
             <button

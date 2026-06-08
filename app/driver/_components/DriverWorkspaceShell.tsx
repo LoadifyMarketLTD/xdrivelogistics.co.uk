@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import { COMPANY_CONFIG } from '../../config/company';
+import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
 const THEME = {
   pageBg: '#eef2f6',
@@ -66,6 +67,7 @@ export default function DriverWorkspaceShell({
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     setHydrated(true);
@@ -74,6 +76,22 @@ export default function DriverWorkspaceShell({
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
   }, []);
+
+  // Poll unread notification count every 60 s
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from('notification_events')
+        .select('id', { count: 'exact', head: true })
+        .eq('recipient_user_id', user.id)
+        .eq('status', 'pending');
+      setUnreadCount(count ?? 0);
+    };
+    void fetchCount();
+    const interval = setInterval(() => { void fetchCount(); }, 60_000);
+    return () => clearInterval(interval);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isMobile) setSidebarOpen(false);
@@ -150,8 +168,13 @@ export default function DriverWorkspaceShell({
           <h1 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: THEME.shellText, lineHeight: 1.35 }}>
             {COMPANY_CONFIG.legalName}
           </h1>
-          <p style={{ fontSize: '0.72rem', margin: '0.25rem 0 0', color: THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <p style={{ fontSize: '0.72rem', margin: '0.25rem 0 0', color: THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
             Driver Workspace
+            {unreadCount > 0 && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '18px', height: '18px', background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.65rem', fontWeight: 700, padding: '0 4px' }}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </p>
           <div style={{ marginTop: '0.4rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: THEME.shellMuted }}>Role</span>
