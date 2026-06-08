@@ -33,6 +33,7 @@ const GRID_PANELS = [
   { title: 'Platform Health', details: 'API uptime, queue lag, webhook failure indicators.', icon: '🩺', href: '/super-admin/health' },
   { title: 'Approvals', details: 'Companies waiting for verification and approval.', icon: '✅', href: '/super-admin/companies/approvals' },
   { title: 'Suspended', details: 'Suspended companies and reinstatement management.', icon: '🚫', href: '/super-admin/companies/suspended' },
+  { title: 'Support', details: 'Tickets, complaints and disputes against SLA targets.', icon: '🎫', href: '/super-admin/support/tickets' },
   { title: 'Finance', details: 'Invoice reporting, unpaid invoices, payment status and operational history.', icon: '📈', href: '/super-admin/finance/revenue' },
   { title: 'System Notifications', details: 'Latest critical platform events and notices.', icon: '🔔', href: '/super-admin/notifications' },
 ] as const;
