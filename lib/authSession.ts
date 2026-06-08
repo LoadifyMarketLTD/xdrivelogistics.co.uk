@@ -424,7 +424,8 @@ export const resolveAuthenticatedUser = async (
       : membership;
 
   if (resolvedRole) {
-    if (roleRequiresCompanyContext(resolvedRole) && !companyId) {
+    const requiresCompanyContext = roleRequiresCompanyContext(resolvedRole);
+    if (requiresCompanyContext && !companyId) {
       console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', resolvedRole, userId: sessionUser.id });
       return { user: null, reason: 'company_context_missing' };
     }

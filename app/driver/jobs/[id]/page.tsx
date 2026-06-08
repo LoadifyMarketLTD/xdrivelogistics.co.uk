@@ -86,11 +86,17 @@ export default function DriverJobDetailPage() {
   const [isSigning, setIsSigning] = useState(false);
 
   const [driverId, setDriverId] = useState('');
+  const normalizedDriverId = driverId.trim();
   // Track which milestone events have been recorded for this job session
   const [milestones, setMilestones] = useState<Set<string>>(new Set());
 
   const loadJob = useCallback(async () => {
-    if (!jobId || !driverId || !isSupabaseConfigured) {
+    if (!jobId || !isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
+    if (!normalizedDriverId) {
+      setError('Driver session not ready. Please wait and refresh.');
       setLoading(false);
       return;
     }
@@ -98,7 +104,7 @@ export default function DriverJobDetailPage() {
       .from('jobs')
       .select('*')
       .eq('id', jobId)
-      .eq('assigned_driver_id', driverId)
+      .eq('assigned_driver_id', normalizedDriverId)
       .maybeSingle();
 
     if (dbError || !data) {
@@ -114,17 +120,17 @@ export default function DriverJobDetailPage() {
       setMilestones(new Set(history.map((e: { status: string }) => e.status)));
     }
     setLoading(false);
-  }, [jobId, driverId]);
+  }, [jobId, normalizedDriverId]);
 
   useEffect(() => {
-    if (!user?.driverId) return;
-    setDriverId(user.driverId);
+    if (!user?.driverId || typeof user.driverId !== 'string') return;
+    setDriverId(user.driverId.trim());
   }, [user?.driverId]);
 
   useEffect(() => {
-    if (!driverId) return;
+    if (!normalizedDriverId) return;
     loadJob();
-  }, [driverId, loadJob]);
+  }, [normalizedDriverId, loadJob]);
 
   // ── Canvas signature helpers ─────────────────────────────────
   const startSig = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -227,7 +233,7 @@ export default function DriverJobDetailPage() {
   };
 
   const updateJobStatus = async (newStatus: string, extraFields: Record<string, unknown> = {}) => {
-    if (!job || !driverId || !isSupabaseConfigured) return;
+    if (!job || !normalizedDriverId || !isSupabaseConfigured) return;
     setActionLoading(true);
     setError('');
 
@@ -241,7 +247,7 @@ export default function DriverJobDetailPage() {
         ...extraFields,
       })
       .eq('id', job.id)
-      .eq('assigned_driver_id', driverId);
+      .eq('assigned_driver_id', normalizedDriverId);
 
     if (dbError) {
       setError(dbError.message);
@@ -255,7 +261,7 @@ export default function DriverJobDetailPage() {
 
   // Record a milestone event in status_history WITHOUT changing jobs.status
   const recordMilestone = async (event: string) => {
-    if (!job || !driverId || !isSupabaseConfigured || milestones.has(event)) return;
+    if (!job || !normalizedDriverId || !isSupabaseConfigured || milestones.has(event)) return;
     setActionLoading(true);
     setError('');
     const newHistory = appendStatusHistory(job.status_history, event);
@@ -263,7 +269,7 @@ export default function DriverJobDetailPage() {
       .from('jobs')
       .update({ status_history: newHistory })
       .eq('id', job.id)
-      .eq('assigned_driver_id', driverId);
+      .eq('assigned_driver_id', normalizedDriverId);
     if (dbError) {
       setError(dbError.message);
     } else {

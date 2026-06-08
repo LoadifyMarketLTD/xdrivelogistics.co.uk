@@ -145,29 +145,33 @@ export default function ReturnJourneysPage() {
 
     const companyId = (drvCompany as { company_id?: string | null } | null)?.company_id ?? null;
 
-    if (companyId) {
-      // Delete previous active return journey for this driver, then insert fresh
-      await supabase
-        .from('return_journeys')
-        .delete()
-        .eq('driver_id', driverId)
-        .eq('status', 'available');
+    if (!companyId) {
+      setError('Return journeys currently require a linked company profile.');
+      setSaving(false);
+      return;
+    }
 
-      if (returnFrom) {
-        const { error: rjErr } = await supabase.from('return_journeys').insert({
-          company_id:     companyId,
-          driver_id:      driverId,
-          from_postcode:  returnFrom || null,
-          to_postcode:    returnTo   || null,
-          available_from: returnDate ? new Date(returnDate).toISOString() : null,
-          status:         'available',
-        });
+    // Delete previous active return journey for this driver, then insert fresh
+    await supabase
+      .from('return_journeys')
+      .delete()
+      .eq('driver_id', driverId)
+      .eq('status', 'available');
 
-        if (rjErr) {
-          setError(`Failed to save return journey: ${rjErr.message}`);
-          setSaving(false);
-          return;
-        }
+    if (returnFrom) {
+      const { error: rjErr } = await supabase.from('return_journeys').insert({
+        company_id:     companyId,
+        driver_id:      driverId,
+        from_postcode:  returnFrom || null,
+        to_postcode:    returnTo   || null,
+        available_from: returnDate ? new Date(returnDate).toISOString() : null,
+        status:         'available',
+      });
+
+      if (rjErr) {
+        setError(`Failed to save return journey: ${rjErr.message}`);
+        setSaving(false);
+        return;
       }
     }
 

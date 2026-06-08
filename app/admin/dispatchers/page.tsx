@@ -23,6 +23,7 @@ type DispatcherSuccessState = {
 };
 
 const DISPATCHER_SELECT_COLUMNS = ['id', 'company_id', 'user_id', 'invited_email', 'role_in_company', 'status', 'created_at'];
+const PASSWORD_SETUP_RESEND_COOLDOWN_MS = 60_000;
 
 export default function DispatchersPage() {
   const { user, hasSupabaseSession } = useAuth();
@@ -45,6 +46,7 @@ export default function DispatchersPage() {
     status: 'idle',
     message: '',
   });
+  const [passwordSetupCooldownUntil, setPasswordSetupCooldownUntil] = useState(0);
 
   const loadDispatchers = async (resolvedCompanyId: string) => {
     setLoading(true);
@@ -267,6 +269,15 @@ export default function DispatchersPage() {
 
   const handleSendPasswordSetup = async () => {
     if (!companyId || !createdDispatcher || !isSupabaseConfigured) return;
+    const cooldownRemainingMs = passwordSetupCooldownUntil - Date.now();
+    if (cooldownRemainingMs > 0) {
+      const waitSeconds = Math.ceil(cooldownRemainingMs / 1000);
+      setPasswordSetupState({
+        status: 'error',
+        message: `Please wait ${waitSeconds}s before requesting another password setup email.`,
+      });
+      return;
+    }
 
     const { accessToken, error: accessTokenError } = await getAccessToken();
     if (accessTokenError || !accessToken) {
@@ -289,16 +300,31 @@ export default function DispatchersPage() {
       const payload = await response.json().catch(() => ({} as { error?: string }));
 
       if (!response.ok) {
+        const rawMessage = payload.error || 'Failed to send password setup email.';
+        const lowered = rawMessage.toLowerCase();
+        if (
+          lowered.includes('rate limit') ||
+          lowered.includes('security purposes') ||
+          lowered.includes('too many')
+        ) {
+          setPasswordSetupCooldownUntil(Date.now() + PASSWORD_SETUP_RESEND_COOLDOWN_MS);
+          setPasswordSetupState({
+            status: 'error',
+            message: 'Please wait before resending. This action is temporarily rate-limited.',
+          });
+          return;
+        }
         setPasswordSetupState({
           status: 'error',
-          message: payload.error || 'Failed to send password setup email.',
+          message: rawMessage,
         });
         return;
       }
 
+      setPasswordSetupCooldownUntil(Date.now() + PASSWORD_SETUP_RESEND_COOLDOWN_MS);
       setPasswordSetupState({
         status: 'sent',
-        message: 'Password setup email sent successfully.',
+        message: 'Password setup email sent successfully. Please wait before resending.',
       });
     } catch (requestError) {
       setPasswordSetupState({
@@ -329,6 +355,7 @@ export default function DispatchersPage() {
     setCreatedDispatcher(null);
     setCopiedTemporaryPassword(false);
     setPasswordSetupState({ status: 'idle', message: '' });
+    setPasswordSetupCooldownUntil(0);
   };
 
   const formatDate = (value: string | null | undefined) => {
@@ -540,10 +567,14 @@ export default function DispatchersPage() {
                     ) : null}
                     <button
                       onClick={handleSendPasswordSetup}
-                      disabled={passwordSetupState.status === 'sending'}
-                      style={{ padding: '0.75rem 1rem', backgroundColor: '#1d4ed8', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: passwordSetupState.status === 'sending' ? 'not-allowed' : 'pointer' }}
+                      disabled={passwordSetupState.status === 'sending' || Date.now() < passwordSetupCooldownUntil}
+                      style={{ padding: '0.75rem 1rem', backgroundColor: '#1d4ed8', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: passwordSetupState.status === 'sending' || Date.now() < passwordSetupCooldownUntil ? 'not-allowed' : 'pointer' }}
                     >
-                      {passwordSetupState.status === 'sending' ? 'Sending...' : 'Send password setup email'}
+                      {passwordSetupState.status === 'sending'
+                        ? 'Sending...'
+                        : Date.now() < passwordSetupCooldownUntil
+                          ? `Retry in ${Math.ceil((passwordSetupCooldownUntil - Date.now()) / 1000)}s`
+                          : 'Send password setup email'}
                     </button>
                     <button onClick={closeModal} style={{ padding: '0.75rem 1rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
                       Done
