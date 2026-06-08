@@ -42,35 +42,62 @@ export async function GET(
   if (error) return respond(500, { error: error.message });
   if (!invoice) return respond(404, { error: 'Invoice not found.' });
 
-  const [{ data: statusHistory }, { data: payments }, { data: disputes }, { data: documents }] =
-    await Promise.all([
-      supabaseAdmin
-        .from('invoice_status_history')
-        .select('id, from_status, to_status, note, changed_at')
-        .eq('invoice_id', id)
-        .order('changed_at', { ascending: true }),
-      supabaseAdmin
-        .from('invoice_payment_history')
-        .select('id, amount, currency, paid_at, settlement_method, external_reference, note, status_after')
-        .eq('invoice_id', id)
-        .order('paid_at', { ascending: false }),
-      supabaseAdmin
-        .from('invoice_disputes')
-        .select('id, reason, details, status, resolution_note, created_at, resolved_at')
-        .eq('invoice_id', id)
-        .order('created_at', { ascending: false }),
-      supabaseAdmin
-        .from('invoice_documents')
-        .select('id, doc_type, file_url, file_name, file_size_bytes, created_at')
-        .eq('invoice_id', id)
-        .order('created_at', { ascending: false }),
-    ]);
+  const [statusHistoryResult, paymentsResult, disputesResult, documentsResult] = await Promise.all([
+    supabaseAdmin
+      .from('invoice_status_history')
+      .select('id, from_status, to_status, note, changed_at')
+      .eq('invoice_id', id)
+      .order('changed_at', { ascending: true }),
+    supabaseAdmin
+      .from('invoice_payment_history')
+      .select('id, amount, currency, paid_at, settlement_method, external_reference, note, status_after')
+      .eq('invoice_id', id)
+      .order('paid_at', { ascending: false }),
+    supabaseAdmin
+      .from('invoice_disputes')
+      .select('id, reason, details, status, resolution_note, created_at, resolved_at')
+      .eq('invoice_id', id)
+      .order('created_at', { ascending: false }),
+    supabaseAdmin
+      .from('invoice_documents')
+      .select('id, doc_type, file_url, file_name, file_size_bytes, created_at')
+      .eq('invoice_id', id)
+      .order('created_at', { ascending: false }),
+  ]);
+
+  if (statusHistoryResult.error) {
+    return respond(500, {
+      error: 'Failed to load invoice status history.',
+      details: statusHistoryResult.error.message,
+    });
+  }
+
+  if (paymentsResult.error) {
+    return respond(500, {
+      error: 'Failed to load invoice payment history.',
+      details: paymentsResult.error.message,
+    });
+  }
+
+  if (disputesResult.error) {
+    return respond(500, {
+      error: 'Failed to load invoice disputes.',
+      details: disputesResult.error.message,
+    });
+  }
+
+  if (documentsResult.error) {
+    return respond(500, {
+      error: 'Failed to load invoice documents.',
+      details: documentsResult.error.message,
+    });
+  }
 
   return respond(200, {
     invoice,
-    statusHistory: statusHistory ?? [],
-    payments: payments ?? [],
-    disputes: disputes ?? [],
-    documents: documents ?? [],
+    statusHistory: statusHistoryResult.data ?? [],
+    payments: paymentsResult.data ?? [],
+    disputes: disputesResult.data ?? [],
+    documents: documentsResult.data ?? [],
   });
 }
