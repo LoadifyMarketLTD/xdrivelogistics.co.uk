@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import {
+  buildInvoiceStatusSummary,
+  toCanonicalInvoiceStatus,
+  toCanonicalInvoiceStatusWithDueDate,
+  toLegacyInvoiceStatusForDb,
+  type CanonicalInvoiceStatus,
+} from '../../../../../lib/invoiceStatus';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -19,7 +26,7 @@ async function resolveDriver(request: NextRequest) {
   return { userId: authData.user.id, driverId: driverRow.id as string, companyId: driverRow.company_id as string };
 }
 
-// GET /api/driver/finance/invoices?status=Pending
+// GET /api/driver/finance/invoices?status=Draft
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
@@ -42,22 +49,19 @@ export async function GET(request: NextRequest) {
     .limit(limit);
 
   if (statusFilter && statusFilter !== 'All') {
-    query = query.eq('status', statusFilter);
+    const canonicalFilter = toCanonicalInvoiceStatus(statusFilter, 'Draft');
+    const dbFilter = toLegacyInvoiceStatusForDb(canonicalFilter);
+    query = query.eq('status', dbFilter);
   }
 
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
 
-  const rows = (data ?? []) as Array<{ status: string; [key: string]: unknown }>;
-  const summary = {
-    total: rows.length,
-    pending: rows.filter((r) => r.status === 'Pending').length,
-    submitted: rows.filter((r) => r.status === 'Submitted').length,
-    approved: rows.filter((r) => r.status === 'Approved').length,
-    paid: rows.filter((r) => r.status === 'Paid').length,
-    disputed: rows.filter((r) => r.status === 'Disputed').length,
-    overdue: rows.filter((r) => r.status === 'Overdue').length,
-  };
+  const rows = ((data ?? []) as Array<{ status: string | null; due_date?: string | null; [key: string]: unknown }>).map((row) => ({
+    ...row,
+    status: toCanonicalInvoiceStatusWithDueDate(row.status, typeof row.due_date === 'string' ? row.due_date : null),
+  }));
+  const summary = buildInvoiceStatusSummary(rows.map((row) => row.status as CanonicalInvoiceStatus));
 
   return respond(200, { rows, summary });
 }
@@ -139,7 +143,7 @@ export async function POST(request: NextRequest) {
       job_id: typeof job_id === 'string' ? job_id : null,
       invoice_date: resolvedInvoiceDate,
       due_date: resolvedDueDate,
-      status: 'Pending',
+      status: toLegacyInvoiceStatusForDb('Draft'),
       client_name: (client_name as string).trim(),
       client_address: typeof client_address === 'string' ? client_address : null,
       client_email: typeof client_email === 'string' ? client_email : null,
@@ -162,5 +166,12 @@ export async function POST(request: NextRequest) {
 
   if (insertError) return respond(500, { error: insertError.message });
 
-  return respond(201, { invoice: inserted });
+  return respond(201, {
+    invoice: inserted
+      ? {
+          ...inserted,
+          status: toCanonicalInvoiceStatus((inserted as { status?: string }).status),
+        }
+      : inserted,
+  });
 }

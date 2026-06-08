@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { COMPANY_CONFIG } from '../config/company';
+import { toCanonicalInvoiceStatus } from '../../lib/invoiceStatus';
 import {
   DEFAULT_COMPANY_SETTINGS,
   hasConfiguredBankDetails,
@@ -14,7 +15,7 @@ export interface InvoiceData {
   jobRef: string;
   date: string;
   dueDate: string;
-  status: 'Paid' | 'Pending' | 'Overdue' | 'Submitted' | 'Approved' | 'Disputed';
+  status: 'Draft' | 'Sent' | 'Overdue' | 'Paid' | 'Disputed' | 'Cancelled' | 'Pending' | 'Submitted' | 'Approved';
   clientName: string;
   clientAddress: string;
   clientEmail: string;
@@ -60,6 +61,7 @@ export default function InvoiceTemplate({
   };
 
   const paymentDueDate = calculateDueDate(invoice.date, invoice.paymentTerms);
+  const statusLabel = toCanonicalInvoiceStatus(invoice.status);
   const bankTransferConfigured = hasConfiguredBankDetails(companySettings);
   
   const containerStyle: React.CSSProperties = {
@@ -196,19 +198,19 @@ export default function InvoiceTemplate({
                 fontSize: '0.875rem',
                 fontWeight: '600',
                 backgroundColor: 
-                  invoice.status === 'Paid' ? '#d1fae5' :
-                  invoice.status === 'Approved' ? '#dbeafe' :
-                  invoice.status === 'Submitted' ? '#e0e7ff' :
-                  invoice.status === 'Disputed' ? '#fce7f3' :
-                  invoice.status === 'Pending' ? '#fef3c7' : '#fee2e2',
+                  statusLabel === 'Paid' ? '#d1fae5' :
+                  statusLabel === 'Sent' ? '#e0e7ff' :
+                  statusLabel === 'Disputed' ? '#fce7f3' :
+                  statusLabel === 'Draft' ? '#fef3c7' :
+                  statusLabel === 'Cancelled' ? '#e2e8f0' : '#fee2e2',
                 color:
-                  invoice.status === 'Paid' ? '#065f46' :
-                  invoice.status === 'Approved' ? '#1e40af' :
-                  invoice.status === 'Submitted' ? '#3730a3' :
-                  invoice.status === 'Disputed' ? '#9d174d' :
-                  invoice.status === 'Pending' ? '#92400e' : '#991b1b',
+                  statusLabel === 'Paid' ? '#065f46' :
+                  statusLabel === 'Sent' ? '#3730a3' :
+                  statusLabel === 'Disputed' ? '#9d174d' :
+                  statusLabel === 'Draft' ? '#92400e' :
+                  statusLabel === 'Cancelled' ? '#475569' : '#991b1b',
               }}>
-                {invoice.status}
+                {statusLabel}
               </div>
             </div>
           </div>

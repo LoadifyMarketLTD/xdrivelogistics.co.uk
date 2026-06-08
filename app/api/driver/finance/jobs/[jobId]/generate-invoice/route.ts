@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -138,7 +139,7 @@ export async function POST(
       job_id: jobId,
       invoice_date: today,
       due_date: dueDate,
-      status: 'Pending',
+      status: toLegacyInvoiceStatusForDb('Draft'),
       client_name: clientName,
       client_email: clientEmail,
       pickup_location: typeof job.pickup_location === 'string' ? job.pickup_location : null,
@@ -158,5 +159,12 @@ export async function POST(
 
   if (insertError) return respond(500, { error: insertError.message });
 
-  return respond(201, { invoice: inserted });
+  return respond(201, {
+    invoice: inserted
+      ? {
+          ...inserted,
+          status: toCanonicalInvoiceStatus((inserted as { status?: string }).status),
+        }
+      : inserted,
+  });
 }

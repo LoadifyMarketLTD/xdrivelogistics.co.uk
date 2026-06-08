@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -20,7 +21,7 @@ async function resolveDriver(request: NextRequest) {
 }
 
 // POST /api/driver/finance/invoices/[id]/submit
-// Transitions invoice from Pending → Submitted
+// Transitions invoice from Draft → Sent
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -44,9 +45,11 @@ export async function POST(
   if (fetchError) return respond(500, { error: fetchError.message });
   if (!invoice) return respond(404, { error: 'Invoice not found.' });
 
-  if (invoice.status !== 'Pending') {
+  const currentStatus = toCanonicalInvoiceStatus(invoice.status);
+
+  if (currentStatus !== 'Draft') {
     return respond(409, {
-      error: `Invoice cannot be submitted from status "${invoice.status}". Only Pending invoices can be submitted.`,
+      error: `Invoice cannot be sent from status "${currentStatus}". Only Draft invoices can be sent.`,
     });
   }
 
@@ -55,7 +58,7 @@ export async function POST(
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('invoices')
     .update({
-      status: 'Submitted',
+      status: toLegacyInvoiceStatusForDb('Sent'),
       submitted_at: now,
       submitted_by: driver.userId,
       updated_at: now,
@@ -66,5 +69,12 @@ export async function POST(
 
   if (updateError) return respond(500, { error: updateError.message });
 
-  return respond(200, { invoice: updated });
+  return respond(200, {
+    invoice: updated
+      ? {
+          ...updated,
+          status: toCanonicalInvoiceStatus((updated as { status?: string }).status),
+        }
+      : updated,
+  });
 }
