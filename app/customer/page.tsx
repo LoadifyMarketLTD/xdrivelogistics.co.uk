@@ -284,24 +284,59 @@ export default function CustomerPage() {
     setBookingSuccess(false);
     if (!bookingForm.pickup_location.trim()) { setBookingError('Pickup location is required'); return; }
     if (!bookingForm.delivery_location.trim()) { setBookingError('Delivery location is required'); return; }
-    if (!isSupabaseConfigured || !user?.id || !resolvedCompanyId) { setBookingError('Your account is not linked to a company. Booking unavailable.'); return; }
     setBookingLoading(true);
-    const { error } = await supabase.from('jobs').insert([{
-      company_id: resolvedCompanyId,
-      created_by: user.id,
-      status: 'draft',
-      pickup_location: bookingForm.pickup_location,
-      delivery_location: bookingForm.delivery_location,
-      pickup_datetime: bookingForm.pickup_datetime || null,
-      vehicle_type: bookingForm.vehicle_type,
-      cargo_type: bookingForm.cargo_type,
-      notes: bookingForm.notes || null,
-    }]);
+
+    // When the customer has a linked company, insert directly as a job
+    if (isSupabaseConfigured && user?.id && resolvedCompanyId) {
+      const { error } = await supabase.from('jobs').insert([{
+        company_id: resolvedCompanyId,
+        created_by: user.id,
+        status: 'draft',
+        pickup_location: bookingForm.pickup_location,
+        delivery_location: bookingForm.delivery_location,
+        pickup_datetime: bookingForm.pickup_datetime || null,
+        vehicle_type: bookingForm.vehicle_type,
+        cargo_type: bookingForm.cargo_type,
+        notes: bookingForm.notes || null,
+      }]);
+      setBookingLoading(false);
+      if (error) { setBookingError(error.message); return; }
+      setBookingSuccess(true);
+      setBookingForm({ pickup_location: '', delivery_location: '', pickup_datetime: '', vehicle_type: 'van_large', cargo_type: 'packages', notes: '' });
+      await loadPortalData();
+      return;
+    }
+
+    // Fallback: no company linked — submit via the public quote-request endpoint
+    // This ensures new customers can always request a delivery even before being invited to a company.
+    const res = await fetch('/api/public/quote-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fullName: user?.email?.split('@')[0] ?? 'Customer',
+        email: user?.email ?? '',
+        phone: '',
+        pickupLocation: bookingForm.pickup_location,
+        deliveryLocation: bookingForm.delivery_location,
+        cargoType: (['pallets', 'furniture', 'documents', 'other'].includes(bookingForm.cargo_type)
+          ? bookingForm.cargo_type
+          : 'other') as 'pallets' | 'furniture' | 'documents' | 'other',
+        quantity: '',
+        notes: [
+          bookingForm.pickup_datetime ? `Requested pickup: ${bookingForm.pickup_datetime}` : null,
+          `Vehicle: ${bookingForm.vehicle_type.replace(/_/g, ' ')}`,
+          bookingForm.notes || null,
+        ].filter(Boolean).join(' | '),
+      }),
+    });
     setBookingLoading(false);
-    if (error) { setBookingError(error.message); return; }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      setBookingError(body.error ?? 'Failed to submit booking. Please try again.');
+      return;
+    }
     setBookingSuccess(true);
     setBookingForm({ pickup_location: '', delivery_location: '', pickup_datetime: '', vehicle_type: 'van_large', cargo_type: 'packages', notes: '' });
-    await loadPortalData();
   };
 
   const tabCounts = useMemo(() => ({
@@ -434,7 +469,12 @@ export default function CustomerPage() {
             <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', maxWidth: '560px' }}>
               <h2 style={{ margin: '0 0 1rem', fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>📦 Book a Delivery</h2>
               <p style={{ margin: '0 0 1.25rem', fontSize: '0.88rem', color: '#64748b' }}>Submit a delivery booking directly. Our team will review and allocate a driver.</p>
-              {bookingSuccess && <div style={{ background: '#dcfce7', border: '1px solid #1F7A3D', borderRadius: '8px', padding: '0.85rem 1rem', marginBottom: '1rem', color: '#14532d', fontWeight: 600 }}>✅ Booking submitted! Check the Jobs tab to track progress.</div>}
+              {!resolvedCompanyId && (
+                <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.86rem', color: '#854d0e' }}>
+                  ℹ️ Your account isn&apos;t linked to a company yet. Bookings submitted here will be handled by the XDrive operations team and you&apos;ll be contacted to confirm.
+                </div>
+              )}
+              {bookingSuccess && <div style={{ background: '#dcfce7', border: '1px solid #1F7A3D', borderRadius: '8px', padding: '0.85rem 1rem', marginBottom: '1rem', color: '#14532d', fontWeight: 600 }}>✅ Booking submitted! Our team will be in touch to confirm your delivery.{resolvedCompanyId ? ' Check the Jobs tab to track progress.' : ''}</div>}
               {bookingError && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', color: '#dc2626', fontSize: '0.9rem' }}>{bookingError}</div>}
               <div style={{ display: 'grid', gap: '1rem' }}>
                 <div>
@@ -469,8 +509,8 @@ export default function CustomerPage() {
                 </div>
                 <button
                   onClick={() => { void handleBookDelivery(); }}
-                  disabled={bookingLoading || !resolvedCompanyId}
-                  style={{ padding: '0.85rem', background: resolvedCompanyId ? '#1d4ed8' : '#9ca3af', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: resolvedCompanyId ? 'pointer' : 'not-allowed', fontSize: '0.95rem' }}
+                  disabled={bookingLoading}
+                  style={{ padding: '0.85rem', background: bookingLoading ? '#9ca3af' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: bookingLoading ? 'not-allowed' : 'pointer', fontSize: '0.95rem' }}
                 >
                   {bookingLoading ? 'Submitting…' : 'Submit Booking'}
                 </button>
