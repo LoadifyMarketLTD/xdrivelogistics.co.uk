@@ -35,12 +35,45 @@ const clearBrowserTokens = (pathname: string) => {
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [error, setError] = useState('');
+  const [isLinkIssue, setIsLinkIssue] = useState(false);
+  const [recoveryType, setRecoveryType] = useState<'recovery' | 'signup' | 'other'>('other');
 
   useEffect(() => {
+    const INVALID_LINK_MESSAGE =
+      'The link is invalid, expired, or has already been used. Please request a new link.';
+
+    const getCallbackRecoveryType = (
+      queryType: string | null,
+      hashType: string | null,
+      flow: string | null
+    ): 'recovery' | 'signup' | 'other' => {
+      const normalizedType = (queryType ?? hashType ?? flow ?? '').trim().toLowerCase();
+      if (normalizedType === 'recovery' || normalizedType === 'invite') return 'recovery';
+      if (normalizedType === 'signup' || normalizedType === 'email' || normalizedType === 'email_change') {
+        return 'signup';
+      }
+      return 'other';
+    };
+    const getOtpType = (queryType: string | null, hashType: string | null, flow: string | null): OtpType | null => {
+      const normalizedType = (queryType ?? hashType ?? flow ?? '').trim().toLowerCase();
+      if (normalizedType === 'invite') return 'invite';
+      if (normalizedType === 'recovery') return 'recovery';
+      if (normalizedType === 'signup') return 'signup';
+      if (normalizedType === 'email') return 'email';
+      if (normalizedType === 'email_change') return 'email_change';
+      return null;
+    };
+
+    const normalizeSignal = (value: string | null) => value?.trim() ?? '';
+    const isPkceVerifierMissingError = (message: string) => {
+      const normalized = message.toLowerCase();
+      return normalized.includes('code verifier') || normalized.includes('both auth code and code verifier');
+    };
+
     const redirectAuthenticatedUser = async (sessionUser: SessionUser | null) => {
       if (!sessionUser) {
-        clearRouteAuthCookie();
-        router.replace('/login');
+        setError(INVALID_LINK_MESSAGE);
+        setIsLinkIssue(true);
         return;
       }
 
@@ -67,10 +100,22 @@ export default function AuthCallbackPage() {
 
         const signals = getBrowserAuthSignals();
         if (!signals) {
-          clearRouteAuthCookie();
-          router.replace('/login');
+          setError(INVALID_LINK_MESSAGE);
+          setIsLinkIssue(true);
           return;
         }
+
+        const accessToken = normalizeSignal(signals.accessToken);
+        const refreshToken = normalizeSignal(signals.refreshToken);
+        const code = normalizeSignal(signals.code);
+        const tokenHash = normalizeSignal(signals.tokenHash);
+        const hasSessionTokens = Boolean(accessToken && refreshToken);
+        const hasCode = Boolean(code);
+        const hasTokenHash = Boolean(tokenHash);
+        const hasAnyAuthSignal = hasSessionTokens || hasCode || hasTokenHash;
+        const callbackRecoveryType = getCallbackRecoveryType(signals.queryType, signals.hashType, signals.flow);
+        const otpType = getOtpType(signals.queryType, signals.hashType, signals.flow) ?? 'recovery';
+        setRecoveryType(callbackRecoveryType);
 
         let sessionUser: SessionUser | null = null;
         let consumedBrowserTokens = false;
@@ -83,11 +128,17 @@ export default function AuthCallbackPage() {
         if (existingSessionError) throw existingSessionError;
         sessionUser = existingSession?.user ?? null;
 
-        if (!sessionUser) {
+        if (!sessionUser && !hasAnyAuthSignal) {
+          setError(INVALID_LINK_MESSAGE);
+          setIsLinkIssue(true);
+          return;
+        }
+
+        if (!sessionUser && hasSessionTokens) {
           const { data: setSessionData } = await withTimeout(
             supabase.auth.setSession({
-              access_token: signals.accessToken ?? '',
-              refresh_token: signals.refreshToken ?? '',
+              access_token: accessToken,
+              refresh_token: refreshToken,
             }),
             AUTH_CALLBACK_TIMEOUT_MS
           );
@@ -97,38 +148,55 @@ export default function AuthCallbackPage() {
           }
         }
 
-        if (!sessionUser) {
-          const { data: exchangeData } = await withTimeout(
-            supabase.auth.exchangeCodeForSession(signals.code ?? ''),
+        if (!sessionUser && hasCode) {
+          const { data: exchangeData, error: exchangeError } = await withTimeout(
+            supabase.auth.exchangeCodeForSession(code),
             AUTH_CALLBACK_TIMEOUT_MS
           );
+          if (exchangeError) {
+            if (isPkceVerifierMissingError(exchangeError.message)) {
+              setError(
+                'This sign-in link cannot be completed in this browser session. Please request a new link and open it in the same browser.'
+              );
+              setIsLinkIssue(true);
+              return;
+            }
+          }
           if (exchangeData.user) {
             sessionUser = exchangeData.user;
             consumedBrowserTokens = true;
           }
         }
 
-        if (!sessionUser) {
-          const otpTypes: OtpType[] = ['invite', 'recovery', 'signup', 'email', 'email_change'];
-          for (const otpType of otpTypes) {
-            const { data: verifyData } = await withTimeout(
-              supabase.auth.verifyOtp({
-                token_hash: signals.tokenHash ?? '',
-                type: otpType,
-              }),
-              AUTH_CALLBACK_TIMEOUT_MS
-            );
-            if (verifyData.user) {
-              sessionUser = verifyData.user;
-              verifiedOtpType = otpType;
-              consumedBrowserTokens = true;
-              break;
-            }
+        if (!sessionUser && hasTokenHash) {
+          const { data: verifyData, error: verifyError } = await withTimeout(
+            supabase.auth.verifyOtp({
+              token_hash: tokenHash,
+              type: otpType,
+            }),
+            AUTH_CALLBACK_TIMEOUT_MS
+          );
+          if (!verifyError && verifyData.user) {
+            sessionUser = verifyData.user;
+            verifiedOtpType = otpType;
+            consumedBrowserTokens = true;
           }
         }
 
         if (consumedBrowserTokens) {
           clearBrowserTokens('/auth/callback');
+        }
+
+        if (!sessionUser) {
+          setError(
+            callbackRecoveryType === 'recovery'
+              ? `${INVALID_LINK_MESSAGE} Reopen the reset flow and request a new reset link.`
+              : callbackRecoveryType === 'signup'
+                ? `${INVALID_LINK_MESSAGE} Return to sign in or register and request a fresh confirmation link.`
+                : INVALID_LINK_MESSAGE
+          );
+          setIsLinkIssue(true);
+          return;
         }
 
         if (verifiedOtpType === 'invite' || verifiedOtpType === 'recovery') {
@@ -140,7 +208,12 @@ export default function AuthCallbackPage() {
       } catch (err) {
         clearRouteAuthCookie();
         const message = err instanceof Error ? err.message : 'Authentication callback failed.';
-        setError(message);
+        setError(
+          isPkceVerifierMissingError(message)
+            ? 'This sign-in link cannot be completed in this browser session. Please request a new link and open it in the same browser.'
+            : message
+        );
+        setIsLinkIssue(isPkceVerifierMissingError(message));
       }
     };
 
@@ -150,8 +223,59 @@ export default function AuthCallbackPage() {
   return (
     <main>
       <section style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-        <h1 style={{ marginBottom: '1rem' }}>Completing sign-in…</h1>
+        <h1 style={{ marginBottom: '1rem' }}>{isLinkIssue ? 'Link issue detected' : 'Completing sign-in…'}</h1>
         {error && <p style={{ color: '#dc2626' }}>{error}</p>}
+        {isLinkIssue && (
+          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {recoveryType === 'recovery' ? (
+              <button
+                type="button"
+                onClick={() => router.replace('/login')}
+                style={{
+                  padding: '0.75rem 1.25rem',
+                  backgroundColor: '#1F7A3D',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                }}
+              >
+                Request a new reset link
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => router.replace('/login')}
+                  style={{
+                    padding: '0.75rem 1.25rem',
+                    backgroundColor: '#1F7A3D',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Back to sign in
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.replace('/register')}
+                  style={{
+                    padding: '0.75rem 1.25rem',
+                    backgroundColor: '#1d4ed8',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Go to register
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </section>
     </main>
   );
