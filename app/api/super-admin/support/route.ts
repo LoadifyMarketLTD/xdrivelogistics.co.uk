@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
@@ -39,52 +40,37 @@ type ReviewRow = {
   comment: string | null;
   created_at: string;
 };
-type NotificationTicketRow = {
+type NotificationTicketRow = never; // kept for backwards compatibility if needed — table data now sourced from support_tickets
+
+type SupportTicketRow = {
   id: string;
   company_id: string | null;
-  event_type: string;
-  payload: Record<string, unknown> | null;
+  raised_by_user_id: string | null;
+  subject: string;
+  description: string | null;
+  category: string;
+  priority: string;
   status: string;
+  assigned_to_user_id: string | null;
+  resolution_note: string | null;
+  resolved_at: string | null;
+  closed_at: string | null;
   created_at: string;
-  processed_at: string | null;
+  updated_at: string;
 };
+
+const createTicketSchema = z.object({
+  company_id: z.string().uuid().optional(),
+  subject: z.string().trim().min(3).max(200),
+  description: z.string().trim().max(5000).optional(),
+  category: z.enum(['billing', 'operations', 'technical', 'compliance', 'general']).default('general'),
+  priority: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
+});
 
 const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
   if (!supabaseAdmin || ids.length === 0) return new Map();
   const { data } = await supabaseAdmin.from('companies').select('id, name').in('id', ids);
   return new Map((data as CompanyRow[] ?? []).map((c) => [c.id, c.name]));
-};
-
-const mapTicketStatus = (status: string) => {
-  if (status === 'sent') return 'resolved';
-  if (status === 'skipped') return 'investigating';
-  return 'open';
-};
-
-const mapTicketPriority = (status: string) => {
-  if (status === 'failed') return 'high';
-  if (status === 'pending') return 'medium';
-  if (status === 'skipped') return 'medium';
-  return 'low';
-};
-
-const mapTicketSubject = (eventType: string, payload: Record<string, unknown> | null) => {
-  const safePayload = payload ?? {};
-  const jobId = typeof safePayload.job_id === 'string' ? safePayload.job_id : null;
-  const invoiceId = typeof safePayload.invoice_id === 'string' ? safePayload.invoice_id : null;
-
-  switch (eventType) {
-    case 'job_assigned':
-      return jobId ? `Job assignment event (${jobId.slice(0, 8)})` : 'Job assignment event';
-    case 'pod_uploaded':
-      return jobId ? `POD uploaded event (${jobId.slice(0, 8)})` : 'POD uploaded event';
-    case 'bid_accepted':
-      return jobId ? `Bid accepted event (${jobId.slice(0, 8)})` : 'Bid accepted event';
-    case 'invoice_disputed':
-      return invoiceId ? `Invoice disputed (${invoiceId.slice(0, 8)})` : 'Invoice disputed';
-    default:
-      return eventType.replace(/_/g, ' ');
-  }
 };
 
 export async function GET(request: NextRequest) {
@@ -174,8 +160,8 @@ export async function GET(request: NextRequest) {
   // ── Tickets ───────────────────────────────────────────────────────────────────
   if (section === 'tickets') {
     const { data, error } = await supabaseAdmin
-      .from('notification_events')
-      .select('id, company_id, event_type, payload, status, created_at, processed_at')
+      .from('support_tickets')
+      .select('id, company_id, raised_by_user_id, subject, description, category, priority, status, assigned_to_user_id, resolution_note, resolved_at, closed_at, created_at, updated_at')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -184,27 +170,29 @@ export async function GET(request: NextRequest) {
         section,
         rows: [],
         summary: { total: 0, open: 0, investigating: 0, resolved: 0, closed: 0 },
-        note: 'No support tickets available. notification_events table may not be populated yet.',
+        note: 'No support tickets available yet.',
       });
     }
 
-    const rows = (data as NotificationTicketRow[] | null) ?? [];
+    const rows = (data as SupportTicketRow[] | null) ?? [];
     const nameById = await companyNameMap(
       Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
     );
 
-    const ticketRows = rows.map((r) => {
-      const status = mapTicketStatus(r.status);
-      return {
-        id: r.id,
-        company_name: nameById.get(r.company_id as string) ?? 'Unknown',
-        subject: mapTicketSubject(r.event_type, r.payload),
-        status,
-        priority: mapTicketPriority(r.status),
-        created_at: r.created_at,
-        resolved_at: status === 'resolved' ? r.processed_at : null,
-      };
-    });
+    const ticketRows = rows.map((r) => ({
+      id: r.id,
+      company_name: nameById.get(r.company_id as string) ?? 'Unknown',
+      subject: r.subject,
+      description: r.description,
+      category: r.category,
+      priority: r.priority,
+      status: r.status,
+      resolution_note: r.resolution_note,
+      created_at: r.created_at,
+      resolved_at: r.resolved_at,
+      closed_at: r.closed_at,
+      updated_at: r.updated_at,
+    }));
 
     return respond(200, {
       section,
@@ -220,4 +208,45 @@ export async function GET(request: NextRequest) {
   }
 
   return respond(400, { error: 'Invalid section. Use disputes, complaints, or tickets.' });
+}
+
+export async function POST(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
+
+  const owner = await verifyOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return respond(400, { error: 'Invalid JSON body.' });
+  }
+
+  const parsed = createTicketSchema.safeParse(body);
+  if (!parsed.success) {
+    return respond(400, { error: 'Validation failed.', details: parsed.error.flatten() });
+  }
+
+  const { company_id, subject, description, category, priority } = parsed.data;
+
+  const { data: ticket, error } = await supabaseAdmin
+    .from('support_tickets')
+    .insert({
+      company_id: company_id ?? null,
+      raised_by_user_id: owner.id,
+      subject,
+      description: description ?? null,
+      category,
+      priority,
+      status: 'open',
+    })
+    .select('id, company_id, subject, category, priority, status, created_at')
+    .single();
+
+  if (error) return respond(500, { error: error.message });
+
+  return respond(201, { ticket });
 }
