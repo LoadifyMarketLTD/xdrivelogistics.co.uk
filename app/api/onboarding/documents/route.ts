@@ -1,11 +1,15 @@
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { FLEET_DOCUMENT_TYPES, OWNER_DRIVER_DOCUMENT_TYPES } from '../../_lib/onboarding';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
 const sanitizeFilename = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, '_');
+const fleetDocTypeSchema = z.enum(FLEET_DOCUMENT_TYPES);
+const ownerDriverDocTypeSchema = z.enum(OWNER_DRIVER_DOCUMENT_TYPES);
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -24,7 +28,6 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const file = formData.get('file');
   const docType = String(formData.get('docType') ?? '').trim();
-  const model = String(formData.get('model') ?? 'onboarding').trim();
 
   if (!(file instanceof File)) {
     return json(400, { error: 'No file uploaded.' });
@@ -59,7 +62,13 @@ export async function POST(request: NextRequest) {
     return json(500, { error: uploadError.message });
   }
 
-  if (model === 'company') {
+  const accountType = app.account_type as string;
+  if (accountType === 'fleet_courier') {
+    const parsedDocType = fleetDocTypeSchema.safeParse(docType);
+    if (!parsedDocType.success) {
+      return json(400, { error: 'Invalid fleet document type.' });
+    }
+
     const { data: company } = await supabaseAdmin
       .from('companies')
       .select('id')
@@ -72,15 +81,20 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.from('company_documents').insert({
         company_id: company.id,
         onboarding_application_id: app.id,
-        doc_type: docType,
+        doc_type: parsedDocType.data,
         file_path: objectPath,
         status: 'pending',
       });
     }
-  } else if (model === 'driver_identity') {
+  } else if (accountType === 'owner_driver') {
+    const parsedDocType = ownerDriverDocTypeSchema.safeParse(docType);
+    if (!parsedDocType.success) {
+      return json(400, { error: 'Invalid owner driver document type.' });
+    }
+
     await supabaseAdmin.from('driver_identity_documents').insert({
       onboarding_application_id: app.id,
-      doc_type: docType,
+      doc_type: parsedDocType.data,
       file_path: objectPath,
       upload_status: 'uploaded',
       verification_status: 'unverified',
@@ -100,7 +114,7 @@ export async function POST(request: NextRequest) {
   return json(200, {
     path: objectPath,
     docType,
-    model,
+    accountType,
     payload: latestApp?.payload ?? null,
   });
 }

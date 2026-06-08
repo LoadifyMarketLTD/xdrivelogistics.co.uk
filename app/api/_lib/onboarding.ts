@@ -4,6 +4,34 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const ONBOARDING_ACCOUNT_TYPES = ['broker_shipper', 'fleet_courier', 'owner_driver'] as const;
 export type OnboardingAccountType = (typeof ONBOARDING_ACCOUNT_TYPES)[number];
+export const ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE: Record<OnboardingAccountType, 'broker' | 'fleet' | 'owner-driver'> = {
+  broker_shipper: 'broker',
+  fleet_courier: 'fleet',
+  owner_driver: 'owner-driver',
+};
+
+export const ONBOARDING_ACCOUNT_TYPE_BY_ROUTE_SEGMENT: Record<'broker' | 'fleet' | 'owner-driver', OnboardingAccountType> = {
+  broker: 'broker_shipper',
+  fleet: 'fleet_courier',
+  'owner-driver': 'owner_driver',
+};
+
+export const FLEET_DOCUMENT_TYPES = [
+  'operator_licence',
+  'public_liability',
+  'goods_in_transit',
+  'motor_fleet_insurance',
+  'company_registration',
+  'vat_registration',
+] as const;
+
+export const OWNER_DRIVER_DOCUMENT_TYPES = [
+  'driving_licence',
+  'cpc',
+  'proof_of_address',
+  'insurance',
+  'right_to_work_evidence',
+] as const;
 
 export const ONBOARDING_UNLOCKED_STATUS = 'approved';
 
@@ -67,7 +95,8 @@ export const resolveOnboardingTokenTtlHours = async (supabaseAdmin: SupabaseClie
   return configured;
 };
 
-export const buildOnboardingUrl = (token: string) => {
+export const buildOnboardingUrl = (token: string, accountType: OnboardingAccountType) => {
   const origin = getCanonicalSiteOrigin().replace('https://www.xdrivelogistics.co.uk', 'https://xdrivelogistics.co.uk');
-  return `${origin}/onboarding/${token}`;
+  const segment = ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE[accountType];
+  return `${origin}/onboarding/${segment}/${token}`;
 };
