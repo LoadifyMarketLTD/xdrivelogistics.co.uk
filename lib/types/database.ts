@@ -233,7 +233,16 @@ export interface ReturnJourney {
   created_at: string;
 }
 
-export type InvoiceStatus = 'Pending' | 'Submitted' | 'Approved' | 'Paid' | 'Disputed' | 'Overdue';
+export type InvoiceStatus =
+  | 'Draft'
+  | 'Sent'
+  | 'Overdue'
+  | 'Paid'
+  | 'Disputed'
+  | 'Cancelled'
+  | 'Pending'
+  | 'Submitted'
+  | 'Approved';
 
 export interface Invoice {
   id: string;

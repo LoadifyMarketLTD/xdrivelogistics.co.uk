@@ -17,6 +17,13 @@ import { downloadInvoicePdf } from '../../../../lib/invoicePdf';
 import { resolveActiveCompanyId } from '../../../../lib/activeCompany';
 import type { Invoice } from '../../../../lib/types/database';
 import { saveInvoiceWithSchemaCompat } from '../../../../lib/supabaseSchemaCompat';
+import {
+  CANONICAL_INVOICE_STATUSES,
+  toCanonicalInvoiceStatus,
+  toCanonicalInvoiceStatusWithDueDate,
+  toLegacyInvoiceStatusForDb,
+  type CanonicalInvoiceStatus,
+} from '../../../../lib/invoiceStatus';
 
 type InvoiceStatusHistoryItem = {
   id: string;
@@ -38,6 +45,7 @@ type InvoicePaymentHistoryItem = {
 
 /** Map InvoiceData (UI shape) → Supabase invoice row (DB shape) */
 function invoiceDataToDb(inv: InvoiceData, companyId: string, jobId: string | null, userId?: string | null): Omit<Invoice, 'created_at' | 'updated_at'> {
+  const canonicalStatus = toCanonicalInvoiceStatus(inv.status);
   return {
     id: inv.id,
     company_id: companyId,
@@ -47,7 +55,7 @@ function invoiceDataToDb(inv: InvoiceData, companyId: string, jobId: string | nu
     job_id: jobId,
     invoice_date: inv.date,
     due_date: inv.dueDate,
-    status: inv.status,
+    status: toLegacyInvoiceStatusForDb(canonicalStatus),
     client_name: inv.clientName,
     client_address: inv.clientAddress || null,
     client_email: inv.clientEmail || null,
@@ -78,13 +86,14 @@ function invoiceDataToDb(inv: InvoiceData, companyId: string, jobId: string | nu
 
 /** Map Supabase Invoice row → InvoiceData used by the UI */
 function dbToInvoiceData(row: Invoice): InvoiceData {
+  const status = toCanonicalInvoiceStatusWithDueDate(row.status, row.due_date);
   return {
     id: row.id,
     invoiceNumber: row.invoice_number,
     jobRef: row.job_ref,
     date: row.invoice_date,
     dueDate: row.due_date,
-    status: row.status,
+    status,
     clientName: row.client_name,
     clientAddress: row.client_address ?? '',
     clientEmail: row.client_email ?? '',
@@ -133,7 +142,7 @@ export default function InvoiceDetailPage() {
     jobRef: prefillJobRef,
     date: new Date().toISOString().split('T')[0],
     dueDate: '',
-    status: 'Pending',
+    status: 'Draft',
     clientName: prefillClientName,
     clientAddress: '',
     clientEmail: prefillClientEmail,
@@ -886,15 +895,12 @@ export default function InvoiceDetailPage() {
                     <label style={labelStyle}>Status</label>
                     <select
                       value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Paid' | 'Pending' | 'Overdue' | 'Submitted' | 'Approved' | 'Disputed' })}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as CanonicalInvoiceStatus })}
                       style={inputStyle}
                     >
-                      <option value="Pending">Pending</option>
-                      <option value="Submitted">Submitted</option>
-                      <option value="Approved">Approved</option>
-                      <option value="Paid">Paid</option>
-                      <option value="Disputed">Disputed</option>
-                      <option value="Overdue">Overdue</option>
+                      {CANONICAL_INVOICE_STATUSES.map((status) => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

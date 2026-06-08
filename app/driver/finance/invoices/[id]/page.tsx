@@ -5,10 +5,14 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../../../lib/supabaseClient';
+import {
+  toCanonicalInvoiceStatusWithDueDate,
+  type CanonicalInvoiceStatus,
+} from '../../../../../lib/invoiceStatus';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type InvoiceStatus = 'Pending' | 'Submitted' | 'Approved' | 'Paid' | 'Disputed' | 'Overdue';
+type InvoiceStatus = CanonicalInvoiceStatus;
 
 type InvoiceDetail = {
   id: string;
@@ -80,9 +84,9 @@ type DocumentRecord = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<InvoiceStatus, { bg: string; text: string }> = {
-  Pending:   { bg: '#fef3c7', text: '#92400e' },
-  Submitted: { bg: '#e0e7ff', text: '#3730a3' },
-  Approved:  { bg: '#dbeafe', text: '#1e40af' },
+  Draft:     { bg: '#fef3c7', text: '#92400e' },
+  Sent:      { bg: '#e0e7ff', text: '#3730a3' },
+  Cancelled: { bg: '#e2e8f0', text: '#475569' },
   Paid:      { bg: '#d1fae5', text: '#065f46' },
   Disputed:  { bg: '#fce7f3', text: '#9d174d' },
   Overdue:   { bg: '#fee2e2', text: '#991b1b' },
@@ -180,7 +184,10 @@ export default function DriverInvoiceDetailPage({
         disputes: DisputeRecord[];
         documents: DocumentRecord[];
       };
-      setInvoice(json.invoice);
+      setInvoice({
+        ...json.invoice,
+        status: toCanonicalInvoiceStatusWithDueDate(json.invoice.status, json.invoice.due_date),
+      });
       setStatusHistory(json.statusHistory ?? []);
       setPayments(json.payments ?? []);
       setDisputes(json.disputes ?? []);
@@ -464,7 +471,7 @@ export default function DriverInvoiceDetailPage({
           </div>
 
           {/* Submit action */}
-          {invoice.status === 'Pending' && (
+          {invoice.status === 'Draft' && (
             <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
               {submitError && (
                 <div style={{ marginBottom: '0.5rem', color: '#dc2626', fontSize: '0.83rem' }}>{submitError}</div>
@@ -474,7 +481,7 @@ export default function DriverInvoiceDetailPage({
                 disabled={submitting}
                 style={{ ...btnPrimary, opacity: submitting ? 0.6 : 1 }}
               >
-                {submitting ? 'Submitting…' : '📤 Mark as Submitted'}
+                {submitting ? 'Sending…' : '📤 Mark as Sent'}
               </button>
             </div>
           )}

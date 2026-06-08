@@ -6,10 +6,14 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import {
+  toCanonicalInvoiceStatusWithDueDate,
+  type CanonicalInvoiceStatus,
+} from '../../../lib/invoiceStatus';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type InvoiceStatus = 'Pending' | 'Submitted' | 'Approved' | 'Paid' | 'Disputed' | 'Overdue';
+type InvoiceStatus = CanonicalInvoiceStatus;
 
 type InvoiceRow = {
   id: string;
@@ -40,33 +44,33 @@ type CompletedJob = {
 
 type FinanceSummary = {
   total: number;
-  pending: number;
-  submitted: number;
-  approved: number;
+  draft: number;
+  sent: number;
+  overdue: number;
   paid: number;
   disputed: number;
-  overdue: number;
+  cancelled: number;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_TABS: Array<{ id: InvoiceStatus | 'All'; label: string }> = [
   { id: 'All', label: 'All' },
-  { id: 'Pending', label: 'Pending' },
-  { id: 'Submitted', label: 'Submitted' },
-  { id: 'Approved', label: 'Approved' },
+  { id: 'Draft', label: 'Draft' },
+  { id: 'Sent', label: 'Sent' },
+  { id: 'Overdue', label: 'Overdue' },
   { id: 'Paid', label: 'Paid' },
   { id: 'Disputed', label: 'Disputed' },
-  { id: 'Overdue', label: 'Overdue' },
+  { id: 'Cancelled', label: 'Cancelled' },
 ];
 
 const STATUS_COLORS: Record<InvoiceStatus, { bg: string; text: string }> = {
-  Pending:   { bg: '#fef3c7', text: '#92400e' },
-  Submitted: { bg: '#e0e7ff', text: '#3730a3' },
-  Approved:  { bg: '#dbeafe', text: '#1e40af' },
+  Draft:     { bg: '#fef3c7', text: '#92400e' },
+  Sent:      { bg: '#e0e7ff', text: '#3730a3' },
+  Overdue:   { bg: '#fee2e2', text: '#991b1b' },
   Paid:      { bg: '#d1fae5', text: '#065f46' },
   Disputed:  { bg: '#fce7f3', text: '#9d174d' },
-  Overdue:   { bg: '#fee2e2', text: '#991b1b' },
+  Cancelled: { bg: '#e2e8f0', text: '#475569' },
 };
 
 const fmtCurrency = (amount: number, currency = 'GBP') =>
@@ -119,7 +123,11 @@ export default function DriverFinancePage() {
         return;
       }
       const json = await res.json() as { rows: InvoiceRow[]; summary: FinanceSummary };
-      setInvoices(json.rows ?? []);
+      const normalizedRows = (json.rows ?? []).map((row) => ({
+        ...row,
+        status: toCanonicalInvoiceStatusWithDueDate(row.status, row.due_date),
+      }));
+      setInvoices(normalizedRows);
       setSummary(json.summary ?? null);
     } catch {
       setError('Network error loading invoices.');
@@ -235,12 +243,12 @@ export default function DriverFinancePage() {
   const summaryCards = summary
     ? [
         { label: 'Total', value: summary.total, color: '#64748b' },
-        { label: 'Pending', value: summary.pending, color: STATUS_COLORS.Pending.text },
-        { label: 'Submitted', value: summary.submitted, color: STATUS_COLORS.Submitted.text },
-        { label: 'Approved', value: summary.approved, color: STATUS_COLORS.Approved.text },
+        { label: 'Draft', value: summary.draft, color: STATUS_COLORS.Draft.text },
+        { label: 'Sent', value: summary.sent, color: STATUS_COLORS.Sent.text },
+        { label: 'Overdue', value: summary.overdue, color: STATUS_COLORS.Overdue.text },
         { label: 'Paid', value: summary.paid, color: STATUS_COLORS.Paid.text },
         { label: 'Disputed', value: summary.disputed, color: STATUS_COLORS.Disputed.text },
-        { label: 'Overdue', value: summary.overdue, color: STATUS_COLORS.Overdue.text },
+        { label: 'Cancelled', value: summary.cancelled, color: STATUS_COLORS.Cancelled.text },
       ]
     : [];
 

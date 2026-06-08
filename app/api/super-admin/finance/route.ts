@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import {
+  buildInvoiceStatusSummary,
+  toCanonicalInvoiceStatusWithDueDate,
+} from '../../../../lib/invoiceStatus';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -53,19 +57,21 @@ export async function GET(request: NextRequest) {
       Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
     );
 
-    const totalAmount = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-    const paidAmount = rows
+    const normalizedRows = rows.map((r) => ({
+      ...r,
+      status: toCanonicalInvoiceStatusWithDueDate(r.status as string | null | undefined, r.due_date as string | null | undefined),
+    }));
+    const totalAmount = normalizedRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const paidAmount = normalizedRows
       .filter((r) => r.status === 'Paid')
       .reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const summary = buildInvoiceStatusSummary(normalizedRows.map((row) => row.status));
 
     return respond(200, {
       section,
-      rows: rows.map((r) => ({ ...r, company_name: nameById.get(r.company_id as string) ?? 'Unknown' })),
+      rows: normalizedRows.map((r) => ({ ...r, company_name: nameById.get(r.company_id as string) ?? 'Unknown' })),
       summary: {
-        total: rows.length,
-        paid: rows.filter((r) => r.status === 'Paid').length,
-        pending: rows.filter((r) => r.status === 'Pending').length,
-        overdue: rows.filter((r) => r.status === 'Overdue').length,
+        ...summary,
         totalAmount,
         paidAmount,
         unpaidAmount: totalAmount - paidAmount,

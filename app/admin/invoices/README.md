@@ -23,7 +23,7 @@
 
 ### Managing Invoices
 - **Search**: Type in the search box to find invoices by number, job ref, or client name
-- **Filter**: Use the status dropdown to show only Paid, Pending, or Overdue invoices
+- **Filter**: Use the status tabs to show Draft, Sent, Overdue, Paid, Disputed, or Cancelled invoices
 - **View**: Click on any invoice row to open the details
 - **Edit**: Make changes in the detail view and click "Save Invoice"
 
@@ -33,11 +33,29 @@
 - **WhatsApp**: Click WhatsApp button to share invoice details via WhatsApp
 
 ### Invoice Status
-- **Pending** (Yellow): Invoice not yet paid and not overdue
+- **Draft** (Yellow): Invoice created but not yet sent
+- **Sent** (Indigo): Invoice sent to the client and awaiting settlement
 - **Overdue** (Red): Invoice past due date and not paid
 - **Paid** (Green): Invoice has been paid
+- **Disputed** (Pink): Invoice currently under dispute
+- **Cancelled** (Slate): Invoice cancelled and no longer collectible
 
-Status is automatically calculated based on the due date.
+Status is automatically calculated from lifecycle state and due date where applicable.
+
+### Legacy Database Mapping (Backwards Compatibility)
+
+Current production schemas may still persist legacy enum values. The active UI/API layer maps them to canonical statuses:
+
+| Legacy DB value | Canonical UI/API status |
+| --- | --- |
+| `Pending` | `Draft` |
+| `Submitted` | `Sent` |
+| `Approved` | `Sent` |
+
+Write compatibility rules:
+- `Draft` writes map to `Pending` where legacy enum schemas still apply.
+- `Sent` writes map to `Submitted` where legacy enum schemas still apply.
+- Canonical values (`Overdue`, `Paid`, `Disputed`, `Cancelled`) pass through directly when supported.
 
 ## Technical Details
 

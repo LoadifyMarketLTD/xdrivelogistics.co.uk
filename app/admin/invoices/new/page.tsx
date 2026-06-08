@@ -10,6 +10,7 @@ import { COMPANY_CONFIG } from '../../../config/company';
 import { isSupabaseConfigured, supabase } from '../../../../lib/supabaseClient';
 import { resolveActiveCompanyId } from '../../../../lib/activeCompany';
 import type { Invoice } from '../../../../lib/types/database';
+import { toLegacyInvoiceStatusForDb } from '../../../../lib/invoiceStatus';
 
 type JobPrefill = {
   id: string;
@@ -198,7 +199,7 @@ export default function NewInvoicePage() {
         job_id: jobId || null,
         invoice_date: invoiceDate,
         due_date: dueDate,
-        status: 'Pending',
+        status: toLegacyInvoiceStatusForDb('Draft'),
         client_name: clientName.trim(),
         client_address: null,
         client_email: clientEmail.trim() || null,
@@ -218,6 +219,12 @@ export default function NewInvoicePage() {
         pod_photos: null,
         signature: null,
         recipient_name: null,
+        submitted_at: null,
+        submitted_by: null,
+        approved_at: null,
+        approved_by: null,
+        disputed_at: null,
+        paid_at: null,
       };
 
       const { error } = await supabase.from('invoices').insert([row]);
