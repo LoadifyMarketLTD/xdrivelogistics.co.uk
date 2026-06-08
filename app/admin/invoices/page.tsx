@@ -10,6 +10,10 @@ import {
   loadInvoicesWithSchemaCompat,
   resolveInvoiceClientName,
 } from '../../../lib/supabaseSchemaCompat';
+import {
+  toCanonicalInvoiceStatusWithDueDate,
+  type CanonicalInvoiceStatus,
+} from '../../../lib/invoiceStatus';
 
 type InvoiceListItem = InvoiceData & { jobId: string | null };
 
@@ -23,9 +27,7 @@ function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): Invo
   const dueDate = typeof row.due_date === 'string' ? row.due_date : invoiceDate;
   const paymentTerms = row.payment_terms === 'Pay now' || row.payment_terms === '30 days' ? row.payment_terms : '14 days';
   const status =
-    row.status === 'Paid' || row.status === 'Overdue' || row.status === 'Pending'
-      ? row.status
-      : 'Pending';
+    toCanonicalInvoiceStatusWithDueDate(typeof row.status === 'string' ? row.status : null, dueDate);
   return {
     id: typeof row.id === 'string' ? row.id : fallbackId,
     invoiceNumber: typeof row.invoice_number === 'string' ? row.invoice_number : `Invoice-${fallbackId.slice(0, 8)}`,
@@ -64,17 +66,13 @@ export default function InvoicesPage() {
   const [loadError, setLoadError] = useState('');
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Paid' | 'Pending' | 'Overdue'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | CanonicalInvoiceStatus>('All');
   const INVOICES_PER_PAGE = 12;
   const [invoicePage, setInvoicePage] = useState(0);
   const loadRequestRef = useRef(0);
 
-  const calculateStatus = (dueDate: string, currentStatus: string): 'Paid' | 'Pending' | 'Overdue' => {
-    if (currentStatus === 'Paid') return 'Paid';
-    const today = new Date();
-    const due = new Date(dueDate);
-    return today > due ? 'Overdue' : 'Pending';
-  };
+  const calculateStatus = (dueDate: string, currentStatus: string): CanonicalInvoiceStatus =>
+    toCanonicalInvoiceStatusWithDueDate(currentStatus, dueDate);
 
   const loadInvoices = async () => {
     const requestId = ++loadRequestRef.current;
@@ -185,10 +183,16 @@ export default function InvoicesPage() {
     switch (status) {
       case 'Paid':
         return { ...baseStyle, backgroundColor: '#d1fae5', color: '#065f46' };
-      case 'Pending':
+      case 'Draft':
         return { ...baseStyle, backgroundColor: '#fef3c7', color: '#92400e' };
+      case 'Sent':
+        return { ...baseStyle, backgroundColor: '#e0e7ff', color: '#3730a3' };
       case 'Overdue':
         return { ...baseStyle, backgroundColor: '#fee2e2', color: '#991b1b' };
+      case 'Disputed':
+        return { ...baseStyle, backgroundColor: '#fce7f3', color: '#9d174d' };
+      case 'Cancelled':
+        return { ...baseStyle, backgroundColor: '#e2e8f0', color: '#475569' };
       default:
         return { ...baseStyle, backgroundColor: '#f3f4f6', color: '#374151' };
     }
@@ -201,7 +205,7 @@ export default function InvoicesPage() {
         {/* SmartPay-style tab bar + create button */}
         <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: 0 }}>
-            {(['All', 'Pending', 'Paid', 'Overdue'] as const).map((s) => {
+            {(['All', 'Draft', 'Sent', 'Overdue', 'Paid', 'Disputed', 'Cancelled'] as const).map((s) => {
               const active = statusFilter === s;
               const count = s === 'All' ? invoices.length : invoices.filter(i => i.status === s).length;
               return (
@@ -221,7 +225,7 @@ export default function InvoicesPage() {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {s === 'All' ? 'All' : s === 'Pending' ? 'Awaiting Payment' : s}
+                  {s}
                   {count > 0 && (
                     <span style={{ marginLeft: '0.3rem', background: active ? '#dbeafe' : '#f1f5f9', color: active ? '#1d4ed8' : '#64748b', borderRadius: '8px', padding: '0.05rem 0.38rem', fontSize: '0.68rem' }}>
                       {count}

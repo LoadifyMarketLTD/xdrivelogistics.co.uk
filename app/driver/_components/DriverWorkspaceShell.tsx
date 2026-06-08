@@ -5,8 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import { COMPANY_CONFIG } from '../../config/company';
 
-// ── Theme ─────────────────────────────────────────────────────────────────────
-
 const THEME = {
   pageBg: '#eef2f6',
   shellBg: '#111827',
@@ -25,32 +23,33 @@ type NavItem = {
   label: string;
   icon: string;
   href: string;
+  exact?: boolean;
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: '🏠', href: '/driver/jobs' },
-  { id: 'todays-run', label: "Today's Run", icon: '🚚', href: '/driver/jobs#todays-run' },
-  { id: 'history', label: 'History', icon: '📚', href: '/driver/history' },
-  { id: 'security', label: 'Account Security', icon: '🔐', href: '/driver/change-password' },
+  { id: 'dashboard', label: 'Jobs Dashboard', icon: '📋', href: '/driver/jobs' },
+  { id: 'loads', label: 'Load Board', icon: '🚚', href: '/driver/loads', exact: true },
+  { id: 'load-search', label: 'Load Search', icon: '🔎', href: '/driver/loads/search', exact: true },
+  { id: 'quotes', label: 'My Quotes', icon: '💬', href: '/driver/quotes' },
+  { id: 'won-work', label: 'Won Work', icon: '🏆', href: '/driver/won-work' },
+  { id: 'history', label: 'Job History', icon: '📚', href: '/driver/history' },
+  { id: 'finance', label: 'Finance', icon: '💷', href: '/driver/finance' },
+  { id: 'availability', label: 'Availability', icon: '📅', href: '/driver/availability' },
+  { id: 'vehicles', label: 'Vehicles', icon: '🚛', href: '/driver/vehicles' },
+  { id: 'documents', label: 'Documents', icon: '🗂️', href: '/driver/documents' },
+  { id: 'profile', label: 'Profile', icon: '👤', href: '/driver/profile' },
+  { id: 'returns', label: 'Return Journeys', icon: '↩️', href: '/driver/returns' },
+  { id: 'security', label: 'Password & Security', icon: '🔐', href: '/driver/change-password' },
 ];
-
-// ── Props ─────────────────────────────────────────────────────────────────────
 
 interface DriverWorkspaceShellProps {
   children: ReactNode;
-  /** Displayed in the header area below the workspace title */
   subtitle?: string;
-  /** Custom header content rendered to the right of the title */
   headerActions?: ReactNode;
-  /** Pass driver display name to show in sidebar footer */
   driverName?: string;
-  /** Availability badge shown in sidebar footer */
   availabilityLabel?: string;
-  /** Persona label shown in sidebar header */
   personaLabel?: string;
 }
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function DriverWorkspaceShell({
   children,
@@ -83,13 +82,9 @@ export default function DriverWorkspaceShell({
   const displayName = driverName ?? user?.email ?? 'Driver';
   const displayEmail = user?.email ?? '';
 
-  // Derive active nav item from pathname
-  const isActive = (href: string) => {
-    if (href === '/driver/loads') {
-      // Active only for exact /driver/loads, not /driver/loads/search
-      return pathname === '/driver/loads';
-    }
-    return pathname === href || pathname.startsWith(href + '/');
+  const isActive = (item: NavItem) => {
+    if (item.exact) return pathname === item.href;
+    return pathname === item.href || pathname.startsWith(item.href + '/');
   };
 
   if (!hydrated) {
@@ -97,7 +92,7 @@ export default function DriverWorkspaceShell({
   }
 
   const sidebarStyle: CSSProperties = {
-    width: isMobile ? '270px' : '228px',
+    width: isMobile ? '270px' : '236px',
     backgroundColor: THEME.shellBg,
     color: '#ffffff',
     display: 'flex',
@@ -113,7 +108,7 @@ export default function DriverWorkspaceShell({
 
   const navButtonStyle = (active: boolean): CSSProperties => ({
     width: '100%',
-    padding: '0.5rem 0.65rem',
+    padding: '0.55rem 0.65rem',
     backgroundColor: active ? 'rgba(255,255,255,0.14)' : 'transparent',
     color: active ? '#ffffff' : THEME.shellMuted,
     borderTop: 'none',
@@ -143,7 +138,6 @@ export default function DriverWorkspaceShell({
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: THEME.pageBg }}>
-      {/* Mobile overlay */}
       {isMobile && sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
@@ -151,9 +145,7 @@ export default function DriverWorkspaceShell({
         />
       )}
 
-      {/* Sidebar */}
       <aside style={sidebarStyle}>
-        {/* Brand header */}
         <div style={{ padding: '1rem', borderBottom: `1px solid ${THEME.shellBorder}` }}>
           <h1 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: THEME.shellText, lineHeight: 1.35 }}>
             {COMPANY_CONFIG.legalName}
@@ -174,29 +166,25 @@ export default function DriverWorkspaceShell({
           </div>
         </div>
 
-        {/* Navigation */}
         <nav style={{ flex: 1, padding: '0.5rem', overflowY: 'auto' }}>
-        {NAV_ITEMS.map((item) => {
-          const active = item.id === 'todays-run'
-            ? pathname === '/driver/jobs'
-            : isActive(item.href);
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                router.push(item.href);
-                if (isMobile) setSidebarOpen(false);
-              }}
-              style={navButtonStyle(active)}
-            >
-              <span style={iconBoxStyle(active)}>{item.icon}</span>
-              {item.label}
-            </button>
-          );
-        })}
+          {NAV_ITEMS.map((item) => {
+            const active = isActive(item);
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  router.push(item.href);
+                  if (isMobile) setSidebarOpen(false);
+                }}
+                style={navButtonStyle(active)}
+              >
+                <span style={iconBoxStyle(active)}>{item.icon}</span>
+                {item.label}
+              </button>
+            );
+          })}
         </nav>
 
-        {/* Footer */}
         <div style={{ padding: '0.8rem', borderTop: `1px solid ${THEME.shellBorder}` }}>
           {availabilityLabel && (
             <div style={{ fontSize: '0.68rem', marginBottom: '0.3rem' }}>
@@ -229,9 +217,7 @@ export default function DriverWorkspaceShell({
         </div>
       </aside>
 
-      {/* Main content */}
       <main style={{ flex: 1, minWidth: 0, padding: isMobile ? '0.9rem' : '1.25rem', display: 'flex', flexDirection: 'column' }}>
-        {/* Mobile menu toggle */}
         {isMobile && (
           <button
             onClick={() => setSidebarOpen(true)}
@@ -252,7 +238,6 @@ export default function DriverWorkspaceShell({
           </button>
         )}
 
-        {/* Page header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -271,7 +256,6 @@ export default function DriverWorkspaceShell({
           )}
         </div>
 
-        {/* Page body */}
         {children}
       </main>
     </div>

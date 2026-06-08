@@ -22,7 +22,7 @@ export default function Page() {
       icon="🧾"
       title="Platform Invoices"
       sectionLabel="Finance"
-      description="Cross-company invoice ledger with status, amounts, and reconciliation data."
+      description="Cross-company invoice ledger with status, amounts, and audit record data."
       endpoint="/api/super-admin/finance?section=invoices&limit=250"
       summaryField="summary"
       emptyMessage="No invoices found."
