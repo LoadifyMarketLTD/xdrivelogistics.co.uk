@@ -10,8 +10,8 @@ export function CurrentPlatformStatusSection() {
           </span>
           <h2 className="mt-4 text-3xl font-bold text-[#0f172a] sm:text-4xl">Transparent about where XDrive is today</h2>
           <p className="mt-4 text-slate-600">
-            XDrive is currently in MVP / early-access development. Core workflows are being built and tested internally before selected
-            external users are invited. The platform is not presented as a fully public live exchange yet.
+            XDrive is currently in MVP / early-access development. Core workflows are being built and tested while approved users across
+            supported logistics roles can access the platform under the Early Access policy.
           </p>
         </div>
 

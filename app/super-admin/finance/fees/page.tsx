@@ -20,12 +20,12 @@ export default function Page() {
   return (
     <SuperAdminLiveTablePage<Row>
       icon="💷"
-      title="Platform Fees"
+      title="Invoice Financial Breakdown"
       sectionLabel="Finance"
-      description="Platform fee visibility — VAT collected and net amounts across all company invoices."
+      description="Cross-company invoice financial reporting with VAT, net amounts and payment-status records."
       endpoint="/api/super-admin/finance?section=fees&limit=250"
       summaryField="summary"
-      emptyMessage="No fee records found."
+      emptyMessage="No invoice financial records found."
       columns={[
         {
           key: 'invoice_number',

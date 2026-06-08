@@ -26,7 +26,7 @@ type Kpis = {
   totalBids: number;
   totalInvoiced: number;
   totalRevenue: number;
-  collectionRate: number;
+  paymentStatusRate: number;
   deliveryRate: number;
 };
 
@@ -77,8 +77,8 @@ export default function Page() {
     { label: 'Total Quotes', value: kpis.totalQuotes, color: THEME.text },
     { label: 'Total Bids', value: kpis.totalBids, color: THEME.text },
     { label: 'Total Invoiced', value: `£${kpis.totalInvoiced.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: THEME.text },
-    { label: 'Revenue Collected', value: `£${kpis.totalRevenue.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: THEME.green },
-    { label: 'Collection Rate', value: `${kpis.collectionRate}%`, color: kpis.collectionRate >= 80 ? THEME.green : THEME.accent },
+    { label: 'Recorded Paid Amount', value: `£${kpis.totalRevenue.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: THEME.green },
+    { label: 'Payment Status Rate', value: `${kpis.paymentStatusRate}%`, color: kpis.paymentStatusRate >= 80 ? THEME.green : THEME.accent },
   ] : [];
 
   return (

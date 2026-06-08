@@ -8,6 +8,10 @@ import type { Quote, VehicleType, CargoType } from '../../lib/types/database';
 import { downloadInvoicePdf } from '../../lib/invoicePdf';
 import { loadCompanySettings } from '../../lib/companySettings';
 import type { InvoiceData } from '../components/InvoiceTemplate';
+import {
+  toCanonicalInvoiceStatusWithDueDate,
+  type CanonicalInvoiceStatus,
+} from '../../lib/invoiceStatus';
 
 type CustomerJob = {
   id: string;
@@ -27,7 +31,7 @@ type CustomerInvoice = {
   job_ref: string;
   invoice_date: string;
   due_date: string;
-  status: 'Paid' | 'Pending' | 'Overdue';
+  status: CanonicalInvoiceStatus;
   amount: number;
   net_amount: number;
   vat_amount: number;
@@ -67,9 +71,12 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   delivered: { bg: '#dcfce7', text: '#166534' },
   invoiced: { bg: '#cffafe', text: '#155e75' },
   paid: { bg: '#dcfce7', text: '#14532d' },
-  Pending: { bg: '#fef3c7', text: '#92400e' },
+  Draft: { bg: '#fef3c7', text: '#92400e' },
+  Sent: { bg: '#e0e7ff', text: '#3730a3' },
   Overdue: { bg: '#fee2e2', text: '#991b1b' },
   Paid: { bg: '#d1fae5', text: '#065f46' },
+  Disputed: { bg: '#fce7f3', text: '#9d174d' },
+  Cancelled: { bg: '#e2e8f0', text: '#475569' },
 };
 
 const dateDisplay = (value: string | null) => {
@@ -85,7 +92,7 @@ const toInvoiceData = (invoice: CustomerInvoice): InvoiceData => ({
   jobRef: invoice.job_ref,
   date: invoice.invoice_date,
   dueDate: invoice.due_date,
-  status: invoice.status,
+  status: toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.due_date),
   clientName: invoice.client_name,
   clientAddress: invoice.client_address ?? '',
   clientEmail: invoice.client_email ?? '',
@@ -215,7 +222,11 @@ export default function CustomerPage() {
 
     setQuotes((quoteRes.data ?? []) as Quote[]);
     setJobs((jobsRes.data ?? []) as CustomerJob[]);
-    setInvoices((invoicesRes.data ?? []) as CustomerInvoice[]);
+    const normalizedInvoices = ((invoicesRes.data ?? []) as CustomerInvoice[]).map((invoice) => ({
+      ...invoice,
+      status: toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.due_date),
+    }));
+    setInvoices(normalizedInvoices);
     setLoading(false);
   };
 
@@ -481,7 +492,7 @@ export default function CustomerPage() {
                     </thead>
                     <tbody>
                       {invoices.map((invoice, index) => {
-                        const color = STATUS_COLORS[invoice.status] ?? STATUS_COLORS.Pending;
+                        const color = STATUS_COLORS[invoice.status] ?? STATUS_COLORS.Draft;
                         return (
                           <tr key={invoice.id} style={{ borderBottom: index < invoices.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                             <td style={{ padding: '0.8rem', fontWeight: 600 }}>{invoice.invoice_number}</td>

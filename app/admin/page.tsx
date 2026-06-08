@@ -13,6 +13,7 @@ import {
   resolveInvoiceClientName,
   selectWithMissingColumnFallback,
 } from '../../lib/supabaseSchemaCompat';
+import { toCanonicalInvoiceStatusWithDueDate } from '../../lib/invoiceStatus';
 import { getNavSectionsForRole } from './workflowUi';
 import { mapAppRole, type AppUserRole } from '../../lib/authRole';
 
@@ -266,7 +267,10 @@ const loadInvoicesWithCompat = async (companyId: string): Promise<InvoiceRow[]> 
   return rows.map((row, index) => ({
     id: String(row.id ?? `invoice-${index}`),
     invoice_number: missingColumns.has('invoice_number') ? 'Invoice' : String(row.invoice_number ?? 'Invoice'),
-    status: missingColumns.has('status') ? 'Pending' : String(row.status ?? 'Pending'),
+    status: toCanonicalInvoiceStatusWithDueDate(
+      missingColumns.has('status') ? null : String(row.status ?? null),
+      missingColumns.has('due_date') ? String(row.created_at ?? new Date().toISOString()) : String(row.due_date ?? row.created_at ?? new Date().toISOString())
+    ),
     due_date: missingColumns.has('due_date')
       ? String(row.created_at ?? new Date().toISOString())
       : String(row.due_date ?? row.created_at ?? new Date().toISOString()),
@@ -314,8 +318,7 @@ const loadVehicleDocumentsWithCompat = async (companyId: string): Promise<DocRow
 };
 
 const getInvoiceStatus = (dueDate: string, currentStatus: string) => {
-  if (currentStatus === 'Paid') return 'Paid';
-  return new Date() > new Date(dueDate) ? 'Overdue' : 'Pending';
+  return toCanonicalInvoiceStatusWithDueDate(currentStatus, dueDate);
 };
 
 const isExpiringSoon = (expiryDate: string | null, days: number) => {
