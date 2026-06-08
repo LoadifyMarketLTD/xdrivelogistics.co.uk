@@ -64,7 +64,7 @@ export async function GET(
 }
 
 // POST /api/driver/finance/invoices/[id]/payment-history
-// Body: { amount, currency?, paid_at?, settlement_method?, external_reference?, note? }
+// Body: { amount, currency?, paid_at?, payment_method?, external_reference?, note? }
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
