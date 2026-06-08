@@ -53,16 +53,28 @@ Install dependencies:
 npm install
 ```
 
+Install Playwright browsers:
+
+```
+npx playwright install --with-deps
+```
+
 Run the full test suite (headless):
 
 ```
 npm run test:e2e
+```
 
 Run only Super Admin FR-003 runtime validation suite:
 
 ```
 npx playwright test e2e/super-admin.spec.ts --project=chromium
 ```
+
+Run only Super Admin FR-002 support runtime validation suite:
+
+```
+npx playwright test e2e/super-admin-support.spec.ts --project=chromium
 ```
 
 Run in headed (show browser):
