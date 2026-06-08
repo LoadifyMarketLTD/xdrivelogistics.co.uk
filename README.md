@@ -59,7 +59,7 @@ The project uses:
 - Do not store real credentials in repository files.
 - Configure environment variables via deployment secrets and local `.env.local` only.
 - Required variables are documented in `.env.example` using placeholders.
-- `XDRIVE_DEFAULT_COMPANY_ID` is required for `/api/public/quote-request` so public quote submissions attach to the default company workspace.
+- `XDRIVE_DEFAULT_COMPANY_ID` is optional for `/api/public/quote-request`; when omitted, the API falls back to the oldest company record.
 
 ---
 
@@ -71,9 +71,10 @@ Never commit passwords, API keys, tokens, or real login pairs to source control.
 
 ## Quote Intake Configuration
 
-- Set `XDRIVE_DEFAULT_COMPANY_ID` in Netlify and local `.env.local`.
-- `/api/public/quote-request` inserts public requests into `public.quotes` using that company ID.
-- If the variable is missing, the public quote form returns HTTP `503` by design.
+- Set `XDRIVE_DEFAULT_COMPANY_ID` in Netlify and local `.env.local` to pin quote intake to a specific company.
+- `/api/public/quote-request` inserts public requests into `public.quotes` using that company ID, or falls back to the oldest company if unset.
+- If no company exists yet, the API bootstraps a `Public Quote Intake` company record automatically and stores the request there.
+- The public quote form returns HTTP `503` only when Supabase admin access is unavailable.
 
 ## Notifications Deployment
 

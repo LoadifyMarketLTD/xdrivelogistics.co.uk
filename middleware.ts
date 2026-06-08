@@ -152,6 +152,13 @@ const canonicalHost = canonicalSiteUrl.host.toLowerCase();
 const shouldEnforceCanonicalHost = () =>
   process.env.NODE_ENV === 'production' || process.env.XDRIVE_FORCE_CANONICAL_HOST === 'true';
 
+const normalizeHost = (host: string) => host.replace(/:\d+$/, '').replace(/^\[(.*)\]$/, '$1').toLowerCase();
+
+const isLocalTestHost = (host: string) => {
+  const normalized = normalizeHost(host);
+  return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1';
+};
+
 const isNetlifyPreviewHost = (host: string) =>
   host.endsWith('.netlify.app') && (
     host.startsWith('deploy-preview-') ||
@@ -167,6 +174,7 @@ const buildCanonicalHostRedirect = (request: NextRequest) => {
 
   const incomingHost = request.headers.get('host')?.toLowerCase();
   if (!incomingHost || incomingHost === canonicalHost) return null;
+  if (isLocalTestHost(incomingHost)) return null;
   if (isNetlifyPreviewHost(incomingHost)) return null;
 
   const redirectUrl = request.nextUrl.clone();
