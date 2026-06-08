@@ -249,7 +249,7 @@ export default function DriverFinancePage() {
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
       <DriverWorkspaceShell
-        subtitle="Manage your invoices, track payments, and monitor settlements."
+        subtitle="Manage your invoices, track payment records, and review invoice history."
         headerActions={
           <button
             onClick={handleOpenJobPicker}
