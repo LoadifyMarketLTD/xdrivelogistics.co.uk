@@ -87,14 +87,6 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Support',
-    items: [
-      { id: 'support-tickets', label: 'Support Tickets', icon: '🎫', href: '/super-admin/support/tickets' },
-      { id: 'support-complaints', label: 'Complaints', icon: '⚠️', href: '/super-admin/support/complaints' },
-      { id: 'support-disputes', label: 'Disputes', icon: '⚖️', href: '/super-admin/support/disputes' },
-    ],
-  },
-  {
     label: 'Settings',
     items: [
       { id: 'settings-global', label: 'Global Platform Settings', icon: '⚙️', href: '/super-admin/settings/global' },
