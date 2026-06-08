@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
   const onboardingToken = generateOnboardingToken();
   const onboardingTokenHash = hashOnboardingToken(onboardingToken);
-  const onboardingUrl = buildOnboardingUrl(onboardingToken);
+  const onboardingUrl = buildOnboardingUrl(onboardingToken, accountType);
 
   const nextStatus = existing?.status === 'approved' ? 'approved' : existing?.status ?? 'draft';
 
