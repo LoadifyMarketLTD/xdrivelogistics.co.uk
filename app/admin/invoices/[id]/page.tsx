@@ -746,7 +746,7 @@ export default function InvoiceDetailPage() {
                         style={inputStyle}
                       >
                         <option value="bank_transfer">Bank transfer</option>
-                        <option value="external_settlement">External payment reference</option>
+                        <option value="external_settlement">External reference</option>
                         <option value="cash">Cash</option>
                         <option value="other">Other</option>
                       </select>
@@ -806,7 +806,7 @@ export default function InvoiceDetailPage() {
                           paymentHistory.map((item) => (
                             <div key={item.id} style={{ fontSize: '0.85rem', marginBottom: '0.5rem', color: '#334155' }}>
                               <div>
-                                <strong>£{Number(item.amount).toFixed(2)}</strong> — payment method: {item.settlement_method}
+                                <strong>£{Number(item.amount).toFixed(2)}</strong> — payment record method: {item.settlement_method}
                               </div>
                               <div style={{ color: '#64748b' }}>{new Date(item.paid_at).toLocaleString('en-GB')}</div>
                             </div>

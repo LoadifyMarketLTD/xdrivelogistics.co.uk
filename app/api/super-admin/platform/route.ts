@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
         totalBids: bids.count ?? 0,
         totalInvoiced: Math.round(totalInvoiced * 100) / 100,
         totalRevenue: Math.round(totalRevenue * 100) / 100,
-        collectionRate: totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0,
+        paymentStatusRate: totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0,
         deliveryRate: (jobs.count ?? 0) > 0 ? Math.round(((jobsDelivered.count ?? 0) / (jobs.count ?? 1)) * 100) : 0,
       },
       weeklyJobs: Object.entries(weeklyJobs).map(([week, count]) => ({ week, count })),
