@@ -39,11 +39,52 @@ type ReviewRow = {
   comment: string | null;
   created_at: string;
 };
+type NotificationTicketRow = {
+  id: string;
+  company_id: string | null;
+  event_type: string;
+  payload: Record<string, unknown> | null;
+  status: string;
+  created_at: string;
+  processed_at: string | null;
+};
 
 const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
   if (!supabaseAdmin || ids.length === 0) return new Map();
   const { data } = await supabaseAdmin.from('companies').select('id, name').in('id', ids);
   return new Map((data as CompanyRow[] ?? []).map((c) => [c.id, c.name]));
+};
+
+const mapTicketStatus = (status: string) => {
+  if (status === 'sent') return 'resolved';
+  if (status === 'skipped') return 'investigating';
+  return 'open';
+};
+
+const mapTicketPriority = (status: string) => {
+  if (status === 'failed') return 'high';
+  if (status === 'pending') return 'medium';
+  if (status === 'skipped') return 'medium';
+  return 'low';
+};
+
+const mapTicketSubject = (eventType: string, payload: Record<string, unknown> | null) => {
+  const safePayload = payload ?? {};
+  const jobId = typeof safePayload.job_id === 'string' ? safePayload.job_id : null;
+  const invoiceId = typeof safePayload.invoice_id === 'string' ? safePayload.invoice_id : null;
+
+  switch (eventType) {
+    case 'job_assigned':
+      return jobId ? `Job assignment event (${jobId.slice(0, 8)})` : 'Job assignment event';
+    case 'pod_uploaded':
+      return jobId ? `POD uploaded event (${jobId.slice(0, 8)})` : 'POD uploaded event';
+    case 'bid_accepted':
+      return jobId ? `Bid accepted event (${jobId.slice(0, 8)})` : 'Bid accepted event';
+    case 'invoice_disputed':
+      return invoiceId ? `Invoice disputed (${invoiceId.slice(0, 8)})` : 'Invoice disputed';
+    default:
+      return eventType.replace(/_/g, ' ');
+  }
 };
 
 export async function GET(request: NextRequest) {
@@ -132,11 +173,49 @@ export async function GET(request: NextRequest) {
 
   // ── Tickets ───────────────────────────────────────────────────────────────────
   if (section === 'tickets') {
+    const { data, error } = await supabaseAdmin
+      .from('notification_events')
+      .select('id, company_id, event_type, payload, status, created_at, processed_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      return respond(200, {
+        section,
+        rows: [],
+        summary: { total: 0, open: 0, investigating: 0, resolved: 0, closed: 0 },
+        note: 'No support tickets available. notification_events table may not be populated yet.',
+      });
+    }
+
+    const rows = (data as NotificationTicketRow[] | null) ?? [];
+    const nameById = await companyNameMap(
+      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
+    );
+
+    const ticketRows = rows.map((r) => {
+      const status = mapTicketStatus(r.status);
+      return {
+        id: r.id,
+        company_name: nameById.get(r.company_id as string) ?? 'Unknown',
+        subject: mapTicketSubject(r.event_type, r.payload),
+        status,
+        priority: mapTicketPriority(r.status),
+        created_at: r.created_at,
+        resolved_at: status === 'resolved' ? r.processed_at : null,
+      };
+    });
+
     return respond(200, {
       section,
-      rows: [],
-      summary: { total: 0, open: 0, resolved: 0 },
-      note: 'No support tickets available.',
+      rows: ticketRows,
+      summary: {
+        total: ticketRows.length,
+        open: ticketRows.filter((row) => row.status === 'open').length,
+        investigating: ticketRows.filter((row) => row.status === 'investigating').length,
+        resolved: ticketRows.filter((row) => row.status === 'resolved').length,
+        closed: ticketRows.filter((row) => row.status === 'closed').length,
+      },
     });
   }
 
