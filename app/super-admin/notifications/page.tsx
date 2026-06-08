@@ -5,11 +5,12 @@ import { formatDateTime } from '@/app/super-admin/_components/superAdminFormatte
 
 type Row = {
   id: string;
-  user_id: string;
+  user_id: string | null;
   type: string;
   title: string | null;
   message: string;
-  read: boolean;
+  status: string;
+  processed: boolean;
   created_at: string;
 };
 
@@ -19,7 +20,7 @@ export default function Page() {
       icon="🔔"
       title="System Notifications"
       sectionLabel="Platform"
-      description="Platform-wide system notices, broadcasts, and user notification activity."
+      description="Canonical notification event queue across operational workflows."
       endpoint="/api/super-admin/platform?section=notifications"
       summaryField="summary"
       noteField="note"
@@ -51,11 +52,11 @@ export default function Page() {
           ),
         },
         {
-          key: 'read',
+          key: 'status',
           label: 'Status',
           render: (row) => (
-            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: row.read ? '#94a3b8' : '#f59e0b' }}>
-              {row.read ? 'Read' : 'Unread'}
+            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: row.status === 'failed' ? '#ef4444' : row.status === 'pending' ? '#f59e0b' : '#94a3b8' }}>
+              {row.status}
             </span>
           ),
         },
