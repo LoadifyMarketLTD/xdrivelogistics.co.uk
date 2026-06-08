@@ -7,13 +7,13 @@ test.describe('Public pages', () => {
     await page.goto('/');
     await expect(page).toHaveTitle(/XDrive/i);
     // At least one visible CTA button
-    const cta = page.locator('a[href="/register"], button').filter({ hasText: /get started|register|book/i }).first();
+    const cta = page.getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first();
     await expect(cta).toBeVisible();
   });
 
   test('homepage has navigation links', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('nav, header')).toBeVisible();
+    await expect(page.getByRole('banner')).toBeVisible();
   });
 
   test('request-quote page loads', async ({ page }) => {
