@@ -260,6 +260,7 @@ export default function DriverJobsPage() {
     );
 
     if (companyId) {
+      console.log('DRIVER JOBS DEBUG', { companyId, userId });
       const { data: wonData, error: wonError } = await supabase
         .from('jobs')
         .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, budget_amount, currency, companies(name)')
