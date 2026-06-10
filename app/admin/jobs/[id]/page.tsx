@@ -132,7 +132,7 @@ export default function JobDetailPage() {
           .from('jobs')
           .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, assigned_driver_id, job_distance_miles, collection_photo_url, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at, exchange_visibility')
           .eq('id', jobId)
-          .eq('company_id', companyId)
+          .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
           .single();
         if (error) {
           console.error('Failed to load job:', error.message);
