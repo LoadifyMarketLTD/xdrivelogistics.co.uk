@@ -138,7 +138,7 @@ export default function JobsPage() {
       const { data, error } = await supabase
         .from('jobs')
         .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, job_distance_miles, exchange_visibility, awarded_carrier_company_id, created_at, updated_at')
-        .eq('company_id', companyId)
+        .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
         .order('created_at', { ascending: false });
 
       if (error) {
