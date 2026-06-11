@@ -214,7 +214,7 @@ export default function JobDetailPage() {
           return;
         }
       }
-      setSaveMessage('A live Supabase session is required to access job details safely.');
+      
     } catch (error) {
       console.error('Error loading job:', error);
       setSaveMessage('Error loading job');
