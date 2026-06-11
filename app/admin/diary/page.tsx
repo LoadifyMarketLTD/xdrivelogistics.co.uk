@@ -77,7 +77,7 @@ export default function DiaryPage() {
     const { data, error } = await supabase
       .from('jobs')
       .select('id, status, assigned_driver_id, client_name, pickup_location, delivery_location, vehicle_type, updated_at')
-      .eq('company_id', companyId)
+      .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
       .order('updated_at', { ascending: false })
       .limit(200);
 
