@@ -89,7 +89,7 @@ const withCompanyAndDriverMaps = async (jobs: JobRow[]) => {
     driverById: new Map<string, DriverRow>((driversResult.data as DriverRow[]).map((row) => [row.id, row])),
     bidCountByJobId: (() => {
       const map = new Map<string, number>();
-      for (const row of (bidCountsResult.data as BidRow[])) {
+      for (const row of bidCountsResult.data as BidRow[]) {
         map.set(row.job_id, (map.get(row.job_id) ?? 0) + 1);
       }
       return map;
@@ -146,7 +146,6 @@ export async function GET(request: NextRequest) {
     return respond(400, { error: 'Invalid section. Use jobs, quotes, allocations, deliveries, pods, active-jobs, pending-jobs, completed-jobs, driver-availability, fleet-positions, or disputes.' });
   }
 
-  // ── driver-availability section ───────────────────────────────────────────────
   if (section === 'driver-availability') {
     const { data: drivers, error: driversError } = await supabaseAdmin
       .from('drivers')
@@ -163,7 +162,7 @@ export async function GET(request: NextRequest) {
       driverIds.length > 0
         ? supabaseAdmin
             .from('driver_locations')
-            .select('driver_id, recorded_at, lat, lng')
+            .select('driver_id, recorded_at, location')
             .in('driver_id', driverIds)
             .order('recorded_at', { ascending: false })
             .limit(driverIds.length * 3)
@@ -176,11 +175,10 @@ export async function GET(request: NextRequest) {
     if (locResult.error) return respond(500, { error: locResult.error.message });
     if (compResult.error) return respond(500, { error: compResult.error.message });
 
-    // Build latest location per driver
-    const latestLocByDriver = new Map<string, { recorded_at: string; lat: number; lng: number }>();
-    for (const loc of (locResult.data ?? []) as Array<{ driver_id: string; recorded_at: string; lat: number; lng: number }>) {
+    const latestLocByDriver = new Map<string, { recorded_at: string; lat: number | null; lng: number | null }>();
+    for (const loc of (locResult.data ?? []) as Array<{ driver_id: string; recorded_at: string; location: unknown }>) {
       if (!latestLocByDriver.has(loc.driver_id)) {
-        latestLocByDriver.set(loc.driver_id, { recorded_at: loc.recorded_at, lat: loc.lat, lng: loc.lng });
+        latestLocByDriver.set(loc.driver_id, { recorded_at: loc.recorded_at, lat: null, lng: null });
       }
     }
 
@@ -203,7 +201,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ── disputes section ──────────────────────────────────────────────────────────
   if (section === 'disputes') {
     const { data: disputes, error: disputesError } = await supabaseAdmin
       .from('job_disputes')
@@ -253,17 +250,15 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ── fleet-positions section ───────────────────────────────────────────────────
   if (section === 'fleet-positions') {
     const { data: latestLocs, error: locsError } = await supabaseAdmin
       .from('driver_locations')
-      .select('id, driver_id, company_id, lat, lng, heading, speed_mph, recorded_at')
+      .select('id, driver_id, location, recorded_at')
       .order('recorded_at', { ascending: false })
       .limit(limit);
 
     if (locsError) return respond(500, { error: locsError.message });
 
-    // De-duplicate: keep only the latest record per driver
     const seen = new Set<string>();
     const deduped = (latestLocs ?? []).filter((row) => {
       if (seen.has(row.driver_id as string)) return false;
@@ -272,22 +267,32 @@ export async function GET(request: NextRequest) {
     });
 
     const driverIds = deduped.map((r) => r.driver_id as string);
-    const companyIds = Array.from(new Set(deduped.map((r) => r.company_id as string).filter(Boolean)));
 
-    const [drvResult, compResult2] = await Promise.all([
-      driverIds.length > 0
-        ? supabaseAdmin.from('drivers').select('id, display_name, availability_status').in('id', driverIds)
-        : Promise.resolve({ data: [], error: null }),
-      companyIds.length > 0
-        ? supabaseAdmin.from('companies').select('id, name').in('id', companyIds)
-        : Promise.resolve({ data: [], error: null }),
-    ]);
+    const drvResult = driverIds.length > 0
+      ? await supabaseAdmin
+          .from('drivers')
+          .select('id, display_name, availability_status, company_id')
+          .in('id', driverIds)
+      : { data: [], error: null };
 
     if (drvResult.error) return respond(500, { error: drvResult.error.message });
+
+    const companyIds = Array.from(
+      new Set(
+        ((drvResult.data ?? []) as Array<{ company_id: string | null }>)
+          .map((d) => d.company_id)
+          .filter((v): v is string => Boolean(v))
+      )
+    );
+
+    const compResult2 = companyIds.length > 0
+      ? await supabaseAdmin.from('companies').select('id, name').in('id', companyIds)
+      : { data: [], error: null };
+
     if (compResult2.error) return respond(500, { error: compResult2.error.message });
 
-    const driverInfoById = new Map<string, { display_name: string | null; availability_status: string | null }>(
-      (drvResult.data as Array<{ id: string; display_name: string | null; availability_status: string | null }>)
+    const driverInfoById = new Map<string, { display_name: string | null; availability_status: string | null; company_id: string | null }>(
+      (drvResult.data as Array<{ id: string; display_name: string | null; availability_status: string | null; company_id: string | null }>)
         .map((d) => [d.id, d]),
     );
     const companyNameById2 = new Map<string, string>((compResult2.data as CompanyRow[]).map((c) => [c.id, c.name]));
@@ -301,11 +306,11 @@ export async function GET(request: NextRequest) {
           driver_id:           loc.driver_id,
           driver_name:         drv?.display_name ?? 'Unknown driver',
           availability_status: drv?.availability_status ?? 'offline',
-          company_name:        companyNameById2.get(loc.company_id as string) ?? 'Unknown company',
-          lat:                 loc.lat,
-          lng:                 loc.lng,
-          heading:             loc.heading,
-          speed_mph:           loc.speed_mph,
+          company_name:        drv?.company_id ? (companyNameById2.get(drv.company_id) ?? 'Unknown company') : 'Unknown company',
+          lat:                 null,
+          lng:                 null,
+          heading:             null,
+          speed_mph:           null,
           recorded_at:         loc.recorded_at,
         };
       }),
