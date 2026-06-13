@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
 
     const totalAmount = normalizedRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const paidAmount = normalizedRows
-      .filter((r) => r.status === 'paid')
+      .filter((r) => r.status === 'Paid')
       .reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
     const summary = buildInvoiceStatusSummary(normalizedRows.map((row) => row.status));
