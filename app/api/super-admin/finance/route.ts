@@ -1,3 +1,4 @@
+```ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import {
@@ -24,6 +25,7 @@ const verifyOwner = async (request: NextRequest) => {
 };
 
 type CompanyRow = { id: string; name: string };
+
 type InvoicePaymentHistoryRow = {
   id: string;
   company_id: string;
@@ -56,13 +58,13 @@ export async function GET(request: NextRequest) {
   const section = (searchParams.get('section') ?? '').toLowerCase();
   const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
 
-  // ── Invoices ────────────────────────────────────────────────────────────────
   if (section === 'invoices') {
     const { data, error } = await supabaseAdmin
       .from('invoices')
       .select('id, invoice_number, company_id, status, amount, currency, client_name, invoice_date, due_date, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
+
     if (error) return respond(500, { error: error.message });
 
     const rows = data ?? [];
@@ -72,17 +74,25 @@ export async function GET(request: NextRequest) {
 
     const normalizedRows = rows.map((r) => ({
       ...r,
-      status: toCanonicalInvoiceStatusWithDueDate(r.status as string | null | undefined, r.due_date as string | null | undefined),
+      status: toCanonicalInvoiceStatusWithDueDate(
+        r.status as string | null | undefined,
+        r.due_date as string | null | undefined,
+      ),
     }));
+
     const totalAmount = normalizedRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const paidAmount = normalizedRows
-      .filter((r) => r.status === 'Paid')
+      .filter((r) => r.status === 'paid')
       .reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
     const summary = buildInvoiceStatusSummary(normalizedRows.map((row) => row.status));
 
     return respond(200, {
       section,
-      rows: normalizedRows.map((r) => ({ ...r, company_name: nameById.get(r.company_id as string) ?? 'Unknown' })),
+      rows: normalizedRows.map((r) => ({
+        ...r,
+        company_name: nameById.get(r.company_id as string) ?? 'Unknown',
+      })),
       summary: {
         ...summary,
         totalAmount,
@@ -92,13 +102,13 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ── Payments ─────────────────────────────────────────────────────────────────
   if (section === 'payments') {
     const { data, error } = await supabaseAdmin
       .from('invoice_payment_history')
       .select('id, company_id, invoice_id, amount, currency, settlement_method, external_reference, note, status_after, paid_at, created_at')
       .order('paid_at', { ascending: false })
       .limit(limit);
+
     if (error) return respond(500, { error: error.message });
 
     const rows = (data ?? []) as InvoicePaymentHistoryRow[];
@@ -113,25 +123,24 @@ export async function GET(request: NextRequest) {
       rows: rows.map((r) => ({
         ...r,
         company_name: nameById.get(r.company_id as string) ?? 'Unknown',
-        status: r.status_after ?? 'Recorded',
+        status: r.status_after ?? 'recorded',
       })),
       summary: {
         total: rows.length,
-        paid: rows.filter((r) => r.status_after === 'Paid').length,
-        disputed: rows.filter((r) => r.status_after === 'Disputed').length,
+        paid: rows.filter((r) => r.status_after === 'paid').length,
+        disputed: rows.filter((r) => r.status_after === 'disputed').length,
         recorded: rows.filter((r) => !r.status_after).length,
         totalAmount,
       },
     });
   }
 
-  // ── Revenue ──────────────────────────────────────────────────────────────────
   if (section === 'revenue') {
     const [paidResult, allResult] = await Promise.all([
       supabaseAdmin
         .from('invoices')
         .select('id, amount, currency, invoice_date, company_id')
-        .eq('status', 'Paid')
+        .eq('status', 'paid')
         .order('invoice_date', { ascending: false })
         .limit(500),
       supabaseAdmin
@@ -155,6 +164,7 @@ export async function GET(request: NextRequest) {
       const month = (inv.invoice_date as string).slice(0, 7);
       byMonth[month] = (byMonth[month] ?? 0) + (Number(inv.amount) || 0);
     }
+
     const monthlyRevenue = Object.entries(byMonth)
       .sort(([a], [b]) => b.localeCompare(a))
       .slice(0, 12)
@@ -175,13 +185,13 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ── Invoice Financial Breakdown ──────────────────────────────────────────────
   if (section === 'fees') {
     const { data, error } = await supabaseAdmin
       .from('invoices')
       .select('id, invoice_number, company_id, amount, net_amount, vat_amount, vat_rate, status, invoice_date, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
+
     if (error) return respond(500, { error: error.message });
 
     const rows = data ?? [];
@@ -189,7 +199,7 @@ export async function GET(request: NextRequest) {
       Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
     );
 
-    const paidRows = rows.filter((r) => r.status === 'Paid');
+    const paidRows = rows.filter((r) => r.status === 'paid');
     const totalVat = paidRows.reduce((s, r) => s + (Number(r.vat_amount) || 0), 0);
     const totalNet = paidRows.reduce((s, r) => s + (Number(r.net_amount) || 0), 0);
 
@@ -210,3 +220,4 @@ export async function GET(request: NextRequest) {
 
   return respond(400, { error: 'Invalid section. Use invoices, payments, revenue, or fees.' });
 }
+```
