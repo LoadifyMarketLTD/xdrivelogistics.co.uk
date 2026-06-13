@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
   const section = (searchParams.get('section') ?? '').toLowerCase();
   const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
 
+  // ── Invoices ────────────────────────────────────────────────────────────────
   if (section === 'invoices') {
     const { data, error } = await supabaseAdmin
       .from('invoices')
@@ -102,6 +103,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // ── Payments ─────────────────────────────────────────────────────────────────
   if (section === 'payments') {
     const { data, error } = await supabaseAdmin
       .from('invoice_payment_history')
@@ -135,6 +137,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // ── Revenue ──────────────────────────────────────────────────────────────────
   if (section === 'revenue') {
     const [paidResult, allResult] = await Promise.all([
       supabaseAdmin
@@ -185,6 +188,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // ── Invoice Financial Breakdown ──────────────────────────────────────────────
   if (section === 'fees') {
     const { data, error } = await supabaseAdmin
       .from('invoices')
