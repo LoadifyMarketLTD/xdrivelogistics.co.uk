@@ -224,4 +224,3 @@ export async function GET(request: NextRequest) {
 
   return respond(400, { error: 'Invalid section. Use invoices, payments, revenue, or fees.' });
 }
-```
