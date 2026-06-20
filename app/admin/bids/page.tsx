@@ -106,14 +106,10 @@ export default function BidsPage() {
     // The job_bids_owner_select RLS policy (migration 061) allows job owners to
     // SELECT bids on their own jobs, keyed via the jobs join.
      const { data, error: fetchError } = await supabase 
-    .from('job_bids')
-.select(
-  'id, job_id, company_id, bidder_user_id, amount, bid_price_gbp, currency, message, status, created_at, ' +
-  'jobs!job_bids_job_id_fkey(id, company_id, pickup_location, delivery_location, pickup_datetime, vehicle_type, awarded_carrier_company_id, exchange_visibility)'
-)
-.eq('jobs.company_id', companyId)
-.in('jobs.exchange_visibility', ['exchange', 'direct'])
-.order('created_at', { ascending: false });
+  .from('job_bids_with_job_owner')
+  .select('*')
+  .eq('owner_company_id', companyId)
+  .order('created_at', { ascending: false });
 
     if (fetchError) {
       setError(`Failed to load bids: ${fetchError.message}`);
