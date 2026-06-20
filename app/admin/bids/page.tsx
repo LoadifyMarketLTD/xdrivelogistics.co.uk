@@ -10,25 +10,29 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 type BidWithJob = {
   id: string;
   job_id: string;
-  company_id: string | null;
-  bidder_user_id: string | null;
- amount: number | string | null;
-bid_price_gbp: number | string | null;
-  currency: string;
+  bidder_id: string | null;
+  bid_price_gbp: number | string | null;
   message: string | null;
-  status: string;
   created_at: string;
-  // joined
-  jobs: {
-    id: string;
-    company_id: string;
-    pickup_location: string | null;
-    delivery_location: string | null;
-    pickup_datetime: string | null;
-    vehicle_type: string | null;
-    awarded_carrier_company_id: string | null;
-    exchange_visibility: string;
-  } | null;
+  bid_status: string;
+  bidder_company_id: string | null;
+  quote_amount: number | string | null;
+  load_id: string;
+  bidder_user_id: string | null;
+  bidder_driver_id: string | null;
+  currency: string;
+  amount: number | string | null;
+  amount_gbp: number | string | null;
+  updated_at: string;
+  owner_company_id: string | null;
+  exchange_visibility: string;
+  job_status: string;
+  load_status: string;
+  pickup_location: string | null;
+  delivery_location: string | null;
+  pickup_datetime: string | null;
+  vehicle_type: string | null;
+  awarded_carrier_company_id: string | null;
   companies: { name: string } | null;
 };
 
@@ -105,11 +109,11 @@ export default function BidsPage() {
     // Fetch all bids on jobs owned by the current company.
     // The job_bids_owner_select RLS policy (migration 061) allows job owners to
     // SELECT bids on their own jobs, keyed via the jobs join.
-     const { data, error: fetchError } = await supabase 
-  .from('job_bids_with_job_owner')
-  .select('*')
-  .eq('owner_company_id', companyId)
-  .order('created_at', { ascending: false });
+    const { data, error: fetchError } = await supabase
+      .from('job_bids_with_job_owner')
+      .select('*')
+      .eq('owner_company_id', companyId)
+      .order('created_at', { ascending: false });
 
     if (fetchError) {
       setError(`Failed to load bids: ${fetchError.message}`);
@@ -119,7 +123,11 @@ export default function BidsPage() {
 
     const bidRows = (data ?? []) as unknown as BidWithJob[];
     const bidderCompanyIds = Array.from(
-    new Set(bidRows.map((bid) => bid.bidder_company_id).filter((id): id is string => Boolean(id))), 
+      new Set(
+        bidRows
+          .map((bid) => bid.bidder_company_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
     );
 
     let companyNameById = new Map<string, string>();
@@ -138,25 +146,24 @@ export default function BidsPage() {
 
     const enrichedBids = bidRows.map((bid) => ({
       ...bid,
-    companies: bid.bidder_company_id && companyNameById.has(bid.bidder_company_id)
-? { name: companyNameById.get(bid.bidder_company_id)! }
-: null 
+      companies:
+        bid.bidder_company_id && companyNameById.has(bid.bidder_company_id)
+          ? { name: companyNameById.get(bid.bidder_company_id)! }
+          : null,
     }));
 
     // Group bids by job
     const groupMap = new Map<string, JobGroup>();
     for (const raw of enrichedBids) {
-      const j = raw.jobs;
-      if (!j) continue;
       if (!groupMap.has(raw.job_id)) {
         groupMap.set(raw.job_id, {
           jobId: raw.job_id,
-          jobPickup: j.pickup_location,
-          jobDelivery: j.delivery_location,
-          jobPickupDate: j.pickup_datetime,
-          jobVehicle: j.vehicle_type,
-          awardedCarrierCompanyId: j.awarded_carrier_company_id,
-          exchangeVisibility: j.exchange_visibility,
+          jobPickup: raw.pickup_location,
+          jobDelivery: raw.delivery_location,
+          jobPickupDate: raw.pickup_datetime,
+          jobVehicle: raw.vehicle_type,
+          awardedCarrierCompanyId: raw.awarded_carrier_company_id,
+          exchangeVisibility: raw.exchange_visibility,
           bids: [],
         });
       }
@@ -295,7 +302,11 @@ function JobBidGroup({
   const [groupPage, setGroupPage] = useState(0);
   const isAwarded = !!group.awardedCarrierCompanyId;
   const awardedBid = isAwarded
-    ? group.bids.find((b) => b.company_id === group.awardedCarrierCompanyId && b.status === 'accepted')
+    ? group.bids.find(
+        (b) =>
+          b.bidder_company_id === group.awardedCarrierCompanyId &&
+          b.bid_status === 'accepted',
+      )
     : null;
   useEffect(() => {
     setGroupPage(0);
@@ -328,7 +339,7 @@ function JobBidGroup({
             </span>
           ) : (
             <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '0.3rem 0.85rem', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 600 }}>
-              {group.bids.filter((b) => b.status === 'submitted').length} submitted bid{group.bids.filter((b) => b.status === 'submitted').length !== 1 ? 's' : ''}
+              {group.bids.filter((b) => b.bid_status === 'submitted').length} submitted bid{group.bids.filter((b) => b.bid_status === 'submitted').length !== 1 ? 's' : ''}
             </span>
           )}
         </div>
@@ -345,10 +356,10 @@ function JobBidGroup({
         </thead>
         <tbody>
           {visibleBids.map((bid, i) => {
-            const sc = STATUS_COLORS[bid.status] ?? STATUS_COLORS.submitted;
+            const sc = STATUS_COLORS[bid.bid_status] ?? STATUS_COLORS.submitted;
             const isActioning = actionLoading === bid.id;
-            const canAccept = !isAwarded && bid.status === 'submitted';
-            const canReject = bid.status === 'submitted';
+            const canAccept = !isAwarded && bid.bid_status === 'submitted';
+            const canReject = bid.bid_status === 'submitted';
             const bidAmount = resolveBidAmountGbp(bid);
 
             return (
@@ -370,7 +381,7 @@ function JobBidGroup({
                 </td>
                 <td style={{ padding: '0.85rem 1rem' }}>
                   <span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.65rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 600 }}>
-                    {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
+                    {bid.bid_status.charAt(0).toUpperCase() + bid.bid_status.slice(1)}
                   </span>
                 </td>
                 <td style={{ padding: '0.85rem 1rem', color: '#6b7280', fontSize: '0.85rem' }}>
