@@ -11,12 +11,27 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 type DiaryJob = {
   id: string;
   status: string;
+  current_status: string | null;
   assigned_driver_id: string | null;
+  assigned_company_id: string | null;
+  awarded_carrier_company_id: string | null;
   client_name: string | null;
   pickup_location: string | null;
   delivery_location: string | null;
+  pickup_datetime: string | null;
+  delivery_datetime: string | null;
   vehicle_type: string | null;
   updated_at: string;
+  status_history: unknown;
+  on_my_way_at: string | null;
+  on_site_pickup_at: string | null;
+  loaded_at: string | null;
+  on_site_delivery_at: string | null;
+  delivered_at: string | null;
+  completed_at: string | null;
+  pod_required: boolean;
+  pod_generated: boolean;
+  pod_generated_at: string | null;
 };
 
 type DriverOption = {
@@ -24,50 +39,181 @@ type DriverOption = {
   display_name: string;
 };
 
+type WorkflowAction = {
+  label: string;
+  nextStatus: string;
+  timestampField:
+    | 'on_my_way_at'
+    | 'on_site_pickup_at'
+    | 'loaded_at'
+    | 'on_site_delivery_at'
+    | 'delivered_at'
+    | 'completed_at';
+  tone: 'blue' | 'amber' | 'green';
+};
+
 const LANE_CONFIG: Array<{ key: string; label: string; statuses: string[] }> = [
-  { key: 'unallocated', label: 'Unallocated', statuses: ['draft', 'received', 'posted'] },
+  { key: 'unallocated', label: 'Unallocated', statuses: ['draft', 'received', 'posted', 'open'] },
   { key: 'allocated', label: 'Allocated', statuses: ['allocated'] },
-  { key: 'inProgress', label: 'In Progress', statuses: ['in_transit', 'on_site'] },
-  { key: 'completed', label: 'Completed', statuses: ['delivered'] },
+  {
+    key: 'inProgress',
+    label: 'In Progress',
+    statuses: ['on_my_way', 'on_site_pickup', 'loaded', 'on_site_delivery', 'in_transit', 'on_site'],
+  },
+  { key: 'completed', label: 'Completed', statuses: ['delivered', 'completed'] },
   { key: 'cancelled', label: 'Cancelled', statuses: ['cancelled'] },
   { key: 'attention', label: 'Attention', statuses: ['disputed'] },
 ];
 
 const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
-  draft:      { label: 'Draft',       bg: '#f1f5f9', color: '#475569' },
-  received:   { label: 'Received',    bg: '#fef3c7', color: '#92400e' },
-  posted:     { label: 'Posted',      bg: '#dbeafe', color: '#1e40af' },
-  allocated:  { label: 'Allocated',   bg: '#e0f2fe', color: '#0369a1' },
+  draft: { label: 'Draft', bg: '#f1f5f9', color: '#475569' },
+  received: { label: 'Received', bg: '#fef3c7', color: '#92400e' },
+  posted: { label: 'Posted', bg: '#dbeafe', color: '#1e40af' },
+  open: { label: 'Open', bg: '#dbeafe', color: '#1e40af' },
+  allocated: { label: 'Allocated', bg: '#e0f2fe', color: '#0369a1' },
+  on_my_way: { label: 'On My Way To Pickup', bg: '#dbeafe', color: '#1d4ed8' },
+  on_site_pickup: { label: 'On Site Pickup', bg: '#fed7aa', color: '#9a3412' },
+  loaded: { label: 'Loaded', bg: '#fef9c3', color: '#854d0e' },
+  on_site_delivery: { label: 'On Site Delivery', bg: '#ede9fe', color: '#6d28d9' },
   in_transit: { label: 'In Progress', bg: '#fef9c3', color: '#854d0e' },
-  on_site:    { label: 'On Site',     bg: '#fed7aa', color: '#9a3412' },
-  delivered:  { label: 'Delivered',   bg: '#dcfce7', color: '#15803d' },
-  cancelled:  { label: 'Cancelled',   bg: '#fee2e2', color: '#991b1b' },
-  disputed:   { label: 'Disputed',    bg: '#fef3c7', color: '#92400e' },
+  on_site: { label: 'On Site', bg: '#fed7aa', color: '#9a3412' },
+  delivered: { label: 'Delivered', bg: '#dcfce7', color: '#15803d' },
+  completed: { label: 'Completed', bg: '#bbf7d0', color: '#166534' },
+  cancelled: { label: 'Cancelled', bg: '#fee2e2', color: '#991b1b' },
+  disputed: { label: 'Disputed', bg: '#fef3c7', color: '#92400e' },
 };
+
+const ACTION_STYLE: Record<WorkflowAction['tone'], { bg: string; color: string; border: string }> = {
+  blue: { bg: '#1d4ed8', color: '#ffffff', border: '#1d4ed8' },
+  amber: { bg: '#f59e0b', color: '#111827', border: '#f59e0b' },
+  green: { bg: '#16a34a', color: '#ffffff', border: '#16a34a' },
+};
+
+function normalizeStatus(status: string | null | undefined) {
+  return (status || '').toLowerCase();
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function getNextWorkflowAction(job: DiaryJob): WorkflowAction | null {
+  switch (normalizeStatus(job.status)) {
+    case 'allocated':
+      return {
+        label: 'On My Way To Pickup',
+        nextStatus: 'on_my_way',
+        timestampField: 'on_my_way_at',
+        tone: 'blue',
+      };
+    case 'on_my_way':
+    case 'in_transit':
+      return {
+        label: 'On Site Pickup',
+        nextStatus: 'on_site_pickup',
+        timestampField: 'on_site_pickup_at',
+        tone: 'amber',
+      };
+    case 'on_site_pickup':
+    case 'on_site':
+      return {
+        label: 'Loaded',
+        nextStatus: 'loaded',
+        timestampField: 'loaded_at',
+        tone: 'green',
+      };
+    case 'loaded':
+      return {
+        label: 'On Site Delivery',
+        nextStatus: 'on_site_delivery',
+        timestampField: 'on_site_delivery_at',
+        tone: 'amber',
+      };
+    case 'on_site_delivery':
+      return {
+        label: 'Delivered',
+        nextStatus: 'delivered',
+        timestampField: 'delivered_at',
+        tone: 'green',
+      };
+    case 'delivered':
+      return {
+        label: 'Mark Completed',
+        nextStatus: 'completed',
+        timestampField: 'completed_at',
+        tone: 'green',
+      };
+    default:
+      return null;
+  }
+}
+
+function appendStatusHistory(
+  existingHistory: unknown,
+  entry: Record<string, unknown>,
+): Array<Record<string, unknown>> {
+  if (Array.isArray(existingHistory)) {
+    return [
+      ...existingHistory.filter(
+        (item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object',
+      ),
+      entry,
+    ];
+  }
+
+  return [entry];
+}
 
 export default function DiaryPage() {
   const router = useRouter();
   const { user, hasSupabaseSession } = useAuth();
+
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [jobs, setJobs] = useState<DiaryJob[]>([]);
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, string>>({});
   const [assignmentMessage, setAssignmentMessage] = useState('');
   const [assigningJobId, setAssigningJobId] = useState<string | null>(null);
+  const [workflowJobId, setWorkflowJobId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
     if (!hasSupabaseSession || !user?.id) return;
+
     if (user.companyId) {
       setCompanyId(user.companyId);
       return;
     }
-    resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: null }).then(setCompanyId);
+
+    resolveActiveCompanyId({
+      userId: user.id,
+      fallbackCompanyId: null,
+    }).then(setCompanyId);
   }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
+
     if (!isSupabaseConfigured || !companyId) {
       setJobs([]);
       setLoading(false);
@@ -76,8 +222,41 @@ export default function DiaryPage() {
 
     const { data, error } = await supabase
       .from('jobs')
-      .select('id, status, assigned_driver_id, client_name, pickup_location, delivery_location, vehicle_type, updated_at')
-      .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
+      .select(
+        [
+          'id',
+          'status',
+          'current_status',
+          'assigned_driver_id',
+          'assigned_company_id',
+          'awarded_carrier_company_id',
+          'client_name',
+          'pickup_location',
+          'delivery_location',
+          'pickup_datetime',
+          'delivery_datetime',
+          'vehicle_type',
+          'updated_at',
+          'status_history',
+          'on_my_way_at',
+          'on_site_pickup_at',
+          'loaded_at',
+          'on_site_delivery_at',
+          'delivered_at',
+          'completed_at',
+          'pod_required',
+          'pod_generated',
+          'pod_generated_at',
+        ].join(', ')
+      )
+      .or(
+        'company_id.eq.' +
+          companyId +
+          ',assigned_company_id.eq.' +
+          companyId +
+          ',awarded_carrier_company_id.eq.' +
+          companyId
+      )
       .order('updated_at', { ascending: false })
       .limit(200);
 
@@ -105,7 +284,6 @@ export default function DiaryPage() {
           event: '*',
           schema: 'public',
           table: 'jobs',
-          filter: `company_id=eq.${companyId}`,
         },
         () => {
           void loadJobs();
@@ -175,30 +353,80 @@ export default function DiaryPage() {
     await loadJobs();
   };
 
+  const handleWorkflowAction = async (job: DiaryJob, action: WorkflowAction) => {
+    if (!companyId) return;
+
+    const now = new Date().toISOString();
+    const updatePayload: Record<string, unknown> = {
+      status: action.nextStatus,
+      current_status: action.nextStatus,
+      status_updated_at: now,
+      updated_at: now,
+      [action.timestampField]: now,
+      status_history: appendStatusHistory(job.status_history, {
+        status: action.nextStatus,
+        label: action.label,
+        timestamp: now,
+        actor_user_id: user?.id ?? null,
+      }),
+    };
+
+    setWorkflowJobId(job.id);
+    setAssignmentMessage('');
+
+    const { error } = await supabase
+      .from('jobs')
+      .update(updatePayload)
+      .eq('id', job.id)
+      .or(
+        'company_id.eq.' +
+          companyId +
+          ',assigned_company_id.eq.' +
+          companyId +
+          ',awarded_carrier_company_id.eq.' +
+          companyId
+      );
+
+    if (error) {
+      console.error('Failed to update workflow status:', error.message);
+      setAssignmentMessage(`Failed to update job status: ${error.message}`);
+      setWorkflowJobId(null);
+      return;
+    }
+
+    setAssignmentMessage(`Job updated: ${action.label}.`);
+    setWorkflowJobId(null);
+    await loadJobs();
+  };
+
   const grouped = useMemo(() => {
     const map = new Map<string, DiaryJob[]>();
+
     for (const lane of LANE_CONFIG) map.set(lane.key, []);
+
     for (const job of jobs) {
-      const lane = LANE_CONFIG.find((item) => item.statuses.includes((job.status || '').toLowerCase()));
+      const lane = LANE_CONFIG.find((item) => item.statuses.includes(normalizeStatus(job.status)));
       if (lane) {
         map.get(lane.key)?.push(job);
       }
     }
+
     return map;
   }, [jobs]);
 
   const filteredJobs = useMemo(() => {
     if (activeTab === 'all') return jobs;
-    const lane = LANE_CONFIG.find(l => l.key === activeTab);
+
+    const lane = LANE_CONFIG.find((item) => item.key === activeTab);
     if (!lane) return jobs;
-    return jobs.filter(j => lane.statuses.includes((j.status || '').toLowerCase()));
+
+    return jobs.filter((job) => lane.statuses.includes(normalizeStatus(job.status)));
   }, [jobs, activeTab]);
 
   return (
     <ProtectedRoute>
       <div style={{ display: 'flex', height: 'calc(100vh - 89px)', overflow: 'hidden', background: '#f5f7fa' }}>
-
-        {/* ── Left panel: Search ─────────────────────────────────────────── */}
+        {/* Left panel: Search */}
         <aside style={{ width: '200px', flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', padding: '0.85rem', overflowY: 'auto', fontSize: '0.78rem' }}>
           <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.6rem', fontSize: '0.8rem' }}>📋 Search Panel</div>
 
@@ -240,7 +468,9 @@ export default function DiaryPage() {
             <div style={labelStyle}>Driver</div>
             <select style={panelInput}>
               <option value="">Any driver</option>
-              {drivers.map(d => <option key={d.id} value={d.id}>{d.display_name}</option>)}
+              {drivers.map((driver) => (
+                <option key={driver.id} value={driver.id}>{driver.display_name}</option>
+              ))}
             </select>
           </div>
 
@@ -264,9 +494,8 @@ export default function DiaryPage() {
           </div>
         </aside>
 
-        {/* ── Main diary content ────────────────────────────────────────── */}
+        {/* Main diary content */}
         <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-
           {/* Header bar */}
           <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0.45rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: '1rem' }}>
             <div style={{ fontSize: '0.82rem', color: '#374151', fontWeight: 600 }}>
@@ -282,7 +511,7 @@ export default function DiaryPage() {
 
           {/* Status tab bar */}
           <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 0.85rem', display: 'flex', alignItems: 'center', flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
-            {[{ key: 'all', label: 'All', count: jobs.length }, ...LANE_CONFIG.map(l => ({ key: l.key, label: l.label, count: (grouped.get(l.key) ?? []).length }))].map((tab) => (
+            {[{ key: 'all', label: 'All', count: jobs.length }, ...LANE_CONFIG.map((lane) => ({ key: lane.key, label: lane.label, count: (grouped.get(lane.key) ?? []).length }))].map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
@@ -310,7 +539,7 @@ export default function DiaryPage() {
             ))}
           </div>
 
-          {/* Assignment message */}
+          {/* Assignment / workflow message */}
           {assignmentMessage && (
             <div style={{ margin: '0.5rem 0.85rem', padding: '0.5rem 0.85rem', borderRadius: '6px', background: assignmentMessage.startsWith('Failed') ? '#fee2e2' : '#dcfce7', color: assignmentMessage.startsWith('Failed') ? '#991b1b' : '#166534', fontSize: '0.82rem', fontWeight: 600 }}>
               {assignmentMessage}
@@ -329,15 +558,18 @@ export default function DiaryPage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {filteredJobs.map((job) => {
-                  const badge = STATUS_BADGE[job.status.toLowerCase()] ?? { label: job.status, bg: '#f1f5f9', color: '#475569' };
-                  const laneKey = LANE_CONFIG.find(l => l.statuses.includes(job.status.toLowerCase()))?.key ?? '';
+                  const normalizedStatus = normalizeStatus(job.status);
+                  const badge = STATUS_BADGE[normalizedStatus] ?? { label: job.status, bg: '#f1f5f9', color: '#475569' };
+                  const laneKey = LANE_CONFIG.find((lane) => lane.statuses.includes(normalizedStatus))?.key ?? '';
                   const isUnallocated = laneKey === 'unallocated';
+                  const workflowAction = getNextWorkflowAction(job);
+                  const actionStyle = workflowAction ? ACTION_STYLE[workflowAction.tone] : null;
+                  const workflowBusy = workflowJobId === job.id;
 
                   return (
-                    <div key={job.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: `3px solid ${badge.color === '#15803d' ? '#16a34a' : badge.color === '#991b1b' ? '#ef4444' : '#64748b'}`, borderRadius: '6px', overflow: 'hidden' }}>
+                    <div key={job.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: `3px solid ${badge.color === '#15803d' || badge.color === '#166534' ? '#16a34a' : badge.color === '#991b1b' ? '#ef4444' : '#64748b'}`, borderRadius: '6px', overflow: 'hidden' }}>
                       {/* Job details — 3 columns */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.75rem', padding: '0.75rem 1rem', alignItems: 'start' }}>
-
                         {/* Column 1: From / To */}
                         <div>
                           <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline' }}>
@@ -351,15 +583,22 @@ export default function DiaryPage() {
                           </div>
                         </div>
 
-                        {/* Column 2: Dates */}
+                        {/* Column 2: Dates / workflow timestamps */}
                         <div>
                           <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline' }}>
-                            <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, minWidth: '44px' }}>Pickup:</span>
-                            <span style={{ fontSize: '0.8rem', color: '#374151' }}>{new Date(job.updated_at).toLocaleDateString('en-GB')}</span>
+                            <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, minWidth: '58px' }}>Pickup:</span>
+                            <span style={{ fontSize: '0.8rem', color: '#374151' }}>{formatDate(job.pickup_datetime ?? job.updated_at)}</span>
                           </div>
                           <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline', marginTop: '0.2rem' }}>
-                            <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, minWidth: '44px' }}>Vehicle:</span>
+                            <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, minWidth: '58px' }}>Vehicle:</span>
                             <span style={{ fontSize: '0.78rem', color: '#64748b' }}>{job.vehicle_type ? job.vehicle_type.replace(/_/g, ' ') : '—'}</span>
+                          </div>
+                          <div style={{ marginTop: '0.35rem', fontSize: '0.68rem', color: '#64748b', lineHeight: 1.35 }}>
+                            {job.on_my_way_at && <div>On way: {formatDateTime(job.on_my_way_at)}</div>}
+                            {job.on_site_pickup_at && <div>Pickup site: {formatDateTime(job.on_site_pickup_at)}</div>}
+                            {job.loaded_at && <div>Loaded: {formatDateTime(job.loaded_at)}</div>}
+                            {job.on_site_delivery_at && <div>Delivery site: {formatDateTime(job.on_site_delivery_at)}</div>}
+                            {job.delivered_at && <div>Delivered: {formatDateTime(job.delivered_at)}</div>}
                           </div>
                         </div>
 
@@ -380,12 +619,12 @@ export default function DiaryPage() {
                           <>
                             <select
                               value={assignmentDrafts[job.id] ?? ''}
-                              onChange={(e) => setAssignmentDrafts((prev) => ({ ...prev, [job.id]: e.target.value }))}
+                              onChange={(event) => setAssignmentDrafts((prev) => ({ ...prev, [job.id]: event.target.value }))}
                               style={{ padding: '0.28rem 0.5rem', border: '1px solid #e2e8f0', borderRadius: '5px', fontSize: '0.75rem', background: '#fff', color: '#374151', maxWidth: '180px' }}
                             >
                               <option value="">Assign driver…</option>
-                              {drivers.map((d) => (
-                                <option key={d.id} value={d.id}>{d.display_name}</option>
+                              {drivers.map((driver) => (
+                                <option key={driver.id} value={driver.id}>{driver.display_name}</option>
                               ))}
                             </select>
                             <button
@@ -398,6 +637,28 @@ export default function DiaryPage() {
                             <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }} />
                           </>
                         )}
+
+                        {workflowAction && actionStyle && (
+                          <button
+                            onClick={() => void handleWorkflowAction(job, workflowAction)}
+                            disabled={workflowBusy}
+                            style={{ padding: '0.28rem 0.7rem', border: `1px solid ${actionStyle.border}`, borderRadius: '5px', background: workflowBusy ? '#e2e8f0' : actionStyle.bg, color: workflowBusy ? '#94a3b8' : actionStyle.color, cursor: workflowBusy ? 'not-allowed' : 'pointer', fontSize: '0.73rem', fontWeight: 800 }}
+                          >
+                            {workflowBusy ? 'Updating…' : workflowAction.label}
+                          </button>
+                        )}
+
+                        {normalizeStatus(job.status) === 'delivered' && (
+                          <button
+                            onClick={() => router.push(`/admin/jobs/${job.id}`)}
+                            style={{ padding: '0.28rem 0.7rem', border: '1px solid #16a34a', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.73rem', color: '#166534', fontWeight: 800 }}
+                          >
+                            Upload POD
+                          </button>
+                        )}
+
+                        <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }} />
+
                         {[
                           { label: 'Order', href: `/admin/jobs/${job.id}` },
                           { label: 'Notes', href: `/admin/jobs/${job.id}` },
@@ -425,8 +686,6 @@ export default function DiaryPage() {
   );
 }
 
-// ── Style helpers ──────────────────────────────────────────────────────────────
-
 const labelStyle: React.CSSProperties = {
   fontSize: '0.65rem',
   fontWeight: 700,
@@ -447,3 +706,4 @@ const panelInput: React.CSSProperties = {
   marginBottom: '0',
   boxSizing: 'border-box',
 };
+
