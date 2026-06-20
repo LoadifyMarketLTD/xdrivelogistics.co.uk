@@ -267,7 +267,7 @@ export default function DiaryPage() {
       return;
     }
 
-    setJobs((data as DiaryJob[]) ?? []);
+    setJobs(Array.isArray(data) ? (data as unknown as DiaryJob[]) : []);
     setLoading(false);
   }, [companyId]);
 
