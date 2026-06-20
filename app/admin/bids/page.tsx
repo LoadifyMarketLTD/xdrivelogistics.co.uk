@@ -12,8 +12,8 @@ type BidWithJob = {
   job_id: string;
   company_id: string | null;
   bidder_user_id: string | null;
-  amount: number | null;
-  bid_price_gbp: number | null;
+ amount: number | string | null;
+bid_price_gbp: number | string | null;
   currency: string;
   message: string | null;
   status: string;
@@ -63,10 +63,19 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function resolveBidAmountGbp(bid: Pick<BidWithJob, 'bid_price_gbp' | 'amount'>): number | null {
-  if (typeof bid.bid_price_gbp === 'number') return bid.bid_price_gbp;
-  if (typeof bid.amount === 'number') return bid.amount;
-  return null;
+function resolveBidAmountGbp(
+  bid: Pick<BidWithJob, 'bid_price_gbp' | 'amount'>
+): number | null {
+  const v = bid.bid_price_gbp ?? bid.amount;
+
+  if (v == null) return null;
+
+  const n =
+    typeof v === 'number'
+      ? v
+      : Number(v);
+
+  return Number.isFinite(n) ? n : null;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
