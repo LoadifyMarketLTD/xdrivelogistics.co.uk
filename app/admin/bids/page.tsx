@@ -119,7 +119,7 @@ export default function BidsPage() {
 
     const bidRows = (data ?? []) as unknown as BidWithJob[];
     const bidderCompanyIds = Array.from(
-      new Set(bidRows.map((bid) => bid.company_id).filter((id): id is string => Boolean(id))),
+    new Set(bidRows.map((bid) => bid.bidder_company_id).filter((id): id is string => Boolean(id))), 
     );
 
     let companyNameById = new Map<string, string>();
@@ -138,7 +138,9 @@ export default function BidsPage() {
 
     const enrichedBids = bidRows.map((bid) => ({
       ...bid,
-      companies: bid.company_id && companyNameById.has(bid.company_id) ? { name: companyNameById.get(bid.company_id)! } : null,
+    companies: bid.bidder_company_id && companyNameById.has(bid.bidder_company_id)
+? { name: companyNameById.get(bid.bidder_company_id)! }
+: null 
     }));
 
     // Group bids by job
