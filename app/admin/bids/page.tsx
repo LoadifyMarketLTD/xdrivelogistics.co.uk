@@ -105,6 +105,7 @@ export default function BidsPage() {
     // Fetch all bids on jobs owned by the current company.
     // The job_bids_owner_select RLS policy (migration 061) allows job owners to
     // SELECT bids on their own jobs, keyed via the jobs join.
+     const { data, error: fetchError } = await supabase 
     .from('job_bids')
 .select(
   'id, job_id, company_id, bidder_user_id, amount, bid_price_gbp, currency, message, status, created_at, ' +
