@@ -4,6 +4,11 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import { COMPANY_CONFIG } from '../../config/company';
+import {
+  DRIVER_WORKSPACE_MODE_LABELS,
+  isFleetDriverWorkspaceMode,
+  resolveDriverWorkspaceMode,
+} from '../../../lib/driverWorkspaceMode';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
 const THEME = {
@@ -43,6 +48,34 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'security', label: 'Password & Security', icon: '🔐', href: '/driver/change-password' },
 ];
 
+const FLEET_NAV_ITEMS: NavItem[] = [
+  { id: 'assigned-jobs', label: 'Assigned Jobs', icon: 'J', href: '/driver/history' },
+  { id: 'availability', label: 'Availability', icon: 'A', href: '/driver/availability' },
+  { id: 'assigned-vehicle', label: 'Assigned Vehicle', icon: 'V', href: '/driver/vehicles' },
+  { id: 'documents', label: 'Documents', icon: 'D', href: '/driver/documents' },
+  { id: 'profile', label: 'Profile', icon: 'P', href: '/driver/profile' },
+  { id: 'security', label: 'Password & Security', icon: 'K', href: '/driver/change-password' },
+];
+
+const BUSINESS_NAV_ITEM: NavItem = {
+  id: 'business-admin',
+  label: 'Business Admin',
+  icon: 'B',
+  href: '/admin',
+  exact: true,
+};
+
+const FLEET_FALLBACK_PATH = '/driver/history';
+const PROVIDER_ONLY_PATHS = [
+  '/driver/jobs',
+  '/driver/loads',
+  '/driver/loads/search',
+  '/driver/quotes',
+  '/driver/won-work',
+  '/driver/finance',
+  '/driver/returns',
+];
+
 interface DriverWorkspaceShellProps {
   children: ReactNode;
   subtitle?: string;
@@ -68,6 +101,12 @@ export default function DriverWorkspaceShell({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const workspaceMode = resolveDriverWorkspaceMode(user);
+  const visibleNavItems = isFleetDriverWorkspaceMode(workspaceMode)
+    ? FLEET_NAV_ITEMS
+    : workspaceMode === 'admin_business'
+      ? [...NAV_ITEMS, BUSINESS_NAV_ITEM]
+      : NAV_ITEMS;
 
   useEffect(() => {
     setHydrated(true);
@@ -96,6 +135,14 @@ export default function DriverWorkspaceShell({
   useEffect(() => {
     if (!isMobile) setSidebarOpen(false);
   }, [isMobile]);
+
+  useEffect(() => {
+    if (!hydrated || !isFleetDriverWorkspaceMode(workspaceMode)) return;
+    const isProviderOnlyPath = PROVIDER_ONLY_PATHS.some(
+      (path) => pathname === path || pathname.startsWith(path + '/')
+    );
+    if (isProviderOnlyPath) router.replace(FLEET_FALLBACK_PATH);
+  }, [hydrated, pathname, router, workspaceMode]);
 
   const displayName = driverName ?? user?.email ?? 'Driver';
   const displayEmail = user?.email ?? '';
@@ -179,7 +226,7 @@ export default function DriverWorkspaceShell({
           <div style={{ marginTop: '0.4rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
             <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: THEME.shellMuted }}>Role</span>
             <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#93c5fd', backgroundColor: 'rgba(59,130,246,0.2)', padding: '0.1rem 0.4rem', borderRadius: '999px' }}>
-              Driver
+              {DRIVER_WORKSPACE_MODE_LABELS[workspaceMode]}
             </span>
             {personaLabel && (
               <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#c4b5fd', backgroundColor: 'rgba(109,40,217,0.3)', padding: '0.1rem 0.4rem', borderRadius: '999px' }}>
@@ -190,7 +237,7 @@ export default function DriverWorkspaceShell({
         </div>
 
         <nav style={{ flex: 1, padding: '0.5rem', overflowY: 'auto' }}>
-          {NAV_ITEMS.map((item) => {
+          {visibleNavItems.map((item) => {
             const active = isActive(item);
             return (
               <button

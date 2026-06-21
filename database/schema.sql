@@ -8,7 +8,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ── Enums ────────────────────────────────────────────
-CREATE TYPE public.company_role AS ENUM ('owner', 'admin', 'dispatcher', 'viewer');
+CREATE TYPE public.company_role AS ENUM ('owner', 'admin', 'dispatcher', 'member', 'viewer');
 CREATE TYPE public.membership_status AS ENUM ('invited', 'active', 'suspended');
 CREATE TYPE public.doc_status AS ENUM ('pending', 'approved', 'rejected', 'expired');
 CREATE TYPE public.job_status AS ENUM ('draft', 'posted', 'allocated', 'in_transit', 'delivered', 'cancelled', 'disputed');
@@ -194,6 +194,9 @@ CREATE TABLE public.jobs (
   job_distance_miles        numeric,
   job_distance_minutes      int,
   distance_to_pickup_miles  numeric,
+  exchange_visibility       text               NOT NULL DEFAULT 'private' CHECK (exchange_visibility IN ('private', 'exchange', 'direct')),
+  awarded_carrier_company_id uuid              REFERENCES public.companies(id) ON DELETE SET NULL,
+  exchange_posted_at        timestamptz,
   -- Driver app fields
   collection_photo_url      text,
   delivery_photos           text[],
@@ -371,6 +374,8 @@ CREATE INDEX idx_jobs_company_id         ON public.jobs(company_id);
 CREATE INDEX idx_jobs_status             ON public.jobs(status);
 CREATE INDEX idx_jobs_driver_id          ON public.jobs(driver_id);
 CREATE INDEX idx_jobs_pickup_datetime    ON public.jobs(pickup_datetime);
+CREATE INDEX idx_jobs_exchange_visibility ON public.jobs(exchange_visibility, status)
+  WHERE exchange_visibility = 'exchange';
 CREATE INDEX idx_invoices_company_id     ON public.invoices(company_id);
 CREATE INDEX idx_quotes_company_id       ON public.quotes(company_id);
 CREATE INDEX idx_tracking_events_job_id  ON public.job_tracking_events(job_id);
@@ -629,6 +634,100 @@ CREATE POLICY "jobs_update_assigned_driver" ON public.jobs FOR UPDATE
 -- Job bids
 CREATE POLICY "bids_all_member" ON public.job_bids FOR ALL
   USING (company_id IS NULL OR public.is_company_member(company_id));
+
+-- Exchange load board visibility
+CREATE POLICY jobs_exchange_select_policy ON public.jobs
+  FOR SELECT
+  USING (
+    exchange_visibility = 'exchange'
+    AND status = 'posted'
+    AND (
+      EXISTS (
+        SELECT 1
+        FROM public.company_memberships cm
+        WHERE cm.user_id = auth.uid()
+          AND cm.status = 'active'
+          AND cm.role_in_company IN ('owner', 'admin', 'dispatcher', 'member', 'viewer')
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.profiles p
+        WHERE p.user_id = auth.uid()
+          AND p.role IN ('owner', 'broker')
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.drivers d
+        WHERE d.user_id = auth.uid()
+          AND d.status NOT IN ('suspended', 'inactive', 'rejected')
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.profiles p
+        WHERE p.user_id = auth.uid()
+          AND p.role = 'driver'
+          AND p.status NOT IN ('blocked', 'suspended', 'inactive', 'pending')
+      )
+    )
+  );
+
+-- Exchange bid insertion
+CREATE POLICY job_bids_exchange_insert ON public.job_bids
+  FOR INSERT
+  WITH CHECK (
+    bidder_user_id = auth.uid()
+    AND (
+      (
+        company_id IS NOT NULL
+        AND public.is_company_member(company_id)
+        AND EXISTS (
+          SELECT 1
+          FROM public.company_memberships cm
+          WHERE cm.company_id = job_bids.company_id
+            AND cm.user_id = auth.uid()
+            AND cm.status = 'active'
+        )
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.drivers d
+        WHERE d.user_id = auth.uid()
+          AND d.company_id = job_bids.company_id
+          AND d.status NOT IN ('suspended', 'inactive', 'rejected')
+      )
+      OR (
+        company_id IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM public.profiles p
+          WHERE p.user_id = auth.uid()
+            AND p.role = 'driver'
+            AND p.status NOT IN ('blocked', 'suspended', 'inactive', 'pending')
+        )
+      )
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM public.jobs j
+      WHERE j.id = job_bids.job_id
+        AND j.exchange_visibility IN ('exchange', 'direct')
+        AND (job_bids.company_id IS NULL OR j.company_id <> job_bids.company_id)
+        AND j.awarded_carrier_company_id IS NULL
+    )
+  );
+
+-- Driver fallback visibility for own bids
+CREATE POLICY job_bids_driver_self_select ON public.job_bids
+  FOR SELECT
+  USING (
+    bidder_user_id = auth.uid()
+    OR EXISTS (
+      SELECT 1
+      FROM public.drivers d
+      WHERE d.user_id = auth.uid()
+        AND d.company_id = job_bids.company_id
+    )
+  );
 
 -- Driver locations
 CREATE POLICY "driver_locations_all_member" ON public.driver_locations FOR ALL
