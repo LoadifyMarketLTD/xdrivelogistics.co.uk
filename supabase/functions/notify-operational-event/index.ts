@@ -11,6 +11,7 @@
  *   - job_assigned:  Email driver when a job is assigned
  *   - bid_accepted:  Email carrier when their bid wins
  *   - pod_uploaded:  Email company admin when driver marks delivered
+ *   - onboarding_invite: Email verified user with onboarding activation link
  *
  * Environment variables required (set in Supabase Dashboard → Edge Functions → Secrets):
  *   SUPABASE_URL             (auto-injected)
@@ -154,6 +155,36 @@ async function handlePodUploaded(event: NotificationEvent): Promise<boolean> {
   return true;
 }
 
+async function handleOnboardingInvite(event: NotificationEvent): Promise<boolean> {
+  const recipientUserId =
+    (event.payload?.recipient_user_id as string | undefined) ??
+    event.recipient_user_id ??
+    null;
+
+  if (!recipientUserId) return true;
+  const user = await getUserEmail(recipientUserId);
+  if (!user) return true;
+
+  const onboardingUrlRaw = event.payload?.onboarding_url;
+  const onboardingUrl =
+    typeof onboardingUrlRaw === 'string' && onboardingUrlRaw.trim().length > 0
+      ? onboardingUrlRaw.trim()
+      : buildAppUrl('/onboarding/resume');
+  const accountType = String(event.payload?.account_type ?? 'account').replace(/_/g, ' ');
+
+  const html = `
+    <h2>Your XDrive onboarding is ready</h2>
+    <p>Hi ${user.name},</p>
+    <p>Your account has been verified. Continue onboarding to unlock your workspace.</p>
+    <p><strong>Account type:</strong> ${accountType}</p>
+    <p><a href="${onboardingUrl}">Start / Resume onboarding →</a></p>
+    <p>This activation link is single-use for first activation. After activation, sign in to resume from your last completed step.</p>
+    <p>XDrive Logistics</p>
+  `;
+
+  return sendEmail(user.email, '🚀 Complete onboarding — XDrive Logistics', html);
+}
+
 async function processEvent(event: NotificationEvent): Promise<void> {
   let success = false;
   try {
@@ -166,6 +197,9 @@ async function processEvent(event: NotificationEvent): Promise<void> {
         break;
       case 'pod_uploaded':
         success = await handlePodUploaded(event);
+        break;
+      case 'onboarding_invite':
+        success = await handleOnboardingInvite(event);
         break;
       default:
         console.log(`[notify] Unknown event type: ${event.event_type} — skipping`);
