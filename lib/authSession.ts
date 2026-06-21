@@ -63,6 +63,8 @@ export type ResolvedAuthUser = {
   canAccessDriverMode: boolean;
   ownerDriverExecutionMode: boolean;
   financeAccess: 'full' | 'limited' | 'hidden';
+  onboardingStatus: string | null;
+  onboardingRequired: boolean;
 };
 
 const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, key: string) => {
@@ -135,6 +137,12 @@ const resolveFinanceAccess = (
 
   if (explicitFinanceFlag || membershipRole === 'dispatcher') return 'limited';
   return 'hidden';
+};
+
+const isMissingOnboardingTableError = (error: { message?: string | null; details?: string | null; hint?: string | null } | null | undefined) => {
+  if (!error) return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  return text.includes('onboarding_applications') && (text.includes('does not exist') || text.includes('schema cache'));
 };
 
 export const resolveAuthenticatedUser = async (
@@ -464,6 +472,63 @@ export const resolveAuthenticatedUser = async (
       }
     }
 
+    let onboardingStatus: string | null = null;
+    let onboardingRequired = false;
+    const onboardingRes = await supabase
+      .from('onboarding_applications')
+      .select('status')
+      .eq('user_id', sessionUser.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (onboardingRes.error && !isMissingOnboardingTableError(onboardingRes.error)) {
+      return {
+        user: null,
+        reason: 'db_error',
+        dbError: {
+          query: `onboarding_applications.select(status).eq(user_id,${sessionUser.id}).maybeSingle()`,
+          message: onboardingRes.error.message,
+          code: onboardingRes.error.code ?? null,
+          details: onboardingRes.error.details ?? null,
+          hint: onboardingRes.error.hint ?? null,
+        },
+      };
+    }
+
+    onboardingStatus = String(onboardingRes.data?.status ?? '').trim().toLowerCase() || null;
+    onboardingRequired = Boolean(onboardingStatus && onboardingStatus !== 'approved');
+
+    if (!onboardingRes.error && !onboardingRes.data && resolvedRole !== 'owner') {
+      const accountType =
+        ownerDriverWorkspaceRequested || resolvedRole === 'driver'
+          ? 'owner_driver'
+          : resolvedRole === 'broker'
+            ? 'broker_shipper'
+            : 'fleet_courier';
+
+      const bootstrapOnboardingRes = await supabase
+        .from('onboarding_applications')
+        .upsert(
+          {
+            user_id: sessionUser.id,
+            email: sessionUser.email ?? '',
+            account_type: accountType,
+            status: 'draft',
+            current_step: 'account_type_wizard',
+            completion_percentage: 0,
+            payload: {},
+          },
+          { onConflict: 'user_id' }
+        )
+        .select('status')
+        .maybeSingle();
+
+      if (!bootstrapOnboardingRes.error && bootstrapOnboardingRes.data) {
+        onboardingStatus = String(bootstrapOnboardingRes.data.status ?? '').trim().toLowerCase() || 'draft';
+        onboardingRequired = onboardingStatus !== 'approved';
+      }
+    }
+
     return ok(
       sessionUser,
       resolvedRole,
@@ -486,6 +551,8 @@ export const resolveAuthenticatedUser = async (
           (resolvedMembership?.role_in_company as CompanyMembership['role_in_company'] | null) ?? null,
           sessionUser
         ),
+        onboardingStatus,
+        onboardingRequired,
       }
     );
   }
@@ -519,6 +586,8 @@ const ok = (
     canAccessDriverMode: boolean;
     ownerDriverExecutionMode: boolean;
     financeAccess: 'full' | 'limited' | 'hidden';
+    onboardingStatus: string | null;
+    onboardingRequired: boolean;
   }
 ): AuthResolutionResult => {
   const resolved: ResolvedAuthUser = {
@@ -534,6 +603,8 @@ const ok = (
     canAccessDriverMode: options.canAccessDriverMode,
     ownerDriverExecutionMode: options.ownerDriverExecutionMode,
     financeAccess: options.financeAccess,
+    onboardingStatus: options.onboardingStatus,
+    onboardingRequired: options.onboardingRequired,
   };
   console.debug('[XDrive Auth] resolved user', { role, companyId, userId: sessionUser.id });
   return { user: resolved, reason: null };
@@ -542,9 +613,10 @@ const ok = (
 export const getPostLoginRoute = (
   currentUser: Pick<
     ResolvedAuthUser,
-    'role' | 'mustChangePassword' | 'ownerDriverWorkspace' | 'canAccessDriverMode' | 'ownerDriverExecutionMode'
+    'role' | 'mustChangePassword' | 'ownerDriverWorkspace' | 'canAccessDriverMode' | 'ownerDriverExecutionMode' | 'onboardingRequired'
   >
 ) => {
+  if (currentUser.onboardingRequired) return '/onboarding/resume';
   if (currentUser.ownerDriverWorkspace && currentUser.canAccessDriverMode) {
     return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
   }

@@ -70,7 +70,10 @@ export default function AuthCallbackPage() {
       return normalized.includes('code verifier') || normalized.includes('both auth code and code verifier');
     };
 
-    const redirectAuthenticatedUser = async (sessionUser: SessionUser | null) => {
+    const redirectAuthenticatedUser = async (
+      sessionUser: SessionUser | null,
+      callbackRecoveryType: 'recovery' | 'signup' | 'other'
+    ) => {
       if (!sessionUser) {
         setError(INVALID_LINK_MESSAGE);
         setIsLinkIssue(true);
@@ -81,6 +84,19 @@ export default function AuthCallbackPage() {
         data: { session },
       } = await withTimeout(supabase.auth.getSession(), AUTH_CALLBACK_TIMEOUT_MS);
       writeRouteAuthCookie(session);
+
+      const shouldInitializeOnboarding = callbackRecoveryType === 'signup';
+
+      if (shouldInitializeOnboarding && session?.access_token) {
+        await fetch('/api/onboarding/init', {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer ' + session.access_token,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ forceRegenerateToken: false }),
+        }).catch(() => undefined);
+      }
 
       const result = await withTimeout(resolveAuthenticatedUser(sessionUser), AUTH_CALLBACK_TIMEOUT_MS);
       if (!result.user) {
@@ -204,7 +220,7 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        await redirectAuthenticatedUser(sessionUser);
+        await redirectAuthenticatedUser(sessionUser, callbackRecoveryType);
       } catch (err) {
         clearRouteAuthCookie();
         const message = err instanceof Error ? err.message : 'Authentication callback failed.';
