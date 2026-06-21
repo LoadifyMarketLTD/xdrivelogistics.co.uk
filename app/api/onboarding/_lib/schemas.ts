@@ -39,7 +39,7 @@ export const fleetPayloadSchema = z
 
 const shareCodeRegex = /^[A-Za-z0-9]{9}$/;
 
-export const ownerDriverPayloadSchema = z
+const ownerDriverPayloadBaseSchema = z
   .object({
     full_name: z.string().trim().min(1),
     dob: z.string().trim().min(1),
@@ -59,8 +59,9 @@ export const ownerDriverPayloadSchema = z
     payload: z.string().trim().min(1),
     dimensions: z.string().trim().min(1),
   })
-  .strict()
-  .superRefine((value, ctx) => {
+  .strict();
+
+export const ownerDriverPayloadSchema = ownerDriverPayloadBaseSchema.superRefine((value, ctx) => {
     const visaRequired = value.right_to_work_status === 'visa_required' || value.right_to_work_status === 'share_code_required';
 
     if (visaRequired && !value.visa_type) {
@@ -105,7 +106,7 @@ export const ownerDriverPayloadSchema = z
         message: 'Share code must be 9 alphanumeric characters.',
       });
     }
-  });
+});
 
 export const brokerPatchSchema = onboardingPatchBaseSchema.extend({
   payload: brokerPayloadSchema.partial().optional(),
@@ -116,7 +117,7 @@ export const fleetPatchSchema = onboardingPatchBaseSchema.extend({
 });
 
 export const ownerDriverPatchSchema = onboardingPatchBaseSchema.extend({
-  payload: ownerDriverPayloadSchema.partial().optional(),
+  payload: ownerDriverPayloadBaseSchema.partial().optional(),
 });
 
 export type BrokerPayload = z.infer<typeof brokerPayloadSchema>;
