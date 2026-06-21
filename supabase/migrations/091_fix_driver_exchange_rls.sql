@@ -11,9 +11,8 @@
 --
 -- 2. job_bids_exchange_insert — relied on is_company_member() which checks
 --    company_memberships.  A driver without a memberships row could never bid.
---    Fix: add an OR branch so a driver can bid using their drivers row.
---    Standalone drivers (company_id IS NULL) are already covered by the existing
---    bids_all_member FOR ALL policy (USING company_id IS NULL).
+--    Fix: add OR branches so a driver can bid using their drivers row, and
+--    standalone/self-registered drivers can bid with company_id IS NULL.
 --
 -- 3. bids_all_member — the original catch-all SELECT policy on job_bids checks
 --    company_id = the company from the caller's membership.  Drivers whose
@@ -36,7 +35,7 @@ CREATE POLICY jobs_exchange_select_policy ON public.jobs
         SELECT 1
         FROM public.company_memberships cm
         WHERE cm.user_id = auth.uid()
-          AND cm.status <> 'suspended'
+          AND cm.status = 'active'
           AND cm.role_in_company IN ('owner', 'admin', 'dispatcher', 'member', 'viewer')
       )
       -- platform owners / brokers
@@ -74,10 +73,11 @@ CREATE POLICY job_bids_exchange_insert
   FOR INSERT
   WITH CHECK (
     bidder_user_id = auth.uid()
-    AND company_id IS NOT NULL
     AND (
       -- standard path: caller has an active company membership
       (
+        company_id IS NOT NULL
+        AND
         public.is_company_member(company_id)
         AND EXISTS (
           SELECT 1
@@ -95,13 +95,24 @@ CREATE POLICY job_bids_exchange_insert
           AND d.company_id = job_bids.company_id
           AND d.status NOT IN ('suspended', 'inactive', 'rejected')
       )
+      -- standalone/self-registered driver path: no company membership yet
+      OR (
+        company_id IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM public.profiles p
+          WHERE p.user_id = auth.uid()
+            AND p.role = 'driver'
+            AND p.status NOT IN ('blocked', 'suspended', 'inactive', 'pending')
+        )
+      )
     )
     AND EXISTS (
       SELECT 1
       FROM public.jobs j
       WHERE j.id = job_bids.job_id
         AND j.exchange_visibility IN ('exchange', 'direct')
-        AND j.company_id <> job_bids.company_id
+        AND (job_bids.company_id IS NULL OR j.company_id <> job_bids.company_id)
         AND j.awarded_carrier_company_id IS NULL
     )
   );

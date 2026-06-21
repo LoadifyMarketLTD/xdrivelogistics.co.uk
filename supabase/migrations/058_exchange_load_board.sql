@@ -41,7 +41,8 @@ CREATE POLICY jobs_exchange_select_policy ON public.jobs
       EXISTS (
         SELECT 1 FROM public.company_memberships cm
         WHERE cm.user_id = auth.uid()
-          AND cm.role IN ('owner','admin','dispatcher','viewer')
+          AND cm.status = 'active'
+          AND cm.role_in_company IN ('owner', 'admin', 'dispatcher', 'viewer')
       )
     )
   );
