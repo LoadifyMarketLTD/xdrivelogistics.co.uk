@@ -5,17 +5,17 @@
 --    driver accounts that have a drivers row but no memberships row (or where
 --    the membership upsert failed on driver creation).
 --    Fix: add an OR branch that allows any active driver record to SELECT
---    exchange-posted jobs.  Also adds a profile-role branch so self-registered
---    standalone drivers (profiles.role = 'driver') without a rows in the
+--    exchange-posted jobs. Also adds a profile-role branch so self-registered
+--    standalone drivers (profiles.role = 'driver') without a row in the
 --    drivers table can still browse the load board.
 --
 -- 2. job_bids_exchange_insert — relied on is_company_member() which checks
---    company_memberships.  A driver without a memberships row could never bid.
+--    company_memberships. A driver without a memberships row could never bid.
 --    Fix: add OR branches so a driver can bid using their drivers row, and
 --    standalone/self-registered drivers can bid with company_id IS NULL.
 --
 -- 3. bids_all_member — the original catch-all SELECT policy on job_bids checks
---    company_id = the company from the caller's membership.  Drivers whose
+--    company_id = the company from the caller's membership. Drivers whose
 --    membership upsert failed see no bids at all.
 --    Fix: add a separate permissive policy so drivers can always SELECT bids
 --    they placed (matched by bidder_user_id OR company_id in their driver row).
@@ -77,8 +77,7 @@ CREATE POLICY job_bids_exchange_insert
       -- standard path: caller has an active company membership
       (
         company_id IS NOT NULL
-        AND
-        public.is_company_member(company_id)
+        AND public.is_company_member(company_id)
         AND EXISTS (
           SELECT 1
           FROM public.company_memberships cm

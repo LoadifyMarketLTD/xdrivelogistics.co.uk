@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_jobs_exchange_visibility
   WHERE exchange_visibility = 'exchange';
 
 -- 5. RLS: carrier companies (company members) can SELECT exchange-visible jobs
---    from OTHER companies.  They cannot INSERT/UPDATE/DELETE them.
+--    from OTHER companies. They cannot INSERT/UPDATE/DELETE them.
 --    We use a separate permissive SELECT policy scoped to exchange rows.
 DROP POLICY IF EXISTS jobs_exchange_select_policy ON public.jobs;
 CREATE POLICY jobs_exchange_select_policy ON public.jobs
@@ -36,13 +36,11 @@ CREATE POLICY jobs_exchange_select_policy ON public.jobs
   USING (
     exchange_visibility = 'exchange'
     AND status = 'posted'
-    AND (
-      -- authenticated company/admin users from any company
-      EXISTS (
-        SELECT 1 FROM public.company_memberships cm
-        WHERE cm.user_id = auth.uid()
-          AND cm.status = 'active'
-          AND cm.role_in_company IN ('owner', 'admin', 'dispatcher', 'viewer')
-      )
+    AND EXISTS (
+      SELECT 1
+      FROM public.company_memberships cm
+      WHERE cm.user_id = auth.uid()
+        AND cm.status = 'active'
+        AND cm.role_in_company IN ('owner', 'admin', 'dispatcher', 'viewer')
     )
   );
