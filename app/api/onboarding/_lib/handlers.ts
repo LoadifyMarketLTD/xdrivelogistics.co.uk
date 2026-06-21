@@ -12,6 +12,13 @@ import type { OnboardingAccountType } from '../../_lib/onboarding';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
+type OnboardingPatchData = {
+  payload?: Record<string, unknown>;
+  status?: string;
+  currentStep?: string;
+  completionPercentage?: number;
+};
+
 const getAuthUser = async (request: NextRequest): Promise<User | null> => {
   const token = getBearerToken(request);
   if (!token || !supabaseAdmin) return null;
@@ -120,6 +127,8 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
       return json(400, { error: 'Invalid onboarding payload.', details: parsed.error.flatten() });
     }
 
+    const patchData = parsed.data as OnboardingPatchData;
+
     const { data: existing, error: existingError } = await supabaseAdmin
       .from('onboarding_applications')
       .select('*')
@@ -133,11 +142,11 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
       return json(403, { error: 'Forbidden onboarding account type.' });
     }
 
-    const payloadPatch = (parsed.data.payload ?? {}) as Record<string, unknown>;
+    const payloadPatch = patchData.payload ?? {};
 
     const nextStatus =
-      parsed.data.status && ['draft', 'in_progress', 'request_changes', 'submitted'].includes(parsed.data.status)
-        ? parsed.data.status
+      patchData.status && ['draft', 'in_progress', 'request_changes', 'submitted'].includes(patchData.status)
+        ? patchData.status
         : existing.status;
 
     const updatePayload: Record<string, unknown> = {
@@ -149,9 +158,9 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
       },
     };
 
-    if (parsed.data.currentStep) updatePayload.current_step = parsed.data.currentStep;
-    if (typeof parsed.data.completionPercentage === 'number') {
-      updatePayload.completion_percentage = parsed.data.completionPercentage;
+    if (patchData.currentStep) updatePayload.current_step = patchData.currentStep;
+    if (typeof patchData.completionPercentage === 'number') {
+      updatePayload.completion_percentage = patchData.completionPercentage;
     }
 
     const { data: updated, error: updateError } = await supabaseAdmin
