@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
   const { data: app, error: appError } = await supabaseAdmin
     .from('onboarding_applications')
-    .select('id, user_id')
+    .select('id, user_id, account_type')
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
