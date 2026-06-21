@@ -1,9 +1,10 @@
-const FALLBACK_SITE_URL = 'https://www.xdrivelogistics.co.uk';
+const FALLBACK_SITE_URL = 'https://xdrivelogistics.co.uk';
 
 const stripTrailingSlash = (value: string) => value.replace(/\/+$/, '');
 
 const parseUrl = (value: string | null | undefined): URL | null => {
   if (!value) return null;
+
   try {
     return new URL(stripTrailingSlash(value.trim()));
   } catch {
