@@ -33,7 +33,7 @@ export async function registerValidatedCompany(
 
     // 1. Apelăm API-ul oficial guvernamental din UK
     const authHeader = Buffer.from(`${apiKey}:`).toString('base64');
-    const response = await fetch(`https://service.gov.uk{companyNumber}`, {
+    const response = await fetch(`https://api.company-information.service.gov.uk/company/${encodeURIComponent(companyNumber.trim())}`, {
       method: 'GET',
       headers: {
         'Authorization': `Basic ${authHeader}`,
@@ -83,7 +83,7 @@ export async function registerValidatedCompany(
           company_id: newCompany.id,
           user_id: userId,            // Coloana ta reală se numește 'user_id' (nu member_id)
           role_in_company: 'company_admin', // Coloana ta reală este 'role_in_company' (text)
-          status: 'accepted'          // Setează statusul direct ca acceptat
+          status: 'active'            // Setează statusul direct ca activ
         }
       ]);
 
