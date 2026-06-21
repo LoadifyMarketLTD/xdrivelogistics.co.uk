@@ -1,4 +1,4 @@
--- =====================================================
+ =====================================================
 -- XDrive Logistics Ltd - Consolidated Database Schema
 -- =====================================================
 -- Run this in the Supabase SQL editor to set up the
@@ -7,16 +7,29 @@
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ── Enums ────────────────────────────────────────────
-CREATE TYPE public.company_role AS ENUM ('owner', 'admin', 'dispatcher', 'member', 'viewer');
+-- â”€â”€ Enums â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+CREATE TYPE public.company_role AS ENUM ('owner', 'admin', 'dispatcher', 'viewer');
 CREATE TYPE public.membership_status AS ENUM ('invited', 'active', 'suspended');
 CREATE TYPE public.doc_status AS ENUM ('pending', 'approved', 'rejected', 'expired');
-CREATE TYPE public.job_status AS ENUM ('draft', 'posted', 'allocated', 'in_transit', 'delivered', 'cancelled', 'disputed');
+CREATE TYPE public.job_status AS ENUM (
+  'draft',
+  'posted',
+  'quoted',
+  'awarded',
+  'allocated',
+  'collected',
+  'in_transit',
+  'delivered',
+  'invoiced',
+  'paid',
+  'cancelled',
+  'disputed'
+);
 CREATE TYPE public.cargo_type AS ENUM ('documents', 'packages', 'pallets', 'furniture', 'equipment', 'other');
 CREATE TYPE public.vehicle_type AS ENUM ('bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic');
 CREATE TYPE public.tracking_event_type AS ENUM ('created', 'allocated', 'driver_en_route', 'arrived_pickup', 'collected', 'in_transit', 'arrived_delivery', 'delivered', 'failed', 'cancelled', 'note');
 
--- ── Profiles (extends auth.users) ────────────────────
+-- â”€â”€ Profiles (extends auth.users) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.profiles (
   user_id       uuid        NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name     text,
@@ -31,7 +44,7 @@ CREATE TABLE public.profiles (
   CONSTRAINT profiles_role_canonical CHECK (role IS NULL OR role IN ('owner', 'admin', 'company', 'driver', 'customer'))
 );
 
--- ── Companies ─────────────────────────────────────────
+-- â”€â”€ Companies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.companies (
   id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   name            text        NOT NULL,
@@ -50,7 +63,7 @@ CREATE TABLE public.companies (
   created_at      timestamptz DEFAULT now()
 );
 
--- ── Company settings ───────────────────────────────────
+-- â”€â”€ Company settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.company_settings (
   company_id                   uuid        PRIMARY KEY REFERENCES public.companies(id) ON DELETE CASCADE,
   legal_name                   text,
@@ -73,7 +86,7 @@ CREATE TABLE public.company_settings (
   updated_at                   timestamptz DEFAULT now()
 );
 
--- ── Company memberships ───────────────────────────────
+-- â”€â”€ Company memberships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.company_memberships (
   id              uuid               PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id      uuid               NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
@@ -89,7 +102,7 @@ CREATE TABLE public.company_memberships (
 
 CREATE SEQUENCE IF NOT EXISTS public.driver_temp_password_seq START WITH 1 INCREMENT BY 1;
 
--- ── Drivers ───────────────────────────────────────────
+-- â”€â”€ Drivers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.drivers (
   id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id      uuid        NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
@@ -109,7 +122,7 @@ CREATE TABLE public.drivers (
   CONSTRAINT drivers_temporary_password_seq_unique UNIQUE (temporary_password_seq)
 );
 
--- ── Vehicles ──────────────────────────────────────────
+-- â”€â”€ Vehicles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.vehicles (
   id                  uuid               PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id          uuid               NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
@@ -126,7 +139,7 @@ CREATE TABLE public.vehicles (
   created_at          timestamptz        DEFAULT now()
 );
 
--- ── Driver documents ──────────────────────────────────
+-- â”€â”€ Driver documents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.driver_documents (
   id                uuid               PRIMARY KEY DEFAULT gen_random_uuid(),
   driver_id         uuid               NOT NULL REFERENCES public.drivers(id) ON DELETE CASCADE,
@@ -141,7 +154,7 @@ CREATE TABLE public.driver_documents (
   created_at        timestamptz        DEFAULT now()
 );
 
--- ── Vehicle documents ─────────────────────────────────
+-- â”€â”€ Vehicle documents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.vehicle_documents (
   id                uuid               PRIMARY KEY DEFAULT gen_random_uuid(),
   vehicle_id        uuid               NOT NULL REFERENCES public.vehicles(id) ON DELETE CASCADE,
@@ -156,7 +169,7 @@ CREATE TABLE public.vehicle_documents (
   created_at        timestamptz        DEFAULT now()
 );
 
--- ── Jobs ──────────────────────────────────────────────
+-- â”€â”€ Jobs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.jobs (
   id                        uuid               PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id                uuid               NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
@@ -208,7 +221,7 @@ CREATE TABLE public.jobs (
   updated_at                timestamptz        DEFAULT now()
 );
 
--- ── Job documents ─────────────────────────────────────
+-- â”€â”€ Job documents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.job_documents (
   id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   job_id       uuid        NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
@@ -218,7 +231,7 @@ CREATE TABLE public.job_documents (
   created_at   timestamptz DEFAULT now()
 );
 
--- ── Job tracking events ───────────────────────────────
+-- â”€â”€ Job tracking events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.job_tracking_events (
   id          uuid                       PRIMARY KEY DEFAULT gen_random_uuid(),
   job_id      uuid                       NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
@@ -229,7 +242,7 @@ CREATE TABLE public.job_tracking_events (
   created_at  timestamptz                DEFAULT now()
 );
 
--- ── Job bids ──────────────────────────────────────────
+-- â”€â”€ Job bids â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.job_bids (
   id                uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   job_id            uuid        NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
@@ -242,10 +255,11 @@ CREATE TABLE public.job_bids (
   currency          text        DEFAULT 'GBP',
   message           text,
   status            text        DEFAULT 'submitted',
-  created_at        timestamptz DEFAULT now()
+  created_at        timestamptz DEFAULT now(),
+  CONSTRAINT job_bids_status_canonical CHECK (status IN ('submitted', 'accepted', 'rejected', 'withdrawn'))
 );
 
--- ── Driver locations ──────────────────────────────────
+-- â”€â”€ Driver locations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.driver_locations (
   id          uuid             PRIMARY KEY DEFAULT gen_random_uuid(),
   driver_id   uuid             NOT NULL REFERENCES public.drivers(id) ON DELETE CASCADE,
@@ -259,7 +273,7 @@ CREATE TABLE public.driver_locations (
   updated_at  timestamptz      NOT NULL DEFAULT now()
 );
 
--- ── Quotes ────────────────────────────────────────────
+-- â”€â”€ Quotes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.quotes (
   id               uuid               PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id       uuid               NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
@@ -277,7 +291,7 @@ CREATE TABLE public.quotes (
   created_at       timestamptz        DEFAULT now()
 );
 
--- ── Invoices ──────────────────────────────────────────
+-- â”€â”€ Invoices â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.invoices (
   id                  uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id          uuid        NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
@@ -311,7 +325,7 @@ CREATE TABLE public.invoices (
   updated_at          timestamptz DEFAULT now()
 );
 
--- ── Diary events ──────────────────────────────────────
+-- â”€â”€ Diary events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.diary_events (
   id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id  uuid        NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
@@ -324,7 +338,7 @@ CREATE TABLE public.diary_events (
   created_at  timestamptz DEFAULT now()
 );
 
--- ── Return journeys ───────────────────────────────────
+-- â”€â”€ Return journeys â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.return_journeys (
   id              uuid               PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id      uuid               NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
@@ -339,7 +353,7 @@ CREATE TABLE public.return_journeys (
   created_at      timestamptz        DEFAULT now()
 );
 
--- ── Job driver distance cache ─────────────────────────
+-- â”€â”€ Job driver distance cache â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.job_driver_distance_cache (
   id                  uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   job_id              uuid        NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
@@ -365,7 +379,7 @@ CREATE TRIGGER trg_company_settings_updated_at
   BEFORE UPDATE ON public.company_settings
   FOR EACH ROW EXECUTE FUNCTION public.set_company_settings_updated_at();
 
--- ── Indexes ───────────────────────────────────────────
+-- â”€â”€ Indexes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE INDEX idx_drivers_company_id      ON public.drivers(company_id);
 CREATE INDEX idx_drivers_status          ON public.drivers(status);
 CREATE INDEX idx_vehicles_company_id     ON public.vehicles(company_id);
@@ -382,7 +396,7 @@ CREATE INDEX idx_tracking_events_job_id  ON public.job_tracking_events(job_id);
 CREATE INDEX idx_driver_locations_driver ON public.driver_locations(driver_id);
 CREATE INDEX idx_driver_locations_time   ON public.driver_locations(recorded_at DESC);
 
--- ── Row Level Security ────────────────────────────────
+-- â”€â”€ Row Level Security â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 ALTER TABLE public.profiles             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.companies            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.company_settings     ENABLE ROW LEVEL SECURITY;
@@ -401,7 +415,7 @@ ALTER TABLE public.invoices             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.diary_events         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.return_journeys      ENABLE ROW LEVEL SECURITY;
 
--- ── Helper functions ──────────────────────────────────
+-- â”€â”€ Helper functions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
 RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
   SELECT EXISTS (
@@ -559,7 +573,7 @@ $$;
 REVOKE ALL ON FUNCTION public.next_driver_temp_password_seq() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.next_driver_temp_password_seq() TO service_role;
 
--- ── RLS Policies ──────────────────────────────────────
+-- â”€â”€ RLS Policies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 -- Profiles
 CREATE POLICY "profiles_insert_own"  ON public.profiles FOR INSERT WITH CHECK (user_id = auth.uid());
