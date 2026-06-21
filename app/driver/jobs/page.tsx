@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'r
 import { usePathname, useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
+import { isFleetDriverWorkspaceMode, resolveDriverWorkspaceMode } from '../../../lib/driverWorkspaceMode';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
 type TabId = 'loads' | 'bids' | 'won';
@@ -145,6 +146,7 @@ export default function DriverJobsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const workspaceMode = resolveDriverWorkspaceMode(user);
 
   const companyId = user?.companyId ?? null;
   const userId = user?.id ?? null;
@@ -166,7 +168,13 @@ export default function DriverJobsPage() {
   const [bids, setBids] = useState<Array<BidRow & { jobs: ReturnType<typeof normalizeBidJob> }>>([]);
   const [wonJobs, setWonJobs] = useState<Array<WonJob & { companies: { name: string } | null }>>([]);
 
+  useEffect(() => {
+    if (!user || !isFleetDriverWorkspaceMode(workspaceMode)) return;
+    router.replace('/driver/history');
+  }, [router, user, workspaceMode]);
+
   const fetchBoard = useCallback(async () => {
+    if (isFleetDriverWorkspaceMode(workspaceMode)) return;
     if (!isSupabaseConfigured) return;
 
     setLoading(true);
@@ -320,7 +328,7 @@ export default function DriverJobsPage() {
     }
 
     setLoading(false);
-  }, [cargoType, companyId, dateFrom, dateTo, deliveryCountry, pickupPostcode, sortBy, userId, vehicleFilter, weightMin]);
+  }, [cargoType, companyId, dateFrom, dateTo, deliveryCountry, pickupPostcode, sortBy, userId, vehicleFilter, weightMin, workspaceMode]);
 
   useEffect(() => {
     void fetchBoard();
@@ -334,6 +342,14 @@ export default function DriverJobsPage() {
     ],
     [bids.length, loads.length, wonJobs.length],
   );
+
+  if (user && isFleetDriverWorkspaceMode(workspaceMode)) {
+    return (
+      <ProtectedRoute allowedRoles={['driver']}>
+        <div style={{ minHeight: '100vh', background: '#eef2f6' }} />
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
