@@ -26,8 +26,6 @@ type RouteAuthResult =
       ownerDriverWorkspace: boolean;
       ownerDriverExecutionMode: boolean;
       canAccessDriverMode: boolean;
-      onboardingRequired: boolean;
-      onboardingStatus: string | null;
     };
 
 const buildRedirect = (request: NextRequest, pathname: string, clearCookie = false) => {
@@ -112,7 +110,16 @@ const isOwnerDriverWorkspaceRequested = (
   return (
     readMetadataFlag(userMetadata, 'owner_driver_workspace') ||
     readMetadataFlag(appMetadata, 'owner_driver_workspace') ||
-    tags.some((value) => value === 'owner_driver' || value === 'owner-driver' || value === 'sole_trader')
+    tags.some((value) =>
+      value === 'owner_driver' ||
+      value === 'owner-driver' ||
+      value === 'owner_operator' ||
+      value === 'owner-operator' ||
+      value === 'self_employed' ||
+      value === 'self-employed' ||
+      value === 'self_employed_driver' ||
+      value === 'sole_trader'
+    )
   );
 };
 
@@ -146,11 +153,6 @@ const isServiceFailure = (message: string | null | undefined) => {
     normalized.includes('fetch') ||
     normalized.includes('503')
   );
-};
-
-const isMissingOnboardingTableError = (message: string | null | undefined) => {
-  const normalized = (message ?? '').toLowerCase();
-  return normalized.includes('onboarding_applications') && (normalized.includes('does not exist') || normalized.includes('schema cache'));
 };
 
 const canonicalSiteUrl = getCanonicalSiteUrl();
@@ -226,8 +228,6 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
           ownerDriverWorkspace,
           ownerDriverExecutionMode,
           canAccessDriverMode: ownerDriverWorkspace && role === 'driver',
-          onboardingRequired: false,
-          onboardingStatus: null,
         }
       : { kind: 'forbidden' };
   }
@@ -309,58 +309,6 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
       mapAppRole(fallbackRole) === 'driver'
     );
 
-  let onboardingStatus: string | null = null;
-  let onboardingRequired = false;
-
-  const onboardingRes = await supabaseAdmin
-    .from('onboarding_applications')
-    .select('status')
-    .eq('user_id', authData.user.id)
-    .limit(1)
-    .maybeSingle();
-
-  if (onboardingRes.error && !isMissingOnboardingTableError(onboardingRes.error.message)) {
-    if (isServiceFailure(onboardingRes.error.message)) {
-      return { kind: 'service_unavailable' };
-    }
-    return { kind: 'forbidden' };
-  }
-
-  onboardingStatus = String(onboardingRes.data?.status ?? '').trim().toLowerCase() || null;
-  onboardingRequired = Boolean(onboardingStatus && onboardingStatus !== 'approved');
-
-  if (!onboardingRes.error && !onboardingRes.data && role !== 'owner') {
-    const accountType =
-      ownerDriverWorkspace || role === 'driver'
-        ? 'owner_driver'
-        : role === 'broker'
-          ? 'broker_shipper'
-          : 'fleet_courier';
-
-    const bootstrapRes = await supabaseAdmin
-      .from('onboarding_applications')
-      .upsert(
-        {
-          user_id: authData.user.id,
-          email: authData.user.email ?? '',
-          account_type: accountType,
-          status: 'draft',
-          current_step: 'account_type_wizard',
-          completion_percentage: 0,
-          payload: {},
-          last_activity_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      )
-      .select('status')
-      .maybeSingle();
-
-    if (!bootstrapRes.error && bootstrapRes.data) {
-      onboardingStatus = String(bootstrapRes.data.status ?? '').trim().toLowerCase() || 'draft';
-      onboardingRequired = onboardingStatus !== 'approved';
-    }
-  }
-
   return {
     kind: 'authenticated',
     role,
@@ -369,8 +317,6 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     ownerDriverWorkspace,
     ownerDriverExecutionMode,
     canAccessDriverMode,
-    onboardingRequired,
-    onboardingStatus,
   };
 };
 
@@ -404,12 +350,7 @@ export async function middleware(request: NextRequest) {
     (url.searchParams.get('mock-dashboard') === '1' || url.searchParams.has('mock-dashboard'));
 
   const driverRouteRequested = url.pathname === DRIVER_PATH || url.pathname.startsWith('/driver/');
-  const onboardingRouteRequested = url.pathname === '/onboarding' || url.pathname.startsWith('/onboarding/');
   const driverModeActive = auth.role === 'driver' || (auth.canAccessDriverMode && driverRouteRequested);
-
-  if (auth.onboardingRequired && !onboardingRouteRequested) {
-    return buildRedirect(request, '/onboarding/resume');
-  }
 
   if (driverModeActive) {
     if (auth.appAccess === false) {
@@ -431,7 +372,6 @@ export async function middleware(request: NextRequest) {
           ownerDriverWorkspace: auth.ownerDriverWorkspace,
           canAccessDriverMode: true,
           ownerDriverExecutionMode: true,
-          onboardingRequired: auth.onboardingRequired,
         })
       );
     }
@@ -443,7 +383,6 @@ export async function middleware(request: NextRequest) {
         ownerDriverWorkspace: auth.ownerDriverWorkspace,
         canAccessDriverMode: auth.canAccessDriverMode,
         ownerDriverExecutionMode: auth.ownerDriverExecutionMode,
-        onboardingRequired: auth.onboardingRequired,
       })
     );
   }
@@ -455,7 +394,6 @@ export async function middleware(request: NextRequest) {
       ownerDriverWorkspace: auth.ownerDriverWorkspace,
       canAccessDriverMode: auth.canAccessDriverMode,
       ownerDriverExecutionMode: auth.ownerDriverExecutionMode,
-      onboardingRequired: auth.onboardingRequired,
     });
     return canonicalPath !== url.pathname
       ? buildRedirect(request, canonicalPath)

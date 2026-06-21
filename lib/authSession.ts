@@ -6,6 +6,7 @@ import {
   shouldAutoProvisionCompany,
 } from './authRole';
 import { resolveAuthContext } from './authContextResolver';
+import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './driverWorkspaceMode';
 import { supabase } from './supabaseClient';
 import type { CompanyMembership, Driver, Profile } from './types/database';
 
@@ -63,8 +64,6 @@ export type ResolvedAuthUser = {
   canAccessDriverMode: boolean;
   ownerDriverExecutionMode: boolean;
   financeAccess: 'full' | 'limited' | 'hidden';
-  onboardingStatus: string | null;
-  onboardingRequired: boolean;
 };
 
 const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, key: string) => {
@@ -83,43 +82,6 @@ const readMetadataFlag = (metadata: Record<string, unknown> | null | undefined, 
 export const getFallbackRole = (sessionUser: SessionUser) =>
   readMetadataRole(sessionUser.app_metadata, 'role');
 
-const isOwnerDriverWorkspaceRequested = (sessionUser: SessionUser) => {
-  const tags = [
-    readMetadataRole(sessionUser.user_metadata, 'account_type'),
-    readMetadataRole(sessionUser.user_metadata, 'workspace_mode'),
-    readMetadataRole(sessionUser.user_metadata, 'requested_role'),
-    readMetadataRole(sessionUser.user_metadata, 'role'),
-    readMetadataRole(sessionUser.app_metadata, 'account_type'),
-    readMetadataRole(sessionUser.app_metadata, 'workspace_mode'),
-    readMetadataRole(sessionUser.app_metadata, 'requested_role'),
-    readMetadataRole(sessionUser.app_metadata, 'role'),
-  ]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => value.toLowerCase().trim());
-
-  return (
-    readMetadataFlag(sessionUser.user_metadata, 'owner_driver_workspace') ||
-    readMetadataFlag(sessionUser.app_metadata, 'owner_driver_workspace') ||
-    tags.some((value) => value === 'owner_driver' || value === 'owner-driver' || value === 'sole_trader')
-  );
-};
-
-const isOwnerDriverExecutionModeRequested = (sessionUser: SessionUser) => {
-  const tags = [
-    readMetadataRole(sessionUser.user_metadata, 'workspace_mode'),
-    readMetadataRole(sessionUser.user_metadata, 'execution_mode'),
-    readMetadataRole(sessionUser.app_metadata, 'workspace_mode'),
-    readMetadataRole(sessionUser.app_metadata, 'execution_mode'),
-  ]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => value.toLowerCase().trim());
-
-  return (
-    readMetadataFlag(sessionUser.user_metadata, 'owner_driver_execution_mode') ||
-    readMetadataFlag(sessionUser.app_metadata, 'owner_driver_execution_mode') ||
-    tags.some((value) => value === 'driver' || value === 'driver_mode' || value === 'execution')
-  );
-};
 
 const resolveFinanceAccess = (
   role: UserRole,
@@ -137,12 +99,6 @@ const resolveFinanceAccess = (
 
   if (explicitFinanceFlag || membershipRole === 'dispatcher') return 'limited';
   return 'hidden';
-};
-
-const isMissingOnboardingTableError = (error: { message?: string | null; details?: string | null; hint?: string | null } | null | undefined) => {
-  if (!error) return false;
-  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
-  return text.includes('onboarding_applications') && (text.includes('does not exist') || text.includes('schema cache'));
 };
 
 export const resolveAuthenticatedUser = async (
@@ -163,8 +119,8 @@ export const resolveAuthenticatedUser = async (
   }
 
   const fallbackRole = getFallbackRole(sessionUser);
-  const ownerDriverWorkspaceRequested = isOwnerDriverWorkspaceRequested(sessionUser);
-  const ownerDriverExecutionModeRequested = isOwnerDriverExecutionModeRequested(sessionUser);
+  const ownerDriverWorkspaceRequested = isDriverProviderWorkspaceRequested(sessionUser.user_metadata, sessionUser.app_metadata);
+  const ownerDriverExecutionModeRequested = isDriverExecutionModeRequested(sessionUser.user_metadata, sessionUser.app_metadata);
   const profileLookupQuery = `profiles.select(role,status,is_driver,company_id).eq(user_id,${sessionUser.id}).maybeSingle()`;
   const membershipLookupQuery =
     `company_memberships.select(id,company_id,role_in_company,status).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc)`;
@@ -472,63 +428,6 @@ export const resolveAuthenticatedUser = async (
       }
     }
 
-    let onboardingStatus: string | null = null;
-    let onboardingRequired = false;
-    const onboardingRes = await supabase
-      .from('onboarding_applications')
-      .select('status')
-      .eq('user_id', sessionUser.id)
-      .limit(1)
-      .maybeSingle();
-
-    if (onboardingRes.error && !isMissingOnboardingTableError(onboardingRes.error)) {
-      return {
-        user: null,
-        reason: 'db_error',
-        dbError: {
-          query: `onboarding_applications.select(status).eq(user_id,${sessionUser.id}).maybeSingle()`,
-          message: onboardingRes.error.message,
-          code: onboardingRes.error.code ?? null,
-          details: onboardingRes.error.details ?? null,
-          hint: onboardingRes.error.hint ?? null,
-        },
-      };
-    }
-
-    onboardingStatus = String(onboardingRes.data?.status ?? '').trim().toLowerCase() || null;
-    onboardingRequired = Boolean(onboardingStatus && onboardingStatus !== 'approved');
-
-    if (!onboardingRes.error && !onboardingRes.data && resolvedRole !== 'owner') {
-      const accountType =
-        ownerDriverWorkspaceRequested || resolvedRole === 'driver'
-          ? 'owner_driver'
-          : resolvedRole === 'broker'
-            ? 'broker_shipper'
-            : 'fleet_courier';
-
-      const bootstrapOnboardingRes = await supabase
-        .from('onboarding_applications')
-        .upsert(
-          {
-            user_id: sessionUser.id,
-            email: sessionUser.email ?? '',
-            account_type: accountType,
-            status: 'draft',
-            current_step: 'account_type_wizard',
-            completion_percentage: 0,
-            payload: {},
-          },
-          { onConflict: 'user_id' }
-        )
-        .select('status')
-        .maybeSingle();
-
-      if (!bootstrapOnboardingRes.error && bootstrapOnboardingRes.data) {
-        onboardingStatus = String(bootstrapOnboardingRes.data.status ?? '').trim().toLowerCase() || 'draft';
-        onboardingRequired = onboardingStatus !== 'approved';
-      }
-    }
-
     return ok(
       sessionUser,
       resolvedRole,
@@ -551,8 +450,6 @@ export const resolveAuthenticatedUser = async (
           (resolvedMembership?.role_in_company as CompanyMembership['role_in_company'] | null) ?? null,
           sessionUser
         ),
-        onboardingStatus,
-        onboardingRequired,
       }
     );
   }
@@ -586,8 +483,6 @@ const ok = (
     canAccessDriverMode: boolean;
     ownerDriverExecutionMode: boolean;
     financeAccess: 'full' | 'limited' | 'hidden';
-    onboardingStatus: string | null;
-    onboardingRequired: boolean;
   }
 ): AuthResolutionResult => {
   const resolved: ResolvedAuthUser = {
@@ -603,8 +498,6 @@ const ok = (
     canAccessDriverMode: options.canAccessDriverMode,
     ownerDriverExecutionMode: options.ownerDriverExecutionMode,
     financeAccess: options.financeAccess,
-    onboardingStatus: options.onboardingStatus,
-    onboardingRequired: options.onboardingRequired,
   };
   console.debug('[XDrive Auth] resolved user', { role, companyId, userId: sessionUser.id });
   return { user: resolved, reason: null };
@@ -613,10 +506,9 @@ const ok = (
 export const getPostLoginRoute = (
   currentUser: Pick<
     ResolvedAuthUser,
-    'role' | 'mustChangePassword' | 'ownerDriverWorkspace' | 'canAccessDriverMode' | 'ownerDriverExecutionMode' | 'onboardingRequired'
+    'role' | 'mustChangePassword' | 'ownerDriverWorkspace' | 'canAccessDriverMode' | 'ownerDriverExecutionMode'
   >
 ) => {
-  if (currentUser.onboardingRequired) return '/onboarding/resume';
   if (currentUser.ownerDriverWorkspace && currentUser.canAccessDriverMode) {
     return currentUser.mustChangePassword ? '/driver/change-password' : '/driver/jobs';
   }

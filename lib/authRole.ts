@@ -81,7 +81,15 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
   if (normalized === 'freight_broker' || normalized === 'shipper_broker') return 'broker';
 
   // Driver aliases
-  if (normalized === 'owner_driver') return 'driver';
+  if (
+    normalized === 'owner_driver' ||
+    normalized === 'owner-driver' ||
+    normalized === 'owner_operator' ||
+    normalized === 'owner-operator' ||
+    normalized === 'self_employed' ||
+    normalized === 'self-employed' ||
+    normalized === 'self_employed_driver'
+  ) return 'driver';
 
   // Customer aliases
   if (normalized === 'shipper' || normalized === 'client' || normalized === 'viewer') return 'customer';
