@@ -212,6 +212,7 @@ export const getNavSectionsForRole = (role: AppUserRole | null, context: NavVisi
           { id: 'diary', label: 'Diary', icon: '📅', href: '/admin/diary' },
           { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
           { id: 'vehicles', label: 'My Vehicle', icon: '🚚', href: '/admin/vehicles' },
+          { id: 'returns', label: 'Return Journeys', icon: '↩', href: '/admin/returns' },
           { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
           { id: 'invoices', label: 'Invoices', icon: '💷', href: '/admin/invoices' },
         ],
