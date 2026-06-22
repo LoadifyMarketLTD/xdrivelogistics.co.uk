@@ -372,6 +372,7 @@ export default function AdminPage() {
   const navSections = getNavSectionsForRole(activeRole, {
     membershipRole: user?.membershipRole ?? null,
     financeAccess: user?.financeAccess ?? null,
+    ownerDriverWorkspace: user?.ownerDriverWorkspace === true,
   });
 
   const roleLabel: Record<string, string> = {
@@ -382,7 +383,7 @@ export default function AdminPage() {
     driver: 'Driver',
     customer: 'Customer',
   };
-  const activeRoleLabel = activeRole ? (roleLabel[activeRole] ?? activeRole) : 'Platform';
+  const activeRoleLabel = user?.ownerDriverWorkspace ? 'Owner Operator' : activeRole ? (roleLabel[activeRole] ?? activeRole) : 'Platform';
   const companyLabel = COMPANY_CONFIG.legalName;
 
   useEffect(() => {

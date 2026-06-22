@@ -51,6 +51,7 @@ export type NavSection = {
 export type NavVisibilityContext = {
   membershipRole?: string | null;
   financeAccess?: 'full' | 'limited' | 'hidden' | null;
+  ownerDriverWorkspace?: boolean | null;
 };
 
 const SECTION_CAPABILITIES: Partial<Record<string, keyof RoleCapabilities>> = {
@@ -192,6 +193,43 @@ const canShowFinanceSection = (
 
 export const getNavSectionsForRole = (role: AppUserRole | null, context: NavVisibilityContext = {}): NavSection[] => {
   if (!role) return PLATFORM_NAV_SECTIONS.filter((s) => !s.roles);
+
+  if (role === 'driver' && context.ownerDriverWorkspace !== true) {
+    return [
+      {
+        id: 'driver_execution',
+        label: 'Driver',
+        items: [
+          { id: 'diary', label: 'Diary / My Day', icon: '📅', href: '/admin/diary' },
+          { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
+          { id: 'documents', label: 'POD / Documents', icon: '📄', href: '/admin/documents' },
+        ],
+      },
+    ];
+  }
+
+  if (
+    context.ownerDriverWorkspace === true &&
+    (role === 'driver' || role === 'company_admin' || role === 'company_staff')
+  ) {
+    return [
+      {
+        id: 'owner_operator_loads',
+        label: 'Owner Operator',
+        items: [
+          { id: 'marketplace', label: 'Loads', icon: '🏪', href: '/admin/marketplace' },
+          { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
+          { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
+          { id: 'diary', label: 'Diary', icon: '📅', href: '/admin/diary' },
+          { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
+          { id: 'vehicles', label: 'My Vehicle', icon: '🚚', href: '/admin/vehicles' },
+          { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
+          { id: 'invoices', label: 'Invoices', icon: '💷', href: '/admin/invoices' },
+        ],
+      },
+    ];
+  }
+
   const capabilities = getCapabilitiesForRole(role, context);
 
   return PLATFORM_NAV_SECTIONS.filter((section) => {
