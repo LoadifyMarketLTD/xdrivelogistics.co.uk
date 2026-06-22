@@ -56,6 +56,7 @@ export type NavVisibilityContext = {
 const SECTION_CAPABILITIES: Partial<Record<string, keyof RoleCapabilities>> = {
   marketplace: 'canViewExchangeLoads',
   quotes_bids: 'canReceiveQuotes',
+  driver_work: 'canExecuteJobs',
   operations: 'canAllocateDrivers',
   fleet_module: 'canManageFleet',
   drivers_module: 'canManageFleet',
@@ -76,9 +77,17 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     id: 'marketplace',
     label: 'Marketplace / Loads',
     // Company staff can find work and convert won work; permissions stay policy-based.
-    roles: ['owner', 'company_admin', 'company_staff', 'broker'],
+    roles: ['owner', 'company_admin', 'company_staff', 'broker', 'driver'],
     items: [
       { id: 'marketplace', label: 'Load Board', icon: '🏪', href: '/admin/marketplace' },
+    ],
+  },
+  {
+    id: 'driver_work',
+    label: 'Driver Work',
+    roles: ['driver'],
+    items: [
+      { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
     ],
   },
   {

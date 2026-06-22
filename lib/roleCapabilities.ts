@@ -222,19 +222,11 @@ export const isCapabilityAllowedForPath = (
   if (pathname.startsWith('/customer')) return role === 'customer';
 
   if (pathname.startsWith('/driver')) {
-    const driverRoleAllowed = role === 'driver' || context.canAccessDriverMode === true;
-    if (!driverRoleAllowed) return false;
-
-    const mode = context.canAccessDriverMode === true
-      ? (role === 'driver' ? 'provider_driver' : 'admin_business')
-      : 'fleet_driver';
-    const capabilities = getDriverWorkspaceCapabilities(mode, context);
-    const requiredCapability = requiredCapabilityForPath(pathname);
-    return !requiredCapability || capabilities[requiredCapability];
+    return pathname === '/driver/change-password' && (role === 'driver' || context.canAccessDriverMode === true);
   }
 
   if (pathname.startsWith('/admin')) {
-    if (role !== 'owner' && role !== 'broker' && role !== 'company_admin' && role !== 'company_staff') return false;
+    if (role !== 'owner' && role !== 'broker' && role !== 'company_admin' && role !== 'company_staff' && role !== 'driver') return false;
     const capabilities = getCapabilitiesForRole(role, context);
     const requiredCapability = requiredCapabilityForPath(pathname);
     return !requiredCapability || capabilities[requiredCapability];
