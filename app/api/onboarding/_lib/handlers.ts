@@ -215,6 +215,7 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
     await persist({ userId: authUser.id, applicationId: application.id, payload: payload.data });
 
     const reviewStatusByAccountType: Record<OnboardingAccountType, string> = {
+      customer_shipper: 'approved',
       broker_shipper: 'under_review',
       fleet_courier: 'compliance_review',
       owner_driver: 'compliance_review',

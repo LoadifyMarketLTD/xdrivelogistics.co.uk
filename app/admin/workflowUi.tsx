@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import type { AppUserRole } from '../../lib/authRole';
+import { getCapabilitiesForRole, type RoleCapabilities } from '../../lib/roleCapabilities';
 
 export type WorkflowStageId =
   | 'find'
@@ -50,6 +51,18 @@ export type NavSection = {
 export type NavVisibilityContext = {
   membershipRole?: string | null;
   financeAccess?: 'full' | 'limited' | 'hidden' | null;
+};
+
+const SECTION_CAPABILITIES: Partial<Record<string, keyof RoleCapabilities>> = {
+  marketplace: 'canViewExchangeLoads',
+  quotes_bids: 'canReceiveQuotes',
+  operations: 'canAllocateDrivers',
+  fleet_module: 'canManageFleet',
+  drivers_module: 'canManageFleet',
+  vehicles_module: 'canManageFleet',
+  compliance_module: 'canManageFleet',
+  finance_module: 'canViewInvoices',
+  platform_admin: 'canManageCompanyUsers',
 };
 
 export const PLATFORM_NAV_SECTIONS: NavSection[] = [
@@ -170,8 +183,12 @@ const canShowFinanceSection = (
 
 export const getNavSectionsForRole = (role: AppUserRole | null, context: NavVisibilityContext = {}): NavSection[] => {
   if (!role) return PLATFORM_NAV_SECTIONS.filter((s) => !s.roles);
+  const capabilities = getCapabilitiesForRole(role, context);
+
   return PLATFORM_NAV_SECTIONS.filter((section) => {
     if (section.roles && !section.roles.includes(role)) return false;
+    const requiredCapability = SECTION_CAPABILITIES[section.id];
+    if (requiredCapability && !capabilities[requiredCapability]) return false;
     if (section.id === 'finance_module') return canShowFinanceSection(role, context);
     return true;
   });

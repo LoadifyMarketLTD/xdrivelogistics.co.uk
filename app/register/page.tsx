@@ -7,13 +7,45 @@ import { getAuthCallbackEmailRedirectTo } from '../../lib/authFlow';
 import { normalizeProfileRoleForStorage } from '../../lib/authRole';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
-type RegisterRole = 'broker' | 'company_admin' | 'owner_driver';
+type RegisterRole = 'owner_operator' | 'fleet_operator' | 'transport_broker' | 'customer_shipper';
+
+const SIGNUP_ROLE_CONFIG: Record<RegisterRole, {
+  appRole: 'broker' | 'company_admin' | 'driver' | 'customer';
+  accountType: string;
+  workspaceMode: string;
+  ownerDriverWorkspace: boolean;
+}> = {
+  owner_operator: {
+    appRole: 'driver',
+    accountType: 'owner_driver',
+    workspaceMode: 'owner_driver',
+    ownerDriverWorkspace: true,
+  },
+  fleet_operator: {
+    appRole: 'company_admin',
+    accountType: 'fleet_courier',
+    workspaceMode: 'company',
+    ownerDriverWorkspace: false,
+  },
+  transport_broker: {
+    appRole: 'broker',
+    accountType: 'transport_broker',
+    workspaceMode: 'broker',
+    ownerDriverWorkspace: false,
+  },
+  customer_shipper: {
+    appRole: 'customer',
+    accountType: 'customer_shipper',
+    workspaceMode: 'customer',
+    ownerDriverWorkspace: false,
+  },
+};
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<RegisterRole>('broker');
+  const [role, setRole] = useState<RegisterRole>('customer_shipper');
   const [message, setMessage] = useState('');
   const [warning, setWarning] = useState('');
   const [error, setError] = useState('');
@@ -43,7 +75,8 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const normalizedRole = role === 'owner_driver' ? 'driver' : role;
+      const signupConfig = SIGNUP_ROLE_CONFIG[role];
+      const normalizedRole = signupConfig.appRole;
       const storedRole = normalizeProfileRoleForStorage(normalizedRole) ?? 'customer';
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
@@ -52,10 +85,11 @@ export default function RegisterPage() {
           emailRedirectTo: getAuthCallbackEmailRedirectTo(),
           data: {
             role: normalizedRole,
-            requested_role: normalizedRole,
-            account_type: role,
-            workspace_mode: role === 'owner_driver' ? 'owner_driver' : 'company',
-            owner_driver_workspace: role === 'owner_driver',
+            requested_role: role,
+            signup_type: role,
+            account_type: signupConfig.accountType,
+            workspace_mode: signupConfig.workspaceMode,
+            owner_driver_workspace: signupConfig.ownerDriverWorkspace,
           },
         },
       });
@@ -72,7 +106,7 @@ export default function RegisterPage() {
             user_id: signUpData.user.id,
             role: storedRole,
             status: 'active',
-            is_driver: role === 'owner_driver',
+            is_driver: normalizedRole === 'driver',
             updated_at: new Date().toISOString(),
           }, { onConflict: 'user_id' });
 
@@ -85,7 +119,7 @@ export default function RegisterPage() {
       setEmail('');
       setPassword('');
       setConfirmPassword('');
-      setRole('broker');
+      setRole('customer_shipper');
     } catch (err) {
       const fallback = err instanceof Error ? err.message : 'Registration failed.';
       setError(fallback);
@@ -120,7 +154,7 @@ export default function RegisterPage() {
           <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={180} height={40} priority style={{ width: 'auto', height: '40px' }} />
         </div>
         <p style={{ marginTop: 0, color: '#5B6B85', marginBottom: '1.5rem' }}>
-          Register as broker, fleet/courier company, or owner-driver.
+          Register as a customer, transport broker, fleet operator, or owner operator.
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -147,9 +181,10 @@ export default function RegisterPage() {
             disabled={loading}
             style={{ width: '100%', marginBottom: '1rem', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
           >
-            <option value="broker">Broker / Shipper</option>
-            <option value="company_admin">Fleet / Courier Company</option>
-            <option value="owner_driver">Owner-Driver / Sole Trader</option>
+            <option value="customer_shipper">Customer / Shipper</option>
+            <option value="transport_broker">Transport Broker</option>
+            <option value="fleet_operator">Fleet Operator</option>
+            <option value="owner_operator">Owner Operator</option>
           </select>
 
           <label htmlFor="register-password" style={{ display: 'block', marginBottom: '0.4rem', color: '#0B1B33' }}>
@@ -181,7 +216,7 @@ export default function RegisterPage() {
           />
 
           <p style={{ marginTop: 0, marginBottom: '1rem', color: '#5B6B85', fontSize: '0.9rem' }}>
-            Fleet accounts get a company workspace. Owner-driver accounts get a personal workspace automatically after login.
+            Customers use the customer workspace, brokers use the broker workspace, fleet operators use the admin workspace, and owner operators use the driver workspace.
           </p>
 
           {error && (

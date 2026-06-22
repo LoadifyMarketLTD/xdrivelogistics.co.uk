@@ -6,9 +6,9 @@ import { useAuth } from '../../components/AuthContext';
 import { COMPANY_CONFIG } from '../../config/company';
 import {
   DRIVER_WORKSPACE_MODE_LABELS,
-  isFleetDriverWorkspaceMode,
   resolveDriverWorkspaceMode,
 } from '../../../lib/driverWorkspaceMode';
+import { getDriverWorkspaceCapabilities, type RoleCapabilities } from '../../../lib/roleCapabilities';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
 const THEME = {
@@ -32,29 +32,31 @@ type NavItem = {
   exact?: boolean;
 };
 
+const NAV_ITEM_CAPABILITIES: Partial<Record<string, keyof RoleCapabilities>> = {
+  loads: 'canViewExchangeLoads',
+  'load-search': 'canViewExchangeLoads',
+  quotes: 'canQuoteLoads',
+  'won-work': 'canExecuteJobs',
+  finance: 'canViewInvoices',
+  vehicles: 'canManageOwnVehicle',
+  returns: 'canUseReturnJourneys',
+  'business-admin': 'canManageCompanyUsers',
+};
+
 const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Jobs Dashboard', icon: '📋', href: '/driver/jobs' },
-  { id: 'loads', label: 'Load Board', icon: '🚚', href: '/driver/loads', exact: true },
-  { id: 'load-search', label: 'Load Search', icon: '🔎', href: '/driver/loads/search', exact: true },
-  { id: 'quotes', label: 'My Quotes', icon: '💬', href: '/driver/quotes' },
+  { id: 'dashboard', label: 'Dashboard', icon: '📋', href: '/driver/jobs' },
+  { id: 'loads', label: 'Loads', icon: '🚚', href: '/driver/loads', exact: true },
+  { id: 'load-search', label: 'Search Loads', icon: '🔎', href: '/driver/loads/search', exact: true },
+  { id: 'quotes', label: 'Quotes', icon: '💬', href: '/driver/quotes' },
   { id: 'won-work', label: 'Won Work', icon: '🏆', href: '/driver/won-work' },
-  { id: 'history', label: 'Job History', icon: '📚', href: '/driver/history' },
-  { id: 'finance', label: 'Finance', icon: '💷', href: '/driver/finance' },
+  { id: 'history', label: 'Diary', icon: '📚', href: '/driver/history' },
+  { id: 'finance', label: 'Invoices', icon: '💷', href: '/driver/finance' },
   { id: 'availability', label: 'Availability', icon: '📅', href: '/driver/availability' },
   { id: 'vehicles', label: 'Vehicles', icon: '🚛', href: '/driver/vehicles' },
   { id: 'documents', label: 'Documents', icon: '🗂️', href: '/driver/documents' },
   { id: 'profile', label: 'Profile', icon: '👤', href: '/driver/profile' },
   { id: 'returns', label: 'Return Journeys', icon: '↩️', href: '/driver/returns' },
-  { id: 'security', label: 'Password & Security', icon: '🔐', href: '/driver/change-password' },
-];
-
-const FLEET_NAV_ITEMS: NavItem[] = [
-  { id: 'assigned-jobs', label: 'Assigned Jobs', icon: 'J', href: '/driver/history' },
-  { id: 'availability', label: 'Availability', icon: 'A', href: '/driver/availability' },
-  { id: 'assigned-vehicle', label: 'Assigned Vehicle', icon: 'V', href: '/driver/vehicles' },
-  { id: 'documents', label: 'Documents', icon: 'D', href: '/driver/documents' },
-  { id: 'profile', label: 'Profile', icon: 'P', href: '/driver/profile' },
-  { id: 'security', label: 'Password & Security', icon: 'K', href: '/driver/change-password' },
+  { id: 'security', label: 'Security', icon: '🔐', href: '/driver/change-password' },
 ];
 
 const BUSINESS_NAV_ITEM: NavItem = {
@@ -64,17 +66,6 @@ const BUSINESS_NAV_ITEM: NavItem = {
   href: '/admin',
   exact: true,
 };
-
-const FLEET_FALLBACK_PATH = '/driver/history';
-const PROVIDER_ONLY_PATHS = [
-  '/driver/jobs',
-  '/driver/loads',
-  '/driver/loads/search',
-  '/driver/quotes',
-  '/driver/won-work',
-  '/driver/finance',
-  '/driver/returns',
-];
 
 interface DriverWorkspaceShellProps {
   children: ReactNode;
@@ -102,11 +93,13 @@ export default function DriverWorkspaceShell({
   const [hydrated, setHydrated] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const workspaceMode = resolveDriverWorkspaceMode(user);
-  const visibleNavItems = isFleetDriverWorkspaceMode(workspaceMode)
-    ? FLEET_NAV_ITEMS
-    : workspaceMode === 'admin_business'
-      ? [...NAV_ITEMS, BUSINESS_NAV_ITEM]
-      : NAV_ITEMS;
+  const capabilities = getDriverWorkspaceCapabilities(workspaceMode);
+  const visibleNavItems = (workspaceMode === 'admin_business' ? [...NAV_ITEMS, BUSINESS_NAV_ITEM] : NAV_ITEMS).filter(
+    (item) => {
+      const capability = NAV_ITEM_CAPABILITIES[item.id];
+      return !capability || capabilities[capability];
+    }
+  );
 
   useEffect(() => {
     setHydrated(true);
@@ -135,14 +128,6 @@ export default function DriverWorkspaceShell({
   useEffect(() => {
     if (!isMobile) setSidebarOpen(false);
   }, [isMobile]);
-
-  useEffect(() => {
-    if (!hydrated || !isFleetDriverWorkspaceMode(workspaceMode)) return;
-    const isProviderOnlyPath = PROVIDER_ONLY_PATHS.some(
-      (path) => pathname === path || pathname.startsWith(path + '/')
-    );
-    if (isProviderOnlyPath) router.replace(FLEET_FALLBACK_PATH);
-  }, [hydrated, pathname, router, workspaceMode]);
 
   const displayName = driverName ?? user?.email ?? 'Driver';
   const displayEmail = user?.email ?? '';
@@ -216,7 +201,7 @@ export default function DriverWorkspaceShell({
             {COMPANY_CONFIG.legalName}
           </h1>
           <p style={{ fontSize: '0.72rem', margin: '0.25rem 0 0', color: THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            Driver Workspace
+            Driver Exchange
             {unreadCount > 0 && (
               <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '18px', height: '18px', background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.65rem', fontWeight: 700, padding: '0 4px' }}>
                 {unreadCount > 99 ? '99+' : unreadCount}
@@ -311,7 +296,7 @@ export default function DriverWorkspaceShell({
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Driver Workspace
+              Driver Exchange
             </div>
             {subtitle && (
               <p style={{ color: '#475569', margin: 0, maxWidth: '780px', fontSize: '0.85rem', lineHeight: 1.55 }}>
