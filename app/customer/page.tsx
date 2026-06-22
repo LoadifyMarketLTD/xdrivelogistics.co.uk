@@ -28,7 +28,7 @@ type CustomerJob = {
 type CustomerInvoice = {
   id: string;
   invoice_number: string;
-  job_ref: string;
+  job_id: string | null;
   invoice_date: string;
   due_date: string;
   status: CanonicalInvoiceStatus;
@@ -53,7 +53,7 @@ type CustomerInvoice = {
   created_at: string;
 };
 
-type CustomerTab = 'quotes' | 'jobs' | 'book' | 'invoices';
+type CustomerTab = 'dashboard' | 'post' | 'loads' | 'quotes' | 'deliveries' | 'pod' | 'invoices' | 'account';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'equipment', 'other'];
@@ -89,7 +89,7 @@ const dateDisplay = (value: string | null) => {
 const toInvoiceData = (invoice: CustomerInvoice): InvoiceData => ({
   id: invoice.id,
   invoiceNumber: invoice.invoice_number,
-  jobRef: invoice.job_ref,
+  jobRef: invoice.job_id ? invoice.job_id.slice(0, 8).toUpperCase() : invoice.invoice_number,
   date: invoice.invoice_date,
   dueDate: invoice.due_date,
   status: toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.due_date),
@@ -119,7 +119,7 @@ export default function CustomerPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [jobs, setJobs] = useState<CustomerJob[]>([]);
   const [invoices, setInvoices] = useState<CustomerInvoice[]>([]);
-  const [activeTab, setActiveTab] = useState<CustomerTab>('quotes');
+  const [activeTab, setActiveTab] = useState<CustomerTab>('dashboard');
   const [loading, setLoading] = useState(true);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -204,7 +204,7 @@ export default function CustomerPage() {
         .order('updated_at', { ascending: false }),
       supabase
         .from('invoices')
-        .select('id, invoice_number, job_ref, invoice_date, due_date, status, amount, net_amount, vat_amount, vat_rate, payment_terms, late_fee, client_name, client_email, client_address, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, pod_photos, signature, recipient_name, created_at')
+        .select('id, invoice_number, job_id, invoice_date, due_date, status, amount, net_amount, vat_amount, vat_rate, payment_terms, late_fee, client_name, client_email, client_address, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, pod_photos, signature, recipient_name, created_at')
         .eq('company_id', resolvedCompanyId)
         .eq('client_email', user.email)
         .order('created_at', { ascending: false }),
@@ -340,26 +340,39 @@ export default function CustomerPage() {
   };
 
   const tabCounts = useMemo(() => ({
+    openLoads: jobs.filter((job) => ['draft', 'posted'].includes(job.status)).length,
+    quotesWaiting: quotes.filter((quote) => ['draft', 'sent', 'submitted', 'received'].includes(quote.status)).length,
+    activeDeliveries: jobs.filter((job) => ['allocated', 'collected', 'in_transit'].includes(job.status)).length,
+    completedThisMonth: jobs.filter((job) => {
+      if (job.status !== 'delivered') return false;
+      const updated = new Date(job.updated_at);
+      const now = new Date();
+      return updated.getMonth() === now.getMonth() && updated.getFullYear() === now.getFullYear();
+    }).length,
+    unpaidInvoices: invoices.filter((invoice) => invoice.status !== 'Paid').length,
     quotes: quotes.length,
     jobs: jobs.length,
     invoices: invoices.length,
-  }), [quotes.length, jobs.length, invoices.length]);
+  }), [quotes, jobs, invoices]);
 
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
   const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
 
   return (
     <ProtectedRoute allowedRoles={['customer']}>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
-        <header style={{ backgroundColor: '#0A2239', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f5f7fa' }}>
+        <header style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '0.8rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 50 }}>
           <div>
-            <p style={{ color: '#93c5fd', fontSize: '0.75rem', margin: 0 }}>Welcome back</p>
-            <h1 style={{ color: '#ffffff', fontSize: '1.25rem', fontWeight: '700', margin: 0 }}>Customer Portal</h1>
+            <p style={{ color: '#64748b', fontSize: '0.72rem', margin: 0, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Shipper workspace</p>
+            <h1 style={{ color: '#0f172a', fontSize: '1.25rem', fontWeight: '700', margin: 0 }}>Customer Dashboard</h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <span style={{ color: '#cbd5e1', fontSize: '0.85rem', wordBreak: 'break-word' }}>{user?.email}</span>
-            <button onClick={() => logout()} style={{ padding: '0.5rem 1rem', backgroundColor: 'transparent', color: '#cbd5e1', border: '1px solid #4b5563', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
-              Logout
+            <button onClick={() => setActiveTab('post')} style={{ padding: '0.55rem 0.95rem', backgroundColor: '#1d4ed8', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700 }}>
+              Post Load
+            </button>
+            <span style={{ color: '#64748b', fontSize: '0.8rem', wordBreak: 'break-word' }}>{user?.email}</span>
+            <button onClick={() => logout()} style={{ padding: '0.5rem 0.85rem', backgroundColor: '#ffffff', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>
+              Sign out
             </button>
           </div>
         </header>
@@ -369,12 +382,16 @@ export default function CustomerPage() {
 
           {submitSuccess && <div style={{ backgroundColor: '#dcfce7', border: '1px solid #1F7A3D', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#14532d', fontWeight: '600' }}>✅ Your quote request has been submitted. We&apos;ll be in touch shortly.</div>}
 
-          <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '1rem', display: 'flex', flexWrap: 'wrap' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem', display: 'flex', flexWrap: 'wrap' }}>
             {([
-              ['quotes', `Quotes (${tabCounts.quotes})`],
-              ['jobs', `Jobs & POD (${tabCounts.jobs})`],
-              ['book', '📦 Book Delivery'],
+              ['dashboard', 'Dashboard'],
+              ['post', 'Post Load'],
+              ['loads', `My Loads (${tabCounts.openLoads})`],
+              ['quotes', `Quotes Received (${tabCounts.quotes})`],
+              ['deliveries', `Active Deliveries (${tabCounts.activeDeliveries})`],
+              ['pod', 'POD'],
               ['invoices', `Invoices (${tabCounts.invoices})`],
+              ['account', 'Account'],
             ] as Array<[CustomerTab, string]>).map(([tab, label]) => (
               <button
                 key={tab}
@@ -394,10 +411,51 @@ export default function CustomerPage() {
             ))}
           </div>
 
+          {activeTab === 'dashboard' && (
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
+                {[
+                  ['Open loads', tabCounts.openLoads],
+                  ['Quotes waiting', tabCounts.quotesWaiting],
+                  ['Active deliveries', tabCounts.activeDeliveries],
+                  ['Completed this month', tabCounts.completedThisMonth],
+                  ['Unpaid invoices', tabCounts.unpaidInvoices],
+                ].map(([label, value]) => (
+                  <div key={String(label)} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 700 }}>{label}</div>
+                    <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a', marginTop: '0.25rem' }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
+                <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem' }}>
+                  <h2 style={{ margin: '0 0 0.75rem', fontSize: '1rem', color: '#0f172a' }}>Recent posted loads</h2>
+                  {jobs.slice(0, 4).map((job) => (
+                    <div key={job.id} style={{ borderTop: '1px solid #f1f5f9', padding: '0.65rem 0', fontSize: '0.86rem', color: '#334155' }}>
+                      <strong>{job.pickup_location || 'Pickup TBC'}</strong> to <strong>{job.delivery_location || 'Delivery TBC'}</strong>
+                      <div style={{ color: '#64748b', fontSize: '0.78rem' }}>{job.status} - {dateDisplay(job.updated_at)}</div>
+                    </div>
+                  ))}
+                  {jobs.length === 0 && <div style={{ color: '#64748b', fontSize: '0.86rem' }}>No posted loads yet.</div>}
+                </section>
+                <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem' }}>
+                  <h2 style={{ margin: '0 0 0.75rem', fontSize: '1rem', color: '#0f172a' }}>Quotes received</h2>
+                  {quotes.slice(0, 4).map((quote) => (
+                    <div key={quote.id} style={{ borderTop: '1px solid #f1f5f9', padding: '0.65rem 0', fontSize: '0.86rem', color: '#334155' }}>
+                      <strong>{quote.pickup_location || 'Pickup TBC'}</strong> to <strong>{quote.delivery_location || 'Delivery TBC'}</strong>
+                      <div style={{ color: '#64748b', fontSize: '0.78rem' }}>{quote.amount ? `£${quote.amount.toFixed(2)}` : 'Awaiting price'} - {quote.status}</div>
+                    </div>
+                  ))}
+                  {quotes.length === 0 && <div style={{ color: '#64748b', fontSize: '0.86rem' }}>No quotes received yet.</div>}
+                </section>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'quotes' && (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>My Quote Requests</h2>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>Quotes Received</h2>
                 <button onClick={() => setShowModal(true)} disabled={!resolvedCompanyId} style={{ padding: '0.7rem 1.2rem', backgroundColor: resolvedCompanyId ? '#1F7A3D' : '#9ca3af', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: '600', cursor: resolvedCompanyId ? 'pointer' : 'not-allowed' }}>
                   + Request a Quote
                 </button>
@@ -430,7 +488,7 @@ export default function CustomerPage() {
             </>
           )}
 
-          {activeTab === 'jobs' && (
+          {(['loads', 'deliveries', 'pod'] as CustomerTab[]).includes(activeTab) && (
             <div style={{ display: 'grid', gap: '0.75rem' }}>
               {loading ? <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>Loading jobs…</div> : jobs.length === 0 ? <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '1.2rem', color: '#6b7280' }}>No jobs found for your account yet.</div> : jobs.map((job) => {
                 const color = STATUS_COLORS[job.status] ?? STATUS_COLORS.draft;
@@ -465,10 +523,10 @@ export default function CustomerPage() {
             </div>
           )}
 
-          {activeTab === 'book' && (
+          {activeTab === 'post' && (
             <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', maxWidth: '560px' }}>
-              <h2 style={{ margin: '0 0 1rem', fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>📦 Book a Delivery</h2>
-              <p style={{ margin: '0 0 1.25rem', fontSize: '0.88rem', color: '#64748b' }}>Submit a delivery booking directly. Our team will review and allocate a driver.</p>
+              <h2 style={{ margin: '0 0 1rem', fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>Post Load / Create Transport Job</h2>
+              <p style={{ margin: '0 0 1.25rem', fontSize: '0.88rem', color: '#64748b' }}>Create a transport request, receive quotes, award a carrier and track the delivery.</p>
               {!resolvedCompanyId && (
                 <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.86rem', color: '#854d0e' }}>
                   ℹ️ Your account isn&apos;t linked to a company yet. Bookings submitted here will be handled by the XDrive operations team and you&apos;ll be contacted to confirm.
@@ -536,7 +594,7 @@ export default function CustomerPage() {
                         return (
                           <tr key={invoice.id} style={{ borderBottom: index < invoices.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                             <td style={{ padding: '0.8rem', fontWeight: 600 }}>{invoice.invoice_number}</td>
-                            <td style={{ padding: '0.8rem' }}>{invoice.job_ref || '—'}</td>
+                            <td style={{ padding: '0.8rem' }}>{invoice.job_id ? invoice.job_id.slice(0, 8).toUpperCase() : '—'}</td>
                             <td style={{ padding: '0.8rem' }}>{new Date(invoice.invoice_date).toLocaleDateString('en-GB')}</td>
                             <td style={{ padding: '0.8rem' }}>{new Date(invoice.due_date).toLocaleDateString('en-GB')}</td>
                             <td style={{ padding: '0.8rem', textAlign: 'right', fontWeight: 700 }}>£{Number(invoice.amount ?? 0).toFixed(2)}</td>
@@ -557,6 +615,17 @@ export default function CustomerPage() {
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'account' && (
+            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '1.25rem', maxWidth: '620px' }}>
+              <h2 style={{ margin: '0 0 0.75rem', fontSize: '1.1rem', color: '#0f172a' }}>Account</h2>
+              <div style={{ display: 'grid', gap: '0.7rem', fontSize: '0.9rem', color: '#334155' }}>
+                <div><strong>Email:</strong> {user?.email ?? 'Not available'}</div>
+                <div><strong>Workspace:</strong> Customer / shipper</div>
+                <div><strong>Access:</strong> Post loads, review quotes, track deliveries, download POD and invoices.</div>
+              </div>
             </div>
           )}
         </main>

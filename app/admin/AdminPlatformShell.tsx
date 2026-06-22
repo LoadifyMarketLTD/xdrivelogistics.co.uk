@@ -20,6 +20,7 @@ const SHORT_LABEL: Record<string, string> = {
   fleet: 'FLEET',
   drivers: 'DRIVERS',
   vehicles: 'VEHICLES',
+  returns: 'RETURNS',
   documents: 'DOCS',
   invoices: 'INVOICES',
   companies: 'COMPANIES',

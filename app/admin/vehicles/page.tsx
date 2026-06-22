@@ -32,6 +32,7 @@ export default function VehiclesPage() {
   const [saving, setSaving] = useState(false);
   const VEHICLES_PER_PAGE = 12;
   const [vehiclePage, setVehiclePage] = useState(0);
+  const isDriverWorkspace = user?.role === 'driver' || user?.ownerDriverWorkspace === true;
 
   const loadVehicles = async () => {
     setLoading(true);
@@ -161,7 +162,7 @@ export default function VehiclesPage() {
     }
     setCreating(true);
     try {
-      const assignedDriverId = drivers.some((driver) => driver.id === formData.assigned_driver_id)
+      const assignedDriverId = !isDriverWorkspace && drivers.some((driver) => driver.id === formData.assigned_driver_id)
         ? formData.assigned_driver_id
         : '';
       const insertPayload: Record<string, string | number | boolean | null> = {
@@ -240,7 +241,7 @@ export default function VehiclesPage() {
       manufacture_year: editData.manufacture_year ? parseInt(editData.manufacture_year, 10) : null,
       payload_kg: editData.payload_kg ? parseFloat(editData.payload_kg) : null,
       has_tail_lift: editData.has_tail_lift,
-      assigned_driver_id: editData.assigned_driver_id || null,
+      assigned_driver_id: isDriverWorkspace ? null : editData.assigned_driver_id || null,
     };
     const { error } = await supabase
       .from('vehicles')
@@ -280,8 +281,8 @@ export default function VehiclesPage() {
         <div style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Vehicles</h1>
-              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage fleet vehicles</p>
+              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>{isDriverWorkspace ? 'My Vehicle' : 'Vehicles'}</h1>
+              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>{isDriverWorkspace ? 'Manage your own vehicle details.' : 'Manage fleet vehicles'}</p>
             </div>
             <button onClick={() => { setError(''); setShowModal(true); }} disabled={!companyResolved || !companyId} style={{ padding: '0.75rem 1.5rem', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}>
               + Add Vehicle
@@ -318,7 +319,7 @@ export default function VehiclesPage() {
                 <table style={{ width: '100%', minWidth: '1120px', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                      {['Reg Plate', 'Type', 'Make / Model', 'Year', 'Payload (kg)', 'Tail Lift', 'Assigned Driver', 'Created', 'Actions'].map(h => (
+                      {['Reg Plate', 'Type', 'Make / Model', 'Year', 'Payload (kg)', 'Tail Lift', ...(isDriverWorkspace ? [] : ['Assigned Driver']), 'Created', 'Actions'].map(h => (
                         <th key={h} style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                       ))}
                     </tr>
@@ -334,7 +335,7 @@ export default function VehiclesPage() {
                           <td style={{ padding: '0.8rem', color: '#6b7280' }}>{v.manufacture_year ?? '—'}</td>
                           <td style={{ padding: '0.8rem', color: '#6b7280' }}>{v.payload_kg ?? '—'}</td>
                           <td style={{ padding: '0.8rem' }}>{v.has_tail_lift ? '✅' : '—'}</td>
-                          <td style={{ padding: '0.8rem', color: '#6b7280' }}>{assignedDriver?.display_name ?? '—'}</td>
+                          {!isDriverWorkspace && <td style={{ padding: '0.8rem', color: '#6b7280' }}>{assignedDriver?.display_name ?? '—'}</td>}
                           <td style={{ padding: '0.8rem', color: '#6b7280' }}>{formatDate(v.created_at)}</td>
                           <td style={{ padding: '0.8rem' }}>
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -418,13 +419,15 @@ export default function VehiclesPage() {
                   <div><label style={labelStyle}>Year</label><input style={inputStyle} type="number" min="1900" max="2100" value={formData.manufacture_year} onChange={e => setFormData({...formData, manufacture_year: e.target.value})} placeholder="2020" /></div>
                 </div>
                 <div><label style={labelStyle}>Payload (kg)</label><input style={inputStyle} type="number" value={formData.payload_kg} onChange={e => setFormData({...formData, payload_kg: e.target.value})} placeholder="1000" /></div>
-                <div>
-                  <label style={labelStyle}>Assign Driver</label>
-                  <select style={inputStyle} value={formData.assigned_driver_id} onChange={e => setFormData({...formData, assigned_driver_id: e.target.value})}>
-                    <option value="">— Unassigned —</option>
-                    {drivers.map(d => <option key={d.id} value={d.id}>{d.display_name}</option>)}
-                  </select>
-                </div>
+                {!isDriverWorkspace && (
+                  <div>
+                    <label style={labelStyle}>Assign Driver</label>
+                    <select style={inputStyle} value={formData.assigned_driver_id} onChange={e => setFormData({...formData, assigned_driver_id: e.target.value})}>
+                      <option value="">— Unassigned —</option>
+                      {drivers.map(d => <option key={d.id} value={d.id}>{d.display_name}</option>)}
+                    </select>
+                  </div>
+                )}
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}>
                   <input type="checkbox" checked={formData.has_tail_lift} onChange={e => setFormData({...formData, has_tail_lift: e.target.checked})} />
                   Has Tail Lift
@@ -461,13 +464,15 @@ export default function VehiclesPage() {
                   <div><label style={labelStyle}>Year</label><input style={inputStyle} type="number" min="1900" max="2100" value={editData.manufacture_year} onChange={e => setEditData({...editData, manufacture_year: e.target.value})} placeholder="2020" /></div>
                 </div>
                 <div><label style={labelStyle}>Payload (kg)</label><input style={inputStyle} type="number" value={editData.payload_kg} onChange={e => setEditData({...editData, payload_kg: e.target.value})} /></div>
-                <div>
-                  <label style={labelStyle}>Assign Driver</label>
-                  <select style={inputStyle} value={editData.assigned_driver_id} onChange={e => setEditData({...editData, assigned_driver_id: e.target.value})}>
-                    <option value="">— Unassigned —</option>
-                    {drivers.map(d => <option key={d.id} value={d.id}>{d.display_name}</option>)}
-                  </select>
-                </div>
+                {!isDriverWorkspace && (
+                  <div>
+                    <label style={labelStyle}>Assign Driver</label>
+                    <select style={inputStyle} value={editData.assigned_driver_id} onChange={e => setEditData({...editData, assigned_driver_id: e.target.value})}>
+                      <option value="">— Unassigned —</option>
+                      {drivers.map(d => <option key={d.id} value={d.id}>{d.display_name}</option>)}
+                    </select>
+                  </div>
+                )}
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}>
                   <input type="checkbox" checked={editData.has_tail_lift} onChange={e => setEditData({...editData, has_tail_lift: e.target.checked})} />
                   Has Tail Lift
