@@ -149,8 +149,13 @@ export const getCapabilitiesForRole = (
   if (role === 'driver') {
     return {
       ...NO_CAPABILITIES,
+      canViewExchangeLoads: true,
+      canQuoteLoads: true,
+      canReceiveQuotes: true,
       canExecuteJobs: true,
+      canManageOwnVehicle: true,
       canUploadPod: true,
+      canViewInvoices: true,
     };
   }
 
