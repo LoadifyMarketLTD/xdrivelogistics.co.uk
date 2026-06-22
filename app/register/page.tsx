@@ -216,7 +216,7 @@ export default function RegisterPage() {
           />
 
           <p style={{ marginTop: 0, marginBottom: '1rem', color: '#5B6B85', fontSize: '0.9rem' }}>
-            Customers use the customer workspace, brokers use the broker workspace, fleet operators use the admin workspace, and owner operators use the driver workspace.
+            Customers use the customer workspace. Brokers, fleet operators, and owner operators use the white operations workspace with permissions matched to their role.
           </p>
 
           {error && (

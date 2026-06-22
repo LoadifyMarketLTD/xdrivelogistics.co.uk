@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import type { AppUserRole } from '../../lib/authRole';
+import { getCapabilitiesForRole } from '../../lib/roleCapabilities';
 import { getNavSectionsForRole } from './workflowUi';
 
 /** Shorter labels for the compact top nav bar */
@@ -38,6 +39,11 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
     membershipRole: user?.membershipRole ?? null,
     financeAccess: user?.financeAccess ?? null,
   });
+  const capabilities = getCapabilitiesForRole(role, {
+    membershipRole: user?.membershipRole ?? null,
+    financeAccess: user?.financeAccess ?? null,
+  });
+  const canOpenSettings = sections.some((section) => section.items.some((item) => item.href === '/admin/settings'));
 
   // All nav items except the Platform Home entry (logo acts as Home button)
   const navItems = sections.flatMap((s) => s.items).filter((item) => item.href !== '/admin');
@@ -96,12 +102,14 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
 
           {/* Right — primary action + user controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexShrink: 0 }}>
-            <button
-              onClick={() => router.push('/admin/marketplace')}
-              style={{ background: '#15803d', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.38rem 0.9rem', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap', letterSpacing: '0.02em' }}
-            >
-              + POST LOAD
-            </button>
+            {capabilities.canPostLoads && (
+              <button
+                onClick={() => router.push('/admin/marketplace')}
+                style={{ background: '#15803d', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.38rem 0.9rem', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap', letterSpacing: '0.02em' }}
+              >
+                + POST LOAD
+              </button>
+            )}
             {user?.email && (
               <span style={{ fontSize: '0.72rem', color: '#94a3b8', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user.email}
@@ -112,13 +120,15 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
-            <button
-              onClick={() => router.push('/admin/settings')}
-              title="Settings"
-              style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.3rem 0.5rem', cursor: 'pointer', color: '#64748b', fontSize: '0.85rem', lineHeight: 1 }}
-            >
-              ⚙
-            </button>
+            {canOpenSettings && (
+              <button
+                onClick={() => router.push('/admin/settings')}
+                title="Settings"
+                style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.3rem 0.5rem', cursor: 'pointer', color: '#64748b', fontSize: '0.85rem', lineHeight: 1 }}
+              >
+                ⚙
+              </button>
+            )}
             <button
               onClick={() => void logout()}
               style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.3rem 0.65rem', cursor: 'pointer', color: '#64748b', fontSize: '0.72rem', fontWeight: 600 }}

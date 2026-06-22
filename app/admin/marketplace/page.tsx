@@ -391,7 +391,7 @@ export default function MarketplacePage() {
   const paginatedBids = bids.slice(safeBidsPage * BIDS_PER_PAGE, (safeBidsPage + 1) * BIDS_PER_PAGE);
 
   return (
-    <ProtectedRoute allowedRoles={['owner', 'broker', 'company_admin', 'company_staff']}>
+    <ProtectedRoute allowedRoles={['owner', 'broker', 'company_admin', 'company_staff', 'driver']}>
       <div style={{ display: 'flex', height: 'calc(100vh - 89px)', overflow: 'hidden', background: '#f5f7fa' }}>
 
         {/* ── Left search panel ───────────────────────────────────────────── */}
