@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase } from '../../../lib/supabaseClient';
-import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 
 const cardStyle = {
   width: '100%',
@@ -43,7 +42,7 @@ export default function DriverChangePasswordPage() {
 
   const guidance = useMemo(() => {
     if (user?.mustChangePassword) {
-      return 'You must set a new password before you can continue using the driver workspace.';
+      return 'You must set a new password before you can continue to the operations workspace.';
     }
     return 'Update your password whenever you want extra account protection or need to replace a shared temporary password.';
   }, [user?.mustChangePassword]);
@@ -90,12 +89,12 @@ export default function DriverChangePasswordPage() {
       setConfirmPassword('');
       setSuccess(
         user?.mustChangePassword
-          ? 'Password updated. Redirecting you back to the driver workspace…'
-          : 'Password updated successfully. Your driver workspace session stays active.'
+          ? 'Password updated. Redirecting you to the operations workspace...'
+          : 'Password updated successfully. Redirecting you to the operations workspace.'
       );
 
       window.setTimeout(() => {
-        window.location.assign('/driver/jobs');
+        window.location.assign('/admin/marketplace');
       }, user?.mustChangePassword ? 1200 : 1600);
     } catch {
       setError('Failed to update password. Please try again in a moment.');
@@ -106,8 +105,8 @@ export default function DriverChangePasswordPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell subtitle="Update your account password to keep your driver access secure.">
-        <div style={{ display: 'grid', gap: '1rem' }}>
+      <div style={{ minHeight: '100vh', background: '#f5f7fa', display: 'grid', placeItems: 'center', padding: '1rem' }}>
+        <div style={{ display: 'grid', gap: '1rem', width: '100%', maxWidth: '560px' }}>
           <div style={cardStyle}>
             <h1 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#0f172a', fontSize: '1.35rem' }}>
               Password &amp; Security
@@ -123,7 +122,7 @@ export default function DriverChangePasswordPage() {
               <ul style={{ margin: 0, paddingLeft: '1rem', color: '#475569', fontSize: '0.84rem', lineHeight: 1.6 }}>
                 <li>Use at least 8 characters.</li>
                 <li>Avoid reusing a dispatcher-issued temporary password.</li>
-                <li>Choose a password that is unique to your driver workspace account.</li>
+                <li>Choose a password that is unique to your XDrive account.</li>
               </ul>
             </div>
 
@@ -196,7 +195,7 @@ export default function DriverChangePasswordPage() {
             <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.9rem' }}>
               {!user?.mustChangePassword && (
                 <button
-                  onClick={() => router.push('/driver/profile')}
+                  onClick={() => router.push('/admin/marketplace')}
                   style={{
                     flex: 1,
                     minWidth: '180px',
@@ -208,7 +207,7 @@ export default function DriverChangePasswordPage() {
                     cursor: 'pointer',
                   }}
                 >
-                  Back to Profile
+                  Continue to Workspace
                 </button>
               )}
               <button
@@ -229,7 +228,7 @@ export default function DriverChangePasswordPage() {
             </div>
           </div>
         </div>
-      </DriverWorkspaceShell>
+      </div>
     </ProtectedRoute>
   );
 }
