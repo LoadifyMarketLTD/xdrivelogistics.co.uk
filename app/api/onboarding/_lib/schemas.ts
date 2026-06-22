@@ -8,6 +8,16 @@ export const onboardingPatchBaseSchema = z
   })
   .strict();
 
+
+export const customerPayloadSchema = z
+  .object({
+    full_name: z.string().trim().min(1),
+    contact_email: z.string().trim().email(),
+    contact_phone: z.string().trim().min(1).optional().default(''),
+    company_name: z.string().trim().optional().default(''),
+    billing_address: z.string().trim().optional().default(''),
+  })
+  .strict();
 export const brokerPayloadSchema = z
   .object({
     company_name: z.string().trim().min(1),
@@ -108,6 +118,10 @@ export const ownerDriverPayloadSchema = ownerDriverPayloadBaseSchema.superRefine
     }
 });
 
+export const customerPatchSchema = onboardingPatchBaseSchema.extend({
+  payload: customerPayloadSchema.partial().optional(),
+});
+
 export const brokerPatchSchema = onboardingPatchBaseSchema.extend({
   payload: brokerPayloadSchema.partial().optional(),
 });
@@ -120,6 +134,7 @@ export const ownerDriverPatchSchema = onboardingPatchBaseSchema.extend({
   payload: ownerDriverPayloadBaseSchema.partial().optional(),
 });
 
+export type CustomerPayload = z.infer<typeof customerPayloadSchema>;
 export type BrokerPayload = z.infer<typeof brokerPayloadSchema>;
 export type FleetPayload = z.infer<typeof fleetPayloadSchema>;
 export type OwnerDriverPayload = z.infer<typeof ownerDriverPayloadSchema>;

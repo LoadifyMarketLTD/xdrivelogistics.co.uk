@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 
-type AccountType = 'broker_shipper' | 'fleet_courier' | 'owner_driver';
+type AccountType = 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver';
 
 type Application = {
   id: string;
@@ -35,6 +35,7 @@ export default function OnboardingTokenPage() {
   const accountType = application?.account_type;
 
   const requiredDocs = useMemo(() => {
+    if (accountType === 'customer_shipper') return [];
     if (accountType === 'fleet_courier') return fleetDocs;
     if (accountType === 'owner_driver') return ownerDriverDocs;
     return brokerDocs;
@@ -88,6 +89,16 @@ export default function OnboardingTokenPage() {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
+  const accountRouteSegment = () => {
+    if (accountType === 'customer_shipper') return 'customer';
+    if (accountType === 'fleet_courier') return 'fleet';
+    if (accountType === 'owner_driver') return 'owner-driver';
+    return 'broker';
+  };
+
+  const sessionEndpoint = () => `/api/onboarding/${accountRouteSegment()}/session`;
+  const submitEndpoint = () => `/api/onboarding/submit/${accountRouteSegment()}`;
+
   const saveProgress = async (currentStep: string, completionPercentage: number) => {
     setSaving(true);
     setError('');
@@ -95,7 +106,7 @@ export default function OnboardingTokenPage() {
 
     try {
       const headers = await authHeaders();
-      const res = await fetch('/api/onboarding/session', {
+      const res = await fetch(sessionEndpoint(), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -129,7 +140,7 @@ export default function OnboardingTokenPage() {
 
     try {
       const headers = await authHeaders();
-      const saveRes = await fetch('/api/onboarding/session', {
+      const saveRes = await fetch(sessionEndpoint(), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -147,7 +158,7 @@ export default function OnboardingTokenPage() {
         return;
       }
 
-      const res = await fetch('/api/onboarding/submit', {
+      const res = await fetch(submitEndpoint(), {
         method: 'POST',
         headers,
       });
@@ -157,7 +168,7 @@ export default function OnboardingTokenPage() {
         return;
       }
       setApplication(data.application);
-      setMessage('Onboarding submitted successfully. Your account is now pending review.');
+      setMessage(application?.account_type === 'customer_shipper' ? 'Customer onboarding complete.' : 'Onboarding submitted successfully. Your account is now pending review.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to submit onboarding.');
     } finally {
@@ -198,6 +209,17 @@ export default function OnboardingTokenPage() {
     }
   };
 
+
+  const renderCustomerShipper = () => (
+    <section>
+      <h2>Customer / Shipper Details</h2>
+      <Field label="Full Name" value={formData.full_name ?? ''} onChange={(v) => updateField('full_name', v)} />
+      <Field label="Email" value={formData.contact_email ?? ''} onChange={(v) => updateField('contact_email', v)} />
+      <Field label="Phone" value={formData.contact_phone ?? ''} onChange={(v) => updateField('contact_phone', v)} />
+      <Field label="Company Name" value={formData.company_name ?? ''} onChange={(v) => updateField('company_name', v)} />
+      <Field label="Billing Address" value={formData.billing_address ?? ''} onChange={(v) => updateField('billing_address', v)} />
+    </section>
+  );
   const renderBrokerShipper = () => (
     <section>
       <h2>Broker / Shipper Details</h2>
@@ -283,10 +305,12 @@ export default function OnboardingTokenPage() {
       </div>
       <p style={{ marginTop: 0 }}>{progress.toFixed(0)}% complete</p>
 
+      {application.account_type === 'customer_shipper' && renderCustomerShipper()}
       {application.account_type === 'broker_shipper' && renderBrokerShipper()}
       {application.account_type === 'fleet_courier' && renderFleetCourier()}
       {application.account_type === 'owner_driver' && renderOwnerDriver()}
 
+      {requiredDocs.length > 0 && (
       <section style={{ marginTop: '2rem' }}>
         <h2>Document Upload</h2>
         {requiredDocs.map((doc) => (
@@ -303,6 +327,7 @@ export default function OnboardingTokenPage() {
           </div>
         ))}
       </section>
+      )}
 
       <section style={{ marginTop: '2rem' }}>
         <h2>Review Summary</h2>

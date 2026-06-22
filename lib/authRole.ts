@@ -1,3 +1,4 @@
+import { isCapabilityAllowedForPath, type RouteAccessContext } from './roleCapabilities';
 export type AppUserRole =
   | 'owner'
   | 'broker'
@@ -66,7 +67,8 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
   if (
     normalized === 'admin' ||
     normalized === 'admin_staff' ||
-    normalized === 'org_admin'
+    normalized === 'org_admin' ||
+    normalized === 'fleet_operator'
   ) return 'company_admin';
 
   // Company staff aliases
@@ -78,7 +80,11 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
   ) return 'company_staff';
 
   // Broker aliases
-  if (normalized === 'freight_broker' || normalized === 'shipper_broker') return 'broker';
+  if (
+    normalized === 'freight_broker' ||
+    normalized === 'shipper_broker' ||
+    normalized === 'transport_broker'
+  ) return 'broker';
 
   // Driver aliases
   if (
@@ -92,7 +98,12 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
   ) return 'driver';
 
   // Customer aliases
-  if (normalized === 'shipper' || normalized === 'client' || normalized === 'viewer') return 'customer';
+  if (
+    normalized === 'shipper' ||
+    normalized === 'customer_shipper' ||
+    normalized === 'client' ||
+    normalized === 'viewer'
+  ) return 'customer';
 
   return null;
 };
@@ -183,29 +194,11 @@ export const resolveAuthoritativeRole = ({
   return null;
 };
 
-const PLATFORM_ROUTE_ROLES = new Set<AppUserRole>(['owner']);
-const ADMIN_ROUTE_ROLES = new Set<AppUserRole>(['broker', 'company_admin', 'company_staff', 'owner']);
-const BROKER_ROUTE_ROLES = new Set<AppUserRole>(['broker', 'owner']);
-const MOBILE_ROUTE_ROLES = new Set<AppUserRole>(['broker', 'company_admin', 'company_staff', 'owner']);
-const DRIVER_ROUTE_ROLES = new Set<AppUserRole>(['driver']);
-const CUSTOMER_ROUTE_ROLES = new Set<AppUserRole>(['customer']);
-
 export const isRoleAllowedForPath = (
   pathname: string,
   role: AppUserRole | null,
-  options?: { canAccessDriverMode?: boolean }
-): boolean => {
-  if (!role) return false;
-  if (pathname.startsWith('/super-admin')) return PLATFORM_ROUTE_ROLES.has(role);
-  if (pathname.startsWith('/admin')) return ADMIN_ROUTE_ROLES.has(role);
-  if (pathname.startsWith('/broker')) return BROKER_ROUTE_ROLES.has(role);
-  if (pathname.startsWith('/driver')) {
-    return DRIVER_ROUTE_ROLES.has(role) || options?.canAccessDriverMode === true;
-  }
-  if (pathname.startsWith('/m')) return MOBILE_ROUTE_ROLES.has(role);
-  if (pathname.startsWith('/customer')) return CUSTOMER_ROUTE_ROLES.has(role);
-  return true;
-};
+  options: RouteAccessContext = {}
+): boolean => isCapabilityAllowedForPath(pathname, role, options);
 
 export const isRoleAllowedForRequiredRole = (
   requiredRole: AppUserRole,

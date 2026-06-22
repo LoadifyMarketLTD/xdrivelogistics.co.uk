@@ -521,9 +521,15 @@ export const getPostLoginRoute = (
 };
 
 export const roleCanAccessPath = (
-  currentUser: Pick<ResolvedAuthUser, 'role'> & { canAccessDriverMode?: boolean },
+  currentUser: Pick<ResolvedAuthUser, 'role'> & {
+    canAccessDriverMode?: boolean;
+    membershipRole?: CompanyMembership['role_in_company'] | null;
+    financeAccess?: 'full' | 'limited' | 'hidden' | null;
+  },
   path: string
 ) =>
   isRoleAllowedForPath(path, mapAppRole(currentUser.role), {
     canAccessDriverMode: currentUser.canAccessDriverMode === true,
+    membershipRole: currentUser.membershipRole ?? null,
+    financeAccess: currentUser.financeAccess ?? null,
   });

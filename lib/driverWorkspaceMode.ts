@@ -78,7 +78,7 @@ const BUSINESS_MEMBERSHIP_ROLES = new Set(['owner', 'admin']);
 
 export const DRIVER_WORKSPACE_MODE_LABELS: Record<DriverWorkspaceMode, string> = {
   fleet_driver: 'Fleet Driver',
-  provider_driver: 'Provider Driver',
+  provider_driver: 'Owner Operator',
   admin_business: 'Business Admin',
 };
 

@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
-import { isFleetDriverWorkspaceMode, resolveDriverWorkspaceMode } from '../../../lib/driverWorkspaceMode';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
 type TabId = 'loads' | 'bids' | 'won';
@@ -71,17 +71,6 @@ type WonJob = {
   companies: CompanyJoin;
 };
 
-const NAV_ITEMS = [
-  { id: 'dashboard', label: 'DASHBOARD', href: '/driver/jobs' },
-  { id: 'loads',     label: 'LOADS',     href: '/driver/loads' },
-  { id: 'quotes',    label: 'QUOTES',    href: '/driver/quotes' },
-  { id: 'won',       label: 'WON WORK',  href: '/driver/won-work' },
-  { id: 'history',   label: 'HISTORY',   href: '/driver/history' },
-  { id: 'returns',   label: 'RETURNS',   href: '/driver/returns' },
-  { id: 'availability', label: 'AVAILABILITY', href: '/driver/availability' },
-  { id: 'settings', label: 'SETTINGS',  href: '/driver/change-password' },
-] as const;
-
 const VEHICLE_LABELS: Record<string, string> = {
   bicycle: 'Bicycle',
   motorbike: 'Motorbike',
@@ -127,14 +116,14 @@ function normalizeBidJob(job: BidRow['jobs']) {
 }
 
 function formatDate(value: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function formatCurrency(amount: number | null, currency = 'GBP'): string {
-  if (typeof amount !== 'number') return '—';
+  if (typeof amount !== 'number') return '-';
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: currency || 'GBP',
@@ -144,9 +133,7 @@ function formatCurrency(amount: number | null, currency = 'GBP'): string {
 
 export default function DriverJobsPage() {
   const router = useRouter();
-  const pathname = usePathname();
-  const { user, logout } = useAuth();
-  const workspaceMode = resolveDriverWorkspaceMode(user);
+  const { user } = useAuth();
 
   const companyId = user?.companyId ?? null;
   const userId = user?.id ?? null;
@@ -167,14 +154,13 @@ export default function DriverJobsPage() {
   const [loads, setLoads] = useState<Array<ExchangeLoad & { companies: { name: string } | null }>>([]);
   const [bids, setBids] = useState<Array<BidRow & { jobs: ReturnType<typeof normalizeBidJob> }>>([]);
   const [wonJobs, setWonJobs] = useState<Array<WonJob & { companies: { name: string } | null }>>([]);
-
-  useEffect(() => {
-    if (!user || !isFleetDriverWorkspaceMode(workspaceMode)) return;
-    router.replace('/driver/history');
-  }, [router, user, workspaceMode]);
+  const [bidLoadId, setBidLoadId] = useState<string | null>(null);
+  const [bidAmount, setBidAmount] = useState('');
+  const [bidMessage, setBidMessage] = useState('');
+  const [bidLoading, setBidLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
   const fetchBoard = useCallback(async () => {
-    if (isFleetDriverWorkspaceMode(workspaceMode)) return;
     if (!isSupabaseConfigured) return;
 
     setLoading(true);
@@ -328,11 +314,49 @@ export default function DriverJobsPage() {
     }
 
     setLoading(false);
-  }, [cargoType, companyId, dateFrom, dateTo, deliveryCountry, pickupPostcode, sortBy, userId, vehicleFilter, weightMin, workspaceMode]);
+  }, [cargoType, companyId, dateFrom, dateTo, deliveryCountry, pickupPostcode, sortBy, userId, vehicleFilter, weightMin]);
 
   useEffect(() => {
     void fetchBoard();
   }, [fetchBoard]);
+
+  const handleBidSubmit = async (loadId: string) => {
+    if (!userId || !bidAmount || bidLoading || !isSupabaseConfigured) return;
+    const amount = Number.parseFloat(bidAmount);
+    if (Number.isNaN(amount) || amount <= 0) {
+      setError('Enter a valid bid amount.');
+      return;
+    }
+
+    setBidLoading(true);
+    setError('');
+
+    const { error: bidError } = await supabase.from('job_bids').insert({
+      job_id: loadId,
+      company_id: companyId,
+      bidder_user_id: userId,
+      bidder_driver_id: user?.driverId ?? null,
+      bid_price_gbp: amount,
+      amount,
+      currency: 'GBP',
+      message: bidMessage || null,
+      status: 'submitted',
+    });
+
+    setBidLoading(false);
+
+    if (bidError) {
+      setError(`Failed to submit bid: ${bidError.message}`);
+      return;
+    }
+
+    setBidLoadId(null);
+    setBidAmount('');
+    setBidMessage('');
+    setSuccessMsg('Quote submitted successfully.');
+    window.setTimeout(() => setSuccessMsg(''), 4000);
+    await fetchBoard();
+  };
 
   const tabs = useMemo(
     () => [
@@ -343,65 +367,12 @@ export default function DriverJobsPage() {
     [bids.length, loads.length, wonJobs.length],
   );
 
-  if (user && isFleetDriverWorkspaceMode(workspaceMode)) {
-    return (
-      <ProtectedRoute allowedRoles={['driver']}>
-        <div style={{ minHeight: '100vh', background: '#eef2f6' }} />
-      </ProtectedRoute>
-    );
-  }
-
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <div style={{ minHeight: '100vh', background: '#eef2f6' }}>
-        <header style={{ position: 'sticky', top: 0, zIndex: 30, background: '#fff', borderBottom: '1px solid #dbe3ee' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1.25rem', gap: '0.75rem' }}>
-            <button onClick={() => router.push('/driver/jobs')} style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-              <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: '#1d4ed8', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 800 }}>X</div>
-              <span style={{ color: '#0f172a', fontSize: '1.05rem', fontWeight: 700 }}>XDrive Logistics</span>
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-              <button onClick={() => router.push('/driver/loads')} style={{ background: '#15803d', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.55rem 1rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
-                VIEW LOADS
-              </button>
-              <span style={{ color: '#94a3b8', fontSize: '0.82rem', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email ?? ''}</span>
-              <button onClick={() => router.push('/driver/change-password')} style={{ border: '1px solid #dbe3ee', borderRadius: '8px', background: '#fff', color: '#64748b', padding: '0.35rem 0.55rem', cursor: 'pointer' }}>⚙</button>
-              <button onClick={() => void logout()} style={{ border: '1px solid #dbe3ee', borderRadius: '8px', background: '#fff', color: '#64748b', padding: '0.38rem 0.75rem', cursor: 'pointer', fontWeight: 600 }}>
-                Sign out
-              </button>
-            </div>
-          </div>
-
-          <nav style={{ display: 'flex', overflowX: 'auto', padding: '0 0.85rem', borderTop: '1px solid #f1f5f9' }}>
-            {NAV_ITEMS.map((item) => {
-              const active = pathname === item.href;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => router.push(item.href)}
-                  style={{
-                    border: 'none',
-                    borderBottom: active ? '2px solid #1d4ed8' : '2px solid transparent',
-                    background: 'none',
-                    color: active ? '#1d4ed8' : '#64748b',
-                    fontSize: '0.74rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.06em',
-                    padding: '0.8rem 0.9rem',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-          </nav>
-        </header>
-
-        <main style={{ display: 'grid', gridTemplateColumns: '240px 1fr', minHeight: 'calc(100vh - 111px)' }}>
-          <aside style={{ borderRight: '1px solid #dbe3ee', background: '#f8fafc', padding: '0.95rem' }}>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.9rem', fontSize: '1.35rem' }}>🔎 Search Loads</div>
+      <DriverWorkspaceShell subtitle="Search live exchange loads, review your quotes, and open won work from one driver workspace.">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.9rem', alignItems: 'flex-start' }}>
+          <aside style={{ flex: '1 1 220px', maxWidth: '260px', background: '#f8fafc', border: '1px solid #dbe3ee', borderRadius: '10px', padding: '0.95rem', position: 'sticky', top: '0.75rem' }}>
+            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.9rem', fontSize: '1.35rem' }}>Search Loads</div>
 
             <label style={fieldLabelStyle}>From:</label>
             <input value={pickupPostcode} onChange={(e) => setPickupPostcode(e.target.value)} placeholder="Pickup postcode" style={{ ...fieldStyle, marginBottom: '0.7rem' }} />
@@ -461,7 +432,7 @@ export default function DriverJobsPage() {
             </div>
           </aside>
 
-          <section style={{ padding: '0.75rem 0.9rem' }}>
+          <section style={{ flex: '999 1 520px', minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #dbe3ee', marginBottom: '0.8rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                 {tabs.map((entry) => {
@@ -487,19 +458,20 @@ export default function DriverJobsPage() {
                 })}
               </div>
               <button onClick={() => void fetchBoard()} style={{ border: '1px solid #cbd5e1', background: '#fff', color: '#64748b', borderRadius: '7px', padding: '0.45rem 0.8rem', cursor: 'pointer' }}>
-                ↻ Refresh
+                Refresh
               </button>
             </div>
 
             {error && <div style={{ marginBottom: '0.75rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.7rem' }}>{error}</div>}
+            {successMsg && <div style={{ marginBottom: '0.75rem', color: '#15803d', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.7rem' }}>{successMsg}</div>}
 
-            <div style={{ background: '#fff', border: '1px solid #dbe3ee', borderRadius: '12px', minHeight: '520px', padding: '1rem' }}>
+            <div style={{ background: '#fff', border: '1px solid #dbe3ee', borderRadius: '10px', minHeight: '520px', padding: '1rem' }}>
               {loading ? (
-                <div style={{ color: '#64748b', textAlign: 'center', padding: '3rem 1rem' }}>Loading…</div>
+                <div style={{ color: '#64748b', textAlign: 'center', padding: '3rem 1rem' }}>Loading</div>
               ) : tab === 'loads' ? (
                 loads.length === 0 ? (
                   <div style={{ color: '#64748b', textAlign: 'center', padding: '3.5rem 1rem' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '0.6rem' }}>📭</div>
+                    <div style={{ fontSize: '2rem', marginBottom: '0.6rem' }}></div>
                     <div style={{ fontSize: '1.25rem' }}>No loads match your current filters.</div>
                   </div>
                 ) : (
@@ -507,15 +479,75 @@ export default function DriverJobsPage() {
                     {loads.map((load) => (
                       <div key={load.id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.8rem' }}>
                         <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>
-                          {load.pickup_location ?? 'Unknown pickup'} → {load.delivery_location ?? 'Unknown delivery'}
+                          {load.pickup_location ?? 'Unknown pickup'} &rarr; {load.delivery_location ?? 'Unknown delivery'}
                         </div>
-                        <div style={{ fontSize: '0.82rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
+                        <div style={{ fontSize: '0.82rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '0.8rem', marginBottom: '0.7rem' }}>
                           <span>Date: {formatDate(load.pickup_datetime)}</span>
                           <span>Vehicle: {VEHICLE_LABELS[load.vehicle_type ?? ''] ?? 'Any'}</span>
                           <span>Weight: {load.weight_kg ?? 0} kg</span>
                           <span>Budget: {formatCurrency(load.budget_amount, load.currency)}</span>
                           <span>By: {load.companies?.name ?? 'Unknown company'}</span>
                         </div>
+
+                        {bidLoadId === load.id ? (
+                          <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.8rem', display: 'grid', gap: '0.55rem' }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0f172a' }}>Submit your quote</div>
+                            <input
+                              type="number"
+                              min="1"
+                              step="0.01"
+                              value={bidAmount}
+                              onChange={(event) => setBidAmount(event.target.value)}
+                              placeholder="Your price (GBP)"
+                              style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
+                            />
+                            <textarea
+                              value={bidMessage}
+                              onChange={(event) => setBidMessage(event.target.value)}
+                              placeholder="Optional message to the load poster"
+                              rows={2}
+                              style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.85rem', width: '100%', resize: 'vertical' }}
+                            />
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => void handleBidSubmit(load.id)}
+                                disabled={bidLoading || !bidAmount}
+                                style={{ flex: 1, minWidth: '170px', padding: '0.6rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: bidLoading || !bidAmount ? 'not-allowed' : 'pointer', opacity: bidLoading || !bidAmount ? 0.65 : 1 }}
+                              >
+                                {bidLoading ? 'Submitting...' : 'Submit Quote'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setBidLoadId(null);
+                                  setBidAmount('');
+                                  setBidMessage('');
+                                }}
+                                style={{ padding: '0.6rem 1rem', backgroundColor: '#fff', color: '#374151', border: '1px solid #cbd5e1', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <button
+                              onClick={() => {
+                                setBidLoadId(load.id);
+                                setBidAmount(load.budget_amount ? String(load.budget_amount) : '');
+                                setBidMessage('');
+                              }}
+                              style={{ padding: '0.5rem 0.9rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.83rem' }}
+                            >
+                              Submit Quote
+                            </button>
+                            <button
+                              onClick={() => router.push('/driver/loads')}
+                              style={{ padding: '0.5rem 0.9rem', backgroundColor: '#f8fafc', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '0.83rem' }}
+                            >
+                              Open Loads
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -523,7 +555,7 @@ export default function DriverJobsPage() {
               ) : tab === 'bids' ? (
                 bids.length === 0 ? (
                   <div style={{ color: '#64748b', textAlign: 'center', padding: '3.5rem 1rem' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '0.6rem' }}>💼</div>
+                    <div style={{ fontSize: '2rem', marginBottom: '0.6rem' }}></div>
                     <div style={{ fontSize: '1.25rem' }}>No bids submitted yet.</div>
                   </div>
                 ) : (
@@ -531,7 +563,7 @@ export default function DriverJobsPage() {
                     {bids.map((bid) => (
                       <div key={bid.id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.8rem' }}>
                         <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>
-                          {(bid.jobs?.pickup_location ?? 'Unknown pickup')} → {(bid.jobs?.delivery_location ?? 'Unknown delivery')}
+                          {(bid.jobs?.pickup_location ?? 'Unknown pickup')} -&gt; {(bid.jobs?.delivery_location ?? 'Unknown delivery')}
                         </div>
                         <div style={{ fontSize: '0.82rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
                           <span>Bid: {formatCurrency(bid.bid_price_gbp ?? bid.amount, bid.currency)}</span>
@@ -545,7 +577,7 @@ export default function DriverJobsPage() {
                 )
               ) : wonJobs.length === 0 ? (
                 <div style={{ color: '#64748b', textAlign: 'center', padding: '3.5rem 1rem' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.6rem' }}>🏆</div>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.6rem' }}></div>
                   <div style={{ fontSize: '1.25rem' }}>No won work yet.</div>
                 </div>
               ) : (
@@ -553,7 +585,7 @@ export default function DriverJobsPage() {
                   {wonJobs.map((job) => (
                     <div key={job.id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.8rem' }}>
                       <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>
-                        {job.pickup_location ?? 'Unknown pickup'} → {job.delivery_location ?? 'Unknown delivery'}
+                        {job.pickup_location ?? 'Unknown pickup'} -&gt; {job.delivery_location ?? 'Unknown delivery'}
                       </div>
                       <div style={{ fontSize: '0.82rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
                         <span>Date: {formatDate(job.pickup_datetime)}</span>
@@ -567,8 +599,9 @@ export default function DriverJobsPage() {
               )}
             </div>
           </section>
-        </main>
-      </div>
+        </div>
+      </DriverWorkspaceShell>
     </ProtectedRoute>
   );
 }
+
