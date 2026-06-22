@@ -2,15 +2,17 @@ import crypto from 'crypto';
 import { getCanonicalSiteOrigin } from '../../../lib/siteUrl';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export const ONBOARDING_ACCOUNT_TYPES = ['broker_shipper', 'fleet_courier', 'owner_driver'] as const;
+export const ONBOARDING_ACCOUNT_TYPES = ['customer_shipper', 'broker_shipper', 'fleet_courier', 'owner_driver'] as const;
 export type OnboardingAccountType = (typeof ONBOARDING_ACCOUNT_TYPES)[number];
-export const ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE: Record<OnboardingAccountType, 'broker' | 'fleet' | 'owner-driver'> = {
+export const ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE: Record<OnboardingAccountType, 'customer' | 'broker' | 'fleet' | 'owner-driver'> = {
+  customer_shipper: 'customer',
   broker_shipper: 'broker',
   fleet_courier: 'fleet',
   owner_driver: 'owner-driver',
 };
 
-export const ONBOARDING_ACCOUNT_TYPE_BY_ROUTE_SEGMENT: Record<'broker' | 'fleet' | 'owner-driver', OnboardingAccountType> = {
+export const ONBOARDING_ACCOUNT_TYPE_BY_ROUTE_SEGMENT: Record<'customer' | 'broker' | 'fleet' | 'owner-driver', OnboardingAccountType> = {
+  customer: 'customer_shipper',
   broker: 'broker_shipper',
   fleet: 'fleet_courier',
   'owner-driver': 'owner_driver',
@@ -49,9 +51,30 @@ export const ONBOARDING_STATUSES = [
 
 export const normalizeOnboardingAccountType = (raw: string | null | undefined): OnboardingAccountType => {
   const value = (raw ?? '').toLowerCase().trim();
-  if (value === 'owner_driver' || value === 'owner-driver' || value === 'sole_trader') return 'owner_driver';
-  if (value === 'fleet_courier' || value === 'fleet/courier' || value === 'company_admin') return 'fleet_courier';
-  return 'broker_shipper';
+  if (
+    value === 'owner_driver' ||
+    value === 'owner-driver' ||
+    value === 'owner_operator' ||
+    value === 'owner-operator' ||
+    value === 'sole_trader'
+  ) return 'owner_driver';
+  if (
+    value === 'fleet_courier' ||
+    value === 'fleet/courier' ||
+    value === 'fleet_operator' ||
+    value === 'company_admin'
+  ) return 'fleet_courier';
+  if (
+    value === 'customer_shipper' ||
+    value === 'customer' ||
+    value === 'shipper'
+  ) return 'customer_shipper';
+  if (
+    value === 'transport_broker' ||
+    value === 'broker' ||
+    value === 'broker_shipper'
+  ) return 'broker_shipper';
+  return 'customer_shipper';
 };
 
 export const resolveOnboardingAccountTypeFromMetadata = (
@@ -71,7 +94,7 @@ export const resolveOnboardingAccountTypeFromMetadata = (
     if (normalized) return normalized;
   }
 
-  return 'broker_shipper';
+  return 'customer_shipper';
 };
 
 export const generateOnboardingToken = () => crypto.randomBytes(32).toString('base64url');

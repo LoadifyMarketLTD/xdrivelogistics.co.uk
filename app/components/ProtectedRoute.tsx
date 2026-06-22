@@ -32,9 +32,15 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
             (allowedRoles.includes('driver') && user.canAccessDriverMode === true)
           )
         : null;
+      const routeContext = {
+        canAccessDriverMode: user.canAccessDriverMode === true,
+        membershipRole: user.membershipRole ?? null,
+        financeAccess: user.financeAccess ?? null,
+      };
+      const routeAllowed = isRoleAllowedForPath(pathname, role, routeContext);
       const hasAccess = allowedRoles?.length
-        ? roleAllowedByList === true
-        : isRoleAllowedForPath(pathname, role, { canAccessDriverMode: user.canAccessDriverMode === true });
+        ? roleAllowedByList === true && routeAllowed
+        : routeAllowed;
       if (!hasAccess && pathname !== '/forbidden') {
         router.replace('/forbidden');
       }
@@ -67,9 +73,15 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
         (allowedRoles.includes('driver') && user.canAccessDriverMode === true)
       )
     : null;
+  const routeContext = {
+    canAccessDriverMode: user.canAccessDriverMode === true,
+    membershipRole: user.membershipRole ?? null,
+    financeAccess: user.financeAccess ?? null,
+  };
+  const routeAllowed = isRoleAllowedForPath(pathname, role, routeContext);
   const hasAccess = allowedRoles?.length
-    ? roleAllowedByList === true
-    : isRoleAllowedForPath(pathname, role, { canAccessDriverMode: user.canAccessDriverMode === true });
+    ? roleAllowedByList === true && routeAllowed
+    : routeAllowed;
 
   if (!hasAccess) {
     return null;

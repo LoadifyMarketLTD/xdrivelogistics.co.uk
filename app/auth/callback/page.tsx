@@ -12,6 +12,7 @@ import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
 const AUTH_CALLBACK_TIMEOUT_MS = 10_000;
 
+
 const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -85,17 +86,30 @@ export default function AuthCallbackPage() {
       } = await withTimeout(supabase.auth.getSession(), AUTH_CALLBACK_TIMEOUT_MS);
       writeRouteAuthCookie(session);
 
+      let onboardingPath: string | null = null;
       const shouldInitializeOnboarding = callbackRecoveryType === 'signup';
 
       if (shouldInitializeOnboarding && session?.access_token) {
-        await fetch('/api/onboarding/init', {
+        const initResponse = await fetch('/api/onboarding/init', {
           method: 'POST',
           headers: {
             Authorization: 'Bearer ' + session.access_token,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ forceRegenerateToken: false }),
-        }).catch(() => undefined);
+        }).catch(() => null);
+
+        if (initResponse?.ok) {
+          const initData = await initResponse.json().catch(() => null) as { onboardingUrl?: string } | null;
+          if (initData?.onboardingUrl) {
+            try {
+              const url = new URL(initData.onboardingUrl);
+              onboardingPath = `${url.pathname}${url.search}`;
+            } catch {
+              onboardingPath = initData.onboardingUrl.startsWith('/') ? initData.onboardingUrl : null;
+            }
+          }
+        }
       }
 
       const result = await withTimeout(resolveAuthenticatedUser(sessionUser), AUTH_CALLBACK_TIMEOUT_MS);
@@ -104,7 +118,7 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      router.replace(getPostLoginRoute(result.user));
+      router.replace(onboardingPath ?? getPostLoginRoute(result.user));
     };
 
     const completeAuth = async () => {
