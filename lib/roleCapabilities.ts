@@ -40,9 +40,27 @@ export const getCapabilitiesForRole = (
   context: {
     membershipRole?: string | null;
     financeAccess?: 'full' | 'limited' | 'hidden' | null;
+    ownerDriverWorkspace?: boolean | null;
   } = {}
 ): RoleCapabilities => {
   if (!role) return NO_CAPABILITIES;
+
+  if (
+    context.ownerDriverWorkspace === true &&
+    (role === 'driver' || role === 'company_admin' || role === 'company_staff')
+  ) {
+    return {
+      ...NO_CAPABILITIES,
+      canViewExchangeLoads: true,
+      canQuoteLoads: true,
+      canReceiveQuotes: true,
+      canExecuteJobs: true,
+      canManageOwnVehicle: true,
+      canUploadPod: true,
+      canViewInvoices: true,
+      canUseReturnJourneys: true,
+    };
+  }
 
   if (role === 'owner') {
     return {
@@ -131,12 +149,8 @@ export const getCapabilitiesForRole = (
   if (role === 'driver') {
     return {
       ...NO_CAPABILITIES,
-      canViewExchangeLoads: true,
-      canQuoteLoads: true,
       canExecuteJobs: true,
-      canManageOwnVehicle: true,
       canUploadPod: true,
-      canUseReturnJourneys: true,
     };
   }
 
@@ -149,6 +163,7 @@ export const getDriverWorkspaceCapabilities = (
     role?: AppUserRole | string | null;
     membershipRole?: string | null;
     financeAccess?: 'full' | 'limited' | 'hidden' | null;
+    ownerDriverWorkspace?: boolean | null;
   } = {}
 ): RoleCapabilities => {
   if (mode === 'provider_driver') {
@@ -169,19 +184,20 @@ export type RouteAccessContext = {
   canAccessDriverMode?: boolean;
   membershipRole?: string | null;
   financeAccess?: 'full' | 'limited' | 'hidden' | null;
+  ownerDriverWorkspace?: boolean | null;
 };
 
 const ADMIN_ROUTE_CAPABILITIES: Array<{ prefix: string; capability: keyof RoleCapabilities }> = [
   { prefix: '/admin/marketplace', capability: 'canViewExchangeLoads' },
   { prefix: '/admin/quotes', capability: 'canReceiveQuotes' },
   { prefix: '/admin/bids', capability: 'canReceiveQuotes' },
-  { prefix: '/admin/diary', capability: 'canAllocateDrivers' },
+  { prefix: '/admin/diary', capability: 'canExecuteJobs' },
   { prefix: '/admin/jobs', capability: 'canExecuteJobs' },
   { prefix: '/admin/disputes', capability: 'canExecuteJobs' },
   { prefix: '/admin/fleet', capability: 'canManageFleet' },
   { prefix: '/admin/drivers', capability: 'canManageFleet' },
-  { prefix: '/admin/vehicles', capability: 'canManageFleet' },
-  { prefix: '/admin/documents', capability: 'canManageFleet' },
+  { prefix: '/admin/vehicles', capability: 'canManageOwnVehicle' },
+  { prefix: '/admin/documents', capability: 'canUploadPod' },
   { prefix: '/admin/invoices', capability: 'canViewInvoices' },
   { prefix: '/admin/dispatchers', capability: 'canManageCompanyUsers' },
   { prefix: '/admin/settings', capability: 'canManageCompanyUsers' },

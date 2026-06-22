@@ -512,7 +512,7 @@ export const getPostLoginRoute = (
   if (currentUser.ownerDriverWorkspace && currentUser.canAccessDriverMode) {
     return currentUser.mustChangePassword ? '/driver/change-password' : '/admin/marketplace';
   }
-  if (currentUser.role === 'driver') return currentUser.mustChangePassword ? '/driver/change-password' : '/admin/marketplace';
+  if (currentUser.role === 'driver') return currentUser.mustChangePassword ? '/driver/change-password' : '/admin/jobs';
   if (currentUser.role === 'owner') return '/super-admin';
   if (currentUser.role === 'broker') return '/broker';
   if (currentUser.role === 'customer') return '/customer';
@@ -525,6 +525,7 @@ export const roleCanAccessPath = (
     canAccessDriverMode?: boolean;
     membershipRole?: CompanyMembership['role_in_company'] | null;
     financeAccess?: 'full' | 'limited' | 'hidden' | null;
+    ownerDriverWorkspace?: boolean | null;
   },
   path: string
 ) =>
@@ -532,4 +533,5 @@ export const roleCanAccessPath = (
     canAccessDriverMode: currentUser.canAccessDriverMode === true,
     membershipRole: currentUser.membershipRole ?? null,
     financeAccess: currentUser.financeAccess ?? null,
+    ownerDriverWorkspace: currentUser.ownerDriverWorkspace === true,
   });
