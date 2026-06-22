@@ -378,7 +378,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (url.pathname === '/admin' && auth.role === 'driver') {
+  if (url.pathname === '/admin' && (auth.role === 'driver' || auth.ownerDriverWorkspace)) {
     return buildRedirect(request, '/admin/marketplace');
   }
 
@@ -410,6 +410,7 @@ export async function middleware(request: NextRequest) {
   if (!isRoleAllowedForPath(url.pathname, auth.role, {
     canAccessDriverMode: auth.canAccessDriverMode,
     membershipRole: auth.membershipRole,
+    ownerDriverWorkspace: auth.ownerDriverWorkspace,
   })) {
     const canonicalPath = getPostLoginRoute({
       role: auth.role,

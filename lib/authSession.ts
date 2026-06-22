@@ -525,6 +525,7 @@ export const roleCanAccessPath = (
     canAccessDriverMode?: boolean;
     membershipRole?: CompanyMembership['role_in_company'] | null;
     financeAccess?: 'full' | 'limited' | 'hidden' | null;
+    ownerDriverWorkspace?: boolean | null;
   },
   path: string
 ) =>
@@ -532,4 +533,5 @@ export const roleCanAccessPath = (
     canAccessDriverMode: currentUser.canAccessDriverMode === true,
     membershipRole: currentUser.membershipRole ?? null,
     financeAccess: currentUser.financeAccess ?? null,
+    ownerDriverWorkspace: currentUser.ownerDriverWorkspace === true,
   });
