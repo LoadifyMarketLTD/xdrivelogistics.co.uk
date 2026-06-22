@@ -26,6 +26,7 @@ type RouteAuthResult =
       ownerDriverWorkspace: boolean;
       ownerDriverExecutionMode: boolean;
       canAccessDriverMode: boolean;
+      membershipRole: string | null;
     };
 
 const buildRedirect = (request: NextRequest, pathname: string, clearCookie = false) => {
@@ -228,6 +229,7 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
           ownerDriverWorkspace,
           ownerDriverExecutionMode,
           canAccessDriverMode: ownerDriverWorkspace && role === 'driver',
+          membershipRole: null,
         }
       : { kind: 'forbidden' };
   }
@@ -317,6 +319,7 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     ownerDriverWorkspace,
     ownerDriverExecutionMode,
     canAccessDriverMode,
+    membershipRole: membership?.role_in_company ?? null,
   };
 };
 
@@ -387,7 +390,10 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  if (!isRoleAllowedForPath(url.pathname, auth.role, { canAccessDriverMode: auth.canAccessDriverMode })) {
+  if (!isRoleAllowedForPath(url.pathname, auth.role, {
+    canAccessDriverMode: auth.canAccessDriverMode,
+    membershipRole: auth.membershipRole,
+  })) {
     const canonicalPath = getPostLoginRoute({
       role: auth.role,
       mustChangePassword: auth.mustChangePassword,
