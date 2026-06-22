@@ -194,28 +194,17 @@ const canShowFinanceSection = (
 export const getNavSectionsForRole = (role: AppUserRole | null, context: NavVisibilityContext = {}): NavSection[] => {
   if (!role) return PLATFORM_NAV_SECTIONS.filter((s) => !s.roles);
 
-  if (role === 'driver' && context.ownerDriverWorkspace !== true) {
-    return [
-      {
-        id: 'driver_execution',
-        label: 'Driver',
-        items: [
-          { id: 'diary', label: 'Diary / My Day', icon: '📅', href: '/admin/diary' },
-          { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
-          { id: 'documents', label: 'POD / Documents', icon: '📄', href: '/admin/documents' },
-        ],
-      },
-    ];
-  }
-
   if (
-    context.ownerDriverWorkspace === true &&
-    (role === 'driver' || role === 'company_admin' || role === 'company_staff')
+    role === 'driver' ||
+    (
+      context.ownerDriverWorkspace === true &&
+      (role === 'company_admin' || role === 'company_staff')
+    )
   ) {
     return [
       {
-        id: 'owner_operator_loads',
-        label: 'Owner Operator',
+        id: 'driver_workspace',
+        label: 'Driver Workspace',
         items: [
           { id: 'marketplace', label: 'Loads', icon: '🏪', href: '/admin/marketplace' },
           { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
