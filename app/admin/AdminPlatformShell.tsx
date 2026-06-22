@@ -38,10 +38,12 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
   const sections = getNavSectionsForRole(role, {
     membershipRole: user?.membershipRole ?? null,
     financeAccess: user?.financeAccess ?? null,
+    ownerDriverWorkspace: user?.ownerDriverWorkspace === true,
   });
   const capabilities = getCapabilitiesForRole(role, {
     membershipRole: user?.membershipRole ?? null,
     financeAccess: user?.financeAccess ?? null,
+    ownerDriverWorkspace: user?.ownerDriverWorkspace === true,
   });
   const canOpenSettings = sections.some((section) => section.items.some((item) => item.href === '/admin/settings'));
 
