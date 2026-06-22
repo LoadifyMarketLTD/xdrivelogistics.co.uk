@@ -156,6 +156,7 @@ export const getCapabilitiesForRole = (
       canManageOwnVehicle: true,
       canUploadPod: true,
       canViewInvoices: true,
+      canUseReturnJourneys: true,
     };
   }
 
@@ -203,6 +204,7 @@ const ADMIN_ROUTE_CAPABILITIES: Array<{ prefix: string; capability: keyof RoleCa
   { prefix: '/admin/drivers', capability: 'canManageFleet' },
   { prefix: '/admin/vehicles', capability: 'canManageOwnVehicle' },
   { prefix: '/admin/documents', capability: 'canUploadPod' },
+  { prefix: '/admin/returns', capability: 'canUseReturnJourneys' },
   { prefix: '/admin/invoices', capability: 'canViewInvoices' },
   { prefix: '/admin/dispatchers', capability: 'canManageCompanyUsers' },
   { prefix: '/admin/settings', capability: 'canManageCompanyUsers' },
