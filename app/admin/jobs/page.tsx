@@ -54,6 +54,9 @@ const CARGO_TYPES = [
   'Other'
 ];
 
+const buildDateTime = (date: string, time: string) =>
+  date && time && time !== 'ASAP' ? `${date}T${time}:00` : null;
+
 export default function JobsPage() {
   const router = useRouter();
   const { user, hasSupabaseSession } = useAuth();
@@ -343,9 +346,10 @@ export default function JobsPage() {
         client_phone: formData.clientPhone || null,
         load_details: formData.clientName,
         pickup_location: formData.pickupLocation,
-        pickup_datetime: `${formData.pickupDate}T${formData.pickupTime}:00`,
+        pickup_datetime: buildDateTime(formData.pickupDate, formData.pickupTime),
         delivery_location: formData.deliveryLocation,
-        delivery_datetime: `${formData.deliveryDate}T${formData.deliveryTime}:00`,
+        delivery_datetime: buildDateTime(formData.deliveryDate, formData.deliveryTime),
+        delivery_time_slot: formData.deliveryTime,
         cargo_type: formData.cargoType.toLowerCase() as string,
         items: parseInt(formData.cargoQuantity),
         special_requirements: buildLegacyJobSpecialRequirements({
@@ -1053,6 +1057,7 @@ export default function JobsPage() {
                           }}
                         >
                           <option value="">Select time</option>
+                          <option value="ASAP">ASAP</option>
                           {generateTimeOptions().map((time) => (
                             <option key={time} value={time}>
                               {time}
@@ -1129,7 +1134,10 @@ export default function JobsPage() {
                         </label>
                         <select
                           value={formData.deliveryTime}
-                          onChange={(e) => setFormData({ ...formData, deliveryTime: e.target.value })}
+                          onChange={(e) => {
+                            setFormData({ ...formData, deliveryTime: e.target.value });
+                            setFormErrors(({ deliveryTime: _deliveryTime, ...rest }) => rest);
+                          }}
                           style={{
                             width: '100%',
                             padding: '0.75rem',
