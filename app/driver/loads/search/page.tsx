@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
+import { getLoadDetailSummary } from '../../../../lib/loadPostingDetails';
 
 type ExchangeLoad = {
   id: string;
@@ -15,11 +16,32 @@ type ExchangeLoad = {
   pickup_location: string | null;
   pickup_postcode: string | null;
   pickup_datetime: string | null;
+  pickup_time_slot: string | null;
   delivery_location: string | null;
   delivery_postcode: string | null;
   delivery_datetime: string | null;
+  delivery_time_slot: string | null;
   weight_kg: number | null;
   pallets: number | null;
+  collection_contact_name: string | null;
+  collection_contact_phone: string | null;
+  delivery_contact_name: string | null;
+  delivery_contact_phone: string | null;
+  customer_reference: string | null;
+  purchase_order_number: string | null;
+  booking_reference: string | null;
+  requested_vehicle_label: string | null;
+  requested_cargo_label: string | null;
+  cargo_value_gbp: number | null;
+  pallet_type: string | null;
+  pallet_stackable: boolean | null;
+  collection_forklift_available: boolean | null;
+  collection_tail_lift_required: boolean | null;
+  collection_handball_required: boolean | null;
+  delivery_forklift_available: boolean | null;
+  delivery_tail_lift_required: boolean | null;
+  delivery_handball_required: boolean | null;
+  document_checklist: string[] | null;
   budget_amount: number | null;
   is_fixed_price: boolean;
   currency: string;
@@ -38,19 +60,36 @@ type SearchFilters = {
   maxBudget: string;
 };
 
-const VEHICLE_TYPES = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 const VEHICLE_LABELS: Record<string, string> = {
-  bicycle: 'Bicycle',
-  motorbike: 'Motorbike',
-  car: 'Car',
   van_small: 'Small Van',
   van_large: 'Large Van',
-  luton: 'Luton Van',
+  swb_van: 'SWB Van',
+  mwb_van: 'MWB Van',
+  lwb_van: 'LWB Van',
+  xlwb_van: 'XLWB Van',
+  luton: 'Luton',
+  luton_tail_lift: 'Luton Tail Lift',
+  curtainside_van: 'Curtainside Van',
+  truck_3_5t: '3.5T',
+  truck_5t: '5T',
   truck_7_5t: '7.5t Truck',
+  truck_12t: '12T',
   truck_18t: '18t Truck',
+  truck_26t: '26T',
   artic: 'Artic',
+  artic_44t_curtainsider: 'Artic 44T Curtainsider',
+  artic_44t_box_trailer: 'Artic 44T Box Trailer',
+  artic_44t_flatbed: 'Artic 44T Flatbed',
+  artic_44t_refrigerated: 'Artic 44T Refrigerated',
+  artic_44t_double_deck: 'Artic 44T Double Deck',
+  hiab: 'Hiab',
+  moffett: 'Moffett',
+  adr_vehicle: 'ADR Vehicle',
+  refrigerated_vehicle: 'Refrigerated Vehicle',
+  temperature_controlled_vehicle: 'Temperature Controlled Vehicle',
 };
-const CARGO_TYPES = ['documents', 'packages', 'pallets', 'furniture', 'equipment', 'other'];
+const VEHICLE_TYPES = Object.keys(VEHICLE_LABELS);
+const CARGO_TYPES = ['documents', 'parcels', 'pallets', 'machinery', 'furniture', 'retail_goods', 'mixed_freight', 'adr_goods', 'temperature_controlled_freight', 'other'];
 const RESULT_PAGE_SIZE = 12;
 const DEFAULT_FILTERS: SearchFilters = {
   pickupSearch: '',
@@ -124,7 +163,7 @@ export default function SearchLoadsPage() {
 
     let query = supabase
       .from('jobs')
-      .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, weight_kg, pallets, budget_amount, is_fixed_price, currency, load_details, exchange_posted_at, companies(name)')
+      .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, weight_kg, pallets, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, budget_amount, is_fixed_price, currency, load_details, special_requirements, access_restrictions, exchange_posted_at, companies(name)')
       .not('exchange_posted_at', 'is', null)
       .is('awarded_carrier_company_id', null)
       .in('status', ['posted'])
@@ -293,12 +332,12 @@ export default function SearchLoadsPage() {
                       <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>{normalizeCompany(load.companies)?.name ?? 'Unknown shipper'}</span>
                       {load.vehicle_type && (
                         <span style={{ marginLeft: '0.45rem', fontSize: '0.7rem', backgroundColor: '#e0f2fe', color: '#075985', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
-                          {VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type}
+                          {load.requested_vehicle_label ?? VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type}
                         </span>
                       )}
                       {load.cargo_type && (
                         <span style={{ marginLeft: '0.35rem', fontSize: '0.7rem', backgroundColor: '#f3e8ff', color: '#6d28d9', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
-                          {load.cargo_type}
+                          {load.requested_cargo_label ?? load.cargo_type}
                         </span>
                       )}
                     </div>
@@ -333,6 +372,17 @@ export default function SearchLoadsPage() {
                   >
                     View on load board
                   </button>
+
+                  {getLoadDetailSummary(load, 5).length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '0.4rem', marginTop: '0.65rem' }}>
+                      {getLoadDetailSummary(load, 5).map((item) => (
+                        <div key={`${load.id}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '0.4rem 0.5rem' }}>
+                          <div style={{ fontSize: '0.64rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
+                          <div style={{ fontSize: '0.76rem', color: '#0f172a', fontWeight: 650 }}>{item.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   <div style={{ marginTop: '0.45rem', fontSize: '0.7rem', color: '#94a3b8' }}>Posted: {fmtDate(load.exchange_posted_at)}</div>
                 </div>
