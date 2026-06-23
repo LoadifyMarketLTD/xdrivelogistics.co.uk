@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
@@ -163,17 +163,12 @@ export default function AvailableLoadsPage() {
         .order('exchange_posted_at', { ascending: false })
         .limit(LOAD_FETCH_LIMIT);
 
-      const bidsPromise = companyId
+      const bidsPromise = userId
         ? supabase
             .from('job_bids')
             .select('job_id, status, bid_price_gbp, amount')
-            .eq('company_id', companyId)
-        : userId
-          ? supabase
-              .from('job_bids')
-              .select('job_id, status, bid_price_gbp, amount')
-              .eq('bidder_user_id', userId)
-          : Promise.resolve({ data: [], error: null });
+            .eq('bidder_user_id', userId)
+        : Promise.resolve({ data: [], error: null });
 
       const [loadsRes, bidsRes] = await Promise.all([loadsPromise, bidsPromise]);
 
@@ -322,7 +317,7 @@ export default function AvailableLoadsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell subtitle="Browse open freight loads on the exchange. Filters stay client-side so the board stays responsive while you type.">
+      <DriverWorkspaceShell subtitle="Available work, nearby loads and simple quote actions.">
         {successMsg && (
           <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', borderRadius: '8px', padding: '0.7rem 0.9rem', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem' }}>
             {successMsg}
@@ -339,9 +334,9 @@ export default function AvailableLoadsPage() {
             <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>Available Loads</h2>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#64748b' }}>
               {loading
-                ? 'Loading exchange board…'
+                ? 'Loading exchange boardâ€¦'
                 : `${filteredLoads.length} load${filteredLoads.length !== 1 ? 's' : ''} ready to review`}
-              {refreshing && ' · Refreshing…'}
+              {refreshing && ' Â· Refreshingâ€¦'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -349,14 +344,14 @@ export default function AvailableLoadsPage() {
               onClick={() => router.push('/driver/loads/search')}
               style={{ padding: '0.55rem 1rem', backgroundColor: '#f1f5f9', border: '1px solid #d7e0ea', borderRadius: '8px', fontSize: '0.83rem', fontWeight: 600, cursor: 'pointer', color: '#0f172a' }}
             >
-              Open search page
+              Search
             </button>
             <button
               onClick={() => void fetchLoads({ background: !loading })}
               disabled={loading || refreshing}
               style={{ padding: '0.55rem 1rem', backgroundColor: '#1d4ed8', border: 'none', borderRadius: '8px', fontSize: '0.83rem', fontWeight: 600, cursor: loading || refreshing ? 'not-allowed' : 'pointer', color: '#fff', opacity: loading || refreshing ? 0.7 : 1 }}
             >
-              {refreshing ? 'Refreshing…' : 'Refresh'}
+              {refreshing ? 'Refreshingâ€¦' : 'Refresh'}
             </button>
           </div>
         </div>
@@ -394,14 +389,14 @@ export default function AvailableLoadsPage() {
         </div>
 
         {filtersPending && !loading && (
-          <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.75rem' }}>Applying filters…</div>
+          <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.75rem' }}>Applying filtersâ€¦</div>
         )}
 
         {loading ? (
-          <div style={{ ...card, color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading exchange loads…</div>
+          <div style={{ ...card, color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading exchange loadsâ€¦</div>
         ) : showNoExchangeLoads ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ“­</div>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>No exchange loads available right now</div>
             <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.9rem' }}>
               Try refreshing in a moment or use the search page when new loads are posted.
@@ -415,7 +410,7 @@ export default function AvailableLoadsPage() {
           </div>
         ) : showNoFilteredLoads ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ“‹</div>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>No loads match your active filters</div>
             <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.9rem' }}>
               Broaden the vehicle, date, postcode, or cargo filters to see more live loads.
@@ -454,7 +449,7 @@ export default function AvailableLoadsPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {load.budget_amount != null && (
                         <span style={{ fontSize: '1.1rem', fontWeight: 800, color: load.is_fixed_price ? '#15803d' : '#0f172a' }}>
-                          £{load.budget_amount.toFixed(2)}
+                          Â£{load.budget_amount.toFixed(2)}
                           {!load.is_fixed_price && <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#64748b' }}> budget</span>}
                         </span>
                       )}
@@ -503,13 +498,13 @@ export default function AvailableLoadsPage() {
                         step="0.01"
                         value={bidAmount}
                         onChange={(e) => setBidAmount(e.target.value)}
-                        placeholder="Your price (£)"
+                        placeholder="Your price (Â£)"
                         style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
                       />
                       <textarea
                         value={bidMessage}
                         onChange={(e) => setBidMessage(e.target.value)}
-                        placeholder="Optional message to shipper…"
+                        placeholder="Optional message to shipperâ€¦"
                         rows={2}
                         style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.85rem', width: '100%', resize: 'vertical' }}
                       />
@@ -519,7 +514,7 @@ export default function AvailableLoadsPage() {
                           disabled={bidLoading || !bidAmount}
                           style={{ flex: 1, minWidth: '180px', padding: '0.6rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: bidLoading ? 'not-allowed' : 'pointer', opacity: bidLoading ? 0.6 : 1 }}
                         >
-                          {bidLoading ? 'Submitting…' : 'Submit Quote'}
+                          {bidLoading ? 'Submittingâ€¦' : 'Submit Quote'}
                         </button>
                         <button
                           onClick={() => {
@@ -547,7 +542,7 @@ export default function AvailableLoadsPage() {
                         </button>
                       ) : (
                         <span style={{ fontSize: '0.82rem', color: '#6d28d9', fontWeight: 600 }}>
-                          Quote submitted: £{load.myBidAmount?.toFixed(2) ?? '—'}
+                          Quote submitted: Â£{load.myBidAmount?.toFixed(2) ?? 'â€”'}
                         </span>
                       )}
                       <button

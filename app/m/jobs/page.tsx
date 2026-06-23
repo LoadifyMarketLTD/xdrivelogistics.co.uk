@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 
 export default function MobileJobsPage() {
-  redirect('/admin/jobs');
+  redirect('/driver/jobs');
 }
