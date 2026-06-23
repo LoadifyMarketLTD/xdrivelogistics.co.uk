@@ -90,7 +90,13 @@ export default function LoginPage() {
             src={heroImageSrc}
             alt="XDrive Logistics hero"
             className="login-hero-image"
-            onError={() => setHeroImageSrc('/xdrive-login-banner.png')}
+            onError={(event) => {
+              if (heroImageSrc !== '/hero-dispatch-control.webp') {
+                setHeroImageSrc('/hero-dispatch-control.webp');
+              } else {
+                event.currentTarget.style.display = 'none';
+              }
+            }}
           />
         </section>
         <aside className="login-form-panel">
