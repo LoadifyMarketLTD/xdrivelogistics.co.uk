@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -6,7 +6,7 @@ import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type BidRow = {
   id: string;
@@ -30,9 +30,9 @@ type BidRow = {
   } | null;
 };
 
-type TabId = 'all' | 'submitted' | 'accepted' | 'rejected';
+type TabId = 'submitted' | 'accepted' | 'rejected';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
   submitted: { bg: '#fef9c3', color: '#92400e' },
@@ -42,7 +42,7 @@ const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
 };
 
 function fmtDate(value: string | null) {
-  if (!value) return '—';
+  if (!value) return 'â€”';
   try {
     return new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   } catch { return value; }
@@ -57,26 +57,24 @@ const card: CSSProperties = {
 };
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: 'all',       label: 'All Quotes' },
   { id: 'submitted', label: 'Submitted' },
   { id: 'accepted',  label: 'Accepted' },
   { id: 'rejected',  label: 'Unsuccessful' },
 ];
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function MyQuotesPage() {
   const { user } = useAuth();
-  const companyId = user?.companyId ?? null;
   const userId = user?.id ?? null;
 
   const [bids, setBids] = useState<BidRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<TabId>('all');
+  const [activeTab, setActiveTab] = useState<TabId>('submitted');
 
   const fetchBids = useCallback(async () => {
-    if (!isSupabaseConfigured || (!companyId && !userId)) {
+    if (!isSupabaseConfigured || !userId) {
       setLoading(false);
       return;
     }
@@ -92,7 +90,7 @@ export default function MyQuotesPage() {
       .order('created_at', { ascending: false })
       .limit(100);
 
-    query = companyId ? query.eq('company_id', companyId) : query.eq('bidder_user_id', userId as string);
+    query = query.eq('bidder_user_id', userId);
 
     const { data, error: fetchError } = await query;
 
@@ -116,30 +114,29 @@ export default function MyQuotesPage() {
       setBids(normalized);
     }
     setLoading(false);
-  }, [companyId, userId]);
+  }, [userId]);
 
   useEffect(() => {
     void fetchBids();
   }, [fetchBids]);
 
   const handleWithdrawBid = async (bidId: string) => {
-    if (!isSupabaseConfigured || (!companyId && !userId)) return;
+    if (!isSupabaseConfigured || !userId) return;
     let query = supabase
       .from('job_bids')
       .update({ status: 'withdrawn' })
       .eq('id', bidId);
 
-    query = companyId ? query.eq('company_id', companyId) : query.eq('bidder_user_id', userId as string);
+    query = query.eq('bidder_user_id', userId);
 
     const { error: withdrawError } = await query;
     if (!withdrawError) void fetchBids();
     else setError(`Failed to withdraw bid: ${withdrawError.message}`);
   };
 
-  const visibleBids = bids.filter((b) => activeTab === 'all' || b.status === activeTab);
+  const visibleBids = bids.filter((b) => activeTab === 'accepted' ? b.status === 'accepted' : activeTab === 'rejected' ? ['rejected', 'withdrawn'].includes(b.status) : b.status === 'submitted');
 
   const counts = {
-    all:       bids.length,
     submitted: bids.filter((b) => b.status === 'submitted').length,
     accepted:  bids.filter((b) => b.status === 'accepted').length,
     rejected:  bids.filter((b) => b.status === 'rejected').length,
@@ -148,7 +145,7 @@ export default function MyQuotesPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Track all quotes you've submitted on available loads."
+        subtitle="Submitted, won and unsuccessful quotes only."
       >
         <h2 style={{ margin: '0 0 1rem', fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>My Quotes</h2>
 
@@ -184,15 +181,13 @@ export default function MyQuotesPage() {
         )}
 
         {loading ? (
-          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading quotes…</div>
+          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading quotesâ€¦</div>
         ) : visibleBids.length === 0 ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💬</div>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ’¬</div>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>No quotes here</div>
             <div style={{ fontSize: '0.84rem', color: '#64748b' }}>
-              {activeTab === 'all'
-                ? 'You haven\'t submitted any quotes yet. Browse Available Loads to get started.'
-                : `No ${activeTab} quotes found.`}
+              No {activeTab} quotes found.
             </div>
           </div>
         ) : (
@@ -214,7 +209,7 @@ export default function MyQuotesPage() {
                     </div>
                     {bidPrice != null && (
                       <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
-                        £{bidPrice.toFixed(2)} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>your quote</span>
+                        Â£{bidPrice.toFixed(2)} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>your quote</span>
                       </span>
                     )}
                   </div>
@@ -224,7 +219,7 @@ export default function MyQuotesPage() {
                       <div>
                         <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Route</div>
                         <div style={{ fontSize: '0.83rem', color: '#0f172a' }}>
-                          {job.pickup_location ?? '—'} → {job.delivery_location ?? '—'}
+                          {job.pickup_location ?? 'â€”'} â†’ {job.delivery_location ?? 'â€”'}
                         </div>
                       </div>
                       <div>
@@ -234,7 +229,7 @@ export default function MyQuotesPage() {
                       {job.budget_amount != null && (
                         <div>
                           <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Budget</div>
-                          <div style={{ fontSize: '0.83rem', color: '#0f172a' }}>£{job.budget_amount.toFixed(2)}</div>
+                          <div style={{ fontSize: '0.83rem', color: '#0f172a' }}>Â£{job.budget_amount.toFixed(2)}</div>
                         </div>
                       )}
                     </div>

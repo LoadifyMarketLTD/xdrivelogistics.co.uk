@@ -1,74 +1,49 @@
-'use client';
+﻿'use client';
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
+import { Camera, CheckCircle2, Clock3, MapPin, Navigation, PackageCheck, RefreshCw, Truck } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
-type TabId = 'loads' | 'bids' | 'won';
-
-type CompanyJoin = { name: string } | Array<{ name: string }> | null | undefined;
-
-type ExchangeLoad = {
+type DriverRow = {
   id: string;
-  company_id: string;
+  display_name: string | null;
+  availability_status: string | null;
+  status: string | null;
+};
+
+type JobRow = {
+  id: string;
   status: string;
-  vehicle_type: string | null;
-  cargo_type: string | null;
   pickup_location: string | null;
   pickup_postcode: string | null;
   pickup_datetime: string | null;
   delivery_location: string | null;
   delivery_postcode: string | null;
   delivery_datetime: string | null;
-  weight_kg: number | null;
-  pallets: number | null;
-  budget_amount: number | null;
-  currency: string;
-  load_details: string | null;
-  exchange_posted_at: string | null;
-  companies: CompanyJoin;
-};
-
-type BidRow = {
-  id: string;
-  job_id: string;
-  amount: number | null;
-  bid_price_gbp: number | null;
-  currency: string;
-  status: string;
-  created_at: string;
-  jobs:
-    | {
-        id: string;
-        pickup_location: string | null;
-        delivery_location: string | null;
-        pickup_datetime: string | null;
-        vehicle_type: string | null;
-        companies: CompanyJoin;
-      }
-    | Array<{
-        id: string;
-        pickup_location: string | null;
-        delivery_location: string | null;
-        pickup_datetime: string | null;
-        vehicle_type: string | null;
-        companies: CompanyJoin;
-      }>
-    | null;
-};
-
-type WonJob = {
-  id: string;
-  pickup_location: string | null;
-  delivery_location: string | null;
-  pickup_datetime: string | null;
   vehicle_type: string | null;
-  budget_amount: number | null;
-  currency: string;
-  companies: CompanyJoin;
+  cargo_type: string | null;
+  load_details: string | null;
+  assigned_driver_id: string | null;
+  collection_photo_url: string | null;
+  delivery_photos: string[] | null;
+  status_history: Array<{ status: string; timestamp: string }> | null;
+};
+
+const ACTIVE_STATUSES = ['allocated', 'collected', 'in_transit'];
+const TODAY_STATUSES = ['allocated', 'collected', 'in_transit', 'delivered'];
+
+const STATUS_LABELS: Record<string, string> = {
+  allocated: 'Ready for pickup',
+  collected: 'Loaded',
+  in_transit: 'On route',
+  delivered: 'Delivered',
+  driver_en_route: 'On route',
+  arrived_pickup: 'Arrived pickup',
+  arrived_delivery: 'Arrived delivery',
 };
 
 const VEHICLE_LABELS: Record<string, string> = {
@@ -83,525 +58,231 @@ const VEHICLE_LABELS: Record<string, string> = {
   artic: 'Artic',
 };
 
-const fieldLabelStyle: CSSProperties = {
-  display: 'block',
-  fontSize: '0.75rem',
-  fontWeight: 700,
-  color: '#94a3b8',
-  letterSpacing: '0.04em',
-  marginBottom: '0.35rem',
-  textTransform: 'uppercase',
-};
-
-const fieldStyle: CSSProperties = {
-  width: '100%',
-  border: '1px solid #cbd5e1',
-  borderRadius: '6px',
-  padding: '0.6rem 0.65rem',
-  background: '#fff',
-  color: '#0f172a',
-  fontSize: '0.82rem',
-};
-
-function normalizeCompany(company: CompanyJoin): { name: string } | null {
-  if (!company) return null;
-  return Array.isArray(company) ? (company[0] ?? null) : company;
-}
-
-function normalizeBidJob(job: BidRow['jobs']) {
-  if (!job) return null;
-  const first = Array.isArray(job) ? (job[0] ?? null) : job;
-  if (!first) return null;
-  return { ...first, companies: normalizeCompany(first.companies) };
-}
-
-function formatDate(value: string | null): string {
-  if (!value) return '-';
+function fmtTime(value: string | null) {
+  if (!value) return 'TBC';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  if (Number.isNaN(date.getTime())) return 'TBC';
+  return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatCurrency(amount: number | null, currency = 'GBP'): string {
-  if (typeof amount !== 'number') return '-';
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: currency || 'GBP',
-    maximumFractionDigits: 2,
-  }).format(amount);
+function fmtDate(value: string | null) {
+  if (!value) return 'TBC';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'TBC';
+  return date.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
 }
 
-export default function DriverJobsPage() {
+function sameDay(value: string | null, today = new Date()) {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
+}
+
+function hasEvent(job: JobRow | null, event: string) {
+  return Array.isArray(job?.status_history) && job.status_history.some((entry) => entry.status === event);
+}
+
+export default function DriverHomePage() {
   const router = useRouter();
   const { user } = useAuth();
+  const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
 
-  const companyId = user?.companyId ?? null;
-  const userId = user?.id ?? null;
-
-  const [tab, setTab] = useState<TabId>('loads');
-  const [loading, setLoading] = useState(false);
+  const [driver, setDriver] = useState<DriverRow | null>(null);
+  const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
-  const [pickupPostcode, setPickupPostcode] = useState('');
-  const [deliveryCountry, setDeliveryCountry] = useState('United Kingdom');
-  const [vehicleFilter, setVehicleFilter] = useState('any');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [cargoType, setCargoType] = useState('');
-  const [weightMin, setWeightMin] = useState('0');
-  const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'price_desc' | 'price_asc'>('date_desc');
-
-  const [loads, setLoads] = useState<Array<ExchangeLoad & { companies: { name: string } | null }>>([]);
-  const [bids, setBids] = useState<Array<BidRow & { jobs: ReturnType<typeof normalizeBidJob> }>>([]);
-  const [wonJobs, setWonJobs] = useState<Array<WonJob & { companies: { name: string } | null }>>([]);
-  const [bidLoadId, setBidLoadId] = useState<string | null>(null);
-  const [bidAmount, setBidAmount] = useState('');
-  const [bidMessage, setBidMessage] = useState('');
-  const [bidLoading, setBidLoading] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
-
-  const fetchBoard = useCallback(async () => {
-    if (!isSupabaseConfigured) return;
-
+  const loadHome = useCallback(async () => {
+    if (!isSupabaseConfigured || !driverId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
 
-    let loadsQuery = supabase
-      .from('jobs')
-      .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, weight_kg, pallets, budget_amount, currency, load_details, exchange_posted_at, companies(name)')
-      .eq('exchange_visibility', 'exchange')
-      .eq('status', 'posted')
-      .is('awarded_carrier_company_id', null)
-      .order('exchange_posted_at', { ascending: false })
-      .limit(100);
-
-    // Exclude own company's loads when companyId is known
-    if (companyId) loadsQuery = loadsQuery.neq('company_id', companyId);
-
-    const { data: loadsData, error: loadsError } = await loadsQuery;
-
-    if (loadsError) {
-      setError(`Failed to load board: ${loadsError.message}`);
-      setLoading(false);
-      return;
-    }
-
-    const normalizedLoads = ((loadsData ?? []) as ExchangeLoad[]).map((item) => ({
-      ...item,
-      companies: normalizeCompany(item.companies),
-    }));
-
-    const pickupNeedle = pickupPostcode.trim().toLowerCase();
-    const deliveryNeedle = deliveryCountry.trim().toLowerCase();
-    const cargoNeedle = cargoType.trim().toLowerCase();
-    const minWeight = Number.parseFloat(weightMin || '0');
-    const fromDate = dateFrom ? new Date(dateFrom) : null;
-    const toDate = dateTo ? new Date(dateTo) : null;
-
-    const filteredLoads = normalizedLoads
-      .filter((load) => {
-        if (pickupNeedle && !(load.pickup_postcode ?? '').toLowerCase().includes(pickupNeedle)) return false;
-        const deliveryTarget = `${load.delivery_location ?? ''} ${load.delivery_postcode ?? ''}`.toLowerCase();
-        if (deliveryNeedle && !deliveryTarget.includes(deliveryNeedle)) return false;
-        if (vehicleFilter !== 'any' && load.vehicle_type !== vehicleFilter) return false;
-        if (cargoNeedle) {
-          const cargoTarget = `${load.cargo_type ?? ''} ${load.load_details ?? ''}`.toLowerCase();
-          if (!cargoTarget.includes(cargoNeedle)) return false;
-        }
-        if (!Number.isNaN(minWeight) && minWeight > 0 && (load.weight_kg ?? 0) < minWeight) return false;
-        const loadDate = load.pickup_datetime ? new Date(load.pickup_datetime) : null;
-        if (fromDate && loadDate && loadDate < fromDate) return false;
-        if (toDate && loadDate && loadDate > toDate) return false;
-        return true;
-      })
-      .sort((a, b) => {
-        if (sortBy === 'date_desc') {
-          return new Date(b.pickup_datetime ?? b.exchange_posted_at ?? 0).getTime() - new Date(a.pickup_datetime ?? a.exchange_posted_at ?? 0).getTime();
-        }
-        if (sortBy === 'date_asc') {
-          return new Date(a.pickup_datetime ?? a.exchange_posted_at ?? 0).getTime() - new Date(b.pickup_datetime ?? b.exchange_posted_at ?? 0).getTime();
-        }
-        if (sortBy === 'price_desc') return (b.budget_amount ?? 0) - (a.budget_amount ?? 0);
-        return (a.budget_amount ?? 0) - (b.budget_amount ?? 0);
-      });
-
-    setLoads(filteredLoads);
-
-    let bidsQuery = supabase
-      .from('job_bids')
-      .select('id, job_id, amount, bid_price_gbp, currency, status, created_at, jobs(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, companies(name))')
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (companyId) {
-      bidsQuery = bidsQuery.eq('company_id', companyId);
-    } else if (userId) {
-      bidsQuery = bidsQuery.eq('bidder_user_id', userId);
-    }
-
-    const { data: bidsData, error: bidsError } = await bidsQuery;
-
-    if (bidsError) {
-      setError(`Failed to load bids: ${bidsError.message}`);
-      setLoading(false);
-      return;
-    }
-
-    setBids(
-      ((bidsData ?? []) as BidRow[]).map((item) => ({
-        ...item,
-        jobs: normalizeBidJob(item.jobs),
-      })),
-    );
-
-    if (companyId) {
-      console.log('DRIVER JOBS DEBUG', { companyId, userId });
-      const { data: wonData, error: wonError } = await supabase
+    const [driverRes, jobsRes] = await Promise.all([
+      supabase
+        .from('drivers')
+        .select('id, display_name, availability_status, status')
+        .eq('id', driverId)
+        .maybeSingle(),
+      supabase
         .from('jobs')
-        .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, budget_amount, currency, companies(name)')
-        .eq('awarded_carrier_company_id', companyId)
-        .order('created_at', { ascending: false })
-        .limit(100);
+        .select('id, status, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, vehicle_type, cargo_type, load_details, assigned_driver_id, collection_photo_url, delivery_photos, status_history')
+        .eq('assigned_driver_id', driverId)
+        .in('status', TODAY_STATUSES)
+        .order('pickup_datetime', { ascending: true })
+        .limit(20),
+    ]);
 
-      if (wonError) {
-        setError(`Failed to load won work: ${wonError.message}`);
-        setLoading(false);
-        return;
-      }
+    if (driverRes.error) setError(`Driver profile could not be loaded: ${driverRes.error.message}`);
+    else setDriver(driverRes.data as DriverRow | null);
 
-      setWonJobs(
-        ((wonData ?? []) as WonJob[]).map((item) => ({
-          ...item,
-          companies: normalizeCompany(item.companies),
-        })),
-      );
-    } else if (userId) {
-      const { data: wonData, error: wonError } = await supabase
-        .from('job_bids')
-        .select(`
-          jobs!inner(
-            id,
-            pickup_location,
-            delivery_location,
-            pickup_datetime,
-            vehicle_type,
-            budget_amount,
-            currency,
-            companies(name)
-          )
-        `)
-        .eq('bidder_user_id', userId)
-        .eq('status', 'accepted')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (wonError) {
-        setError(`Failed to load won work: ${wonError.message}`);
-        setLoading(false);
-        return;
-      }
-
-      setWonJobs(
-        ((wonData ?? []) as Array<{ jobs: WonJob | WonJob[] | null }>)
-          .map((item) => (Array.isArray(item.jobs) ? item.jobs[0] ?? null : item.jobs))
-          .filter((item): item is WonJob => Boolean(item))
-          .map((item) => ({
-            ...item,
-            companies: normalizeCompany(item.companies),
-          })),
-      );
+    if (jobsRes.error) {
+      setError(`Jobs could not be loaded: ${jobsRes.error.message}`);
+      setJobs([]);
     } else {
-      setWonJobs([]);
+      setJobs((jobsRes.data ?? []) as JobRow[]);
     }
 
     setLoading(false);
-  }, [cargoType, companyId, dateFrom, dateTo, deliveryCountry, pickupPostcode, sortBy, userId, vehicleFilter, weightMin]);
+  }, [driverId]);
 
   useEffect(() => {
-    void fetchBoard();
-  }, [fetchBoard]);
+    void loadHome();
+  }, [loadHome]);
 
-  const handleBidSubmit = async (loadId: string) => {
-    if (!userId || !bidAmount || bidLoading || !isSupabaseConfigured) return;
-    const amount = Number.parseFloat(bidAmount);
-    if (Number.isNaN(amount) || amount <= 0) {
-      setError('Enter a valid bid amount.');
-      return;
-    }
+  const activeJob = useMemo(
+    () => jobs.find((job) => ACTIVE_STATUSES.includes(job.status)) ?? null,
+    [jobs]
+  );
 
-    setBidLoading(true);
+  const todaysJobs = useMemo(
+    () => jobs.filter((job) => sameDay(job.pickup_datetime) || sameDay(job.delivery_datetime) || ACTIVE_STATUSES.includes(job.status)),
+    [jobs]
+  );
+
+  const updateJob = async (job: JobRow, nextStatus: string, eventOnly = false) => {
+    if (!driverId || actionLoading) return;
+    setActionLoading(true);
     setError('');
+    setMessage('');
 
-    const { error: bidError } = await supabase.from('job_bids').insert({
-      job_id: loadId,
-      company_id: companyId,
-      bidder_user_id: userId,
-      bidder_driver_id: user?.driverId ?? null,
-      bid_price_gbp: amount,
-      amount,
-      currency: 'GBP',
-      message: bidMessage || null,
-      status: 'submitted',
-    });
+    const history = Array.isArray(job.status_history) ? job.status_history : [];
+    const nextHistory = [...history, { status: nextStatus, timestamp: new Date().toISOString() }];
+    const update = eventOnly ? { status_history: nextHistory } : { status: nextStatus, status_history: nextHistory };
 
-    setBidLoading(false);
+    const { error: updateError } = await supabase
+      .from('jobs')
+      .update(update)
+      .eq('id', job.id)
+      .eq('assigned_driver_id', driverId);
 
-    if (bidError) {
-      setError(`Failed to submit bid: ${bidError.message}`);
-      return;
+    if (updateError) {
+      setError(updateError.message);
+    } else {
+      setMessage(`${STATUS_LABELS[nextStatus] ?? nextStatus} recorded`);
+      await loadHome();
+      window.setTimeout(() => setMessage(''), 3000);
     }
-
-    setBidLoadId(null);
-    setBidAmount('');
-    setBidMessage('');
-    setSuccessMsg('Quote submitted successfully.');
-    window.setTimeout(() => setSuccessMsg(''), 4000);
-    await fetchBoard();
+    setActionLoading(false);
   };
 
-  const tabs = useMemo(
-    () => [
-      { id: 'loads' as const, label: 'All Live', count: loads.length },
-      { id: 'bids' as const, label: 'My Bids', count: bids.length },
-      { id: 'won' as const, label: 'Won Work', count: wonJobs.length },
-    ],
-    [bids.length, loads.length, wonJobs.length],
-  );
+  const driverStatus = driver?.availability_status ?? driver?.status ?? 'active';
+  const vehicleLabel = activeJob?.vehicle_type ? (VEHICLE_LABELS[activeJob.vehicle_type] ?? activeJob.vehicle_type) : 'Not assigned';
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell subtitle="Search live exchange loads, review your quotes, and open won work from one driver workspace.">
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.9rem', alignItems: 'flex-start' }}>
-          <aside style={{ flex: '1 1 220px', maxWidth: '260px', background: '#f8fafc', border: '1px solid #dbe3ee', borderRadius: '10px', padding: '0.95rem', position: 'sticky', top: '0.75rem' }}>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.9rem', fontSize: '1.35rem' }}>Search Loads</div>
+      <DriverWorkspaceShell driverName={driver?.display_name ?? undefined} availabilityLabel={driverStatus}>
+        <section style={{ display: 'grid', gap: '0.85rem' }}>
+          {error && <Notice tone="error" text={error} />}
+          {message && <Notice tone="success" text={message} />}
 
-            <label style={fieldLabelStyle}>From:</label>
-            <input value={pickupPostcode} onChange={(e) => setPickupPostcode(e.target.value)} placeholder="Pickup postcode" style={{ ...fieldStyle, marginBottom: '0.7rem' }} />
-
-            <label style={fieldLabelStyle}>To:</label>
-            <input value={deliveryCountry} onChange={(e) => setDeliveryCountry(e.target.value)} placeholder="United Kingdom" style={{ ...fieldStyle, marginBottom: '0.7rem' }} />
-
-            <label style={fieldLabelStyle}>Vehicle size:</label>
-            <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={{ ...fieldStyle, marginBottom: '0.7rem' }}>
-              <option value="any">Any</option>
-              {Object.entries(VEHICLE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            <label style={fieldLabelStyle}>Date from:</label>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ ...fieldStyle, marginBottom: '0.7rem' }} />
-
-            <label style={fieldLabelStyle}>Date to:</label>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ ...fieldStyle, marginBottom: '0.7rem' }} />
-
-            <label style={fieldLabelStyle}>Freight type:</label>
-            <input value={cargoType} onChange={(e) => setCargoType(e.target.value)} placeholder="e.g. pallets" style={{ ...fieldStyle, marginBottom: '0.7rem' }} />
-
-            <label style={fieldLabelStyle}>Min weight (kg):</label>
-            <input type="number" value={weightMin} min="0" onChange={(e) => setWeightMin(e.target.value)} style={{ ...fieldStyle, marginBottom: '0.7rem' }} />
-
-            <label style={fieldLabelStyle}>Sort:</label>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} style={{ ...fieldStyle, marginBottom: '1rem' }}>
-              <option value="date_desc">Date (newest)</option>
-              <option value="date_asc">Date (oldest)</option>
-              <option value="price_desc">Price (high)</option>
-              <option value="price_asc">Price (low)</option>
-            </select>
-
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button onClick={() => void fetchBoard()} style={{ flex: 1, border: 'none', background: '#16a34a', color: '#fff', borderRadius: '7px', fontWeight: 700, padding: '0.7rem 0.9rem', cursor: 'pointer' }}>
-                Search
-              </button>
-              <button
-                onClick={() => {
-                  setPickupPostcode('');
-                  setDeliveryCountry('United Kingdom');
-                  setVehicleFilter('any');
-                  setDateFrom('');
-                  setDateTo('');
-                  setCargoType('');
-                  setWeightMin('0');
-                  setSortBy('date_desc');
-                }}
-                style={{ border: '1px solid #cbd5e1', background: '#fff', color: '#64748b', borderRadius: '7px', fontWeight: 600, padding: '0.7rem 0.9rem', cursor: 'pointer' }}
-              >
-                Clear
-              </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+            <div>
+              <p style={{ margin: 0, color: '#facc15', fontSize: '0.72rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Active work</p>
+              <h1 style={{ margin: '0.1rem 0 0', color: '#f8fafc', fontSize: '1.45rem', lineHeight: 1.1 }}>What is next?</h1>
             </div>
-          </aside>
+            <button onClick={() => void loadHome()} disabled={loading} aria-label="Refresh" style={{ width: '44px', height: '44px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', background: '#111d2f', color: '#facc15', display: 'grid', placeItems: 'center', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.55 : 1 }}>
+              <RefreshCw size={20} />
+            </button>
+          </div>
 
-          <section style={{ flex: '999 1 520px', minWidth: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #dbe3ee', marginBottom: '0.8rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                {tabs.map((entry) => {
-                  const active = tab === entry.id;
-                  return (
-                    <button
-                      key={entry.id}
-                      onClick={() => setTab(entry.id)}
-                      style={{
-                        border: 'none',
-                        borderBottom: active ? '2px solid #2563eb' : '2px solid transparent',
-                        background: 'none',
-                        color: active ? '#2563eb' : '#64748b',
-                        fontWeight: 700,
-                        fontSize: '0.95rem',
-                        padding: '0.7rem 0.9rem',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {entry.label}
-                    </button>
-                  );
-                })}
+          <div style={{ borderRadius: '24px', border: '1px solid rgba(250,204,21,0.22)', background: activeJob ? 'linear-gradient(145deg, #18243a, #101b2d)' : '#111d2f', padding: '1rem', boxShadow: '0 18px 40px rgba(0,0,0,0.28)' }}>
+            {loading ? (
+              <div style={{ color: '#94a3b8', padding: '2rem 0', textAlign: 'center', fontWeight: 700 }}>Loading work</div>
+            ) : activeJob ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '1rem' }}>
+                  <div>
+                    <span style={{ display: 'inline-flex', color: '#0b1524', background: '#facc15', borderRadius: '999px', padding: '0.22rem 0.55rem', fontSize: '0.72rem', fontWeight: 900 }}>{STATUS_LABELS[activeJob.status] ?? activeJob.status}</span>
+                    <h2 style={{ margin: '0.65rem 0 0', color: '#f8fafc', fontSize: '1.35rem', lineHeight: 1.15 }}>{activeJob.pickup_location ?? 'Pickup TBC'}</h2>
+                    <p style={{ margin: '0.25rem 0 0', color: '#94a3b8', fontWeight: 700 }}>to {activeJob.delivery_location ?? 'Delivery TBC'}</p>
+                  </div>
+                  <button onClick={() => router.push(`/driver/jobs/${activeJob.id}`)} style={{ alignSelf: 'flex-start', minHeight: '42px', borderRadius: '14px', border: 'none', background: '#f8fafc', color: '#0b1524', padding: '0 0.85rem', fontWeight: 900, cursor: 'pointer' }}>Open</button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '1rem' }}>
+                  <MiniMetric icon={<Clock3 size={18} />} label="Pickup" value={`${fmtDate(activeJob.pickup_datetime)} ${fmtTime(activeJob.pickup_datetime)}`} />
+                  <MiniMetric icon={<MapPin size={18} />} label="Delivery" value={`${fmtDate(activeJob.delivery_datetime)} ${fmtTime(activeJob.delivery_datetime)}`} />
+                  <MiniMetric icon={<Truck size={18} />} label="Vehicle" value={vehicleLabel} />
+                  <MiniMetric icon={<Navigation size={18} />} label="Tracking" value={driverStatus} />
+                </div>
+
+                <div style={{ display: 'grid', gap: '0.55rem' }}>
+                  <QuickAction label="On Route" icon={<Navigation size={20} />} disabled={actionLoading || hasEvent(activeJob, 'driver_en_route')} onClick={() => updateJob(activeJob, 'driver_en_route', true)} />
+                  <QuickAction label="Arrived" icon={<MapPin size={20} />} disabled={actionLoading || hasEvent(activeJob, activeJob.status === 'in_transit' ? 'arrived_delivery' : 'arrived_pickup')} onClick={() => updateJob(activeJob, activeJob.status === 'in_transit' ? 'arrived_delivery' : 'arrived_pickup', true)} />
+                  <QuickAction label="Loaded" icon={<PackageCheck size={20} />} disabled={actionLoading || activeJob.status !== 'allocated'} onClick={() => updateJob(activeJob, 'collected')} />
+                  <QuickAction label="Delivered / POD" icon={<Camera size={20} />} disabled={actionLoading} onClick={() => router.push(`/driver/jobs/${activeJob.id}`)} />
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '2.25rem 0.5rem' }}>
+                <CheckCircle2 size={42} color="#86efac" />
+                <h2 style={{ color: '#f8fafc', margin: '0.7rem 0 0.25rem', fontSize: '1.25rem' }}>No active job</h2>
+                <p style={{ color: '#94a3b8', margin: 0, lineHeight: 1.45 }}>You are clear right now. New work will appear here first.</p>
               </div>
-              <button onClick={() => void fetchBoard()} style={{ border: '1px solid #cbd5e1', background: '#fff', color: '#64748b', borderRadius: '7px', padding: '0.45rem 0.8rem', cursor: 'pointer' }}>
-                Refresh
-              </button>
-            </div>
+            )}
+          </div>
 
-            {error && <div style={{ marginBottom: '0.75rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.7rem' }}>{error}</div>}
-            {successMsg && <div style={{ marginBottom: '0.75rem', color: '#15803d', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.7rem' }}>{successMsg}</div>}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+            <StatusTile label="Today" value={todaysJobs.length} />
+            <StatusTile label="Vehicle" value={vehicleLabel} />
+          </div>
 
-            <div style={{ background: '#fff', border: '1px solid #dbe3ee', borderRadius: '10px', minHeight: '520px', padding: '1rem' }}>
-              {loading ? (
-                <div style={{ color: '#64748b', textAlign: 'center', padding: '3rem 1rem' }}>Loading</div>
-              ) : tab === 'loads' ? (
-                loads.length === 0 ? (
-                  <div style={{ color: '#64748b', textAlign: 'center', padding: '3.5rem 1rem' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '0.6rem' }}></div>
-                    <div style={{ fontSize: '1.25rem' }}>No loads match your current filters.</div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gap: '0.7rem' }}>
-                    {loads.map((load) => (
-                      <div key={load.id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.8rem' }}>
-                        <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>
-                          {load.pickup_location ?? 'Unknown pickup'} &rarr; {load.delivery_location ?? 'Unknown delivery'}
-                        </div>
-                        <div style={{ fontSize: '0.82rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '0.8rem', marginBottom: '0.7rem' }}>
-                          <span>Date: {formatDate(load.pickup_datetime)}</span>
-                          <span>Vehicle: {VEHICLE_LABELS[load.vehicle_type ?? ''] ?? 'Any'}</span>
-                          <span>Weight: {load.weight_kg ?? 0} kg</span>
-                          <span>Budget: {formatCurrency(load.budget_amount, load.currency)}</span>
-                          <span>By: {load.companies?.name ?? 'Unknown company'}</span>
-                        </div>
-
-                        {bidLoadId === load.id ? (
-                          <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.8rem', display: 'grid', gap: '0.55rem' }}>
-                            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0f172a' }}>Submit your quote</div>
-                            <input
-                              type="number"
-                              min="1"
-                              step="0.01"
-                              value={bidAmount}
-                              onChange={(event) => setBidAmount(event.target.value)}
-                              placeholder="Your price (GBP)"
-                              style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
-                            />
-                            <textarea
-                              value={bidMessage}
-                              onChange={(event) => setBidMessage(event.target.value)}
-                              placeholder="Optional message to the load poster"
-                              rows={2}
-                              style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.85rem', width: '100%', resize: 'vertical' }}
-                            />
-                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                              <button
-                                onClick={() => void handleBidSubmit(load.id)}
-                                disabled={bidLoading || !bidAmount}
-                                style={{ flex: 1, minWidth: '170px', padding: '0.6rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: bidLoading || !bidAmount ? 'not-allowed' : 'pointer', opacity: bidLoading || !bidAmount ? 0.65 : 1 }}
-                              >
-                                {bidLoading ? 'Submitting...' : 'Submit Quote'}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setBidLoadId(null);
-                                  setBidAmount('');
-                                  setBidMessage('');
-                                }}
-                                style={{ padding: '0.6rem 1rem', backgroundColor: '#fff', color: '#374151', border: '1px solid #cbd5e1', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            <button
-                              onClick={() => {
-                                setBidLoadId(load.id);
-                                setBidAmount(load.budget_amount ? String(load.budget_amount) : '');
-                                setBidMessage('');
-                              }}
-                              style={{ padding: '0.5rem 0.9rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.83rem' }}
-                            >
-                              Submit Quote
-                            </button>
-                            <button
-                              onClick={() => router.push('/driver/loads')}
-                              style={{ padding: '0.5rem 0.9rem', backgroundColor: '#f8fafc', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '0.83rem' }}
-                            >
-                              Open Loads
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )
-              ) : tab === 'bids' ? (
-                bids.length === 0 ? (
-                  <div style={{ color: '#64748b', textAlign: 'center', padding: '3.5rem 1rem' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '0.6rem' }}></div>
-                    <div style={{ fontSize: '1.25rem' }}>No bids submitted yet.</div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gap: '0.7rem' }}>
-                    {bids.map((bid) => (
-                      <div key={bid.id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.8rem' }}>
-                        <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>
-                          {(bid.jobs?.pickup_location ?? 'Unknown pickup')} -&gt; {(bid.jobs?.delivery_location ?? 'Unknown delivery')}
-                        </div>
-                        <div style={{ fontSize: '0.82rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
-                          <span>Bid: {formatCurrency(bid.bid_price_gbp ?? bid.amount, bid.currency)}</span>
-                          <span>Status: {bid.status}</span>
-                          <span>Date: {formatDate(bid.created_at)}</span>
-                          <span>Posted by: {bid.jobs?.companies?.name ?? 'Unknown company'}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )
-              ) : wonJobs.length === 0 ? (
-                <div style={{ color: '#64748b', textAlign: 'center', padding: '3.5rem 1rem' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.6rem' }}></div>
-                  <div style={{ fontSize: '1.25rem' }}>No won work yet.</div>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: '0.7rem' }}>
-                  {wonJobs.map((job) => (
-                    <div key={job.id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.8rem' }}>
-                      <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>
-                        {job.pickup_location ?? 'Unknown pickup'} -&gt; {job.delivery_location ?? 'Unknown delivery'}
-                      </div>
-                      <div style={{ fontSize: '0.82rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
-                        <span>Date: {formatDate(job.pickup_datetime)}</span>
-                        <span>Vehicle: {VEHICLE_LABELS[job.vehicle_type ?? ''] ?? 'Any'}</span>
-                        <span>Value: {formatCurrency(job.budget_amount, job.currency)}</span>
-                        <span>Customer: {job.companies?.name ?? 'Unknown company'}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+          <section style={{ display: 'grid', gap: '0.55rem' }}>
+            <h2 style={{ color: '#f8fafc', fontSize: '1rem', margin: '0.25rem 0 0' }}>Today's jobs</h2>
+            {todaysJobs.length === 0 ? (
+              <div style={{ color: '#94a3b8', background: '#111d2f', borderRadius: '18px', padding: '1rem', border: '1px solid rgba(255,255,255,0.08)' }}>No jobs scheduled for today.</div>
+            ) : (
+              todaysJobs.map((job) => (
+                <button key={job.id} onClick={() => router.push(`/driver/jobs/${job.id}`)} style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#111d2f', color: '#f8fafc', borderRadius: '18px', padding: '0.85rem', textAlign: 'left', display: 'grid', gap: '0.35rem', cursor: 'pointer' }}>
+                  <span style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '0.95rem' }}>{job.pickup_location ?? 'Pickup TBC'}</strong>
+                    <span style={{ color: '#facc15', fontWeight: 900, fontSize: '0.78rem' }}>{fmtTime(job.pickup_datetime)}</span>
+                  </span>
+                  <span style={{ color: '#94a3b8', fontSize: '0.82rem' }}>to {job.delivery_location ?? 'Delivery TBC'}</span>
+                </button>
+              ))
+            )}
           </section>
-        </div>
+        </section>
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );
 }
 
+function Notice({ tone, text }: { tone: 'error' | 'success'; text: string }) {
+  const isError = tone === 'error';
+  return <div style={{ background: isError ? 'rgba(239,68,68,0.14)' : 'rgba(34,197,94,0.14)', border: `1px solid ${isError ? 'rgba(248,113,113,0.35)' : 'rgba(134,239,172,0.35)'}`, color: isError ? '#fecaca' : '#bbf7d0', borderRadius: '16px', padding: '0.75rem 0.85rem', fontSize: '0.85rem', fontWeight: 800 }}>{text}</div>;
+}
+
+function MiniMetric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '18px', padding: '0.75rem', minHeight: '82px' }}>
+      <div style={{ color: '#facc15', marginBottom: '0.35rem' }}>{icon}</div>
+      <div style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ color: '#f8fafc', fontWeight: 900, fontSize: '0.88rem', marginTop: '0.15rem' }}>{value}</div>
+    </div>
+  );
+}
+
+function QuickAction({ icon, label, disabled, onClick }: { icon: React.ReactNode; label: string; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{ minHeight: '54px', borderRadius: '18px', border: 'none', background: disabled ? 'rgba(148,163,184,0.14)' : '#facc15', color: disabled ? '#64748b' : '#0b1524', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.55rem', fontWeight: 900, fontSize: '0.95rem', cursor: disabled ? 'default' : 'pointer' }}>
+      {icon}{label}
+    </button>
+  );
+}
+
+function StatusTile({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div style={{ background: '#111d2f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '18px', padding: '0.85rem' }}>
+      <div style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 900, textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ color: '#f8fafc', fontSize: '1.05rem', fontWeight: 900, marginTop: '0.2rem' }}>{value}</div>
+    </div>
+  );
+}
