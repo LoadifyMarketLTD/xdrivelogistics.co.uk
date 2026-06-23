@@ -57,7 +57,7 @@ export function HeroSection() {
 
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-slate-50 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]">
           <HomepageVisualCard
-            imageSrc="/xdrive-login-hero.webp"
+            imageSrc="/xdrive-login-hero.webp.jpeg"
             imageAlt="XDrive platform preview showing early-access workspace concepts for marketplace, operations and driver workflows"
             label="MVP platform preview"
             title="XDrive workflow preview"
