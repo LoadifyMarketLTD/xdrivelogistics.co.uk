@@ -1,71 +1,34 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { Briefcase, FileText, Home, Lock, MessageCircle, MoreHorizontal, PackageSearch, UserCircle } from 'lucide-react';
 import { useAuth } from '../../components/AuthContext';
-import { COMPANY_CONFIG } from '../../config/company';
-import {
-  DRIVER_WORKSPACE_MODE_LABELS,
-  resolveDriverWorkspaceMode,
-} from '../../../lib/driverWorkspaceMode';
+import { DRIVER_WORKSPACE_MODE_LABELS, resolveDriverWorkspaceMode } from '../../../lib/driverWorkspaceMode';
 import { getDriverWorkspaceCapabilities, type RoleCapabilities } from '../../../lib/roleCapabilities';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
-const THEME = {
-  pageBg: '#eef2f6',
-  shellBg: '#111827',
-  shellBorder: '#1f2937',
-  shellMuted: '#9ca3af',
-  shellText: '#f9fafb',
-  cardBg: '#ffffff',
-  cardBorder: '#d7e0ea',
-  cardShadow: '0 6px 16px rgba(15, 23, 42, 0.08)',
-  radius: '10px',
-  live: '#1d4ed8',
-};
-
 type NavItem = {
-  id: string;
+  id: 'home' | 'loads' | 'quotes' | 'jobs' | 'more';
   label: string;
-  icon: string;
   href: string;
-  exact?: boolean;
-};
-
-const NAV_ITEM_CAPABILITIES: Partial<Record<string, keyof RoleCapabilities>> = {
-  loads: 'canViewExchangeLoads',
-  'load-search': 'canViewExchangeLoads',
-  quotes: 'canQuoteLoads',
-  'won-work': 'canExecuteJobs',
-  finance: 'canViewInvoices',
-  vehicles: 'canManageOwnVehicle',
-  returns: 'canUseReturnJourneys',
-  'business-admin': 'canManageCompanyUsers',
+  capability?: keyof RoleCapabilities;
+  icon: typeof Home;
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📋', href: '/driver/jobs' },
-  { id: 'loads', label: 'Loads', icon: '🚚', href: '/driver/loads', exact: true },
-  { id: 'load-search', label: 'Search Loads', icon: '🔎', href: '/driver/loads/search', exact: true },
-  { id: 'quotes', label: 'Quotes', icon: '💬', href: '/driver/quotes' },
-  { id: 'won-work', label: 'Won Work', icon: '🏆', href: '/driver/won-work' },
-  { id: 'history', label: 'Diary', icon: '📚', href: '/driver/history' },
-  { id: 'finance', label: 'Invoices', icon: '💷', href: '/driver/finance' },
-  { id: 'availability', label: 'Availability', icon: '📅', href: '/driver/availability' },
-  { id: 'vehicles', label: 'Vehicles', icon: '🚛', href: '/driver/vehicles' },
-  { id: 'documents', label: 'Documents', icon: '🗂️', href: '/driver/documents' },
-  { id: 'profile', label: 'Profile', icon: '👤', href: '/driver/profile' },
-  { id: 'returns', label: 'Return Journeys', icon: '↩️', href: '/driver/returns' },
-  { id: 'security', label: 'Security', icon: '🔐', href: '/driver/change-password' },
+  { id: 'home', label: 'Home', href: '/driver/jobs', capability: 'canExecuteJobs', icon: Home },
+  { id: 'loads', label: 'Loads', href: '/driver/loads', capability: 'canViewExchangeLoads', icon: PackageSearch },
+  { id: 'quotes', label: 'Quotes', href: '/driver/quotes', capability: 'canQuoteLoads', icon: MessageCircle },
+  { id: 'jobs', label: 'Jobs', href: '/driver/won-work', capability: 'canExecuteJobs', icon: Briefcase },
+  { id: 'more', label: 'More', href: '/driver/more', icon: MoreHorizontal },
 ];
 
-const BUSINESS_NAV_ITEM: NavItem = {
-  id: 'business-admin',
-  label: 'Business Admin',
-  icon: 'B',
-  href: '/admin',
-  exact: true,
-};
+const MORE_LINKS = [
+  { href: '/driver/documents', label: 'Documents', icon: FileText },
+  { href: '/driver/profile', label: 'Profile', icon: UserCircle },
+  { href: '/driver/change-password', label: 'Password', icon: Lock },
+];
 
 interface DriverWorkspaceShellProps {
   children: ReactNode;
@@ -76,40 +39,38 @@ interface DriverWorkspaceShellProps {
   personaLabel?: string;
 }
 
-export default function DriverWorkspaceShell({
-  children,
-  subtitle,
-  headerActions,
-  driverName,
-  availabilityLabel,
-  personaLabel,
-}: DriverWorkspaceShellProps) {
+const pageStyle: CSSProperties = {
+  minHeight: '100dvh',
+  background: '#07111f',
+  color: '#f8fafc',
+};
+
+const appFrameStyle: CSSProperties = {
+  minHeight: '100dvh',
+  maxWidth: '560px',
+  margin: '0 auto',
+  background: '#0b1524',
+  position: 'relative',
+  boxShadow: '0 0 0 1px rgba(255,255,255,0.06)',
+};
+
+export default function DriverWorkspaceShell({ children, headerActions, driverName, availabilityLabel, personaLabel }: DriverWorkspaceShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
-
-  const [isMobile, setIsMobile] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user } = useAuth();
   const [hydrated, setHydrated] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
   const workspaceMode = resolveDriverWorkspaceMode(user);
   const capabilities = getDriverWorkspaceCapabilities(workspaceMode);
-  const visibleNavItems = (workspaceMode === 'admin_business' ? [...NAV_ITEMS, BUSINESS_NAV_ITEM] : NAV_ITEMS).filter(
-    (item) => {
-      const capability = NAV_ITEM_CAPABILITIES[item.id];
-      return !capability || capabilities[capability];
-    }
+
+  const visibleNavItems = useMemo(
+    () => NAV_ITEMS.filter((item) => !item.capability || capabilities[item.capability]),
+    [capabilities]
   );
 
-  useEffect(() => {
-    setHydrated(true);
-    const update = () => setIsMobile(window.innerWidth <= 1024);
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
+  useEffect(() => setHydrated(true), []);
 
-  // Poll unread notification count every 60 s
   useEffect(() => {
     if (!isSupabaseConfigured || !user?.id) return;
     const fetchCount = async () => {
@@ -121,198 +82,64 @@ export default function DriverWorkspaceShell({
       setUnreadCount(count ?? 0);
     };
     void fetchCount();
-    const interval = setInterval(() => { void fetchCount(); }, 60_000);
-    return () => clearInterval(interval);
+    const interval = window.setInterval(() => { void fetchCount(); }, 60_000);
+    return () => window.clearInterval(interval);
   }, [user?.id]);
 
-  useEffect(() => {
-    if (!isMobile) setSidebarOpen(false);
-  }, [isMobile]);
-
-  const displayName = driverName ?? user?.email ?? 'Driver';
-  const displayEmail = user?.email ?? '';
-
-  const isActive = (item: NavItem) => {
-    if (item.exact) return pathname === item.href;
-    return pathname === item.href || pathname.startsWith(item.href + '/');
+  const activeItem = (item: NavItem) => {
+    if (item.id === 'home') return pathname === item.href;
+    if (item.id === 'jobs') return pathname === item.href || pathname.startsWith('/driver/jobs/');
+    if (item.id === 'more') return pathname === item.href || MORE_LINKS.some((link) => pathname === link.href || pathname.startsWith(`${link.href}/`));
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
   };
 
-  if (!hydrated) {
-    return <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg }} />;
-  }
-
-  const sidebarStyle: CSSProperties = {
-    width: isMobile ? '270px' : '236px',
-    backgroundColor: THEME.shellBg,
-    color: '#ffffff',
-    display: 'flex',
-    flexDirection: 'column',
-    borderRight: `1px solid ${THEME.shellBorder}`,
-    position: isMobile ? 'fixed' : 'relative',
-    inset: isMobile ? '0 auto 0 0' : undefined,
-    zIndex: isMobile ? 40 : undefined,
-    transform: isMobile ? (sidebarOpen ? 'translateX(0)' : 'translateX(-100%)') : 'translateX(0)',
-    transition: 'transform 0.2s ease',
-    flexShrink: 0,
-  };
-
-  const navButtonStyle = (active: boolean): CSSProperties => ({
-    width: '100%',
-    padding: '0.55rem 0.65rem',
-    backgroundColor: active ? 'rgba(255,255,255,0.14)' : 'transparent',
-    color: active ? '#ffffff' : THEME.shellMuted,
-    borderTop: 'none',
-    borderRight: 'none',
-    borderBottom: 'none',
-    borderLeft: active ? `3px solid ${THEME.live}` : '3px solid transparent',
-    textAlign: 'left',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    fontSize: '0.83rem',
-    fontWeight: active ? 700 : 500,
-    borderRadius: '6px',
-  });
-
-  const iconBoxStyle = (active: boolean): CSSProperties => ({
-    width: '22px',
-    height: '22px',
-    borderRadius: '6px',
-    display: 'grid',
-    placeItems: 'center',
-    fontSize: '0.85rem',
-    backgroundColor: active ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.08)',
-    flexShrink: 0,
-  });
+  if (!hydrated) return <div style={pageStyle} />;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: THEME.pageBg }}>
-      {isMobile && sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2,6,23,0.5)', zIndex: 30 }}
-        />
-      )}
-
-      <aside style={sidebarStyle}>
-        <div style={{ padding: '1rem', borderBottom: `1px solid ${THEME.shellBorder}` }}>
-          <h1 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: THEME.shellText, lineHeight: 1.35 }}>
-            {COMPANY_CONFIG.legalName}
-          </h1>
-          <p style={{ fontSize: '0.72rem', margin: '0.25rem 0 0', color: THEME.shellMuted, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            Driver Exchange
-            {unreadCount > 0 && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '18px', height: '18px', background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.65rem', fontWeight: 700, padding: '0 4px' }}>
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </p>
-          <div style={{ marginTop: '0.4rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-            <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: THEME.shellMuted }}>Role</span>
-            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#93c5fd', backgroundColor: 'rgba(59,130,246,0.2)', padding: '0.1rem 0.4rem', borderRadius: '999px' }}>
-              {DRIVER_WORKSPACE_MODE_LABELS[workspaceMode]}
-            </span>
-            {personaLabel && (
-              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#c4b5fd', backgroundColor: 'rgba(109,40,217,0.3)', padding: '0.1rem 0.4rem', borderRadius: '999px' }}>
-                {personaLabel}
-              </span>
+    <div style={pageStyle}>
+      <div style={appFrameStyle}>
+        <header style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(11,21,36,0.96)', backdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.15rem' }}>
+                <span style={{ color: '#facc15', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>XDrive</span>
+                <span style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700 }}>{DRIVER_WORKSPACE_MODE_LABELS[workspaceMode]}</span>
+                {unreadCount > 0 && <span style={{ background: '#ef4444', color: '#fff', minWidth: '18px', height: '18px', borderRadius: '999px', display: 'inline-grid', placeItems: 'center', fontSize: '0.65rem', fontWeight: 800 }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+              </div>
+              <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {driverName ?? user?.email ?? 'Driver'}
+              </div>
+            </div>
+            {(availabilityLabel || personaLabel || headerActions) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                {availabilityLabel && <span style={{ color: '#86efac', background: 'rgba(22,163,74,0.16)', border: '1px solid rgba(134,239,172,0.25)', borderRadius: '999px', padding: '0.25rem 0.55rem', fontSize: '0.72rem', fontWeight: 800 }}>{availabilityLabel}</span>}
+                {personaLabel && <span style={{ color: '#fde68a', background: 'rgba(250,204,21,0.12)', borderRadius: '999px', padding: '0.25rem 0.55rem', fontSize: '0.72rem', fontWeight: 800 }}>{personaLabel}</span>}
+                {headerActions}
+              </div>
             )}
           </div>
-        </div>
+        </header>
 
-        <nav style={{ flex: 1, padding: '0.5rem', overflowY: 'auto' }}>
+        <main style={{ padding: '0.9rem 0.9rem 5.75rem' }}>{children}</main>
+
+        <nav style={{ position: 'fixed', left: '50%', bottom: 0, transform: 'translateX(-50%)', width: '100%', maxWidth: '560px', background: 'rgba(7,17,31,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', padding: '0.45rem 0.45rem calc(0.45rem + env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: `repeat(${visibleNavItems.length}, minmax(0, 1fr))`, gap: '0.25rem', zIndex: 30 }}>
           {visibleNavItems.map((item) => {
-            const active = isActive(item);
+            const Icon = item.icon;
+            const active = activeItem(item);
             return (
               <button
                 key={item.id}
-                onClick={() => {
-                  router.push(item.href);
-                  if (isMobile) setSidebarOpen(false);
-                }}
-                style={navButtonStyle(active)}
+                onClick={() => router.push(item.href)}
+                aria-current={active ? 'page' : undefined}
+                style={{ minHeight: '52px', border: 'none', borderRadius: '14px', background: active ? 'rgba(250,204,21,0.16)' : 'transparent', color: active ? '#facc15' : '#94a3b8', display: 'grid', placeItems: 'center', gap: '0.15rem', fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer' }}
               >
-                <span style={iconBoxStyle(active)}>{item.icon}</span>
-                {item.label}
+                <Icon size={20} strokeWidth={2.5} />
+                <span>{item.label}</span>
               </button>
             );
           })}
         </nav>
-
-        <div style={{ padding: '0.8rem', borderTop: `1px solid ${THEME.shellBorder}` }}>
-          {availabilityLabel && (
-            <div style={{ fontSize: '0.68rem', marginBottom: '0.3rem' }}>
-              <span style={{ color: THEME.shellMuted }}>Status: </span>
-              <span style={{ fontWeight: 600, color: '#86efac' }}>{availabilityLabel}</span>
-            </div>
-          )}
-          <div style={{ fontSize: '0.72rem', color: THEME.shellMuted, marginBottom: '0.15rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {displayName}
-          </div>
-          <div style={{ fontSize: '0.7rem', color: THEME.shellMuted, marginBottom: '0.5rem', wordBreak: 'break-word' }}>
-            {displayEmail}
-          </div>
-          <button
-            onClick={logout}
-            style={{
-              width: '100%',
-              padding: '0.45rem',
-              backgroundColor: 'rgba(239,68,68,0.15)',
-              color: '#fca5a5',
-              border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: '6px',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Sign out
-          </button>
-        </div>
-      </aside>
-
-      <main style={{ flex: 1, minWidth: 0, padding: isMobile ? '0.9rem' : '1.25rem', display: 'flex', flexDirection: 'column' }}>
-        {isMobile && (
-          <button
-            onClick={() => setSidebarOpen(true)}
-            style={{
-              alignSelf: 'flex-start',
-              padding: '0.45rem 0.7rem',
-              borderRadius: '8px',
-              border: `1px solid ${THEME.cardBorder}`,
-              backgroundColor: '#ffffff',
-              color: THEME.shellText,
-              fontWeight: 700,
-              marginBottom: '0.8rem',
-              cursor: 'pointer',
-              fontSize: '0.82rem',
-            }}
-          >
-            ☰ Menu
-          </button>
-        )}
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Driver Exchange
-            </div>
-            {subtitle && (
-              <p style={{ color: '#475569', margin: 0, maxWidth: '780px', fontSize: '0.85rem', lineHeight: 1.55 }}>
-                {subtitle}
-              </p>
-            )}
-          </div>
-          {headerActions && (
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-              {headerActions}
-            </div>
-          )}
-        </div>
-
-        {children}
-      </main>
+      </div>
     </div>
   );
 }
