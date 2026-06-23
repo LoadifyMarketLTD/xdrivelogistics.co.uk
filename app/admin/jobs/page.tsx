@@ -300,10 +300,10 @@ export default function JobsPage() {
     }
     if (!formData.clientPhone.trim()) errors.clientPhone = 'Client phone is required';
     if (!formData.pickupLocation.trim()) errors.pickupLocation = 'Pickup location is required';
-    if (!formData.pickupDate) errors.pickupDate = 'Pickup date is required';
+    if (formData.pickupTime !== 'ASAP' && !formData.pickupDate) errors.pickupDate = 'Pickup date is required';
     if (!formData.pickupTime) errors.pickupTime = 'Pickup time is required';
     if (!formData.deliveryLocation.trim()) errors.deliveryLocation = 'Delivery location is required';
-    if (!formData.deliveryDate) errors.deliveryDate = 'Delivery date is required';
+    if (formData.deliveryTime !== 'ASAP' && !formData.deliveryDate) errors.deliveryDate = 'Delivery date is required';
     if (!formData.deliveryTime) errors.deliveryTime = 'Delivery time is required';
     if (!formData.cargoQuantity || parseInt(formData.cargoQuantity) < 1) {
       errors.cargoQuantity = 'Quantity must be at least 1';
@@ -1044,7 +1044,10 @@ export default function JobsPage() {
                         </label>
                         <select
                           value={formData.pickupTime}
-                          onChange={(e) => setFormData({ ...formData, pickupTime: e.target.value })}
+                          onChange={(e) => {
+                            setFormData({ ...formData, pickupTime: e.target.value });
+                            setFormErrors(({ pickupTime: _pickupTime, pickupDate: _pickupDate, ...rest }) => rest);
+                          }}
                           style={{
                             width: '100%',
                             padding: '0.75rem',
@@ -1057,6 +1060,7 @@ export default function JobsPage() {
                           }}
                         >
                           <option value="">Select time</option>
+                          <option value="ASAP">ASAP</option>
                           <option value="ASAP">ASAP</option>
                           {generateTimeOptions().map((time) => (
                             <option key={time} value={time}>
