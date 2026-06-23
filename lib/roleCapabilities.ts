@@ -40,9 +40,27 @@ export const getCapabilitiesForRole = (
   context: {
     membershipRole?: string | null;
     financeAccess?: 'full' | 'limited' | 'hidden' | null;
+    ownerDriverWorkspace?: boolean | null;
   } = {}
 ): RoleCapabilities => {
   if (!role) return NO_CAPABILITIES;
+
+  if (
+    context.ownerDriverWorkspace === true &&
+    (role === 'driver' || role === 'company_admin' || role === 'company_staff')
+  ) {
+    return {
+      ...NO_CAPABILITIES,
+      canViewExchangeLoads: true,
+      canQuoteLoads: true,
+      canReceiveQuotes: true,
+      canExecuteJobs: true,
+      canManageOwnVehicle: true,
+      canUploadPod: true,
+      canViewInvoices: true,
+      canUseReturnJourneys: true,
+    };
+  }
 
   if (role === 'owner') {
     return {
@@ -133,9 +151,11 @@ export const getCapabilitiesForRole = (
       ...NO_CAPABILITIES,
       canViewExchangeLoads: true,
       canQuoteLoads: true,
+      canReceiveQuotes: true,
       canExecuteJobs: true,
       canManageOwnVehicle: true,
       canUploadPod: true,
+      canViewInvoices: true,
       canUseReturnJourneys: true,
     };
   }
@@ -149,6 +169,7 @@ export const getDriverWorkspaceCapabilities = (
     role?: AppUserRole | string | null;
     membershipRole?: string | null;
     financeAccess?: 'full' | 'limited' | 'hidden' | null;
+    ownerDriverWorkspace?: boolean | null;
   } = {}
 ): RoleCapabilities => {
   if (mode === 'provider_driver') {
@@ -169,19 +190,21 @@ export type RouteAccessContext = {
   canAccessDriverMode?: boolean;
   membershipRole?: string | null;
   financeAccess?: 'full' | 'limited' | 'hidden' | null;
+  ownerDriverWorkspace?: boolean | null;
 };
 
 const ADMIN_ROUTE_CAPABILITIES: Array<{ prefix: string; capability: keyof RoleCapabilities }> = [
   { prefix: '/admin/marketplace', capability: 'canViewExchangeLoads' },
   { prefix: '/admin/quotes', capability: 'canReceiveQuotes' },
   { prefix: '/admin/bids', capability: 'canReceiveQuotes' },
-  { prefix: '/admin/diary', capability: 'canAllocateDrivers' },
+  { prefix: '/admin/diary', capability: 'canExecuteJobs' },
   { prefix: '/admin/jobs', capability: 'canExecuteJobs' },
   { prefix: '/admin/disputes', capability: 'canExecuteJobs' },
   { prefix: '/admin/fleet', capability: 'canManageFleet' },
   { prefix: '/admin/drivers', capability: 'canManageFleet' },
-  { prefix: '/admin/vehicles', capability: 'canManageFleet' },
-  { prefix: '/admin/documents', capability: 'canManageFleet' },
+  { prefix: '/admin/vehicles', capability: 'canManageOwnVehicle' },
+  { prefix: '/admin/documents', capability: 'canUploadPod' },
+  { prefix: '/admin/returns', capability: 'canUseReturnJourneys' },
   { prefix: '/admin/invoices', capability: 'canViewInvoices' },
   { prefix: '/admin/dispatchers', capability: 'canManageCompanyUsers' },
   { prefix: '/admin/settings', capability: 'canManageCompanyUsers' },
@@ -222,19 +245,11 @@ export const isCapabilityAllowedForPath = (
   if (pathname.startsWith('/customer')) return role === 'customer';
 
   if (pathname.startsWith('/driver')) {
-    const driverRoleAllowed = role === 'driver' || context.canAccessDriverMode === true;
-    if (!driverRoleAllowed) return false;
-
-    const mode = context.canAccessDriverMode === true
-      ? (role === 'driver' ? 'provider_driver' : 'admin_business')
-      : 'fleet_driver';
-    const capabilities = getDriverWorkspaceCapabilities(mode, context);
-    const requiredCapability = requiredCapabilityForPath(pathname);
-    return !requiredCapability || capabilities[requiredCapability];
+    return pathname === '/driver/change-password' && (role === 'driver' || context.canAccessDriverMode === true);
   }
 
   if (pathname.startsWith('/admin')) {
-    if (role !== 'owner' && role !== 'broker' && role !== 'company_admin' && role !== 'company_staff') return false;
+    if (role !== 'owner' && role !== 'broker' && role !== 'company_admin' && role !== 'company_staff' && role !== 'driver') return false;
     const capabilities = getCapabilitiesForRole(role, context);
     const requiredCapability = requiredCapabilityForPath(pathname);
     return !requiredCapability || capabilities[requiredCapability];

@@ -36,6 +36,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
         canAccessDriverMode: user.canAccessDriverMode === true,
         membershipRole: user.membershipRole ?? null,
         financeAccess: user.financeAccess ?? null,
+        ownerDriverWorkspace: user.ownerDriverWorkspace === true,
       };
       const routeAllowed = isRoleAllowedForPath(pathname, role, routeContext);
       const hasAccess = allowedRoles?.length
@@ -77,6 +78,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     canAccessDriverMode: user.canAccessDriverMode === true,
     membershipRole: user.membershipRole ?? null,
     financeAccess: user.financeAccess ?? null,
+    ownerDriverWorkspace: user.ownerDriverWorkspace === true,
   };
   const routeAllowed = isRoleAllowedForPath(pathname, role, routeContext);
   const hasAccess = allowedRoles?.length
