@@ -51,11 +51,13 @@ export type NavSection = {
 export type NavVisibilityContext = {
   membershipRole?: string | null;
   financeAccess?: 'full' | 'limited' | 'hidden' | null;
+  ownerDriverWorkspace?: boolean | null;
 };
 
 const SECTION_CAPABILITIES: Partial<Record<string, keyof RoleCapabilities>> = {
   marketplace: 'canViewExchangeLoads',
   quotes_bids: 'canReceiveQuotes',
+  driver_work: 'canExecuteJobs',
   operations: 'canAllocateDrivers',
   fleet_module: 'canManageFleet',
   drivers_module: 'canManageFleet',
@@ -76,9 +78,17 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     id: 'marketplace',
     label: 'Marketplace / Loads',
     // Company staff can find work and convert won work; permissions stay policy-based.
-    roles: ['owner', 'company_admin', 'company_staff', 'broker'],
+    roles: ['owner', 'company_admin', 'company_staff', 'broker', 'driver'],
     items: [
       { id: 'marketplace', label: 'Load Board', icon: '🏪', href: '/admin/marketplace' },
+    ],
+  },
+  {
+    id: 'driver_work',
+    label: 'Driver Work',
+    roles: ['driver'],
+    items: [
+      { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
     ],
   },
   {
@@ -183,6 +193,33 @@ const canShowFinanceSection = (
 
 export const getNavSectionsForRole = (role: AppUserRole | null, context: NavVisibilityContext = {}): NavSection[] => {
   if (!role) return PLATFORM_NAV_SECTIONS.filter((s) => !s.roles);
+
+  if (
+    role === 'driver' ||
+    (
+      context.ownerDriverWorkspace === true &&
+      (role === 'company_admin' || role === 'company_staff')
+    )
+  ) {
+    return [
+      {
+        id: 'driver_workspace',
+        label: 'Driver Workspace',
+        items: [
+          { id: 'marketplace', label: 'Loads', icon: '🏪', href: '/admin/marketplace' },
+          { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
+          { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
+          { id: 'diary', label: 'Diary', icon: '📅', href: '/admin/diary' },
+          { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
+          { id: 'vehicles', label: 'My Vehicle', icon: '🚚', href: '/admin/vehicles' },
+          { id: 'returns', label: 'Return Journeys', icon: '↩', href: '/admin/returns' },
+          { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
+          { id: 'invoices', label: 'Invoices', icon: '💷', href: '/admin/invoices' },
+        ],
+      },
+    ];
+  }
+
   const capabilities = getCapabilitiesForRole(role, context);
 
   return PLATFORM_NAV_SECTIONS.filter((section) => {

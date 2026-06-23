@@ -50,6 +50,8 @@ const getDownloadFilename = (filePath: string, docId: string) => {
 
 export default function DocumentsPage() {
   const { user } = useAuth();
+  const isDriverWorkspace = user?.role === 'driver' || user?.ownerDriverWorkspace === true;
+  const canVerifyDocuments = !isDriverWorkspace;
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [docs, setDocs] = useState<AnyDoc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -320,8 +322,8 @@ export default function DocumentsPage() {
       <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
         <div style={{ width: '100%' }}>
           <div style={{ marginBottom: '1rem' }}>
-            <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Documents</h1>
-            <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Review and verify driver & vehicle documents</p>
+            <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>{isDriverWorkspace ? 'POD / Documents' : 'Documents'}</h1>
+            <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>{isDriverWorkspace ? 'Upload and view your driver and vehicle documents.' : 'Review and verify driver & vehicle documents'}</p>
           </div>
 
           {!isSupabaseConfigured && (
@@ -459,8 +461,8 @@ export default function DocumentsPage() {
                                   Download
                                 </button>
                               )}
-                              {d.status !== 'approved' && <button onClick={() => updateStatus(d.id, 'approved')} style={{ padding: '0.375rem 0.75rem', backgroundColor: '#d1fae5', color: '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>Approve</button>}
-                              {d.status !== 'rejected' && <button onClick={() => updateStatus(d.id, 'rejected')} style={{ padding: '0.375rem 0.75rem', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>Reject</button>}
+                              {canVerifyDocuments && d.status !== 'approved' && <button onClick={() => updateStatus(d.id, 'approved')} style={{ padding: '0.375rem 0.75rem', backgroundColor: '#d1fae5', color: '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>Approve</button>}
+                              {canVerifyDocuments && d.status !== 'rejected' && <button onClick={() => updateStatus(d.id, 'rejected')} style={{ padding: '0.375rem 0.75rem', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>Reject</button>}
                             </div>
                           </td>
                         </tr>

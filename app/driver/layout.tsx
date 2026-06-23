@@ -9,8 +9,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Driver App | XDrive Logistics',
-  description: 'Driver mobile app for managing jobs and deliveries.',
+  title: 'Legacy Driver App | XDrive Logistics',
+  description: 'Deprecated driver workspace retained as a legacy fallback. Active driver work now uses the admin-style workspace.',
   robots: { index: false, follow: false },
 };
 

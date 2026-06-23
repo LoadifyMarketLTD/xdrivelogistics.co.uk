@@ -355,6 +355,19 @@ export async function middleware(request: NextRequest) {
   const driverRouteRequested = url.pathname === DRIVER_PATH || url.pathname.startsWith('/driver/');
   const driverModeActive = auth.role === 'driver' || (auth.canAccessDriverMode && driverRouteRequested);
 
+  if (driverRouteRequested && url.pathname !== DRIVER_CHANGE_PASSWORD_PATH) {
+    return buildRedirect(
+      request,
+      getPostLoginRoute({
+        role: auth.role,
+        mustChangePassword: auth.mustChangePassword,
+        ownerDriverWorkspace: auth.ownerDriverWorkspace,
+        canAccessDriverMode: auth.canAccessDriverMode,
+        ownerDriverExecutionMode: auth.ownerDriverExecutionMode,
+      })
+    );
+  }
+
   if (driverModeActive) {
     if (auth.appAccess === false) {
       return buildRedirect(request, FORBIDDEN_PATH);
@@ -363,6 +376,10 @@ export async function middleware(request: NextRequest) {
     if (auth.mustChangePassword && url.pathname !== DRIVER_CHANGE_PASSWORD_PATH) {
       return buildRedirect(request, DRIVER_CHANGE_PASSWORD_PATH);
     }
+  }
+
+  if (url.pathname === '/admin' && (auth.role === 'driver' || auth.ownerDriverWorkspace)) {
+    return buildRedirect(request, '/admin/marketplace');
   }
 
   if (url.pathname === DRIVER_PATH) {
@@ -393,6 +410,7 @@ export async function middleware(request: NextRequest) {
   if (!isRoleAllowedForPath(url.pathname, auth.role, {
     canAccessDriverMode: auth.canAccessDriverMode,
     membershipRole: auth.membershipRole,
+    ownerDriverWorkspace: auth.ownerDriverWorkspace,
   })) {
     const canonicalPath = getPostLoginRoute({
       role: auth.role,

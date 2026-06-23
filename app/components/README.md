@@ -112,8 +112,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ## Role-Based Routing
 
 Users are redirected based on role after login:
-- **driver** → `/driver/jobs`
-- **company/admin/owner** → `/admin`
+- **driver** → `/admin/marketplace`
+- **company/admin/owner** → `/admin` or `/admin/marketplace` based on role
 - **customer** → restricted pages only where access is granted
 
 ## Future Enhancements
