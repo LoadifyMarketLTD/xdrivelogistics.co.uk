@@ -7,6 +7,7 @@ import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
 import type { DbJob } from '../../../../lib/types/database';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { useAuth } from '../../../components/AuthContext';
+import { getLoadDetailSections } from '../../../../lib/loadPostingDetails';
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Received',
@@ -348,6 +349,7 @@ export default function DriverJobDetailPage() {
   const hasEnRoute = milestones.has('driver_en_route');
   const hasArrivedPickup = milestones.has('arrived_pickup');
   const hasArrivedDelivery = milestones.has('arrived_delivery');
+  const loadDetailSections = getLoadDetailSections(job);
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
@@ -474,15 +476,29 @@ export default function DriverJobDetailPage() {
         <Section title="Cargo">
           <InfoRow icon="👤" label="Client" value={clientFields.name} />
           {clientFields.phone && <InfoRow icon="📞" label="Client phone" value={clientFields.phone} />}
-          {clientFields.email && <InfoRow icon="✉️" label="Client email" value={clientFields.email} />}
-          {job.cargo_type && <InfoRow icon="📋" label="Type" value={job.cargo_type} />}
-          {job.load_details && <InfoRow icon="📝" label="Client / load reference" value={job.load_details} />}
+          {clientFields.email && <InfoRow icon="✉️" label="Client email" value={clientFields.email} />}          {(job.requested_cargo_label || job.cargo_type) && <InfoRow icon="" label="Type" value={job.requested_cargo_label ?? job.cargo_type ?? ''} />}
+          {(job.requested_vehicle_label || job.vehicle_type) && <InfoRow icon="" label="Vehicle" value={job.requested_vehicle_label ?? job.vehicle_type ?? ''} />}
           {clientFields.cargoNotes && (
             <InfoRow icon="⚠️" label="Special requirements" value={clientFields.cargoNotes} />
           )}
           {job.weight_kg != null && <InfoRow icon="⚖️" label="Weight" value={`${job.weight_kg} kg`} />}
         </Section>
-
+        {loadDetailSections.length > 0 && (
+          <Section title="Operational Details">
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              {loadDetailSections.map((section) => (
+                <div key={section.title}>
+                  <div style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.4rem' }}>{section.title}</div>
+                  <div style={{ display: 'grid', gap: '0.45rem' }}>
+                    {section.items.map((item) => (
+                      <InfoRow key={`${section.title}-${item.label}`} icon="" label={item.label} value={item.value} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
         {/* Collection photo – shown until the trip starts */}
         {(canCollect || canStartTransit) && (
           <Section title="Collection Photo">

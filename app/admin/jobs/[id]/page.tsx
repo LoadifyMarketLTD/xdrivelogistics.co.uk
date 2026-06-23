@@ -8,6 +8,7 @@ import { supabase } from '../../../../lib/supabaseClient';
 import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../../lib/jobClientFields';
 import { buildDriverAssignmentUpdate } from '../../../../lib/jobAssignment';
 import { useAuth } from '../../../components/AuthContext';
+import { getLoadDetailSections, type LoadDetailSection } from '../../../../lib/loadPostingDetails';
 
 interface Job {
   id: string;
@@ -34,6 +35,7 @@ interface Job {
     notes: string;
   };
   distanceMiles: number | null;
+  loadDetailSections: LoadDetailSection[];
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -130,7 +132,7 @@ export default function JobDetailPage() {
 
         const { data, error } = await supabase
           .from('jobs')
-          .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, assigned_driver_id, job_distance_miles, collection_photo_url, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at, exchange_visibility')
+          .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, assigned_driver_id, job_distance_miles, collection_photo_url, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at, exchange_visibility')
           .eq('id', jobId)
           .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
           .single();
@@ -172,6 +174,7 @@ export default function JobDetailPage() {
                 : row.job_distance_miles !== null && row.job_distance_miles !== undefined
                   ? Number(row.job_distance_miles)
                   : null,
+            loadDetailSections: getLoadDetailSections(row),
             status: (row.status as string) || JOB_STATUS.RECEIVED,
             createdAt: row.created_at as string,
             updatedAt: row.updated_at as string,
@@ -773,6 +776,31 @@ export default function JobDetailPage() {
               )}
             </div>
           </div>
+
+          {formData.loadDetailSections.length > 0 && (
+            <div style={sectionStyle}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
+                Operational Load Details
+              </h2>
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                {formData.loadDetailSections.map((section) => (
+                  <div key={section.title}>
+                    <h3 style={{ margin: '0 0 0.6rem', color: '#374151', fontSize: '0.95rem', fontWeight: 700 }}>
+                      {section.title}
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.65rem' }}>
+                      {section.items.map((item) => (
+                        <div key={`${section.title}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.65rem 0.75rem' }}>
+                          <div style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.2rem' }}>{item.label}</div>
+                          <div style={{ color: '#0f172a', fontSize: '0.9rem', fontWeight: 600 }}>{item.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Client Information */}
           <div style={sectionStyle}>

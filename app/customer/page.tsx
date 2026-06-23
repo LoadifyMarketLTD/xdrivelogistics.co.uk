@@ -9,6 +9,7 @@ import { downloadInvoicePdf } from '../../lib/invoicePdf';
 import { loadCompanySettings } from '../../lib/companySettings';
 import type { InvoiceData } from '../components/InvoiceTemplate';
 import { toCanonicalInvoiceStatusWithDueDate, type CanonicalInvoiceStatus } from '../../lib/invoiceStatus';
+import { getLoadDetailSections, type LoadDetailSection } from '../../lib/loadPostingDetails';
 
 type CustomerTab = 'dashboard' | 'post' | 'quotes' | 'deliveries' | 'invoices';
 
@@ -20,11 +21,32 @@ type CustomerJob = {
   delivery_location: string | null;
   delivery_postcode: string | null;
   pickup_datetime: string | null;
+  pickup_time_slot: string | null;
   delivery_datetime: string | null;
+  delivery_time_slot: string | null;
   vehicle_type: VehicleType | null;
   cargo_type: CargoType | null;
   pallets: number | null;
   weight_kg: number | null;
+  collection_contact_name: string | null;
+  collection_contact_phone: string | null;
+  delivery_contact_name: string | null;
+  delivery_contact_phone: string | null;
+  customer_reference: string | null;
+  purchase_order_number: string | null;
+  booking_reference: string | null;
+  requested_vehicle_label: string | null;
+  requested_cargo_label: string | null;
+  cargo_value_gbp: number | null;
+  pallet_type: string | null;
+  pallet_stackable: boolean | null;
+  collection_forklift_available: boolean | null;
+  collection_tail_lift_required: boolean | null;
+  collection_handball_required: boolean | null;
+  delivery_forklift_available: boolean | null;
+  delivery_tail_lift_required: boolean | null;
+  delivery_handball_required: boolean | null;
+  document_checklist: string[] | null;
   load_details: string | null;
   special_requirements: string | null;
   access_restrictions: string | null;
@@ -104,14 +126,27 @@ const timeSlots = Array.from({ length: 57 }, (_, index) => {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 });
 
-const vehicleGroups = [
-  ['Vans', ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van']],
-  ['Rigid Trucks', ['3.5T', '5T', '7.5T', '12T', '18T', '26T']],
-  ['HGV / Artics', ['Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Artic 44T Double Deck']],
-  ['Specialist Vehicles', ['Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle', 'Temperature Controlled Vehicle']],
+type SelectOption = readonly [string, string];
+
+const vehicleGroups: ReadonlyArray<readonly [string, ReadonlyArray<SelectOption>]> = [
+  ['Vans', [['Small Van', 'van_small'], ['SWB Van', 'swb_van'], ['MWB Van', 'mwb_van'], ['LWB Van', 'lwb_van'], ['XLWB Van', 'xlwb_van'], ['Luton', 'luton'], ['Luton Tail Lift', 'luton_tail_lift'], ['Curtainside Van', 'curtainside_van']]],
+  ['Rigid Trucks', [['3.5T', 'truck_3_5t'], ['5T', 'truck_5t'], ['7.5T', 'truck_7_5t'], ['12T', 'truck_12t'], ['18T', 'truck_18t'], ['26T', 'truck_26t']]],
+  ['HGV / Artics', [['Artic 44T Curtainsider', 'artic_44t_curtainsider'], ['Artic 44T Box Trailer', 'artic_44t_box_trailer'], ['Artic 44T Flatbed', 'artic_44t_flatbed'], ['Artic 44T Refrigerated', 'artic_44t_refrigerated'], ['Artic 44T Double Deck', 'artic_44t_double_deck']]],
+  ['Specialist Vehicles', [['Hiab', 'hiab'], ['Moffett', 'moffett'], ['ADR Vehicle', 'adr_vehicle'], ['Refrigerated Vehicle', 'refrigerated_vehicle'], ['Temperature Controlled Vehicle', 'temperature_controlled_vehicle']]],
 ] as const;
 
-const cargoOptions = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
+const cargoOptions: ReadonlyArray<SelectOption> = [
+  ['Documents', 'documents'],
+  ['Parcels', 'parcels'],
+  ['Pallets', 'pallets'],
+  ['Machinery', 'machinery'],
+  ['Furniture', 'furniture'],
+  ['Retail Goods', 'retail_goods'],
+  ['Mixed Freight', 'mixed_freight'],
+  ['ADR Goods', 'adr_goods'],
+  ['Temperature Controlled Freight', 'temperature_controlled_freight'],
+  ['Other', 'other'],
+] as const;
 const accessOptions = ['Residential Address', 'Commercial Premises', 'Limited Access', 'City Centre Delivery', 'Timed Booking Required'];
 const specialOptions = ['ADR Required', 'Temperature Controlled', 'Two Man Crew Required', 'Fragile Goods', 'High Value Goods'];
 const documentOptions = ['Commercial Invoice', 'Packing List', 'Delivery Notes', 'Customs Documents', 'Other Attachments'];
@@ -133,8 +168,8 @@ const newLoadForm = (): LoadForm => ({
   customerReference: '',
   purchaseOrderNumber: '',
   bookingReference: '',
-  vehicleLabel: 'LWB Van',
-  cargoLabel: 'Pallets',
+  vehicleLabel: 'lwb_van',
+  cargoLabel: 'pallets',
   totalWeightKg: '',
   lengthCm: '',
   widthCm: '',
@@ -178,23 +213,9 @@ const dateDisplay = (value: string | null) => {
   return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
-const legacyVehicle = (label: string): VehicleType => {
-  if (label.includes('Luton')) return 'luton';
-  if (label.includes('7.5')) return 'truck_7_5t';
-  if (label.includes('18')) return 'truck_18t';
-  if (label.includes('Artic') || label.includes('26T')) return 'artic';
-  if (label.includes('Small')) return 'van_small';
-  return 'van_large';
-};
-
-const legacyCargo = (label: string): CargoType => {
-  if (label === 'Documents') return 'documents';
-  if (label === 'Parcels') return 'packages';
-  if (label === 'Pallets') return 'pallets';
-  if (label === 'Furniture') return 'furniture';
-  if (label === 'Machinery') return 'equipment';
-  return 'other';
-};
+const vehicleLabelFor = (value: string) => vehicleGroups.flatMap(([, options]) => options).find(([, optionValue]) => optionValue === value)?.[0] ?? value.replace(/_/g, ' ');
+const cargoLabelFor = (value: string) => cargoOptions.find(([, optionValue]) => optionValue === value)?.[0] ?? value.replace(/_/g, ' ');
+const cleanFileName = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-');
 
 const toInvoiceData = (invoice: CustomerInvoice): InvoiceData => ({
   id: invoice.id,
@@ -237,6 +258,7 @@ export default function CustomerPage() {
   const [saving, setSaving] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [form, setForm] = useState<LoadForm>(() => newLoadForm());
+  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -274,7 +296,7 @@ export default function CustomerPage() {
 
     const [quoteRes, jobRes, invoiceRes] = await Promise.all([
       supabase.from('quotes').select('id, company_id, created_by, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at').eq('company_id', companyId).eq('customer_email', user.email).order('created_at', { ascending: false }),
-      supabase.from('jobs').select('id, status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, cargo_type, pallets, weight_kg, load_details, special_requirements, access_restrictions, delivery_photos, created_at, updated_at').eq('company_id', companyId).eq('created_by', user.id).order('updated_at', { ascending: false }),
+      supabase.from('jobs').select('id, status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, pickup_time_slot, delivery_datetime, delivery_time_slot, vehicle_type, cargo_type, pallets, weight_kg, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, delivery_photos, created_at, updated_at').eq('company_id', companyId).eq('created_by', user.id).order('updated_at', { ascending: false }),
       supabase.from('invoices').select('id, invoice_number, job_ref, invoice_date, due_date, status, amount, net_amount, vat_amount, vat_rate, payment_terms, late_fee, client_name, client_email, client_address, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, pod_photos, signature, recipient_name, created_at').eq('company_id', companyId).eq('client_email', user.email).order('created_at', { ascending: false }),
     ]);
 
@@ -321,8 +343,8 @@ export default function CustomerPage() {
       purchaseOrderNumber: form.purchaseOrderNumber || null,
       bookingReference: form.bookingReference || null,
     },
-    requestedVehicle: form.vehicleLabel,
-    requestedCargo: form.cargoLabel,
+    requestedVehicle: vehicleLabelFor(form.vehicleLabel),
+    requestedCargo: cargoLabelFor(form.cargoLabel),
     collection: {
       date: form.pickupDate,
       timeSlot: form.pickupTime,
@@ -347,10 +369,38 @@ export default function CustomerPage() {
     },
     dimensionsCm: { length: form.lengthCm || null, width: form.widthCm || null, height: form.heightCm || null },
     cargoValueGbp: form.cargoValueGbp || null,
-    palletDetails: form.cargoLabel === 'Pallets' ? { count: form.palletCount || null, type: form.palletType, stackable: form.stackable === 'yes' } : null,
+    palletDetails: form.cargoLabel === 'pallets' ? { count: form.palletCount || null, type: form.palletType, stackable: form.stackable === 'yes' } : null,
     documentChecklist: form.documents,
+    uploadedFiles: documentFiles.map((file) => file.name),
     notes: form.notes || null,
   }, null, 2);
+
+  const uploadLoadDocuments = async (jobId: string) => {
+    if (documentFiles.length === 0) return;
+    const rows = [];
+    for (const file of documentFiles) {
+      const path = `${companyId}/${jobId}/${Date.now()}-${cleanFileName(file.name)}`;
+      const { error: uploadError } = await supabase.storage.from('load-documents').upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || undefined,
+      });
+      if (uploadError) throw new Error(`Document upload failed for ${file.name}: ${uploadError.message}`);
+      rows.push({
+        job_id: jobId,
+        company_id: companyId,
+        uploaded_by: user?.id ?? null,
+        uploaded_by_role: 'customer',
+        doc_type: 'customer_load_attachment',
+        file_path: path,
+        file_name: file.name,
+        file_size_bytes: file.size,
+        mime_type: file.type || null,
+      });
+    }
+    const { error } = await supabase.from('job_documents').insert(rows);
+    if (error) throw new Error(`Document records could not be saved: ${error.message}`);
+  };
 
   const saveLoad = async (publish: boolean) => {
     setFormError('');
@@ -373,34 +423,64 @@ export default function CustomerPage() {
     }
 
     setSaving(true);
-    const { error } = await supabase.from('jobs').insert([{
+    const { data, error } = await supabase.from('jobs').insert([{
       company_id: companyId,
       created_by: user.id,
       status: publish ? 'posted' : 'draft',
       pickup_location: `${form.pickupAddress}, ${form.pickupPostcode}`,
       pickup_postcode: form.pickupPostcode.trim().toUpperCase(),
       pickup_datetime: toDateTime(form.pickupDate, form.pickupTime),
+      pickup_time_slot: form.pickupTime,
       delivery_location: `${form.deliveryAddress}, ${form.deliveryPostcode}`,
       delivery_postcode: form.deliveryPostcode.trim().toUpperCase(),
       delivery_datetime: toDateTime(form.deliveryDate, form.deliveryTime),
-      vehicle_type: legacyVehicle(form.vehicleLabel),
-      cargo_type: legacyCargo(form.cargoLabel),
-      pallets: form.cargoLabel === 'Pallets' && form.palletCount ? Number(form.palletCount) : null,
+      delivery_time_slot: form.deliveryTime,
+      vehicle_type: form.vehicleLabel as VehicleType,
+      cargo_type: form.cargoLabel as CargoType,
+      pallets: form.cargoLabel === 'pallets' && form.palletCount ? Number(form.palletCount) : null,
       weight_kg: form.totalWeightKg ? Number(form.totalWeightKg) : null,
       length_cm: form.lengthCm ? Number(form.lengthCm) : null,
       width_cm: form.widthCm ? Number(form.widthCm) : null,
       height_cm: form.heightCm ? Number(form.heightCm) : null,
+      collection_contact_name: form.collectionContactName.trim(),
+      collection_contact_phone: form.collectionContactPhone.trim(),
+      delivery_contact_name: form.deliveryContactName.trim(),
+      delivery_contact_phone: form.deliveryContactPhone.trim(),
+      customer_reference: form.customerReference.trim() || null,
+      purchase_order_number: form.purchaseOrderNumber.trim() || null,
+      booking_reference: form.bookingReference.trim() || null,
+      requested_vehicle_label: vehicleLabelFor(form.vehicleLabel),
+      requested_cargo_label: cargoLabelFor(form.cargoLabel),
+      cargo_value_gbp: form.cargoValueGbp ? Number(form.cargoValueGbp) : null,
+      pallet_type: form.cargoLabel === 'pallets' ? form.palletType : null,
+      pallet_stackable: form.cargoLabel === 'pallets' ? form.stackable === 'yes' : null,
+      collection_forklift_available: form.collectionForklift,
+      collection_tail_lift_required: form.collectionTailLift,
+      collection_handball_required: form.collectionHandball,
+      delivery_forklift_available: form.deliveryForklift,
+      delivery_tail_lift_required: form.deliveryTailLift,
+      delivery_handball_required: form.deliveryHandball,
+      document_checklist: form.documents,
       load_details: detailsJson(),
       special_requirements: form.specialRequirements.join(', ') || null,
       access_restrictions: form.accessRestrictions.join(', ') || null,
-    }]);
-    setSaving(false);
+    }]).select('id').single();
     if (error) {
+      setSaving(false);
       setFormError(error.message);
       return;
     }
+    try {
+      await uploadLoadDocuments(data.id as string);
+    } catch (uploadError) {
+      setSaving(false);
+      setFormError(uploadError instanceof Error ? uploadError.message : 'Load was saved, but documents could not be uploaded.');
+      return;
+    }
+    setSaving(false);
     setSaved(true);
     setForm(newLoadForm());
+    setDocumentFiles([]);
     setTab('dashboard');
     await loadData();
   };
@@ -515,8 +595,8 @@ export default function CustomerPage() {
 
               <Card title="Vehicle & Cargo">
                 <div className="grid4">
-                  {field('Vehicle Type', <select value={form.vehicleLabel} onChange={(e) => setField('vehicleLabel', e.target.value)}>{vehicleGroups.map(([group, options]) => <optgroup key={group} label={group}>{options.map((option) => <option key={option}>{option}</option>)}</optgroup>)}</select>)}
-                  {field('Cargo Type', <select value={form.cargoLabel} onChange={(e) => setField('cargoLabel', e.target.value)}>{cargoOptions.map((option) => <option key={option}>{option}</option>)}</select>)}
+                  {field('Vehicle Type', <select value={form.vehicleLabel} onChange={(e) => setField('vehicleLabel', e.target.value)}>{vehicleGroups.map(([group, options]) => <optgroup key={group} label={group}>{options.map(([label, value]) => <option key={value} value={value}>{label}</option>)}</optgroup>)}</select>)}
+                  {field('Cargo Type', <select value={form.cargoLabel} onChange={(e) => setField('cargoLabel', e.target.value)}>{cargoOptions.map(([label, value]) => <option key={value} value={value}>{label}</option>)}</select>)}
                   {field('Total Weight (kg)', <input type="number" min="0" value={form.totalWeightKg} onChange={(e) => setField('totalWeightKg', e.target.value)} />)}
                   {field('Cargo Value (GBP)', <input type="number" min="0" value={form.cargoValueGbp} onChange={(e) => setField('cargoValueGbp', e.target.value)} />)}
                 </div>
@@ -527,7 +607,7 @@ export default function CustomerPage() {
                 </div>
               </Card>
 
-              {form.cargoLabel === 'Pallets' && (
+              {form.cargoLabel === 'pallets' && (
                 <Card title="Pallet Workflow">
                   <div className="grid3">
                     {field('Number of Pallets', <input type="number" min="0" value={form.palletCount} onChange={(e) => setField('palletCount', e.target.value)} />)}
@@ -546,7 +626,8 @@ export default function CustomerPage() {
               <Card title="Special Requirements">{checks(specialOptions, form.specialRequirements, 'specialRequirements')}</Card>
               <Card title="Documents">
                 {checks(documentOptions, form.documents, 'documents')}
-                <input type="file" multiple onChange={(event) => setField('documents', Array.from(event.target.files ?? []).map((file) => file.name))} />
+                <input type="file" multiple onChange={(event) => setDocumentFiles(Array.from(event.target.files ?? []))} />
+                {documentFiles.length > 0 && <p className="file-list">{documentFiles.map((file) => file.name).join(', ')}</p>}
               </Card>
               <Card title="Notes">{field('Operational Notes', <textarea value={form.notes} onChange={(e) => setField('notes', e.target.value)} placeholder="Site instructions, booking windows, driver notes." />)}</Card>
 
@@ -567,9 +648,10 @@ export default function CustomerPage() {
                   <div className="grid4 small">
                     <span>Pickup: {dateDisplay(job.pickup_datetime)}</span>
                     <span>Delivery: {dateDisplay(job.delivery_datetime)}</span>
-                    <span>Vehicle: {job.vehicle_type?.replace(/_/g, ' ') ?? '-'}</span>
+                    <span>Vehicle: {job.requested_vehicle_label ?? job.vehicle_type?.replace(/_/g, ' ') ?? '-'}</span>
                     <span>POD: {job.delivery_photos?.length ? 'Ready' : 'Pending'}</span>
                   </div>
+                  <LoadDetails sections={getLoadDetailSections(job)} />
                 </article>
               ))}
             </section>
@@ -622,6 +704,14 @@ export default function CustomerPage() {
           .row { border-top: 1px solid #e2e8f0; padding: 10px 0; }
           .row strong { display: block; }
           .row span, .small { color: #64748b; font-size: 14px; }
+          .file-list { margin: 8px 0 0; color: #64748b; font-size: 13px; }
+          .details { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 14px; }
+          .detail-section { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc; }
+          .detail-section h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; color: #334155; }
+          .detail-section dl { margin: 0; display: grid; gap: 6px; }
+          .detail-section div { display: grid; grid-template-columns: minmax(96px, .6fr) 1fr; gap: 8px; }
+          .detail-section dt { color: #64748b; font-size: 12px; font-weight: 800; }
+          .detail-section dd { margin: 0; color: #0f172a; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
           .split { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
           .chip { background: #fffbeb; color: #92400e; border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 900; }
           .table-wrap { overflow-x: auto; }
@@ -644,6 +734,27 @@ function ListCard({ title, children }: { title: string; children: React.ReactNod
 
 function Row({ title, meta }: { title: string; meta: string }) {
   return <div className="row"><strong>{title}</strong><span>{meta}</span></div>;
+}
+
+function LoadDetails({ sections }: { sections: LoadDetailSection[] }) {
+  if (sections.length === 0) return null;
+  return (
+    <div className="details">
+      {sections.map((section) => (
+        <section key={section.title} className="detail-section">
+          <h3>{section.title}</h3>
+          <dl>
+            {section.items.map((item) => (
+              <div key={`${section.title}-${item.label}`}>
+                <dt>{item.label}</dt>
+                <dd>{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ))}
+    </div>
+  );
 }
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
