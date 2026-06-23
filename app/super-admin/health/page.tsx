@@ -50,6 +50,7 @@ export default function Page() {
     { service: 'Operations API', status: 'checking' },
     { service: 'Finance API', status: 'checking' },
     { service: 'Compliance API', status: 'checking' },
+    { service: 'Email Readiness', status: 'checking' },
   ]);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
 
@@ -99,11 +100,27 @@ export default function Page() {
           const res = await fetch('/api/super-admin/compliance?section=documents&limit=1', { headers: { Authorization: auth } });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
         }),
+        runCheck('Email Readiness', async () => {
+          const res = await fetch('/api/super-admin/email-readiness', { headers: { Authorization: auth } });
+          const payload = await res.json().catch(() => null) as {
+            notificationEvents?: { pending?: number; failed?: number };
+            databaseWiring?: { projectRefConfigured?: boolean; serviceRoleKeyConfiguredForTrigger?: boolean };
+            errors?: string[];
+          } | null;
+          if (!res.ok) throw new Error(payload?.errors?.[0] ?? 'HTTP ' + res.status);
+          const pending = payload?.notificationEvents?.pending ?? 0;
+          const failed = payload?.notificationEvents?.failed ?? 0;
+          const triggerConfigReady = payload?.databaseWiring?.projectRefConfigured === true && payload?.databaseWiring?.serviceRoleKeyConfiguredForTrigger === true;
+          if (pending > 0 || failed > 0 || !triggerConfigReady) {
+            throw new Error('Email queue not ready: pending=' + pending + ', failed=' + failed + ', triggerConfig=' + (triggerConfigReady ? 'yes' : 'no'));
+          }
+        }),
       ] : [
         Promise.resolve({ service: 'Stats API', status: 'error' as const, detail: 'No session' }),
         Promise.resolve({ service: 'Operations API', status: 'error' as const, detail: 'No session' }),
         Promise.resolve({ service: 'Finance API', status: 'error' as const, detail: 'No session' }),
         Promise.resolve({ service: 'Compliance API', status: 'error' as const, detail: 'No session' }),
+        Promise.resolve({ service: 'Email Readiness', status: 'error' as const, detail: 'No session' }),
       ]),
     ]);
 

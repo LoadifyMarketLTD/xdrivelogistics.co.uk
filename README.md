@@ -87,11 +87,17 @@ Never commit passwords, API keys, tokens, or real login pairs to source control.
 2. Set Supabase Edge Function secrets:
    - `SITE_URL=https://www.xdrivelogistics.co.uk`
    - `FROM_EMAIL=no-reply@xdrivelogistics.co.uk`
-   - `RESEND_API_KEY=...` (optional; when omitted the queue still marks events as processed without sending email)
+   - `RESEND_API_KEY=...` (required for real transactional email delivery; without it notification events fail instead of silently pretending email was sent)
 3. In Supabase Dashboard → Database → Webhooks, create an `INSERT` webhook on `public.notification_events` pointing to the deployed function URL.
 4. Keep migration `071_notification_architecture.sql` applied so the `job_assigned`, `bid_accepted`, and `pod_uploaded` triggers continue enqueueing notification events.
 
-The app notification bell reads directly from `public.notification_events`, so no second notification store is required.
+The app notification bell reads directly from public.notification_events, so no second notification store is required.
+
+Read-only diagnostics:
+- Super-admin health page checks /api/super-admin/email-readiness.
+- SQL audit: supabase/diagnostics/email_readiness_audit.sql.
+- Pending events mean the queue is not being processed automatically.
+- Failed events mean the function ran but delivery/configuration failed.
 
 ---
 
