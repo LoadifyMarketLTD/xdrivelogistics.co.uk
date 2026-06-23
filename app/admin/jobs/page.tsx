@@ -1061,7 +1061,6 @@ export default function JobsPage() {
                         >
                           <option value="">Select time</option>
                           <option value="ASAP">ASAP</option>
-                          <option value="ASAP">ASAP</option>
                           {generateTimeOptions().map((time) => (
                             <option key={time} value={time}>
                               {time}
@@ -1140,7 +1139,7 @@ export default function JobsPage() {
                           value={formData.deliveryTime}
                           onChange={(e) => {
                             setFormData({ ...formData, deliveryTime: e.target.value });
-                            setFormErrors(({ deliveryTime: _deliveryTime, ...rest }) => rest);
+                            setFormErrors(({ deliveryTime: _deliveryTime, deliveryDate: _deliveryDate, ...rest }) => rest);
                           }}
                           style={{
                             width: '100%',
@@ -1154,6 +1153,7 @@ export default function JobsPage() {
                           }}
                         >
                           <option value="">Select time</option>
+                          <option value="ASAP">ASAP</option>
                           {generateTimeOptions().map((time) => (
                             <option key={time} value={time}>
                               {time}
