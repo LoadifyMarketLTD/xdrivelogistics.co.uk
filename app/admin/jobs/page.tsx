@@ -9,6 +9,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
+import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPostingDetails';
 
 interface Job {
   id: string;
@@ -39,6 +40,7 @@ interface Job {
   distanceMiles: string;
   vehicleType: string;
   paymentTerms: string;
+  loadDetailSummary: LoadDetailItem[];
   exchange_visibility?: string | null;
   awarded_carrier_company_id?: string | null;
 }
@@ -137,7 +139,7 @@ export default function JobsPage() {
 
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, job_distance_miles, exchange_visibility, awarded_carrier_company_id, created_at, updated_at')
+        .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, job_distance_miles, exchange_visibility, awarded_carrier_company_id, created_at, updated_at')
         .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
         .order('created_at', { ascending: false });
 
@@ -189,8 +191,9 @@ export default function JobsPage() {
             createdAt: row.created_at as string,
             updatedAt: row.updated_at as string,
             distanceMiles,
-            vehicleType: ((row.cargo_type as string) || 'unknown').replace(/_/g, ' '),
+            vehicleType: ((row.requested_vehicle_label as string | null) || (row.vehicle_type as string | null) || 'unknown').replace(/_/g, ' '),
             paymentTerms: 'Not provided',
+            loadDetailSummary: getLoadDetailSummary(row, 6),
             exchange_visibility: (row.exchange_visibility as string | null) ?? null,
             awarded_carrier_company_id: (row.awarded_carrier_company_id as string | null) ?? null,
           };
@@ -724,6 +727,16 @@ export default function JobsPage() {
                               {formatDate(job.delivery.date)} at {job.delivery.time}
                             </div>
                           </div>
+                          {job.loadDetailSummary.length > 0 && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.35rem', marginTop: '0.7rem' }}>
+                              {job.loadDetailSummary.map((item) => (
+                                <div key={`${job.id}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.35rem 0.45rem' }}>
+                                  <div style={{ color: '#64748b', fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
+                                  <div style={{ color: '#0f172a', fontSize: '0.75rem', fontWeight: 600 }}>{item.value}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.distanceMiles}</td>
                         <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#374151', textTransform: 'capitalize' }}>{job.vehicleType}</td>
