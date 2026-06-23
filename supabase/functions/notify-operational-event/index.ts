@@ -17,7 +17,7 @@
  *   SUPABASE_URL             (auto-injected)
  *   SUPABASE_SERVICE_ROLE_KEY (auto-injected)
  *   SITE_URL                 (recommended: https://www.xdrivelogistics.co.uk)
- *   RESEND_API_KEY           (optional: if using Resend for transactional email)
+ *   RESEND_API_KEY           (required for real transactional email delivery)
  *   FROM_EMAIL               (optional: sender address, defaults to no-reply@xdrivelogistics.co.uk)
  *
  * Deploy with:
@@ -63,8 +63,8 @@ async function getUserEmail(userId: string): Promise<{ email: string; name: stri
 
 async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   if (!resendApiKey) {
-    console.log(`[notify] No RESEND_API_KEY — would send to ${to}: ${subject}`);
-    return true; // Treat as success so events don't stay pending
+    console.error(`[notify] RESEND_API_KEY is not configured; email not sent to ${to}: ${subject}`);
+    return false;
   }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -74,9 +74,13 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
     },
     body: JSON.stringify({ from: fromEmail, to, subject, html }),
   });
-  return res.ok;
+  if (!res.ok) {
+    const responseText = await res.text().catch(() => '');
+    console.error(`[notify] Resend rejected email to ${to}: ${res.status} ${responseText}`);
+    return false;
+  }
+  return true;
 }
-
 const buildAppUrl = (path: string) => new URL(path, `${siteUrl}/`).toString();
 
 async function handleJobAssigned(event: NotificationEvent): Promise<boolean> {
