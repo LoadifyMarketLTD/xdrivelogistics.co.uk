@@ -1,25 +1,33 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../components/AuthContext';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
-import type { Quote, VehicleType, CargoType } from '../../lib/types/database';
+import type { CargoType, Quote, VehicleType } from '../../lib/types/database';
 import { downloadInvoicePdf } from '../../lib/invoicePdf';
 import { loadCompanySettings } from '../../lib/companySettings';
 import type { InvoiceData } from '../components/InvoiceTemplate';
-import {
-  toCanonicalInvoiceStatusWithDueDate,
-  type CanonicalInvoiceStatus,
-} from '../../lib/invoiceStatus';
+import { toCanonicalInvoiceStatusWithDueDate, type CanonicalInvoiceStatus } from '../../lib/invoiceStatus';
+
+type CustomerTab = 'dashboard' | 'post' | 'quotes' | 'deliveries' | 'invoices';
 
 type CustomerJob = {
   id: string;
   status: string;
   pickup_location: string | null;
+  pickup_postcode: string | null;
   delivery_location: string | null;
+  delivery_postcode: string | null;
   pickup_datetime: string | null;
   delivery_datetime: string | null;
+  vehicle_type: VehicleType | null;
+  cargo_type: CargoType | null;
+  pallets: number | null;
+  weight_kg: number | null;
+  load_details: string | null;
+  special_requirements: string | null;
+  access_restrictions: string | null;
   delivery_photos: string[] | null;
   created_at: string;
   updated_at: string;
@@ -53,37 +61,139 @@ type CustomerInvoice = {
   created_at: string;
 };
 
-type CustomerTab = 'quotes' | 'jobs' | 'book' | 'invoices';
-
-const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
-const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'equipment', 'other'];
-
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  draft: { bg: '#f3f4f6', text: '#6b7280' },
-  sent: { bg: '#e0f2fe', text: '#075985' },
-  accepted: { bg: '#d1fae5', text: '#065f46' },
-  declined: { bg: '#fee2e2', text: '#991b1b' },
-  posted: { bg: '#dbeafe', text: '#1d4ed8' },
-  awarded: { bg: '#f3e8ff', text: '#6d28d9' },
-  allocated: { bg: '#e0f2fe', text: '#0c4a6e' },
-  collected: { bg: '#fef3c7', text: '#92400e' },
-  in_transit: { bg: '#ede9fe', text: '#5b21b6' },
-  delivered: { bg: '#dcfce7', text: '#166534' },
-  invoiced: { bg: '#cffafe', text: '#155e75' },
-  paid: { bg: '#dcfce7', text: '#14532d' },
-  Draft: { bg: '#fef3c7', text: '#92400e' },
-  Sent: { bg: '#e0e7ff', text: '#3730a3' },
-  Overdue: { bg: '#fee2e2', text: '#991b1b' },
-  Paid: { bg: '#d1fae5', text: '#065f46' },
-  Disputed: { bg: '#fce7f3', text: '#9d174d' },
-  Cancelled: { bg: '#e2e8f0', text: '#475569' },
+type LoadForm = {
+  pickupDate: string;
+  pickupTime: string;
+  deliveryDate: string;
+  deliveryTime: string;
+  pickupPostcode: string;
+  pickupAddress: string;
+  deliveryPostcode: string;
+  deliveryAddress: string;
+  collectionContactName: string;
+  collectionContactPhone: string;
+  deliveryContactName: string;
+  deliveryContactPhone: string;
+  customerReference: string;
+  purchaseOrderNumber: string;
+  bookingReference: string;
+  vehicleLabel: string;
+  cargoLabel: string;
+  totalWeightKg: string;
+  lengthCm: string;
+  widthCm: string;
+  heightCm: string;
+  cargoValueGbp: string;
+  palletCount: string;
+  palletType: string;
+  stackable: 'yes' | 'no';
+  collectionForklift: boolean;
+  collectionTailLift: boolean;
+  collectionHandball: boolean;
+  deliveryForklift: boolean;
+  deliveryTailLift: boolean;
+  deliveryHandball: boolean;
+  accessRestrictions: string[];
+  specialRequirements: string[];
+  documents: string[];
+  notes: string;
 };
 
+const timeSlots = Array.from({ length: 57 }, (_, index) => {
+  const minutes = 8 * 60 + index * 15;
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+});
+
+const vehicleGroups = [
+  ['Vans', ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van']],
+  ['Rigid Trucks', ['3.5T', '5T', '7.5T', '12T', '18T', '26T']],
+  ['HGV / Artics', ['Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Artic 44T Double Deck']],
+  ['Specialist Vehicles', ['Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle', 'Temperature Controlled Vehicle']],
+] as const;
+
+const cargoOptions = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
+const accessOptions = ['Residential Address', 'Commercial Premises', 'Limited Access', 'City Centre Delivery', 'Timed Booking Required'];
+const specialOptions = ['ADR Required', 'Temperature Controlled', 'Two Man Crew Required', 'Fragile Goods', 'High Value Goods'];
+const documentOptions = ['Commercial Invoice', 'Packing List', 'Delivery Notes', 'Customs Documents', 'Other Attachments'];
+const palletTypes = ['Standard Pallet', 'Euro Pallet', 'Oversized Pallet'];
+
+const newLoadForm = (): LoadForm => ({
+  pickupDate: '',
+  pickupTime: '08:00',
+  deliveryDate: '',
+  deliveryTime: 'ASAP',
+  pickupPostcode: '',
+  pickupAddress: '',
+  deliveryPostcode: '',
+  deliveryAddress: '',
+  collectionContactName: '',
+  collectionContactPhone: '',
+  deliveryContactName: '',
+  deliveryContactPhone: '',
+  customerReference: '',
+  purchaseOrderNumber: '',
+  bookingReference: '',
+  vehicleLabel: 'LWB Van',
+  cargoLabel: 'Pallets',
+  totalWeightKg: '',
+  lengthCm: '',
+  widthCm: '',
+  heightCm: '',
+  cargoValueGbp: '',
+  palletCount: '',
+  palletType: 'Standard Pallet',
+  stackable: 'yes',
+  collectionForklift: false,
+  collectionTailLift: false,
+  collectionHandball: false,
+  deliveryForklift: false,
+  deliveryTailLift: false,
+  deliveryHandball: false,
+  accessRestrictions: [],
+  specialRequirements: [],
+  documents: [],
+  notes: '',
+});
+
+const statusLabels: Record<string, string> = {
+  draft: 'Draft',
+  posted: 'Published',
+  quoted: 'Quotes Received',
+  awarded: 'Carrier Awarded',
+  allocated: 'Active Delivery',
+  collected: 'Collected',
+  in_transit: 'Active Delivery',
+  delivered: 'POD Uploaded',
+  invoiced: 'Invoice Issued',
+  paid: 'Completed',
+  cancelled: 'Cancelled',
+  disputed: 'Disputed',
+};
+
+const toDateTime = (date: string, time: string) => (!date || !time || time === 'ASAP' ? null : `${date}T${time}:00`);
+const gbp = (value: number | null | undefined) => `GBP ${Number(value ?? 0).toFixed(2)}`;
 const dateDisplay = (value: string | null) => {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '—';
-  return parsed.toLocaleString('en-GB');
+  return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+};
+
+const legacyVehicle = (label: string): VehicleType => {
+  if (label.includes('Luton')) return 'luton';
+  if (label.includes('7.5')) return 'truck_7_5t';
+  if (label.includes('18')) return 'truck_18t';
+  if (label.includes('Artic') || label.includes('26T')) return 'artic';
+  if (label.includes('Small')) return 'van_small';
+  return 'van_large';
+};
+
+const legacyCargo = (label: string): CargoType => {
+  if (label === 'Documents') return 'documents';
+  if (label === 'Parcels') return 'packages';
+  if (label === 'Pallets') return 'pallets';
+  if (label === 'Furniture') return 'furniture';
+  if (label === 'Machinery') return 'equipment';
+  return 'other';
 };
 
 const toInvoiceData = (invoice: CustomerInvoice): InvoiceData => ({
@@ -115,496 +225,439 @@ const toInvoiceData = (invoice: CustomerInvoice): InvoiceData => ({
 
 export default function CustomerPage() {
   const { user, logout } = useAuth();
-  const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [tab, setTab] = useState<CustomerTab>('dashboard');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [jobs, setJobs] = useState<CustomerJob[]>([]);
   const [invoices, setInvoices] = useState<CustomerInvoice[]>([]);
-  const [activeTab, setActiveTab] = useState<CustomerTab>('quotes');
   const [loading, setLoading] = useState(true);
-  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [message, setMessage] = useState('');
   const [formError, setFormError] = useState('');
-  const [pageMessage, setPageMessage] = useState('');
-  const [bookingError, setBookingError] = useState('');
-  const [bookingSuccess, setBookingSuccess] = useState(false);
-  const [bookingLoading, setBookingLoading] = useState(false);
-  const [bookingForm, setBookingForm] = useState({
-    pickup_location: '',
-    delivery_location: '',
-    pickup_datetime: '',
-    vehicle_type: 'van_large' as VehicleType,
-    cargo_type: 'packages' as CargoType,
-    notes: '',
-  });
-  const [formData, setFormData] = useState({
-    pickup_location: '',
-    delivery_location: '',
-    vehicle_type: 'van_large' as VehicleType,
-    cargo_type: 'packages' as CargoType,
-    customer_phone: '',
-  });
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+  const [form, setForm] = useState<LoadForm>(() => newLoadForm());
 
   useEffect(() => {
     let cancelled = false;
-    const resolveCompanyId = async () => {
+    const run = async () => {
       if (!isSupabaseConfigured || !user?.id) {
-        if (!cancelled) setResolvedCompanyId(user?.companyId ?? null);
+        if (!cancelled) setCompanyId(user?.companyId ?? null);
         return;
       }
       if (user.companyId) {
-        if (!cancelled) setResolvedCompanyId(user.companyId);
+        if (!cancelled) setCompanyId(user.companyId);
         return;
       }
-      const { data: membership } = await supabase
-        .from('company_memberships')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .neq('status', 'suspended')
-        .limit(1)
-        .maybeSingle();
-      if (!cancelled) {
-        setResolvedCompanyId((membership?.company_id as string) ?? null);
-      }
+      const { data } = await supabase.from('company_memberships').select('company_id').eq('user_id', user.id).neq('status', 'suspended').limit(1).maybeSingle();
+      if (!cancelled) setCompanyId((data?.company_id as string) ?? null);
     };
-    void resolveCompanyId();
-    return () => {
-      cancelled = true;
-    };
+    void run();
+    return () => { cancelled = true; };
   }, [user?.id, user?.companyId]);
 
-  const loadPortalData = async () => {
+  const loadData = async () => {
     setLoading(true);
-    setPageMessage('');
+    setMessage('');
     if (!isSupabaseConfigured || !user?.email) {
       setLoading(false);
       return;
     }
-    if (!resolvedCompanyId) {
+    if (!companyId) {
       setQuotes([]);
       setJobs([]);
       setInvoices([]);
-      setPageMessage('Your customer account is not linked to a company yet. Portal data is unavailable until a company invites you.');
+      setMessage('Your customer account is not linked to a company yet.');
       setLoading(false);
       return;
     }
 
-    const [quoteRes, jobsRes, invoicesRes] = await Promise.all([
-      supabase
-        .from('quotes')
-        .select('id, company_id, created_by, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at')
-        .eq('company_id', resolvedCompanyId)
-        .eq('customer_email', user.email)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('jobs')
-        .select('id, status, pickup_location, delivery_location, pickup_datetime, delivery_datetime, delivery_photos, created_at, updated_at')
-        .eq('company_id', resolvedCompanyId)
-        .eq('client_email', user.email)
-        .order('updated_at', { ascending: false }),
-      supabase
-        .from('invoices')
-        .select('id, invoice_number, job_ref, invoice_date, due_date, status, amount, net_amount, vat_amount, vat_rate, payment_terms, late_fee, client_name, client_email, client_address, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, pod_photos, signature, recipient_name, created_at')
-        .eq('company_id', resolvedCompanyId)
-        .eq('client_email', user.email)
-        .order('created_at', { ascending: false }),
+    const [quoteRes, jobRes, invoiceRes] = await Promise.all([
+      supabase.from('quotes').select('id, company_id, created_by, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at').eq('company_id', companyId).eq('customer_email', user.email).order('created_at', { ascending: false }),
+      supabase.from('jobs').select('id, status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, cargo_type, pallets, weight_kg, load_details, special_requirements, access_restrictions, delivery_photos, created_at, updated_at').eq('company_id', companyId).eq('created_by', user.id).order('updated_at', { ascending: false }),
+      supabase.from('invoices').select('id, invoice_number, job_ref, invoice_date, due_date, status, amount, net_amount, vat_amount, vat_rate, payment_terms, late_fee, client_name, client_email, client_address, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, pod_photos, signature, recipient_name, created_at').eq('company_id', companyId).eq('client_email', user.email).order('created_at', { ascending: false }),
     ]);
 
-    if (quoteRes.error || jobsRes.error || invoicesRes.error) {
-      const message = quoteRes.error?.message ?? jobsRes.error?.message ?? invoicesRes.error?.message ?? 'Unable to load portal data.';
-      setPageMessage(`Unable to load portal data: ${message}`);
-      setQuotes([]);
-      setJobs([]);
-      setInvoices([]);
+    if (quoteRes.error || jobRes.error || invoiceRes.error) {
+      setMessage(quoteRes.error?.message ?? jobRes.error?.message ?? invoiceRes.error?.message ?? 'Unable to load customer data.');
       setLoading(false);
       return;
     }
 
     setQuotes((quoteRes.data ?? []) as Quote[]);
-    setJobs((jobsRes.data ?? []) as CustomerJob[]);
-    const normalizedInvoices = ((invoicesRes.data ?? []) as CustomerInvoice[]).map((invoice) => ({
+    setJobs((jobRes.data ?? []) as CustomerJob[]);
+    setInvoices(((invoiceRes.data ?? []) as CustomerInvoice[]).map((invoice) => ({
       ...invoice,
       status: toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.due_date),
-    }));
-    setInvoices(normalizedInvoices);
+    })));
     setLoading(false);
   };
 
   useEffect(() => {
-    void loadPortalData();
+    void loadData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.email, resolvedCompanyId]);
+  }, [companyId, user?.email, user?.id]);
 
-  const handleRequestQuote = async () => {
-    setFormError('');
-    if (!formData.pickup_location.trim()) { setFormError('Pickup location is required'); return; }
-    if (!formData.delivery_location.trim()) { setFormError('Delivery location is required'); return; }
-    if (!isSupabaseConfigured || !user?.email || !resolvedCompanyId) { setFormError('Your account is not linked to a company yet. Quote requests are unavailable.'); return; }
+  const metrics = useMemo(() => ({
+    openLoads: jobs.filter((job) => !['delivered', 'invoiced', 'paid', 'cancelled'].includes(job.status)).length,
+    quotesWaiting: jobs.filter((job) => ['posted', 'quoted'].includes(job.status)).length + quotes.filter((quote) => ['draft', 'sent', 'submitted'].includes(quote.status)).length,
+    activeDeliveries: jobs.filter((job) => ['awarded', 'allocated', 'collected', 'in_transit'].includes(job.status)).length,
+    podReady: jobs.filter((job) => (job.delivery_photos?.length ?? 0) > 0).length,
+    unpaidInvoices: invoices.filter((invoice) => !['Paid', 'Cancelled'].includes(invoice.status)).length,
+  }), [jobs, quotes, invoices]);
 
-    const { error } = await supabase.from('quotes').insert([{
-      company_id: resolvedCompanyId,
-      customer_name: user.email.split('@')[0],
-      customer_email: user.email,
-      customer_phone: formData.customer_phone || null,
-      pickup_location: formData.pickup_location,
-      delivery_location: formData.delivery_location,
-      vehicle_type: formData.vehicle_type,
-      cargo_type: formData.cargo_type,
-      currency: 'GBP',
-      status: 'draft',
-    }]);
-
-    if (error) { setFormError(error.message); return; }
-
-    setShowModal(false);
-    setFormData({ pickup_location: '', delivery_location: '', vehicle_type: 'van_large', cargo_type: 'packages', customer_phone: '' });
-    setSubmitSuccess(true);
-    setTimeout(() => setSubmitSuccess(false), 4000);
-    void loadPortalData();
+  const setField = <K extends keyof LoadForm>(key: K, value: LoadForm[K]) => setForm((current) => ({ ...current, [key]: value }));
+  const toggle = (key: 'accessRestrictions' | 'specialRequirements' | 'documents', value: string) => {
+    setForm((current) => ({
+      ...current,
+      [key]: current[key].includes(value) ? current[key].filter((item) => item !== value) : [...current[key], value],
+    }));
   };
 
-  const handleDownloadInvoice = async (invoice: CustomerInvoice) => {
-    if (!resolvedCompanyId) return;
+  const detailsJson = () => JSON.stringify({
+    workflow: 'customer_load_posting_v1',
+    references: {
+      customerReference: form.customerReference || null,
+      purchaseOrderNumber: form.purchaseOrderNumber || null,
+      bookingReference: form.bookingReference || null,
+    },
+    requestedVehicle: form.vehicleLabel,
+    requestedCargo: form.cargoLabel,
+    collection: {
+      date: form.pickupDate,
+      timeSlot: form.pickupTime,
+      postcode: form.pickupPostcode,
+      address: form.pickupAddress,
+      contactName: form.collectionContactName,
+      contactPhone: form.collectionContactPhone,
+      forkliftAvailable: form.collectionForklift,
+      tailLiftRequired: form.collectionTailLift,
+      handballRequired: form.collectionHandball,
+    },
+    delivery: {
+      date: form.deliveryDate || null,
+      timeSlot: form.deliveryTime,
+      postcode: form.deliveryPostcode,
+      address: form.deliveryAddress,
+      contactName: form.deliveryContactName,
+      contactPhone: form.deliveryContactPhone,
+      forkliftAvailable: form.deliveryForklift,
+      tailLiftRequired: form.deliveryTailLift,
+      handballRequired: form.deliveryHandball,
+    },
+    dimensionsCm: { length: form.lengthCm || null, width: form.widthCm || null, height: form.heightCm || null },
+    cargoValueGbp: form.cargoValueGbp || null,
+    palletDetails: form.cargoLabel === 'Pallets' ? { count: form.palletCount || null, type: form.palletType, stackable: form.stackable === 'yes' } : null,
+    documentChecklist: form.documents,
+    notes: form.notes || null,
+  }, null, 2);
+
+  const saveLoad = async (publish: boolean) => {
+    setFormError('');
+    setSaved(false);
+    if (!form.pickupDate || !form.pickupPostcode.trim() || !form.pickupAddress.trim()) {
+      setFormError('Collection date, postcode and address are required.');
+      return;
+    }
+    if (!form.deliveryPostcode.trim() || !form.deliveryAddress.trim()) {
+      setFormError('Delivery postcode and address are required.');
+      return;
+    }
+    if (!form.collectionContactName.trim() || !form.collectionContactPhone.trim() || !form.deliveryContactName.trim() || !form.deliveryContactPhone.trim()) {
+      setFormError('Collection and delivery contacts are required.');
+      return;
+    }
+    if (!isSupabaseConfigured || !user?.id || !companyId) {
+      setFormError('Your customer account is not linked to a company yet.');
+      return;
+    }
+
+    setSaving(true);
+    const { error } = await supabase.from('jobs').insert([{
+      company_id: companyId,
+      created_by: user.id,
+      status: publish ? 'posted' : 'draft',
+      pickup_location: `${form.pickupAddress}, ${form.pickupPostcode}`,
+      pickup_postcode: form.pickupPostcode.trim().toUpperCase(),
+      pickup_datetime: toDateTime(form.pickupDate, form.pickupTime),
+      delivery_location: `${form.deliveryAddress}, ${form.deliveryPostcode}`,
+      delivery_postcode: form.deliveryPostcode.trim().toUpperCase(),
+      delivery_datetime: toDateTime(form.deliveryDate, form.deliveryTime),
+      vehicle_type: legacyVehicle(form.vehicleLabel),
+      cargo_type: legacyCargo(form.cargoLabel),
+      pallets: form.cargoLabel === 'Pallets' && form.palletCount ? Number(form.palletCount) : null,
+      weight_kg: form.totalWeightKg ? Number(form.totalWeightKg) : null,
+      length_cm: form.lengthCm ? Number(form.lengthCm) : null,
+      width_cm: form.widthCm ? Number(form.widthCm) : null,
+      height_cm: form.heightCm ? Number(form.heightCm) : null,
+      load_details: detailsJson(),
+      special_requirements: form.specialRequirements.join(', ') || null,
+      access_restrictions: form.accessRestrictions.join(', ') || null,
+    }]);
+    setSaving(false);
+    if (error) {
+      setFormError(error.message);
+      return;
+    }
+    setSaved(true);
+    setForm(newLoadForm());
+    setTab('dashboard');
+    await loadData();
+  };
+
+  const downloadInvoice = async (invoice: CustomerInvoice) => {
+    if (!companyId) return;
     setDownloadingInvoiceId(invoice.id);
     try {
-      const companySettings = await loadCompanySettings(supabase, resolvedCompanyId);
-      await downloadInvoicePdf({
-        invoice: toInvoiceData(invoice),
-        companySettings,
-      });
+      await downloadInvoicePdf({ invoice: toInvoiceData(invoice), companySettings: await loadCompanySettings(supabase, companyId) });
     } catch (error) {
-      setPageMessage(error instanceof Error ? `Unable to download invoice PDF: ${error.message}` : 'Unable to download invoice PDF.');
+      setMessage(error instanceof Error ? error.message : 'Unable to download invoice PDF.');
     } finally {
       setDownloadingInvoiceId(null);
     }
   };
 
-  const handleBookDelivery = async () => {
-    setBookingError('');
-    setBookingSuccess(false);
-    if (!bookingForm.pickup_location.trim()) { setBookingError('Pickup location is required'); return; }
-    if (!bookingForm.delivery_location.trim()) { setBookingError('Delivery location is required'); return; }
-    setBookingLoading(true);
-
-    // When the customer has a linked company, insert directly as a job
-    if (isSupabaseConfigured && user?.id && resolvedCompanyId) {
-      const { error } = await supabase.from('jobs').insert([{
-        company_id: resolvedCompanyId,
-        created_by: user.id,
-        status: 'draft',
-        pickup_location: bookingForm.pickup_location,
-        delivery_location: bookingForm.delivery_location,
-        pickup_datetime: bookingForm.pickup_datetime || null,
-        vehicle_type: bookingForm.vehicle_type,
-        cargo_type: bookingForm.cargo_type,
-        notes: bookingForm.notes || null,
-      }]);
-      setBookingLoading(false);
-      if (error) { setBookingError(error.message); return; }
-      setBookingSuccess(true);
-      setBookingForm({ pickup_location: '', delivery_location: '', pickup_datetime: '', vehicle_type: 'van_large', cargo_type: 'packages', notes: '' });
-      await loadPortalData();
-      return;
-    }
-
-    // Fallback: no company linked — submit via the public quote-request endpoint
-    // This ensures new customers can always request a delivery even before being invited to a company.
-    const res = await fetch('/api/public/quote-request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fullName: user?.email?.split('@')[0] ?? 'Customer',
-        email: user?.email ?? '',
-        phone: '',
-        pickupLocation: bookingForm.pickup_location,
-        deliveryLocation: bookingForm.delivery_location,
-        cargoType: (['pallets', 'furniture', 'documents', 'other'].includes(bookingForm.cargo_type)
-          ? bookingForm.cargo_type
-          : 'other') as 'pallets' | 'furniture' | 'documents' | 'other',
-        quantity: '',
-        notes: [
-          bookingForm.pickup_datetime ? `Requested pickup: ${bookingForm.pickup_datetime}` : null,
-          `Vehicle: ${bookingForm.vehicle_type.replace(/_/g, ' ')}`,
-          bookingForm.notes || null,
-        ].filter(Boolean).join(' | '),
-      }),
-    });
-    setBookingLoading(false);
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({})) as { error?: string };
-      setBookingError(body.error ?? 'Failed to submit booking. Please try again.');
-      return;
-    }
-    setBookingSuccess(true);
-    setBookingForm({ pickup_location: '', delivery_location: '', pickup_datetime: '', vehicle_type: 'van_large', cargo_type: 'packages', notes: '' });
-  };
-
-  const tabCounts = useMemo(() => ({
-    quotes: quotes.length,
-    jobs: jobs.length,
-    invoices: invoices.length,
-  }), [quotes.length, jobs.length, invoices.length]);
-
-  const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
-  const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
+  const chip = (status: string) => <span className="chip">{statusLabels[status] ?? status}</span>;
+  const field = (label: string, node: React.ReactNode) => <label className="field"><span>{label}</span>{node}</label>;
+  const checks = (items: string[], selected: string[], key: 'accessRestrictions' | 'specialRequirements' | 'documents') => (
+    <div className="checks">{items.map((item) => <label key={item}><input type="checkbox" checked={selected.includes(item)} onChange={() => toggle(key, item)} />{item}</label>)}</div>
+  );
 
   return (
     <ProtectedRoute allowedRoles={['customer']}>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
-        <header style={{ backgroundColor: '#0A2239', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+      <div className="page">
+        <header className="topbar">
           <div>
-            <p style={{ color: '#93c5fd', fontSize: '0.75rem', margin: 0 }}>Welcome back</p>
-            <h1 style={{ color: '#ffffff', fontSize: '1.25rem', fontWeight: '700', margin: 0 }}>Customer Portal</h1>
+            <p>XDrive Customer</p>
+            <h1>Load Posting Workspace</h1>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <span style={{ color: '#cbd5e1', fontSize: '0.85rem', wordBreak: 'break-word' }}>{user?.email}</span>
-            <button onClick={() => logout()} style={{ padding: '0.5rem 1rem', backgroundColor: 'transparent', color: '#cbd5e1', border: '1px solid #4b5563', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
-              Logout
-            </button>
+          <div className="userbar">
+            <span>{user?.email}</span>
+            <button onClick={() => logout()}>Logout</button>
           </div>
         </header>
 
-        <main style={{ width: '100%', padding: '1rem' }}>
-          {pageMessage && <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#92400e', fontWeight: '600' }}>{pageMessage}</div>}
+        <main>
+          {message && <div className="notice warn">{message}</div>}
+          {saved && <div className="notice ok">Load saved successfully.</div>}
 
-          {submitSuccess && <div style={{ backgroundColor: '#dcfce7', border: '1px solid #1F7A3D', borderRadius: '8px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#14532d', fontWeight: '600' }}>✅ Your quote request has been submitted. We&apos;ll be in touch shortly.</div>}
-
-          <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '1rem', display: 'flex', flexWrap: 'wrap' }}>
+          <nav className="tabs">
             {([
-              ['quotes', `Quotes (${tabCounts.quotes})`],
-              ['jobs', `Jobs & POD (${tabCounts.jobs})`],
-              ['book', '📦 Book Delivery'],
-              ['invoices', `Invoices (${tabCounts.invoices})`],
-            ] as Array<[CustomerTab, string]>).map(([tab, label]) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  border: 'none',
-                  borderBottom: activeTab === tab ? '2px solid #1d4ed8' : '2px solid transparent',
-                  background: 'none',
-                  padding: '0.75rem 1rem',
-                  color: activeTab === tab ? '#1d4ed8' : '#64748b',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                {label}
-              </button>
+              ['dashboard', 'Dashboard'],
+              ['post', 'Post Load'],
+              ['quotes', `Quotes (${quotes.length})`],
+              ['deliveries', `Deliveries (${jobs.length})`],
+              ['invoices', `Invoices (${invoices.length})`],
+            ] as Array<[CustomerTab, string]>).map(([nextTab, label]) => (
+              <button key={nextTab} className={tab === nextTab ? 'active' : ''} onClick={() => setTab(nextTab)}>{label}</button>
             ))}
-          </div>
+          </nav>
 
-          {activeTab === 'quotes' && (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>My Quote Requests</h2>
-                <button onClick={() => setShowModal(true)} disabled={!resolvedCompanyId} style={{ padding: '0.7rem 1.2rem', backgroundColor: resolvedCompanyId ? '#1F7A3D' : '#9ca3af', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: '600', cursor: resolvedCompanyId ? 'pointer' : 'not-allowed' }}>
-                  + Request a Quote
-                </button>
+          {tab === 'dashboard' && (
+            <section className="stack">
+              <div className="metrics">
+                {[
+                  ['Open Loads', metrics.openLoads],
+                  ['Quotes Waiting', metrics.quotesWaiting],
+                  ['Active Deliveries', metrics.activeDeliveries],
+                  ['POD Ready', metrics.podReady],
+                  ['Unpaid Invoices', metrics.unpaidInvoices],
+                ].map(([label, value]) => <article key={label} className="metric"><span>{label}</span><strong>{value}</strong></article>)}
               </div>
-              <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-                {loading ? <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading…</div> : quotes.length === 0 ? <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No quote requests yet.</div> : (
-                  <div style={{ overflowX: 'auto', width: '100%' }}>
-                    <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse' }}>
-                      <thead><tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>{['Pickup', 'Delivery', 'Vehicle', 'Cargo', 'Amount', 'Status', 'Date'].map((h) => <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280' }}>{h}</th>)}</tr></thead>
-                      <tbody>
-                        {quotes.map((q, i) => {
-                          const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
-                          return (
-                            <tr key={q.id} style={{ borderBottom: i < quotes.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                              <td style={{ padding: '1rem' }}>{q.pickup_location || '—'}</td>
-                              <td style={{ padding: '1rem' }}>{q.delivery_location || '—'}</td>
-                              <td style={{ padding: '1rem', color: '#6b7280' }}>{q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
-                              <td style={{ padding: '1rem', color: '#6b7280' }}>{q.cargo_type || '—'}</td>
-                              <td style={{ padding: '1rem', fontWeight: 700 }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
-                              <td style={{ padding: '1rem' }}><span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{q.status}</span></td>
-                              <td style={{ padding: '1rem', color: '#6b7280', fontSize: '0.85rem' }}>{new Date(q.created_at).toLocaleDateString()}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+              <div className="actions">
+                <button className="primary" onClick={() => setTab('post')}>Post Load</button>
+                <button onClick={() => setTab('post')}>Request Quote</button>
+                <button onClick={() => setTab('deliveries')}>View Active Deliveries</button>
+                <button onClick={() => setTab('invoices')}>View Invoices</button>
               </div>
-            </>
+              <div className="columns">
+                <ListCard title="Recent Loads">{jobs.slice(0, 4).map((job) => <Row key={job.id} title={`${job.pickup_postcode ?? job.pickup_location ?? '-'} to ${job.delivery_postcode ?? job.delivery_location ?? '-'}`} meta={statusLabels[job.status] ?? job.status} />)}</ListCard>
+                <ListCard title="Recent Quotes">{quotes.slice(0, 4).map((quote) => <Row key={quote.id} title={`${quote.pickup_location ?? '-'} to ${quote.delivery_location ?? '-'}`} meta={quote.amount ? gbp(quote.amount) : 'Awaiting price'} />)}</ListCard>
+                <ListCard title="Recent Deliveries">{jobs.slice(0, 4).map((job) => <Row key={job.id} title={dateDisplay(job.pickup_datetime)} meta={job.delivery_location ?? '-'} />)}</ListCard>
+              </div>
+            </section>
           )}
 
-          {activeTab === 'jobs' && (
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
-              {loading ? <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>Loading jobs…</div> : jobs.length === 0 ? <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '1.2rem', color: '#6b7280' }}>No jobs found for your account yet.</div> : jobs.map((job) => {
-                const color = STATUS_COLORS[job.status] ?? STATUS_COLORS.draft;
-                return (
-                  <div key={job.id} style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '1rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{job.pickup_location || '—'} → {job.delivery_location || '—'}</div>
-                      <span style={{ background: color.bg, color: color.text, padding: '0.2rem 0.6rem', borderRadius: '999px', fontWeight: 700, fontSize: '0.78rem' }}>{job.status}</span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.7rem' }}>
-                      <div style={{ fontSize: '0.83rem', color: '#475569' }}>Pickup: {dateDisplay(job.pickup_datetime)}</div>
-                      <div style={{ fontSize: '0.83rem', color: '#475569' }}>Delivery: {dateDisplay(job.delivery_datetime)}</div>
-                    </div>
-                    <div style={{ marginTop: '0.6rem', fontSize: '0.78rem', color: '#94a3b8' }}>Last update: {dateDisplay(job.updated_at)}</div>
-                    <div style={{ marginTop: '0.7rem' }}>
-                      <strong style={{ fontSize: '0.83rem', color: '#334155' }}>Proof of delivery</strong>
-                      {job.delivery_photos && job.delivery_photos.length > 0 ? (
-                        <div style={{ marginTop: '0.55rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.55rem' }}>
-                          {job.delivery_photos.map((photo, index) => (
-                            <a key={`${job.id}-${index}`} href={photo} target="_blank" rel="noreferrer" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.4rem', textDecoration: 'none', color: '#1d4ed8', fontSize: '0.8rem', background: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              POD photo {index + 1}
-                            </a>
-                          ))}
-                        </div>
-                      ) : (
-                        <div style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: '#64748b' }}>No POD uploaded yet.</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {activeTab === 'book' && (
-            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', maxWidth: '560px' }}>
-              <h2 style={{ margin: '0 0 1rem', fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>📦 Book a Delivery</h2>
-              <p style={{ margin: '0 0 1.25rem', fontSize: '0.88rem', color: '#64748b' }}>Submit a delivery booking directly. Our team will review and allocate a driver.</p>
-              {!resolvedCompanyId && (
-                <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.86rem', color: '#854d0e' }}>
-                  ℹ️ Your account isn&apos;t linked to a company yet. Bookings submitted here will be handled by the XDrive operations team and you&apos;ll be contacted to confirm.
+          {tab === 'post' && (
+            <section className="stack">
+              {formError && <div className="notice error">{formError}</div>}
+              <Card title="Pickup & Delivery Scheduling">
+                <div className="grid4">
+                  {field('Pickup Date *', <input type="date" value={form.pickupDate} onChange={(e) => setField('pickupDate', e.target.value)} />)}
+                  {field('Pickup Time Slot *', <select value={form.pickupTime} onChange={(e) => setField('pickupTime', e.target.value)}>{timeSlots.map((slot) => <option key={slot}>{slot}</option>)}</select>)}
+                  {field('Delivery Date', <input type="date" value={form.deliveryDate} onChange={(e) => setField('deliveryDate', e.target.value)} />)}
+                  {field('Delivery Time Slot', <select value={form.deliveryTime} onChange={(e) => setField('deliveryTime', e.target.value)}><option>ASAP</option>{timeSlots.map((slot) => <option key={slot}>{slot}</option>)}</select>)}
                 </div>
+              </Card>
+
+              <div className="columns">
+                <Card title="Collection">
+                  {field('Pickup Postcode *', <input value={form.pickupPostcode} onChange={(e) => setField('pickupPostcode', e.target.value)} placeholder="SW1A 1AA" />)}
+                  {field('Pickup Address *', <textarea value={form.pickupAddress} onChange={(e) => setField('pickupAddress', e.target.value)} />)}
+                  {field('Contact Name *', <input value={form.collectionContactName} onChange={(e) => setField('collectionContactName', e.target.value)} />)}
+                  {field('Phone Number *', <input value={form.collectionContactPhone} onChange={(e) => setField('collectionContactPhone', e.target.value)} />)}
+                </Card>
+                <Card title="Delivery">
+                  {field('Delivery Postcode *', <input value={form.deliveryPostcode} onChange={(e) => setField('deliveryPostcode', e.target.value)} placeholder="M1 1AE" />)}
+                  {field('Delivery Address *', <textarea value={form.deliveryAddress} onChange={(e) => setField('deliveryAddress', e.target.value)} />)}
+                  {field('Contact Name *', <input value={form.deliveryContactName} onChange={(e) => setField('deliveryContactName', e.target.value)} />)}
+                  {field('Phone Number *', <input value={form.deliveryContactPhone} onChange={(e) => setField('deliveryContactPhone', e.target.value)} />)}
+                </Card>
+              </div>
+
+              <Card title="References">
+                <div className="grid3">
+                  {field('Customer Reference', <input value={form.customerReference} onChange={(e) => setField('customerReference', e.target.value)} />)}
+                  {field('Purchase Order Number', <input value={form.purchaseOrderNumber} onChange={(e) => setField('purchaseOrderNumber', e.target.value)} />)}
+                  {field('Booking Reference', <input value={form.bookingReference} onChange={(e) => setField('bookingReference', e.target.value)} />)}
+                </div>
+              </Card>
+
+              <Card title="Vehicle & Cargo">
+                <div className="grid4">
+                  {field('Vehicle Type', <select value={form.vehicleLabel} onChange={(e) => setField('vehicleLabel', e.target.value)}>{vehicleGroups.map(([group, options]) => <optgroup key={group} label={group}>{options.map((option) => <option key={option}>{option}</option>)}</optgroup>)}</select>)}
+                  {field('Cargo Type', <select value={form.cargoLabel} onChange={(e) => setField('cargoLabel', e.target.value)}>{cargoOptions.map((option) => <option key={option}>{option}</option>)}</select>)}
+                  {field('Total Weight (kg)', <input type="number" min="0" value={form.totalWeightKg} onChange={(e) => setField('totalWeightKg', e.target.value)} />)}
+                  {field('Cargo Value (GBP)', <input type="number" min="0" value={form.cargoValueGbp} onChange={(e) => setField('cargoValueGbp', e.target.value)} />)}
+                </div>
+                <div className="grid3">
+                  {field('Length (cm)', <input type="number" min="0" value={form.lengthCm} onChange={(e) => setField('lengthCm', e.target.value)} />)}
+                  {field('Width (cm)', <input type="number" min="0" value={form.widthCm} onChange={(e) => setField('widthCm', e.target.value)} />)}
+                  {field('Height (cm)', <input type="number" min="0" value={form.heightCm} onChange={(e) => setField('heightCm', e.target.value)} />)}
+                </div>
+              </Card>
+
+              {form.cargoLabel === 'Pallets' && (
+                <Card title="Pallet Workflow">
+                  <div className="grid3">
+                    {field('Number of Pallets', <input type="number" min="0" value={form.palletCount} onChange={(e) => setField('palletCount', e.target.value)} />)}
+                    {field('Pallet Type', <select value={form.palletType} onChange={(e) => setField('palletType', e.target.value)}>{palletTypes.map((option) => <option key={option}>{option}</option>)}</select>)}
+                    {field('Stackable', <select value={form.stackable} onChange={(e) => setField('stackable', e.target.value as 'yes' | 'no')}><option value="yes">Yes</option><option value="no">No</option></select>)}
+                  </div>
+                </Card>
               )}
-              {bookingSuccess && <div style={{ background: '#dcfce7', border: '1px solid #1F7A3D', borderRadius: '8px', padding: '0.85rem 1rem', marginBottom: '1rem', color: '#14532d', fontWeight: 600 }}>✅ Booking submitted! Our team will be in touch to confirm your delivery.{resolvedCompanyId ? ' Check the Jobs tab to track progress.' : ''}</div>}
-              {bookingError && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', color: '#dc2626', fontSize: '0.9rem' }}>{bookingError}</div>}
-              <div style={{ display: 'grid', gap: '1rem' }}>
-                <div>
-                  <label style={labelStyle}>Pickup Location *</label>
-                  <input style={inputStyle} value={bookingForm.pickup_location} onChange={e => setBookingForm({...bookingForm, pickup_location: e.target.value})} placeholder="e.g. London, SW1A 1AA" />
-                </div>
-                <div>
-                  <label style={labelStyle}>Delivery Location *</label>
-                  <input style={inputStyle} value={bookingForm.delivery_location} onChange={e => setBookingForm({...bookingForm, delivery_location: e.target.value})} placeholder="e.g. Manchester, M1 1AE" />
-                </div>
-                <div>
-                  <label style={labelStyle}>Requested Pickup Date & Time</label>
-                  <input style={inputStyle} type="datetime-local" value={bookingForm.pickup_datetime} onChange={e => setBookingForm({...bookingForm, pickup_datetime: e.target.value})} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label style={labelStyle}>Vehicle Type</label>
-                    <select style={inputStyle} value={bookingForm.vehicle_type} onChange={e => setBookingForm({...bookingForm, vehicle_type: e.target.value as VehicleType})}>
-                      {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Cargo Type</label>
-                    <select style={inputStyle} value={bookingForm.cargo_type} onChange={e => setBookingForm({...bookingForm, cargo_type: e.target.value as CargoType})}>
-                      {CARGO_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label style={labelStyle}>Additional Notes</label>
-                  <textarea style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }} value={bookingForm.notes} onChange={e => setBookingForm({...bookingForm, notes: e.target.value})} placeholder="Any special instructions, fragile items, access restrictions…" />
-                </div>
-                <button
-                  onClick={() => { void handleBookDelivery(); }}
-                  disabled={bookingLoading}
-                  style={{ padding: '0.85rem', background: bookingLoading ? '#9ca3af' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: bookingLoading ? 'not-allowed' : 'pointer', fontSize: '0.95rem' }}
-                >
-                  {bookingLoading ? 'Submitting…' : 'Submit Booking'}
-                </button>
+
+              <div className="columns">
+                <Card title="Collection Loading">{['Forklift Available', 'Tail Lift Required', 'Handball Required'].map((label, index) => <Toggle key={label} label={label} checked={[form.collectionForklift, form.collectionTailLift, form.collectionHandball][index]} onChange={(value) => setField(['collectionForklift', 'collectionTailLift', 'collectionHandball'][index] as keyof LoadForm, value as never)} />)}</Card>
+                <Card title="Delivery Unloading">{['Forklift Available', 'Tail Lift Required', 'Handball Required'].map((label, index) => <Toggle key={label} label={label} checked={[form.deliveryForklift, form.deliveryTailLift, form.deliveryHandball][index]} onChange={(value) => setField(['deliveryForklift', 'deliveryTailLift', 'deliveryHandball'][index] as keyof LoadForm, value as never)} />)}</Card>
               </div>
-            </div>
+
+              <Card title="Access Restrictions">{checks(accessOptions, form.accessRestrictions, 'accessRestrictions')}</Card>
+              <Card title="Special Requirements">{checks(specialOptions, form.specialRequirements, 'specialRequirements')}</Card>
+              <Card title="Documents">
+                {checks(documentOptions, form.documents, 'documents')}
+                <input type="file" multiple onChange={(event) => setField('documents', Array.from(event.target.files ?? []).map((file) => file.name))} />
+              </Card>
+              <Card title="Notes">{field('Operational Notes', <textarea value={form.notes} onChange={(e) => setField('notes', e.target.value)} placeholder="Site instructions, booking windows, driver notes." />)}</Card>
+
+              <div className="savebar">
+                <button disabled={saving} onClick={() => void saveLoad(false)}>Save Draft</button>
+                <button className="primary" disabled={saving} onClick={() => void saveLoad(true)}>{saving ? 'Saving...' : 'Publish Load'}</button>
+              </div>
+            </section>
           )}
 
-          {activeTab === 'invoices' && (
-            <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-              {loading ? <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>Loading invoices…</div> : invoices.length === 0 ? <div style={{ padding: '1.4rem', textAlign: 'center', color: '#6b7280' }}>No invoices available for your account.</div> : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '780px' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
-                        {['Invoice #', 'Job Ref', 'Date', 'Due', 'Amount', 'Status', 'Actions'].map((h) => (
-                          <th key={h} style={{ padding: '0.8rem', textAlign: h === 'Amount' ? 'right' : 'left', fontSize: '0.8rem', color: '#64748b' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invoices.map((invoice, index) => {
-                        const color = STATUS_COLORS[invoice.status] ?? STATUS_COLORS.Draft;
-                        return (
-                          <tr key={invoice.id} style={{ borderBottom: index < invoices.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                            <td style={{ padding: '0.8rem', fontWeight: 600 }}>{invoice.invoice_number}</td>
-                            <td style={{ padding: '0.8rem' }}>{invoice.job_ref || '—'}</td>
-                            <td style={{ padding: '0.8rem' }}>{new Date(invoice.invoice_date).toLocaleDateString('en-GB')}</td>
-                            <td style={{ padding: '0.8rem' }}>{new Date(invoice.due_date).toLocaleDateString('en-GB')}</td>
-                            <td style={{ padding: '0.8rem', textAlign: 'right', fontWeight: 700 }}>£{Number(invoice.amount ?? 0).toFixed(2)}</td>
-                            <td style={{ padding: '0.8rem' }}><span style={{ background: color.bg, color: color.text, padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700 }}>{invoice.status}</span></td>
-                            <td style={{ padding: '0.8rem' }}>
-                              <button
-                                onClick={() => void handleDownloadInvoice(invoice)}
-                                disabled={downloadingInvoiceId === invoice.id}
-                                style={{ padding: '0.35rem 0.7rem', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', borderRadius: '6px', cursor: downloadingInvoiceId === invoice.id ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.78rem' }}
-                              >
-                                {downloadingInvoiceId === invoice.id ? 'Preparing…' : 'Download PDF'}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+          {tab === 'quotes' && <DataTable empty="No quotes yet." rows={quotes.map((quote) => [quote.pickup_location ?? '-', quote.delivery_location ?? '-', quote.vehicle_type?.replace(/_/g, ' ') ?? '-', quote.cargo_type ?? '-', quote.amount ? gbp(quote.amount) : '-', quote.status])} headers={['Pickup', 'Delivery', 'Vehicle', 'Cargo', 'Amount', 'Status']} />}
+
+          {tab === 'deliveries' && (
+            <section className="stack">
+              {loading ? <Card title="Deliveries">Loading...</Card> : jobs.length === 0 ? <Card title="Deliveries">No deliveries found.</Card> : jobs.map((job) => (
+                <article key={job.id} className="card">
+                  <div className="split"><strong>{job.pickup_postcode ?? job.pickup_location ?? '-'} to {job.delivery_postcode ?? job.delivery_location ?? '-'}</strong>{chip(job.status)}</div>
+                  <div className="grid4 small">
+                    <span>Pickup: {dateDisplay(job.pickup_datetime)}</span>
+                    <span>Delivery: {dateDisplay(job.delivery_datetime)}</span>
+                    <span>Vehicle: {job.vehicle_type?.replace(/_/g, ' ') ?? '-'}</span>
+                    <span>POD: {job.delivery_photos?.length ? 'Ready' : 'Pending'}</span>
+                  </div>
+                </article>
+              ))}
+            </section>
+          )}
+
+          {tab === 'invoices' && (
+            <section className="card">
+              <h2>Invoices</h2>
+              {invoices.length === 0 ? <p>No invoices available.</p> : <div className="table-wrap"><table><thead><tr>{['Invoice #', 'Job Ref', 'Date', 'Due', 'Amount', 'Status', 'Actions'].map((head) => <th key={head}>{head}</th>)}</tr></thead><tbody>{invoices.map((invoice) => <tr key={invoice.id}><td>{invoice.invoice_number}</td><td>{invoice.job_ref || '-'}</td><td>{new Date(invoice.invoice_date).toLocaleDateString('en-GB')}</td><td>{new Date(invoice.due_date).toLocaleDateString('en-GB')}</td><td>{gbp(invoice.amount)}</td><td>{invoice.status}</td><td><button disabled={downloadingInvoiceId === invoice.id} onClick={() => void downloadInvoice(invoice)}>{downloadingInvoiceId === invoice.id ? 'Preparing...' : 'Download PDF'}</button></td></tr>)}</tbody></table></div>}
+            </section>
           )}
         </main>
 
-        {showModal && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Request a Quote</h2>
-                <button onClick={() => { setShowModal(false); setFormError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
-              </div>
-              <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                {formError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{formError}</div>}
-                <div>
-                  <label style={labelStyle}>Pickup Location *</label>
-                  <input style={inputStyle} value={formData.pickup_location} onChange={e => setFormData({...formData, pickup_location: e.target.value})} placeholder="e.g. London, SW1A 1AA" />
-                </div>
-                <div>
-                  <label style={labelStyle}>Delivery Location *</label>
-                  <input style={inputStyle} value={formData.delivery_location} onChange={e => setFormData({...formData, delivery_location: e.target.value})} placeholder="e.g. Manchester, M1 1AE" />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                  <div>
-                    <label style={labelStyle}>Vehicle Type</label>
-                    <select style={inputStyle} value={formData.vehicle_type} onChange={e => setFormData({...formData, vehicle_type: e.target.value as VehicleType})}>
-                      {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Cargo Type</label>
-                    <select style={inputStyle} value={formData.cargo_type} onChange={e => setFormData({...formData, cargo_type: e.target.value as CargoType})}>
-                      {CARGO_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label style={labelStyle}>Phone (optional)</label>
-                  <input style={inputStyle} type="tel" value={formData.customer_phone} onChange={e => setFormData({...formData, customer_phone: e.target.value})} placeholder="07123 456789" />
-                </div>
-              </div>
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                <button onClick={() => { setShowModal(false); setFormError(''); }} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleRequestQuote} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Submit Request</button>
-              </div>
-            </div>
-          </div>
-        )}
+        <style jsx>{`
+          .page { min-height: 100vh; background: #f3f4f6; color: #0f172a; }
+          .topbar { background: #0a2239; color: white; padding: 16px; display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+          .topbar p { margin: 0; color: #f5c84c; font-size: 12px; font-weight: 800; }
+          .topbar h1 { margin: 0; font-size: 22px; }
+          .userbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; color: #cbd5e1; font-size: 14px; }
+          main { max-width: 1180px; margin: 0 auto; padding: 16px; }
+          button { border: 1px solid #cbd5e1; background: white; border-radius: 8px; padding: 10px 14px; font-weight: 800; cursor: pointer; color: #0f172a; }
+          button:disabled { opacity: .6; cursor: not-allowed; }
+          .primary { background: #f5c84c; border-color: #f5c84c; color: #111827; }
+          .tabs { background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 16px; display: flex; flex-wrap: wrap; }
+          .tabs button { border: 0; border-bottom: 3px solid transparent; border-radius: 0; color: #64748b; }
+          .tabs .active { border-bottom-color: #f5c84c; color: #0f172a; background: #fffbeb; }
+          .stack { display: grid; gap: 16px; }
+          .card, .metric { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+          .card h2 { margin: 0 0 12px; font-size: 17px; }
+          .metrics, .columns, .grid3, .grid4 { display: grid; gap: 12px; }
+          .metrics { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+          .columns { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+          .grid3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+          .grid4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+          .metric { border-top: 4px solid #f5c84c; }
+          .metric span, .field span { display: block; color: #64748b; font-size: 12px; font-weight: 900; text-transform: uppercase; margin-bottom: 6px; }
+          .metric strong { display: block; font-size: 34px; }
+          .actions, .savebar { display: flex; gap: 10px; flex-wrap: wrap; }
+          .savebar { justify-content: flex-end; }
+          .field { display: grid; gap: 4px; margin-bottom: 12px; }
+          input, select, textarea { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 8px; padding: 11px; font: inherit; background: white; color: #0f172a; }
+          textarea { min-height: 82px; resize: vertical; }
+          .checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+          .checks label, .toggle { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; display: flex; align-items: center; gap: 8px; font-weight: 700; }
+          .toggle { justify-content: space-between; margin-bottom: 8px; }
+          .notice { border-radius: 8px; padding: 12px; margin-bottom: 12px; font-weight: 800; }
+          .warn { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+          .ok { background: #dcfce7; color: #14532d; border: 1px solid #22c55e; }
+          .error { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+          .row { border-top: 1px solid #e2e8f0; padding: 10px 0; }
+          .row strong { display: block; }
+          .row span, .small { color: #64748b; font-size: 14px; }
+          .split { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
+          .chip { background: #fffbeb; color: #92400e; border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 900; }
+          .table-wrap { overflow-x: auto; }
+          table { width: 100%; min-width: 760px; border-collapse: collapse; }
+          th, td { padding: 12px; border-top: 1px solid #e2e8f0; text-align: left; }
+          th { background: #f8fafc; color: #64748b; font-size: 12px; text-transform: uppercase; }
+        `}</style>
       </div>
     </ProtectedRoute>
+  );
+}
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return <section className="card"><h2>{title}</h2>{children}</section>;
+}
+
+function ListCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return <Card title={title}>{children || <p>No records yet.</p>}</Card>;
+}
+
+function Row({ title, meta }: { title: string; meta: string }) {
+  return <div className="row"><strong>{title}</strong><span>{meta}</span></div>;
+}
+
+function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return <label className="toggle">{label}<input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /></label>;
+}
+
+function DataTable({ headers, rows, empty }: { headers: string[]; rows: string[][]; empty: string }) {
+  if (rows.length === 0) return <section className="card"><p>{empty}</p></section>;
+  return (
+    <section className="card table-wrap">
+      <table>
+        <thead><tr>{headers.map((head) => <th key={head}>{head}</th>)}</tr></thead>
+        <tbody>{rows.map((row, index) => <tr key={index}>{row.map((cell, cellIndex) => <td key={`${index}-${cellIndex}`}>{cell}</td>)}</tr>)}</tbody>
+      </table>
+    </section>
   );
 }
