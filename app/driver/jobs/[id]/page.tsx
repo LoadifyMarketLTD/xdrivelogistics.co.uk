@@ -39,15 +39,23 @@ function buildMapsUrl(app: 'google' | 'waze' | 'apple', address: string, postcod
 function sanitizePhotoUrl(url: string | null): string | null {
   if (!url) return null;
 
+  // Strictly allow only base64-encoded image data URLs.
   if (/^data:/i.test(url)) {
     return /^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(url) ? url : null;
   }
 
-  if (/^blob:/i.test(url)) return url;
+  // Allow only browser-generated blob URLs (blob:http[s]://...).
+  if (/^blob:/i.test(url)) {
+    return /^blob:https?:\/\/[^\s]+$/i.test(url) ? url : null;
+  }
 
   try {
     const parsed = new URL(url);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+
+    // Only allow standard web protocols from expected storage hosts.
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    const host = parsed.hostname.toLowerCase();
+    if (host === 'supabase.co' || host.endsWith('.supabase.co')) {
       return parsed.toString();
     }
   } catch {
