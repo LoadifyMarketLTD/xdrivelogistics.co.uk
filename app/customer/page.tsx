@@ -9,50 +9,61 @@ import { downloadInvoicePdf } from '../../lib/invoicePdf';
 import { loadCompanySettings } from '../../lib/companySettings';
 import type { InvoiceData } from '../components/InvoiceTemplate';
 import { toCanonicalInvoiceStatusWithDueDate, type CanonicalInvoiceStatus } from '../../lib/invoiceStatus';
-import { getLoadDetailSections, type LoadDetailSection } from '../../lib/loadPostingDetails';
 
-type CustomerTab = 'dashboard' | 'post' | 'quotes' | 'deliveries' | 'invoices';
+type CustomerTab = 'dashboard' | 'post' | 'quotes' | 'deliveries' | 'invoices' | 'updates';
 
 type CustomerJob = {
   id: string;
   status: string;
+  awarded_carrier_company_id: string | null;
   pickup_location: string | null;
   pickup_postcode: string | null;
   delivery_location: string | null;
   delivery_postcode: string | null;
   pickup_datetime: string | null;
-  pickup_time_slot: string | null;
   delivery_datetime: string | null;
-  delivery_time_slot: string | null;
   vehicle_type: VehicleType | null;
   cargo_type: CargoType | null;
   pallets: number | null;
   weight_kg: number | null;
-  collection_contact_name: string | null;
-  collection_contact_phone: string | null;
-  delivery_contact_name: string | null;
-  delivery_contact_phone: string | null;
-  customer_reference: string | null;
-  purchase_order_number: string | null;
-  booking_reference: string | null;
-  requested_vehicle_label: string | null;
-  requested_cargo_label: string | null;
-  cargo_value_gbp: number | null;
-  pallet_type: string | null;
-  pallet_stackable: boolean | null;
-  collection_forklift_available: boolean | null;
-  collection_tail_lift_required: boolean | null;
-  collection_handball_required: boolean | null;
-  delivery_forklift_available: boolean | null;
-  delivery_tail_lift_required: boolean | null;
-  delivery_handball_required: boolean | null;
-  document_checklist: string[] | null;
   load_details: string | null;
   special_requirements: string | null;
   access_restrictions: string | null;
   delivery_photos: string[] | null;
   created_at: string;
   updated_at: string;
+};
+
+type CustomerBid = {
+  id: string;
+  job_id: string;
+  company_id: string | null;
+  amount: number | null;
+  bid_price_gbp: number | null;
+  currency: string;
+  message: string | null;
+  status: string;
+  created_at: string;
+  jobs: {
+    id: string;
+    status: string;
+    pickup_location: string | null;
+    delivery_location: string | null;
+    pickup_datetime: string | null;
+    vehicle_type: VehicleType | null;
+    awarded_carrier_company_id: string | null;
+  } | null;
+  companies: { name: string | null } | null;
+};
+
+type CustomerJobDocument = {
+  id: string;
+  job_id: string;
+  doc_type: string | null;
+  file_path: string | null;
+  file_url?: string | null;
+  file_type?: string | null;
+  created_at: string | null;
 };
 
 type CustomerInvoice = {
@@ -80,6 +91,35 @@ type CustomerInvoice = {
   pod_photos: string[] | null;
   signature: string | null;
   recipient_name: string | null;
+  created_at: string;
+};
+
+type InvoiceStatusHistory = {
+  id: string;
+  invoice_id: string;
+  from_status: string | null;
+  to_status: string;
+  note: string | null;
+  changed_at: string;
+};
+
+type InvoicePaymentHistory = {
+  id: string;
+  invoice_id: string;
+  amount: number;
+  paid_at: string;
+  settlement_method: string | null;
+  external_reference: string | null;
+  note: string | null;
+};
+
+type CustomerUpdate = {
+  id: string;
+  event_type: string;
+  entity_type: string;
+  entity_id: string;
+  payload: Record<string, unknown>;
+  status: string;
   created_at: string;
 };
 
@@ -126,27 +166,14 @@ const timeSlots = Array.from({ length: 57 }, (_, index) => {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 });
 
-type SelectOption = readonly [string, string];
-
-const vehicleGroups: ReadonlyArray<readonly [string, ReadonlyArray<SelectOption>]> = [
-  ['Vans', [['Small Van', 'van_small'], ['SWB Van', 'swb_van'], ['MWB Van', 'mwb_van'], ['LWB Van', 'lwb_van'], ['XLWB Van', 'xlwb_van'], ['Luton', 'luton'], ['Luton Tail Lift', 'luton_tail_lift'], ['Curtainside Van', 'curtainside_van']]],
-  ['Rigid Trucks', [['3.5T', 'truck_3_5t'], ['5T', 'truck_5t'], ['7.5T', 'truck_7_5t'], ['12T', 'truck_12t'], ['18T', 'truck_18t'], ['26T', 'truck_26t']]],
-  ['HGV / Artics', [['Artic 44T Curtainsider', 'artic_44t_curtainsider'], ['Artic 44T Box Trailer', 'artic_44t_box_trailer'], ['Artic 44T Flatbed', 'artic_44t_flatbed'], ['Artic 44T Refrigerated', 'artic_44t_refrigerated'], ['Artic 44T Double Deck', 'artic_44t_double_deck']]],
-  ['Specialist Vehicles', [['Hiab', 'hiab'], ['Moffett', 'moffett'], ['ADR Vehicle', 'adr_vehicle'], ['Refrigerated Vehicle', 'refrigerated_vehicle'], ['Temperature Controlled Vehicle', 'temperature_controlled_vehicle']]],
+const vehicleGroups = [
+  ['Vans', ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van']],
+  ['Rigid Trucks', ['3.5T', '5T', '7.5T', '12T', '18T', '26T']],
+  ['HGV / Artics', ['Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Artic 44T Double Deck']],
+  ['Specialist Vehicles', ['Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle', 'Temperature Controlled Vehicle']],
 ] as const;
 
-const cargoOptions: ReadonlyArray<SelectOption> = [
-  ['Documents', 'documents'],
-  ['Parcels', 'parcels'],
-  ['Pallets', 'pallets'],
-  ['Machinery', 'machinery'],
-  ['Furniture', 'furniture'],
-  ['Retail Goods', 'retail_goods'],
-  ['Mixed Freight', 'mixed_freight'],
-  ['ADR Goods', 'adr_goods'],
-  ['Temperature Controlled Freight', 'temperature_controlled_freight'],
-  ['Other', 'other'],
-] as const;
+const cargoOptions = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
 const accessOptions = ['Residential Address', 'Commercial Premises', 'Limited Access', 'City Centre Delivery', 'Timed Booking Required'];
 const specialOptions = ['ADR Required', 'Temperature Controlled', 'Two Man Crew Required', 'Fragile Goods', 'High Value Goods'];
 const documentOptions = ['Commercial Invoice', 'Packing List', 'Delivery Notes', 'Customs Documents', 'Other Attachments'];
@@ -168,8 +195,8 @@ const newLoadForm = (): LoadForm => ({
   customerReference: '',
   purchaseOrderNumber: '',
   bookingReference: '',
-  vehicleLabel: 'lwb_van',
-  cargoLabel: 'pallets',
+  vehicleLabel: 'LWB Van',
+  cargoLabel: 'Pallets',
   totalWeightKg: '',
   lengthCm: '',
   widthCm: '',
@@ -213,9 +240,23 @@ const dateDisplay = (value: string | null) => {
   return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
-const vehicleLabelFor = (value: string) => vehicleGroups.flatMap(([, options]) => options).find(([, optionValue]) => optionValue === value)?.[0] ?? value.replace(/_/g, ' ');
-const cargoLabelFor = (value: string) => cargoOptions.find(([, optionValue]) => optionValue === value)?.[0] ?? value.replace(/_/g, ' ');
-const cleanFileName = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-');
+const legacyVehicle = (label: string): VehicleType => {
+  if (label.includes('Luton')) return 'luton';
+  if (label.includes('7.5')) return 'truck_7_5t';
+  if (label.includes('18')) return 'truck_18t';
+  if (label.includes('Artic') || label.includes('26T')) return 'artic';
+  if (label.includes('Small')) return 'van_small';
+  return 'van_large';
+};
+
+const legacyCargo = (label: string): CargoType => {
+  if (label === 'Documents') return 'documents';
+  if (label === 'Parcels') return 'packages';
+  if (label === 'Pallets') return 'pallets';
+  if (label === 'Furniture') return 'furniture';
+  if (label === 'Machinery') return 'equipment';
+  return 'other';
+};
 
 const toInvoiceData = (invoice: CustomerInvoice): InvoiceData => ({
   id: invoice.id,
@@ -249,16 +290,22 @@ export default function CustomerPage() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [tab, setTab] = useState<CustomerTab>('dashboard');
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [bids, setBids] = useState<CustomerBid[]>([]);
   const [jobs, setJobs] = useState<CustomerJob[]>([]);
+  const [jobDocuments, setJobDocuments] = useState<CustomerJobDocument[]>([]);
   const [invoices, setInvoices] = useState<CustomerInvoice[]>([]);
+  const [invoiceStatusHistory, setInvoiceStatusHistory] = useState<InvoiceStatusHistory[]>([]);
+  const [invoicePaymentHistory, setInvoicePaymentHistory] = useState<InvoicePaymentHistory[]>([]);
+  const [updates, setUpdates] = useState<CustomerUpdate[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [formError, setFormError] = useState('');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+  const [awardingBidId, setAwardingBidId] = useState<string | null>(null);
+  const [podJobId, setPodJobId] = useState<string | null>(null);
   const [form, setForm] = useState<LoadForm>(() => newLoadForm());
-  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -287,31 +334,64 @@ export default function CustomerPage() {
     }
     if (!companyId) {
       setQuotes([]);
+      setBids([]);
       setJobs([]);
+      setJobDocuments([]);
       setInvoices([]);
+      setInvoiceStatusHistory([]);
+      setInvoicePaymentHistory([]);
+      setUpdates([]);
       setMessage('Your customer account is not linked to a company yet.');
       setLoading(false);
       return;
     }
 
-    const [quoteRes, jobRes, invoiceRes] = await Promise.all([
+    const [quoteRes, jobRes, bidRes, invoiceRes, updateRes] = await Promise.all([
       supabase.from('quotes').select('id, company_id, created_by, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at').eq('company_id', companyId).eq('customer_email', user.email).order('created_at', { ascending: false }),
-      supabase.from('jobs').select('id, status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, pickup_time_slot, delivery_datetime, delivery_time_slot, vehicle_type, cargo_type, pallets, weight_kg, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, delivery_photos, created_at, updated_at').eq('company_id', companyId).eq('created_by', user.id).order('updated_at', { ascending: false }),
+      supabase.from('jobs').select('id, status, awarded_carrier_company_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, cargo_type, pallets, weight_kg, load_details, special_requirements, access_restrictions, delivery_photos, created_at, updated_at').eq('company_id', companyId).eq('created_by', user.id).order('updated_at', { ascending: false }),
+      supabase.from('job_bids').select('id, job_id, company_id, amount, bid_price_gbp, currency, message, status, created_at, jobs!inner(id, status, company_id, created_by, pickup_location, delivery_location, pickup_datetime, vehicle_type, awarded_carrier_company_id), companies:company_id(name)').eq('jobs.company_id', companyId).eq('jobs.created_by', user.id).order('created_at', { ascending: false }),
       supabase.from('invoices').select('id, invoice_number, job_ref, invoice_date, due_date, status, amount, net_amount, vat_amount, vat_rate, payment_terms, late_fee, client_name, client_email, client_address, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, pod_photos, signature, recipient_name, created_at').eq('company_id', companyId).eq('client_email', user.email).order('created_at', { ascending: false }),
+      supabase.from('notification_events').select('id, event_type, entity_type, entity_id, payload, status, created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(40),
     ]);
 
-    if (quoteRes.error || jobRes.error || invoiceRes.error) {
-      setMessage(quoteRes.error?.message ?? jobRes.error?.message ?? invoiceRes.error?.message ?? 'Unable to load customer data.');
+    if (quoteRes.error || jobRes.error || bidRes.error || invoiceRes.error || updateRes.error) {
+      setMessage(quoteRes.error?.message ?? jobRes.error?.message ?? bidRes.error?.message ?? invoiceRes.error?.message ?? updateRes.error?.message ?? 'Unable to load customer data.');
       setLoading(false);
       return;
     }
 
     setQuotes((quoteRes.data ?? []) as Quote[]);
-    setJobs((jobRes.data ?? []) as CustomerJob[]);
-    setInvoices(((invoiceRes.data ?? []) as CustomerInvoice[]).map((invoice) => ({
+    setBids((bidRes.data ?? []) as unknown as CustomerBid[]);
+    const jobRows = (jobRes.data ?? []) as CustomerJob[];
+    setJobs(jobRows);
+    if (jobRows.length > 0) {
+      const { data: documentRows } = await supabase
+        .from('job_documents')
+        .select('id, job_id, doc_type, file_path, file_url, file_type, created_at')
+        .in('job_id', jobRows.map((job) => job.id))
+        .order('created_at', { ascending: false });
+      setJobDocuments((documentRows ?? []) as CustomerJobDocument[]);
+    } else {
+      setJobDocuments([]);
+    }
+    const invoiceRows = ((invoiceRes.data ?? []) as CustomerInvoice[]).map((invoice) => ({
       ...invoice,
       status: toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.due_date),
-    })));
+    }));
+    setUpdates((updateRes.data ?? []) as CustomerUpdate[]);
+    setInvoices(invoiceRows);
+    if (invoiceRows.length > 0) {
+      const invoiceIds = invoiceRows.map((invoice) => invoice.id);
+      const [statusHistoryRes, paymentHistoryRes] = await Promise.all([
+        supabase.from('invoice_status_history').select('id, invoice_id, from_status, to_status, note, changed_at').in('invoice_id', invoiceIds).order('changed_at', { ascending: false }),
+        supabase.from('invoice_payment_history').select('id, invoice_id, amount, paid_at, settlement_method, external_reference, note').in('invoice_id', invoiceIds).order('paid_at', { ascending: false }),
+      ]);
+      setInvoiceStatusHistory((statusHistoryRes.data ?? []) as InvoiceStatusHistory[]);
+      setInvoicePaymentHistory((paymentHistoryRes.data ?? []) as InvoicePaymentHistory[]);
+    } else {
+      setInvoiceStatusHistory([]);
+      setInvoicePaymentHistory([]);
+    }
     setLoading(false);
   };
 
@@ -323,10 +403,47 @@ export default function CustomerPage() {
   const metrics = useMemo(() => ({
     openLoads: jobs.filter((job) => !['delivered', 'invoiced', 'paid', 'cancelled'].includes(job.status)).length,
     quotesWaiting: jobs.filter((job) => ['posted', 'quoted'].includes(job.status)).length + quotes.filter((quote) => ['draft', 'sent', 'submitted'].includes(quote.status)).length,
+    quotesReceived: bids.filter((bid) => bid.status === 'submitted').length + quotes.length,
+    awardedJobs: jobs.filter((job) => Boolean(job.awarded_carrier_company_id) || ['awarded', 'allocated', 'collected', 'in_transit', 'delivered', 'invoiced', 'paid'].includes(job.status)).length,
     activeDeliveries: jobs.filter((job) => ['awarded', 'allocated', 'collected', 'in_transit'].includes(job.status)).length,
     podReady: jobs.filter((job) => (job.delivery_photos?.length ?? 0) > 0).length,
     unpaidInvoices: invoices.filter((invoice) => !['Paid', 'Cancelled'].includes(invoice.status)).length,
-  }), [jobs, quotes, invoices]);
+  }), [jobs, quotes, bids, invoices]);
+
+  const bidGroups = useMemo(() => {
+    const groups = new Map<string, CustomerBid[]>();
+    for (const bid of bids) {
+      const key = bid.job_id;
+      groups.set(key, [...(groups.get(key) ?? []), bid]);
+    }
+    return Array.from(groups.entries()).map(([jobId, groupBids]) => ({
+      jobId,
+      job: groupBids[0]?.jobs ?? jobs.find((job) => job.id === jobId) ?? null,
+      bids: groupBids,
+    }));
+  }, [bids, jobs]);
+
+  const podDocumentsByJob = useMemo(() => {
+    const map = new Map<string, CustomerJobDocument[]>();
+    for (const doc of jobDocuments) {
+      const type = `${doc.doc_type ?? ''} ${doc.file_type ?? ''}`.toLowerCase();
+      if (!type.includes('pod') && !type.includes('delivery') && !doc.file_path && !doc.file_url) continue;
+      map.set(doc.job_id, [...(map.get(doc.job_id) ?? []), doc]);
+    }
+    return map;
+  }, [jobDocuments]);
+
+  const invoiceStatusById = useMemo(() => {
+    const map = new Map<string, InvoiceStatusHistory[]>();
+    for (const item of invoiceStatusHistory) map.set(item.invoice_id, [...(map.get(item.invoice_id) ?? []), item]);
+    return map;
+  }, [invoiceStatusHistory]);
+
+  const invoicePaymentsById = useMemo(() => {
+    const map = new Map<string, InvoicePaymentHistory[]>();
+    for (const item of invoicePaymentHistory) map.set(item.invoice_id, [...(map.get(item.invoice_id) ?? []), item]);
+    return map;
+  }, [invoicePaymentHistory]);
 
   const setField = <K extends keyof LoadForm>(key: K, value: LoadForm[K]) => setForm((current) => ({ ...current, [key]: value }));
   const toggle = (key: 'accessRestrictions' | 'specialRequirements' | 'documents', value: string) => {
@@ -343,8 +460,8 @@ export default function CustomerPage() {
       purchaseOrderNumber: form.purchaseOrderNumber || null,
       bookingReference: form.bookingReference || null,
     },
-    requestedVehicle: vehicleLabelFor(form.vehicleLabel),
-    requestedCargo: cargoLabelFor(form.cargoLabel),
+    requestedVehicle: form.vehicleLabel,
+    requestedCargo: form.cargoLabel,
     collection: {
       date: form.pickupDate,
       timeSlot: form.pickupTime,
@@ -369,38 +486,10 @@ export default function CustomerPage() {
     },
     dimensionsCm: { length: form.lengthCm || null, width: form.widthCm || null, height: form.heightCm || null },
     cargoValueGbp: form.cargoValueGbp || null,
-    palletDetails: form.cargoLabel === 'pallets' ? { count: form.palletCount || null, type: form.palletType, stackable: form.stackable === 'yes' } : null,
+    palletDetails: form.cargoLabel === 'Pallets' ? { count: form.palletCount || null, type: form.palletType, stackable: form.stackable === 'yes' } : null,
     documentChecklist: form.documents,
-    uploadedFiles: documentFiles.map((file) => file.name),
     notes: form.notes || null,
   }, null, 2);
-
-  const uploadLoadDocuments = async (jobId: string) => {
-    if (documentFiles.length === 0) return;
-    const rows = [];
-    for (const file of documentFiles) {
-      const path = `${companyId}/${jobId}/${Date.now()}-${cleanFileName(file.name)}`;
-      const { error: uploadError } = await supabase.storage.from('load-documents').upload(path, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type || undefined,
-      });
-      if (uploadError) throw new Error(`Document upload failed for ${file.name}: ${uploadError.message}`);
-      rows.push({
-        job_id: jobId,
-        company_id: companyId,
-        uploaded_by: user?.id ?? null,
-        uploaded_by_role: 'customer',
-        doc_type: 'customer_load_attachment',
-        file_path: path,
-        file_name: file.name,
-        file_size_bytes: file.size,
-        mime_type: file.type || null,
-      });
-    }
-    const { error } = await supabase.from('job_documents').insert(rows);
-    if (error) throw new Error(`Document records could not be saved: ${error.message}`);
-  };
 
   const saveLoad = async (publish: boolean) => {
     setFormError('');
@@ -423,64 +512,34 @@ export default function CustomerPage() {
     }
 
     setSaving(true);
-    const { data, error } = await supabase.from('jobs').insert([{
+    const { error } = await supabase.from('jobs').insert([{
       company_id: companyId,
       created_by: user.id,
       status: publish ? 'posted' : 'draft',
       pickup_location: `${form.pickupAddress}, ${form.pickupPostcode}`,
       pickup_postcode: form.pickupPostcode.trim().toUpperCase(),
       pickup_datetime: toDateTime(form.pickupDate, form.pickupTime),
-      pickup_time_slot: form.pickupTime,
       delivery_location: `${form.deliveryAddress}, ${form.deliveryPostcode}`,
       delivery_postcode: form.deliveryPostcode.trim().toUpperCase(),
       delivery_datetime: toDateTime(form.deliveryDate, form.deliveryTime),
-      delivery_time_slot: form.deliveryTime,
-      vehicle_type: form.vehicleLabel as VehicleType,
-      cargo_type: form.cargoLabel as CargoType,
-      pallets: form.cargoLabel === 'pallets' && form.palletCount ? Number(form.palletCount) : null,
+      vehicle_type: legacyVehicle(form.vehicleLabel),
+      cargo_type: legacyCargo(form.cargoLabel),
+      pallets: form.cargoLabel === 'Pallets' && form.palletCount ? Number(form.palletCount) : null,
       weight_kg: form.totalWeightKg ? Number(form.totalWeightKg) : null,
       length_cm: form.lengthCm ? Number(form.lengthCm) : null,
       width_cm: form.widthCm ? Number(form.widthCm) : null,
       height_cm: form.heightCm ? Number(form.heightCm) : null,
-      collection_contact_name: form.collectionContactName.trim(),
-      collection_contact_phone: form.collectionContactPhone.trim(),
-      delivery_contact_name: form.deliveryContactName.trim(),
-      delivery_contact_phone: form.deliveryContactPhone.trim(),
-      customer_reference: form.customerReference.trim() || null,
-      purchase_order_number: form.purchaseOrderNumber.trim() || null,
-      booking_reference: form.bookingReference.trim() || null,
-      requested_vehicle_label: vehicleLabelFor(form.vehicleLabel),
-      requested_cargo_label: cargoLabelFor(form.cargoLabel),
-      cargo_value_gbp: form.cargoValueGbp ? Number(form.cargoValueGbp) : null,
-      pallet_type: form.cargoLabel === 'pallets' ? form.palletType : null,
-      pallet_stackable: form.cargoLabel === 'pallets' ? form.stackable === 'yes' : null,
-      collection_forklift_available: form.collectionForklift,
-      collection_tail_lift_required: form.collectionTailLift,
-      collection_handball_required: form.collectionHandball,
-      delivery_forklift_available: form.deliveryForklift,
-      delivery_tail_lift_required: form.deliveryTailLift,
-      delivery_handball_required: form.deliveryHandball,
-      document_checklist: form.documents,
       load_details: detailsJson(),
       special_requirements: form.specialRequirements.join(', ') || null,
       access_restrictions: form.accessRestrictions.join(', ') || null,
-    }]).select('id').single();
+    }]);
+    setSaving(false);
     if (error) {
-      setSaving(false);
       setFormError(error.message);
       return;
     }
-    try {
-      await uploadLoadDocuments(data.id as string);
-    } catch (uploadError) {
-      setSaving(false);
-      setFormError(uploadError instanceof Error ? uploadError.message : 'Load was saved, but documents could not be uploaded.');
-      return;
-    }
-    setSaving(false);
     setSaved(true);
     setForm(newLoadForm());
-    setDocumentFiles([]);
     setTab('dashboard');
     await loadData();
   };
@@ -494,6 +553,79 @@ export default function CustomerPage() {
       setMessage(error instanceof Error ? error.message : 'Unable to download invoice PDF.');
     } finally {
       setDownloadingInvoiceId(null);
+    }
+  };
+
+  const getAccessToken = async () => {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  };
+
+  const awardBid = async (bidId: string) => {
+    setMessage('');
+    setAwardingBidId(bidId);
+    const token = await getAccessToken();
+    if (!token) {
+      setMessage('Session expired. Please sign in again.');
+      setAwardingBidId(null);
+      return;
+    }
+
+    const response = await fetch(`/api/customer/bids/${bidId}/award`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    setAwardingBidId(null);
+    if (!response.ok) {
+      setMessage(payload.error ?? `Award failed (${response.status}).`);
+      return;
+    }
+    setMessage('Quote awarded successfully.');
+    await loadData();
+  };
+
+  const podFilesForJob = (job: CustomerJob) => {
+    const photoFiles = (job.delivery_photos ?? []).map((path, index) => ({
+      id: `${job.id}-photo-${index}`,
+      label: `Delivery POD ${index + 1}`,
+      path,
+    }));
+    const documentFiles = (podDocumentsByJob.get(job.id) ?? [])
+      .map((doc, index) => ({
+        id: doc.id,
+        label: doc.doc_type || doc.file_type || `POD document ${index + 1}`,
+        path: doc.file_path || doc.file_url || '',
+      }))
+      .filter((file) => file.path.length > 0);
+    return [...photoFiles, ...documentFiles];
+  };
+
+  const resolvePodUrl = async (path: string) => {
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    const { data, error } = await supabase.storage.from('pod-docs').createSignedUrl(path, 60 * 5);
+    if (error || !data?.signedUrl) throw new Error(error?.message ?? 'POD file is not available.');
+    return data.signedUrl;
+  };
+
+  const openPod = async (path: string) => {
+    try {
+      window.open(await resolvePodUrl(path), '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to open POD.');
+    }
+  };
+
+  const downloadPod = async (path: string) => {
+    try {
+      const url = await resolvePodUrl(path);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = path.split('/').pop() || 'pod-document';
+      link.rel = 'noopener noreferrer';
+      link.click();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to download POD.');
     }
   };
 
@@ -528,6 +660,7 @@ export default function CustomerPage() {
               ['quotes', `Quotes (${quotes.length})`],
               ['deliveries', `Deliveries (${jobs.length})`],
               ['invoices', `Invoices (${invoices.length})`],
+              ['updates', `Updates (${updates.length})`],
             ] as Array<[CustomerTab, string]>).map(([nextTab, label]) => (
               <button key={nextTab} className={tab === nextTab ? 'active' : ''} onClick={() => setTab(nextTab)}>{label}</button>
             ))}
@@ -539,6 +672,8 @@ export default function CustomerPage() {
                 {[
                   ['Open Loads', metrics.openLoads],
                   ['Quotes Waiting', metrics.quotesWaiting],
+                  ['Quotes Received', metrics.quotesReceived],
+                  ['Awarded Jobs', metrics.awardedJobs],
                   ['Active Deliveries', metrics.activeDeliveries],
                   ['POD Ready', metrics.podReady],
                   ['Unpaid Invoices', metrics.unpaidInvoices],
@@ -549,10 +684,12 @@ export default function CustomerPage() {
                 <button onClick={() => setTab('post')}>Request Quote</button>
                 <button onClick={() => setTab('deliveries')}>View Active Deliveries</button>
                 <button onClick={() => setTab('invoices')}>View Invoices</button>
+                <button onClick={() => setTab('updates')}>View Updates</button>
+                <button onClick={() => window.location.href = '/customer/settings'}>Settings</button>
               </div>
               <div className="columns">
                 <ListCard title="Recent Loads">{jobs.slice(0, 4).map((job) => <Row key={job.id} title={`${job.pickup_postcode ?? job.pickup_location ?? '-'} to ${job.delivery_postcode ?? job.delivery_location ?? '-'}`} meta={statusLabels[job.status] ?? job.status} />)}</ListCard>
-                <ListCard title="Recent Quotes">{quotes.slice(0, 4).map((quote) => <Row key={quote.id} title={`${quote.pickup_location ?? '-'} to ${quote.delivery_location ?? '-'}`} meta={quote.amount ? gbp(quote.amount) : 'Awaiting price'} />)}</ListCard>
+                <ListCard title="Recent Quotes">{bids.slice(0, 4).map((bid) => <Row key={bid.id} title={`${bid.jobs?.pickup_location ?? '-'} to ${bid.jobs?.delivery_location ?? '-'}`} meta={`${bid.companies?.name ?? 'Carrier'} - ${gbp(bid.bid_price_gbp ?? bid.amount)} - ${bid.status}`} />)}</ListCard>
                 <ListCard title="Recent Deliveries">{jobs.slice(0, 4).map((job) => <Row key={job.id} title={dateDisplay(job.pickup_datetime)} meta={job.delivery_location ?? '-'} />)}</ListCard>
               </div>
             </section>
@@ -595,8 +732,8 @@ export default function CustomerPage() {
 
               <Card title="Vehicle & Cargo">
                 <div className="grid4">
-                  {field('Vehicle Type', <select value={form.vehicleLabel} onChange={(e) => setField('vehicleLabel', e.target.value)}>{vehicleGroups.map(([group, options]) => <optgroup key={group} label={group}>{options.map(([label, value]) => <option key={value} value={value}>{label}</option>)}</optgroup>)}</select>)}
-                  {field('Cargo Type', <select value={form.cargoLabel} onChange={(e) => setField('cargoLabel', e.target.value)}>{cargoOptions.map(([label, value]) => <option key={value} value={value}>{label}</option>)}</select>)}
+                  {field('Vehicle Type', <select value={form.vehicleLabel} onChange={(e) => setField('vehicleLabel', e.target.value)}>{vehicleGroups.map(([group, options]) => <optgroup key={group} label={group}>{options.map((option) => <option key={option}>{option}</option>)}</optgroup>)}</select>)}
+                  {field('Cargo Type', <select value={form.cargoLabel} onChange={(e) => setField('cargoLabel', e.target.value)}>{cargoOptions.map((option) => <option key={option}>{option}</option>)}</select>)}
                   {field('Total Weight (kg)', <input type="number" min="0" value={form.totalWeightKg} onChange={(e) => setField('totalWeightKg', e.target.value)} />)}
                   {field('Cargo Value (GBP)', <input type="number" min="0" value={form.cargoValueGbp} onChange={(e) => setField('cargoValueGbp', e.target.value)} />)}
                 </div>
@@ -607,7 +744,7 @@ export default function CustomerPage() {
                 </div>
               </Card>
 
-              {form.cargoLabel === 'pallets' && (
+              {form.cargoLabel === 'Pallets' && (
                 <Card title="Pallet Workflow">
                   <div className="grid3">
                     {field('Number of Pallets', <input type="number" min="0" value={form.palletCount} onChange={(e) => setField('palletCount', e.target.value)} />)}
@@ -626,8 +763,7 @@ export default function CustomerPage() {
               <Card title="Special Requirements">{checks(specialOptions, form.specialRequirements, 'specialRequirements')}</Card>
               <Card title="Documents">
                 {checks(documentOptions, form.documents, 'documents')}
-                <input type="file" multiple onChange={(event) => setDocumentFiles(Array.from(event.target.files ?? []))} />
-                {documentFiles.length > 0 && <p className="file-list">{documentFiles.map((file) => file.name).join(', ')}</p>}
+                <input type="file" multiple onChange={(event) => setField('documents', Array.from(event.target.files ?? []).map((file) => file.name))} />
               </Card>
               <Card title="Notes">{field('Operational Notes', <textarea value={form.notes} onChange={(e) => setField('notes', e.target.value)} placeholder="Site instructions, booking windows, driver notes." />)}</Card>
 
@@ -638,7 +774,50 @@ export default function CustomerPage() {
             </section>
           )}
 
-          {tab === 'quotes' && <DataTable empty="No quotes yet." rows={quotes.map((quote) => [quote.pickup_location ?? '-', quote.delivery_location ?? '-', quote.vehicle_type?.replace(/_/g, ' ') ?? '-', quote.cargo_type ?? '-', quote.amount ? gbp(quote.amount) : '-', quote.status])} headers={['Pickup', 'Delivery', 'Vehicle', 'Cargo', 'Amount', 'Status']} />}
+          {tab === 'quotes' && (
+            <section className="stack">
+              {bidGroups.length === 0 ? <Card title="Carrier Bids">No carrier bids received yet.</Card> : bidGroups.map((group) => (
+                <article key={group.jobId} className="card">
+                  <div className="split">
+                    <div>
+                      <h2>{group.job?.pickup_location ?? '-'} to {group.job?.delivery_location ?? '-'}</h2>
+                      <p className="muted">Pickup: {dateDisplay(group.job?.pickup_datetime ?? null)} · Vehicle: {group.job?.vehicle_type?.replace(/_/g, ' ') ?? '-'}</p>
+                    </div>
+                    {chip(group.job?.status ?? 'posted')}
+                  </div>
+                  <div className="table-wrap">
+                    <table>
+                      <thead><tr>{['Carrier', 'Amount', 'Message', 'Status', 'Action'].map((head) => <th key={head}>{head}</th>)}</tr></thead>
+                      <tbody>
+                        {group.bids.map((bid) => {
+                          const isAwarded = bid.status === 'accepted';
+                          const canAward = bid.status === 'submitted' && !group.job?.awarded_carrier_company_id;
+                          return (
+                            <tr key={bid.id}>
+                              <td>{bid.companies?.name ?? 'Carrier'}</td>
+                              <td>{gbp(bid.bid_price_gbp ?? bid.amount)}</td>
+                              <td>{bid.message || '-'}</td>
+                              <td>{bid.status}</td>
+                              <td>
+                                {isAwarded ? 'Awarded' : (
+                                  <button disabled={!canAward || awardingBidId === bid.id} onClick={() => void awardBid(bid.id)}>
+                                    {awardingBidId === bid.id ? 'Awarding...' : 'Award Quote'}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </article>
+              ))}
+              {quotes.length > 0 && (
+                <DataTable empty="No quote records." rows={quotes.map((quote) => [quote.pickup_location ?? '-', quote.delivery_location ?? '-', quote.vehicle_type?.replace(/_/g, ' ') ?? '-', quote.cargo_type ?? '-', quote.amount ? gbp(quote.amount) : '-', quote.status])} headers={['Pickup', 'Delivery', 'Vehicle', 'Cargo', 'Amount', 'Status']} />
+              )}
+            </section>
+          )}
 
           {tab === 'deliveries' && (
             <section className="stack">
@@ -648,19 +827,86 @@ export default function CustomerPage() {
                   <div className="grid4 small">
                     <span>Pickup: {dateDisplay(job.pickup_datetime)}</span>
                     <span>Delivery: {dateDisplay(job.delivery_datetime)}</span>
-                    <span>Vehicle: {job.requested_vehicle_label ?? job.vehicle_type?.replace(/_/g, ' ') ?? '-'}</span>
-                    <span>POD: {job.delivery_photos?.length ? 'Ready' : 'Pending'}</span>
+                    <span>Vehicle: {job.vehicle_type?.replace(/_/g, ' ') ?? '-'}</span>
+                    <span>POD: {podFilesForJob(job).length ? 'Ready' : 'Pending'}</span>
                   </div>
-                  <LoadDetails sections={getLoadDetailSections(job)} />
+                  <div className="actions compact">
+                    <button onClick={() => window.location.href = `/customer/jobs/${job.id}`}>View Job</button>
+                    {podFilesForJob(job).length > 0 && (
+                      <>
+                        <button onClick={() => setPodJobId(podJobId === job.id ? null : job.id)}>View POD</button>
+                        <button onClick={() => void downloadPod(podFilesForJob(job)[0].path)}>Download POD</button>
+                      </>
+                    )}
+                  </div>
+                  {podJobId === job.id && (
+                    <div className="pod-list">
+                      {podFilesForJob(job).map((file) => (
+                        <div key={file.id} className="pod-row">
+                          <span>{file.label}</span>
+                          <div className="actions compact">
+                            <button onClick={() => void openPod(file.path)}>Open</button>
+                            <button onClick={() => void downloadPod(file.path)}>Download</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </article>
               ))}
             </section>
           )}
 
           {tab === 'invoices' && (
-            <section className="card">
-              <h2>Invoices</h2>
-              {invoices.length === 0 ? <p>No invoices available.</p> : <div className="table-wrap"><table><thead><tr>{['Invoice #', 'Job Ref', 'Date', 'Due', 'Amount', 'Status', 'Actions'].map((head) => <th key={head}>{head}</th>)}</tr></thead><tbody>{invoices.map((invoice) => <tr key={invoice.id}><td>{invoice.invoice_number}</td><td>{invoice.job_ref || '-'}</td><td>{new Date(invoice.invoice_date).toLocaleDateString('en-GB')}</td><td>{new Date(invoice.due_date).toLocaleDateString('en-GB')}</td><td>{gbp(invoice.amount)}</td><td>{invoice.status}</td><td><button disabled={downloadingInvoiceId === invoice.id} onClick={() => void downloadInvoice(invoice)}>{downloadingInvoiceId === invoice.id ? 'Preparing...' : 'Download PDF'}</button></td></tr>)}</tbody></table></div>}
+            <section className="stack">
+              <Card title="Invoices">
+                {invoices.length === 0 ? <p>No invoices available.</p> : <div className="table-wrap"><table><thead><tr>{['Invoice #', 'Job Ref', 'Issue Date', 'Due Date', 'Amount', 'Status', 'Actions'].map((head) => <th key={head}>{head}</th>)}</tr></thead><tbody>{invoices.map((invoice) => <tr key={invoice.id}><td>{invoice.invoice_number}</td><td>{invoice.job_ref || '-'}</td><td>{new Date(invoice.invoice_date).toLocaleDateString('en-GB')}</td><td>{new Date(invoice.due_date).toLocaleDateString('en-GB')}</td><td>{gbp(invoice.amount)}</td><td>{invoice.status}</td><td><button disabled={downloadingInvoiceId === invoice.id} onClick={() => void downloadInvoice(invoice)}>{downloadingInvoiceId === invoice.id ? 'Preparing...' : 'Download PDF'}</button></td></tr>)}</tbody></table></div>}
+              </Card>
+              {invoices.map((invoice) => {
+                const statusRows = invoiceStatusById.get(invoice.id) ?? [];
+                const paymentRows = invoicePaymentsById.get(invoice.id) ?? [];
+                return (
+                  <article key={`${invoice.id}-history`} className="card">
+                    <div className="split">
+                      <h2>{invoice.invoice_number}</h2>
+                      <strong>{invoice.status}</strong>
+                    </div>
+                    <div className="grid4 small">
+                      <span>Amount: {gbp(invoice.amount)}</span>
+                      <span>Issued: {new Date(invoice.invoice_date).toLocaleDateString('en-GB')}</span>
+                      <span>Due: {new Date(invoice.due_date).toLocaleDateString('en-GB')}</span>
+                      <span>Payment status: {invoice.status}</span>
+                    </div>
+                    <div className="columns">
+                      <div>
+                        <h3>Status History</h3>
+                        {statusRows.length === 0 ? <p className="muted">No status history recorded.</p> : statusRows.map((row) => <p key={row.id}>{row.from_status ?? 'Created'} to {row.to_status} · {dateDisplay(row.changed_at)}{row.note ? ` · ${row.note}` : ''}</p>)}
+                      </div>
+                      <div>
+                        <h3>Payment History</h3>
+                        {paymentRows.length === 0 ? <p className="muted">No payments recorded.</p> : paymentRows.map((row) => <p key={row.id}>{gbp(row.amount)} · {dateDisplay(row.paid_at)} · {row.settlement_method ?? 'Method not recorded'}{row.external_reference ? ` · Ref ${row.external_reference}` : ''}</p>)}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          )}
+
+          {tab === 'updates' && (
+            <section className="stack">
+              <Card title="Carrier Updates & Notifications">
+                {updates.length === 0 ? <p>No updates found.</p> : updates.map((update) => {
+                  const payload = update.payload ?? {};
+                  const route = [payload.pickup_location, payload.delivery_location].filter(Boolean).join(' to ');
+                  return (
+                    <div key={update.id} className="row">
+                      <strong>{update.event_type.replace(/_/g, ' ')}</strong>
+                      <span>{route || update.entity_type} · {dateDisplay(update.created_at)} · {update.status}</span>
+                    </div>
+                  );
+                })}
+              </Card>
             </section>
           )}
         </main>
@@ -690,6 +936,8 @@ export default function CustomerPage() {
           .metric span, .field span { display: block; color: #64748b; font-size: 12px; font-weight: 900; text-transform: uppercase; margin-bottom: 6px; }
           .metric strong { display: block; font-size: 34px; }
           .actions, .savebar { display: flex; gap: 10px; flex-wrap: wrap; }
+          .actions.compact { margin-top: 12px; gap: 8px; }
+          .actions.compact button { padding: 8px 10px; font-size: 13px; }
           .savebar { justify-content: flex-end; }
           .field { display: grid; gap: 4px; margin-bottom: 12px; }
           input, select, textarea { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 8px; padding: 11px; font: inherit; background: white; color: #0f172a; }
@@ -704,16 +952,11 @@ export default function CustomerPage() {
           .row { border-top: 1px solid #e2e8f0; padding: 10px 0; }
           .row strong { display: block; }
           .row span, .small { color: #64748b; font-size: 14px; }
-          .file-list { margin: 8px 0 0; color: #64748b; font-size: 13px; }
-          .details { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 14px; }
-          .detail-section { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc; }
-          .detail-section h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; color: #334155; }
-          .detail-section dl { margin: 0; display: grid; gap: 6px; }
-          .detail-section div { display: grid; grid-template-columns: minmax(96px, .6fr) 1fr; gap: 8px; }
-          .detail-section dt { color: #64748b; font-size: 12px; font-weight: 800; }
-          .detail-section dd { margin: 0; color: #0f172a; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
           .split { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
           .chip { background: #fffbeb; color: #92400e; border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 900; }
+          .muted { margin: 4px 0 0; color: #64748b; font-size: 14px; }
+          .pod-list { margin-top: 12px; border-top: 1px solid #e2e8f0; }
+          .pod-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #e2e8f0; }
           .table-wrap { overflow-x: auto; }
           table { width: 100%; min-width: 760px; border-collapse: collapse; }
           th, td { padding: 12px; border-top: 1px solid #e2e8f0; text-align: left; }
@@ -734,27 +977,6 @@ function ListCard({ title, children }: { title: string; children: React.ReactNod
 
 function Row({ title, meta }: { title: string; meta: string }) {
   return <div className="row"><strong>{title}</strong><span>{meta}</span></div>;
-}
-
-function LoadDetails({ sections }: { sections: LoadDetailSection[] }) {
-  if (sections.length === 0) return null;
-  return (
-    <div className="details">
-      {sections.map((section) => (
-        <section key={section.title} className="detail-section">
-          <h3>{section.title}</h3>
-          <dl>
-            {section.items.map((item) => (
-              <div key={`${section.title}-${item.label}`}>
-                <dt>{item.label}</dt>
-                <dd>{item.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      ))}
-    </div>
-  );
 }
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
