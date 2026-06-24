@@ -6,1361 +6,1559 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { JOB_STATUS } from '../../config/company';
 import { generateTimeOptions } from '../../utils/timeUtils';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../lib/jobClientFields';
+import { getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
+import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPostingDetails';
 
 interface Job {
-  id: string;
-  jobRef: string;
-  client: {
-    name: string;
-    email: string;
-    phone: string;
-  };
-  pickup: {
-    location: string;
-    date: string;
-    time: string;
-  };
-  delivery: {
-    location: string;
-    date: string;
-    time: string;
-  };
-  cargo: {
-    type: string;
-    quantity: number;
-    notes: string;
-  };
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  distanceMiles: string;
-  vehicleType: string;
-  paymentTerms: string;
-  exchange_visibility?: string | null;
-  awarded_carrier_company_id?: string | null;
+ id: string;
+ jobRef: string;
+ client: {
+ name: string;
+ email: string;
+ phone: string;
+ };
+ pickup: {
+ location: string;
+ date: string;
+ time: string;
+ };
+ delivery: {
+ location: string;
+ date: string;
+ time: string;
+ };
+ cargo: {
+ type: string;
+ quantity: number;
+ notes: string;
+ };
+ status: string;
+ createdAt: string;
+ updatedAt: string;
+ distanceMiles: string;
+ vehicleType: string;
+ paymentTerms: string;
+ loadDetailSummary: LoadDetailItem[];
+ exchange_visibility?: string | null;
+ awarded_carrier_company_id?: string | null;
 }
 
-const CARGO_TYPES = [
-  'Documents',
-  'Packages',
-  'Pallets',
-  'Furniture',
-  'Equipment',
-  'Other'
-];
+type SelectOption = readonly [string, string];
+type MultiSelectField = 'collectionAccessRestrictions' | 'deliveryAccessRestrictions' | 'specialRequirements' | 'documentChecklist';
+
+const VEHICLE_GROUPS: ReadonlyArray<readonly [string, ReadonlyArray<SelectOption>]> = [
+ ['Vans', [['Small Van', 'van_small'], ['SWB Van', 'swb_van'], ['MWB Van', 'mwb_van'], ['LWB Van', 'lwb_van'], ['XLWB Van', 'xlwb_van'], ['Luton', 'luton'], ['Luton Tail Lift', 'luton_tail_lift'], ['Curtainside Van', 'curtainside_van']]],
+ ['Rigid Trucks', [['3.5T', 'truck_3_5t'], ['5T', 'truck_5t'], ['7.5T', 'truck_7_5t'], ['12T', 'truck_12t'], ['18T', 'truck_18t'], ['26T', 'truck_26t']]],
+ ['HGV / Artics', [['Artic 44T Curtainsider', 'artic_44t_curtainsider'], ['Artic 44T Box Trailer', 'artic_44t_box_trailer'], ['Artic 44T Flatbed', 'artic_44t_flatbed'], ['Artic 44T Refrigerated', 'artic_44t_refrigerated'], ['Artic 44T Double Deck', 'artic_44t_double_deck']]],
+ ['Specialist Vehicles', [['Hiab', 'hiab'], ['Moffett', 'moffett'], ['ADR Vehicle', 'adr_vehicle'], ['Refrigerated Vehicle', 'refrigerated_vehicle'], ['Temperature Controlled Vehicle', 'temperature_controlled_vehicle']]],
+] as const;
+
+const CARGO_OPTIONS: ReadonlyArray<SelectOption> = [
+ ['Documents', 'documents'],
+ ['Parcels', 'parcels'],
+ ['Pallets', 'pallets'],
+ ['Machinery', 'machinery'],
+ ['Furniture', 'furniture'],
+ ['Retail Goods', 'retail_goods'],
+ ['Mixed Freight', 'mixed_freight'],
+ ['ADR Goods', 'adr_goods'],
+ ['Temperature Controlled Freight', 'temperature_controlled_freight'],
+ ['Other', 'other'],
+] as const;
+
+const ACCESS_OPTIONS = ['Residential Address', 'Commercial Premises', 'Limited Access', 'City Centre Delivery', 'Timed Booking Required'];
+const SPECIAL_OPTIONS = ['ADR Required', 'Temperature Controlled', 'Two Man Crew Required', 'Fragile Goods', 'High Value Goods'];
+const DOCUMENT_OPTIONS = ['Commercial Invoice', 'Packing List', 'Delivery Notes', 'Customs Documents', 'Other Attachments'];
+const PALLET_TYPES = ['Standard Pallet', 'Euro Pallet', 'Oversized Pallet'];
+const JOB_FORM_STEPS = ['Customer', 'Collection & Delivery', 'References', 'Vehicle & Cargo', 'Requirements & Documents', 'Pricing'];
+
+const vehicleLabelFor = (value: string) =>
+ VEHICLE_GROUPS.flatMap(([, options]) => options).find(([, optionValue]) => optionValue === value)?.[0] ?? value.replace(/_/g, ' ');
+
+const cargoLabelFor = (value: string) =>
+ CARGO_OPTIONS.find(([, optionValue]) => optionValue === value)?.[0] ?? value.replace(/_/g, ' ');
+
+const toNumberOrNull = (value: string) => {
+ const parsed = Number(value);
+ return value.trim() && Number.isFinite(parsed) ? parsed : null;
+};
+
+const cleanFileName = (value: string) =>
+ value.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-');
+
+const buildDateTime = (date: string, time: string) =>
+ date && time && time !== 'ASAP' ? `${date}T${time}:00` : null;
 
 export default function JobsPage() {
-  const router = useRouter();
-  const { user, hasSupabaseSession } = useAuth();
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [companyLoading, setCompanyLoading] = useState(false);
-  const [companyError, setCompanyError] = useState<string | null>(null);
-  const [dbError, setDbError] = useState<string | null>(null);
-  const [modalError, setModalError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
-  const [jobsPage, setJobsPage] = useState(0);
-  const JOBS_PER_PAGE = 20;
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [pickupFilter, setPickupFilter] = useState('');
-  const [deliveryFilter, setDeliveryFilter] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
-  const [customerFilter, setCustomerFilter] = useState('');
-  const [driverFilter, setDriverFilter] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  // Direct invite state
-  const [directInviteJob, setDirectInviteJob] = useState<Job | null>(null);
-  const [carrierCompanies, setCarrierCompanies] = useState<Array<{ id: string; name: string }>>([]);
-  const [directInviteCarrierId, setDirectInviteCarrierId] = useState('');
-  const [directInviteSending, setDirectInviteSending] = useState(false);
-  const [directInviteError, setDirectInviteError] = useState('');
-  const [formData, setFormData] = useState({
-    clientName: '',
-    clientEmail: '',
-    clientPhone: '',
-    pickupLocation: '',
-    pickupDate: '',
-    pickupTime: '',
-    deliveryLocation: '',
-    deliveryDate: '',
-    deliveryTime: '',
-    cargoType: 'Documents',
-    cargoQuantity: '1',
-    cargoNotes: '',
-  });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+ const router = useRouter();
+ const { user, hasSupabaseSession } = useAuth();
+ const [companyId, setCompanyId] = useState<string | null>(null);
+ const [companyLoading, setCompanyLoading] = useState(false);
+ const [companyError, setCompanyError] = useState<string | null>(null);
+ const [dbError, setDbError] = useState<string | null>(null);
+ const [modalError, setModalError] = useState<string | null>(null);
+ const [isSubmitting, setIsSubmitting] = useState(false);
+ const [jobs, setJobs] = useState<Job[]>([]);
+ const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
+ const [jobsPage, setJobsPage] = useState(0);
+ const JOBS_PER_PAGE = 20;
+ const [searchTerm, setSearchTerm] = useState('');
+ const [statusFilter, setStatusFilter] = useState('All');
+ const [pickupFilter, setPickupFilter] = useState('');
+ const [deliveryFilter, setDeliveryFilter] = useState('');
+ const [dateFilter, setDateFilter] = useState('');
+ const [customerFilter, setCustomerFilter] = useState('');
+ const [driverFilter, setDriverFilter] = useState('');
+ const [showModal, setShowModal] = useState(false);
+ // Direct invite state
+ const [directInviteJob, setDirectInviteJob] = useState<Job | null>(null);
+ const [carrierCompanies, setCarrierCompanies] = useState<Array<{ id: string; name: string }>>([]);
+ const [directInviteCarrierId, setDirectInviteCarrierId] = useState('');
+ const [directInviteSending, setDirectInviteSending] = useState(false);
+ const [directInviteError, setDirectInviteError] = useState('');
+ const [jobFormStep, setJobFormStep] = useState(0);
+ const [formData, setFormData] = useState({
+ clientName: '',
+ clientEmail: '',
+ clientPhone: '',
+ pickupPostcode: '',
+ pickupAddress: '',
+ pickupLocation: '',
+ pickupDate: '',
+ pickupTime: '',
+ deliveryPostcode: '',
+ deliveryAddress: '',
+ deliveryLocation: '',
+ deliveryDate: '',
+ deliveryTime: '',
+ collectionContactName: '',
+ collectionContactPhone: '',
+ deliveryContactName: '',
+ deliveryContactPhone: '',
+ customerReference: '',
+ purchaseOrderNumber: '',
+ bookingReference: '',
+ vehicleType: 'lwb_van',
+ cargoType: 'pallets',
+ cargoQuantity: '1',
+ totalWeightKg: '',
+ lengthCm: '',
+ widthCm: '',
+ heightCm: '',
+ cargoValueGbp: '',
+ palletType: 'Standard Pallet',
+ palletStackable: 'yes',
+ collectionForkliftAvailable: false,
+ collectionTailLiftRequired: false,
+ collectionHandballRequired: false,
+ deliveryForkliftAvailable: false,
+ deliveryTailLiftRequired: false,
+ deliveryHandballRequired: false,
+ collectionAccessRestrictions: [] as string[],
+ deliveryAccessRestrictions: [] as string[],
+ specialRequirements: [] as string[],
+ documentChecklist: [] as string[],
+ exchangeVisibility: 'private',
+ budgetAmount: '',
+ isFixedPrice: false,
+ cargoNotes: '',
+ });
+ const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+ const [documentFiles, setDocumentFiles] = useState<File[]>([]);
 
-  const loadCompanyId = async (userId: string) => {
-    setCompanyLoading(true);
-    setCompanyError(null);
-    const resolvedCompanyId = await resolveActiveCompanyId({ userId, fallbackCompanyId: null });
-    if (resolvedCompanyId) {
-      setCompanyId(resolvedCompanyId);
-    } else {
-      setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
-    }
-    setCompanyLoading(false);
-  };
+ const loadCompanyId = async (userId: string) => {
+ setCompanyLoading(true);
+ setCompanyError(null);
+ const resolvedCompanyId = await resolveActiveCompanyId({ userId, fallbackCompanyId: null });
+ if (resolvedCompanyId) {
+ setCompanyId(resolvedCompanyId);
+ } else {
+ setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
+ }
+ setCompanyLoading(false);
+ };
 
-  useEffect(() => {
-    if (user?.companyId) {
-      // Fast path: company already resolved in auth context — no RPC needed.
-      setCompanyId(user.companyId);
-    } else if (hasSupabaseSession && user?.id && !companyId) {
-      loadCompanyId(user.id);
-    }
-  }, [user?.id, user?.companyId, hasSupabaseSession, companyId]);
+ useEffect(() => {
+ if (user?.companyId) {
+ // Fast path: company already resolved in auth context no RPC needed.
+ setCompanyId(user.companyId);
+ } else if (hasSupabaseSession && user?.id && !companyId) {
+ loadCompanyId(user.id);
+ }
+ }, [user?.id, user?.companyId, hasSupabaseSession, companyId]);
 
-  useEffect(() => {
-    loadJobs();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasSupabaseSession, companyId]);
+ useEffect(() => {
+ loadJobs();
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [hasSupabaseSession, companyId]);
 
-  useEffect(() => {
-    filterJobs();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs, searchTerm, statusFilter, pickupFilter, deliveryFilter, dateFilter, customerFilter, driverFilter]);
+ useEffect(() => {
+ filterJobs();
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [jobs, searchTerm, statusFilter, pickupFilter, deliveryFilter, dateFilter, customerFilter, driverFilter]);
 
-  const loadJobs = async () => {
-    setDbError(null);
-    if (hasSupabaseSession) {
-      if (!companyId) {
-        setJobs([]);
-        setFilteredJobs([]);
-        return;
-      }
+ const loadJobs = async () => {
+ setDbError(null);
+ if (hasSupabaseSession) {
+ if (!companyId) {
+ setJobs([]);
+ setFilteredJobs([]);
+ return;
+ }
 
-      const { data, error } = await supabase
-        .from('jobs')
-        .select('id, company_id, status, cargo_type, pickup_location, pickup_datetime, delivery_location, delivery_datetime, items, client_name, client_email, client_phone, load_details, special_requirements, job_distance_miles, exchange_visibility, awarded_carrier_company_id, created_at, updated_at')
-        .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
-        .order('created_at', { ascending: false });
+ const { data, error } = await supabase
+ .from('jobs')
+ .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, job_distance_miles, exchange_visibility, awarded_carrier_company_id, created_at, updated_at')
+ .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
+ .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Failed to load jobs from Supabase:', error.message);
-        setJobs([]);
-        setFilteredJobs([]);
-        setDbError(`Failed to load jobs: ${error.message}`);
-        return;
-      }
-      if (data) {
-        const mapped = data.map((row: Record<string, unknown>) => {
-          const clientFields = getJobClientFields(row);
-          const rawDistanceMiles =
-            typeof row.job_distance_miles === 'number'
-              ? row.job_distance_miles
-              : row.job_distance_miles !== null && row.job_distance_miles !== undefined
-                ? Number(row.job_distance_miles)
-                : null;
-          const distanceMiles =
-            rawDistanceMiles !== null && Number.isFinite(rawDistanceMiles)
-              ? `${rawDistanceMiles.toFixed(1)} mi`
-              : '—';
+ if (error) {
+ console.error('Failed to load jobs from Supabase:', error.message);
+ setJobs([]);
+ setFilteredJobs([]);
+ setDbError(`Failed to load jobs: ${error.message}`);
+ return;
+ }
+ if (data) {
+ const mapped = data.map((row: Record<string, unknown>) => {
+ const clientFields = getJobClientFields(row);
+ const rawDistanceMiles =
+ typeof row.job_distance_miles === 'number'
+ ? row.job_distance_miles
+ : row.job_distance_miles !== null && row.job_distance_miles !== undefined
+ ? Number(row.job_distance_miles)
+ : null;
+ const distanceMiles =
+ rawDistanceMiles !== null && Number.isFinite(rawDistanceMiles)
+ ? `${rawDistanceMiles.toFixed(1)} mi`
+ : ' ';
 
-          return {
-            id: row.id as string,
-            jobRef: (row.id as string).slice(0, 13).toUpperCase(),
-            client: {
-              name: clientFields.name,
-              email: clientFields.email,
-              phone: clientFields.phone,
-            },
-            pickup: {
-              location: (row.pickup_location as string) || '',
-              date: row.pickup_datetime ? (row.pickup_datetime as string).slice(0, 10) : '',
-              time: row.pickup_datetime ? (row.pickup_datetime as string).slice(11, 16) : '',
-            },
-            delivery: {
-              location: (row.delivery_location as string) || '',
-              date: row.delivery_datetime ? (row.delivery_datetime as string).slice(0, 10) : '',
-              time: row.delivery_datetime ? (row.delivery_datetime as string).slice(11, 16) : '',
-            },
-            cargo: {
-              type: (row.cargo_type as string) || 'Other',
-              quantity: (row.items as number) || 1,
-              notes: clientFields.cargoNotes,
-            },
-            status: (row.status as string) || JOB_STATUS.RECEIVED,
-            createdAt: row.created_at as string,
-            updatedAt: row.updated_at as string,
-            distanceMiles,
-            vehicleType: ((row.cargo_type as string) || 'unknown').replace(/_/g, ' '),
-            paymentTerms: 'Not provided',
-            exchange_visibility: (row.exchange_visibility as string | null) ?? null,
-            awarded_carrier_company_id: (row.awarded_carrier_company_id as string | null) ?? null,
-          };
-        });
-        setJobs(mapped);
-        return;
-      }
-    }
-    setJobs([]);
-    setFilteredJobs([]);
-  };
+ return {
+ id: row.id as string,
+ jobRef: (row.id as string).slice(0, 13).toUpperCase(),
+ client: {
+ name: clientFields.name,
+ email: clientFields.email,
+ phone: clientFields.phone,
+ },
+ pickup: {
+ location: (row.pickup_location as string) || '',
+ date: row.pickup_datetime ? (row.pickup_datetime as string).slice(0, 10) : '',
+ time: row.pickup_datetime ? (row.pickup_datetime as string).slice(11, 16) : '',
+ },
+ delivery: {
+ location: (row.delivery_location as string) || '',
+ date: row.delivery_datetime ? (row.delivery_datetime as string).slice(0, 10) : '',
+ time: row.delivery_datetime ? (row.delivery_datetime as string).slice(11, 16) : '',
+ },
+ cargo: {
+ type: (row.cargo_type as string) || 'Other',
+ quantity: (row.items as number) || 1,
+ notes: clientFields.cargoNotes,
+ },
+ status: (row.status as string) || JOB_STATUS.RECEIVED,
+ createdAt: row.created_at as string,
+ updatedAt: row.updated_at as string,
+ distanceMiles,
+ vehicleType: ((row.requested_vehicle_label as string | null) || (row.vehicle_type as string | null) || 'unknown').replace(/_/g, ' '),
+ paymentTerms: 'Not provided',
+ loadDetailSummary: getLoadDetailSummary(row, 6),
+ exchange_visibility: (row.exchange_visibility as string | null) ?? null,
+ awarded_carrier_company_id: (row.awarded_carrier_company_id as string | null) ?? null,
+ };
+ });
+ setJobs(mapped);
+ return;
+ }
+ }
+ setJobs([]);
+ setFilteredJobs([]);
+ };
 
-  const filterJobs = () => {
-    let filtered = jobs;
+ const filterJobs = () => {
+ let filtered = jobs;
 
-    if (statusFilter !== 'All') {
-      filtered = filtered.filter(job => job.status === statusFilter);
-    }
+ if (statusFilter !== 'All') {
+ filtered = filtered.filter(job => job.status === statusFilter);
+ }
 
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(job =>
-        job.jobRef.toLowerCase().includes(term) ||
-        job.client.name.toLowerCase().includes(term) ||
-        job.pickup.location.toLowerCase().includes(term) ||
-        job.delivery.location.toLowerCase().includes(term)
-      );
-    }
+ if (searchTerm) {
+ const term = searchTerm.toLowerCase();
+ filtered = filtered.filter(job =>
+ job.jobRef.toLowerCase().includes(term) ||
+ job.client.name.toLowerCase().includes(term) ||
+ job.pickup.location.toLowerCase().includes(term) ||
+ job.delivery.location.toLowerCase().includes(term)
+ );
+ }
 
-    if (pickupFilter.trim()) {
-      const term = pickupFilter.trim().toLowerCase();
-      filtered = filtered.filter((job) => job.pickup.location.toLowerCase().includes(term));
-    }
+ if (pickupFilter.trim()) {
+ const term = pickupFilter.trim().toLowerCase();
+ filtered = filtered.filter((job) => job.pickup.location.toLowerCase().includes(term));
+ }
 
-    if (deliveryFilter.trim()) {
-      const term = deliveryFilter.trim().toLowerCase();
-      filtered = filtered.filter((job) => job.delivery.location.toLowerCase().includes(term));
-    }
+ if (deliveryFilter.trim()) {
+ const term = deliveryFilter.trim().toLowerCase();
+ filtered = filtered.filter((job) => job.delivery.location.toLowerCase().includes(term));
+ }
 
-    if (customerFilter.trim()) {
-      const term = customerFilter.trim().toLowerCase();
-      filtered = filtered.filter((job) => job.client.name.toLowerCase().includes(term));
-    }
+ if (customerFilter.trim()) {
+ const term = customerFilter.trim().toLowerCase();
+ filtered = filtered.filter((job) => job.client.name.toLowerCase().includes(term));
+ }
 
-    if (driverFilter.trim()) {
-      const term = driverFilter.trim().toLowerCase();
-      filtered = filtered.filter((job) => job.cargo.notes.toLowerCase().includes(term));
-    }
+ if (driverFilter.trim()) {
+ const term = driverFilter.trim().toLowerCase();
+ filtered = filtered.filter((job) => job.cargo.notes.toLowerCase().includes(term));
+ }
 
-    if (dateFilter) {
-      filtered = filtered.filter((job) => job.pickup.date === dateFilter || job.delivery.date === dateFilter);
-    }
+ if (dateFilter) {
+ filtered = filtered.filter((job) => job.pickup.date === dateFilter || job.delivery.date === dateFilter);
+ }
 
-    setFilteredJobs(filtered);
-    setJobsPage(0);
-  };
+ setFilteredJobs(filtered);
+ setJobsPage(0);
+ };
 
-  const openDirectInvite = async (job: Job) => {
-    setDirectInviteJob(job);
-    setDirectInviteCarrierId('');
-    setDirectInviteError('');
-    if (!isSupabaseConfigured) return;
-    // Load carrier companies (all companies except the current one)
-    const { data } = await supabase
-      .from('companies')
-      .select('id, name')
-      .neq('id', companyId ?? '')
-      .eq('status', 'active')
-      .order('name');
-    setCarrierCompanies((data ?? []) as Array<{ id: string; name: string }>);
-  };
+ const openDirectInvite = async (job: Job) => {
+ setDirectInviteJob(job);
+ setDirectInviteCarrierId('');
+ setDirectInviteError('');
+ if (!isSupabaseConfigured) return;
+ // Load carrier companies (all companies except the current one)
+ const { data } = await supabase
+ .from('companies')
+ .select('id, name')
+ .neq('id', companyId ?? '')
+ .eq('status', 'active')
+ .order('name');
+ setCarrierCompanies((data ?? []) as Array<{ id: string; name: string }>);
+ };
 
-  const sendDirectInvite = async () => {
-    if (!directInviteJob || !directInviteCarrierId || !isSupabaseConfigured) return;
-    setDirectInviteSending(true);
-    setDirectInviteError('');
-    const { error } = await supabase
-      .from('jobs')
-      .update({
-        exchange_visibility: 'direct',
-        awarded_carrier_company_id: directInviteCarrierId,
-      })
-      .eq('id', directInviteJob.id)
-      .eq('company_id', companyId ?? '');
-    if (error) {
-      setDirectInviteError(`Failed to send invitation: ${error.message}`);
-    } else {
-      setDirectInviteJob(null);
-      void loadJobs();
-    }
-    setDirectInviteSending(false);
-  };
+ const sendDirectInvite = async () => {
+ if (!directInviteJob || !directInviteCarrierId || !isSupabaseConfigured) return;
+ setDirectInviteSending(true);
+ setDirectInviteError('');
+ const { error } = await supabase
+ .from('jobs')
+ .update({
+ exchange_visibility: 'direct',
+ awarded_carrier_company_id: directInviteCarrierId,
+ })
+ .eq('id', directInviteJob.id)
+ .eq('company_id', companyId ?? '');
+ if (error) {
+ setDirectInviteError(`Failed to send invitation: ${error.message}`);
+ } else {
+ setDirectInviteJob(null);
+ void loadJobs();
+ }
+ setDirectInviteSending(false);
+ };
 
-  const validateForm = () => {
-    const errors: Record<string, string> = {};
+ const validateForm = () => {
+ const errors: Record<string, string> = {};
 
-    if (!formData.clientName.trim()) errors.clientName = 'Client name is required';
-    if (!formData.clientEmail.trim()) errors.clientEmail = 'Client email is required';
-    if (formData.clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.clientEmail)) {
-      errors.clientEmail = 'Invalid email format';
-    }
-    if (!formData.clientPhone.trim()) errors.clientPhone = 'Client phone is required';
-    if (!formData.pickupLocation.trim()) errors.pickupLocation = 'Pickup location is required';
-    if (!formData.pickupDate) errors.pickupDate = 'Pickup date is required';
-    if (!formData.pickupTime) errors.pickupTime = 'Pickup time is required';
-    if (!formData.deliveryLocation.trim()) errors.deliveryLocation = 'Delivery location is required';
-    if (!formData.deliveryDate) errors.deliveryDate = 'Delivery date is required';
-    if (!formData.deliveryTime) errors.deliveryTime = 'Delivery time is required';
-    if (!formData.cargoQuantity || parseInt(formData.cargoQuantity) < 1) {
-      errors.cargoQuantity = 'Quantity must be at least 1';
-    }
+ if (!formData.clientName.trim()) errors.clientName = 'Client name is required';
+ if (!formData.clientEmail.trim()) errors.clientEmail = 'Client email is required';
+ if (formData.clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.clientEmail)) {
+ errors.clientEmail = 'Invalid email format';
+ }
+ if (!formData.clientPhone.trim()) errors.clientPhone = 'Client phone is required';
+ if (!formData.pickupPostcode.trim()) errors.pickupPostcode = 'Pickup postcode is required';
+ if (!formData.pickupAddress.trim()) errors.pickupAddress = 'Pickup address is required';
+ if (formData.pickupTime !== 'ASAP' && !formData.pickupDate) errors.pickupDate = 'Pickup date is required';
+ if (!formData.pickupTime) errors.pickupTime = 'Pickup time is required';
+ if (!formData.deliveryPostcode.trim()) errors.deliveryPostcode = 'Delivery postcode is required';
+ if (!formData.deliveryAddress.trim()) errors.deliveryAddress = 'Delivery address is required';
+ if (formData.deliveryTime !== 'ASAP' && !formData.deliveryDate) errors.deliveryDate = 'Delivery date is required';
+ if (!formData.deliveryTime) errors.deliveryTime = 'Delivery time is required';
+ if (!formData.collectionContactName.trim()) errors.collectionContactName = 'Collection contact name is required';
+ if (!formData.collectionContactPhone.trim()) errors.collectionContactPhone = 'Collection contact phone is required';
+ if (!formData.deliveryContactName.trim()) errors.deliveryContactName = 'Delivery contact name is required';
+ if (!formData.deliveryContactPhone.trim()) errors.deliveryContactPhone = 'Delivery contact phone is required';
+ if (!formData.cargoQuantity || parseInt(formData.cargoQuantity) < 1) {
+ errors.cargoQuantity = 'Quantity must be at least 1';
+ }
 
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+ setFormErrors(errors);
+ return Object.keys(errors).length === 0;
+ };
 
-  const handleCreateJob = async () => {
-    if (!validateForm()) return;
-    setIsSubmitting(true);
-    setModalError(null);
-    setDbError(null);
+ const handleCreateJob = async (status: string = JOB_STATUS.POSTED) => {
+ if (!validateForm()) return;
+ setIsSubmitting(true);
+ setModalError(null);
+ setDbError(null);
 
-    if (hasSupabaseSession) {
-      // Resolve companyId — use state value or re-fetch if missing
-      let resolvedCompanyId = companyId;
-      if (!resolvedCompanyId && user?.id) {
-        const fallbackCompanyId = await resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: null });
-        if (fallbackCompanyId) {
-          resolvedCompanyId = fallbackCompanyId;
-          setCompanyId(resolvedCompanyId);
-        } else {
-          setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
-          setIsSubmitting(false);
-          return;
-        }
-      }
-      if (!resolvedCompanyId) {
-        setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
-        setIsSubmitting(false);
-        return;
-      }
-      const { error: insertError } = await supabase.from('jobs').insert([{
-        company_id: resolvedCompanyId,
-        created_by: user?.id ?? null,
-        client_name: formData.clientName,
-        client_email: formData.clientEmail || null,
-        client_phone: formData.clientPhone || null,
-        load_details: formData.clientName,
-        pickup_location: formData.pickupLocation,
-        pickup_datetime: `${formData.pickupDate}T${formData.pickupTime}:00`,
-        delivery_location: formData.deliveryLocation,
-        delivery_datetime: `${formData.deliveryDate}T${formData.deliveryTime}:00`,
-        cargo_type: formData.cargoType.toLowerCase() as string,
-        items: parseInt(formData.cargoQuantity),
-        special_requirements: buildLegacyJobSpecialRequirements({
-          clientPhone: formData.clientPhone,
-          clientEmail: formData.clientEmail,
-          cargoNotes: formData.cargoNotes,
-        }),
-        status: JOB_STATUS.POSTED,
-      }]);
-      if (insertError) {
-        console.error('Failed to create job:', insertError.message);
-        const hint = insertError.message.includes('row-level security') || insertError.message.includes('policy')
-          ? ' — RLS blocked: verify your company membership is active and migration 012 has been applied in Supabase'
-          : insertError.message.includes('schema cache') || insertError.message.includes('column')
-          ? ' — schema out of date: re-run 011_complete_schema_v2.sql in the Supabase SQL Editor to add missing columns'
-          : insertError.message.includes('get_or_create_company')
-          ? ' — RPC missing: run 011_complete_schema_v2.sql in the Supabase SQL Editor'
-          : '';
-        setModalError(`${insertError.message}${hint}`);
-        setIsSubmitting(false);
-        return;
-      }
-      setStatusFilter('All');
-      await loadJobs();
-    } else {
-      setModalError('A live Supabase session is required to create jobs safely.');
-      setIsSubmitting(false);
-      return;
-    }
-    setIsSubmitting(false);
-    closeModal();
-  };
+ if (hasSupabaseSession) {
+ // Resolve companyId use state value or re-fetch if missing
+ let resolvedCompanyId = companyId;
+ if (!resolvedCompanyId && user?.id) {
+ const fallbackCompanyId = await resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: null });
+ if (fallbackCompanyId) {
+ resolvedCompanyId = fallbackCompanyId;
+ setCompanyId(resolvedCompanyId);
+ } else {
+ setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
+ setIsSubmitting(false);
+ return;
+ }
+ }
+ if (!resolvedCompanyId) {
+ setCompanyError('Company profile not loaded yet. Please wait a moment and try again.');
+ setIsSubmitting(false);
+ return;
+ }
+ const pickupLocation = `${formData.pickupAddress.trim()}, ${formData.pickupPostcode.trim().toUpperCase()}`;
+ const deliveryLocation = `${formData.deliveryAddress.trim()}, ${formData.deliveryPostcode.trim().toUpperCase()}`;
+ const loadDetails = JSON.stringify({
+ createdFrom: 'admin_jobs',
+ references: {
+ customerReference: formData.customerReference.trim() || null,
+ purchaseOrderNumber: formData.purchaseOrderNumber.trim() || null,
+ bookingReference: formData.bookingReference.trim() || null,
+ },
+ collection: {
+ date: formData.pickupDate || null,
+ timeSlot: formData.pickupTime,
+ postcode: formData.pickupPostcode.trim().toUpperCase(),
+ address: formData.pickupAddress.trim(),
+ contactName: formData.collectionContactName.trim(),
+ contactPhone: formData.collectionContactPhone.trim(),
+ forkliftAvailable: formData.collectionForkliftAvailable,
+ tailLiftRequired: formData.collectionTailLiftRequired,
+ handballRequired: formData.collectionHandballRequired,
+ },
+ delivery: {
+ date: formData.deliveryDate || null,
+ timeSlot: formData.deliveryTime,
+ postcode: formData.deliveryPostcode.trim().toUpperCase(),
+ address: formData.deliveryAddress.trim(),
+ contactName: formData.deliveryContactName.trim(),
+ contactPhone: formData.deliveryContactPhone.trim(),
+ forkliftAvailable: formData.deliveryForkliftAvailable,
+ tailLiftRequired: formData.deliveryTailLiftRequired,
+ handballRequired: formData.deliveryHandballRequired,
+ },
+ vehicle: vehicleLabelFor(formData.vehicleType),
+ cargo: cargoLabelFor(formData.cargoType),
+ dimensionsCm: {
+ length: formData.lengthCm || null,
+ width: formData.widthCm || null,
+ height: formData.heightCm || null,
+ },
+ cargoValueGbp: formData.cargoValueGbp || null,
+ palletDetails: formData.cargoType === 'pallets'
+ ? { count: formData.cargoQuantity || null, type: formData.palletType, stackable: formData.palletStackable === 'yes' }
+ : null,
+ documentChecklist: formData.documentChecklist,
+ notes: formData.cargoNotes.trim() || null,
+ }, null, 2);
 
-  const handleStatusChange = async (jobId: string, newStatus: string) => {
-    if (hasSupabaseSession) {
-      if (!companyId) {
-        setDbError('Company profile not loaded. Job status cannot be updated safely.');
-        return;
-      }
-      const { error } = await supabase
-        .from('jobs')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', jobId)
-        .eq('company_id', companyId);
-      if (error) {
-        console.error('Failed to update job status:', error.message);
-        setDbError(`Failed to update job status: ${error.message}`);
-        return;
-      }
-      // Re-fetch from DB to confirm the persisted state
-      await loadJobs();
-      return;
-    }
-    setDbError('A live Supabase session is required to update job status safely.');
-  };
+ const { data: insertedJob, error: insertError } = await supabase.from('jobs').insert([{
+ company_id: resolvedCompanyId,
+ created_by: user?.id ?? null,
+ client_name: formData.clientName.trim(),
+ client_email: formData.clientEmail.trim() || null,
+ client_phone: formData.clientPhone.trim() || null,
+ pickup_location: pickupLocation,
+ pickup_postcode: formData.pickupPostcode.trim().toUpperCase(),
+ pickup_datetime: buildDateTime(formData.pickupDate, formData.pickupTime),
+ pickup_time_slot: formData.pickupTime,
+ delivery_location: deliveryLocation,
+ delivery_postcode: formData.deliveryPostcode.trim().toUpperCase(),
+ delivery_datetime: buildDateTime(formData.deliveryDate, formData.deliveryTime),
+ delivery_time_slot: formData.deliveryTime,
+ vehicle_type: formData.vehicleType,
+ cargo_type: formData.cargoType,
+ items: parseInt(formData.cargoQuantity),
+ pallets: formData.cargoType === 'pallets' ? parseInt(formData.cargoQuantity) : null,
+ weight_kg: toNumberOrNull(formData.totalWeightKg),
+ length_cm: toNumberOrNull(formData.lengthCm),
+ width_cm: toNumberOrNull(formData.widthCm),
+ height_cm: toNumberOrNull(formData.heightCm),
+ collection_contact_name: formData.collectionContactName.trim(),
+ collection_contact_phone: formData.collectionContactPhone.trim(),
+ delivery_contact_name: formData.deliveryContactName.trim(),
+ delivery_contact_phone: formData.deliveryContactPhone.trim(),
+ customer_reference: formData.customerReference.trim() || null,
+ purchase_order_number: formData.purchaseOrderNumber.trim() || null,
+ booking_reference: formData.bookingReference.trim() || null,
+ requested_vehicle_label: vehicleLabelFor(formData.vehicleType),
+ requested_cargo_label: cargoLabelFor(formData.cargoType),
+ cargo_value_gbp: toNumberOrNull(formData.cargoValueGbp),
+ pallet_type: formData.cargoType === 'pallets' ? formData.palletType : null,
+ pallet_stackable: formData.cargoType === 'pallets' ? formData.palletStackable === 'yes' : null,
+ collection_forklift_available: formData.collectionForkliftAvailable,
+ collection_tail_lift_required: formData.collectionTailLiftRequired,
+ collection_handball_required: formData.collectionHandballRequired,
+ delivery_forklift_available: formData.deliveryForkliftAvailable,
+ delivery_tail_lift_required: formData.deliveryTailLiftRequired,
+ delivery_handball_required: formData.deliveryHandballRequired,
+ document_checklist: formData.documentChecklist,
+ load_details: loadDetails,
+ special_requirements: [...formData.specialRequirements, formData.cargoNotes.trim()].filter(Boolean).join(', ') || null,
+ access_restrictions: [
+ ...formData.collectionAccessRestrictions.map((item) => `Collection: ${item}`),
+ ...formData.deliveryAccessRestrictions.map((item) => `Delivery: ${item}`),
+ ].join(', ') || null,
+ exchange_visibility: formData.exchangeVisibility,
+ exchange_posted_at: formData.exchangeVisibility === 'exchange' ? new Date().toISOString() : null,
+ budget_amount: toNumberOrNull(formData.budgetAmount),
+ is_fixed_price: formData.isFixedPrice,
+ currency: 'GBP',
+ status,
+ }]).select('id').single();
+ if (insertError) {
+ console.error('Failed to create job:', insertError.message);
+ const hint = insertError.message.includes('row-level security') || insertError.message.includes('policy')
+ ? ' RLS blocked: verify your company membership is active and migration 012 has been applied in Supabase'
+ : insertError.message.includes('schema cache') || insertError.message.includes('column')
+ ? ' schema out of date: re-run 011_complete_schema_v2.sql in the Supabase SQL Editor to add missing columns'
+ : insertError.message.includes('get_or_create_company')
+ ? ' RPC missing: run 011_complete_schema_v2.sql in the Supabase SQL Editor'
+ : '';
+ setModalError(`${insertError.message}${hint}`);
+ setIsSubmitting(false);
+ return;
+ }
+ if (documentFiles.length > 0 && insertedJob?.id) {
+ const documentRows = [];
+ for (const file of documentFiles) {
+ const storagePath = `${resolvedCompanyId}/${insertedJob.id}/${Date.now()}-${cleanFileName(file.name)}`;
+ const { error: uploadError } = await supabase.storage.from('load-documents').upload(storagePath, file, {
+ cacheControl: '3600',
+ upsert: false,
+ contentType: file.type || undefined,
+ });
+ if (uploadError) {
+ setModalError(`Job was created, but document upload failed for ${file.name}: ${uploadError.message}`);
+ setIsSubmitting(false);
+ await loadJobs();
+ return;
+ }
+ documentRows.push({
+ job_id: insertedJob.id,
+ company_id: resolvedCompanyId,
+ uploaded_by: user?.id ?? null,
+ uploaded_by_role: 'admin',
+ doc_type: 'admin_load_attachment',
+ file_path: storagePath,
+ file_name: file.name,
+ file_size_bytes: file.size,
+ mime_type: file.type || null,
+ });
+ }
+ const { error: documentsError } = await supabase.from('job_documents').insert(documentRows);
+ if (documentsError) {
+ setModalError(`Job was created, but document records could not be saved: ${documentsError.message}`);
+ setIsSubmitting(false);
+ await loadJobs();
+ return;
+ }
+ }
+ setStatusFilter('All');
+ await loadJobs();
+ } else {
+ setModalError('A live Supabase session is required to create jobs safely.');
+ setIsSubmitting(false);
+ return;
+ }
+ setIsSubmitting(false);
+ closeModal();
+ };
 
-  const handlePostJob = async (jobId: string) => {
-    await handleStatusChange(jobId, JOB_STATUS.POSTED);
-  };
+ const handleStatusChange = async (jobId: string, newStatus: string) => {
+ if (hasSupabaseSession) {
+ if (!companyId) {
+ setDbError('Company profile not loaded. Job status cannot be updated safely.');
+ return;
+ }
+ const { error } = await supabase
+ .from('jobs')
+ .update({ status: newStatus, updated_at: new Date().toISOString() })
+ .eq('id', jobId)
+ .eq('company_id', companyId);
+ if (error) {
+ console.error('Failed to update job status:', error.message);
+ setDbError(`Failed to update job status: ${error.message}`);
+ return;
+ }
+ // Re-fetch from DB to confirm the persisted state
+ await loadJobs();
+ return;
+ }
+ setDbError('A live Supabase session is required to update job status safely.');
+ };
 
-  const closeModal = () => {
-    setShowModal(false);
-    setModalError(null);
-    setFormData({
-      clientName: '',
-      clientEmail: '',
-      clientPhone: '',
-      pickupLocation: '',
-      pickupDate: '',
-      pickupTime: '',
-      deliveryLocation: '',
-      deliveryDate: '',
-      deliveryTime: '',
-      cargoType: 'Documents',
-      cargoQuantity: '1',
-      cargoNotes: '',
-    });
-    setFormErrors({});
-  };
+ const handlePostJob = async (jobId: string) => {
+ await handleStatusChange(jobId, JOB_STATUS.POSTED);
+ };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case JOB_STATUS.RECEIVED:
-        return { bg: '#fef3c7', text: '#92400e', border: '#fbbf24' };
-      case JOB_STATUS.POSTED:
-        return { bg: '#dbeafe', text: '#1e3a8a', border: '#5C9FD8' };
-      case JOB_STATUS.ALLOCATED:
-        return { bg: '#e9d5ff', text: '#581c87', border: '#a855f7' };
-      case JOB_STATUS.DELIVERED:
-        return { bg: '#dcfce7', text: '#14532d', border: '#1F7A3D' };
-      default:
-        return { bg: '#f3f4f6', text: '#1f2937', border: '#9ca3af' };
-    }
-  };
+ const closeModal = () => {
+ setShowModal(false);
+ setJobFormStep(0);
+ setModalError(null);
+ setFormData({
+ clientName: '',
+ clientEmail: '',
+ clientPhone: '',
+ pickupPostcode: '',
+ pickupAddress: '',
+ pickupLocation: '',
+ pickupDate: '',
+ pickupTime: '',
+ deliveryPostcode: '',
+ deliveryAddress: '',
+ deliveryLocation: '',
+ deliveryDate: '',
+ deliveryTime: '',
+ collectionContactName: '',
+ collectionContactPhone: '',
+ deliveryContactName: '',
+ deliveryContactPhone: '',
+ customerReference: '',
+ purchaseOrderNumber: '',
+ bookingReference: '',
+ vehicleType: 'lwb_van',
+ cargoType: 'pallets',
+ cargoQuantity: '1',
+ totalWeightKg: '',
+ lengthCm: '',
+ widthCm: '',
+ heightCm: '',
+ cargoValueGbp: '',
+ palletType: 'Standard Pallet',
+ palletStackable: 'yes',
+ collectionForkliftAvailable: false,
+ collectionTailLiftRequired: false,
+ collectionHandballRequired: false,
+ deliveryForkliftAvailable: false,
+ deliveryTailLiftRequired: false,
+ deliveryHandballRequired: false,
+ collectionAccessRestrictions: [],
+ deliveryAccessRestrictions: [],
+ specialRequirements: [],
+ documentChecklist: [],
+ exchangeVisibility: 'private',
+ budgetAmount: '',
+ isFixedPrice: false,
+ cargoNotes: '',
+ });
+ setDocumentFiles([]);
+ setFormErrors({});
+ };
 
-  const getStatusCount = (status: string) => {
-    if (status === 'All') return jobs.length;
-    return jobs.filter(job => job.status === status).length;
-  };
+ const getStatusColor = (status: string) => {
+ switch (status) {
+ case JOB_STATUS.RECEIVED:
+ return { bg: '#fef3c7', text: '#92400e', border: '#fbbf24' };
+ case JOB_STATUS.POSTED:
+ return { bg: '#dbeafe', text: '#1e3a8a', border: '#5C9FD8' };
+ case JOB_STATUS.ALLOCATED:
+ return { bg: '#e9d5ff', text: '#581c87', border: '#a855f7' };
+ case JOB_STATUS.DELIVERED:
+ return { bg: '#dcfce7', text: '#14532d', border: '#1F7A3D' };
+ default:
+ return { bg: '#f3f4f6', text: '#1f2937', border: '#9ca3af' };
+ }
+ };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
+ const getStatusCount = (status: string) => {
+ if (status === 'All') return jobs.length;
+ return jobs.filter(job => job.status === status).length;
+ };
 
-  const newJobDisabled = (hasSupabaseSession && companyLoading) || isSubmitting;
+ const formatDate = (dateStr: string) => {
+ const date = new Date(dateStr);
+ return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+ };
 
-  return (
-    <ProtectedRoute>
-      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
-        <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ marginBottom: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>
-                Operations Workspace
-              </h1>
-              <p style={{ color: '#6b7280', margin: 0 }}>
-                One board for assign, track and complete work.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button
-                onClick={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
-                disabled={newJobDisabled}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  backgroundColor: newJobDisabled ? '#6b7280' : '#1F7A3D',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '0.95rem',
-                  fontWeight: '600',
-                  cursor: newJobDisabled ? 'not-allowed' : 'pointer',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => { if (!newJobDisabled) e.currentTarget.style.backgroundColor = '#166534'; }}
-                onMouseLeave={(e) => { if (!newJobDisabled) e.currentTarget.style.backgroundColor = '#1F7A3D'; }}
-              >
-                {newJobDisabled ? '⏳ Loading...' : '+ New Job'}
-              </button>
-            </div>
-          </div>
-        </div>
+ const toggleFormArrayValue = (field: MultiSelectField, value: string) => {
+ setFormData((current) => {
+ const selected = current[field];
+ return {
+ ...current,
+ [field]: selected.includes(value)
+ ? selected.filter((item) => item !== value)
+ : [...selected, value],
+ };
+ });
+ };
 
-        {/* Company profile error banner */}
-        {companyError && (
-          <div style={{
-            backgroundColor: '#fef3c7',
-            border: '1px solid #f59e0b',
-            borderRadius: '8px',
-            padding: '1rem 1.5rem',
-            marginBottom: '1.5rem',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '1rem',
-          }}>
-            <span style={{ color: '#92400e', fontSize: '0.95rem' }}>⚠️ {companyError}</span>
-            {user?.id && (
-              <button
-                onClick={() => loadCompanyId(user.id)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#f59e0b',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.85rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Try Again
-              </button>
-            )}
-          </div>
-        )}
+ const newJobDisabled = (hasSupabaseSession && companyLoading) || isSubmitting;
 
-        {/* No-session warning banner */}
-        {isSupabaseConfigured && !hasSupabaseSession && (
-          <div style={{
-            backgroundColor: '#fff7ed',
-            border: '1px solid #fb923c',
-            borderRadius: '8px',
-            padding: '1rem 1.5rem',
-            marginBottom: '1.5rem',
-            color: '#9a3412',
-            fontSize: '0.95rem',
-          }}>
-            ⚠️ Local sign-in detected. Jobs will be stored locally only. Sign in with a Supabase account to sync your jobs.
-          </div>
-        )}
+ return (
+ <ProtectedRoute>
+ <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
+ <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+ {/* Header */}
+ <div style={{ marginBottom: '1rem' }}>
+ <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+ <div>
+ <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>
+ Operations Workspace
+ </h1>
+ <p style={{ color: '#6b7280', margin: 0 }}>
+ One board for assign, track and complete work.
+ </p>
+ </div>
+ <div style={{ display: 'flex', gap: '1rem' }}>
+ <button
+ onClick={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
+ disabled={newJobDisabled}
+ style={{
+ padding: '0.75rem 1.5rem',
+ backgroundColor: newJobDisabled ? '#6b7280' : '#1F7A3D',
+ color: 'white',
+ border: 'none',
+ borderRadius: '8px',
+ fontSize: '0.95rem',
+ fontWeight: '600',
+ cursor: newJobDisabled ? 'not-allowed' : 'pointer',
+ transition: 'background-color 0.2s'
+ }}
+ onMouseEnter={(e) => { if (!newJobDisabled) e.currentTarget.style.backgroundColor = '#166534'; }}
+ onMouseLeave={(e) => { if (!newJobDisabled) e.currentTarget.style.backgroundColor = '#1F7A3D'; }}
+ >
+ {newJobDisabled ? ' Loading...' : '+ New Job'}
+ </button>
+ </div>
+ </div>
+ </div>
 
-        {/* Database error banner */}
-        {dbError && (
-          <div style={{
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fca5a5',
-            borderRadius: '8px',
-            padding: '1rem 1.5rem',
-            marginBottom: '1.5rem',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '1rem',
-          }}>
-            <span style={{ color: '#991b1b', fontSize: '0.95rem' }}>❌ {dbError}</span>
-            <button
-              onClick={() => setDbError(null)}
-              style={{ background: 'none', border: 'none', color: '#991b1b', fontSize: '1.25rem', cursor: 'pointer', lineHeight: 1 }}
-              aria-label="Dismiss"
-            >×</button>
-          </div>
-        )}
+ {/* Company profile error banner */}
+ {companyError && (
+ <div style={{
+ backgroundColor: '#fef3c7',
+ border: '1px solid #f59e0b',
+ borderRadius: '8px',
+ padding: '1rem 1.5rem',
+ marginBottom: '1.5rem',
+ display: 'flex',
+ justifyContent: 'space-between',
+ alignItems: 'center',
+ gap: '1rem',
+ }}>
+ <span style={{ color: '#92400e', fontSize: '0.95rem' }}>Warning: {companyError}</span>
+ {user?.id && (
+ <button
+ onClick={() => loadCompanyId(user.id)}
+ style={{
+ padding: '0.5rem 1rem',
+ backgroundColor: '#f59e0b',
+ color: 'white',
+ border: 'none',
+ borderRadius: '6px',
+ fontSize: '0.85rem',
+ fontWeight: '600',
+ cursor: 'pointer',
+ whiteSpace: 'nowrap',
+ }}
+ >
+ Try Again
+ </button>
+ )}
+ </div>
+ )}
 
-        {/* Stats Cards */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '1rem',
-          marginBottom: '2rem'
-        }}>
-          {[
-            { label: 'All Jobs', status: 'All', icon: '📦', color: '#1d4ed8' },
-            { label: 'Received', status: JOB_STATUS.RECEIVED, icon: '📥', color: '#fbbf24' },
-            { label: 'Posted', status: JOB_STATUS.POSTED, icon: '📮', color: '#5C9FD8' },
-            { label: 'Allocated', status: JOB_STATUS.ALLOCATED, icon: '🚚', color: '#a855f7' },
-            { label: 'Delivered', status: JOB_STATUS.DELIVERED, icon: '✅', color: '#1F7A3D' },
-          ].map((stat) => (
-            <div
-              key={stat.status}
-              style={{
-                backgroundColor: 'white',
-                padding: '1.25rem',
-                borderRadius: '12px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                borderLeft: `4px solid ${stat.color}`
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500' }}>
-                  {stat.label}
-                </div>
-                <span style={{ fontSize: '1.25rem' }}>{stat.icon}</span>
-              </div>
-              <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937' }}>
-                {getStatusCount(stat.status)}
-              </div>
-            </div>
-          ))}
-        </div>
+ {/* No-session warning banner */}
+ {isSupabaseConfigured && !hasSupabaseSession && (
+ <div style={{
+ backgroundColor: '#fff7ed',
+ border: '1px solid #fb923c',
+ borderRadius: '8px',
+ padding: '1rem 1.5rem',
+ marginBottom: '1.5rem',
+ color: '#9a3412',
+ fontSize: '0.95rem',
+ }}>
+ Warning: Local sign-in detected. Jobs will be stored locally only. Sign in with a Supabase account to sync your jobs.
+ </div>
+ )}
 
-        {/* Filters & Search */}
-        <div style={{
-          backgroundColor: 'white',
-          padding: '1.5rem',
-          borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-          marginBottom: '2rem'
-        }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', alignItems: 'center' }}>
-            <input
-              type="text"
-              placeholder="Search by job ref, client, or location..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                padding: '0.75rem 1rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '8px',
-                fontSize: '0.95rem',
-                width: '100%'
-              }}
-            />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                padding: '0.75rem 1rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '8px',
-                fontSize: '0.95rem',
-                backgroundColor: 'white',
-                cursor: 'pointer',
-                minWidth: '150px'
-              }}
-            >
-              <option value="All">All Status</option>
-              <option value={JOB_STATUS.RECEIVED}>Received</option>
-              <option value={JOB_STATUS.POSTED}>Posted</option>
-              <option value={JOB_STATUS.ALLOCATED}>Allocated</option>
-              <option value={JOB_STATUS.DELIVERED}>Delivered</option>
-            </select>
-            <input type="text" placeholder="Pickup" value={pickupFilter} onChange={(e) => setPickupFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
-            <input type="text" placeholder="Delivery" value={deliveryFilter} onChange={(e) => setDeliveryFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
-            <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
-            <input type="text" placeholder="Customer/Company" value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
-            <input type="text" placeholder="Driver" value={driverFilter} onChange={(e) => setDriverFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
-          </div>
-        </div>
+ {/* Database error banner */}
+ {dbError && (
+ <div style={{
+ backgroundColor: '#fef2f2',
+ border: '1px solid #fca5a5',
+ borderRadius: '8px',
+ padding: '1rem 1.5rem',
+ marginBottom: '1.5rem',
+ display: 'flex',
+ justifyContent: 'space-between',
+ alignItems: 'center',
+ gap: '1rem',
+ }}>
+ <span style={{ color: '#991b1b', fontSize: '0.95rem' }}> {dbError}</span>
+ <button
+ onClick={() => setDbError(null)}
+ style={{ background: 'none', border: 'none', color: '#991b1b', fontSize: '1.25rem', cursor: 'pointer', lineHeight: 1 }}
+ aria-label="Dismiss"
+ >x</button>
+ </div>
+ )}
 
-        {/* Jobs Table */}
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-          overflow: 'hidden'
-        }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
-                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Job Ref</th>
-                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Client</th>
-                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Pickup → Delivery</th>
-                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Distance</th>
-                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Vehicle Type</th>
-                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Payment Terms</th>
-                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Status</th>
-                  <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Created Date</th>
-                  <th style={{ padding: '0.8rem', textAlign: 'center', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredJobs.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-                      <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📦</div>
-                      <div style={{ fontSize: '1.1rem', fontWeight: '500' }}>No jobs found</div>
-                      <div style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                        {searchTerm || statusFilter !== 'All'
-                          ? 'Try adjusting your filters'
-                          : 'Create your first job to get started'}
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map((job, index) => {
-                    const statusColor = getStatusColor(job.status);
-                    return (
-                      <tr
-                        key={job.id}
-                        style={{
-                          borderBottom: index < Math.min(JOBS_PER_PAGE, filteredJobs.length) - 1 ? '1px solid #e5e7eb' : 'none',
-                          transition: 'background-color 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                      >
-                        <td style={{ padding: '1rem', fontWeight: '600', color: '#1d4ed8', fontSize: '0.9rem' }}>
-                          {job.jobRef}
-                        </td>
-                        <td style={{ padding: '1rem', fontSize: '0.9rem' }}>
-                          <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '0.25rem' }}>
-                            {job.client.name}
-                          </div>
-                          <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                            {job.client.email}
-                          </div>
-                        </td>
-                        <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
-                          <div style={{ marginBottom: '0.5rem' }}>
-                            <div style={{ color: '#1f2937', fontWeight: '500' }}>
-                              📍 {job.pickup.location}
-                            </div>
-                            <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
-                              {formatDate(job.pickup.date)} at {job.pickup.time}
-                            </div>
-                          </div>
-                          <div style={{ color: '#9ca3af', fontSize: '0.8rem', margin: '0.25rem 0' }}>↓</div>
-                          <div>
-                            <div style={{ color: '#1f2937', fontWeight: '500' }}>
-                              🎯 {job.delivery.location}
-                            </div>
-                            <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
-                              {formatDate(job.delivery.date)} at {job.delivery.time}
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.distanceMiles}</td>
-                        <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#374151', textTransform: 'capitalize' }}>{job.vehicleType}</td>
-                        <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.paymentTerms}</td>
-                        <td style={{ padding: '1rem' }}>
-                          <select
-                            value={job.status}
-                            onChange={(e) => handleStatusChange(job.id, e.target.value)}
-                            style={{
-                              padding: '0.5rem 0.75rem',
-                              backgroundColor: statusColor.bg,
-                              color: statusColor.text,
-                              border: `1px solid ${statusColor.border}`,
-                              borderRadius: '6px',
-                              fontSize: '0.85rem',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              outline: 'none'
-                            }}
-                          >
-                            <option value={JOB_STATUS.RECEIVED}>Received</option>
-                            <option value={JOB_STATUS.POSTED}>Posted</option>
-                            <option value={JOB_STATUS.ALLOCATED}>Allocated</option>
-                            <option value={JOB_STATUS.DELIVERED}>Delivered</option>
-                          </select>
-                        </td>
-                        <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#6b7280' }}>
-                          {formatDate(job.createdAt)}
-                        </td>
-                        <td style={{ padding: '1rem', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                            {job.status === JOB_STATUS.RECEIVED && (
-                              <button
-                                onClick={() => handlePostJob(job.id)}
-                                style={{
-                                  padding: '0.5rem 1rem',
-                                  backgroundColor: '#5C9FD8',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  fontSize: '0.85rem',
-                                  fontWeight: '600',
-                                  cursor: 'pointer',
-                                  transition: 'background-color 0.2s'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2F6FB3'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#5C9FD8'}
-                              >
-                                Post
-                              </button>
-                            )}
-                            <button
-                              onClick={() => router.push(`/admin/jobs/${job.id}`)}
-                              style={{
-                                padding: '0.5rem 1rem',
-                                backgroundColor: '#16a34a',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                fontSize: '0.85rem',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                transition: 'background-color 0.2s'
-                              }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e3a5f'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
-                            >
-                              View
-                            </button>
-                            {(!job.exchange_visibility || job.exchange_visibility === 'private') && (
-                              <button
-                                onClick={() => void openDirectInvite(job)}
-                                style={{ padding: '0.5rem 0.85rem', backgroundColor: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer' }}
-                              >
-                                Invite Carrier
-                              </button>
-                            )}
-                            {job.exchange_visibility === 'direct' && (
-                              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#7c3aed', backgroundColor: '#ede9fe', padding: '0.2rem 0.5rem', borderRadius: '999px' }}>
-                                Direct ✓
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-          {filteredJobs.length > JOBS_PER_PAGE && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderTop: '1px solid #e5e7eb' }}>
-              <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
-                Showing {jobsPage * JOBS_PER_PAGE + 1}–{Math.min((jobsPage + 1) * JOBS_PER_PAGE, filteredJobs.length)} of {filteredJobs.length} jobs
-              </span>
-              <div style={{ display: 'flex', gap: '0.4rem' }}>
-                <button
-                  onClick={() => setJobsPage((p) => Math.max(0, p - 1))}
-                  disabled={jobsPage === 0}
-                  style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: jobsPage === 0 ? '#f9fafb' : '#fff', cursor: jobsPage === 0 ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
-                >
-                  ← Prev
-                </button>
-                <button
-                  onClick={() => setJobsPage((p) => p + 1)}
-                  disabled={(jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length}
-                  style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: (jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length ? '#f9fafb' : '#fff', cursor: (jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+ {/* Stats Cards */}
+ <div style={{
+ display: 'grid',
+ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+ gap: '1rem',
+ marginBottom: '2rem'
+ }}>
+ {[
+ { label: 'All Jobs', status: 'All', icon: ' ', color: '#1d4ed8' },
+ { label: 'Received', status: JOB_STATUS.RECEIVED, icon: ' ', color: '#fbbf24' },
+ { label: 'Posted', status: JOB_STATUS.POSTED, icon: ' ', color: '#5C9FD8' },
+ { label: 'Allocated', status: JOB_STATUS.ALLOCATED, icon: ' ', color: '#a855f7' },
+ { label: 'Delivered', status: JOB_STATUS.DELIVERED, icon: ' ', color: '#1F7A3D' },
+ ].map((stat) => (
+ <div
+ key={stat.status}
+ style={{
+ backgroundColor: 'white',
+ padding: '1.25rem',
+ borderRadius: '12px',
+ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+ borderLeft: `4px solid ${stat.color}`
+ }}
+ >
+ <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+ <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500' }}>
+ {stat.label}
+ </div>
+ <span style={{ fontSize: '1.25rem' }}>{stat.icon}</span>
+ </div>
+ <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937' }}>
+ {getStatusCount(stat.status)}
+ </div>
+ </div>
+ ))}
+ </div>
 
-        {/* Create Job Modal */}
-        {showModal && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              zIndex: 1000,
-              padding: '1rem'
-            }}
-            onClick={closeModal}
-          >
-            <div
-              style={{
-                backgroundColor: 'white',
-                borderRadius: '12px',
-                maxWidth: '800px',
-                width: '100%',
-                maxHeight: '90vh',
-                overflow: 'auto',
-                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div style={{
-                padding: '1.5rem',
-                borderBottom: '1px solid #e5e7eb',
-                backgroundColor: '#16a34a',
-                borderRadius: '12px 12px 0 0'
-              }}>
-                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: 'white' }}>
-                  Create New Job
-                </h2>
-              </div>
+ {/* Filters & Search */}
+ <div style={{
+ backgroundColor: 'white',
+ padding: '1.5rem',
+ borderRadius: '12px',
+ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+ marginBottom: '2rem'
+ }}>
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', alignItems: 'center' }}>
+ <input
+ type="text"
+ placeholder="Search by job ref, client, or location..."
+ value={searchTerm}
+ onChange={(e) => setSearchTerm(e.target.value)}
+ style={{
+ padding: '0.75rem 1rem',
+ border: '1px solid #d1d5db',
+ borderRadius: '8px',
+ fontSize: '0.95rem',
+ width: '100%'
+ }}
+ />
+ <select
+ value={statusFilter}
+ onChange={(e) => setStatusFilter(e.target.value)}
+ style={{
+ padding: '0.75rem 1rem',
+ border: '1px solid #d1d5db',
+ borderRadius: '8px',
+ fontSize: '0.95rem',
+ backgroundColor: 'white',
+ cursor: 'pointer',
+ minWidth: '150px'
+ }}
+ >
+ <option value="All">All Status</option>
+ <option value={JOB_STATUS.RECEIVED}>Received</option>
+ <option value={JOB_STATUS.POSTED}>Posted</option>
+ <option value={JOB_STATUS.ALLOCATED}>Allocated</option>
+ <option value={JOB_STATUS.DELIVERED}>Delivered</option>
+ </select>
+ <input type="text" placeholder="Pickup" value={pickupFilter} onChange={(e) => setPickupFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
+ <input type="text" placeholder="Delivery" value={deliveryFilter} onChange={(e) => setDeliveryFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
+ <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
+ <input type="text" placeholder="Customer/Company" value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
+ <input type="text" placeholder="Driver" value={driverFilter} onChange={(e) => setDriverFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
+ </div>
+ </div>
 
-              {/* Modal Body */}
-              <div style={{ padding: '1.5rem' }}>
-                {/* Client Information */}
-                <div style={{ marginBottom: '2rem' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginBottom: '1rem' }}>
-                    Client Information
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                        Client Name *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.clientName}
-                        onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          border: `1px solid ${formErrors.clientName ? '#ef4444' : '#d1d5db'}`,
-                          borderRadius: '6px',
-                          fontSize: '0.95rem',
-                          boxSizing: 'border-box'
-                        }}
-                        placeholder="Enter client name"
-                      />
-                      {formErrors.clientName && (
-                        <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                          {formErrors.clientName}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                          Email *
-                        </label>
-                        <input
-                          type="email"
-                          value={formData.clientEmail}
-                          onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            border: `1px solid ${formErrors.clientEmail ? '#ef4444' : '#d1d5db'}`,
-                            borderRadius: '6px',
-                            fontSize: '0.95rem',
-                            boxSizing: 'border-box'
-                          }}
-                          placeholder="client@email.com"
-                        />
-                        {formErrors.clientEmail && (
-                          <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                            {formErrors.clientEmail}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                          Phone *
-                        </label>
-                        <input
-                          type="tel"
-                          value={formData.clientPhone}
-                          onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            border: `1px solid ${formErrors.clientPhone ? '#ef4444' : '#d1d5db'}`,
-                            borderRadius: '6px',
-                            fontSize: '0.95rem',
-                            boxSizing: 'border-box'
-                          }}
-                          placeholder="07123456789"
-                        />
-                        {formErrors.clientPhone && (
-                          <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                            {formErrors.clientPhone}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+ {/* Jobs Table */}
+ <div style={{
+ backgroundColor: 'white',
+ borderRadius: '12px',
+ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+ overflow: 'hidden'
+ }}>
+ <div style={{ overflowX: 'auto' }}>
+ <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+ <thead>
+ <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+ <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Job Ref</th>
+ <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Client</th>
+ <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Pickup to Delivery</th>
+ <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Distance</th>
+ <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Vehicle Type</th>
+ <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Payment Terms</th>
+ <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Status</th>
+ <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Created Date</th>
+ <th style={{ padding: '0.8rem', textAlign: 'center', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Actions</th>
+ </tr>
+ </thead>
+ <tbody>
+ {filteredJobs.length === 0 ? (
+ <tr>
+ <td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+ <div style={{ fontSize: '3rem', marginBottom: '1rem' }}> </div>
+ <div style={{ fontSize: '1.1rem', fontWeight: '500' }}>No jobs found</div>
+ <div style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+ {searchTerm || statusFilter !== 'All'
+ ? 'Try adjusting your filters'
+ : 'Create your first job to get started'}
+ </div>
+ </td>
+ </tr>
+ ) : (
+ filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map((job, index) => {
+ const statusColor = getStatusColor(job.status);
+ return (
+ <tr
+ key={job.id}
+ style={{
+ borderBottom: index < Math.min(JOBS_PER_PAGE, filteredJobs.length) - 1 ? '1px solid #e5e7eb' : 'none',
+ transition: 'background-color 0.2s'
+ }}
+ onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+ onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+ >
+ <td style={{ padding: '1rem', fontWeight: '600', color: '#1d4ed8', fontSize: '0.9rem' }}>
+ {job.jobRef}
+ </td>
+ <td style={{ padding: '1rem', fontSize: '0.9rem' }}>
+ <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '0.25rem' }}>
+ {job.client.name}
+ </div>
+ <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+ {job.client.email}
+ </div>
+ </td>
+ <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
+ <div style={{ marginBottom: '0.5rem' }}>
+ <div style={{ color: '#1f2937', fontWeight: '500' }}>
+ {job.pickup.location}
+ </div>
+ <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
+ {formatDate(job.pickup.date)} at {job.pickup.time}
+ </div>
+ </div>
+ <div style={{ color: '#9ca3af', fontSize: '0.8rem', margin: '0.25rem 0' }}>to</div>
+ <div>
+ <div style={{ color: '#1f2937', fontWeight: '500' }}>
+ {job.delivery.location}
+ </div>
+ <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
+ {formatDate(job.delivery.date)} at {job.delivery.time}
+ </div>
+ </div>
+ {job.loadDetailSummary.length > 0 && (
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.35rem', marginTop: '0.7rem' }}>
+ {job.loadDetailSummary.map((item) => (
+ <div key={`${job.id}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.35rem 0.45rem' }}>
+ <div style={{ color: '#64748b', fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
+ <div style={{ color: '#0f172a', fontSize: '0.75rem', fontWeight: 600 }}>{item.value}</div>
+ </div>
+ ))}
+ </div>
+ )}
+ </td>
+ <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.distanceMiles}</td>
+ <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#374151', textTransform: 'capitalize' }}>{job.vehicleType}</td>
+ <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.paymentTerms}</td>
+ <td style={{ padding: '1rem' }}>
+ <select
+ value={job.status}
+ onChange={(e) => handleStatusChange(job.id, e.target.value)}
+ style={{
+ padding: '0.5rem 0.75rem',
+ backgroundColor: statusColor.bg,
+ color: statusColor.text,
+ border: `1px solid ${statusColor.border}`,
+ borderRadius: '6px',
+ fontSize: '0.85rem',
+ fontWeight: '600',
+ cursor: 'pointer',
+ outline: 'none'
+ }}
+ >
+ <option value={JOB_STATUS.RECEIVED}>Received</option>
+ <option value={JOB_STATUS.POSTED}>Posted</option>
+ <option value={JOB_STATUS.ALLOCATED}>Allocated</option>
+ <option value={JOB_STATUS.DELIVERED}>Delivered</option>
+ </select>
+ </td>
+ <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#6b7280' }}>
+ {formatDate(job.createdAt)}
+ </td>
+ <td style={{ padding: '1rem', textAlign: 'center' }}>
+ <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+ {job.status === JOB_STATUS.RECEIVED && (
+ <button
+ onClick={() => handlePostJob(job.id)}
+ style={{
+ padding: '0.5rem 1rem',
+ backgroundColor: '#5C9FD8',
+ color: 'white',
+ border: 'none',
+ borderRadius: '6px',
+ fontSize: '0.85rem',
+ fontWeight: '600',
+ cursor: 'pointer',
+ transition: 'background-color 0.2s'
+ }}
+ onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2F6FB3'}
+ onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#5C9FD8'}
+ >
+ Post
+ </button>
+ )}
+ <button
+ onClick={() => router.push(`/admin/jobs/${job.id}`)}
+ style={{
+ padding: '0.5rem 1rem',
+ backgroundColor: '#16a34a',
+ color: 'white',
+ border: 'none',
+ borderRadius: '6px',
+ fontSize: '0.85rem',
+ fontWeight: '600',
+ cursor: 'pointer',
+ transition: 'background-color 0.2s'
+ }}
+ onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e3a5f'}
+ onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
+ >
+ View
+ </button>
+ {(!job.exchange_visibility || job.exchange_visibility === 'private') && (
+ <button
+ onClick={() => void openDirectInvite(job)}
+ style={{ padding: '0.5rem 0.85rem', backgroundColor: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer' }}
+ >
+ Invite Carrier
+ </button>
+ )}
+ {job.exchange_visibility === 'direct' && (
+ <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#7c3aed', backgroundColor: '#ede9fe', padding: '0.2rem 0.5rem', borderRadius: '999px' }}>
+ Direct 
+ </span>
+ )}
+ </div>
+ </td>
+ </tr>
+ );
+ })
+ )}
+ </tbody>
+ </table>
+ </div>
+ {filteredJobs.length > JOBS_PER_PAGE && (
+ <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderTop: '1px solid #e5e7eb' }}>
+ <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
+ Showing {jobsPage * JOBS_PER_PAGE + 1} {Math.min((jobsPage + 1) * JOBS_PER_PAGE, filteredJobs.length)} of {filteredJobs.length} jobs
+ </span>
+ <div style={{ display: 'flex', gap: '0.4rem' }}>
+ <button
+ onClick={() => setJobsPage((p) => Math.max(0, p - 1))}
+ disabled={jobsPage === 0}
+ style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: jobsPage === 0 ? '#f9fafb' : '#fff', cursor: jobsPage === 0 ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
+ >
+ Prev
+ </button>
+ <button
+ onClick={() => setJobsPage((p) => p + 1)}
+ disabled={(jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length}
+ style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: (jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length ? '#f9fafb' : '#fff', cursor: (jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
+ >
+ Next
+ </button>
+ </div>
+ </div>
+ )}
+ </div>
 
-                {/* Pickup Details */}
-                <div style={{ marginBottom: '2rem' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginBottom: '1rem' }}>
-                    Pickup Details
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                        Pickup Location *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.pickupLocation}
-                        onChange={(e) => setFormData({ ...formData, pickupLocation: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          border: `1px solid ${formErrors.pickupLocation ? '#ef4444' : '#d1d5db'}`,
-                          borderRadius: '6px',
-                          fontSize: '0.95rem',
-                          boxSizing: 'border-box'
-                        }}
-                        placeholder="Full address with postcode"
-                      />
-                      {formErrors.pickupLocation && (
-                        <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                          {formErrors.pickupLocation}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                          Pickup Date *
-                        </label>
-                        <input
-                          type="date"
-                          value={formData.pickupDate}
-                          onChange={(e) => setFormData({ ...formData, pickupDate: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            border: `1px solid ${formErrors.pickupDate ? '#ef4444' : '#d1d5db'}`,
-                            borderRadius: '6px',
-                            fontSize: '0.95rem',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                        {formErrors.pickupDate && (
-                          <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                            {formErrors.pickupDate}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                          Pickup Time *
-                        </label>
-                        <select
-                          value={formData.pickupTime}
-                          onChange={(e) => setFormData({ ...formData, pickupTime: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            border: `1px solid ${formErrors.pickupTime ? '#ef4444' : '#d1d5db'}`,
-                            borderRadius: '6px',
-                            fontSize: '0.95rem',
-                            boxSizing: 'border-box',
-                            backgroundColor: 'white',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <option value="">Select time</option>
-                          {generateTimeOptions().map((time) => (
-                            <option key={time} value={time}>
-                              {time}
-                            </option>
-                          ))}
-                        </select>
-                        {formErrors.pickupTime && (
-                          <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                            {formErrors.pickupTime}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+ {/* Full-screen Create Job Workspace */}
+ {showModal && (
+ <div
+ style={{
+ position: 'fixed',
+ inset: 0,
+ backgroundColor: '#f1f5f9',
+ zIndex: 1000,
+ display: 'flex',
+ flexDirection: 'column',
+ }}
+ >
+ <div
+ style={{
+ backgroundColor: 'white',
+ width: '100%',
+ minHeight: '100vh',
+ display: 'flex',
+ flexDirection: 'column',
+ }}
+ >
+ <style>{`
+ .admin-job-mobile-stepper { display: none; }
+ @media (max-width: 767px) {
+ .admin-job-section { display: none; }
+ .admin-job-section.active { display: block; }
+ .admin-job-mobile-stepper { display: flex; }
+ }
+ `}</style>
+ {/* Workspace Header */}
+ <div style={{
+ padding: '1rem 1.5rem',
+ borderBottom: '1px solid #e5e7eb',
+ backgroundColor: '#111827',
+ display: 'flex',
+ alignItems: 'center',
+ justifyContent: 'space-between',
+ gap: '1rem',
+ }}>
+ <div>
+ <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: '700', color: 'white' }}>
+ Create New Job
+ </h2>
+ <div style={{ marginTop: '0.2rem', color: '#cbd5e1', fontSize: '0.85rem' }}>
+ Full operational load capture for planning, quoting and dispatch.
+ </div>
+ </div>
+ <button
+ onClick={closeModal}
+ style={{ padding: '0.55rem 0.9rem', background: '#1f2937', color: '#f8fafc', border: '1px solid #334155', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+ >
+ Close
+ </button>
+ </div>
 
-                {/* Delivery Details */}
-                <div style={{ marginBottom: '2rem' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginBottom: '1rem' }}>
-                    Delivery Details
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                        Delivery Location *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.deliveryLocation}
-                        onChange={(e) => setFormData({ ...formData, deliveryLocation: e.target.value })}
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          border: `1px solid ${formErrors.deliveryLocation ? '#ef4444' : '#d1d5db'}`,
-                          borderRadius: '6px',
-                          fontSize: '0.95rem',
-                          boxSizing: 'border-box'
-                        }}
-                        placeholder="Full address with postcode"
-                      />
-                      {formErrors.deliveryLocation && (
-                        <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                          {formErrors.deliveryLocation}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                          Delivery Date *
-                        </label>
-                        <input
-                          type="date"
-                          value={formData.deliveryDate}
-                          onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            border: `1px solid ${formErrors.deliveryDate ? '#ef4444' : '#d1d5db'}`,
-                            borderRadius: '6px',
-                            fontSize: '0.95rem',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                        {formErrors.deliveryDate && (
-                          <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                            {formErrors.deliveryDate}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                          Delivery Time *
-                        </label>
-                        <select
-                          value={formData.deliveryTime}
-                          onChange={(e) => setFormData({ ...formData, deliveryTime: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            border: `1px solid ${formErrors.deliveryTime ? '#ef4444' : '#d1d5db'}`,
-                            borderRadius: '6px',
-                            fontSize: '0.95rem',
-                            boxSizing: 'border-box',
-                            backgroundColor: 'white',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <option value="">Select time</option>
-                          {generateTimeOptions().map((time) => (
-                            <option key={time} value={time}>
-                              {time}
-                            </option>
-                          ))}
-                        </select>
-                        {formErrors.deliveryTime && (
-                          <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                            {formErrors.deliveryTime}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+ <div className="admin-job-mobile-stepper" style={{ alignItems: 'center', gap: '0.5rem', overflowX: 'auto', padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', backgroundColor: '#ffffff' }}>
+ {JOB_FORM_STEPS.map((step, index) => (
+ <button
+ key={step}
+ type="button"
+ onClick={() => setJobFormStep(index)}
+ style={{
+ whiteSpace: 'nowrap',
+ padding: '0.55rem 0.75rem',
+ borderRadius: '999px',
+ border: index === jobFormStep ? '1px solid #f59e0b' : '1px solid #e5e7eb',
+ backgroundColor: index === jobFormStep ? '#fffbeb' : 'white',
+ color: index === jobFormStep ? '#92400e' : '#475569',
+ fontSize: '0.78rem',
+ fontWeight: 700,
+ }}
+ >
+ {index + 1}. {step}
+ </button>
+ ))}
+ </div>
 
-                {/* Cargo Details */}
-                <div style={{ marginBottom: '2rem' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginBottom: '1rem' }}>
-                    Cargo Details
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                          Cargo Type *
-                        </label>
-                        <select
-                          value={formData.cargoType}
-                          onChange={(e) => setFormData({ ...formData, cargoType: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '6px',
-                            fontSize: '0.95rem',
-                            backgroundColor: 'white',
-                            cursor: 'pointer',
-                            boxSizing: 'border-box'
-                          }}
-                        >
-                          {CARGO_TYPES.map(type => (
-                            <option key={type} value={type}>{type}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                          Quantity *
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={formData.cargoQuantity}
-                          onChange={(e) => setFormData({ ...formData, cargoQuantity: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            border: `1px solid ${formErrors.cargoQuantity ? '#ef4444' : '#d1d5db'}`,
-                            borderRadius: '6px',
-                            fontSize: '0.95rem',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                        {formErrors.cargoQuantity && (
-                          <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                            {formErrors.cargoQuantity}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                        Additional Notes
-                      </label>
-                      <textarea
-                        value={formData.cargoNotes}
-                        onChange={(e) => setFormData({ ...formData, cargoNotes: e.target.value })}
-                        rows={3}
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '0.95rem',
-                          resize: 'vertical',
-                          fontFamily: 'inherit',
-                          boxSizing: 'border-box'
-                        }}
-                        placeholder="Special handling instructions, fragile items, etc."
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+ {/* Workspace Body */}
+ <div style={{ flex: 1, overflow: 'auto', padding: '1.25rem 1.5rem 7rem', backgroundColor: '#f8fafc' }}>
+ {/* Client Information */}
+ <div className={jobFormStep === 0 ? 'admin-job-section active' : 'admin-job-section'} style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+ <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginBottom: '1rem' }}>Client Information</h3>
+ <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>Client Name *</label>
+ <input type="text" value={formData.clientName} onChange={(e) => setFormData({ ...formData, clientName: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${formErrors.clientName ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} placeholder="Enter client name" />
+ {formErrors.clientName && <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>{formErrors.clientName}</div>}
+ </div>
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>Email *</label>
+ <input type="email" value={formData.clientEmail} onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${formErrors.clientEmail ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} placeholder="client@email.com" />
+ {formErrors.clientEmail && <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>{formErrors.clientEmail}</div>}
+ </div>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>Phone *</label>
+ <input type="tel" value={formData.clientPhone} onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${formErrors.clientPhone ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} placeholder="07123456789" />
+ {formErrors.clientPhone && <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>{formErrors.clientPhone}</div>}
+ </div>
+ </div>
+ </div>
+ </div>
 
-              {/* Modal Footer */}
-              <div style={{
-                padding: '1.5rem',
-                borderTop: '1px solid #e5e7eb',
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '1rem',
-                backgroundColor: '#f9fafb',
-                borderRadius: '0 0 12px 12px'
-              }}>
-                {/* In-modal error */}
-                {modalError && (
-                  <div style={{
-                    backgroundColor: '#fef2f2',
-                    border: '1px solid #fca5a5',
-                    borderRadius: '8px',
-                    padding: '0.75rem 1rem',
-                    marginBottom: '0.5rem',
-                    color: '#991b1b',
-                    fontSize: '0.85rem',
-                    lineHeight: '1.4',
-                  }}>
-                    ❌ {modalError}
-                  </div>
-                )}
-                <button
-                  onClick={closeModal}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    backgroundColor: 'white',
-                    color: '#374151',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: '0.95rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateJob}
-                  disabled={isSubmitting}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    backgroundColor: isSubmitting ? '#6b7280' : '#1F7A3D',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '0.95rem',
-                    fontWeight: '600',
-                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                    transition: 'background-color 0.2s'
-                  }}
-                  onMouseEnter={(e) => { if (!isSubmitting) e.currentTarget.style.backgroundColor = '#166534'; }}
-                  onMouseLeave={(e) => { if (!isSubmitting) e.currentTarget.style.backgroundColor = '#1F7A3D'; }}
-                >
-                  {isSubmitting ? '⏳ Saving...' : 'Create Job'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+ {/* Pickup and Delivery */}
+ <div className={jobFormStep === 1 ? 'admin-job-section active' : 'admin-job-section'} style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+ <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginBottom: '1rem' }}>Pickup & Delivery</h3>
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+ <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
+ <h4 style={{ margin: '0 0 0.85rem', fontSize: '0.95rem', color: '#111827' }}>Collection</h4>
+ <div style={{ display: 'grid', gap: '0.8rem' }}>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Pickup Postcode *</label>
+ <input value={formData.pickupPostcode} onChange={(e) => setFormData({ ...formData, pickupPostcode: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.pickupPostcode ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} placeholder="BB1 1AA" />
+ {formErrors.pickupPostcode && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.pickupPostcode}</div>}
+ </div>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Pickup Address *</label>
+ <input value={formData.pickupAddress} onChange={(e) => setFormData({ ...formData, pickupAddress: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.pickupAddress ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} placeholder="Site name, street, town" />
+ {formErrors.pickupAddress && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.pickupAddress}</div>}
+ </div>
+ <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Pickup Date *</label>
+ <input type="date" value={formData.pickupDate} onChange={(e) => setFormData({ ...formData, pickupDate: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.pickupDate ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ {formErrors.pickupDate && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.pickupDate}</div>}
+ </div>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Pickup Time *</label>
+ <select value={formData.pickupTime} onChange={(e) => { setFormData({ ...formData, pickupTime: e.target.value }); setFormErrors(({ pickupTime: _pickupTime, pickupDate: _pickupDate, ...rest }) => rest); }} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.pickupTime ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box', backgroundColor: 'white' }}>
+ <option value="">Select time</option>
+ <option value="ASAP">ASAP</option>
+ {generateTimeOptions().map((time) => <option key={time} value={time}>{time}</option>)}
+ </select>
+ {formErrors.pickupTime && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.pickupTime}</div>}
+ </div>
+ </div>
+ <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Contact Name *</label>
+ <input value={formData.collectionContactName} onChange={(e) => setFormData({ ...formData, collectionContactName: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.collectionContactName ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ {formErrors.collectionContactName && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.collectionContactName}</div>}
+ </div>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Contact Phone *</label>
+ <input value={formData.collectionContactPhone} onChange={(e) => setFormData({ ...formData, collectionContactPhone: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.collectionContactPhone ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ {formErrors.collectionContactPhone && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.collectionContactPhone}</div>}
+ </div>
+ </div>
+ </div>
+ </div>
 
-        {/* Direct Carrier Invitation Modal */}
-        {directInviteJob && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '460px', padding: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#1f2937' }}>Invite Carrier Directly</h2>
-                <button onClick={() => setDirectInviteJob(null)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
-              </div>
+ <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
+ <h4 style={{ margin: '0 0 0.85rem', fontSize: '0.95rem', color: '#111827' }}>Delivery</h4>
+ <div style={{ display: 'grid', gap: '0.8rem' }}>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Delivery Postcode *</label>
+ <input value={formData.deliveryPostcode} onChange={(e) => setFormData({ ...formData, deliveryPostcode: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryPostcode ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} placeholder="BS5 7EW" />
+ {formErrors.deliveryPostcode && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.deliveryPostcode}</div>}
+ </div>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Delivery Address *</label>
+ <input value={formData.deliveryAddress} onChange={(e) => setFormData({ ...formData, deliveryAddress: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryAddress ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} placeholder="Site name, street, town" />
+ {formErrors.deliveryAddress && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.deliveryAddress}</div>}
+ </div>
+ <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Delivery Date *</label>
+ <input type="date" value={formData.deliveryDate} onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryDate ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ {formErrors.deliveryDate && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.deliveryDate}</div>}
+ </div>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Delivery Time *</label>
+ <select value={formData.deliveryTime} onChange={(e) => { setFormData({ ...formData, deliveryTime: e.target.value }); setFormErrors(({ deliveryTime: _deliveryTime, deliveryDate: _deliveryDate, ...rest }) => rest); }} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryTime ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box', backgroundColor: 'white' }}>
+ <option value="">Select time</option>
+ <option value="ASAP">ASAP</option>
+ {generateTimeOptions().map((time) => <option key={time} value={time}>{time}</option>)}
+ </select>
+ {formErrors.deliveryTime && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.deliveryTime}</div>}
+ </div>
+ </div>
+ <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Contact Name *</label>
+ <input value={formData.deliveryContactName} onChange={(e) => setFormData({ ...formData, deliveryContactName: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryContactName ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ {formErrors.deliveryContactName && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.deliveryContactName}</div>}
+ </div>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Contact Phone *</label>
+ <input value={formData.deliveryContactPhone} onChange={(e) => setFormData({ ...formData, deliveryContactPhone: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryContactPhone ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ {formErrors.deliveryContactPhone && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.deliveryContactPhone}</div>}
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
 
-              <div style={{ backgroundColor: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.85rem', color: '#4c1d95' }}>
-                <div style={{ fontWeight: 700 }}>
-                  {directInviteJob.pickup.location || '—'} → {directInviteJob.delivery.location || '—'}
-                </div>
-                <div style={{ marginTop: '0.2rem', fontSize: '0.78rem', color: '#6d28d9' }}>
-                  Job #{directInviteJob.jobRef} · {directInviteJob.status}
-                </div>
-              </div>
+ {/* References */}
+ <div className={jobFormStep === 2 ? 'admin-job-section active' : 'admin-job-section'} style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+ <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginBottom: '1rem' }}>References</h3>
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+ <input value={formData.customerReference} onChange={(e) => setFormData({ ...formData, customerReference: e.target.value })} style={{ padding: '0.7rem', border: '1px solid #d1d5db', borderRadius: '6px' }} placeholder="Customer reference" />
+ <input value={formData.purchaseOrderNumber} onChange={(e) => setFormData({ ...formData, purchaseOrderNumber: e.target.value })} style={{ padding: '0.7rem', border: '1px solid #d1d5db', borderRadius: '6px' }} placeholder="Purchase order number" />
+ <input value={formData.bookingReference} onChange={(e) => setFormData({ ...formData, bookingReference: e.target.value })} style={{ padding: '0.7rem', border: '1px solid #d1d5db', borderRadius: '6px' }} placeholder="Booking reference" />
+ </div>
+ </div>
 
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' }}>
-                  Select Carrier Company *
-                </label>
-                <select
-                  value={directInviteCarrierId}
-                  onChange={(e) => setDirectInviteCarrierId(e.target.value)}
-                  style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem' }}
-                >
-                  <option value="">Choose a carrier…</option>
-                  {carrierCompanies.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-                {carrierCompanies.length === 0 && (
-                  <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.3rem' }}>
-                    No other active companies found.
-                  </div>
-                )}
-              </div>
+ {/* Vehicle and Cargo */}
+ <div className={jobFormStep === 3 ? 'admin-job-section active' : 'admin-job-section'} style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+ <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginBottom: '1rem' }}>Vehicle & Cargo</h3>
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Vehicle Type</label>
+ <select value={formData.vehicleType} onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white' }}>
+ {VEHICLE_GROUPS.map(([group, options]) => <optgroup key={group} label={group}>{options.map(([label, value]) => <option key={value} value={value}>{label}</option>)}</optgroup>)}
+ </select>
+ </div>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Cargo Type *</label>
+ <select value={formData.cargoType} onChange={(e) => setFormData({ ...formData, cargoType: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white' }}>
+ {CARGO_OPTIONS.map(([label, value]) => <option key={value} value={value}>{label}</option>)}
+ </select>
+ </div>
+ <div>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Quantity *</label>
+ <input type="number" min="1" value={formData.cargoQuantity} onChange={(e) => setFormData({ ...formData, cargoQuantity: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${formErrors.cargoQuantity ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ {formErrors.cargoQuantity && <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>{formErrors.cargoQuantity}</div>}
+ </div>
+ <input type="number" min="0" value={formData.totalWeightKg} onChange={(e) => setFormData({ ...formData, totalWeightKg: e.target.value })} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }} placeholder="Total weight kg" />
+ <input type="number" min="0" value={formData.cargoValueGbp} onChange={(e) => setFormData({ ...formData, cargoValueGbp: e.target.value })} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }} placeholder="Cargo value GBP" />
+ </div>
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+ <input type="number" min="0" value={formData.lengthCm} onChange={(e) => setFormData({ ...formData, lengthCm: e.target.value })} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }} placeholder="Length cm" />
+ <input type="number" min="0" value={formData.widthCm} onChange={(e) => setFormData({ ...formData, widthCm: e.target.value })} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }} placeholder="Width cm" />
+ <input type="number" min="0" value={formData.heightCm} onChange={(e) => setFormData({ ...formData, heightCm: e.target.value })} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }} placeholder="Height cm" />
+ </div>
+ {formData.cargoType === 'pallets' && (
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#f8fafc' }}>
+ <select value={formData.palletType} onChange={(e) => setFormData({ ...formData, palletType: e.target.value })} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white' }}>
+ {PALLET_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+ </select>
+ <select value={formData.palletStackable} onChange={(e) => setFormData({ ...formData, palletStackable: e.target.value })} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white' }}>
+ <option value="yes">Stackable: Yes</option>
+ <option value="no">Stackable: No</option>
+ </select>
+ </div>
+ )}
+ </div>
 
-              {directInviteError && (
-                <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '6px', padding: '0.6rem', fontSize: '0.83rem', marginBottom: '0.75rem' }}>
-                  {directInviteError}
-                </div>
-              )}
+ {/* Loading and Requirements */}
+ <div className={jobFormStep === 4 ? 'admin-job-section active' : 'admin-job-section'} style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+ <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginBottom: '1rem' }}>Loading, Access, Documents & Requirements</h3>
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+ <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
+ <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.9rem' }}>Collection</h4>
+ {[['Forklift Available', 'collectionForkliftAvailable'], ['Tail Lift Required', 'collectionTailLiftRequired'], ['Handball Required', 'collectionHandballRequired']].map(([label, key]) => (
+ <label key={key} style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#374151' }}><input type="checkbox" checked={Boolean(formData[key as keyof typeof formData])} onChange={(e) => setFormData({ ...formData, [key]: e.target.checked })} /> {label}</label>
+ ))}
+ </div>
+ <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
+ <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.9rem' }}>Delivery</h4>
+ {[['Forklift Available', 'deliveryForkliftAvailable'], ['Tail Lift Required', 'deliveryTailLiftRequired'], ['Handball Required', 'deliveryHandballRequired']].map(([label, key]) => (
+ <label key={key} style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#374151' }}><input type="checkbox" checked={Boolean(formData[key as keyof typeof formData])} onChange={(e) => setFormData({ ...formData, [key]: e.target.checked })} /> {label}</label>
+ ))}
+ </div>
+ </div>
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+ <div>
+ <h4 style={{ margin: '0 0 0.65rem', fontSize: '0.85rem', color: '#111827' }}>Collection Access</h4>
+ {ACCESS_OPTIONS.map((option) => <label key={option} style={{ display: 'block', marginBottom: '0.45rem', fontSize: '0.85rem' }}><input type="checkbox" checked={formData.collectionAccessRestrictions.includes(option)} onChange={() => toggleFormArrayValue('collectionAccessRestrictions', option)} /> {option}</label>)}
+ </div>
+ <div>
+ <h4 style={{ margin: '0 0 0.65rem', fontSize: '0.85rem', color: '#111827' }}>Delivery Access</h4>
+ {ACCESS_OPTIONS.map((option) => <label key={option} style={{ display: 'block', marginBottom: '0.45rem', fontSize: '0.85rem' }}><input type="checkbox" checked={formData.deliveryAccessRestrictions.includes(option)} onChange={() => toggleFormArrayValue('deliveryAccessRestrictions', option)} /> {option}</label>)}
+ </div>
+ <div>{SPECIAL_OPTIONS.map((option) => <label key={option} style={{ display: 'block', marginBottom: '0.45rem', fontSize: '0.85rem' }}><input type="checkbox" checked={formData.specialRequirements.includes(option)} onChange={() => toggleFormArrayValue('specialRequirements', option)} /> {option}</label>)}</div>
+ <div>
+ {DOCUMENT_OPTIONS.map((option) => <label key={option} style={{ display: 'block', marginBottom: '0.45rem', fontSize: '0.85rem' }}><input type="checkbox" checked={formData.documentChecklist.includes(option)} onChange={() => toggleFormArrayValue('documentChecklist', option)} /> {option}</label>)}
+ <input
+ type="file"
+ multiple
+ onChange={(e) => setDocumentFiles(Array.from(e.target.files ?? []))}
+ style={{ marginTop: '0.75rem', display: 'block', width: '100%', fontSize: '0.82rem' }}
+ />
+ {documentFiles.length > 0 && (
+ <div style={{ marginTop: '0.45rem', fontSize: '0.78rem', color: '#64748b' }}>
+ {documentFiles.length} file{documentFiles.length === 1 ? '' : 's'} selected
+ </div>
+ )}
+ </div>
+ </div>
+ </div>
 
-              <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '1rem' }}>
-                The selected carrier will see this load marked as a direct invitation. The load will not appear on the open exchange.
-              </div>
+ {/* Marketplace and Notes */}
+ <div className={jobFormStep === 5 ? 'admin-job-section active' : 'admin-job-section'} style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+ <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginBottom: '1rem' }}>Pricing, Visibility & Notes</h3>
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+ <select value={formData.exchangeVisibility} onChange={(e) => setFormData({ ...formData, exchangeVisibility: e.target.value })} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white' }}>
+ <option value="private">Private / Internal</option>
+ <option value="exchange">Post to Load Board</option>
+ </select>
+ <input type="number" min="0" value={formData.budgetAmount} onChange={(e) => setFormData({ ...formData, budgetAmount: e.target.value })} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }} placeholder="Budget / fixed price GBP" />
+ <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: '#374151' }}><input type="checkbox" checked={formData.isFixedPrice} onChange={(e) => setFormData({ ...formData, isFixedPrice: e.target.checked })} /> Fixed price</label>
+ </div>
+ <textarea value={formData.cargoNotes} onChange={(e) => setFormData({ ...formData, cargoNotes: e.target.value })} rows={3} style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} placeholder="Operational notes, fragile items, booking details, access notes." />
+ </div>
+ </div>
 
-              <div style={{ display: 'flex', gap: '0.65rem', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => setDirectInviteJob(null)}
-                  style={{ padding: '0.55rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#374151', fontSize: '0.85rem' }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => void sendDirectInvite()}
-                  disabled={!directInviteCarrierId || directInviteSending}
-                  style={{ padding: '0.55rem 1.25rem', border: 'none', borderRadius: '6px', background: !directInviteCarrierId || directInviteSending ? '#9ca3af' : '#7c3aed', color: '#fff', cursor: !directInviteCarrierId || directInviteSending ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.85rem' }}
-                >
-                  {directInviteSending ? 'Sending…' : 'Send Invitation'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        </div>
-      </div>
-    </ProtectedRoute>
-  );
+ {/* Fixed Action Bar */}
+ <div style={{
+ position: 'fixed',
+ left: 0,
+ right: 0,
+ bottom: 0,
+ padding: '0.85rem 1.5rem',
+ borderTop: '1px solid #e5e7eb',
+ display: 'flex',
+ justifyContent: 'flex-end',
+ alignItems: 'center',
+ gap: '1rem',
+ backgroundColor: 'rgba(255,255,255,0.96)',
+ boxShadow: '0 -8px 20px rgba(15, 23, 42, 0.08)',
+ zIndex: 1001,
+ }}>
+ {modalError && (
+ <div style={{
+ backgroundColor: '#fef2f2',
+ border: '1px solid #fca5a5',
+ borderRadius: '8px',
+ padding: '0.75rem 1rem',
+ color: '#991b1b',
+ fontSize: '0.85rem',
+ lineHeight: '1.4',
+ marginRight: 'auto',
+ maxWidth: '45vw',
+ }}>
+ {modalError}
+ </div>
+ )}
+ <button
+ onClick={closeModal}
+ style={{
+ padding: '0.75rem 1.5rem',
+ backgroundColor: 'white',
+ color: '#374151',
+ border: '1px solid #d1d5db',
+ borderRadius: '8px',
+ fontSize: '0.95rem',
+ fontWeight: '600',
+ cursor: 'pointer',
+ transition: 'background-color 0.2s'
+ }}
+ onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+ onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+ >
+ Cancel
+ </button>
+ <button
+ onClick={() => void handleCreateJob('draft')}
+ disabled={isSubmitting}
+ style={{
+ padding: '0.75rem 1.5rem',
+ backgroundColor: isSubmitting ? '#9ca3af' : '#f59e0b',
+ color: '#111827',
+ border: 'none',
+ borderRadius: '8px',
+ fontSize: '0.95rem',
+ fontWeight: '700',
+ cursor: isSubmitting ? 'not-allowed' : 'pointer',
+ transition: 'background-color 0.2s'
+ }}
+ >
+ {isSubmitting ? 'Saving...' : 'Save Draft'}
+ </button>
+ <button
+ onClick={() => void handleCreateJob(JOB_STATUS.POSTED)}
+ disabled={isSubmitting}
+ style={{
+ padding: '0.75rem 1.5rem',
+ backgroundColor: isSubmitting ? '#6b7280' : '#1F7A3D',
+ color: 'white',
+ border: 'none',
+ borderRadius: '8px',
+ fontSize: '0.95rem',
+ fontWeight: '600',
+ cursor: isSubmitting ? 'not-allowed' : 'pointer',
+ transition: 'background-color 0.2s'
+ }}
+ onMouseEnter={(e) => { if (!isSubmitting) e.currentTarget.style.backgroundColor = '#166534'; }}
+ onMouseLeave={(e) => { if (!isSubmitting) e.currentTarget.style.backgroundColor = '#1F7A3D'; }}
+ >
+ {isSubmitting ? 'Saving...' : 'Create Job'}
+ </button>
+ </div>
+ </div>
+ </div>
+ )}
+
+ {/* Direct Carrier Invitation Modal */}
+ {directInviteJob && (
+ <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+ <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '460px', padding: '1.5rem' }}>
+ <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+ <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#1f2937' }}>Invite Carrier Directly</h2>
+ <button onClick={() => setDirectInviteJob(null)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#6b7280' }}>x</button>
+ </div>
+
+ <div style={{ backgroundColor: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.85rem', color: '#4c1d95' }}>
+ <div style={{ fontWeight: 700 }}>
+ {directInviteJob.pickup.location || '-'} to {directInviteJob.delivery.location || '-'}
+ </div>
+ <div style={{ marginTop: '0.2rem', fontSize: '0.78rem', color: '#6d28d9' }}>
+ Job #{directInviteJob.jobRef} {directInviteJob.status}
+ </div>
+ </div>
+
+ <div style={{ marginBottom: '1rem' }}>
+ <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' }}>
+ Select Carrier Company *
+ </label>
+ <select
+ value={directInviteCarrierId}
+ onChange={(e) => setDirectInviteCarrierId(e.target.value)}
+ style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem' }}
+ >
+ <option value="">Choose a carrier </option>
+ {carrierCompanies.map((c) => (
+ <option key={c.id} value={c.id}>{c.name}</option>
+ ))}
+ </select>
+ {carrierCompanies.length === 0 && (
+ <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.3rem' }}>
+ No other active companies found.
+ </div>
+ )}
+ </div>
+
+ {directInviteError && (
+ <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '6px', padding: '0.6rem', fontSize: '0.83rem', marginBottom: '0.75rem' }}>
+ {directInviteError}
+ </div>
+ )}
+
+ <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '1rem' }}>
+ The selected carrier will see this load marked as a direct invitation. The load will not appear on the open exchange.
+ </div>
+
+ <div style={{ display: 'flex', gap: '0.65rem', justifyContent: 'flex-end' }}>
+ <button
+ onClick={() => setDirectInviteJob(null)}
+ style={{ padding: '0.55rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#374151', fontSize: '0.85rem' }}
+ >
+ Cancel
+ </button>
+ <button
+ onClick={() => void sendDirectInvite()}
+ disabled={!directInviteCarrierId || directInviteSending}
+ style={{ padding: '0.55rem 1.25rem', border: 'none', borderRadius: '6px', background: !directInviteCarrierId || directInviteSending ? '#9ca3af' : '#7c3aed', color: '#fff', cursor: !directInviteCarrierId || directInviteSending ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.85rem' }}
+ >
+ {directInviteSending ? 'Sending ' : 'Send Invitation'}
+ </button>
+ </div>
+ </div>
+ </div>
+ )}
+ </div>
+ </div>
+ </ProtectedRoute>
+ );
 }
+
