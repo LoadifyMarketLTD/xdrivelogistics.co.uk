@@ -8,10 +8,9 @@ export function InsidePlatformSection() {
           <span className="inline-flex rounded-full border border-[#1d4ed8]/20 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1d4ed8]">
             Inside the XDrive Platform
           </span>
-          <h2 className="mt-4 text-3xl font-bold text-[#0f172a] sm:text-4xl">A clearer view of the workflows being built</h2>
+          <h2 className="mt-4 text-3xl font-bold text-[#0f172a] sm:text-4xl">A clearer view of the XDrive workflows</h2>
           <p className="mt-4 text-slate-600">
-            Expand each area to see what the module is for, who it supports, the problem it is intended to solve and the current MVP /
-            early-access status.
+            Expand each area to see what the module is for, who it supports, the problem it solves and the current early-access status.
           </p>
         </div>
 

@@ -5,7 +5,7 @@ import { faqs } from '../content';
 import { Section } from '../ui/Section';
 
 export function FAQ() {
-  const [openSet, setOpenSet] = useState<Set<number>>(new Set([0, 1, 2, 3]));
+  const [openSet, setOpenSet] = useState<Set<number>>(new Set());
 
   function toggle(index: number) {
     setOpenSet((prev) => {
@@ -26,7 +26,7 @@ export function FAQ() {
           Frequently Asked Questions
         </h2>
         <p style={{ margin: '0 0 1.5rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6 }}>
-          Clear answers about platform scope, early access, finance records and the current MVP position.
+          Clear answers about platform scope, early access, finance records and the current rollout position.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -35,6 +35,7 @@ export function FAQ() {
             return (
               <article
                 key={faq.q}
+                className={index > 2 ? 'hidden sm:block' : undefined}
                 style={{
                   backgroundColor: 'var(--glass-bg)',
                   border: `1px solid ${isOpen ? 'var(--color-gold-primary)' : 'var(--glass-border)'}`,

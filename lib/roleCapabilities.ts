@@ -256,7 +256,7 @@ export const isCapabilityAllowedForPath = (
   }
 
   if (pathname.startsWith('/m')) {
-    return role === 'owner' || role === 'broker' || role === 'company_admin' || role === 'company_staff';
+    return role === 'owner' || role === 'broker' || role === 'company_admin' || role === 'company_staff' || role === 'driver' || context.canAccessDriverMode === true;
   }
 
   return true;

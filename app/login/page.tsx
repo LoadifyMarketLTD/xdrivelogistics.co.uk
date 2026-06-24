@@ -20,7 +20,7 @@ export default function LoginPage() {
   const [resetMessage, setResetMessage] = useState('');
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
-  const [heroImageSrc, setHeroImageSrc] = useState('/xdrive-login-hero.webp');
+  const [heroImageSrc, setHeroImageSrc] = useState('/xdrive-login-hero.webp.jpeg');
   const { login, resetPassword, user, isLoading: authLoading } = useAuth();
   const nextPath = searchParams.get('next');
   const safeNextPath = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : null;
