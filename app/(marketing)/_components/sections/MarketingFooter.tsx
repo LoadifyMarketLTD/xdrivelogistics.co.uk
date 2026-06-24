@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { COMPANY_CONFIG } from '../../../config/company';
 
 const footerColumns = {
   platform: [
@@ -36,6 +37,40 @@ function LinkedInIcon() {
   );
 }
 
+function FacebookIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+      <path d="M22 12.061C22 6.505 17.523 2 12 2S2 6.505 2 12.061C2 17.083 5.657 21.245 10.438 22v-7.03H7.898v-2.909h2.54V9.845c0-2.522 1.493-3.915 3.777-3.915 1.094 0 2.238.196 2.238.196v2.475h-1.261c-1.243 0-1.63.776-1.63 1.572v1.888h2.773l-.443 2.909h-2.33V22C18.343 21.245 22 17.083 22 12.061Z" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className="h-5 w-5" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function TikTokIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+      <path d="M16.78 2c.35 2.8 1.92 4.47 4.72 4.65v3.15a7.94 7.94 0 0 1-4.6-1.42v6.58c0 4.37-2.88 7.04-6.77 7.04-3.43 0-6.13-2.32-6.13-5.74 0-3.72 2.98-5.9 6.57-5.9.45 0 .89.04 1.32.13v3.34a4.5 4.5 0 0 0-1.4-.22c-1.72 0-3.13.93-3.13 2.56 0 1.5 1.18 2.47 2.65 2.47 1.72 0 2.95-1.07 2.95-3.35V2h3.82Z" />
+    </svg>
+  );
+}
+
+function YouTubeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+      <path d="M21.58 7.19a2.74 2.74 0 0 0-1.93-1.94C17.95 4.8 12 4.8 12 4.8s-5.95 0-7.65.45a2.74 2.74 0 0 0-1.93 1.94A28.6 28.6 0 0 0 2 12a28.6 28.6 0 0 0 .42 4.81 2.74 2.74 0 0 0 1.93 1.94c1.7.45 7.65.45 7.65.45s5.95 0 7.65-.45a2.74 2.74 0 0 0 1.93-1.94A28.6 28.6 0 0 0 22 12a28.6 28.6 0 0 0-.42-4.81ZM10 15.21V8.79L15.45 12 10 15.21Z" />
+    </svg>
+  );
+}
+
 function EnvelopeIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-5 w-5" aria-hidden="true">
@@ -44,36 +79,53 @@ function EnvelopeIcon() {
   );
 }
 
+const socialLinks = [
+  { label: 'Facebook', href: COMPANY_CONFIG.social.facebook, icon: FacebookIcon },
+  { label: 'Instagram', href: COMPANY_CONFIG.social.instagram, icon: InstagramIcon },
+  { label: 'TikTok', href: COMPANY_CONFIG.social.tiktok, icon: TikTokIcon },
+  { label: 'YouTube', href: COMPANY_CONFIG.social.youtube, icon: YouTubeIcon },
+  { label: 'LinkedIn', href: COMPANY_CONFIG.social.linkedin, icon: LinkedInIcon },
+] as const;
+
 export function MarketingFooter() {
   return (
     <footer id="contact" className="bg-slate-900 px-4 py-10 sm:px-6 sm:py-12">
-      <div className="mx-auto grid max-w-[1200px] gap-6 md:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-[1200px] gap-6 sm:grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
         {/* Brand column */}
-        <div>
-          <Link href="/" className="inline-flex items-center">
+        <div className="hidden sm:block">
+          <Link href="/" className="inline-flex items-center rounded-lg bg-white px-3 py-2 shadow-lg shadow-slate-950/20">
             <Image
-              src="/xdrive-logo.jpeg"
+              src="/xdrive-logo-horizontal.png"
               alt="XDrive Logistics"
-              width={266}
-              height={62}
-              className="h-[62px] w-auto drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)]"
+              width={280}
+              height={75}
+              className="h-[58px] w-auto sm:h-[70px]"
             />
           </Link>
           <p className="mt-4 max-w-[240px] text-sm leading-relaxed text-slate-400">
-            MVP / early-access logistics platform for approved UK users across marketplace, operations, POD and finance records.
+            Functional early-access logistics platform for approved UK users across marketplace, operations, POD and finance records.
           </p>
-          <div className="mt-5 flex gap-3 text-slate-400">
-            <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="transition hover:text-white">
-              <LinkedInIcon />
-            </a>
-            <a href="mailto:hello@xdrivelogistics.co.uk" aria-label="Email" className="transition hover:text-white">
+          <div className="mt-5 flex flex-wrap gap-3 text-slate-400">
+            {socialLinks.map(({ label, href, icon: Icon }) => (
+              <a
+                key={label}
+                href={href}
+                target={href === '#' ? undefined : '_blank'}
+                rel={href === '#' ? undefined : 'noopener noreferrer'}
+                aria-label={label}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 transition hover:border-white/25 hover:bg-white/10 hover:text-white"
+              >
+                <Icon />
+              </a>
+            ))}
+            <a href={`mailto:${COMPANY_CONFIG.email}`} aria-label="Email" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 transition hover:border-white/25 hover:bg-white/10 hover:text-white">
               <EnvelopeIcon />
             </a>
           </div>
         </div>
 
         {/* Platform */}
-        <div>
+        <div className="hidden sm:block">
           <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">Platform</h3>
           <ul className="mt-4 space-y-2 text-sm text-slate-400">
             {footerColumns.platform.map((link) => (
@@ -87,7 +139,7 @@ export function MarketingFooter() {
         </div>
 
         {/* Solutions */}
-        <div>
+        <div className="hidden sm:block">
           <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">Solutions</h3>
           <ul className="mt-4 space-y-2 text-sm text-slate-400">
             {footerColumns.solutions.map((link) => (
@@ -101,7 +153,7 @@ export function MarketingFooter() {
         </div>
 
         {/* Company */}
-        <div>
+        <div className="hidden sm:block">
           <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-300">Company</h3>
           <ul className="mt-4 space-y-2 text-sm text-slate-400">
             {footerColumns.company.map((link) => (
@@ -129,7 +181,7 @@ export function MarketingFooter() {
         </div>
       </div>
 
-      <div className="mx-auto mt-8 max-w-[1200px] border-t border-slate-700 pt-6 text-xs text-slate-500">
+      <div className="mx-auto mt-8 max-w-[1200px] border-t border-slate-700 pt-6 text-xs leading-5 text-slate-500">
         XDrive Logistics Ltd &bull; Company No. 13171804 &bull; Founded 1 February 2021 &bull; &copy; 2026 XDrive Logistics Ltd &bull; All Rights Reserved
       </div>
     </footer>

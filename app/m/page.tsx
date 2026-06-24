@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
 export default function MobilePage() {
-  redirect('/admin/jobs');
+  redirect('/m/driver');
 }
