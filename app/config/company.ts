@@ -59,6 +59,7 @@ export const COMPANY_CONFIG = {
     facebook: '#',
     instagram: '#',
     tiktok: '#',
+    youtube: '#',
     linkedin: '#', // Optional
   },
 };

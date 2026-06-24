@@ -14,9 +14,9 @@ test.describe('Customer portal', () => {
     await page.waitForURL(url => !url.pathname.startsWith('/login'), { timeout: 15_000 });
   });
 
-  test('customer portal loads', async ({ page }) => {
+  test('customer workspace loads', async ({ page }) => {
     await page.goto('/customer');
-    await expect(page.locator('h1')).toContainText(/customer portal/i);
+    await expect(page.locator('h1')).toContainText(/load posting workspace/i);
   });
 
   test('quotes tab visible', async ({ page }) => {
@@ -24,25 +24,30 @@ test.describe('Customer portal', () => {
     await expect(page.getByRole('button', { name: /quotes/i })).toBeVisible();
   });
 
-  test('jobs tab visible', async ({ page }) => {
+  test('deliveries tab visible', async ({ page }) => {
     await page.goto('/customer');
-    await expect(page.getByRole('button', { name: /jobs/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /deliveries/i })).toBeVisible();
   });
 
-  test('book delivery tab visible', async ({ page }) => {
+  test('post load tab visible', async ({ page }) => {
     await page.goto('/customer');
-    await expect(page.getByRole('button', { name: /book delivery/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /post load/i })).toBeVisible();
   });
 
-  test('book delivery tab shows form fields', async ({ page }) => {
+  test('post load tab shows form fields', async ({ page }) => {
     await page.goto('/customer');
-    await page.getByRole('button', { name: /book delivery/i }).click();
-    await expect(page.locator('input[placeholder*="Pickup"]')).toBeVisible();
-    await expect(page.locator('input[placeholder*="Delivery"]')).toBeVisible();
+    await page.getByRole('button', { name: /post load/i }).click();
+    await expect(page.getByText(/pickup date/i)).toBeVisible();
+    await expect(page.getByText(/delivery postcode/i)).toBeVisible();
   });
 
   test('invoices tab visible', async ({ page }) => {
     await page.goto('/customer');
     await expect(page.getByRole('button', { name: /invoices/i })).toBeVisible();
+  });
+
+  test('updates tab visible', async ({ page }) => {
+    await page.goto('/customer');
+    await expect(page.getByRole('button', { name: /updates/i })).toBeVisible();
   });
 });
