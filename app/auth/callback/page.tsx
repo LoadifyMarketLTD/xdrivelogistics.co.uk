@@ -33,6 +33,17 @@ const clearBrowserTokens = (pathname: string) => {
   window.history.replaceState(null, '', pathname);
 };
 
+const hasSignupOnboardingMetadata = (sessionUser: SessionUser) => {
+  const metadata = {
+    ...(sessionUser.app_metadata ?? {}),
+    ...(sessionUser.user_metadata ?? {}),
+  };
+  return ['signup_type', 'account_type', 'requested_role', 'workspace_mode'].some((key) => {
+    const value = metadata[key];
+    return typeof value === 'string' && value.trim().length > 0;
+  });
+};
+
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [error, setError] = useState('');
@@ -87,7 +98,8 @@ export default function AuthCallbackPage() {
       writeRouteAuthCookie(session);
 
       let onboardingPath: string | null = null;
-      const shouldInitializeOnboarding = callbackRecoveryType === 'signup';
+      let onboardingStatus: string | null = null;
+      const shouldInitializeOnboarding = callbackRecoveryType === 'signup' || hasSignupOnboardingMetadata(sessionUser);
 
       if (shouldInitializeOnboarding && session?.access_token) {
         const initResponse = await fetch('/api/onboarding/init', {
@@ -100,7 +112,8 @@ export default function AuthCallbackPage() {
         }).catch(() => null);
 
         if (initResponse?.ok) {
-          const initData = await initResponse.json().catch(() => null) as { onboardingUrl?: string } | null;
+          const initData = await initResponse.json().catch(() => null) as { onboardingUrl?: string; status?: string } | null;
+          onboardingStatus = initData?.status ?? null;
           if (initData?.onboardingUrl) {
             try {
               const url = new URL(initData.onboardingUrl);
@@ -114,7 +127,20 @@ export default function AuthCallbackPage() {
 
       const result = await withTimeout(resolveAuthenticatedUser(sessionUser), AUTH_CALLBACK_TIMEOUT_MS);
       if (!result.user) {
+        if (onboardingPath) {
+          const normalizedStatus = (onboardingStatus ?? '').toLowerCase();
+          const pendingReviewStatuses = new Set(['submitted', 'under_review', 'compliance_review', 'admin_approval']);
+          router.replace(pendingReviewStatuses.has(normalizedStatus) ? '/pending-approval' : onboardingPath);
+          return;
+        }
         router.replace('/forbidden');
+        return;
+      }
+
+      if (onboardingPath && onboardingStatus && onboardingStatus !== 'approved') {
+        const normalizedStatus = onboardingStatus.toLowerCase();
+        const pendingReviewStatuses = new Set(['submitted', 'under_review', 'compliance_review', 'admin_approval']);
+        router.replace(pendingReviewStatuses.has(normalizedStatus) ? '/pending-approval' : onboardingPath);
         return;
       }
 

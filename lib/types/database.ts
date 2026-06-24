@@ -14,8 +14,8 @@ export type JobStatus =
   | 'paid'
   | 'cancelled'
   | 'disputed';
-export type CargoType = 'documents' | 'packages' | 'pallets' | 'furniture' | 'equipment' | 'other';
-export type VehicleType = 'bicycle' | 'motorbike' | 'car' | 'van_small' | 'van_large' | 'luton' | 'truck_7_5t' | 'truck_18t' | 'artic';
+export type CargoType = 'documents' | 'packages' | 'parcels' | 'pallets' | 'machinery' | 'furniture' | 'retail_goods' | 'mixed_freight' | 'adr_goods' | 'temperature_controlled_freight' | 'equipment' | 'other';
+export type VehicleType = 'bicycle' | 'motorbike' | 'car' | 'van_small' | 'van_large' | 'swb_van' | 'mwb_van' | 'lwb_van' | 'xlwb_van' | 'luton' | 'luton_tail_lift' | 'curtainside_van' | 'truck_3_5t' | 'truck_5t' | 'truck_7_5t' | 'truck_12t' | 'truck_18t' | 'truck_26t' | 'artic' | 'artic_44t_curtainsider' | 'artic_44t_box_trailer' | 'artic_44t_flatbed' | 'artic_44t_refrigerated' | 'artic_44t_double_deck' | 'hiab' | 'moffett' | 'adr_vehicle' | 'refrigerated_vehicle' | 'temperature_controlled_vehicle';
 export type TrackingEventType = 'created' | 'allocated' | 'driver_en_route' | 'arrived_pickup' | 'collected' | 'in_transit' | 'arrived_delivery' | 'delivered' | 'failed' | 'cancelled' | 'note';
 
 export interface Profile {
@@ -218,11 +218,13 @@ export interface DbJob {
   pickup_lat: number | null;
   pickup_lng: number | null;
   pickup_datetime: string | null;
+  pickup_time_slot: string | null;
   delivery_location: string | null;
   delivery_postcode: string | null;
   delivery_lat: number | null;
   delivery_lng: number | null;
   delivery_datetime: string | null;
+  delivery_time_slot: string | null;
   pallets: number | null;
   boxes: number | null;
   bags: number | null;
@@ -237,6 +239,25 @@ export interface DbJob {
   client_name: string | null;
   client_email: string | null;
   client_phone: string | null;
+  collection_contact_name: string | null;
+  collection_contact_phone: string | null;
+  delivery_contact_name: string | null;
+  delivery_contact_phone: string | null;
+  customer_reference: string | null;
+  purchase_order_number: string | null;
+  booking_reference: string | null;
+  requested_vehicle_label: string | null;
+  requested_cargo_label: string | null;
+  cargo_value_gbp: number | null;
+  pallet_type: string | null;
+  pallet_stackable: boolean | null;
+  collection_forklift_available: boolean | null;
+  collection_tail_lift_required: boolean | null;
+  collection_handball_required: boolean | null;
+  delivery_forklift_available: boolean | null;
+  delivery_tail_lift_required: boolean | null;
+  delivery_handball_required: boolean | null;
+  document_checklist: string[] | null;
   load_details: string | null;
   special_requirements: string | null;
   access_restrictions: string | null;
@@ -283,9 +304,14 @@ export interface JobNote {
 export interface JobDocument {
   id: string;
   job_id: string;
+  company_id: string | null;
   uploaded_by: string | null;
   doc_type: string;
   file_path: string | null;
+  file_name: string | null;
+  file_size_bytes: number | null;
+  mime_type: string | null;
+  uploaded_by_role: string | null;
   created_at: string;
 }
 

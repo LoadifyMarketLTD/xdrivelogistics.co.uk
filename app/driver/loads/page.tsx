@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { getLoadDetailSummary } from '../../../lib/loadPostingDetails';
 
 type ExchangeLoad = {
   id: string;
@@ -16,11 +17,32 @@ type ExchangeLoad = {
   pickup_location: string | null;
   pickup_postcode: string | null;
   pickup_datetime: string | null;
+  pickup_time_slot: string | null;
   delivery_location: string | null;
   delivery_postcode: string | null;
   delivery_datetime: string | null;
+  delivery_time_slot: string | null;
   weight_kg: number | null;
   pallets: number | null;
+  collection_contact_name: string | null;
+  collection_contact_phone: string | null;
+  delivery_contact_name: string | null;
+  delivery_contact_phone: string | null;
+  customer_reference: string | null;
+  purchase_order_number: string | null;
+  booking_reference: string | null;
+  requested_vehicle_label: string | null;
+  requested_cargo_label: string | null;
+  cargo_value_gbp: number | null;
+  pallet_type: string | null;
+  pallet_stackable: boolean | null;
+  collection_forklift_available: boolean | null;
+  collection_tail_lift_required: boolean | null;
+  collection_handball_required: boolean | null;
+  delivery_forklift_available: boolean | null;
+  delivery_tail_lift_required: boolean | null;
+  delivery_handball_required: boolean | null;
+  document_checklist: string[] | null;
   budget_amount: number | null;
   is_fixed_price: boolean;
   currency: string;
@@ -41,15 +63,33 @@ const LOAD_FETCH_LIMIT = 120;
 const LOADS_PAGE_SIZE = 12;
 
 const VEHICLE_LABELS: Record<string, string> = {
-  bicycle: 'Bicycle',
-  motorbike: 'Motorbike',
   car: 'Car',
   van_small: 'Small Van',
   van_large: 'Large Van',
-  luton: 'Luton Van',
+  swb_van: 'SWB Van',
+  mwb_van: 'MWB Van',
+  lwb_van: 'LWB Van',
+  xlwb_van: 'XLWB Van',
+  luton: 'Luton',
+  luton_tail_lift: 'Luton Tail Lift',
+  curtainside_van: 'Curtainside Van',
+  truck_3_5t: '3.5T',
+  truck_5t: '5T',
   truck_7_5t: '7.5t Truck',
+  truck_12t: '12T',
   truck_18t: '18t Truck',
+  truck_26t: '26T',
   artic: 'Artic',
+  artic_44t_curtainsider: 'Artic 44T Curtainsider',
+  artic_44t_box_trailer: 'Artic 44T Box Trailer',
+  artic_44t_flatbed: 'Artic 44T Flatbed',
+  artic_44t_refrigerated: 'Artic 44T Refrigerated',
+  artic_44t_double_deck: 'Artic 44T Double Deck',
+  hiab: 'Hiab',
+  moffett: 'Moffett',
+  adr_vehicle: 'ADR Vehicle',
+  refrigerated_vehicle: 'Refrigerated Vehicle',
+  temperature_controlled_vehicle: 'Temperature Controlled Vehicle',
 };
 
 function fmtDate(value: string | null) {
@@ -156,24 +196,19 @@ export default function AvailableLoadsPage() {
 
       const loadsPromise = supabase
         .from('jobs')
-        .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, weight_kg, pallets, budget_amount, is_fixed_price, currency, load_details, exchange_posted_at, awarded_carrier_company_id, companies(name)')
+        .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, weight_kg, pallets, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, budget_amount, is_fixed_price, currency, load_details, special_requirements, access_restrictions, exchange_posted_at, awarded_carrier_company_id, companies(name)')
         .not('exchange_posted_at', 'is', null)
         .is('awarded_carrier_company_id', null)
         .in('status', ['posted'])
         .order('exchange_posted_at', { ascending: false })
         .limit(LOAD_FETCH_LIMIT);
 
-      const bidsPromise = companyId
+      const bidsPromise = userId
         ? supabase
             .from('job_bids')
             .select('job_id, status, bid_price_gbp, amount')
-            .eq('company_id', companyId)
-        : userId
-          ? supabase
-              .from('job_bids')
-              .select('job_id, status, bid_price_gbp, amount')
-              .eq('bidder_user_id', userId)
-          : Promise.resolve({ data: [], error: null });
+            .eq('bidder_user_id', userId)
+        : Promise.resolve({ data: [], error: null });
 
       const [loadsRes, bidsRes] = await Promise.all([loadsPromise, bidsPromise]);
 
@@ -322,7 +357,7 @@ export default function AvailableLoadsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell subtitle="Browse open freight loads on the exchange. Filters stay client-side so the board stays responsive while you type.">
+      <DriverWorkspaceShell subtitle="Available work, nearby loads and simple quote actions.">
         {successMsg && (
           <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', borderRadius: '8px', padding: '0.7rem 0.9rem', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem' }}>
             {successMsg}
@@ -339,9 +374,9 @@ export default function AvailableLoadsPage() {
             <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>Available Loads</h2>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#64748b' }}>
               {loading
-                ? 'Loading exchange board…'
+                ? 'Loading exchange boardâ€¦'
                 : `${filteredLoads.length} load${filteredLoads.length !== 1 ? 's' : ''} ready to review`}
-              {refreshing && ' · Refreshing…'}
+              {refreshing && ' Â· Refreshingâ€¦'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -349,14 +384,14 @@ export default function AvailableLoadsPage() {
               onClick={() => router.push('/driver/loads/search')}
               style={{ padding: '0.55rem 1rem', backgroundColor: '#f1f5f9', border: '1px solid #d7e0ea', borderRadius: '8px', fontSize: '0.83rem', fontWeight: 600, cursor: 'pointer', color: '#0f172a' }}
             >
-              Open search page
+              Search
             </button>
             <button
               onClick={() => void fetchLoads({ background: !loading })}
               disabled={loading || refreshing}
               style={{ padding: '0.55rem 1rem', backgroundColor: '#1d4ed8', border: 'none', borderRadius: '8px', fontSize: '0.83rem', fontWeight: 600, cursor: loading || refreshing ? 'not-allowed' : 'pointer', color: '#fff', opacity: loading || refreshing ? 0.7 : 1 }}
             >
-              {refreshing ? 'Refreshing…' : 'Refresh'}
+              {refreshing ? 'Refreshingâ€¦' : 'Refresh'}
             </button>
           </div>
         </div>
@@ -364,15 +399,7 @@ export default function AvailableLoadsPage() {
         <div style={{ ...card, marginBottom: '0.85rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.55rem' }}>
           <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={filterInputStyle}>
             <option value="any">Any vehicle</option>
-            <option value="bicycle">Bicycle</option>
-            <option value="motorbike">Motorbike</option>
-            <option value="car">Car</option>
-            <option value="van_small">Small Van</option>
-            <option value="van_large">Large Van</option>
-            <option value="luton">Luton Van</option>
-            <option value="truck_7_5t">7.5t Truck</option>
-            <option value="truck_18t">18t Truck</option>
-            <option value="artic">Artic</option>
+            {Object.entries(VEHICLE_LABELS).filter(([value]) => value !== 'car').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
           <input value={pickupPostcodeFilter} onChange={(e) => setPickupPostcodeFilter(e.target.value)} placeholder="Pickup postcode" style={filterInputStyle} />
           <input value={cargoTypeFilter} onChange={(e) => setCargoTypeFilter(e.target.value)} placeholder="Cargo type" style={filterInputStyle} />
@@ -394,14 +421,14 @@ export default function AvailableLoadsPage() {
         </div>
 
         {filtersPending && !loading && (
-          <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.75rem' }}>Applying filters…</div>
+          <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.75rem' }}>Applying filtersâ€¦</div>
         )}
 
         {loading ? (
-          <div style={{ ...card, color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading exchange loads…</div>
+          <div style={{ ...card, color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading exchange loadsâ€¦</div>
         ) : showNoExchangeLoads ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ“­</div>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>No exchange loads available right now</div>
             <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.9rem' }}>
               Try refreshing in a moment or use the search page when new loads are posted.
@@ -415,7 +442,7 @@ export default function AvailableLoadsPage() {
           </div>
         ) : showNoFilteredLoads ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ“‹</div>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>No loads match your active filters</div>
             <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.9rem' }}>
               Broaden the vehicle, date, postcode, or cargo filters to see more live loads.
@@ -442,19 +469,19 @@ export default function AvailableLoadsPage() {
                       </span>
                       {load.vehicle_type && (
                         <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', backgroundColor: '#e0f2fe', color: '#075985', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
-                          {VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type}
+                          {load.requested_vehicle_label ?? VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type}
                         </span>
                       )}
                       {load.cargo_type && (
                         <span style={{ marginLeft: '0.35rem', fontSize: '0.7rem', backgroundColor: '#f3e8ff', color: '#6d28d9', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
-                          {load.cargo_type}
+                          {load.requested_cargo_label ?? load.cargo_type}
                         </span>
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {load.budget_amount != null && (
                         <span style={{ fontSize: '1.1rem', fontWeight: 800, color: load.is_fixed_price ? '#15803d' : '#0f172a' }}>
-                          £{load.budget_amount.toFixed(2)}
+                          Â£{load.budget_amount.toFixed(2)}
                           {!load.is_fixed_price && <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#64748b' }}> budget</span>}
                         </span>
                       )}
@@ -488,9 +515,14 @@ export default function AvailableLoadsPage() {
                     )}
                   </div>
 
-                  {load.load_details && (
-                    <div style={{ fontSize: '0.8rem', color: '#374151', backgroundColor: '#f8fafc', borderRadius: '6px', padding: '0.6rem', marginBottom: '0.7rem', lineHeight: 1.5 }}>
-                      {load.load_details}
+                  {getLoadDetailSummary(load, 8).length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '0.45rem', marginBottom: '0.75rem' }}>
+                      {getLoadDetailSummary(load, 8).map((item) => (
+                        <div key={`${load.id}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '0.45rem 0.55rem' }}>
+                          <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
+                          <div style={{ fontSize: '0.78rem', color: '#0f172a', fontWeight: 650 }}>{item.value}</div>
+                        </div>
+                      ))}
                     </div>
                   )}
 
@@ -503,13 +535,13 @@ export default function AvailableLoadsPage() {
                         step="0.01"
                         value={bidAmount}
                         onChange={(e) => setBidAmount(e.target.value)}
-                        placeholder="Your price (£)"
+                        placeholder="Your price (Â£)"
                         style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
                       />
                       <textarea
                         value={bidMessage}
                         onChange={(e) => setBidMessage(e.target.value)}
-                        placeholder="Optional message to shipper…"
+                        placeholder="Optional message to shipperâ€¦"
                         rows={2}
                         style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.85rem', width: '100%', resize: 'vertical' }}
                       />
@@ -519,7 +551,7 @@ export default function AvailableLoadsPage() {
                           disabled={bidLoading || !bidAmount}
                           style={{ flex: 1, minWidth: '180px', padding: '0.6rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: bidLoading ? 'not-allowed' : 'pointer', opacity: bidLoading ? 0.6 : 1 }}
                         >
-                          {bidLoading ? 'Submitting…' : 'Submit Quote'}
+                          {bidLoading ? 'Submittingâ€¦' : 'Submit Quote'}
                         </button>
                         <button
                           onClick={() => {
@@ -547,7 +579,7 @@ export default function AvailableLoadsPage() {
                         </button>
                       ) : (
                         <span style={{ fontSize: '0.82rem', color: '#6d28d9', fontWeight: 600 }}>
-                          Quote submitted: £{load.myBidAmount?.toFixed(2) ?? '—'}
+                          Quote submitted: Â£{load.myBidAmount?.toFixed(2) ?? 'â€”'}
                         </span>
                       )}
                       <button

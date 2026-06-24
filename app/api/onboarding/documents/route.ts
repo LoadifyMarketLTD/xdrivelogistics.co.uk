@@ -46,6 +46,22 @@ export async function POST(request: NextRequest) {
   if (appError) return json(500, { error: appError.message });
   if (!app) return json(404, { error: 'Onboarding application not found.' });
 
+  const accountType = app.account_type as string;
+  const parsedFleetDocType = accountType === 'fleet_courier' ? fleetDocTypeSchema.safeParse(docType) : null;
+  const parsedOwnerDriverDocType = accountType === 'owner_driver' ? ownerDriverDocTypeSchema.safeParse(docType) : null;
+
+  if (accountType === 'fleet_courier' && !parsedFleetDocType?.success) {
+    return json(400, { error: 'Invalid fleet document type.' });
+  }
+
+  if (accountType === 'owner_driver' && !parsedOwnerDriverDocType?.success) {
+    return json(400, { error: 'Invalid owner driver document type.' });
+  }
+
+  if (accountType !== 'fleet_courier' && accountType !== 'owner_driver') {
+    return json(400, { error: 'Document uploads are not supported for this onboarding account type.' });
+  }
+
   const ext = path.extname(file.name || '').toLowerCase();
   const fileName = sanitizeFilename(`${Date.now()}-${docType}${ext}`);
   const objectPath = `${authData.user.id}/${app.id}/${fileName}`;
@@ -62,13 +78,8 @@ export async function POST(request: NextRequest) {
     return json(500, { error: uploadError.message });
   }
 
-  const accountType = app.account_type as string;
   if (accountType === 'fleet_courier') {
-    const parsedDocType = fleetDocTypeSchema.safeParse(docType);
-    if (!parsedDocType.success) {
-      return json(400, { error: 'Invalid fleet document type.' });
-    }
-
+    const parsedDocType = parsedFleetDocType!;
     const { data: company } = await supabaseAdmin
       .from('companies')
       .select('id')
@@ -87,10 +98,7 @@ export async function POST(request: NextRequest) {
       });
     }
   } else if (accountType === 'owner_driver') {
-    const parsedDocType = ownerDriverDocTypeSchema.safeParse(docType);
-    if (!parsedDocType.success) {
-      return json(400, { error: 'Invalid owner driver document type.' });
-    }
+    const parsedDocType = parsedOwnerDriverDocType!;
 
     await supabaseAdmin.from('driver_identity_documents').insert({
       onboarding_application_id: app.id,

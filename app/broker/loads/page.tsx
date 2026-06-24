@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { getLoadDetailSummary } from '../../../lib/loadPostingDetails';
 
 type ExchangeLoad = {
   id: string;
@@ -18,6 +19,30 @@ type ExchangeLoad = {
   pickup_datetime: string | null;
   delivery_location: string | null;
   delivery_postcode: string | null;
+  delivery_datetime: string | null;
+  pickup_time_slot: string | null;
+  delivery_time_slot: string | null;
+  weight_kg: number | null;
+  pallets: number | null;
+  collection_contact_name: string | null;
+  collection_contact_phone: string | null;
+  delivery_contact_name: string | null;
+  delivery_contact_phone: string | null;
+  customer_reference: string | null;
+  purchase_order_number: string | null;
+  booking_reference: string | null;
+  requested_vehicle_label: string | null;
+  requested_cargo_label: string | null;
+  cargo_value_gbp: number | null;
+  pallet_type: string | null;
+  pallet_stackable: boolean | null;
+  collection_forklift_available: boolean | null;
+  collection_tail_lift_required: boolean | null;
+  collection_handball_required: boolean | null;
+  delivery_forklift_available: boolean | null;
+  delivery_tail_lift_required: boolean | null;
+  delivery_handball_required: boolean | null;
+  document_checklist: string[] | null;
   budget_amount: number | null;
   is_fixed_price: boolean;
   currency: string;
@@ -61,7 +86,7 @@ export default function BrokerLoadsPage() {
     setError('');
     const { data, error: err } = await supabase
       .from('jobs')
-      .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, budget_amount, is_fixed_price, currency, load_details, exchange_posted_at, companies:company_id(name)')
+      .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, weight_kg, pallets, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, budget_amount, is_fixed_price, currency, load_details, special_requirements, access_restrictions, exchange_posted_at, companies:company_id(name)')
       .eq('status', 'posted')
       .neq('company_id', companyId)
       .order('exchange_posted_at', { ascending: false })
@@ -124,7 +149,32 @@ export default function BrokerLoadsPage() {
             </div>
             <select value={filterVehicle} onChange={e => setFilterVehicle(e.target.value)} style={{ padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem' }}>
               <option value=''>All vehicle types</option>
-              {['van_small','van_large','luton','truck_7_5t','truck_18t','artic'].map(v => <option key={v} value={v}>{v.replace(/_/g,'  ')}</option>)}
+              {[
+                ['van_small', 'Small Van'],
+                ['swb_van', 'SWB Van'],
+                ['mwb_van', 'MWB Van'],
+                ['lwb_van', 'LWB Van'],
+                ['xlwb_van', 'XLWB Van'],
+                ['luton', 'Luton'],
+                ['luton_tail_lift', 'Luton Tail Lift'],
+                ['curtainside_van', 'Curtainside Van'],
+                ['truck_3_5t', '3.5T'],
+                ['truck_5t', '5T'],
+                ['truck_7_5t', '7.5T'],
+                ['truck_12t', '12T'],
+                ['truck_18t', '18T'],
+                ['truck_26t', '26T'],
+                ['artic_44t_curtainsider', 'Artic 44T Curtainsider'],
+                ['artic_44t_box_trailer', 'Artic 44T Box Trailer'],
+                ['artic_44t_flatbed', 'Artic 44T Flatbed'],
+                ['artic_44t_refrigerated', 'Artic 44T Refrigerated'],
+                ['artic_44t_double_deck', 'Artic 44T Double Deck'],
+                ['hiab', 'Hiab'],
+                ['moffett', 'Moffett'],
+                ['adr_vehicle', 'ADR Vehicle'],
+                ['refrigerated_vehicle', 'Refrigerated Vehicle'],
+                ['temperature_controlled_vehicle', 'Temperature Controlled Vehicle'],
+              ].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </div>
 
@@ -160,12 +210,19 @@ export default function BrokerLoadsPage() {
                   </div>
 
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.65rem' }}>
-                    {load.vehicle_type && <span style={{ background: '#f1f5f9', color: '#475569', padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.76rem', fontWeight: 600 }}>{load.vehicle_type.replace(/_/g,' ')}</span>}
-                    {load.cargo_type   && <span style={{ background: '#fef9c3', color: '#92400e', padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.76rem', fontWeight: 600 }}>{load.cargo_type}</span>}
+                    {(load.requested_vehicle_label || load.vehicle_type) && <span style={{ background: '#f1f5f9', color: '#475569', padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.76rem', fontWeight: 600 }}>{load.requested_vehicle_label ?? load.vehicle_type?.replace(/_/g,' ')}</span>}
+                    {(load.requested_cargo_label || load.cargo_type) && <span style={{ background: '#fef9c3', color: '#92400e', padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.76rem', fontWeight: 600 }}>{load.requested_cargo_label ?? load.cargo_type}</span>}
                     {load.pickup_datetime && <span style={{ color: '#64748b', fontSize: '0.76rem' }}>Pickup: {new Date(load.pickup_datetime).toLocaleDateString('en-GB')}</span>}
                   </div>
 
-                  {load.load_details && <p style={{ margin: '0.5rem 0 0', fontSize: '0.83rem', color: '#475569' }}>{load.load_details}</p>}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.45rem', marginTop: '0.7rem' }}>
+                    {getLoadDetailSummary(load, 8).map((item) => (
+                      <div key={`${load.id}-${item.label}`} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '0.45rem 0.55rem' }}>
+                        <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#0f172a', fontWeight: 600 }}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
 
                   <div style={{ marginTop: '0.85rem' }}>
                     <button
