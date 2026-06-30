@@ -1,42 +1,31 @@
-import { HomepageVisualCard } from '../HomepageVisualCard';
+import Image from 'next/image';
 import { platformModules } from '../content';
 
 export function PlatformModulesSection() {
   return (
-    <section id="platform" className="border-b border-[#e5e7eb] bg-white px-4 py-12 sm:px-6 sm:py-14">
-      <div className="mx-auto max-w-[1200px]">
+    <section className="border-b border-slate-200 bg-white px-4 py-14 sm:px-6">
+      <div className="mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-[#0f172a] sm:text-4xl">Operational Modules</h2>
-          <p className="mt-3 text-slate-500">Five focused product areas designed for practical UK logistics execution.</p>
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Operational modules</span>
+          <h2 className="mt-2 text-3xl font-black text-[#0f172a] sm:text-4xl">Built around execution, not decoration.</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+            The public site should preview the platform shape without pretending that every module is already a public exchange.
+          </p>
         </div>
 
-        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="mt-8 grid gap-4 lg:grid-cols-5">
           {platformModules.map((module) => (
-            <article key={module.key} className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_24px_-20px_rgba(15,23,42,0.45)]">
-              <div className="border-b border-[#e5e7eb] bg-slate-100 p-3">
-                <HomepageVisualCard
-                  imageSrc={module.image}
-                  imageAlt={module.imageAlt}
-                  label={`${module.title} module`}
-                  title={module.title}
-                  icon={module.icon}
-                  tone="slate"
-                  className="h-[180px] w-full rounded-xl"
-                />
+            <article key={module.key} className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_16px_40px_-34px_rgba(15,23,42,0.6)]">
+              <div className="mb-5 h-28 overflow-hidden rounded-lg bg-slate-100">
+                <Image src={module.image} alt={module.imageAlt} width={700} height={420} className="h-full w-full object-cover" />
               </div>
-              <div className="p-5">
-                <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  {module.status}
-                </div>
-                <h3 className="mt-3 text-base font-semibold text-[#0f172a]">{module.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">{module.summary}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {module.bullets.map((bullet) => (
-                    <span key={bullet} className="rounded-full bg-[#eff6ff] px-2.5 py-1 text-[11px] font-medium text-[#1d4ed8]">
-                      {bullet}
-                    </span>
-                  ))}
-                </div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{module.status}</p>
+              <h3 className="mt-2 text-lg font-semibold text-[#0f172a]">{module.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{module.summary}</p>
+              <div className="mt-4 space-y-2">
+                {module.bullets.slice(0, 3).map((bullet) => (
+                  <p key={bullet} className="text-xs font-semibold text-[#1d4ed8]">+ {bullet}</p>
+                ))}
               </div>
             </article>
           ))}
