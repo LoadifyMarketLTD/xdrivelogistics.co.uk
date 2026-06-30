@@ -1,71 +1,70 @@
-import { CheckCircle2, Route } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
-import { HomepageVisualCard } from '../HomepageVisualCard';
 
 const trustBadges = [
-  'Built by logistics professionals',
-  'Early access platform',
-  'UK registered company',
+  'UK transport workflows',
+  'Customer, broker and fleet workspaces',
+  'Driver execution and POD records',
 ] as const;
 
 export function HeroSection() {
   return (
-    <section className="relative border-b border-[#e5e7eb] px-4 py-12 sm:px-6 sm:py-14" id="industries">
-      <div className="mx-auto grid w-full max-w-[1200px] gap-8 lg:grid-cols-2 lg:items-center">
-        <div>
-          <span className="inline-flex rounded-full border border-[#1d4ed8]/30 bg-[#eff6ff] px-4 py-1.5 text-xs font-semibold tracking-[0.1em] text-[#1d4ed8]">
-            UK Logistics Technology Platform
+    <section className="relative overflow-hidden border-b border-slate-200 bg-[#07111f]" id="platform">
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/xdrive-login-hero.webp.jpeg')" }}
+        aria-hidden="true"
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,17,31,0.96)_0%,rgba(7,17,31,0.86)_42%,rgba(7,17,31,0.34)_100%)]" />
+      <div className="relative mx-auto flex min-h-[calc(100svh-150px)] w-full max-w-7xl items-center px-4 py-12 sm:min-h-[calc(100svh-140px)] sm:px-6 lg:min-h-[calc(100vh-160px)] lg:py-16">
+        <div className="max-w-3xl">
+          <span className="inline-flex rounded-full border border-[#f5c542]/40 bg-[#f5c542]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#f5c542]">
+            UK Logistics Operating Platform
           </span>
-          <h1 className="mt-6 text-4xl font-extrabold leading-tight text-[#0f172a] sm:text-5xl">
-            Move Freight.
-            <br />
-            Manage Operations.
-            <br />
-            Grow Your Network.
+          <h1 className="mt-5 max-w-4xl text-4xl font-black leading-[1.02] text-white sm:mt-6 sm:text-5xl lg:text-6xl">
+            Post loads, quote work, dispatch drivers and close PODs from one workspace.
           </h1>
-          <p className="mt-6 max-w-2xl text-lg text-slate-600">
-            XDrive is an early-access UK logistics platform designed to connect transport customers, courier companies, owner operators and
-            drivers in one operational workflow.
-          </p>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            One platform for load requests, quotes, driver updates, POD records, invoices and operational visibility — designed for real UK
-            courier and transport workflows.
+          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-200 sm:mt-6 sm:text-lg sm:leading-8">
+            XDrive connects customers, brokers, fleet operators, owner operators and drivers around the full job lifecycle: request, quote,
+            award, assign, deliver, POD and invoice visibility.
           </p>
 
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/request-quote" className="rounded-lg bg-[#1d4ed8] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#1e40af]">
-              Request Demo
-            </Link>
-            <Link href="/register" className="rounded-lg border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+          <div className="mt-7 flex flex-wrap gap-3 sm:mt-8">
+            <Link href="/register" className="rounded-lg bg-[#f5c542] px-6 py-3 text-sm font-semibold text-[#07111f] transition hover:bg-[#ffd45a]">
               Join Early Access
+            </Link>
+            <Link href="/request-quote" className="rounded-lg border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/20">
+              Request Demo
             </Link>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-4">
+          <div className="mt-8 hidden max-w-3xl gap-3 sm:grid sm:grid-cols-3">
             {trustBadges.map((badge) => (
-              <span key={badge} className="flex items-center gap-1.5 text-sm text-slate-600">
-                <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-[#1d4ed8]" />
+              <span key={badge} className="flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-3 text-sm font-semibold text-slate-100 backdrop-blur-sm">
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-[#f5c542]" />
                 {badge}
               </span>
             ))}
           </div>
 
-          <div className="mt-5 text-xs text-slate-400">
-            XDrive Logistics Ltd &bull; Company No. 13171804 &bull; Founded 1 February 2021
+          <div className="mt-8 hidden max-w-2xl grid-cols-2 gap-3 text-white md:grid md:grid-cols-4">
+            <div className="rounded-lg border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
+              <p className="text-2xl font-black">2021</p>
+              <p className="text-xs uppercase tracking-[0.12em] text-slate-300">Founded</p>
+            </div>
+            <div className="rounded-lg border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
+              <p className="text-2xl font-black">MVP</p>
+              <p className="text-xs uppercase tracking-[0.12em] text-slate-300">Stage</p>
+            </div>
+            <div className="rounded-lg border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
+              <p className="text-2xl font-black">UK</p>
+              <p className="text-xs uppercase tracking-[0.12em] text-slate-300">Coverage</p>
+            </div>
+            <div className="rounded-lg border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
+              <p className="text-2xl font-black">0 GBP</p>
+              <p className="text-xs uppercase tracking-[0.12em] text-slate-300">Early Access</p>
+            </div>
           </div>
-        </div>
-
-        <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-slate-50 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.35)]">
-          <HomepageVisualCard
-            imageSrc="/xdrive-login-hero.webp.jpeg"
-            imageAlt="XDrive platform preview showing early-access workspace concepts for marketplace, operations and driver workflows"
-            label="MVP platform preview"
-            title="XDrive workflow preview"
-            icon={Route}
-            tone="blue"
-            className="h-[260px] w-full md:h-[340px] lg:h-[420px]"
-            priority
-          />
         </div>
       </div>
     </section>
