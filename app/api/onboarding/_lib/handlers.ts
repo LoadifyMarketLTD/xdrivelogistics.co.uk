@@ -64,9 +64,7 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
     const url = new URL(request.url);
     const token = url.searchParams.get('token')?.trim() || undefined;
 
-    if (!token && !authUser) {
-      return json(401, { error: 'Authentication required.' });
-    }
+    if (!token && !authUser) return json(401, { error: 'Authentication required.' });
 
     const { data: app, error } = await resolveApplication({ token, authUserId: authUser?.id });
     if (error) return json(500, { error: error.message });
@@ -76,9 +74,7 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
       return json(403, { error: 'Forbidden onboarding account type.' });
     }
 
-    if (authUser && app.user_id !== authUser.id) {
-      return json(403, { error: 'Forbidden.' });
-    }
+    if (authUser && app.user_id !== authUser.id) return json(403, { error: 'Forbidden.' });
 
     const expiresAt = app.token_expires_at ? new Date(app.token_expires_at).getTime() : null;
     if (token && expiresAt && Date.now() > expiresAt) {
@@ -212,18 +208,15 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
       return json(400, { error: 'Onboarding payload is incomplete or invalid.', details: payload.error.flatten() });
     }
 
-    await persist({ userId: authUser.id, applicationId: application.id, payload: payload.data });
-
     const requiresCompanyCreation =
       expectedAccountType === 'fleet_courier' || expectedAccountType === 'owner_driver';
 
-    if (requiresCompanyCreation && !application.company_id) {
-      const { data: companyId, error: submitError } = await supabaseAdmin.rpc(
-        'submit_onboarding_application',
-        {
-          p_application_id: application.id,
-        }
-      );
+    let companyId: string | null = application.company_id ?? null;
+
+    if (requiresCompanyCreation) {
+      const { data, error: submitError } = await supabaseAdmin.rpc('submit_onboarding_application', {
+        p_application_id: application.id,
+      });
 
       if (submitError) {
         return json(500, {
@@ -232,6 +225,12 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
         });
       }
 
+      companyId = data as string;
+    }
+
+    await persist({ userId: authUser.id, applicationId: application.id, payload: payload.data });
+
+    if (requiresCompanyCreation) {
       await supabaseAdmin.from('notification_events').insert({
         event_type: 'onboarding_submitted',
         entity_type: 'onboarding_application',
