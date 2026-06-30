@@ -11,6 +11,7 @@ import { getNavSectionsForRole } from './workflowUi';
 
 /** Shorter labels for the compact top nav bar */
 const SHORT_LABEL: Record<string, string> = {
+  operationsCentre: 'OPS',
   marketplace: 'LOADS',
   quotes: 'QUOTES',
   bids: 'BIDS',
