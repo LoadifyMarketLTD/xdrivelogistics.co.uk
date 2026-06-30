@@ -214,11 +214,48 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
 
     await persist({ userId: authUser.id, applicationId: application.id, payload: payload.data });
 
+    const requiresCompanyCreation =
+      expectedAccountType === 'fleet_courier' || expectedAccountType === 'owner_driver';
+
+    if (requiresCompanyCreation && !application.company_id) {
+      const { data: companyId, error: submitError } = await supabaseAdmin.rpc(
+        'submit_onboarding_application',
+        {
+          p_application_id: application.id,
+        }
+      );
+
+      if (submitError) {
+        return json(500, {
+          error: 'Failed to create company during onboarding submission.',
+          details: submitError.message,
+        });
+      }
+
+      await supabaseAdmin.from('notification_events').insert({
+        event_type: 'onboarding_submitted',
+        entity_type: 'onboarding_application',
+        entity_id: application.id,
+        recipient_user_id: authUser.id,
+        payload: {
+          onboarding_application_id: application.id,
+          account_type: expectedAccountType,
+          status: 'submitted',
+          company_id: companyId,
+        },
+      });
+
+      return json(200, {
+        status: 'submitted',
+        company_id: companyId,
+      });
+    }
+
     const reviewStatusByAccountType: Record<OnboardingAccountType, string> = {
       customer_shipper: 'approved',
       broker_shipper: 'under_review',
-      fleet_courier: 'compliance_review',
-      owner_driver: 'compliance_review',
+      fleet_courier: 'submitted',
+      owner_driver: 'submitted',
     };
 
     const reviewStatus = reviewStatusByAccountType[expectedAccountType];
