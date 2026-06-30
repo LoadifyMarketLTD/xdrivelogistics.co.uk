@@ -6,7 +6,7 @@ export function FaqSection() {
       <div className="mx-auto max-w-[1200px]">
         <h2 className="text-center text-3xl font-bold text-[#0f172a] sm:text-4xl">FAQ</h2>
         <p className="mx-auto mt-3 max-w-3xl text-center text-slate-500">
-          Clear answers about platform scope, early access, finance records and the current MVP position.
+          Clear answers about platform scope, early access, finance records and the current rollout position.
         </p>
         <div className="mt-8 grid gap-5 md:grid-cols-2">
           {faqs.map((faq, i) => (

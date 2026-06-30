@@ -64,9 +64,7 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
     const url = new URL(request.url);
     const token = url.searchParams.get('token')?.trim() || undefined;
 
-    if (!token && !authUser) {
-      return json(401, { error: 'Authentication required.' });
-    }
+    if (!token && !authUser) return json(401, { error: 'Authentication required.' });
 
     const { data: app, error } = await resolveApplication({ token, authUserId: authUser?.id });
     if (error) return json(500, { error: error.message });
@@ -76,9 +74,7 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
       return json(403, { error: 'Forbidden onboarding account type.' });
     }
 
-    if (authUser && app.user_id !== authUser.id) {
-      return json(403, { error: 'Forbidden.' });
-    }
+    if (authUser && app.user_id !== authUser.id) return json(403, { error: 'Forbidden.' });
 
     const expiresAt = app.token_expires_at ? new Date(app.token_expires_at).getTime() : null;
     if (token && expiresAt && Date.now() > expiresAt) {
@@ -212,13 +208,53 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
       return json(400, { error: 'Onboarding payload is incomplete or invalid.', details: payload.error.flatten() });
     }
 
+    const requiresCompanyCreation =
+      expectedAccountType === 'fleet_courier' || expectedAccountType === 'owner_driver';
+
+    let companyId: string | null = application.company_id ?? null;
+
+    if (requiresCompanyCreation) {
+      const { data, error: submitError } = await supabaseAdmin.rpc('submit_onboarding_application', {
+        p_application_id: application.id,
+      });
+
+      if (submitError) {
+        return json(500, {
+          error: 'Failed to create company during onboarding submission.',
+          details: submitError.message,
+        });
+      }
+
+      companyId = data as string;
+    }
+
     await persist({ userId: authUser.id, applicationId: application.id, payload: payload.data });
+
+    if (requiresCompanyCreation) {
+      await supabaseAdmin.from('notification_events').insert({
+        event_type: 'onboarding_submitted',
+        entity_type: 'onboarding_application',
+        entity_id: application.id,
+        recipient_user_id: authUser.id,
+        payload: {
+          onboarding_application_id: application.id,
+          account_type: expectedAccountType,
+          status: 'submitted',
+          company_id: companyId,
+        },
+      });
+
+      return json(200, {
+        status: 'submitted',
+        company_id: companyId,
+      });
+    }
 
     const reviewStatusByAccountType: Record<OnboardingAccountType, string> = {
       customer_shipper: 'approved',
       broker_shipper: 'under_review',
-      fleet_courier: 'compliance_review',
-      owner_driver: 'compliance_review',
+      fleet_courier: 'submitted',
+      owner_driver: 'submitted',
     };
 
     const reviewStatus = reviewStatusByAccountType[expectedAccountType];

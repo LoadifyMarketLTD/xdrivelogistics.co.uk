@@ -22,12 +22,12 @@ export const navLinks = [
 ] as const;
 
 export const trustCards = [
-  { label: 'Founded', value: '1 February 2021' },
   { label: 'Company', value: 'XDrive Logistics Ltd' },
-  { label: 'Current Stage', value: 'MVP / Early Access' },
-  { label: 'Access', value: 'Approved users across all roles' },
+  { label: 'Company No.', value: '13171804' },
+  { label: 'Current Stage', value: 'Functional Early Access' },
+  { label: 'Access', value: 'Approved logistics users' },
   { label: 'Coverage', value: 'UK-focused rollout' },
-  { label: 'Focus', value: 'Marketplace + operations' },
+  { label: 'Focus', value: 'Marketplace to POD' },
 ] as const;
 
 export const whyExistsCards = [
@@ -36,8 +36,8 @@ export const whyExistsCards = [
     text: 'Created around the practical problems seen in daily UK transport work: job updates, driver communication, POD handling, invoices and operational visibility.',
   },
   {
-    title: 'Not a fake live marketplace',
-    text: 'XDrive is currently in MVP / early-access development. The platform is being tested and refined before wider public release.',
+    title: 'Functional, controlled rollout',
+    text: 'XDrive is functional for approved early-access users, while the wider public marketplace network and broker/company volume continue to grow in a controlled way.',
   },
   {
     title: 'Designed for workflow control',
@@ -74,19 +74,19 @@ export const problemCards = [
 
 export const statusHighlights = [
   {
-    title: 'MVP / early-access development',
+    title: 'Functional early-access rollout',
     description:
-      'Core workflows are being built and refined now, with the homepage presenting the intended operating model rather than a claim of full public rollout.',
+      'Core workflows are available for approved users now, with the homepage presenting the platform clearly without claiming full public network scale.',
   },
   {
     title: 'Approved-user access',
     description:
-      'During Early Access, approved users can use all current modules without a paid subscription requirement.',
+      'During Early Access, approved users can use current supported modules for an initial 3-month free access period.',
   },
   {
-    title: 'Early Access pricing lock',
+    title: '3-month free access',
     description:
-      'Plan: Early Access · Price: £0.00 · Valid until: 31 December 2026.',
+      'Approved users can join the controlled rollout with 3 months of free access while XDrive continues to refine the wider platform experience.',
   },
   {
     title: 'Operational records, not fund holding',
@@ -98,15 +98,15 @@ export const statusHighlights = [
 export const earlyAccessBenefits = [
   {
     title: 'Early Access plan',
-    description: 'All approved users are assigned to the Early Access plan during MVP.',
+    description: 'All approved users are assigned to the Early Access plan during the controlled rollout.',
   },
   {
-    title: 'Price locked at £0.00',
-    description: 'No paid subscription is required for approved users during Early Access.',
+    title: '3-month free access',
+    description: 'Approved users receive 3 months of free access when joining the controlled rollout.',
   },
   {
-    title: 'Valid until 31 December 2026',
-    description: 'The free-access period is locked through 31 December 2026.',
+    title: 'No payment message on signup',
+    description: 'The public homepage keeps the Early Access offer simple and focused on joining, testing and using the platform.',
   },
   {
     title: 'All approved logistics roles included',
@@ -114,11 +114,11 @@ export const earlyAccessBenefits = [
   },
   {
     title: 'No paywall blocks',
-    description: 'Approved users should not be blocked from features due to subscription payment status during Early Access.',
+    description: 'Approved users should be able to use supported Early Access features during the initial free access period.',
   },
   {
-    title: 'Subscriptions preserved for future',
-    description: 'Billing and subscription infrastructure remains in place for future commercial phases.',
+    title: 'Controlled rollout',
+    description: 'Access remains approval-based so the platform can grow with the right transport users and operational feedback.',
   },
 ] as const;
 
@@ -144,8 +144,8 @@ export const roleCards: ReadonlyArray<{
     icon: Users,
     title: 'Courier Companies',
     subtitle: 'Manage incoming work, quotes, drivers, vehicles, PODs, invoices and operational history from one workspace.',
-    image: '/fleet-management-yard.webp',
-    imageAlt: 'Courier company fleet yard showing vehicles, driver assignments and operational readiness',
+    image: '/xdrive-courier-fleet-no-plates.webp',
+    imageAlt: 'Courier company fleet yard showing vehicle capacity and operational readiness without visible registration plates',
     tone: 'slate',
     visualLabel: 'Dispatch coordination',
   },
@@ -171,7 +171,7 @@ export const roleCards: ReadonlyArray<{
     icon: UserRound,
     title: 'Drivers',
     subtitle: 'View assigned jobs, update progress, confirm collection and delivery milestones, and upload PODs through a mobile-first workflow.',
-    image: '/drivers-mobile-pod.webp',
+    image: '/xdrive-driver-pod-real.webp',
     imageAlt: 'Driver using a mobile workflow to update status and upload proof of delivery',
     tone: 'emerald',
     visualLabel: 'Driver mobile workflow',
@@ -233,7 +233,7 @@ export const platformModules = [
       'Record status changes, exceptions and operational notes',
       'Keep dispatch coordination visible across the working day',
     ],
-    status: 'In MVP build',
+    status: 'Functional early-access workflow',
     previewItems: [
       {
         label: "Today's Jobs",
@@ -257,7 +257,7 @@ export const platformModules = [
     previewDescription:
       'A mobile-first workflow for drivers to receive job details, update status and upload proof of delivery.',
     bullets: ['Assigned jobs', 'Mobile updates', 'Route actions', 'Driver communication'],
-    image: '/driver-workspace-vehicle.webp',
+    image: '/xdrive-driver-workspace-real.webp',
     imageAlt: 'Driver workspace showing assigned jobs, vehicle context and route progress updates',
     icon: UserRound,
     audience: 'Drivers, owner-drivers and dispatch teams supporting them.',
@@ -268,7 +268,7 @@ export const platformModules = [
       'Submit status actions during collection and delivery',
       'Upload POD and keep driver-to-office updates clearer',
     ],
-    status: 'In MVP build',
+    status: 'Functional early-access workflow',
     previewItems: [
       {
         label: 'Active Job',
@@ -292,8 +292,8 @@ export const platformModules = [
     previewDescription:
       'A workspace for vehicles, drivers, availability, compliance and future fleet planning.',
     bullets: ['Vehicles', 'Availability', 'Assignments', 'Future positions'],
-    image: '/fleet-management-yard.webp',
-    imageAlt: 'Fleet management view showing vehicles, readiness and assignment visibility',
+    image: '/xdrive-fleet-yard-no-plates.webp',
+    imageAlt: 'Fleet management view showing vehicle readiness and assignment visibility without visible registration plates',
     icon: Truck,
     audience: 'Courier companies, owner operators and operations teams managing vehicle capacity.',
     problem:
@@ -327,7 +327,7 @@ export const platformModules = [
     previewDescription:
       'A finance visibility area for invoices, POD verification, payment status and job-related records.',
     bullets: ['Invoices', 'Payment status', 'History', 'Disputes'],
-    image: '/finance-admin-office.webp',
+    image: '/xdrive-finance-records-real.webp',
     imageAlt: 'Finance dashboard showing invoice records, POD checks and payment-status visibility',
     icon: CircleDollarSign,
     audience: 'Courier companies, transport customers, finance admins and owner operators.',
@@ -338,7 +338,7 @@ export const platformModules = [
       'Reference POD evidence before closing records',
       'Track payment status and disputes without acting as a payment intermediary',
     ],
-    status: 'MVP finance records in progress',
+    status: 'Early-access finance records',
     previewItems: [
       {
         label: 'Invoice Records',
@@ -440,7 +440,7 @@ export const featureCards: ReadonlyArray<{
 export const faqs = [
   {
     q: 'What is XDrive?',
-    a: 'XDrive is an early-access UK logistics technology platform being built to connect transport customers, courier companies, owner operators and drivers in one operational workflow. The platform is designed to support transport requests, quoting, job allocation, delivery progress, POD records, invoice visibility and operational history from one workspace. XDrive is currently in MVP / early-access development and is not being presented as a fully public live marketplace yet.',
+    a: 'XDrive is a functional early-access UK logistics technology platform built to connect transport customers, courier companies, owner operators and drivers in one operational workflow. The platform supports transport requests, quoting, job allocation, delivery progress, POD records, invoice visibility and operational history from one workspace, while wider public marketplace network scale is still being grown.',
   },
   {
     q: 'Who is XDrive designed for?',
@@ -452,11 +452,11 @@ export const faqs = [
   },
   {
     q: 'Is XDrive live now?',
-    a: 'XDrive is currently in MVP / early-access development. Core workflows are being built, reviewed and tested. Access is available to approved users across supported logistics roles under the Early Access policy.',
+    a: 'Yes. XDrive is functional for approved early-access users across supported logistics roles. Core workflows continue to be refined as the wider public marketplace and partner network grow.',
   },
   {
     q: 'How does early access work?',
-    a: 'Approved users receive Plan: Early Access, Price: £0.00, Valid Until: 31 December 2026. No paid subscription is required to use current platform features during this period.',
+    a: 'Approved users receive an initial 3-month free access period for the current supported platform features. Access remains approval-based so XDrive can keep the rollout controlled and useful for real transport workflows.',
   },
   {
     q: 'Can owner-drivers join?',
@@ -464,7 +464,7 @@ export const faqs = [
   },
   {
     q: 'Can courier companies manage multiple drivers and vehicles?',
-    a: 'Yes, this is part of the intended XDrive workflow. Courier companies should be able to manage drivers, vehicles, assignments, availability, operational records and PODs from one workspace. Some features may be introduced in stages during MVP and early-access testing.',
+    a: 'Yes, this is part of the XDrive workflow. Courier companies can manage drivers, vehicles, assignments, availability, operational records and PODs from one workspace, with some features continuing to improve during early-access rollout.',
   },
   {
     q: 'What operational modules are planned?',
@@ -480,7 +480,7 @@ export const faqs = [
   },
   {
     q: 'How are invoices and payment records managed?',
-    a: 'XDrive is being designed to keep invoice records connected to the relevant completed job, POD evidence and payment status. The finance area is intended for visibility and record keeping, not for holding client money. Users should be able to track whether work is unpaid, pending, paid or disputed.',
+    a: 'XDrive is being designed to keep invoice records connected to the relevant completed job, POD evidence and payment status. The finance area is intended for visibility and record keeping, not for holding client funds. Users should be able to track whether work is unpaid, pending, paid or disputed.',
   },
   {
     q: 'Is XDrive available across the UK?',
@@ -491,8 +491,8 @@ export const faqs = [
     a: 'Depending on the type of account, users may be asked for business details, contact information, vehicle details, insurance evidence, compliance documents or identity-related information. Exact onboarding requirements may depend on the workflow being tested and the role of the user.',
   },
   {
-    q: 'Will there be a subscription or membership fee?',
-    a: 'During Early Access, approved users are on Plan: Early Access at £0.00 until 31 December 2026. Subscription infrastructure is preserved for future phases, but no feature requires payment during this period.',
+    q: 'How long is Early Access free?',
+    a: 'Approved Early Access users receive 3 months of free access while the platform continues its controlled rollout.',
   },
   {
     q: 'How can I request access or a demo?',
