@@ -4,7 +4,7 @@ export const onboardingPatchBaseSchema = z
   .object({
     currentStep: z.string().trim().min(1).max(120).optional(),
     completionPercentage: z.number().min(0).max(100).optional(),
-    status: z.enum(['draft', 'in_progress', 'request_changes', 'submitted']).optional(),
+    status: z.enum(['draft', 'in_progress', 'request_changes']).optional(),
   })
   .strict();
 

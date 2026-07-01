@@ -5,6 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 
 type VehicleRow = {
   id: string;
@@ -14,18 +15,6 @@ type VehicleRow = {
   model: string | null;
   payload_kg: number | null;
   has_tail_lift: boolean | null;
-};
-
-const VEHICLE_TYPE_LABELS: Record<string, string> = {
-  bicycle: 'Bicycle',
-  motorbike: 'Motorbike',
-  car: 'Car',
-  van_small: 'Small Van',
-  van_large: 'Large Van',
-  luton: 'Luton Van',
-  truck_7_5t: '7.5t Truck',
-  truck_18t: '18t Truck',
-  artic: 'Artic',
 };
 
 const card: CSSProperties = {

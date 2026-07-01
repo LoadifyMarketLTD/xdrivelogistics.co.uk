@@ -16,9 +16,8 @@ type Application = {
   payload: Record<string, unknown>;
 };
 
-const brokerDocs = ['company_registration', 'vat_evidence_optional', 'business_verification_documents'] as const;
-const fleetDocs = ['operator_licence', 'public_liability', 'goods_in_transit', 'motor_fleet_insurance', 'company_registration', 'vat_registration'] as const;
-const ownerDriverDocs = ['driving_licence', 'cpc', 'proof_of_address', 'right_to_work', 'visa_document', 'insurance'] as const;
+const fleetDocs = ['operator_licence', 'public_liability', 'goods_in_transit', 'vehicle_insurance', 'company_registration', 'vat_registration'] as const;
+const ownerDriverDocs = ['driving_licence', 'cpc', 'proof_of_address', 'insurance', 'right_to_work', 'visa_document'] as const;
 
 export default function OnboardingTokenPage() {
   const params = useParams<{ token: string }>();
@@ -38,8 +37,38 @@ export default function OnboardingTokenPage() {
     if (accountType === 'customer_shipper') return [];
     if (accountType === 'fleet_courier') return fleetDocs;
     if (accountType === 'owner_driver') return ownerDriverDocs;
-    return brokerDocs;
+    return [];
   }, [accountType]);
+
+  const toBoolean = (value: string | undefined) => {
+    const normalized = (value ?? '').trim().toLowerCase();
+    return normalized === 'true' || normalized === '1' || normalized === 'yes';
+  };
+
+  const normalizedPayload = () => {
+    if (accountType === 'fleet_courier') {
+      return {
+        ...formData,
+        transport_contact: formData.transport_contact ?? formData.transport_manager ?? '',
+      };
+    }
+
+    if (accountType === 'owner_driver') {
+      return {
+        ...formData,
+        right_to_work_status: formData.right_to_work_status ?? 'other',
+        registration: formData.registration ?? formData.vehicle_registration ?? '',
+        make: formData.make ?? formData.vehicle_make ?? '',
+        model: formData.model ?? formData.vehicle_model ?? '',
+        payload: formData.payload ?? formData.vehicle_payload ?? '',
+        dimensions: formData.dimensions ?? formData.vehicle_dimensions ?? '',
+        settled_status: toBoolean(formData.settled_status),
+        pre_settled_status: toBoolean(formData.pre_settled_status),
+      };
+    }
+
+    return formData;
+  };
 
   const authHeaders = async (): Promise<Record<string, string>> => {
     const {
@@ -116,7 +145,7 @@ export default function OnboardingTokenPage() {
           currentStep,
           completionPercentage,
           status: 'in_progress',
-          payload: formData,
+          payload: normalizedPayload(),
         }),
       });
       const data = await res.json();
@@ -149,7 +178,7 @@ export default function OnboardingTokenPage() {
         body: JSON.stringify({
           currentStep: 'review_summary',
           completionPercentage: 100,
-          payload: formData,
+          payload: normalizedPayload(),
         }),
       });
       if (!saveRes.ok) {
@@ -247,7 +276,7 @@ export default function OnboardingTokenPage() {
       <Field label="Trading Address" value={formData.trading_address ?? ''} onChange={(v) => updateField('trading_address', v)} />
       <Field label="Contact Person" value={formData.contact_person ?? ''} onChange={(v) => updateField('contact_person', v)} />
       <Field label="Compliance Contact" value={formData.compliance_contact ?? ''} onChange={(v) => updateField('compliance_contact', v)} />
-      <Field label="Transport Manager" value={formData.transport_manager ?? ''} onChange={(v) => updateField('transport_manager', v)} />
+      <Field label="Transport Contact" value={formData.transport_contact ?? formData.transport_manager ?? ''} onChange={(v) => updateField('transport_contact', v)} />
     </section>
   );
 
@@ -260,18 +289,17 @@ export default function OnboardingTokenPage() {
       <Field label="Address" value={formData.address ?? ''} onChange={(v) => updateField('address', v)} />
       <Field label="Phone" value={formData.phone ?? ''} onChange={(v) => updateField('phone', v)} />
       <Field label="Email" value={formData.email ?? ''} onChange={(v) => updateField('email', v)} />
-      <Field label="Immigration Status" value={formData.immigration_status ?? ''} onChange={(v) => updateField('immigration_status', v)} />
+      <Field label="Right to Work Status (citizen / visa_required / share_code_required / settled / pre_settled / other)" value={formData.right_to_work_status ?? ''} onChange={(v) => updateField('right_to_work_status', v)} />
+      <Field label="Visa Expiry (YYYY-MM-DD)" value={formData.visa_expiry ?? ''} onChange={(v) => updateField('visa_expiry', v)} />
       <Field label="Visa Type" value={formData.visa_type ?? ''} onChange={(v) => updateField('visa_type', v)} />
       <Field label="Share Code" value={formData.share_code ?? ''} onChange={(v) => updateField('share_code', v)} />
-      <Field label="Settled Status" value={formData.settled_status ?? ''} onChange={(v) => updateField('settled_status', v)} />
-      <Field label="Pre-Settled Status" value={formData.pre_settled_status ?? ''} onChange={(v) => updateField('pre_settled_status', v)} />
-      <Field label="Vehicle Registration" value={formData.vehicle_registration ?? ''} onChange={(v) => updateField('vehicle_registration', v)} />
-      <Field label="Vehicle Make" value={formData.vehicle_make ?? ''} onChange={(v) => updateField('vehicle_make', v)} />
-      <Field label="Vehicle Model" value={formData.vehicle_model ?? ''} onChange={(v) => updateField('vehicle_model', v)} />
-      <Field label="Payload" value={formData.vehicle_payload ?? ''} onChange={(v) => updateField('vehicle_payload', v)} />
-      <Field label="Dimensions" value={formData.vehicle_dimensions ?? ''} onChange={(v) => updateField('vehicle_dimensions', v)} />
-      <Field label="Tail Lift" value={formData.vehicle_tail_lift ?? ''} onChange={(v) => updateField('vehicle_tail_lift', v)} />
-      <Field label="Insurance Details" value={formData.vehicle_insurance_details ?? ''} onChange={(v) => updateField('vehicle_insurance_details', v)} />
+      <Field label="Settled Status (true/false)" value={formData.settled_status ?? ''} onChange={(v) => updateField('settled_status', v)} />
+      <Field label="Pre-Settled Status (true/false)" value={formData.pre_settled_status ?? ''} onChange={(v) => updateField('pre_settled_status', v)} />
+      <Field label="Vehicle Registration" value={formData.registration ?? formData.vehicle_registration ?? ''} onChange={(v) => updateField('registration', v)} />
+      <Field label="Vehicle Make" value={formData.make ?? formData.vehicle_make ?? ''} onChange={(v) => updateField('make', v)} />
+      <Field label="Vehicle Model" value={formData.model ?? formData.vehicle_model ?? ''} onChange={(v) => updateField('model', v)} />
+      <Field label="Payload" value={formData.payload ?? formData.vehicle_payload ?? ''} onChange={(v) => updateField('payload', v)} />
+      <Field label="Dimensions" value={formData.dimensions ?? formData.vehicle_dimensions ?? ''} onChange={(v) => updateField('dimensions', v)} />
     </section>
   );
 
