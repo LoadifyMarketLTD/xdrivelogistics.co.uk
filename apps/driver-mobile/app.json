@@ -29,6 +29,8 @@
     ],
     "extra": {
       "apiBaseUrl": "https://xdrivelogistics.co.uk",
+      "supabaseUrl": "",
+      "supabaseAnonKey": "",
       "eas": {
         "projectId": "xdrive-driver-mobile"
       }
