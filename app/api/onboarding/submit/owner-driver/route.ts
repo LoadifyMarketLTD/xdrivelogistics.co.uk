@@ -6,43 +6,10 @@ import { ownerDriverPayloadSchema, parseOwnerDriverDate } from '../../_lib/schem
 export const POST = buildSubmitHandler({
   expectedAccountType: 'owner_driver',
   payloadSchema: ownerDriverPayloadSchema,
-  persist: async ({ userId, applicationId, payload }) => {
+  persist: async ({ userId, applicationId, payload, companyId }) => {
     if (!supabaseAdmin) return;
 
-    await supabaseAdmin.from('owner_driver_compliance_profiles').upsert(
-      {
-        onboarding_application_id: applicationId,
-        user_id: userId,
-        full_name: payload.full_name,
-        dob: parseOwnerDriverDate(payload.dob),
-        nationality: payload.nationality,
-        address: payload.address,
-        phone: payload.phone,
-        email: payload.email,
-        right_to_work_status: payload.right_to_work_status,
-        visa_type: payload.visa_type || null,
-        visa_expiry: payload.visa_expiry ? parseOwnerDriverDate(payload.visa_expiry) : null,
-        share_code: payload.share_code || null,
-        settled_status: payload.settled_status,
-        pre_settled_status: payload.pre_settled_status,
-        registration: payload.registration,
-        make: payload.make,
-        model: payload.model,
-        payload: payload.payload,
-        dimensions: payload.dimensions,
-      },
-      { onConflict: 'onboarding_application_id' }
-    );
-
-    const { data: company } = await supabaseAdmin
-      .from('companies')
-      .select('id')
-      .eq('created_by', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (company?.id) {
+    if (companyId) {
       const { data: existingDriver } = await supabaseAdmin
         .from('drivers')
         .select('id')
@@ -67,18 +34,18 @@ export const POST = buildSubmitHandler({
             share_code: payload.share_code || null,
             settled_status: payload.settled_status,
             pre_settled_status: payload.pre_settled_status,
-            app_access: true,
+            app_access: false,
           })
           .eq('id', existingDriver.id);
       } else {
         await supabaseAdmin.from('drivers').insert({
-          company_id: company.id,
+          company_id: companyId,
           user_id: userId,
           display_name: payload.full_name,
           phone: payload.phone,
           email: payload.email,
           status: 'active',
-          app_access: true,
+          app_access: false,
           dob: parseOwnerDriverDate(payload.dob),
           nationality: payload.nationality,
           residential_address: payload.address,
@@ -101,7 +68,7 @@ export const POST = buildSubmitHandler({
         payload: payload.payload,
         dimensions: payload.dimensions,
       },
-      { onConflict: 'onboarding_application_id' }
+      { onConflict: 'onboarding_application_id' },
     );
 
     const { data: existingDocs } = await supabaseAdmin
@@ -121,3 +88,4 @@ export const POST = buildSubmitHandler({
     }
   },
 });
+
