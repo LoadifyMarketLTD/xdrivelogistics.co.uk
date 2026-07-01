@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
-import { buildDriverAssignmentUpdate } from '../../../lib/jobAssignment';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
 type DiaryJob = {
@@ -239,19 +238,24 @@ export default function DiaryPage() {
     setActiveModal(null); setSelectedJob(null); setNoteDraft(''); setDocumentName(''); setDocumentFile(null); setPodFile(null); setPodRecipientName(''); setPodSignature(''); setPodNotes(''); setModalBusy(false);
   };
 
+  const getAccessToken = async (): Promise<string | null> => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    return sessionData.session?.access_token ?? null;
+  };
+
   const handleAssignDriver = async (job: DiaryJob) => {
     const selectedDriverId = assignmentDrafts[job.id] ?? '';
     if (!companyId || !selectedDriverId) return;
     setAssigningJobId(job.id); setMessage('');
-    const { data: updatedJob, error } = await supabase
-      .from('jobs')
-      .update(buildDriverAssignmentUpdate({ assignedDriverId: selectedDriverId, currentStatus: job.status }))
-      .eq('id', job.id)
-      .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
-      .select('id')
-      .maybeSingle();
-    if (error) { setMessage(`Failed to assign driver: ${error.message}`); setAssigningJobId(null); return; }
-    if (!updatedJob?.id) { setMessage('Failed to assign driver: job no longer belongs to this workspace.'); setAssigningJobId(null); return; }
+    const token = await getAccessToken();
+    if (!token) { setMessage('Session expired. Please sign in again.'); setAssigningJobId(null); return; }
+    const res = await fetch(`/api/admin/jobs/${job.id}/assign-driver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ driver_id: selectedDriverId }),
+    });
+    const resJson = await res.json() as { error?: string };
+    if (!res.ok) { setMessage(resJson.error ?? `Failed to assign driver (${res.status}).`); setAssigningJobId(null); return; }
     setAssignmentDrafts((prev) => ({ ...prev, [job.id]: '' })); setMessage('Driver assigned from diary.'); setAssigningJobId(null); await loadJobs();
   };
 
