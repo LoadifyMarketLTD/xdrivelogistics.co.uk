@@ -94,7 +94,8 @@ export interface OnboardingApplication {
   user_id: string;
   email: string;
   account_type: 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver';
-  status: 'draft' | 'in_progress' | 'submitted' | 'under_review' | 'compliance_review' | 'admin_approval' | 'approved' | 'rejected' | 'request_changes';
+  status: 'invited' | 'draft' | 'in_progress' | 'under_review' | 'request_changes' | 'approved' | 'rejected';
+  company_id: string | null;
   current_step: string;
   completion_percentage: number;
   token_hash: string | null;

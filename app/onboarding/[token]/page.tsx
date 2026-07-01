@@ -16,8 +16,8 @@ type Application = {
   payload: Record<string, unknown>;
 };
 
-const brokerDocs = ['company_registration', 'vat_evidence_optional', 'business_verification_documents'] as const;
-const fleetDocs = ['operator_licence', 'public_liability', 'goods_in_transit', 'motor_fleet_insurance', 'company_registration', 'vat_registration'] as const;
+const brokerDocs = ['company_registration', 'public_liability', 'vat_registration'] as const;
+const fleetDocs = ['operator_licence', 'public_liability', 'goods_in_transit', 'vehicle_insurance', 'company_registration', 'vat_registration'] as const;
 const ownerDriverDocs = ['driving_licence', 'cpc', 'proof_of_address', 'right_to_work', 'visa_document', 'insurance'] as const;
 
 export default function OnboardingTokenPage() {
@@ -247,7 +247,7 @@ export default function OnboardingTokenPage() {
       <Field label="Trading Address" value={formData.trading_address ?? ''} onChange={(v) => updateField('trading_address', v)} />
       <Field label="Contact Person" value={formData.contact_person ?? ''} onChange={(v) => updateField('contact_person', v)} />
       <Field label="Compliance Contact" value={formData.compliance_contact ?? ''} onChange={(v) => updateField('compliance_contact', v)} />
-      <Field label="Transport Manager" value={formData.transport_manager ?? ''} onChange={(v) => updateField('transport_manager', v)} />
+      <Field label="Transport Contact" value={formData.transport_contact ?? ''} onChange={(v) => updateField('transport_contact', v)} />
     </section>
   );
 
@@ -260,18 +260,18 @@ export default function OnboardingTokenPage() {
       <Field label="Address" value={formData.address ?? ''} onChange={(v) => updateField('address', v)} />
       <Field label="Phone" value={formData.phone ?? ''} onChange={(v) => updateField('phone', v)} />
       <Field label="Email" value={formData.email ?? ''} onChange={(v) => updateField('email', v)} />
-      <Field label="Immigration Status" value={formData.immigration_status ?? ''} onChange={(v) => updateField('immigration_status', v)} />
+      <Field label="Right to Work Status" value={formData.right_to_work_status ?? ''} onChange={(v) => updateField('right_to_work_status', v)} />
       <Field label="Visa Type" value={formData.visa_type ?? ''} onChange={(v) => updateField('visa_type', v)} />
       <Field label="Share Code" value={formData.share_code ?? ''} onChange={(v) => updateField('share_code', v)} />
       <Field label="Settled Status" value={formData.settled_status ?? ''} onChange={(v) => updateField('settled_status', v)} />
       <Field label="Pre-Settled Status" value={formData.pre_settled_status ?? ''} onChange={(v) => updateField('pre_settled_status', v)} />
-      <Field label="Vehicle Registration" value={formData.vehicle_registration ?? ''} onChange={(v) => updateField('vehicle_registration', v)} />
-      <Field label="Vehicle Make" value={formData.vehicle_make ?? ''} onChange={(v) => updateField('vehicle_make', v)} />
-      <Field label="Vehicle Model" value={formData.vehicle_model ?? ''} onChange={(v) => updateField('vehicle_model', v)} />
-      <Field label="Payload" value={formData.vehicle_payload ?? ''} onChange={(v) => updateField('vehicle_payload', v)} />
-      <Field label="Dimensions" value={formData.vehicle_dimensions ?? ''} onChange={(v) => updateField('vehicle_dimensions', v)} />
-      <Field label="Tail Lift" value={formData.vehicle_tail_lift ?? ''} onChange={(v) => updateField('vehicle_tail_lift', v)} />
-      <Field label="Insurance Details" value={formData.vehicle_insurance_details ?? ''} onChange={(v) => updateField('vehicle_insurance_details', v)} />
+      <Field label="Vehicle Registration" value={formData.registration ?? ''} onChange={(v) => updateField('registration', v)} />
+      <Field label="Vehicle Make" value={formData.make ?? ''} onChange={(v) => updateField('make', v)} />
+      <Field label="Vehicle Model" value={formData.model ?? ''} onChange={(v) => updateField('model', v)} />
+      <Field label="Payload" value={formData.payload ?? ''} onChange={(v) => updateField('payload', v)} />
+      <Field label="Dimensions" value={formData.dimensions ?? ''} onChange={(v) => updateField('dimensions', v)} />
+      <Field label="Tail Lift" value={formData.tail_lift ?? ''} onChange={(v) => updateField('tail_lift', v)} />
+      <Field label="Insurance Details" value={formData.insurance_details ?? ''} onChange={(v) => updateField('insurance_details', v)} />
     </section>
   );
 
