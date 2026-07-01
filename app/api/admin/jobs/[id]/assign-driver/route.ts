@@ -116,7 +116,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   // ── 7. Verify driver belongs to caller's company & is active ────────────
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id, status, display_name')
+    .select('id, company_id, status, display_name, user_id')
     .eq('id', driverId)
     .maybeSingle();
 
