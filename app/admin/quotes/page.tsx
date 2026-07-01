@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Quote, VehicleType, CargoType, Company } from '../../../lib/types/database';
+import { VEHICLE_GROUPS, VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { useAuth } from '../../components/AuthContext';
 
-const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
-const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'equipment', 'other'];
+const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'machinery', 'retail_goods', 'mixed_freight', 'adr_goods', 'temperature_controlled_freight', 'equipment', 'other'];
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   draft: { bg: '#f3f4f6', text: '#6b7280' },
@@ -237,8 +237,12 @@ export default function QuotesPage() {
             <div style={qlabelStyle}>VEHICLE SIZE</div>
             <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={qInputStyle}>
               <option value="all">Any</option>
-              {VEHICLE_TYPES.map((t) => (
-                <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+              {VEHICLE_GROUPS.map(([group, options]) => (
+                <optgroup key={group} label={group}>
+                  {options.map(([label, value]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
@@ -341,7 +345,7 @@ export default function QuotesPage() {
                             <td style={{ padding: '0.65rem 0.85rem', fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{q.customer_name || '—'}</td>
                             <td style={{ padding: '0.65rem 0.85rem', color: '#374151', fontSize: '0.82rem' }}>{q.pickup_location || '—'}</td>
                             <td style={{ padding: '0.65rem 0.85rem', color: '#374151', fontSize: '0.82rem' }}>{q.delivery_location || '—'}</td>
-                            <td style={{ padding: '0.65rem 0.85rem', color: '#64748b', fontSize: '0.8rem' }}>{q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
+                            <td style={{ padding: '0.65rem 0.85rem', color: '#64748b', fontSize: '0.8rem' }}>{(q.vehicle_type && VEHICLE_TYPE_LABELS[q.vehicle_type]) || q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
                             <td style={{ padding: '0.65rem 0.85rem', fontWeight: 700, color: '#0f172a', fontSize: '0.85rem' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
                             <td style={{ padding: '0.65rem 0.85rem' }}>
                               <span style={{ background: sc.bg, color: sc.text, padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>{q.status}</span>
@@ -426,7 +430,13 @@ export default function QuotesPage() {
                   <div>
                     <label style={labelStyle}>Vehicle Type</label>
                     <select style={inputStyle} value={formData.vehicle_type} onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value as VehicleType })}>
-                      {VEHICLE_TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+                      {VEHICLE_GROUPS.map(([group, options]) => (
+                        <optgroup key={group} label={group}>
+                          {options.map(([label, value]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </optgroup>
+                      ))}
                     </select>
                   </div>
                   <div>

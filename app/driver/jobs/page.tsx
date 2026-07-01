@@ -7,6 +7,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 
 type DriverRow = {
   id: string;
@@ -46,17 +47,7 @@ const STATUS_LABELS: Record<string, string> = {
   arrived_delivery: 'Arrived delivery',
 };
 
-const VEHICLE_LABELS: Record<string, string> = {
-  bicycle: 'Bicycle',
-  motorbike: 'Motorbike',
-  car: 'Car',
-  van_small: 'Small Van',
-  van_large: 'Large Van',
-  luton: 'Luton Van',
-  truck_7_5t: '7.5t Truck',
-  truck_18t: '18t Truck',
-  artic: 'Artic',
-};
+const VEHICLE_LABELS = VEHICLE_TYPE_LABELS;
 
 function fmtTime(value: string | null) {
   if (!value) return 'TBC';

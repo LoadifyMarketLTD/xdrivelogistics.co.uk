@@ -5,6 +5,7 @@ import { useAuth } from '../components/AuthContext';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import type { CargoType, Quote, VehicleType } from '../../lib/types/database';
+import { labelToVehicleType, labelToCargoType } from '../../lib/vehicleTypes';
 import { downloadInvoicePdf } from '../../lib/invoicePdf';
 import { loadCompanySettings } from '../../lib/companySettings';
 import type { InvoiceData } from '../components/InvoiceTemplate';
@@ -240,23 +241,9 @@ const dateDisplay = (value: string | null) => {
   return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
-const legacyVehicle = (label: string): VehicleType => {
-  if (label.includes('Luton')) return 'luton';
-  if (label.includes('7.5')) return 'truck_7_5t';
-  if (label.includes('18')) return 'truck_18t';
-  if (label.includes('Artic') || label.includes('26T')) return 'artic';
-  if (label.includes('Small')) return 'van_small';
-  return 'van_large';
-};
+const legacyCargo = (label: string): CargoType => labelToCargoType(label);
 
-const legacyCargo = (label: string): CargoType => {
-  if (label === 'Documents') return 'documents';
-  if (label === 'Parcels') return 'packages';
-  if (label === 'Pallets') return 'pallets';
-  if (label === 'Furniture') return 'furniture';
-  if (label === 'Machinery') return 'equipment';
-  return 'other';
-};
+const legacyVehicle = (label: string): VehicleType => labelToVehicleType(label);
 
 const toInvoiceData = (invoice: CustomerInvoice): InvoiceData => ({
   id: invoice.id,
