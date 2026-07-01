@@ -35,14 +35,15 @@ export async function POST(
 
   const { jobId } = await params;
 
-  // Fetch the job — it must belong to the driver's company
+  // Fetch the job — it must belong to the driver's company either as the
+  // original owner (company_id) or as the awarded carrier (awarded_carrier_company_id).
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
     .select(
-      'id, company_id, status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, budget_amount, currency, client_name, client_email'
+      'id, company_id, awarded_carrier_company_id, status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, budget_amount, currency, client_name, client_email'
     )
     .eq('id', jobId)
-    .eq('company_id', driver.companyId)
+    .or(`company_id.eq.${driver.companyId},awarded_carrier_company_id.eq.${driver.companyId}`)
     .maybeSingle();
 
   if (jobError) return respond(500, { error: jobError.message });

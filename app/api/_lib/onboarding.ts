@@ -22,7 +22,7 @@ export const FLEET_DOCUMENT_TYPES = [
   'operator_licence',
   'public_liability',
   'goods_in_transit',
-  'motor_fleet_insurance',
+  'vehicle_insurance',
   'company_registration',
   'vat_registration',
 ] as const;
@@ -36,9 +36,16 @@ export const OWNER_DRIVER_DOCUMENT_TYPES = [
   'visa_document',
 ] as const;
 
+export const BROKER_DOCUMENT_TYPES = [
+  'company_registration',
+  'public_liability',
+  'vat_registration',
+] as const;
+
 export const ONBOARDING_UNLOCKED_STATUS = 'approved';
 
 export const ONBOARDING_STATUSES = [
+  'invited',
   'draft',
   'in_progress',
   'under_review',

@@ -5,7 +5,7 @@ import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
 export const POST = buildSubmitHandler({
   expectedAccountType: 'customer_shipper',
   payloadSchema: customerPayloadSchema,
-  persist: async ({ userId, payload }) => {
+  persist: async ({ userId, payload, companyId: _companyId }) => {
     if (!supabaseAdmin) return;
 
     const companyName = payload.company_name.trim() || `${payload.full_name.trim() || 'Customer'} workspace`;

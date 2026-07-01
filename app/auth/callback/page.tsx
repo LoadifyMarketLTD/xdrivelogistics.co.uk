@@ -129,7 +129,7 @@ export default function AuthCallbackPage() {
       if (!result.user) {
         if (onboardingPath) {
           const normalizedStatus = (onboardingStatus ?? '').toLowerCase();
-          const pendingReviewStatuses = new Set(['under_review']);
+          const pendingReviewStatuses = new Set(['under_review', 'request_changes']);
           router.replace(pendingReviewStatuses.has(normalizedStatus) ? '/pending-approval' : onboardingPath);
           return;
         }
@@ -139,7 +139,7 @@ export default function AuthCallbackPage() {
 
       if (onboardingPath && onboardingStatus && onboardingStatus !== 'approved') {
         const normalizedStatus = onboardingStatus.toLowerCase();
-        const pendingReviewStatuses = new Set(['under_review']);
+        const pendingReviewStatuses = new Set(['under_review', 'request_changes']);
         router.replace(pendingReviewStatuses.has(normalizedStatus) ? '/pending-approval' : onboardingPath);
         return;
       }

@@ -16,6 +16,7 @@ type Application = {
   payload: Record<string, unknown>;
 };
 
+const brokerDocs = ['company_registration', 'public_liability', 'vat_registration'] as const;
 const fleetDocs = ['operator_licence', 'public_liability', 'goods_in_transit', 'vehicle_insurance', 'company_registration', 'vat_registration'] as const;
 const ownerDriverDocs = ['driving_licence', 'cpc', 'proof_of_address', 'insurance', 'right_to_work', 'visa_document'] as const;
 
@@ -35,6 +36,7 @@ export default function OnboardingTokenPage() {
 
   const requiredDocs = useMemo(() => {
     if (accountType === 'customer_shipper') return [];
+    if (accountType === 'broker_shipper') return brokerDocs;
     if (accountType === 'fleet_courier') return fleetDocs;
     if (accountType === 'owner_driver') return ownerDriverDocs;
     return [];
@@ -300,6 +302,8 @@ export default function OnboardingTokenPage() {
       <Field label="Vehicle Model" value={formData.model ?? formData.vehicle_model ?? ''} onChange={(v) => updateField('model', v)} />
       <Field label="Payload" value={formData.payload ?? formData.vehicle_payload ?? ''} onChange={(v) => updateField('payload', v)} />
       <Field label="Dimensions" value={formData.dimensions ?? formData.vehicle_dimensions ?? ''} onChange={(v) => updateField('dimensions', v)} />
+      <Field label="Tail Lift" value={formData.tail_lift ?? ''} onChange={(v) => updateField('tail_lift', v)} />
+      <Field label="Insurance Details" value={formData.insurance_details ?? ''} onChange={(v) => updateField('insurance_details', v)} />
     </section>
   );
 
