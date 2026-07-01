@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "XDrive Driver",
+    "slug": "xdrive-driver-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "xdrivedriver",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "co.uk.xdrivelogistics.driver"
+    },
+    "android": {
+      "package": "co.uk.xdrivelogistics.driver",
+      "permissions": [
+        "CAMERA",
+        "POST_NOTIFICATIONS",
+        "ACCESS_NETWORK_STATE"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-image-picker",
+      "expo-document-picker",
+      "expo-notifications"
+    ],
+    "extra": {
+      "apiBaseUrl": "https://xdrivelogistics.co.uk",
+      "eas": {
+        "projectId": "xdrive-driver-mobile"
+      }
+    }
+  }
+}
