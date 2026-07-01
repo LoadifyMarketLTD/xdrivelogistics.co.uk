@@ -8,7 +8,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
-import type { OnboardingAccountType } from '../../_lib/onboarding';
+import { normalizeOnboardingStatus, type OnboardingAccountType } from '../../_lib/onboarding';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -89,7 +89,7 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
     }
 
     if (token && !app.token_activated_at) {
-      const status = app.status === 'draft' ? 'in_progress' : app.status;
+      const status = app.status === 'draft' ? 'in_progress' : normalizeOnboardingStatus(app.status);
       const { data: activated, error: activationError } = await supabaseAdmin
         .from('onboarding_applications')
         .update({
@@ -141,9 +141,9 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
     const payloadPatch = patchData.payload ?? {};
 
     const nextStatus =
-      patchData.status && ['draft', 'in_progress', 'request_changes', 'submitted'].includes(patchData.status)
+      patchData.status && ['draft', 'in_progress', 'request_changes'].includes(patchData.status)
         ? patchData.status
-        : existing.status;
+        : normalizeOnboardingStatus(existing.status);
 
     const updatePayload: Record<string, unknown> = {
       last_activity_at: new Date().toISOString(),
@@ -239,13 +239,13 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
         payload: {
           onboarding_application_id: application.id,
           account_type: expectedAccountType,
-          status: 'submitted',
+          status: 'under_review',
           company_id: companyId,
         },
       });
 
       return json(200, {
-        status: 'submitted',
+        status: 'under_review',
         company_id: companyId,
       });
     }
@@ -253,8 +253,8 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
     const reviewStatusByAccountType: Record<OnboardingAccountType, string> = {
       customer_shipper: 'approved',
       broker_shipper: 'under_review',
-      fleet_courier: 'submitted',
-      owner_driver: 'submitted',
+      fleet_courier: 'under_review',
+      owner_driver: 'under_review',
     };
 
     const reviewStatus = reviewStatusByAccountType[expectedAccountType];

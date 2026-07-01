@@ -7,6 +7,7 @@ import {
   generateOnboardingToken,
   hashOnboardingToken,
   normalizeOnboardingAccountType,
+  normalizeOnboardingStatus,
   resolveOnboardingAccountTypeFromMetadata,
   resolveOnboardingTokenTtlHours,
 } from '../../_lib/onboarding';
@@ -70,7 +71,8 @@ export async function POST(request: NextRequest) {
   const onboardingTokenHash = hashOnboardingToken(onboardingToken);
   const onboardingUrl = buildOnboardingUrl(onboardingToken, accountType);
 
-  const nextStatus = existing?.status === 'approved' ? 'approved' : existing?.status ?? 'draft';
+  const normalizedExistingStatus = normalizeOnboardingStatus(existing?.status);
+  const nextStatus = normalizedExistingStatus === 'approved' ? 'approved' : normalizedExistingStatus;
 
   const { data: upserted, error: upsertError } = await supabaseAdmin
     .from('onboarding_applications')
@@ -84,8 +86,8 @@ export async function POST(request: NextRequest) {
         token_expires_at: expiresAt,
         token_last_sent_at: new Date().toISOString(),
         last_activity_at: new Date().toISOString(),
-        current_step: existing?.status === 'approved' ? 'workspace_unlocked' : 'account_type_wizard',
-        completion_percentage: existing?.status === 'approved' ? 100 : 5,
+        current_step: normalizedExistingStatus === 'approved' ? 'workspace_unlocked' : 'account_type_wizard',
+        completion_percentage: normalizedExistingStatus === 'approved' ? 100 : 5,
       },
       { onConflict: 'user_id' }
     )

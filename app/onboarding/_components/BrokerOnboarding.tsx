@@ -40,8 +40,6 @@ const defaultPayload: BrokerPayload = {
   contact_phone: '',
 };
 
-const brokerDocs = ['company_registration', 'vat_registration', 'public_liability'] as const;
-
 export function BrokerOnboarding({ token }: { token: string }) {
   const router = useRouter();
   const [application, setApplication] = useState<Application | null>(null);
@@ -156,37 +154,6 @@ export function BrokerOnboarding({ token }: { token: string }) {
     }
   };
 
-  const uploadDocument = async (docType: (typeof brokerDocs)[number], file: File) => {
-    setSaving(true);
-    setError('');
-    setMessage('');
-
-    try {
-      const headers = await authHeaders();
-      const form = new FormData();
-      form.set('docType', docType);
-      form.set('file', file);
-
-      const res = await fetch('/api/onboarding/documents', {
-        method: 'POST',
-        headers,
-        body: form,
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Document upload failed.');
-        return;
-      }
-
-      setMessage(`Uploaded ${docType.replace(/_/g, ' ')}.`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Document upload failed.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   if (loading) {
     return <main style={{ padding: '2rem' }}>Loading onboarding...</main>;
   }
@@ -230,22 +197,6 @@ export function BrokerOnboarding({ token }: { token: string }) {
         <Field label="Phone" value={formData.contact_phone} onChange={(v) => setFormData((prev) => ({ ...prev, contact_phone: v }))} />
       </section>
 
-      <section style={{ marginTop: '2rem' }}>
-        <h2>Document Upload</h2>
-        {brokerDocs.map((doc) => (
-          <div key={doc} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '0.75rem', alignItems: 'center' }}>
-            <span>{doc.replace(/_/g, ' ')}</span>
-            <input
-              type="file"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                void uploadDocument(doc, file);
-              }}
-            />
-          </div>
-        ))}
-      </section>
     </PageLayout>
   );
 }
