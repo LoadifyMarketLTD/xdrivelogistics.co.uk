@@ -32,7 +32,8 @@ export const OWNER_DRIVER_DOCUMENT_TYPES = [
   'cpc',
   'proof_of_address',
   'insurance',
-  'right_to_work_evidence',
+  'right_to_work',
+  'visa_document',
 ] as const;
 
 export const ONBOARDING_UNLOCKED_STATUS = 'approved';
@@ -40,14 +41,26 @@ export const ONBOARDING_UNLOCKED_STATUS = 'approved';
 export const ONBOARDING_STATUSES = [
   'draft',
   'in_progress',
-  'submitted',
   'under_review',
-  'compliance_review',
-  'admin_approval',
   'approved',
   'rejected',
   'request_changes',
 ] as const;
+export type OnboardingStatus = (typeof ONBOARDING_STATUSES)[number];
+
+const LEGACY_ONBOARDING_STATUS_MAPPING: Record<string, OnboardingStatus> = {
+  submitted: 'under_review',
+  compliance_review: 'under_review',
+  admin_approval: 'under_review',
+};
+
+export const normalizeOnboardingStatus = (raw: string | null | undefined): OnboardingStatus => {
+  const value = (raw ?? '').toLowerCase().trim();
+  if ((ONBOARDING_STATUSES as readonly string[]).includes(value)) {
+    return value as OnboardingStatus;
+  }
+  return LEGACY_ONBOARDING_STATUS_MAPPING[value] ?? 'draft';
+};
 
 export const normalizeOnboardingAccountType = (raw: string | null | undefined): OnboardingAccountType => {
   const value = (raw ?? '').toLowerCase().trim();
