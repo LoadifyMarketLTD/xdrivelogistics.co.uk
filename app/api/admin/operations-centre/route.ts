@@ -33,10 +33,6 @@ type JobRow = {
   pod_generated: boolean | null;
   pod_required: boolean | null;
   status_history: unknown;
-  pickup_lat: number | null;
-  pickup_lng: number | null;
-  delivery_lat: number | null;
-  delivery_lng: number | null;
   updated_at: string | null;
   created_at: string | null;
 };
@@ -177,7 +173,7 @@ export async function GET(request: NextRequest) {
     vehicleDocsRes,
     companyDocsRes,
   ] = await Promise.all([
-    client.from('jobs').select('id,status,current_status,assigned_driver_id,assigned_company_id,awarded_carrier_company_id,company_id,pickup_location,delivery_location,pickup_datetime,delivery_datetime,vehicle_type,requested_vehicle_type,budget_amount,delivery_photos,pod_photos,pod_generated,pod_required,status_history,pickup_lat,pickup_lng,delivery_lat,delivery_lng,updated_at,created_at').or(companyScope).order('updated_at', { ascending: false }).limit(limit),
+    client.from('jobs').select('id,status,current_status,assigned_driver_id,assigned_company_id,awarded_carrier_company_id,company_id,pickup_location,delivery_location,pickup_datetime,delivery_datetime,vehicle_type,requested_vehicle_type,budget_amount,delivery_photos,pod_photos,pod_generated,pod_required,status_history,updated_at,created_at').or(companyScope).order('updated_at', { ascending: false }).limit(limit),
     activeCompanyId ? client.from('drivers').select('id,display_name,availability_status,status,company_id').eq('company_id', activeCompanyId).limit(500) : client.from('drivers').select('id,display_name,availability_status,status,company_id').limit(500),
     activeCompanyId ? client.from('vehicles').select('id,reg_plate,type,assigned_driver_id,company_id').eq('company_id', activeCompanyId).limit(500) : client.from('vehicles').select('id,reg_plate,type,assigned_driver_id,company_id').limit(500),
     activeCompanyId ? client.from('driver_locations').select('id,driver_id,job_id,lat,lng,recorded_at').eq('company_id', activeCompanyId).order('recorded_at', { ascending: false }).limit(300) : client.from('driver_locations').select('id,driver_id,job_id,lat,lng,recorded_at').order('recorded_at', { ascending: false }).limit(300),
@@ -283,10 +279,6 @@ export async function GET(request: NextRequest) {
       status: drivers.find((driver) => driver.id === location.driver_id)?.availability_status ?? 'unknown',
       updatedAt: location.recorded_at,
     })),
-    ...activeJobs.flatMap((job) => [
-      job.pickup_lat && job.pickup_lng ? { id: `${job.id}-pickup`, kind: 'pickup', jobId: job.id, label: job.pickup_location ?? 'Pickup', lat: job.pickup_lat, lng: job.pickup_lng, status: job.status, updatedAt: job.updated_at } : null,
-      job.delivery_lat && job.delivery_lng ? { id: `${job.id}-delivery`, kind: 'delivery', jobId: job.id, label: job.delivery_location ?? 'Delivery', lat: job.delivery_lat, lng: job.delivery_lng, status: job.status, updatedAt: job.updated_at } : null,
-    ].filter(Boolean)),
   ];
 
   const timeline = [
@@ -322,7 +314,7 @@ export async function GET(request: NextRequest) {
   const alerts = [
     ...delayedJobs.map((job) => ({ id: `delayed-${job.id}`, title: 'Job delayed', message: `${job.pickup_location ?? 'Pickup TBC'} -> ${job.delivery_location ?? 'Delivery TBC'}`, time: relativeTime(job.updated_at), severity: 'critical', type: 'job' })),
     ...podMissingJobs.map((job) => ({ id: `pod-${job.id}`, title: 'POD missing', message: `Delivered job ${job.id.slice(0, 8).toUpperCase()} needs POD`, time: relativeTime(job.updated_at), severity: 'warning', type: 'pod' })),
-    ...pendingInvoices.filter((invoice) => toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.due_date) === 'Overdue').map((invoice, index) => ({ id: `invoice-${index}`, title: 'Invoice overdue', message: 'Invoice payment is overdue', time: relativeTime(invoice.created_at), severity: 'warning', type: 'invoice' })),
+    ...pendingInvoices.filter((invoice) => toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.due_date) === 'Overdue').map((invoice, index) => ({ id: `invoice-${index}`, title: 'Invoice overdue', message: `Invoice payment is overdue`, time: relativeTime(invoice.created_at), severity: 'warning', type: 'invoice' })),
     ...expiredDocuments.map((doc) => ({ id: `expired-${doc.id}`, title: 'Document expired', message: doc.doc_type ?? 'Compliance document expired', time: relativeTime(doc.expiry_date), severity: 'critical', type: 'compliance' })),
     ...rejectedDocuments.map((doc) => ({ id: `rejected-${doc.id}`, title: 'Document rejected', message: doc.doc_type ?? 'Compliance document rejected', time: relativeTime(doc.created_at), severity: 'warning', type: 'compliance' })),
     ...drivers.filter((driver) => norm(driver.availability_status) === 'offline').map((driver) => ({ id: `offline-${driver.id}`, title: 'Driver offline', message: `${driver.display_name ?? 'Driver'} is offline`, time: 'now', severity: 'info', type: 'driver' })),
