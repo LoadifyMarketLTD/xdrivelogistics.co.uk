@@ -54,7 +54,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     .limit(1)
     .maybeSingle();
 
-  if (membershipError || !membership || !DISPATCH_ROLES.has(membership.role_in_company as string | null)) {
+  if (membershipError || !membership || !DISPATCH_ROLES.has(String(membership.role_in_company ?? ''))) {
     return json(403, { error: 'Forbidden — insufficient role to dispatch jobs.' });
   }
 

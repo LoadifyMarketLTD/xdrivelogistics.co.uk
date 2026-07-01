@@ -40,13 +40,17 @@ export async function POST(request: NextRequest) {
     return json(401, { error: 'Re-authentication failed. Please verify your password.' });
   }
 
-  await supabaseAdmin.from('owner_audit_log').insert({
-    actor_user_id: user.id,
-    action: 'gdpr_account_delete_requested',
-    target_type: 'user',
-    target_id: user.id,
-    notes: 'GDPR account deletion requested by user via /api/account/delete',
-  }).then(() => null).catch(() => null);
+  try {
+    await supabaseAdmin.from('owner_audit_log').insert({
+      actor_user_id: user.id,
+      action: 'gdpr_account_delete_requested',
+      target_type: 'user',
+      target_id: user.id,
+      notes: 'GDPR account deletion requested by user via /api/account/delete',
+    });
+  } catch {
+    // no-op: audit log insertion should not block GDPR deletion
+  }
 
   const { data: deletionResult, error: deletionError } = await supabaseAdmin.rpc('fn_gdpr_delete_user', {
     p_user_id: user.id,
