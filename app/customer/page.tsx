@@ -512,30 +512,43 @@ export default function CustomerPage() {
     }
 
     setSaving(true);
-    const { error } = await supabase.from('jobs').insert([{
-      company_id: companyId,
-      created_by: user.id,
-      status: publish ? 'posted' : 'draft',
-      pickup_location: `${form.pickupAddress}, ${form.pickupPostcode}`,
-      pickup_postcode: form.pickupPostcode.trim().toUpperCase(),
-      pickup_datetime: toDateTime(form.pickupDate, form.pickupTime),
-      delivery_location: `${form.deliveryAddress}, ${form.deliveryPostcode}`,
-      delivery_postcode: form.deliveryPostcode.trim().toUpperCase(),
-      delivery_datetime: toDateTime(form.deliveryDate, form.deliveryTime),
-      vehicle_type: legacyVehicle(form.vehicleLabel),
-      cargo_type: legacyCargo(form.cargoLabel),
-      pallets: form.cargoLabel === 'Pallets' && form.palletCount ? Number(form.palletCount) : null,
-      weight_kg: form.totalWeightKg ? Number(form.totalWeightKg) : null,
-      length_cm: form.lengthCm ? Number(form.lengthCm) : null,
-      width_cm: form.widthCm ? Number(form.widthCm) : null,
-      height_cm: form.heightCm ? Number(form.heightCm) : null,
-      load_details: detailsJson(),
-      special_requirements: form.specialRequirements.join(', ') || null,
-      access_restrictions: form.accessRestrictions.join(', ') || null,
-    }]);
+    const token = await getAccessToken();
+    if (!token) {
+      setSaving(false);
+      setFormError('Session expired. Please sign in again.');
+      return;
+    }
+
+    const response = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token,
+      },
+      body: JSON.stringify({
+        status: publish ? 'posted' : 'draft',
+        pickup_location: `${form.pickupAddress}, ${form.pickupPostcode}`,
+        pickup_postcode: form.pickupPostcode.trim().toUpperCase(),
+        pickup_datetime: toDateTime(form.pickupDate, form.pickupTime),
+        delivery_location: `${form.deliveryAddress}, ${form.deliveryPostcode}`,
+        delivery_postcode: form.deliveryPostcode.trim().toUpperCase(),
+        delivery_datetime: toDateTime(form.deliveryDate, form.deliveryTime),
+        vehicle_type: legacyVehicle(form.vehicleLabel),
+        cargo_type: legacyCargo(form.cargoLabel),
+        pallets: form.cargoLabel === 'Pallets' && form.palletCount ? Number(form.palletCount) : null,
+        weight_kg: form.totalWeightKg ? Number(form.totalWeightKg) : null,
+        length_cm: form.lengthCm ? Number(form.lengthCm) : null,
+        width_cm: form.widthCm ? Number(form.widthCm) : null,
+        height_cm: form.heightCm ? Number(form.heightCm) : null,
+        load_details: detailsJson(),
+        special_requirements: form.specialRequirements.join(', ') || null,
+        access_restrictions: form.accessRestrictions.join(', ') || null,
+      }),
+    });
     setSaving(false);
-    if (error) {
-      setFormError(error.message);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      setFormError(payload.error ?? `Failed to save load (${response.status}).`);
       return;
     }
     setSaved(true);

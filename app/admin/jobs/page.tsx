@@ -118,6 +118,11 @@ export default function JobsPage() {
  const [directInviteCarrierId, setDirectInviteCarrierId] = useState('');
  const [directInviteSending, setDirectInviteSending] = useState(false);
  const [directInviteError, setDirectInviteError] = useState('');
+
+ const getAccessToken = async (): Promise<string | null> => {
+   const { data: sessionData } = await supabase.auth.getSession();
+   return sessionData.session?.access_token ?? null;
+ };
  const [jobFormStep, setJobFormStep] = useState(0);
  const [formData, setFormData] = useState({
  clientName: '',
@@ -458,9 +463,20 @@ export default function JobsPage() {
  notes: formData.cargoNotes.trim() || null,
  }, null, 2);
 
- const { data: insertedJob, error: insertError } = await supabase.from('jobs').insert([{
- company_id: resolvedCompanyId,
- created_by: user?.id ?? null,
+ const token = await getAccessToken();
+ if (!token) {
+ setModalError('Session expired. Please sign in again.');
+ setIsSubmitting(false);
+ return;
+ }
+
+ const createResponse = await fetch('/api/jobs', {
+ method: 'POST',
+ headers: {
+ 'Content-Type': 'application/json',
+ Authorization: 'Bearer ' + token,
+ },
+ body: JSON.stringify({
  client_name: formData.clientName.trim(),
  client_email: formData.clientEmail.trim() || null,
  client_phone: formData.clientPhone.trim() || null,
@@ -511,20 +527,18 @@ export default function JobsPage() {
  is_fixed_price: formData.isFixedPrice,
  currency: 'GBP',
  status,
- }]).select('id').single();
- if (insertError) {
- console.error('Failed to create job:', insertError.message);
- const hint = insertError.message.includes('row-level security') || insertError.message.includes('policy')
- ? ' RLS blocked: verify your company membership is active and migration 012 has been applied in Supabase'
- : insertError.message.includes('schema cache') || insertError.message.includes('column')
- ? ' schema out of date: re-run 011_complete_schema_v2.sql in the Supabase SQL Editor to add missing columns'
- : insertError.message.includes('get_or_create_company')
- ? ' RPC missing: run 011_complete_schema_v2.sql in the Supabase SQL Editor'
- : '';
- setModalError(`${insertError.message}${hint}`);
+ }),
+ });
+
+ const createPayload = await createResponse.json().catch(() => ({})) as { error?: string; job?: { id?: string } };
+ if (!createResponse.ok || !createPayload.job?.id) {
+ const failure = createPayload.error ?? `Failed to create job (${createResponse.status}).`;
+ console.error('Failed to create job:', failure);
+ setModalError(failure);
  setIsSubmitting(false);
  return;
  }
+ const insertedJob = createPayload.job;
  if (documentFiles.length > 0 && insertedJob?.id) {
  const documentRows = [];
  for (const file of documentFiles) {
@@ -1561,4 +1575,3 @@ export default function JobsPage() {
  </ProtectedRoute>
  );
 }
-

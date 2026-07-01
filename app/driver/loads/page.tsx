@@ -306,6 +306,11 @@ export default function AvailableLoadsPage() {
   const visibleLoads = filteredLoads.slice(0, visibleCount);
   const canLoadMore = visibleCount < filteredLoads.length;
 
+  const getAccessToken = async () => {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  };
+
   const clearFilters = () => {
     setVehicleFilter('any');
     setPickupPostcodeFilter('');
@@ -326,21 +331,31 @@ export default function AvailableLoadsPage() {
 
     setBidLoading(true);
     setError('');
-    const { error: bidError } = await supabase.from('job_bids').insert({
-      job_id: loadId,
-      company_id: companyId,
-      bidder_user_id: userId,
-      bidder_driver_id: user?.driverId ?? null,
-      bid_price_gbp: amount,
-      amount,
-      currency: 'GBP',
-      message: bidMessage || null,
-      status: 'submitted',
+    const token = await getAccessToken();
+    if (!token) {
+      setBidLoading(false);
+      setError('Session expired. Please sign in again.');
+      return;
+    }
+    const response = await fetch('/api/job-bids', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token,
+      },
+      body: JSON.stringify({
+        job_id: loadId,
+        bid_price_gbp: amount,
+        amount,
+        currency: 'GBP',
+        message: bidMessage || null,
+      }),
     });
     setBidLoading(false);
 
-    if (bidError) {
-      setError(`Failed to submit bid: ${bidError.message}`);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      setError(payload.error ?? `Failed to submit bid (${response.status}).`);
       return;
     }
 

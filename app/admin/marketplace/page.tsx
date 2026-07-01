@@ -296,6 +296,11 @@ export default function MarketplacePage() {
     if (tab === 'won')   void loadWonJobs();
   }, [companyId, tab, loadExchangeLoads, loadMyBids, loadWonJobs]);
 
+  const getAccessToken = async (): Promise<string | null> => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    return sessionData.session?.access_token ?? null;
+  };
+
   // ── Bid submission ─────────────────────────────────────────────────────────
 
   const openBidModal = (load: ExchangeLoad) => {
@@ -322,21 +327,32 @@ export default function MarketplacePage() {
     setBidSubmitting(true);
     setBidError('');
     const normalizedBidPriceGbp = parsed;
+    const token = await getAccessToken();
+    if (!token) {
+      setBidSubmitting(false);
+      setBidError('Session expired. Please sign in again.');
+      return;
+    }
 
-    const { error } = await supabase.from('job_bids').insert({
-      job_id: bidTarget.id,
-      company_id: companyId,
-      bidder_user_id: user.id,
-      bid_price_gbp: normalizedBidPriceGbp,
-      amount: normalizedBidPriceGbp,
-      currency: bidTarget.currency || 'GBP',
-      message: bidMessage.trim() || null,
-      status: 'submitted',
+    const response = await fetch('/api/job-bids', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token,
+      },
+      body: JSON.stringify({
+        job_id: bidTarget.id,
+        bid_price_gbp: normalizedBidPriceGbp,
+        amount: normalizedBidPriceGbp,
+        currency: bidTarget.currency || 'GBP',
+        message: bidMessage.trim() || null,
+      }),
     });
 
     setBidSubmitting(false);
-    if (error) {
-      setBidError(`Failed to submit bid: ${error.message}`);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      setBidError(payload.error ?? `Failed to submit bid (${response.status}).`);
       return;
     }
     closeBidModal();

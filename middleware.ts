@@ -12,11 +12,13 @@ const DRIVER_JOBS_PATH = '/driver/jobs';
 const DRIVER_CHANGE_PASSWORD_PATH = '/driver/change-password';
 const FORBIDDEN_PATH = '/forbidden';
 const LOGIN_PATH = '/login';
+const VERIFY_EMAIL_PATH = '/verify-email';
 const PROTECTED_PATH_PREFIXES = ['/super-admin', '/broker', '/admin', '/driver', '/customer', '/m'];
 
 type RouteAuthResult =
   | { kind: 'unauthenticated' }
   | { kind: 'service_unavailable' }
+  | { kind: 'email_unverified' }
   | { kind: 'forbidden' }
   | {
       kind: 'authenticated';
@@ -209,6 +211,7 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
   }
 
   const fallbackRole = readFallbackRole(authData.user.app_metadata?.role);
+  const emailConfirmed = Boolean(authData.user.email_confirmed_at);
   const ownerDriverWorkspace = isOwnerDriverWorkspaceRequested(
     authData.user.user_metadata as Record<string, unknown> | null | undefined,
     authData.user.app_metadata as Record<string, unknown> | null | undefined
@@ -220,6 +223,9 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
 
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     const role = mapAppRole(fallbackRole);
+    if (!emailConfirmed && role !== 'driver') {
+      return { kind: 'email_unverified' };
+    }
     return role
       ? {
           kind: 'authenticated',
@@ -302,6 +308,18 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     return { kind: 'forbidden' };
   }
 
+  const invitedDriverException =
+    driver?.must_change_password === true &&
+    (
+      driver != null ||
+      profile?.is_driver === true ||
+      mapAppRole(profile?.role ?? null) === 'driver'
+    );
+
+  if (!emailConfirmed && !invitedDriverException) {
+    return { kind: 'email_unverified' };
+  }
+
   const canAccessDriverMode =
     ownerDriverWorkspace &&
     (
@@ -340,6 +358,10 @@ export async function middleware(request: NextRequest) {
 
   if (auth.kind === 'service_unavailable') {
     return buildLoginRedirect(request, 'service_unavailable');
+  }
+
+  if (auth.kind === 'email_unverified') {
+    return buildRedirect(request, VERIFY_EMAIL_PATH, true);
   }
 
   if (auth.kind === 'forbidden') {

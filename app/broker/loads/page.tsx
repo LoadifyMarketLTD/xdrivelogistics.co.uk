@@ -98,23 +98,41 @@ export default function BrokerLoadsPage() {
 
   useEffect(() => { void loadBoard(); }, [loadBoard]);
 
+  const getAccessToken = async () => {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  };
+
   const handleBid = async () => {
     if (!bidLoadId || !companyId || !user?.id) return;
     const price = parseFloat(bidAmount);
     if (Number.isNaN(price) || price <= 0) { setBidSuccess(''); setError('Enter a valid bid amount'); return; }
+    const token = await getAccessToken();
+    if (!token) {
+      setError('Session expired. Please sign in again.');
+      return;
+    }
     setBidSubmitting(true);
-    const { error: err } = await supabase.from('job_bids').insert([{
-      job_id: bidLoadId,
-      company_id: companyId,
-      bidder_user_id: user.id,
-      bid_price_gbp: price,
-      amount: price,
-      currency: 'GBP',
-      message: bidMessage || null,
-      status: 'submitted',
-    }]);
+    const response = await fetch('/api/job-bids', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token,
+      },
+      body: JSON.stringify({
+        job_id: bidLoadId,
+        bid_price_gbp: price,
+        amount: price,
+        currency: 'GBP',
+        message: bidMessage || null,
+      }),
+    });
     setBidSubmitting(false);
-    if (err) { setError(err.message); return; }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      setError(payload.error ?? `Failed to submit bid (${response.status}).`);
+      return;
+    }
     setBidSuccess('Bid submitted successfully!');
     setBidLoadId(null);
     setBidAmount('');
