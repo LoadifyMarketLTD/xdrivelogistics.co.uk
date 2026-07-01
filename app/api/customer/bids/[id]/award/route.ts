@@ -5,7 +5,6 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
-import { resolveAuthoritativeRole } from '../../../../../../lib/authRole';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -30,126 +29,67 @@ export async function POST(request: NextRequest, { params }: Params) {
   const { id: bidId } = await params;
   if (!bidId) return json(400, { error: 'Bad request - missing bid id.' });
 
-  const [{ data: profile }, { data: bid, error: bidError }] = await Promise.all([
-    supabaseAdmin
-      .from('profiles')
-      .select('role, is_driver')
-      .eq('user_id', user.id)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('job_bids')
-      .select('id, job_id, company_id, status, amount, bid_price_gbp')
-      .eq('id', bidId)
-      .maybeSingle(),
-  ]);
+  // Pre-flight: verify the caller is authorised to award this bid.
+  // The canonical accept_job_bid_atomic function authorises actors who are
+  // either (a) the job's created_by user or (b) a company member with an
+  // owner/admin/dispatcher role.  We do a lightweight ownership check here
+  // so we can return a clear 403 before calling the DB function.
+  const { data: bid, error: bidError } = await supabaseAdmin
+    .from('job_bids')
+    .select('id, job_id, status')
+    .eq('id', bidId)
+    .maybeSingle();
 
   if (bidError || !bid) return json(404, { error: 'Bid not found.' });
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, created_by, status, exchange_visibility, awarded_carrier_company_id, status_history')
+    .select('id, company_id, created_by, exchange_visibility')
     .eq('id', bid.job_id as string)
     .maybeSingle();
 
   if (jobError || !job) return json(404, { error: 'Job not found.' });
 
-  const { data: membership } = await supabaseAdmin
-    .from('company_memberships')
-    .select('id, role_in_company, status')
-    .eq('user_id', user.id)
-    .eq('company_id', job.company_id as string)
-    .eq('status', 'active')
-    .maybeSingle();
+  // Caller must be the job creator OR an active member of the owning company.
+  const isCreator = job.created_by === user.id;
+  if (!isCreator) {
+    const { data: membership } = await supabaseAdmin
+      .from('company_memberships')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('company_id', job.company_id as string)
+      .eq('status', 'active')
+      .maybeSingle();
 
-  const appRole = resolveAuthoritativeRole({
-    profileRole: (profile?.role as string | null) ?? null,
-    fallbackRole: (user.app_metadata?.role as string | undefined) ?? null,
-    membershipRole: (membership?.role_in_company as string | null) ?? null,
-    isDriver: profile?.is_driver === true,
-    hasCreatedCompany: job.created_by === user.id,
-    creatorCompanyType: null,
-    ownerDriverWorkspaceRequested: false,
-  });
-
-  const ownsJob = job.created_by === user.id || Boolean(membership);
-  if (appRole !== 'customer' || !ownsJob) {
-    return json(403, { error: 'Forbidden - only the customer who owns this load can award bids.' });
+    if (!membership) {
+      return json(403, { error: 'Forbidden - only the job owner can award bids.' });
+    }
   }
 
-  if (!['exchange', 'direct'].includes((job.exchange_visibility as string | null) ?? '')) {
-    return json(400, { error: 'Bad request - this job is not open for carrier bids.' });
+  // Delegate to the canonical atomic award function.
+  const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+    'accept_job_bid_atomic',
+    {
+      p_bid_id: bidId,
+      p_actor_user_id: user.id,
+    }
+  );
+
+  if (rpcError) {
+    return json(500, { error: `Failed to award bid: ${rpcError.message}` });
   }
 
-  if (bid.status !== 'submitted') {
-    return json(409, { error: 'Conflict - only submitted bids can be awarded.' });
+  const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
+  if (!result?.success) {
+    return json(result?.http_status ?? 500, {
+      error: result?.error_message ?? 'Award failed.',
+    });
   }
-
-  if (job.awarded_carrier_company_id) {
-    return json(409, { error: 'Conflict - this job has already been awarded.' });
-  }
-
-  if (!bid.company_id) {
-    return json(409, { error: 'Conflict - bid company is missing.' });
-  }
-
-  const now = new Date().toISOString();
-  const currentHistory = Array.isArray(job.status_history) ? job.status_history : [];
-
-  const { error: acceptedError } = await supabaseAdmin
-    .from('job_bids')
-    .update({ status: 'accepted' })
-    .eq('id', bidId)
-    .eq('status', 'submitted');
-
-  if (acceptedError) return json(500, { error: `Failed to award bid: ${acceptedError.message}` });
-
-  await supabaseAdmin
-    .from('job_bids')
-    .update({ status: 'rejected' })
-    .eq('job_id', job.id as string)
-    .neq('id', bidId)
-    .eq('status', 'submitted');
-
-  const { error: jobUpdateError } = await supabaseAdmin
-    .from('jobs')
-    .update({
-      awarded_carrier_company_id: bid.company_id,
-      status: 'awarded',
-      status_history: [
-        ...currentHistory,
-        {
-          status: 'awarded',
-          timestamp: now,
-          bid_id: bidId,
-          awarded_by: user.id,
-          awarded_carrier_company_id: bid.company_id,
-        },
-      ],
-      updated_at: now,
-    })
-    .eq('id', job.id as string)
-    .is('awarded_carrier_company_id', null);
-
-  if (jobUpdateError) return json(500, { error: `Failed to update job award: ${jobUpdateError.message}` });
-
-  await supabaseAdmin.from('job_tracking_events').insert({
-    job_id: job.id,
-    created_by: user.id,
-    event_type: 'allocated',
-    message: 'Customer awarded carrier quote.',
-    meta: {
-      bid_id: bidId,
-      awarded_by: user.id,
-      awarded_at: now,
-      awarded_carrier_company_id: bid.company_id,
-      amount: bid.bid_price_gbp ?? bid.amount ?? null,
-    },
-  });
 
   return json(200, {
     success: true,
-    bidId,
-    jobId: job.id,
-    awardedCarrierCompanyId: bid.company_id,
+    bidId: result.bid_id,
+    jobId: result.job_id,
+    awardedCarrierCompanyId: result.awarded_carrier_company_id,
   });
 }

@@ -7,6 +7,7 @@ import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 import { DRIVER_PERSONA_LABELS, mapDriverPersona, type DriverPersona } from '../../../lib/authRole';
+import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 
 type AvailabilityStatus = 'available' | 'busy' | 'offline';
 
@@ -38,18 +39,6 @@ const AVAILABILITY_OPTIONS: Array<{ value: AvailabilityStatus; label: string; de
   { value: 'busy', label: 'On a Job', description: 'Currently on an active delivery.', color: '#b45309', bg: '#fffbeb' },
   { value: 'offline', label: 'Offline', description: 'Not available for new work.', color: '#dc2626', bg: '#fef2f2' },
 ];
-
-const VEHICLE_TYPE_LABELS: Record<string, string> = {
-  bicycle: 'Bicycle',
-  motorbike: 'Motorbike',
-  car: 'Car',
-  van_small: 'Small Van',
-  van_large: 'Large Van',
-  luton: 'Luton Van',
-  truck_7_5t: '7.5t Truck',
-  truck_18t: '18t Truck',
-  artic: 'Artic',
-};
 
 const card: CSSProperties = {
   backgroundColor: '#ffffff',

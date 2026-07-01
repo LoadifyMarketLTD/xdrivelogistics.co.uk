@@ -8,7 +8,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
-import type { OnboardingAccountType } from '../../_lib/onboarding';
+import { normalizeOnboardingStatus, type OnboardingAccountType } from '../../_lib/onboarding';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -48,6 +48,83 @@ const resolveApplication = async ({
 };
 
 const validateAccountType = (raw: string, expected: OnboardingAccountType) => raw === expected;
+
+/**
+ * Create (or locate) a pending-approval company for the submitting user.
+ * Returns the company id, or null on failure.
+ */
+const createOrLinkPendingCompany = async (
+  userId: string,
+  applicationId: string,
+  payload: Record<string, unknown>,
+): Promise<string | null> => {
+  if (!supabaseAdmin) return null;
+
+  // Re-use a company that was already created for this user
+  const { data: existingCompany } = await supabaseAdmin
+    .from('companies')
+    .select('id, status')
+    .eq('created_by', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingCompany?.id) {
+    const currentStatus = String(existingCompany.status ?? '').toLowerCase();
+    if (currentStatus !== 'active') {
+      await supabaseAdmin
+        .from('companies')
+        .update({ status: 'pending_approval' })
+        .eq('id', existingCompany.id);
+    }
+    await supabaseAdmin
+      .from('onboarding_applications')
+      .update({ company_id: existingCompany.id })
+      .eq('id', applicationId);
+    return existingCompany.id as string;
+  }
+
+  // Derive company name from payload fields (works for broker, fleet, owner-driver)
+  const companyName = (
+    String(
+      (payload.legal_company_name as string | undefined) ??
+      (payload.company_name as string | undefined) ??
+      (payload.full_name as string | undefined) ??
+      'Unnamed Company',
+    ).trim() || 'Unnamed Company'
+  );
+
+  const { data: company, error } = await supabaseAdmin
+    .from('companies')
+    .insert({
+      name: companyName,
+      status: 'pending_approval',
+      created_by: userId,
+    })
+    .select('id')
+    .single();
+
+  if (error || !company) return null;
+
+  // Owner membership
+  await supabaseAdmin.from('company_memberships').upsert(
+    {
+      company_id: company.id,
+      user_id: userId,
+      role_in_company: 'owner',
+      status: 'active',
+    },
+    { onConflict: 'company_id,user_id' },
+  );
+
+  // Link application → company
+  await supabaseAdmin
+    .from('onboarding_applications')
+    .update({ company_id: company.id })
+    .eq('id', applicationId);
+
+  return company.id as string;
+};
 
 export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options: {
   expectedAccountType: OnboardingAccountType;
@@ -89,7 +166,7 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
     }
 
     if (token && !app.token_activated_at) {
-      const status = app.status === 'draft' ? 'in_progress' : app.status;
+      const status = app.status === 'draft' ? 'in_progress' : normalizeOnboardingStatus(app.status);
       const { data: activated, error: activationError } = await supabaseAdmin
         .from('onboarding_applications')
         .update({
@@ -140,10 +217,11 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
 
     const payloadPatch = patchData.payload ?? {};
 
+    // Only applicant-settable statuses are allowed via PATCH
     const nextStatus =
-      patchData.status && ['draft', 'in_progress', 'request_changes', 'submitted'].includes(patchData.status)
+      patchData.status && ['draft', 'in_progress', 'request_changes'].includes(patchData.status)
         ? patchData.status
-        : existing.status;
+        : normalizeOnboardingStatus(existing.status);
 
     const updatePayload: Record<string, unknown> = {
       last_activity_at: new Date().toISOString(),
@@ -178,7 +256,12 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
 export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options: {
   expectedAccountType: OnboardingAccountType;
   payloadSchema: TPayloadSchema;
-  persist: (args: { userId: string; applicationId: string; payload: z.infer<TPayloadSchema> }) => Promise<void>;
+  persist: (args: {
+    userId: string;
+    applicationId: string;
+    payload: z.infer<TPayloadSchema>;
+    companyId: string | null;
+  }) => Promise<void>;
 }) => {
   const { expectedAccountType, payloadSchema, persist } = options;
 
@@ -208,62 +291,32 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
       return json(400, { error: 'Onboarding payload is incomplete or invalid.', details: payload.error.flatten() });
     }
 
-    const requiresCompanyCreation =
-      expectedAccountType === 'fleet_courier' || expectedAccountType === 'owner_driver';
+    // Customer auto-approves; all other roles go to under_review and need a company
+    const isCustomer = expectedAccountType === 'customer_shipper';
+    const reviewStatus = isCustomer ? 'approved' : 'under_review';
 
-    let companyId: string | null = application.company_id ?? null;
+    let companyId: string | null = (application as Record<string, unknown>).company_id as string | null ?? null;
 
-    if (requiresCompanyCreation) {
-      const { data, error: submitError } = await supabaseAdmin.rpc('submit_onboarding_application', {
-        p_application_id: application.id,
-      });
-
-      if (submitError) {
-        return json(500, {
-          error: 'Failed to create company during onboarding submission.',
-          details: submitError.message,
-        });
+    if (!isCustomer) {
+      companyId = await createOrLinkPendingCompany(
+        authUser.id,
+        application.id,
+        (application.payload ?? {}) as Record<string, unknown>,
+      );
+      if (!companyId) {
+        return json(500, { error: 'Failed to create company during onboarding submission.' });
       }
-
-      companyId = data as string;
     }
 
-    await persist({ userId: authUser.id, applicationId: application.id, payload: payload.data });
+    // Role-specific persistence (driver rows, document stubs, etc.)
+    await persist({ userId: authUser.id, applicationId: application.id, payload: payload.data, companyId });
 
-    if (requiresCompanyCreation) {
-      await supabaseAdmin.from('notification_events').insert({
-        event_type: 'onboarding_submitted',
-        entity_type: 'onboarding_application',
-        entity_id: application.id,
-        recipient_user_id: authUser.id,
-        payload: {
-          onboarding_application_id: application.id,
-          account_type: expectedAccountType,
-          status: 'submitted',
-          company_id: companyId,
-        },
-      });
-
-      return json(200, {
-        status: 'submitted',
-        company_id: companyId,
-      });
-    }
-
-    const reviewStatusByAccountType: Record<OnboardingAccountType, string> = {
-      customer_shipper: 'approved',
-      broker_shipper: 'under_review',
-      fleet_courier: 'submitted',
-      owner_driver: 'submitted',
-    };
-
-    const reviewStatus = reviewStatusByAccountType[expectedAccountType];
-
+    // Unified status update
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('onboarding_applications')
       .update({
         status: reviewStatus,
-        current_step: 'pending_review',
+        current_step: reviewStatus === 'approved' ? 'workspace_unlocked' : 'pending_review',
         completion_percentage: 100,
         submitted_at: new Date().toISOString(),
         last_activity_at: new Date().toISOString(),
@@ -284,12 +337,15 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
         onboarding_application_id: application.id,
         account_type: expectedAccountType,
         status: reviewStatus,
+        company_id: companyId,
       },
     });
 
     return json(200, {
       application: updated,
       status: reviewStatus,
+      company_id: companyId,
     });
   };
 };
+

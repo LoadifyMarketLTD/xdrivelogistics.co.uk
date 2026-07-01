@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
-import { buildDriverAssignmentUpdate } from '../../../lib/jobAssignment';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
 type DiaryJob = {
@@ -71,7 +70,7 @@ type WorkflowAction = {
 type ModalName = 'order' | 'notes' | 'history' | 'documents' | 'pod' | null;
 
 const LANE_CONFIG: Array<{ key: string; label: string; statuses: string[] }> = [
-  { key: 'unallocated', label: 'Unallocated', statuses: ['draft', 'received', 'posted', 'open'] },
+  { key: 'unallocated', label: 'Unallocated', statuses: ['draft', 'received', 'posted', 'open', 'awarded'] },
   { key: 'allocated', label: 'Allocated', statuses: ['allocated'] },
   { key: 'inProgress', label: 'In Progress', statuses: ['on_my_way', 'on_site_pickup', 'loaded', 'on_site_delivery', 'in_transit', 'on_site'] },
   { key: 'completed', label: 'Completed', statuses: ['delivered', 'completed'] },
@@ -84,6 +83,7 @@ const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }>
   received: { label: 'Received', bg: '#fef3c7', color: '#92400e' },
   posted: { label: 'Posted', bg: '#dbeafe', color: '#1e40af' },
   open: { label: 'Open', bg: '#dbeafe', color: '#1e40af' },
+  awarded: { label: 'Awarded', bg: '#f3e8ff', color: '#6d28d9' },
   allocated: { label: 'Allocated', bg: '#e0f2fe', color: '#0369a1' },
   on_my_way: { label: 'On My Way To Pickup', bg: '#dbeafe', color: '#1d4ed8' },
   on_site_pickup: { label: 'On Site Pickup', bg: '#fed7aa', color: '#9a3412' },
@@ -238,12 +238,24 @@ export default function DiaryPage() {
     setActiveModal(null); setSelectedJob(null); setNoteDraft(''); setDocumentName(''); setDocumentFile(null); setPodFile(null); setPodRecipientName(''); setPodSignature(''); setPodNotes(''); setModalBusy(false);
   };
 
+  const getAccessToken = async (): Promise<string | null> => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    return sessionData.session?.access_token ?? null;
+  };
+
   const handleAssignDriver = async (job: DiaryJob) => {
     const selectedDriverId = assignmentDrafts[job.id] ?? '';
     if (!companyId || !selectedDriverId) return;
     setAssigningJobId(job.id); setMessage('');
-    const { error } = await supabase.from('jobs').update(buildDriverAssignmentUpdate({ assignedDriverId: selectedDriverId, currentStatus: job.status })).eq('id', job.id).eq('company_id', companyId);
-    if (error) { setMessage(`Failed to assign driver: ${error.message}`); setAssigningJobId(null); return; }
+    const token = await getAccessToken();
+    if (!token) { setMessage('Session expired. Please sign in again.'); setAssigningJobId(null); return; }
+    const res = await fetch(`/api/admin/jobs/${job.id}/assign-driver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ driver_id: selectedDriverId }),
+    });
+    const resJson = await res.json() as { error?: string };
+    if (!res.ok) { setMessage(resJson.error ?? `Failed to assign driver (${res.status}).`); setAssigningJobId(null); return; }
     setAssignmentDrafts((prev) => ({ ...prev, [job.id]: '' })); setMessage('Driver assigned from diary.'); setAssigningJobId(null); await loadJobs();
   };
 
@@ -419,4 +431,3 @@ const documentRow: CSSProperties = { border: '1px solid #e2e8f0', borderRadius: 
 const mutedText: CSSProperties = { color: '#64748b', fontSize: '0.82rem' };
 const smallTitle: CSSProperties = { fontSize: '0.75rem', color: '#334155', fontWeight: 800, marginBottom: '0.35rem' };
 const preBox: CSSProperties = { margin: 0, padding: '0.75rem', background: '#0f172a', color: '#e2e8f0', borderRadius: '8px', overflow: 'auto', fontSize: '0.74rem' };
-

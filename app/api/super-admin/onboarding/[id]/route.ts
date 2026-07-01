@@ -64,6 +64,107 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   };
 
   const status = statusByAction[parsed.data.action];
+  const isApproveAction = parsed.data.action === 'approve';
+  const isCustomerApplication = application.account_type === 'customer_shipper';
+  let resolvedCompanyId = (application as { company_id?: string | null }).company_id ?? null;
+
+  if (isApproveAction) {
+    // Canonical path: onboarding_applications.company_id
+    if (!resolvedCompanyId && !isCustomerApplication) {
+      // Legacy fallback for pre-link rows only: recover by created_by and immediately backfill company_id.
+      const { data: fallbackCompany, error: fallbackError } = await supabaseAdmin
+        .from('companies')
+        .select('id')
+        .eq('created_by', application.user_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fallbackError) return respond(500, { error: fallbackError.message });
+      if (!fallbackCompany?.id) {
+        return respond(409, {
+          error: 'Approval blocked: onboarding_applications.company_id is missing for this non-customer application.',
+        });
+      }
+
+      resolvedCompanyId = fallbackCompany.id as string;
+      const { error: backfillError } = await supabaseAdmin
+        .from('onboarding_applications')
+        .update({ company_id: resolvedCompanyId })
+        .eq('id', application.id);
+      if (backfillError) return respond(500, { error: backfillError.message });
+    }
+
+    if (resolvedCompanyId) {
+      const { data: company, error: companyError } = await supabaseAdmin
+        .from('companies')
+        .select('id, status')
+        .eq('id', resolvedCompanyId)
+        .maybeSingle();
+      if (companyError) return respond(500, { error: companyError.message });
+      if (!company?.id) {
+        return respond(409, {
+          error: 'Approval blocked: linked company does not exist for onboarding_applications.company_id.',
+        });
+      }
+
+      const { data: applicantProfile, error: applicantProfileError } = await supabaseAdmin
+        .from('profiles')
+        .select('user_id, company_id')
+        .eq('user_id', application.user_id)
+        .maybeSingle();
+      if (applicantProfileError) return respond(500, { error: applicantProfileError.message });
+      if (!applicantProfile?.user_id) {
+        return respond(409, { error: 'Approval blocked: applicant profile is missing.' });
+      }
+
+      if (String(applicantProfile.company_id ?? '') !== String(resolvedCompanyId)) {
+        const { error: profileSyncError } = await supabaseAdmin
+          .from('profiles')
+          .update({ company_id: resolvedCompanyId })
+          .eq('user_id', application.user_id);
+        if (profileSyncError) return respond(500, { error: profileSyncError.message });
+      }
+
+      const { data: membership, error: membershipLookupError } = await supabaseAdmin
+        .from('company_memberships')
+        .select('id')
+        .eq('company_id', resolvedCompanyId)
+        .eq('user_id', application.user_id)
+        .maybeSingle();
+      if (membershipLookupError) return respond(500, { error: membershipLookupError.message });
+
+      if (!membership?.id) {
+        const { error: membershipUpsertError } = await supabaseAdmin
+          .from('company_memberships')
+          .upsert(
+            {
+              company_id: resolvedCompanyId,
+              user_id: application.user_id,
+              role_in_company: 'owner',
+              status: 'active',
+            },
+            { onConflict: 'company_id,user_id' },
+          );
+        if (membershipUpsertError) return respond(500, { error: membershipUpsertError.message });
+      }
+
+      if (String(company.status ?? '').toLowerCase() !== 'active') {
+        const { error: companyStatusError } = await supabaseAdmin.rpc('set_company_status_governance', {
+          p_actor_user_id: authData.user.id,
+          p_target_company_id: resolvedCompanyId,
+          p_action_type: 'company_approved',
+          p_new_status: 'active',
+          p_reason: parsed.data.notes?.trim() || 'Onboarding approved',
+        });
+        if (companyStatusError) return respond(500, { error: companyStatusError.message });
+      }
+    } else if (!isCustomerApplication) {
+      return respond(409, {
+        error: 'Approval blocked: onboarding_applications.company_id is required for non-customer applications.',
+      });
+    }
+  }
 
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('onboarding_applications')
@@ -75,6 +176,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       current_step: status === 'approved' ? 'workspace_unlocked' : 'pending_review',
       completion_percentage: status === 'approved' ? 100 : application.completion_percentage,
       last_activity_at: new Date().toISOString(),
+      ...(resolvedCompanyId ? { company_id: resolvedCompanyId } : {}),
     })
     .eq('id', application.id)
     .select('*')
@@ -82,24 +184,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   if (updateError) return respond(500, { error: updateError.message });
 
-  if (parsed.data.action === 'approve') {
-    const { data: company } = await supabaseAdmin
-      .from('companies')
-      .select('id, status')
-      .eq('created_by', application.user_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (company?.id && String(company.status ?? '').toLowerCase() !== 'active') {
-      await supabaseAdmin.rpc('set_company_status_governance', {
-        p_actor_user_id: authData.user.id,
-        p_target_company_id: company.id,
-        p_action_type: 'company_approved',
-        p_new_status: 'active',
-        p_reason: parsed.data.notes?.trim() || 'Onboarding approved',
-      });
-    }
+  if (isApproveAction) {
+    const { error: notificationError } = await supabaseAdmin.from('notification_events').insert({
+      event_type: 'onboarding_approved',
+      entity_type: 'onboarding_application',
+      entity_id: application.id,
+      recipient_user_id: application.user_id,
+      payload: {
+        onboarding_application_id: application.id,
+        company_id: resolvedCompanyId,
+        approved_by: authData.user.id,
+      },
+    });
+    if (notificationError) return respond(500, { error: notificationError.message });
   }
 
   return respond(200, {

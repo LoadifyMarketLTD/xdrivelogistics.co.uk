@@ -94,7 +94,8 @@ export interface OnboardingApplication {
   user_id: string;
   email: string;
   account_type: 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver';
-  status: 'draft' | 'in_progress' | 'submitted' | 'under_review' | 'compliance_review' | 'admin_approval' | 'approved' | 'rejected' | 'request_changes';
+  status: 'invited' | 'draft' | 'in_progress' | 'under_review' | 'approved' | 'rejected' | 'request_changes';
+  company_id: string | null;
   current_step: string;
   completion_percentage: number;
   token_hash: string | null;
@@ -135,7 +136,7 @@ export interface CompanyDocument {
 export interface DriverIdentityDocument {
   id: string;
   onboarding_application_id: string;
-  doc_type: 'driving_licence' | 'cpc' | 'proof_of_address' | 'right_to_work' | 'visa_document' | 'insurance';
+  doc_type: 'driving_licence' | 'cpc' | 'proof_of_address' | 'insurance' | 'right_to_work' | 'visa_document';
   file_path: string | null;
   upload_status: 'missing' | 'uploaded';
   verification_status: 'unverified' | 'under_review' | 'verified' | 'rejected';
