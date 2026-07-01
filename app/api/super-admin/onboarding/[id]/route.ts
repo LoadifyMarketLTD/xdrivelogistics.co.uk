@@ -185,7 +185,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (updateError) return respond(500, { error: updateError.message });
 
   if (isApproveAction) {
-    await supabaseAdmin.from('notification_events').insert({
+    const { error: notificationError } = await supabaseAdmin.from('notification_events').insert({
       event_type: 'onboarding_approved',
       entity_type: 'onboarding_application',
       entity_id: application.id,
@@ -196,6 +196,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         approved_by: authData.user.id,
       },
     });
+    if (notificationError) return respond(500, { error: notificationError.message });
   }
 
   return respond(200, {
