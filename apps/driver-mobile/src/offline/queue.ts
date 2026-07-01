@@ -41,6 +41,13 @@ export async function enqueueAction(action: Omit<QueuedAction, 'id' | 'status' |
   return queued;
 }
 
+export async function updateQueueItem(id: string, patch: Partial<QueuedAction>) {
+  const queue = await getQueue();
+  const next = queue.map((item) => (item.id === id ? { ...item, ...patch } : item));
+  await saveQueue(next);
+  return next;
+}
+
 export async function isOnline() {
   const state = await Network.getNetworkStateAsync();
   return Boolean(state.isConnected && state.isInternetReachable !== false);
