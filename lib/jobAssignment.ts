@@ -1,4 +1,4 @@
-export const PRE_ALLOCATION_JOB_STATUSES = new Set(['draft', 'posted', 'received']);
+export const PRE_ALLOCATION_JOB_STATUSES = new Set(['draft', 'posted', 'received', 'awarded']);
 
 export const buildDriverAssignmentUpdate = ({
   assignedDriverId,
