@@ -1,5 +1,8 @@
 export const PRE_ALLOCATION_JOB_STATUSES = new Set(['draft', 'posted', 'received', 'awarded']);
 
+/** Statuses from which a driver may be assigned (carrier workspace). */
+export const ASSIGNABLE_JOB_STATUSES = new Set(['draft', 'posted', 'received', 'awarded', 'open']);
+
 export const buildDriverAssignmentUpdate = ({
   assignedDriverId,
   currentStatus,
