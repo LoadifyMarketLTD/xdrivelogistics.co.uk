@@ -15,7 +15,6 @@ const config: ExpoConfig = {
   },
   android: {
     package: 'co.uk.xdrivelogistics.driver',
-    versionCode: 1,
     permissions: ['CAMERA', 'POST_NOTIFICATIONS', 'ACCESS_NETWORK_STATE'],
   },
   plugins: ['expo-secure-store', 'expo-image-picker', 'expo-document-picker', 'expo-notifications'],
