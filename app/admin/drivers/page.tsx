@@ -7,6 +7,9 @@ import type { Driver, Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
 import { getMissingColumnFromError, selectWithMissingColumnFallback } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
+import { useAdminCompanyContext } from '../_hooks/useAdminCompanyContext';
+import { usePasswordSetup } from '../_hooks/usePasswordSetup';
+import { getAccessToken } from '../_lib/getAccessToken';
 
 const DRIVER_SELECT_COLUMNS = [
   'id',
@@ -23,13 +26,10 @@ const DRIVER_SELECT_COLUMNS = [
   'last_app_login',
   'created_at',
 ];
-const PASSWORD_SETUP_RESEND_COOLDOWN_MS = 60_000;
 
 export default function DriversPage() {
-  const { user, hasSupabaseSession } = useAuth();
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [companyResolved, setCompanyResolved] = useState(false);
-  const [companyError, setCompanyError] = useState('');
+  const { user } = useAuth();
+  const { companyId, companyResolved, companyError } = useAdminCompanyContext();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [companies, setCompanies] = useState<Pick<Company, 'id' | 'name'>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,19 +44,19 @@ export default function DriversPage() {
   const [editError, setEditError] = useState('');
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [createdCredentials, setCreatedCredentials] = useState<{
-    displayName: string;
-    email: string;
-    onboardingOutcome: 'invite_sent' | 'password_setup_required' | 'temporary_password_created';
-    temporaryPassword: string | null;
-    inviteFallbackReason: string | null;
-  } | null>(null);
-  const [copiedTemporaryPassword, setCopiedTemporaryPassword] = useState(false);
-  const [passwordSetupState, setPasswordSetupState] = useState<{ status: 'idle' | 'sending' | 'sent' | 'error'; message: string }>({
-    status: 'idle',
-    message: '',
-  });
-  const [passwordSetupCooldownUntil, setPasswordSetupCooldownUntil] = useState(0);
+
+  const {
+    credentials: createdCredentials,
+    setCredentials: setCreatedCredentials,
+    copiedTemporaryPassword,
+    setCopiedTemporaryPassword,
+    passwordSetupState,
+    setPasswordSetupState,
+    passwordSetupCooldownUntil,
+    resetSetupState,
+    handleCopyTemporaryPassword,
+    handleSendPasswordSetup,
+  } = usePasswordSetup({ endpoint: '/api/admin/drivers', companyId, membershipId: user?.membershipId });
 
   const loadDrivers = async (resolvedCompanyId: string) => {
     setLoading(true);
@@ -137,29 +137,6 @@ export default function DriversPage() {
   };
 
   useEffect(() => {
-    if (!hasSupabaseSession || !user?.id) {
-      setCompanyId(null);
-      setCompanyResolved(false);
-      setCompanyError('');
-      setDrivers([]);
-      setCompanies([]);
-      setLoading(true);
-      return;
-    }
-
-    setCompanyError('');
-    if (user.companyId) {
-      setCompanyId(user.companyId);
-      setCompanyResolved(true);
-      return;
-    }
-
-    setCompanyId(null);
-    setCompanyResolved(true);
-    setCompanyError('Company profile not available. Drivers are hidden until company access resolves.');
-  }, [hasSupabaseSession, user?.id, user?.companyId]);
-
-  useEffect(() => {
     if (!companyResolved) return;
     if (!companyId) {
       setDrivers([]);
@@ -168,52 +145,11 @@ export default function DriversPage() {
       return;
     }
     void Promise.all([loadDrivers(companyId), loadCompanies(companyId)]);
-  }, [companyResolved, companyId]);
+  }, [companyResolved, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setDriverPage(0);
   }, [activeTab]);
-
-  const getAccessToken = async (): Promise<{ accessToken: string | null; error: string | null }> => {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) return { accessToken: null, error: sessionError.message };
-    if (sessionData.session?.access_token) return { accessToken: sessionData.session.access_token, error: null };
-    return { accessToken: null, error: 'Session expired. Please sign in again.' };
-  };
-
-  const createDriverWithToken = async (
-    accessToken: string,
-    payload: {
-      companyId: string;
-      membershipId: string | null;
-      displayName: string;
-      email: string;
-      phone: string | null;
-    }
-  ) => fetch('/api/admin/drivers', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + accessToken,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const sendPasswordSetupWithToken = async (
-    accessToken: string,
-    payload: {
-      companyId: string;
-      membershipId: string | null;
-      email: string;
-    }
-  ) => fetch('/api/admin/drivers', {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + accessToken,
-    },
-    body: JSON.stringify(payload),
-  });
 
   const handleCreate = async () => {
     if (!formData.display_name.trim()) { setError('Driver name is required'); return; }
@@ -245,7 +181,14 @@ export default function DriversPage() {
         rlsPolicy: 'drivers_insert_operator',
       });
 
-      const response = await createDriverWithToken(accessToken, requestPayload);
+      const response = await fetch('/api/admin/drivers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + accessToken,
+        },
+        body: JSON.stringify(requestPayload),
+      });
 
       const payload = await response.json().catch(() => ({} as {
         error?: string;
@@ -350,92 +293,7 @@ export default function DriversPage() {
   const closeModal = () => {
     setShowModal(false);
     setError('');
-    setCreatedCredentials(null);
-    setCopiedTemporaryPassword(false);
-    setPasswordSetupState({ status: 'idle', message: '' });
-    setPasswordSetupCooldownUntil(0);
-  };
-
-  const handleCopyTemporaryPassword = async () => {
-    if (!createdCredentials?.temporaryPassword) return;
-
-    try {
-      await navigator.clipboard.writeText(createdCredentials.temporaryPassword);
-      setCopiedTemporaryPassword(true);
-    } catch {
-      setCopiedTemporaryPassword(false);
-      setPasswordSetupState({
-        status: 'error',
-        message: 'Failed to copy the temporary password. Copy it manually before closing this modal.',
-      });
-    }
-  };
-
-  const handleSendPasswordSetup = async () => {
-    if (!companyId || !createdCredentials || !isSupabaseConfigured) return;
-    const cooldownRemainingMs = passwordSetupCooldownUntil - Date.now();
-    if (cooldownRemainingMs > 0) {
-      const waitSeconds = Math.ceil(cooldownRemainingMs / 1000);
-      setPasswordSetupState({
-        status: 'error',
-        message: `Please wait ${waitSeconds}s before requesting another password setup email.`,
-      });
-      return;
-    }
-
-    const { accessToken, error: accessTokenError } = await getAccessToken();
-    if (accessTokenError || !accessToken) {
-      setPasswordSetupState({
-        status: 'error',
-        message: accessTokenError ?? 'Session expired. Please sign in again.',
-      });
-      return;
-    }
-
-    setPasswordSetupState({ status: 'sending', message: '' });
-
-    try {
-      const response = await sendPasswordSetupWithToken(accessToken, {
-        companyId,
-        membershipId: user?.membershipId ?? null,
-        email: createdCredentials.email,
-      });
-
-      const payload = await response.json().catch(() => ({} as { error?: string }));
-
-      if (!response.ok) {
-        const rawMessage = payload.error || 'Failed to send password setup email.';
-        const lowered = rawMessage.toLowerCase();
-        if (
-          lowered.includes('rate limit') ||
-          lowered.includes('security purposes') ||
-          lowered.includes('too many')
-        ) {
-          setPasswordSetupCooldownUntil(Date.now() + PASSWORD_SETUP_RESEND_COOLDOWN_MS);
-          setPasswordSetupState({
-            status: 'error',
-            message: 'Please wait before resending. This action is temporarily rate-limited.',
-          });
-          return;
-        }
-        setPasswordSetupState({
-          status: 'error',
-          message: rawMessage,
-        });
-        return;
-      }
-
-      setPasswordSetupCooldownUntil(Date.now() + PASSWORD_SETUP_RESEND_COOLDOWN_MS);
-      setPasswordSetupState({
-        status: 'sent',
-        message: 'Password setup email sent successfully. Please wait before resending.',
-      });
-    } catch (requestError) {
-      setPasswordSetupState({
-        status: 'error',
-        message: requestError instanceof Error ? requestError.message : 'Failed to send password setup email.',
-      });
-    }
+    resetSetupState();
   };
 
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const };

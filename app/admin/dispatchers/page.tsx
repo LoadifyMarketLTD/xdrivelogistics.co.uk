@@ -6,31 +6,21 @@ import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { CompanyMembership } from '../../../lib/types/database';
 import { getMissingColumnFromError, selectWithMissingColumnFallback } from '../../../lib/supabaseSchemaCompat';
+import { useAdminCompanyContext } from '../_hooks/useAdminCompanyContext';
+import { usePasswordSetup } from '../_hooks/usePasswordSetup';
+import { getAccessToken } from '../_lib/getAccessToken';
 
 type DispatcherMembership = Pick<
   CompanyMembership,
   'id' | 'company_id' | 'user_id' | 'invited_email' | 'role_in_company' | 'status' | 'created_at'
 >;
 
-type DispatcherOutcome = 'invite_sent' | 'password_setup_required' | 'temporary_password_created';
-
-type DispatcherSuccessState = {
-  displayName: string;
-  email: string;
-  temporaryPassword: string | null;
-  inviteFallbackReason: string | null;
-  onboardingOutcome: DispatcherOutcome;
-};
-
 const DISPATCHER_SELECT_COLUMNS = ['id', 'company_id', 'user_id', 'invited_email', 'role_in_company', 'status', 'created_at'];
-const PASSWORD_SETUP_RESEND_COOLDOWN_MS = 60_000;
 
 export default function DispatchersPage() {
-  const { user, hasSupabaseSession } = useAuth();
+  const { user } = useAuth();
+  const { companyId, companyResolved, companyError } = useAdminCompanyContext();
   const canManageDispatchers = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [companyResolved, setCompanyResolved] = useState(false);
-  const [companyError, setCompanyError] = useState('');
   const [companyName, setCompanyName] = useState('Company linked to your account');
   const [dispatchers, setDispatchers] = useState<DispatcherMembership[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,15 +28,21 @@ export default function DispatchersPage() {
   const [formData, setFormData] = useState({ display_name: '', phone: '', email: '' });
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
-  const [createdDispatcher, setCreatedDispatcher] = useState<DispatcherSuccessState | null>(null);
-  const [copiedTemporaryPassword, setCopiedTemporaryPassword] = useState(false);
   const DISPATCHERS_PER_PAGE = 12;
   const [dispatcherPage, setDispatcherPage] = useState(0);
-  const [passwordSetupState, setPasswordSetupState] = useState<{ status: 'idle' | 'sending' | 'sent' | 'error'; message: string }>({
-    status: 'idle',
-    message: '',
-  });
-  const [passwordSetupCooldownUntil, setPasswordSetupCooldownUntil] = useState(0);
+
+  const {
+    credentials: createdDispatcher,
+    setCredentials: setCreatedDispatcher,
+    copiedTemporaryPassword,
+    setCopiedTemporaryPassword,
+    passwordSetupState,
+    setPasswordSetupState,
+    passwordSetupCooldownUntil,
+    resetSetupState,
+    handleCopyTemporaryPassword,
+    handleSendPasswordSetup,
+  } = usePasswordSetup({ endpoint: '/api/admin/dispatchers', companyId, membershipId: user?.membershipId });
 
   const loadDispatchers = async (resolvedCompanyId: string) => {
     setLoading(true);
@@ -128,29 +124,6 @@ export default function DispatchersPage() {
   };
 
   useEffect(() => {
-    if (!hasSupabaseSession || !user?.id) {
-      setCompanyId(null);
-      setCompanyResolved(false);
-      setCompanyError('');
-      setDispatchers([]);
-      setCompanyName('Company linked to your account');
-      setLoading(true);
-      return;
-    }
-
-    setCompanyError('');
-    if (user.companyId) {
-      setCompanyId(user.companyId);
-      setCompanyResolved(true);
-      return;
-    }
-
-    setCompanyId(null);
-    setCompanyResolved(true);
-    setCompanyError('Company profile not available. Dispatcher onboarding is hidden until company access resolves.');
-  }, [hasSupabaseSession, user?.id, user?.companyId]);
-
-  useEffect(() => {
     if (!companyResolved) return;
     if (!companyId) {
       setDispatchers([]);
@@ -159,50 +132,7 @@ export default function DispatchersPage() {
     }
 
     void Promise.all([loadDispatchers(companyId), loadCompanyName(companyId)]);
-  }, [companyResolved, companyId]);
-
-  const getAccessToken = async (): Promise<{ accessToken: string | null; error: string | null }> => {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) return { accessToken: null, error: sessionError.message };
-    if (sessionData.session?.access_token) return { accessToken: sessionData.session.access_token, error: null };
-    return { accessToken: null, error: 'Session expired. Please sign in again.' };
-  };
-
-  const createDispatcherWithToken = async (
-    accessToken: string,
-    payload: {
-      companyId: string;
-      membershipId: string | null;
-      displayName: string;
-      email: string;
-      phone: string | null;
-    }
-  ) =>
-    fetch('/api/admin/dispatchers', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + accessToken,
-      },
-      body: JSON.stringify(payload),
-    });
-
-  const sendPasswordSetupWithToken = async (
-    accessToken: string,
-    payload: {
-      companyId: string;
-      membershipId: string | null;
-      email: string;
-    }
-  ) =>
-    fetch('/api/admin/dispatchers', {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + accessToken,
-      },
-      body: JSON.stringify(payload),
-    });
+  }, [companyResolved, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!formData.display_name.trim()) {
@@ -230,17 +160,24 @@ export default function DispatchersPage() {
         return;
       }
 
-      const response = await createDispatcherWithToken(accessToken, {
-        companyId,
-        membershipId: user?.membershipId ?? null,
-        displayName: formData.display_name.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim() || null,
+      const response = await fetch('/api/admin/dispatchers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + accessToken,
+        },
+        body: JSON.stringify({
+          companyId,
+          membershipId: user?.membershipId ?? null,
+          displayName: formData.display_name.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim() || null,
+        }),
       });
 
       const payload = await response.json().catch(() => ({} as {
         error?: string;
-        onboardingOutcome?: DispatcherOutcome;
+        onboardingOutcome?: 'invite_sent' | 'password_setup_required' | 'temporary_password_created';
         temporaryPassword?: string | null;
         inviteFallbackReason?: string | null;
       }));
@@ -267,95 +204,10 @@ export default function DispatchersPage() {
     }
   };
 
-  const handleSendPasswordSetup = async () => {
-    if (!companyId || !createdDispatcher || !isSupabaseConfigured) return;
-    const cooldownRemainingMs = passwordSetupCooldownUntil - Date.now();
-    if (cooldownRemainingMs > 0) {
-      const waitSeconds = Math.ceil(cooldownRemainingMs / 1000);
-      setPasswordSetupState({
-        status: 'error',
-        message: `Please wait ${waitSeconds}s before requesting another password setup email.`,
-      });
-      return;
-    }
-
-    const { accessToken, error: accessTokenError } = await getAccessToken();
-    if (accessTokenError || !accessToken) {
-      setPasswordSetupState({
-        status: 'error',
-        message: accessTokenError ?? 'Session expired. Please sign in again.',
-      });
-      return;
-    }
-
-    setPasswordSetupState({ status: 'sending', message: '' });
-
-    try {
-      const response = await sendPasswordSetupWithToken(accessToken, {
-        companyId,
-        membershipId: user?.membershipId ?? null,
-        email: createdDispatcher.email,
-      });
-
-      const payload = await response.json().catch(() => ({} as { error?: string }));
-
-      if (!response.ok) {
-        const rawMessage = payload.error || 'Failed to send password setup email.';
-        const lowered = rawMessage.toLowerCase();
-        if (
-          lowered.includes('rate limit') ||
-          lowered.includes('security purposes') ||
-          lowered.includes('too many')
-        ) {
-          setPasswordSetupCooldownUntil(Date.now() + PASSWORD_SETUP_RESEND_COOLDOWN_MS);
-          setPasswordSetupState({
-            status: 'error',
-            message: 'Please wait before resending. This action is temporarily rate-limited.',
-          });
-          return;
-        }
-        setPasswordSetupState({
-          status: 'error',
-          message: rawMessage,
-        });
-        return;
-      }
-
-      setPasswordSetupCooldownUntil(Date.now() + PASSWORD_SETUP_RESEND_COOLDOWN_MS);
-      setPasswordSetupState({
-        status: 'sent',
-        message: 'Password setup email sent successfully. Please wait before resending.',
-      });
-    } catch (requestError) {
-      setPasswordSetupState({
-        status: 'error',
-        message: requestError instanceof Error ? requestError.message : 'Failed to send password setup email.',
-      });
-    }
-  };
-
-  const handleCopyTemporaryPassword = async () => {
-    if (!createdDispatcher?.temporaryPassword) return;
-
-    try {
-      await navigator.clipboard.writeText(createdDispatcher.temporaryPassword);
-      setCopiedTemporaryPassword(true);
-    } catch {
-      setCopiedTemporaryPassword(false);
-      setPasswordSetupState({
-        status: 'error',
-        message: 'Failed to copy the temporary password. Copy it manually before closing this modal.',
-      });
-    }
-  };
-
   const closeModal = () => {
     setShowModal(false);
     setError('');
-    setCreatedDispatcher(null);
-    setCopiedTemporaryPassword(false);
-    setPasswordSetupState({ status: 'idle', message: '' });
-    setPasswordSetupCooldownUntil(0);
+    resetSetupState();
   };
 
   const formatDate = (value: string | null | undefined) => {

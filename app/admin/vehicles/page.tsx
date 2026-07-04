@@ -8,16 +8,15 @@ import type { Vehicle, VehicleType, Company } from '../../../lib/types/database'
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
 
+import { useAdminCompanyContext } from '../_hooks/useAdminCompanyContext';
+
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
 interface DriverOption { id: string; display_name: string; }
 
 export default function VehiclesPage() {
-  const { user, hasSupabaseSession } = useAuth();
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [companyResolved, setCompanyResolved] = useState(false);
-  const [companyError, setCompanyError] = useState('');
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const { user } = useAuth();
+  const { companyId, companyResolved, companyError } = useAdminCompanyContext();  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,30 +103,6 @@ export default function VehiclesPage() {
     }
     if (data) setDrivers(data as DriverOption[]);
   };
-
-  useEffect(() => {
-    if (!hasSupabaseSession || !user?.id) {
-      setCompanyId(null);
-      setCompanyResolved(false);
-      setCompanyError('');
-      setVehicles([]);
-      setDrivers([]);
-      setCompanies([]);
-      setLoading(true);
-      return;
-    }
-
-    setCompanyError('');
-    if (user.companyId) {
-      setCompanyId(user.companyId);
-      setCompanyResolved(true);
-      return;
-    }
-
-    setCompanyId(null);
-    setCompanyResolved(true);
-    setCompanyError('Company profile not available. Vehicles are hidden until company access resolves.');
-  }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   useEffect(() => {
     if (!companyResolved) return;
