@@ -11,9 +11,7 @@
       },
       "env": {
         "APP_ENV": "preview",
-        "EXPO_PUBLIC_API_BASE_URL": "https://xdrivelogistics.co.uk",
-        "EXPO_PUBLIC_SUPABASE_URL": "",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": ""
+        "EXPO_PUBLIC_API_BASE_URL": "https://xdrivelogistics.co.uk"
       }
     },
     "production": {
@@ -24,9 +22,7 @@
       },
       "env": {
         "APP_ENV": "production",
-        "EXPO_PUBLIC_API_BASE_URL": "https://xdrivelogistics.co.uk",
-        "EXPO_PUBLIC_SUPABASE_URL": "",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": ""
+        "EXPO_PUBLIC_API_BASE_URL": "https://xdrivelogistics.co.uk"
       }
     }
   },

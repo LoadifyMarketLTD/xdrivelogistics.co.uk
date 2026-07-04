@@ -1,18 +1,12 @@
 import 'react-native-url-polyfill/auto';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
 import { createClient } from '@supabase/supabase-js';
 
-const extra = Constants.expoConfig?.extra ?? {};
-// Use direct process.env access so Metro/EAS statically inlines the values at bundle time.
-// Dynamic property access (e.g. via a cast variable) is NOT inlined by the Metro bundler.
-const supabaseUrl = (typeof extra.supabaseUrl === 'string' && extra.supabaseUrl)
-  ? extra.supabaseUrl
-  : (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '');
-const supabaseAnonKey = (typeof extra.supabaseAnonKey === 'string' && extra.supabaseAnonKey)
-  ? extra.supabaseAnonKey
-  : (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '');
+// Metro/EAS statically inlines EXPO_PUBLIC_* variables at bundle time.
+// Using direct property access (not a variable) is required for Metro to inline them.
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
