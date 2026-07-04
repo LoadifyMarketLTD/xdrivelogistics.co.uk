@@ -46,13 +46,16 @@ npm run mobile:apk
 - `preview`: Android APK for internal testing.
 - `production`: Android App Bundle for Play Store release.
 
-Before the first cloud build, set these EAS environment variables for the selected profile:
+Before the first cloud build, register the Supabase credentials as **EAS secrets** (they are injected automatically during the build and override the empty placeholder values in `eas.json`):
 
 ```bash
-EXPO_PUBLIC_API_BASE_URL=https://xdrivelogistics.co.uk
-EXPO_PUBLIC_SUPABASE_URL=<production-supabase-url>
-EXPO_PUBLIC_SUPABASE_ANON_KEY=<production-supabase-anon-key>
+eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_URL --value "<your-supabase-url>"
+eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "<your-supabase-anon-key>"
 ```
+
+`EXPO_PUBLIC_API_BASE_URL` is already set to `https://xdrivelogistics.co.uk` in `eas.json` and does not need a separate secret.
+
+> **Why EAS secrets?** Metro statically inlines `process.env.EXPO_PUBLIC_*` at bundle time. If these env vars are absent during the EAS cloud build, the Supabase client is initialised with empty credentials (`isSupabaseConfigured = false`), login is blocked, and all API calls return `401 Missing bearer token`.
 
 For Android credentials, EAS can generate and manage the keystore during the first build. Do not lose the Expo account access because that keystore signs future Android releases.
 

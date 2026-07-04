@@ -5,16 +5,14 @@ import Constants from 'expo-constants';
 import { createClient } from '@supabase/supabase-js';
 
 const extra = Constants.expoConfig?.extra ?? {};
-const env: Partial<Record<'EXPO_PUBLIC_SUPABASE_URL' | 'EXPO_PUBLIC_SUPABASE_ANON_KEY', string>> =
-  typeof process !== 'undefined'
-    ? (process.env as unknown as Partial<Record<'EXPO_PUBLIC_SUPABASE_URL' | 'EXPO_PUBLIC_SUPABASE_ANON_KEY', string>>)
-    : {};
-const supabaseUrl = typeof extra.supabaseUrl === 'string' && extra.supabaseUrl
+// Use direct process.env access so Metro/EAS statically inlines the values at bundle time.
+// Dynamic property access (e.g. via a cast variable) is NOT inlined by the Metro bundler.
+const supabaseUrl = (typeof extra.supabaseUrl === 'string' && extra.supabaseUrl)
   ? extra.supabaseUrl
-  : env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = typeof extra.supabaseAnonKey === 'string' && extra.supabaseAnonKey
+  : (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '');
+const supabaseAnonKey = (typeof extra.supabaseAnonKey === 'string' && extra.supabaseAnonKey)
   ? extra.supabaseAnonKey
-  : env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+  : (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '');
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 

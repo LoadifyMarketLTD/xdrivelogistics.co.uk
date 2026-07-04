@@ -65,6 +65,14 @@ export default function DriverMobileApp() {
       })
       .catch(() => setScreen('login'));
     void getQueue().then(setQueue).catch(() => setQueue([]));
+
+    // Keep token state in sync whenever Supabase silently refreshes the session
+    // (access tokens expire after ~1 hour; without this the app sends stale JWTs).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setToken(session?.access_token ?? null);
+      if (!session) setScreen('login');
+    });
+    return () => subscription.unsubscribe();
   }, [flushQueue, loadJobs]);
 
   async function signIn(email: string, password: string) {
