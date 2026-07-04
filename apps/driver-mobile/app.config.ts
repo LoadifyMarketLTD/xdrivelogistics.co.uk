@@ -1,4 +1,14 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { ExpoConfig } from 'expo/config';
+
+const expoPlugins = [
+  'expo-asset',
+  'expo-secure-store',
+  'expo-image-picker',
+  'expo-document-picker',
+  'expo-notifications',
+].filter((plugin) => existsSync(join(process.cwd(), 'node_modules', plugin, 'package.json')));
 
 const config: ExpoConfig = {
   name: 'XDrive Driver',
@@ -17,7 +27,7 @@ const config: ExpoConfig = {
     package: 'co.uk.xdrivelogistics.driver',
     permissions: ['CAMERA', 'POST_NOTIFICATIONS', 'ACCESS_NETWORK_STATE'],
   },
-  plugins: ['expo-asset', 'expo-secure-store', 'expo-image-picker', 'expo-document-picker', 'expo-notifications'],
+  plugins: expoPlugins,
   extra: {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://xdrivelogistics.co.uk',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
