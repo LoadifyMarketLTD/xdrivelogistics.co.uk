@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { fetchJobs, postJobStatus, uploadPod } from '../api/jobs';
+import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
 import { isSupabaseConfigured, supabase } from '../auth/supabase';
 import { getNextStep } from '../jobs/statusFlow';
 import type { DriverJob, JobScope } from '../jobs/types';
@@ -57,19 +58,29 @@ export default function DriverMobileApp() {
     void supabase.auth.getSession()
       .then(({ data }) => {
         const sessionToken = data.session?.access_token ?? null;
-        if (!sessionToken) return;
+        if (!sessionToken) {
+          void clearSessionToken();
+          return;
+        }
         setToken(sessionToken);
+        void saveSessionToken(sessionToken);
         void loadJobs(sessionToken);
         void safeRegisterPushToken(sessionToken);
         void flushQueue(sessionToken);
       })
-      .catch(() => setScreen('login'));
+      .catch(() => {
+        void clearSessionToken();
+        setScreen('login');
+      });
     void getQueue().then(setQueue).catch(() => setQueue([]));
 
     // Keep token state in sync whenever Supabase silently refreshes the session
     // (access tokens expire after ~1 hour; without this the app sends stale JWTs).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setToken(session?.access_token ?? null);
+      const nextToken = session?.access_token ?? null;
+      setToken(nextToken);
+      if (nextToken) void saveSessionToken(nextToken);
+      else void clearSessionToken();
       if (!session) setScreen('login');
     });
     return () => subscription.unsubscribe();
@@ -89,12 +100,14 @@ export default function DriverMobileApp() {
       return;
     }
     setToken(data.session.access_token);
+    await saveSessionToken(data.session.access_token);
     void safeRegisterPushToken(data.session.access_token);
     await loadJobs(data.session.access_token);
   }
 
   async function signOut() {
     await supabase.auth.signOut();
+    await clearSessionToken();
     await saveQueue([]);
     setToken(null);
     setJob(null);
