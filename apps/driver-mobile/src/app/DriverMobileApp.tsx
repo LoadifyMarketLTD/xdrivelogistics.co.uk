@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
-import * as ImagePicker from 'expo-image-picker';
 
 import { fetchJobs, postJobStatus, uploadPod } from '../api/jobs';
 import { isSupabaseConfigured, supabase } from '../auth/supabase';
 import { getNextStep } from '../jobs/statusFlow';
 import type { DriverJob, JobScope } from '../jobs/types';
 import { enqueueAction, getQueue, isOnline, saveQueue, updateQueueItem, type QueuedAction } from '../offline/queue';
-import { registerPushToken } from '../push/registerPushToken';
 import { colors, spacing } from '../ui/theme';
 
 type Screen = 'login' | 'active' | 'jobs' | 'detail' | 'pod' | 'notifications' | 'profile';
@@ -57,15 +54,17 @@ export default function DriverMobileApp() {
   }, [loadJobs]);
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => {
-      const sessionToken = data.session?.access_token ?? null;
-      if (!sessionToken) return;
-      setToken(sessionToken);
-      void loadJobs(sessionToken);
-      void registerPushToken(sessionToken).catch(() => undefined);
-      void flushQueue(sessionToken);
-    });
-    void getQueue().then(setQueue);
+    void supabase.auth.getSession()
+      .then(({ data }) => {
+        const sessionToken = data.session?.access_token ?? null;
+        if (!sessionToken) return;
+        setToken(sessionToken);
+        void loadJobs(sessionToken);
+        void safeRegisterPushToken(sessionToken);
+        void flushQueue(sessionToken);
+      })
+      .catch(() => setScreen('login'));
+    void getQueue().then(setQueue).catch(() => setQueue([]));
   }, [flushQueue, loadJobs]);
 
   async function signIn(email: string, password: string) {
@@ -82,7 +81,7 @@ export default function DriverMobileApp() {
       return;
     }
     setToken(data.session.access_token);
-    void registerPushToken(data.session.access_token).catch(() => undefined);
+    void safeRegisterPushToken(data.session.access_token);
     await loadJobs(data.session.access_token);
   }
 
@@ -197,6 +196,7 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
   const [notes, setNotes] = useState('');
 
   async function addPhoto() {
+    const ImagePicker = await import('expo-image-picker');
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) return Alert.alert('Camera required', 'Camera permission is required for POD photos.');
     const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
@@ -204,6 +204,7 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
   }
 
   async function addDocument() {
+    const DocumentPicker = await import('expo-document-picker');
     const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
     if (!result.canceled) setDocumentUris((items) => [...items, ...result.assets.map((asset) => asset.uri)]);
   }
@@ -257,6 +258,15 @@ function StatusPill({ label, tone }: { label: string; tone: 'primary' | 'success
 function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) { return <TouchableOpacity style={[styles.primaryButton, disabled && styles.disabled]} onPress={onPress} disabled={disabled}><Text style={styles.primaryText}>{label}</Text></TouchableOpacity>; }
 function SecondaryButton({ label, onPress }: { label: string; onPress: () => void }) { return <TouchableOpacity style={styles.secondaryButton} onPress={onPress}><Text style={styles.secondaryText}>{label}</Text></TouchableOpacity>; }
 function SmallButton({ label, onPress }: { label: string; onPress: () => void }) { return <TouchableOpacity style={styles.smallButton} onPress={onPress}><Text style={styles.smallText}>{label}</Text></TouchableOpacity>; }
+
+async function safeRegisterPushToken(sessionToken: string) {
+  try {
+    const { registerPushToken } = await import('../push/registerPushToken');
+    await registerPushToken(sessionToken);
+  } catch {
+    // Push registration must never block the driver from opening the app.
+  }
+}
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
