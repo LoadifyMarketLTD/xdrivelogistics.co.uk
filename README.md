@@ -36,6 +36,12 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - `npm run lint` - Run ESLint to check code quality
 - `npm run typecheck` - Run TypeScript checks without emitting files
 
+## Driver Mobile Routing
+
+- `apps/driver-mobile` is the canonical mobile experience (Expo React Native).
+- Legacy web routes under `app/m/` are deprecated and kept only as transitional fallback screens.
+- New mobile feature work should target `apps/driver-mobile`, not `app/m/`.
+
 ## Project Structure
 
 - `/app` - Next.js App Router pages and layouts
