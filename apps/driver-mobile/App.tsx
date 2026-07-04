@@ -57,7 +57,7 @@ export default function App() {
       setDiagnostics(snapshot);
       setStartupMessage('Loading driver workspace...');
       try {
-        const module = await import('./src/app/DriverMobileApp');
+        const module = await import('./src/mobile/DriverMobileApp');
         if (!mounted) return;
         appLoaded = true;
         clearTimeout(timeoutId);
