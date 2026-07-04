@@ -5,6 +5,14 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import MobileWebDeprecationNotice from './MobileWebDeprecationNotice';
+import {
+  MobileCard,
+  MobileKpiGrid,
+  MobileKpiItem,
+  MobileSectionTitle,
+  mobileMutedTextStyle,
+} from './MobileUiPrimitives';
 
 type MobileTab = 'home' | 'loads' | 'quotes' | 'jobs' | 'more';
 
@@ -114,16 +122,6 @@ const pageStyle: CSSProperties = {
   padding: '0.75rem 0.75rem 5.25rem',
   fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
 };
-
-const cardStyle: CSSProperties = {
-  background: '#181a20',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: '16px',
-  padding: '1rem',
-  boxShadow: '0 10px 28px rgba(0,0,0,0.28)',
-};
-
-const mutedStyle: CSSProperties = { color: '#9ca3af', fontSize: '0.78rem' };
 
 export default function DriverMobileApp() {
   const { user, logout } = useAuth();
@@ -289,7 +287,7 @@ export default function DriverMobileApp() {
         <div style={{ width: 34, height: 34, borderRadius: 10, background: '#facc15', color: '#111827', display: 'grid', placeItems: 'center', fontWeight: 900 }}>XD</div>
         <div>
           <div style={{ fontSize: '0.88rem', fontWeight: 800 }}>Driver</div>
-          <div style={{ ...mutedStyle, fontSize: '0.72rem' }}>{vehicle?.reg_plate || vehicle?.type || 'Vehicle TBC'}</div>
+          <div style={{ ...mobileMutedTextStyle, fontSize: '0.72rem' }}>{vehicle?.reg_plate || vehicle?.type || 'Vehicle TBC'}</div>
         </div>
       </div>
       <button onClick={() => void loadData()} style={ghostButton}>Refresh</button>
@@ -298,7 +296,7 @@ export default function DriverMobileApp() {
 
   const Home = () => (
     <div style={{ display: 'grid', gap: '0.75rem' }}>
-      <section style={{ ...cardStyle, borderColor: '#facc15', background: 'linear-gradient(180deg, #22231c 0%, #181a20 100%)' }}>
+      <MobileCard highlighted>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start' }}>
           <div>
             <div style={{ color: '#facc15', fontSize: '0.72rem', fontWeight: 900, letterSpacing: '0.06em' }}>ACTIVE JOB</div>
@@ -312,10 +310,10 @@ export default function DriverMobileApp() {
         {activeJob ? (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginTop: '0.9rem' }}>
-              <InfoBlock label="Pickup" value={fmtDateTime(activeJob.pickup_datetime)} />
-              <InfoBlock label="Delivery" value={fmtDateTime(activeJob.delivery_datetime)} />
-              <InfoBlock label="Customer" value={activeJob.client_name || 'TBC'} />
-              <InfoBlock label="Vehicle" value={activeJob.vehicle_type?.replace(/_/g, ' ') || vehicle?.reg_plate || 'TBC'} />
+              <MobileKpiItem label="Pickup" value={fmtDateTime(activeJob.pickup_datetime)} />
+              <MobileKpiItem label="Delivery" value={fmtDateTime(activeJob.delivery_datetime)} />
+              <MobileKpiItem label="Customer" value={activeJob.client_name || 'TBC'} />
+              <MobileKpiItem label="Vehicle" value={activeJob.vehicle_type?.replace(/_/g, ' ') || vehicle?.reg_plate || 'TBC'} />
             </div>
             <StatusActions job={activeJob} busyAction={busyAction} updateStatus={updateStatus} />
             <button onClick={() => podInputRef.current?.click()} disabled={busyAction === 'pod'} style={primaryActionButton}>
@@ -323,63 +321,63 @@ export default function DriverMobileApp() {
             </button>
           </>
         ) : (
-          <div style={{ ...mutedStyle, marginTop: '0.75rem' }}>You have no active assigned work right now.</div>
+          <div style={{ ...mobileMutedTextStyle, marginTop: '0.75rem' }}>You have no active assigned work right now.</div>
         )}
-      </section>
+      </MobileCard>
 
-      <section style={cardStyle}>
-        <div style={sectionTitle}>Next stop</div>
+      <MobileCard>
+        <MobileSectionTitle>Next stop</MobileSectionTitle>
         {activeJob ? (
           <div>
             <div style={{ fontSize: '1rem', fontWeight: 800 }}>{nextStopLabel(activeJob)}</div>
-            <div style={{ ...mutedStyle, marginTop: '0.3rem' }}>{nextStopAddress(activeJob)}</div>
+            <div style={{ ...mobileMutedTextStyle, marginTop: '0.3rem' }}>{nextStopAddress(activeJob)}</div>
           </div>
-        ) : <div style={mutedStyle}>No next stop available.</div>}
-      </section>
+        ) : <div style={mobileMutedTextStyle}>No next stop available.</div>}
+      </MobileCard>
 
-      <section style={cardStyle}>
-        <div style={sectionTitle}>Today&apos;s jobs</div>
+      <MobileCard>
+        <MobileSectionTitle>Today&apos;s jobs</MobileSectionTitle>
         <JobMiniList jobs={todaysJobs.length ? todaysJobs : activeJobs.slice(0, 4)} />
-      </section>
+      </MobileCard>
 
-      <section style={cardStyle}>
-        <div style={sectionTitle}>Driver messages / notes</div>
+      <MobileCard>
+        <MobileSectionTitle>Driver messages / notes</MobileSectionTitle>
         {activeJobNotes.length === 0 ? (
-          <div style={mutedStyle}>No notes for the active job.</div>
+          <div style={mobileMutedTextStyle}>No notes for the active job.</div>
         ) : (
           <div style={{ display: 'grid', gap: '0.5rem' }}>
             {activeJobNotes.map((note) => (
               <div key={note.id} style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '0.7rem' }}>
                 <div style={{ fontWeight: 780, lineHeight: 1.35 }}>{note.note}</div>
-                <div style={{ ...mutedStyle, marginTop: '0.25rem' }}>{fmtDateTime(note.created_at)}</div>
+                <div style={{ ...mobileMutedTextStyle, marginTop: '0.25rem' }}>{fmtDateTime(note.created_at)}</div>
               </div>
             ))}
           </div>
         )}
-      </section>
+      </MobileCard>
 
-      <section style={cardStyle}>
-        <div style={sectionTitle}>Tracking</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
-          <InfoBlock label="Driver status" value={activeJob ? statusLabels[normalizeStatus(activeJob)] ?? normalizeStatus(activeJob) : 'Available'} />
-          <InfoBlock label="Assigned vehicle" value={vehicle ? [vehicle.reg_plate, vehicle.make, vehicle.model].filter(Boolean).join(' ') : 'TBC'} />
-        </div>
-      </section>
+      <MobileCard>
+        <MobileSectionTitle>Tracking</MobileSectionTitle>
+        <MobileKpiGrid>
+          <MobileKpiItem label="Driver status" value={activeJob ? statusLabels[normalizeStatus(activeJob)] ?? normalizeStatus(activeJob) : 'Available'} />
+          <MobileKpiItem label="Assigned vehicle" value={vehicle ? [vehicle.reg_plate, vehicle.make, vehicle.model].filter(Boolean).join(' ') : 'TBC'} />
+        </MobileKpiGrid>
+      </MobileCard>
     </div>
   );
 
   const Loads = () => (
-    <section style={cardStyle}>
-      <div style={sectionTitle}>Available loads</div>
+    <MobileCard>
+      <MobileSectionTitle>Available loads</MobileSectionTitle>
       <div style={{ display: 'grid', gap: '0.6rem' }}>
-        {loads.length === 0 ? <div style={mutedStyle}>No available loads match your account right now.</div> : loads.map((load) => (
+        {loads.length === 0 ? <div style={mobileMutedTextStyle}>No available loads match your account right now.</div> : loads.map((load) => (
           <button key={load.id} onClick={() => setMessage('Load detail and quote actions stay inside the mobile app.')} style={listButton}>
             <div style={{ fontWeight: 800 }}>{load.pickup_location || 'Pickup TBC'} to {load.delivery_location || 'Delivery TBC'}</div>
-            <div style={mutedStyle}>{fmtDateTime(load.pickup_datetime)} · {load.vehicle_type?.replace(/_/g, ' ') || 'Vehicle TBC'} · {load.budget_amount ? `£${Number(load.budget_amount).toFixed(0)}` : 'Quote required'}</div>
+            <div style={mobileMutedTextStyle}>{fmtDateTime(load.pickup_datetime)} · {load.vehicle_type?.replace(/_/g, ' ') || 'Vehicle TBC'} · {load.budget_amount ? `£${Number(load.budget_amount).toFixed(0)}` : 'Quote required'}</div>
           </button>
         ))}
       </div>
-    </section>
+    </MobileCard>
   );
 
   const Quotes = () => {
@@ -397,30 +395,30 @@ export default function DriverMobileApp() {
 
   const Jobs = () => (
     <div style={{ display: 'grid', gap: '0.75rem' }}>
-      <section style={cardStyle}>
-        <div style={sectionTitle}>Active jobs</div>
+      <MobileCard>
+        <MobileSectionTitle>Active jobs</MobileSectionTitle>
         <JobMiniList jobs={activeJobs} />
-      </section>
-      <section style={cardStyle}>
-        <div style={sectionTitle}>Completed</div>
+      </MobileCard>
+      <MobileCard>
+        <MobileSectionTitle>Completed</MobileSectionTitle>
         <JobMiniList jobs={completedJobs.slice(0, 8)} />
-      </section>
+      </MobileCard>
     </div>
   );
 
   const More = () => (
-    <section style={cardStyle}>
-      <div style={sectionTitle}>More</div>
+    <MobileCard>
+      <MobileSectionTitle>More</MobileSectionTitle>
       <div style={{ marginBottom: '0.9rem' }}>
-        <div style={{ ...mutedStyle, marginBottom: '0.45rem', fontWeight: 850, textTransform: 'uppercase' }}>Documents</div>
+        <div style={{ ...mobileMutedTextStyle, marginBottom: '0.45rem', fontWeight: 850, textTransform: 'uppercase' }}>Documents</div>
         {documents.length === 0 ? (
-          <div style={mutedStyle}>No compliance documents uploaded yet.</div>
+          <div style={mobileMutedTextStyle}>No compliance documents uploaded yet.</div>
         ) : documents.slice(0, 4).map((doc) => (
           <div key={doc.id} style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '0.7rem', marginBottom: '0.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 850 }}>{doc.doc_type || 'Document'}</div>
-                <div style={mutedStyle}>{doc.expiry_date ? `Expires ${fmtDateTime(doc.expiry_date)}` : 'No expiry date'}</div>
+                <div style={mobileMutedTextStyle}>{doc.expiry_date ? `Expires ${fmtDateTime(doc.expiry_date)}` : 'No expiry date'}</div>
               </div>
               <StatusPill status={doc.status || 'pending'} />
             </div>
@@ -445,16 +443,17 @@ export default function DriverMobileApp() {
         </button>
       ))}
       <button onClick={() => void logout()} style={{ ...moreButton, color: '#fecaca' }}>Sign out<span>›</span></button>
-    </section>
+    </MobileCard>
   );
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <main style={pageStyle}>
         <Header />
+        <MobileWebDeprecationNotice />
         {message && <div style={{ background: '#27210f', border: '1px solid rgba(250,204,21,0.35)', color: '#fde68a', borderRadius: 12, padding: '0.65rem 0.75rem', marginBottom: '0.75rem', fontSize: '0.82rem' }}>{message}</div>}
-        {!driverId && <div style={cardStyle}>No driver profile is linked to this account.</div>}
-        {loading ? <div style={cardStyle}>Loading work...</div> : (
+        {!driverId && <MobileCard>No driver profile is linked to this account.</MobileCard>}
+        {loading ? <MobileCard>Loading work...</MobileCard> : (
           <>
             {tab === 'home' && <Home />}
             {tab === 'loads' && <Loads />}
@@ -493,15 +492,6 @@ function StatusActions({
   );
 }
 
-function InfoBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '0.7rem' }}>
-      <div style={{ color: '#9ca3af', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ color: '#fff', fontSize: '0.88rem', fontWeight: 750, marginTop: '0.25rem', lineHeight: 1.25 }}>{value}</div>
-    </div>
-  );
-}
-
 function StatusPill({ status }: { status: string }) {
   return (
     <span style={{ flexShrink: 0, background: '#facc15', color: '#111827', borderRadius: 999, padding: '0.24rem 0.55rem', fontSize: '0.68rem', fontWeight: 900 }}>
@@ -511,7 +501,7 @@ function StatusPill({ status }: { status: string }) {
 }
 
 function JobMiniList({ jobs }: { jobs: MobileJob[] }) {
-  if (jobs.length === 0) return <div style={mutedStyle}>No jobs to show.</div>;
+  if (jobs.length === 0) return <div style={mobileMutedTextStyle}>No jobs to show.</div>;
   return (
     <div style={{ display: 'grid', gap: '0.55rem' }}>
       {jobs.map((job) => (
@@ -521,7 +511,7 @@ function JobMiniList({ jobs }: { jobs: MobileJob[] }) {
               <div style={{ fontSize: '0.9rem', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {job.pickup_location || 'Pickup TBC'} to {job.delivery_location || 'Delivery TBC'}
               </div>
-              <div style={{ ...mutedStyle, marginTop: '0.2rem' }}>{fmtTime(job.pickup_datetime)} pickup · {fmtTime(job.delivery_datetime)} delivery</div>
+              <div style={{ ...mobileMutedTextStyle, marginTop: '0.2rem' }}>{fmtTime(job.pickup_datetime)} pickup · {fmtTime(job.delivery_datetime)} delivery</div>
             </div>
             <StatusPill status={normalizeStatus(job)} />
           </div>
@@ -554,19 +544,19 @@ function Timeline({ job }: { job: MobileJob }) {
 
 function QuoteGroup({ title, bids }: { title: string; bids: DriverBid[] }) {
   return (
-    <section style={cardStyle}>
-      <div style={sectionTitle}>{title}</div>
-      {bids.length === 0 ? <div style={mutedStyle}>No quotes in this section.</div> : (
+    <MobileCard>
+      <MobileSectionTitle>{title}</MobileSectionTitle>
+      {bids.length === 0 ? <div style={mobileMutedTextStyle}>No quotes in this section.</div> : (
         <div style={{ display: 'grid', gap: '0.55rem' }}>
           {bids.map((bid) => (
             <div key={bid.id} style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '0.72rem' }}>
               <div style={{ fontWeight: 850 }}>{bid.jobs?.pickup_location || 'Pickup TBC'} to {bid.jobs?.delivery_location || 'Delivery TBC'}</div>
-              <div style={mutedStyle}>{fmtDateTime(bid.jobs?.pickup_datetime)} · £{Number(bid.bid_price_gbp ?? bid.amount ?? 0).toFixed(2)}</div>
+              <div style={mobileMutedTextStyle}>{fmtDateTime(bid.jobs?.pickup_datetime)} · £{Number(bid.bid_price_gbp ?? bid.amount ?? 0).toFixed(2)}</div>
             </div>
           ))}
         </div>
       )}
-    </section>
+    </MobileCard>
   );
 }
 
@@ -604,15 +594,6 @@ function nextStopAddress(job: MobileJob) {
   if (['loaded', 'on_site_delivery', 'in_transit'].includes(status)) return job.delivery_location || 'Delivery address TBC';
   return job.pickup_location || 'Pickup address TBC';
 }
-
-const sectionTitle: CSSProperties = {
-  color: '#f8fafc',
-  fontSize: '0.82rem',
-  fontWeight: 900,
-  marginBottom: '0.65rem',
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-};
 
 const ghostButton: CSSProperties = {
   minHeight: 38,
