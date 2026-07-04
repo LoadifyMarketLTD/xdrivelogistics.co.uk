@@ -3,7 +3,7 @@ import { platformModules } from '../content';
 
 export function PlatformModulesSection() {
   return (
-    <section className="border-b border-slate-200 bg-white px-4 py-14 sm:px-6">
+    <section className="border-b border-slate-200 bg-white px-4 py-14 sm:px-6" id="modules">
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
           <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Operational modules</span>
