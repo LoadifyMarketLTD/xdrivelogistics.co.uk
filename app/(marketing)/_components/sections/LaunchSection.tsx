@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 const rolloutNotes = [
   'Approval-based onboarding',
   'Role-based workspace setup',
@@ -19,6 +21,14 @@ export function LaunchSection() {
           <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300">
             XDrive is being introduced through approval-based onboarding, role-specific workspace setup and operational feedback from real transport workflows.
           </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link href="/register" className="rounded-lg bg-[#f5c542] px-6 py-3 text-sm font-semibold text-[#07111f] transition hover:bg-[#ffd45a]">
+              Apply for Early Access
+            </Link>
+            <Link href="/login" className="rounded-lg border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/20">
+              Log In
+            </Link>
+          </div>
         </div>
 
         <div className="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm">
