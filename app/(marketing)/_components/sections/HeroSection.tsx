@@ -1,17 +1,10 @@
-import { CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
-
-const trustBadges = [
-  'UK transport workflows',
-  'Customer, broker and fleet workspaces',
-  'Driver execution and POD records',
-] as const;
 
 export function HeroSection() {
   return (
     <section className="relative overflow-hidden border-b border-slate-200 bg-[#07111f]" id="platform">
       <div
-        className="absolute inset-0 bg-cover bg-center"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: "url('/xdrive-login-hero.webp.jpeg')" }}
         aria-hidden="true"
       />
@@ -34,19 +27,9 @@ export function HeroSection() {
               Join Early Access
             </Link>
             <Link href="/request-quote" className="rounded-lg border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/20">
-              Request Demo
+              Request a Quote
             </Link>
           </div>
-
-          <div className="mt-8 hidden max-w-3xl gap-3 sm:grid sm:grid-cols-3">
-            {trustBadges.map((badge) => (
-              <span key={badge} className="flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-3 text-sm font-semibold text-slate-100 backdrop-blur-sm">
-                <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-[#f5c542]" />
-                {badge}
-              </span>
-            ))}
-          </div>
-
           <div className="mt-8 hidden max-w-2xl grid-cols-2 gap-3 text-white md:grid md:grid-cols-4">
             <div className="rounded-lg border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
               <p className="text-2xl font-black">2021</p>

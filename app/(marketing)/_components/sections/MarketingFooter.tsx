@@ -16,11 +16,11 @@ const contactLinks = {
 
 const footerColumns = {
   platform: [
-    { label: 'Marketplace', href: '#platform' },
-    { label: 'Operations', href: '#platform' },
-    { label: 'Fleet', href: '#platform' },
-    { label: 'Drivers', href: '#platform' },
-    { label: 'Finance', href: '#platform' },
+    { label: 'Marketplace', href: '#modules' },
+    { label: 'Operations', href: '#modules' },
+    { label: 'Fleet', href: '#modules' },
+    { label: 'Drivers', href: '#modules' },
+    { label: 'Finance', href: '#modules' },
   ],
   solutions: [
     { label: 'Transport Customers', href: '#solutions' },
@@ -68,11 +68,12 @@ export function MarketingFooter() {
         <div>
           <Link href="/" className="inline-flex items-center">
             <Image
-              src="/xdrive-logo.jpeg"
+              src="/xdrive-logo.svg"
               alt="XDrive Logistics"
-              width={266}
-              height={62}
-              className="h-[62px] w-auto drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)]"
+              width={200}
+              height={54}
+              unoptimized
+              className="h-[54px] w-auto"
             />
           </Link>
           <p className="mt-4 max-w-[240px] text-sm leading-relaxed text-slate-400">
