@@ -16,11 +16,11 @@ const contactLinks = {
 
 const footerColumns = {
   platform: [
-    { label: 'Marketplace', href: '#platform' },
-    { label: 'Operations', href: '#platform' },
-    { label: 'Fleet', href: '#platform' },
-    { label: 'Drivers', href: '#platform' },
-    { label: 'Finance', href: '#platform' },
+    { label: 'Marketplace', href: '#modules' },
+    { label: 'Operations', href: '#modules' },
+    { label: 'Fleet', href: '#modules' },
+    { label: 'Drivers', href: '#modules' },
+    { label: 'Finance', href: '#modules' },
   ],
   solutions: [
     { label: 'Transport Customers', href: '#solutions' },
