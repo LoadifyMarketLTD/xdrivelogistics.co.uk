@@ -4,7 +4,7 @@ export function HeroSection() {
   return (
     <section className="relative overflow-hidden border-b border-slate-200 bg-[#07111f]" id="platform">
       <div
-        className="absolute inset-0 bg-cover bg-center"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: "url('/xdrive-login-hero.webp.jpeg')" }}
         aria-hidden="true"
       />
@@ -27,7 +27,7 @@ export function HeroSection() {
               Join Early Access
             </Link>
             <Link href="/request-quote" className="rounded-lg border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/20">
-              Request Demo
+              Request a Quote
             </Link>
           </div>
           <div className="mt-8 hidden max-w-2xl grid-cols-2 gap-3 text-white md:grid md:grid-cols-4">
