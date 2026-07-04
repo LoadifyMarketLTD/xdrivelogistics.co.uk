@@ -1,55 +1,37 @@
 # XDrive Driver Mobile
 
-Native driver app for Android/iOS built with Expo React Native.
+Native driver app scaffold for Android/iOS built with Expo React Native.
 
 This is not a mobile web page, PWA, or `/m` route. The target output is an installable Android APK/AAB and later an iOS build.
 
-## App structure
+## MVP Scope
 
-The app uses a **custom entrypoint** — `App.tsx` — not Expo Router. `App.tsx` dynamically imports the root component from `src/mobile/DriverMobileApp.tsx`. There is no `src/app/` Expo Router root.
+- Persistent driver login.
+- Active Job as the default operational screen.
+- My Jobs with Active, Upcoming, and Completed scopes.
+- Job Detail with operational fields only.
+- Canonical execution flow from awarded to delivered.
+- POD capture shell for photo, document, and signature.
+- Critical notification registration shell.
+- Offline queue skeleton for status/POD retry.
 
-```
-App.tsx                          ← Expo entrypoint (startup diagnostics, error boundary)
-src/
-  mobile/
-    DriverMobileApp.tsx          ← Root React Native component
-    mockData.ts
-  api/                           ← API client helpers
-  auth/                          ← Auth context and session logic
-  jobs/                          ← Job screens and hooks
-  offline/                       ← Offline queue
-  push/                          ← Push notification shell
-  ui/                            ← Theme, primitives
-```
-
-## Setup
+## Commands
 
 ```bash
-cd apps/driver-mobile
-cp .env.example .env             # fill in EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
 npm install
-npm start
+npm run start
+npm run android
+npm run build:android:apk
+npm run build:android:aab
 ```
 
-## APK preview build (EAS)
+From the repository root:
 
 ```bash
-eas build --profile preview --platform android
+npm run mobile:dev
+npm run mobile:android
+npm run mobile:apk
 ```
-
-This produces an internal-distribution `.apk` signed by EAS-managed credentials.
-
-### Required EAS environment variables
-
-Set these on the `preview` profile in the EAS dashboard before building:
-
-| Variable | Description |
-|---|---|
-| `EXPO_PUBLIC_API_BASE_URL` | `https://xdrivelogistics.co.uk` |
-| `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key |
-
-For Android credentials, EAS can generate and manage the keystore during the first build. Do not lose the Expo account access because that keystore signs future Android releases.
 
 ## Expo / EAS Project
 
@@ -64,16 +46,15 @@ For Android credentials, EAS can generate and manage the keystore during the fir
 - `preview`: Android APK for internal testing.
 - `production`: Android App Bundle for Play Store release.
 
-## MVP Scope
+Before the first cloud build, set these EAS environment variables for the selected profile:
 
-- Persistent driver login.
-- Active Job as the default operational screen.
-- My Jobs with Active, Upcoming, and Completed scopes.
-- Job Detail with operational fields only.
-- Canonical execution flow from awarded to delivered.
-- POD capture shell for photo, document, and signature.
-- Critical notification registration shell.
-- Offline queue skeleton for status/POD retry.
+```bash
+EXPO_PUBLIC_API_BASE_URL=https://xdrivelogistics.co.uk
+EXPO_PUBLIC_SUPABASE_URL=<production-supabase-url>
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<production-supabase-anon-key>
+```
+
+For Android credentials, EAS can generate and manage the keystore during the first build. Do not lose the Expo account access because that keystore signs future Android releases.
 
 ## Architecture Rules
 
