@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { supabase } from '@/lib/supabaseClient';
+import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { formatDateTime, routeSummary } from './superAdminFormatters';
 
 const THEME = {
@@ -56,12 +56,6 @@ type QuotePreviewRow = {
   currency: string | null;
   created_at: string;
 };
-
-async function getAuthHeader(): Promise<string | null> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
-  return ['Bearer', session.access_token].join(' ');
-}
 
 export default function SuperAdminModulePage({
   title,
