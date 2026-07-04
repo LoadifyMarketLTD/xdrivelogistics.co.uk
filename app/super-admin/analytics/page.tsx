@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
-import { supabase } from '@/lib/supabaseClient';
+import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
 const THEME = {
   pageBg: '#0f172a',
@@ -31,12 +31,6 @@ type Kpis = {
 };
 
 type WeeklyJob = { week: string; count: number };
-
-async function getAuthHeader(): Promise<string | null> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
-  return ['Bearer', session.access_token].join(' ');
-}
 
 export default function Page() {
   const [kpis, setKpis] = useState<Kpis | null>(null);

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
-import { supabase } from '@/lib/supabaseClient';
+import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { StatusChip, formatDateTime, routeSummary } from '@/app/super-admin/_components/superAdminFormatters';
 
 type MarketplaceJobRow = {
@@ -65,12 +65,6 @@ const THEME = {
   green: '#22c55e',
   red: '#ef4444',
 };
-
-async function getAuthHeader(): Promise<string | null> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
-  return ['Bearer', session.access_token].join(' ');
-}
 
 function getActionsForRow(row: MarketplaceJobRow): MarketplaceAction[] {
   const normalizedStatus = row.status.toLowerCase();
