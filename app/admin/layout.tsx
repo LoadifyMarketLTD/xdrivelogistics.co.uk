@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import NotificationBell from '../components/NotificationBell';
+import FeedbackWidget from '../components/FeedbackWidget';
 import AdminPlatformShell from './AdminPlatformShell';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -7,6 +8,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <>
       <AdminPlatformShell>{children}</AdminPlatformShell>
       <NotificationBell />
+      <FeedbackWidget />
     </>
   );
 }

@@ -101,6 +101,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'tickets', label: 'Support Tickets', href: '/super-admin/support/tickets' },
       { id: 'complaints', label: 'Complaints', href: '/super-admin/support/complaints' },
       { id: 'support-disputes', label: 'Support Disputes', href: '/super-admin/support/disputes' },
+      { id: 'feedback', label: 'User Feedback', href: '/super-admin/support/feedback' },
     ],
   },
   {

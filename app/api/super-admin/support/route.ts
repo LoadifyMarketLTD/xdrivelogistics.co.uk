@@ -56,6 +56,16 @@ type SupportTicketRow = {
   created_at: string;
   updated_at: string;
 };
+type UserFeedbackRow = {
+  id: string;
+  user_id: string | null;
+  company_id: string | null;
+  rating: number | null;
+  category: string;
+  message: string;
+  page_url: string | null;
+  created_at: string;
+};
 
 const createTicketSchema = z.object({
   company_id: z.string().uuid().optional(),
@@ -205,7 +215,56 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return respond(400, { error: 'Invalid section. Use disputes, complaints, or tickets.' });
+  // ── User Feedback ─────────────────────────────────────────────────────────────
+  if (section === 'feedback') {
+    const { data, error } = await supabaseAdmin
+      .from('user_feedback')
+      .select('id, user_id, company_id, rating, category, message, page_url, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      return respond(200, {
+        section,
+        rows: [],
+        summary: { total: 0, average_rating: null },
+        note: 'No user feedback available yet.',
+      });
+    }
+
+    const rows = (data as UserFeedbackRow[] | null) ?? [];
+    const nameById = await companyNameMap(
+      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
+    );
+
+    const ratings = rows.map((r) => Number(r.rating)).filter((n) => !isNaN(n) && n > 0);
+    const avgRating = ratings.length > 0
+      ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+      : null;
+
+    const feedbackRows = rows.map((r) => ({
+      id: r.id,
+      company_name: nameById.get(r.company_id as string) ?? 'Unknown',
+      rating: r.rating,
+      category: r.category,
+      message: r.message,
+      page_url: r.page_url,
+      created_at: r.created_at,
+    }));
+
+    return respond(200, {
+      section,
+      rows: feedbackRows,
+      summary: {
+        total: feedbackRows.length,
+        average_rating: avgRating,
+        bug_reports: feedbackRows.filter((r) => r.category === 'bug').length,
+        feature_requests: feedbackRows.filter((r) => r.category === 'feature_request').length,
+      },
+    });
+  }
+
+  return respond(400, { error: 'Invalid section. Use disputes, complaints, tickets, or feedback.' });
 }
 
 export async function POST(request: NextRequest) {
