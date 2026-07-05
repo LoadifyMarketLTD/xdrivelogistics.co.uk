@@ -517,8 +517,6 @@
   text-transform: uppercase;
   color: var(--xd-text-dark-secondary);
   white-space: nowrap;
-  max-width: 100%;
-  overflow: hidden;
 }
 
 .xd-hero-eyebrow__dot {
@@ -766,5 +764,12 @@
   .xd-panel-primary-clip {
     overflow: hidden;
     max-height: 55cqh;
+  }
+
+  /* Scale eyebrow badge down so it fits on one line within ~335 px content width */
+  .xd-hero-eyebrow {
+    font-size: 0.625rem;    /* 10px — fits "NOW IN EARLY ACCESS — UK TRANSPORT OPERATORS" */
+    letter-spacing: 0.04em; /* reduced from 0.08em desktop */
+    padding: 0.3rem 0.75rem;
   }
 }
