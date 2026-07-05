@@ -1,4 +1,4 @@
-const FALLBACK_SITE_URL = 'https://xdrivelogistics.co.uk';
+const FALLBACK_SITE_URL = 'https://www.xdrivelogistics.co.uk';
 
 const stripTrailingSlash = (value: string) => value.replace(/\/+$/, '');
 

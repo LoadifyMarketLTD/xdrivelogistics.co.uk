@@ -19,7 +19,7 @@ const config: ExpoConfig = {
   },
   plugins: ['expo-asset', 'expo-secure-store', 'expo-image-picker', 'expo-document-picker', 'expo-notifications'],
   extra: {
-    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://xdrivelogistics.co.uk',
+    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://www.xdrivelogistics.co.uk',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
     eas: {
