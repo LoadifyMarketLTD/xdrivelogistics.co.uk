@@ -1,5 +1,7 @@
 import Constants from 'expo-constants';
 
+import { supabase } from '../auth/supabase';
+
 type ApiOptions = {
   token?: string | null;
   method?: 'GET' | 'POST';
@@ -14,12 +16,17 @@ export function getApiBaseUrl() {
 }
 
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  let token: string | null = options.token ?? null;
+  if (!token) {
+    const { data } = await supabase.auth.getSession();
+    token = data.session?.access_token ?? null;
+  }
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
     method: options.method ?? 'GET',
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+      ...(token ? { Authorization: `****** } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
