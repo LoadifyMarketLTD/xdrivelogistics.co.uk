@@ -284,7 +284,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="workflow" className="bg-[#F7FAFF] px-5 py-18 sm:px-8 lg:py-24">
+        <section id="workflow" className="bg-[#F7FAFF] px-5 py-20 sm:px-8 lg:py-24">
           <div className="mx-auto max-w-[1440px]">
             <div className="max-w-3xl">
               <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FDB913]">How It Works</p>
@@ -316,7 +316,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="border-t border-[#D7E6FA] bg-white px-5 py-18 sm:px-8 lg:py-24">
+        <section className="border-t border-[#D7E6FA] bg-white px-5 py-20 sm:px-8 lg:py-24">
           <div className="mx-auto grid max-w-[1440px] gap-6 lg:grid-cols-2">
             {audienceSections.map((section) => (
               <article key={section.id} id={section.id} className="border border-[#D7E6FA] bg-[#F7FAFF] p-7 shadow-[0_18px_50px_rgba(0,43,108,0.06)] sm:p-9 lg:p-10">
@@ -337,7 +337,7 @@ export function LandingPage() {
         </section>
 
         {productSections.map((section) => (
-          <section key={section.id} id={section.id} className="border-t border-[#D7E6FA] bg-white px-5 py-18 sm:px-8 lg:py-24">
+          <section key={section.id} id={section.id} className="border-t border-[#D7E6FA] bg-white px-5 py-20 sm:px-8 lg:py-24">
             <div className={`mx-auto grid max-w-[1440px] gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center ${section.reverse ? 'lg:[&>*:first-child]:order-2' : ''}`}>
               <div>
                 <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FDB913]">{section.kicker}</p>
