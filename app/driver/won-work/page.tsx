@@ -88,7 +88,7 @@ export default function WonWorkPage() {
 
     const { data, error: fetchError } = await supabase
       .from('jobs')
-      .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, cargo_type, status, currency, budget_amount, company_id, awarded_carrier_company_id, created_at, assigned_driver_id, companies:company_id(name)')
+      .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, cargo_type, status, currency, budget_amount, company_id, awarded_carrier_company_id, created_at, assigned_driver_id, companies:companies!jobs_company_id_fkey(name)')
       .eq('assigned_driver_id', driverId)
       .in('status', ['allocated', 'collected', 'in_transit', 'delivered'])
       .order('pickup_datetime', { ascending: false })

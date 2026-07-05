@@ -85,7 +85,7 @@ export default function MyQuotesPage() {
       .from('job_bids')
       .select(`
         id, job_id, company_id, bid_price_gbp, amount, currency, message, status, created_at,
-        jobs(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, budget_amount, status, companies:company_id(name))
+        jobs(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, budget_amount, status, companies:companies!jobs_company_id_fkey(name))
       `)
       .order('created_at', { ascending: false })
       .limit(100);
