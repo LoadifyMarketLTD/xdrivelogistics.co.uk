@@ -17,20 +17,24 @@ const contactLinks = {
 const footerColumns = {
   platform: [
     { label: 'Marketplace', href: '#modules' },
-    { label: 'Operations', href: '#modules' },
-    { label: 'Fleet', href: '#modules' },
-    { label: 'Drivers', href: '#modules' },
+    { label: 'Operations Diary', href: '#modules' },
+    { label: 'Driver Workspace', href: '#modules' },
+    { label: 'POD & Records', href: '#modules' },
     { label: 'Finance', href: '#modules' },
+    { label: 'Super Admin Governance', href: '#modules' },
   ],
   solutions: [
     { label: 'Transport Customers', href: '#solutions' },
+    { label: 'Brokers / Load Posters', href: '#solutions' },
     { label: 'Courier Companies', href: '#solutions' },
-    { label: 'Owner Operators', href: '#solutions' },
+    { label: 'Owner Drivers', href: '#solutions' },
     { label: 'Drivers', href: '#solutions' },
+    { label: 'Dispatch Teams', href: '#solutions' },
   ],
   company: [
-    { label: 'About', href: '#resources' },
-    { label: 'Launch', href: '#launch' },
+    { label: 'Why XDrive', href: '#resources' },
+    { label: 'Early Access', href: '#launch' },
+    { label: 'FAQ', href: '#faq' },
     { label: 'Contact', href: '#contact' },
   ],
   legal: [
@@ -76,8 +80,8 @@ export function MarketingFooter() {
               className="h-[54px] w-auto"
             />
           </Link>
-          <p className="mt-4 max-w-[240px] text-sm leading-relaxed text-slate-400">
-            MVP / early-access logistics platform for approved UK users across marketplace, operations, POD and finance records.
+          <p className="mt-4 max-w-[260px] text-sm leading-relaxed text-slate-400">
+            Functional early-access logistics platform for approved UK users across requests, operations, POD records and finance visibility.
           </p>
           <a
             href={contactLinks.maps}
