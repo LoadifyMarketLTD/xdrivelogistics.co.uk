@@ -1,9 +1,12 @@
 # Blueprint #1 — Hero Section (Revised)
 
-> **Status: AWAITING FINAL APPROVAL — Revision 2 (Final Additions)**
+> **Status: APPROVED — IMPLEMENTED**
 >
-> No React code. No CSS changes. No homepage implementation.
-> Implementation begins only after this blueprint is approved.
+> Implementation complete. See `app/(marketing)/_components/sections/HeroSection.tsx`,
+> `app/(marketing)/_components/sections/SiteNav.tsx`, and
+> `app/(marketing)/marketing-tokens.css` (§7).
+>
+> No React code. No CSS changes beyond the approved Hero section.
 >
 > **Revision 2 changes from Revision 1:**
 > - §4 Headline strengthened to communicate XDrive's unique operational value
@@ -650,4 +653,5 @@ Decisions must be evaluated against a 3–5 year horizon, not the current SaaS d
 
 ## Approval
 
-- [ ] **Hero blueprint approved — implementation may begin**
+- [x] **Hero blueprint approved — implementation may begin**
+- [x] **Implementation complete** — `HeroSection.tsx`, `SiteNav.tsx`, `marketing-tokens.css §7`

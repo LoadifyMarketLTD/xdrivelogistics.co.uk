@@ -11,7 +11,6 @@ import {
   Truck,
   UserRound,
 } from 'lucide-react';
-import { isSupabaseAdminConfigured, supabaseAdmin } from '../../api/_lib/supabaseAdmin';
 
 import {
   earlyAccessPoints,
@@ -22,175 +21,18 @@ import {
   workflowSteps,
 } from './content';
 import { MarketingFooter } from './sections/MarketingFooter';
-import { MarketingHeader } from './sections/MarketingHeader';
+import { SiteNav } from './sections/SiteNav';
+import { HeroSection } from './sections/HeroSection';
 
 const moduleIcons = [BriefcaseBusiness, ClipboardList, UserRound, Truck, FileCheck2, Gauge, ShieldCheck] as const;
 
-const roleHighlights = [
-  'Request handling',
-  'Quote visibility',
-  'Carrier allocation',
-  'Driver workflow',
-  'POD records',
-  'Invoice visibility',
-] as const;
-
-const OPEN_JOB_STATUSES = ['draft', 'posted', 'quoted', 'awarded', 'allocated', 'collected', 'in_transit'] as const;
-
-type LandingStats = {
-  companiesActive: number;
-  driversTotal: number;
-  jobsOpen: number;
-  jobsDelivered: number;
-  invoicesPaid: number;
-};
-
-const formatMetric = (value: number) => new Intl.NumberFormat('en-GB').format(value);
-
-const getLandingStats = async (): Promise<LandingStats | null> => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-
-  try {
-    const [companiesActiveResult, driversTotalResult, jobsOpenResult, jobsDeliveredResult, invoicesPaidResult] = await Promise.all([
-      supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-      supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
-      supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).in('status', [...OPEN_JOB_STATUSES]),
-      supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered'),
-      supabaseAdmin.from('invoices').select('id', { count: 'exact', head: true }).eq('status', 'paid'),
-    ]);
-
-    if (
-      companiesActiveResult.error ||
-      driversTotalResult.error ||
-      jobsOpenResult.error ||
-      jobsDeliveredResult.error ||
-      invoicesPaidResult.error
-    ) {
-      return null;
-    }
-
-    return {
-      companiesActive: companiesActiveResult.count ?? 0,
-      driversTotal: driversTotalResult.count ?? 0,
-      jobsOpen: jobsOpenResult.count ?? 0,
-      jobsDelivered: jobsDeliveredResult.count ?? 0,
-      invoicesPaid: invoicesPaidResult.count ?? 0,
-    };
-  } catch {
-    return null;
-  }
-};
-
-export async function LandingPage() {
-  const stats = await getLandingStats();
-  const trustBarItems = stats
-    ? [
-        `${formatMetric(stats.companiesActive)} active companies`,
-        `${formatMetric(stats.driversTotal)} registered drivers`,
-        `${formatMetric(stats.jobsOpen)} open jobs`,
-        `${formatMetric(stats.jobsDelivered)} delivered jobs`,
-        `${formatMetric(stats.invoicesPaid)} paid invoices`,
-      ]
-    : ['Real platform metrics', 'Visible when secure backend config is present', 'No fake dashboard counters', 'Controlled rollout', 'Approved users only'];
-
+export function LandingPage() {
   return (
     <div className="bg-[#07111f] text-white">
-      <MarketingHeader />
+      <SiteNav />
 
       <main>
-        <section className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.2),transparent_36%),linear-gradient(180deg,#07111f_0%,#08172b_58%,#0a1a2f_100%)]">
-          <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:py-20">
-            <div>
-              <span className="inline-flex rounded-full border border-[#60a5fa]/35 bg-[#1d4ed8]/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#93c5fd]">
-                Functional Early Access — approved logistics users only.
-              </span>
-              <h1 className="mt-6 max-w-4xl text-4xl font-black leading-[1.02] text-white sm:text-5xl lg:text-6xl">
-                Move Freight. Manage Operations. Grow Your Network.
-              </h1>
-              <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
-                XDrive Logistics connects request, quote, allocation, driver execution, POD and invoice visibility in one operational workflow.
-              </p>
-              <div className="mt-9 flex flex-wrap gap-3">
-                <Link href="/register" className="inline-flex items-center gap-2 rounded-xl bg-[#2563eb] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]">
-                  Request Early Access <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link href="/login" className="inline-flex items-center rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
-                  Sign In
-                </Link>
-                <Link href="/request-quote" className="inline-flex items-center rounded-xl border border-[#60a5fa]/30 bg-[#1d4ed8]/10 px-6 py-3 text-sm font-semibold text-[#bfdbfe] transition hover:border-[#93c5fd]/50 hover:text-white">
-                  Request a quote
-                </Link>
-              </div>
-              <div className="mt-10 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {roleHighlights.slice(0, 3).map((item) => (
-                  <div key={item} className="rounded-2xl border border-[#60a5fa]/20 bg-[#0b1627]/65 px-4 py-3 text-sm font-medium text-slate-200">
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <div className="relative overflow-hidden rounded-[28px] border border-[#60a5fa]/20 bg-[#0f172a] shadow-[0_36px_100px_-52px_rgba(37,99,235,0.6)]">
-                <Image
-                  src="/hero-dispatch-control.webp"
-                  alt="XDrive Logistics marketing hero showing real logistics operations"
-                  width={1440}
-                  height={1080}
-                  priority
-                  className="h-[320px] w-full object-cover sm:h-[380px] lg:h-[480px]"
-                />
-                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,17,31,0.15)_0%,rgba(7,17,31,0.88)_100%)]" />
-                <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-                  <div className="rounded-2xl border border-white/15 bg-[#07111f]/82 p-5 backdrop-blur-sm">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#93c5fd]">Live platform snapshot</p>
-                    {stats ? (
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                          <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Active companies</p>
-                          <p className="mt-1 text-2xl font-black text-white">{formatMetric(stats.companiesActive)}</p>
-                        </div>
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                          <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Registered drivers</p>
-                          <p className="mt-1 text-2xl font-black text-white">{formatMetric(stats.driversTotal)}</p>
-                        </div>
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                          <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Open jobs</p>
-                          <p className="mt-1 text-2xl font-black text-white">{formatMetric(stats.jobsOpen)}</p>
-                        </div>
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                          <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Delivered jobs</p>
-                          <p className="mt-1 text-2xl font-black text-white">{formatMetric(stats.jobsDelivered)}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <ul className="mt-4 space-y-2 text-sm text-slate-300">
-                        <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-[#93c5fd]" />
-                          Displays real platform metrics when backend credentials are available
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-[#93c5fd]" />
-                          Never shows fabricated counters
-                        </li>
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="border-b border-white/10 bg-[#0b1627]">
-          <div className="mx-auto grid w-full max-w-7xl gap-3 px-4 py-6 sm:px-6 md:grid-cols-2 xl:grid-cols-5">
-            {trustBarItems.map((item) => (
-              <div key={item} className="rounded-xl border border-white/10 bg-transparent px-4 py-3 text-sm font-semibold text-slate-300">
-                {item}
-              </div>
-            ))}
-          </div>
-        </section>
+        <HeroSection />
 
         <section id="resources" className="border-b border-white/10 bg-[#f8fbff] px-4 py-16 text-[#0f172a] sm:px-6 lg:py-20">
           <div className="mx-auto max-w-7xl">

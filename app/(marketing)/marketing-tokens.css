@@ -440,3 +440,323 @@
   border-bottom: 1px solid var(--xd-nav-border);
   z-index: 50;
 }
+
+/* ─────────────────────────────────────────────
+   7. HERO SECTION  (Blueprint — approved)
+   ───────────────────────────────────────────── */
+
+/* 7a. Hero entrance animation phases
+   Uses four-phase stagger per blueprint §10 */
+
+@keyframes xd-slide-up-lg {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Phase 1 — eyebrow + H1 + subheadline (0 ms, 350 ms) */
+.xd-hero-phase-1 {
+  animation: xd-slide-up 350ms var(--xd-ease-out) both;
+}
+
+/* Phase 2 — primary screenshot panel (200 ms delay, 400 ms) */
+.xd-hero-phase-2 {
+  animation: xd-slide-up-lg 400ms var(--xd-ease-out) 200ms both;
+}
+
+/* Phase 3a — secondary panel A (400 ms delay, 300 ms) */
+.xd-hero-phase-3a {
+  animation: xd-slide-up 300ms var(--xd-ease-out) 400ms both;
+}
+
+/* Phase 3b — secondary panel B (460 ms delay, 300 ms) */
+.xd-hero-phase-3b {
+  animation: xd-slide-up 300ms var(--xd-ease-out) 460ms both;
+}
+
+/* Phase 3c — secondary panel C (520 ms delay, 300 ms) */
+.xd-hero-phase-3c {
+  animation: xd-slide-up 300ms var(--xd-ease-out) 520ms both;
+}
+
+/* Phase 4 — CTAs, trust strip, workflow badge (600 ms delay, 300 ms) */
+.xd-hero-phase-4 {
+  animation: xd-slide-up 300ms var(--xd-ease-out) 600ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xd-hero-phase-1,
+  .xd-hero-phase-2,
+  .xd-hero-phase-3a,
+  .xd-hero-phase-3b,
+  .xd-hero-phase-3c,
+  .xd-hero-phase-4 {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 7b. Eyebrow badge — "Now in Early Access" pill */
+.xd-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--xd-border-dark);
+  border-radius: 9999px;
+  background: var(--xd-bg-tertiary);
+  font-size: var(--xd-label-size);
+  font-weight: var(--xd-label-weight);
+  letter-spacing: var(--xd-label-tracking);
+  text-transform: uppercase;
+  color: var(--xd-text-dark-secondary);
+}
+
+.xd-hero-eyebrow__dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--xd-blue-soft);
+}
+
+/* 7c. CTA row */
+.xd-hero-ctas {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* Ghost CTA with animated arrow */
+.xd-btn--ghost-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1.25rem;
+  height: var(--xd-btn-height);
+  border: 1px solid var(--xd-border-dark);
+  border-radius: var(--xd-btn-radius);
+  font-size: var(--xd-btn-size);
+  font-weight: var(--xd-btn-weight);
+  color: var(--xd-text-dark-primary);
+  background: transparent;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    border-color var(--xd-dur-fast) var(--xd-ease-out),
+    background-color var(--xd-dur-fast) var(--xd-ease-out),
+    transform var(--xd-dur-fast) var(--xd-ease-out);
+  white-space: nowrap;
+}
+
+.xd-btn--ghost-arrow:hover {
+  background-color: var(--xd-bg-tertiary);
+  border-color: var(--xd-blue-soft);
+}
+
+.xd-btn--ghost-arrow:hover .xd-btn-arrow {
+  transform: translateX(4px);
+}
+
+.xd-btn-arrow {
+  display: inline-flex;
+  transition: transform var(--xd-dur-fast) var(--xd-ease-out);
+}
+
+/* 7d. Trust indicator strip */
+.xd-trust-strip {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--xd-sp-8);
+}
+
+.xd-trust-strip__divider {
+  align-self: stretch;
+  width: 1px;
+  min-height: 2.5rem;
+  background: var(--xd-border-dark);
+  flex-shrink: 0;
+}
+
+.xd-trust-item__label {
+  display: block;
+  font-size: var(--xd-body-s-size);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--xd-text-dark-primary);
+  white-space: nowrap;
+}
+
+.xd-trust-item__sub {
+  display: block;
+  font-size: var(--xd-caption-size);
+  font-weight: 400;
+  line-height: var(--xd-caption-line);
+  color: var(--xd-text-dark-secondary);
+}
+
+/* 7e. Desktop screenshot browser chrome (macOS traffic lights) */
+.xd-browser-frame {
+  overflow: hidden;
+  border-radius: var(--xd-radius-xl);
+  border: 1px solid var(--xd-border-dark);
+  background: var(--xd-bg-tertiary);
+}
+
+.xd-browser-chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: var(--xd-bg-secondary);
+  border-bottom: 1px solid var(--xd-border-dark);
+}
+
+.xd-browser-chrome__dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.xd-browser-chrome__dot--red   { background: #FF5F57; }
+.xd-browser-chrome__dot--amber { background: #FFBD2E; }
+.xd-browser-chrome__dot--green { background: #28C840; }
+
+/* 7f. Mobile phone frame */
+.xd-mobile-frame {
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: var(--xd-bg-tertiary);
+}
+
+/* 7g. Primary panel — dispatcher / job board (55% visual weight, 5:3) */
+.xd-panel-primary {
+  width: 100%;
+  box-shadow:
+    var(--xd-shadow-screenshot),
+    0 0 80px rgba(47, 107, 255, 0.12);
+  transform: perspective(1200px) rotateY(-4deg) rotateX(2deg);
+  transition:
+    transform 200ms var(--xd-ease-out),
+    box-shadow 200ms var(--xd-ease-out);
+  will-change: transform;
+}
+
+.xd-panel-primary:hover {
+  transform: perspective(1200px) rotateY(-4deg) rotateX(2deg) translateY(-4px);
+  box-shadow:
+    var(--xd-shadow-card-hover),
+    0 0 80px rgba(47, 107, 255, 0.12);
+}
+
+/* 7h. Secondary landscape panels (4:3) */
+.xd-panel-secondary {
+  overflow: hidden;
+  box-shadow: var(--xd-shadow-card);
+  transform: perspective(1200px) rotateY(-2deg);
+  transition:
+    transform 200ms var(--xd-ease-out),
+    box-shadow 200ms var(--xd-ease-out);
+  will-change: transform;
+}
+
+.xd-panel-secondary:hover {
+  transform: perspective(1200px) rotateY(-2deg) translateY(-3px);
+  box-shadow: var(--xd-shadow-card-hover);
+}
+
+/* 7i. Mobile portrait panel (9:16) */
+.xd-panel-mobile {
+  overflow: hidden;
+  box-shadow: var(--xd-shadow-card);
+  transform: perspective(1200px) rotateY(-2deg) rotateX(1deg);
+  transition:
+    transform 200ms var(--xd-ease-out),
+    box-shadow 200ms var(--xd-ease-out);
+  will-change: transform;
+}
+
+.xd-panel-mobile:hover {
+  transform: perspective(1200px) rotateY(-2deg) rotateX(1deg) translateY(-3px);
+  box-shadow: var(--xd-shadow-card-hover);
+}
+
+/* 7j. Secondary row layout */
+.xd-secondary-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* 7k. Workflow status badge — overlaid bottom-right of primary panel */
+.xd-workflow-badge {
+  position: absolute;
+  bottom: 0.875rem;
+  right: 0.875rem;
+  z-index: 10;
+  background: var(--xd-bg-tertiary);
+  border: 1px solid var(--xd-border-dark);
+  border-left: 3px solid var(--xd-blue);
+  border-radius: var(--xd-radius-md);
+  padding: var(--xd-card-p-sm);
+  box-shadow: var(--xd-shadow-card);
+  min-width: 240px;
+  max-width: 320px;
+  pointer-events: none;
+}
+
+.xd-workflow-badge__steps {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  font-size: var(--xd-caption-size);
+  font-weight: 600;
+  color: var(--xd-text-dark-primary);
+}
+
+.xd-workflow-badge__arrow {
+  color: var(--xd-blue-soft);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.xd-workflow-badge__sub {
+  margin-top: 0.25rem;
+  font-size: var(--xd-caption-size);
+  font-weight: 400;
+  color: var(--xd-text-dark-secondary);
+}
+
+/* 7l. Responsive — hide secondary panels below 768 px */
+@media (max-width: 767px) {
+  .xd-secondary-row {
+    display: none;
+  }
+  .xd-workflow-badge {
+    position: static;
+    margin-top: 0.75rem;
+    max-width: 100%;
+    min-width: 0;
+    pointer-events: auto;
+  }
+}
+
+/* 7m. Primary panel — mobile clip (375 px): show top 55% only */
+@media (max-width: 479px) {
+  .xd-panel-primary-clip {
+    overflow: hidden;
+    max-height: 55cqh;
+  }
+}
