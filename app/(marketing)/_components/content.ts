@@ -14,9 +14,6 @@ export const trustBarItems = [
   'Approved users only',
 ] as const;
 
-export const operationalStory =
-  "It is 7:30 on a Monday morning. A transport manager has fourteen jobs to move before noon. Three drivers are waiting for their job details. A customer is on hold wanting a delivery update, but the dispatcher cannot find the message thread because it moved from email to WhatsApp mid-week. The rate agreed over the phone last Thursday was never written down. A driver just arrived at the wrong address because the collection point changed yesterday and the update never reached him. By 9am, five phone calls have already been made just to find information that should have been ready in seconds — and not a single delivery has started yet.";
-
 export const problemPoints = [
   {
     title: 'Job details buried across calls, messages and emails',
