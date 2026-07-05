@@ -8,10 +8,9 @@ export function CurrentPlatformStatusSection() {
           <span className="inline-flex rounded-full border border-[#1d4ed8]/20 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1d4ed8]">
             Current Platform Status
           </span>
-          <h2 className="mt-4 text-3xl font-bold text-[#0f172a] sm:text-4xl">Transparent about where XDrive is today</h2>
+          <h2 className="mt-4 text-3xl font-bold text-[#0f172a] sm:text-4xl">Transparent about what is live versus what is still growing</h2>
           <p className="mt-4 text-slate-600">
-            XDrive is functional for approved early-access users across supported logistics roles, while public marketplace volume and wider
-            partner network activity continue to grow in a controlled way.
+            This Phase 2 homepage is meant to make the current product state obvious: real workflows exist today, but rollout and network growth are still controlled.
           </p>
         </div>
 
