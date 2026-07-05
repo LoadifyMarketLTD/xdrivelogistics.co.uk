@@ -98,13 +98,16 @@ export default function DriverMobileApp() {
     }
     setLoading(true);
     setMessage('');
-    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setLoading(false);
-    if (error || !data.session) {
-      setMessage(error?.message ?? 'Login failed.');
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) {
+      setLoading(false);
+      setMessage(error.message);
       return;
     }
-    const accessToken = getAccessToken(data.session);
+    // Retrieve the persisted session after sign-in to get a reliable access_token.
+    const { data: sessionData } = await supabase.auth.getSession();
+    setLoading(false);
+    const accessToken = sessionData.session?.access_token ?? null;
     if (!accessToken) {
       setMessage('Login succeeded but no access token was returned.');
       await supabase.auth.signOut().catch(() => undefined);
