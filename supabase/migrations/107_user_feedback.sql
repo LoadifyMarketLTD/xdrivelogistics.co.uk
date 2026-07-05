@@ -30,11 +30,13 @@ CREATE INDEX IF NOT EXISTS user_feedback_category_idx
 ALTER TABLE public.user_feedback ENABLE ROW LEVEL SECURITY;
 
 -- Authenticated users can insert their own feedback
-CREATE POLICY IF NOT EXISTS user_feedback_insert
+DROP POLICY IF EXISTS user_feedback_insert ON public.user_feedback;
+CREATE POLICY user_feedback_insert
   ON public.user_feedback FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
 -- Users can read their own feedback
-CREATE POLICY IF NOT EXISTS user_feedback_own_read
+DROP POLICY IF EXISTS user_feedback_own_read ON public.user_feedback;
+CREATE POLICY user_feedback_own_read
   ON public.user_feedback FOR SELECT
   USING (user_id = auth.uid());
