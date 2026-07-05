@@ -127,6 +127,13 @@ const trustItems = [
   'POD and invoice records',
 ] as const;
 
+const accessProof = [
+  'Courier & freight exchange',
+  '3-month free access',
+  'UK-focused rollout',
+  'Reviewed applications',
+] as const;
+
 const footerGroups = [
   {
     title: 'Platform',
@@ -360,68 +367,80 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="access" className="grid min-h-[82svh] place-items-center bg-[#002B6C] px-5 py-24 text-center text-white sm:px-8">
-          <div className="mx-auto max-w-4xl">
-            <LockKeyhole className="mx-auto h-10 w-10 text-[#FDB913]" />
-            <h2 className="mt-8 text-5xl font-black leading-[0.98] sm:text-7xl">XDrive Logistics is in controlled early access.</h2>
-            <p className="mx-auto mt-6 max-w-2xl text-base font-semibold leading-7 text-white/70">
-              Access is reviewed, not automatic. If your courier or freight operation fits the current rollout, apply and the team will contact you directly.
-            </p>
-            <div className="mt-9 flex flex-wrap justify-center gap-3">
-              <Link href="/register" className="inline-flex items-center gap-2 bg-[#FDB913] px-6 py-3 text-sm font-black text-[#002B6C] shadow-[0_16px_34px_rgba(253,185,19,0.18)] transition hover:bg-[#FFD24A]">
-                Request Early Access <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link href="/login" className="inline-flex items-center gap-2 border border-white/20 px-6 py-3 text-sm font-black text-white transition hover:bg-white/10">
-                Sign In
-              </Link>
+        <section id="access" className="bg-[#001B45] px-5 py-16 text-white sm:px-8 lg:py-20">
+          <div className="mx-auto grid max-w-[1440px] gap-10 lg:grid-cols-[1fr_0.78fr] lg:items-center">
+            <div className="max-w-3xl">
+              <LockKeyhole className="h-10 w-10 text-[#FDB913]" />
+              <p className="mt-7 text-sm font-black uppercase tracking-[0.16em] text-[#FDB913]">Controlled Early Access</p>
+              <h2 className="mt-4 text-4xl font-black leading-tight sm:text-6xl">XDrive Logistics is open by application.</h2>
+              <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/70">
+                Access is reviewed, not automatic. Apply if your courier or freight operation fits the current UK rollout and the team will contact you directly.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link href="/register" className="inline-flex items-center gap-2 bg-[#FDB913] px-6 py-3 text-sm font-black text-[#002B6C] shadow-[0_16px_34px_rgba(253,185,19,0.18)] transition hover:bg-[#FFD24A]">
+                  Request Early Access <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link href="/login" className="inline-flex items-center gap-2 border border-white/20 px-6 py-3 text-sm font-black text-white transition hover:bg-white/10">
+                  Sign In
+                </Link>
+              </div>
             </div>
-            <div className="mt-10 grid gap-3 text-left sm:grid-cols-3">
-              {['Courier & freight exchange', '3-month free access', 'UK-focused rollout'].map((item) => (
-                <div key={item} className="flex min-h-[58px] items-center gap-3 border border-white/10 bg-white/5 p-4 text-sm font-bold text-white/85">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-[#FDB913]" />
-                  {item}
-                </div>
-              ))}
+
+            <div className="border border-white/10 bg-white/[0.04] p-6 shadow-[0_30px_80px_rgba(0,0,0,0.2)] sm:p-7">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#FDB913]">Access Includes</p>
+              <div className="mt-5 grid gap-3">
+                {accessProof.map((item) => (
+                  <div key={item} className="flex min-h-[54px] items-center gap-3 border border-white/10 bg-white/[0.05] px-4 text-sm font-bold text-white/85">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-[#FDB913]" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 border-t border-white/10 pt-5 text-sm font-semibold leading-6 text-white/65">
+                <p>Courier & Freight Exchange Platform</p>
+                <p>Company No. 13171804</p>
+                <p>No client funds held by XDrive.</p>
+              </div>
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="bg-[#002B6C] px-5 py-14 text-white sm:px-8">
+      <footer className="border-t border-[#D7E6FA] bg-white px-5 py-12 sm:px-8">
         <div className="mx-auto max-w-[1440px]">
-          <div className="grid gap-10 lg:grid-cols-[1.45fr_repeat(4,1fr)]">
-            <div className="max-w-sm">
-              <div className="inline-flex bg-white px-4 py-3 shadow-[0_20px_50px_rgba(0,0,0,0.16)]">
-                <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={190} height={50} className="h-[42px] w-auto" />
-              </div>
-              <p className="mt-6 text-lg font-black text-white">Courier & Freight Exchange Platform</p>
-              <p className="mt-3 text-sm font-semibold leading-6 text-white/70">
-                XDrive Logistics connects posted work, courier quotes, awarded jobs, dispatch, POD and invoice readiness in one controlled workflow.
+          <div className="grid gap-10 lg:grid-cols-[1.25fr_2fr]">
+            <div className="max-w-md">
+              <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={210} height={56} className="h-[46px] w-auto" />
+              <p className="mt-4 text-base font-black text-[#002B6C]">Courier & Freight Exchange Platform</p>
+              <p className="mt-3 text-sm font-semibold leading-6 text-[#49607F]">
+                Posted work, courier quotes, awarded jobs, dispatch, POD and invoice readiness in one controlled workflow.
               </p>
-              <div className="mt-6 grid gap-2 border-l border-[#FDB913] pl-4 text-sm font-bold text-white/75">
+              <div className="mt-5 grid gap-2 border-l border-[#FDB913] pl-4 text-sm font-bold text-[#49607F]">
+                <span>XDrive Logistics Ltd.</span>
                 <span>Company No. 13171804</span>
-                <span>UK-focused controlled rollout</span>
               </div>
             </div>
 
-            {footerGroups.map((group) => (
-              <div key={group.title}>
-                <h2 className="text-xs font-black uppercase tracking-[0.18em] text-[#FDB913]">{group.title}</h2>
-                <div className="mt-5 grid gap-3 text-sm font-bold text-white/75">
-                  {group.links.map((item) => {
-                    const isInternal = item.href.startsWith('#');
-                    return isInternal ? (
-                      <a key={item.href} href={item.href} className="transition hover:text-white">{item.label}</a>
-                    ) : (
-                      <Link key={item.href} href={item.href} className="transition hover:text-white">{item.label}</Link>
-                    );
-                  })}
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+              {footerGroups.map((group) => (
+                <div key={group.title}>
+                  <h2 className="text-xs font-black uppercase tracking-[0.18em] text-[#FDB913]">{group.title}</h2>
+                  <div className="mt-4 grid gap-3 text-sm font-bold text-[#003B8F]">
+                    {group.links.map((item) => {
+                      const isInternal = item.href.startsWith('#');
+                      return isInternal ? (
+                        <a key={item.href} href={item.href} className="transition hover:text-[#002B6C]">{item.label}</a>
+                      ) : (
+                        <Link key={item.href} href={item.href} className="transition hover:text-[#002B6C]">{item.label}</Link>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-7 text-xs font-bold text-white/60 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-10 flex flex-col gap-3 border-t border-[#D7E6FA] pt-6 text-xs font-bold text-[#49607F] sm:flex-row sm:items-center sm:justify-between">
             <p>© 2021 XDrive Logistics Ltd. All Rights Reserved.</p>
             <p>Move Freight. Manage Operations. Grow Your Network.</p>
           </div>
