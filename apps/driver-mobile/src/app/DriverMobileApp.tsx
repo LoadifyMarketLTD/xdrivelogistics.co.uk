@@ -74,15 +74,23 @@ export default function DriverMobileApp() {
     }
     setLoading(true);
     setMessage('');
-    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setLoading(false);
-    if (error || !data.session) {
-      setMessage(error?.message ?? 'Login failed.');
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) {
+      setLoading(false);
+      setMessage(error.message);
       return;
     }
-    setToken(data.session.access_token);
-    void safeRegisterPushToken(data.session.access_token);
-    await loadJobs(data.session.access_token);
+    // Retrieve the persisted session after sign-in to get a reliable access_token.
+    const { data: sessionData } = await supabase.auth.getSession();
+    setLoading(false);
+    const accessToken = sessionData.session?.access_token ?? null;
+    if (!accessToken) {
+      setMessage('Login succeeded but session token is missing. Please try again.');
+      return;
+    }
+    setToken(accessToken);
+    void safeRegisterPushToken(accessToken);
+    await loadJobs(accessToken);
   }
 
   async function signOut() {
