@@ -26,7 +26,22 @@ type StartupErrorBoundaryState = {
 };
 
 const startupTimeoutMs = 15000;
-const fallbackApiBaseUrl = 'https://xdrivelogistics.co.uk';
+const fallbackApiBaseUrl = 'https://www.xdrivelogistics.co.uk';
+
+function normalizeApiBaseUrl(value: string | null | undefined) {
+  const normalized = value?.trim().replace(/\/+$/, '');
+  if (!normalized) return fallbackApiBaseUrl;
+
+  try {
+    const url = new URL(normalized);
+    if (url.hostname === 'xdrivelogistics.co.uk') {
+      url.hostname = 'www.xdrivelogistics.co.uk';
+    }
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return fallbackApiBaseUrl;
+  }
+}
 
 export default function App() {
   const [DriverMobileApp, setDriverMobileApp] = useState<DriverMobileAppComponent | null>(null);
@@ -139,8 +154,7 @@ async function collectDiagnostics(): Promise<DiagnosticSnapshot> {
   const extra = Constants.expoConfig?.extra ?? {};
   const runtime = typeof Constants.executionEnvironment === 'string' ? Constants.executionEnvironment : 'unknown';
   const appVersion = typeof Constants.expoConfig?.version === 'string' ? Constants.expoConfig.version : 'unknown';
-  const apiBaseUrl =
-    typeof extra.apiBaseUrl === 'string' && extra.apiBaseUrl.length > 0 ? extra.apiBaseUrl : fallbackApiBaseUrl;
+  const apiBaseUrl = normalizeApiBaseUrl(typeof extra.apiBaseUrl === 'string' ? extra.apiBaseUrl : fallbackApiBaseUrl);
   const supabaseConfigured = hasSupabaseConfig(extra) ? 'present' : 'missing';
 
   let network = 'unknown';
