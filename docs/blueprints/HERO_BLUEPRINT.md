@@ -1,6 +1,6 @@
 # Blueprint #1 — Hero Section (Revised)
 
-> **Status: AWAITING APPROVAL — Revision 2**
+> **Status: AWAITING FINAL APPROVAL — Revision 2 (Final Additions)**
 >
 > No React code. No CSS changes. No homepage implementation.
 > Implementation begins only after this blueprint is approved.
@@ -15,6 +15,10 @@
 > - §6 (new) Navigation specification added
 > - §13 (new) Hero Success Metrics added
 > - Floating live-number badge replaced with truthful Workflow Status badge
+>
+> **Final additions (pre-approval):**
+> - §8a (new) Hero Visual Composition Specification — production-level precision for every panel
+> - §14 (new) Hero Design Principles — canonical rules governing all future Hero changes
 
 ---
 
@@ -329,6 +333,94 @@ The right column shows a **Hero Product Composition** — a curated multi-panel 
 
 ---
 
+## 8a. Hero Visual Composition Specification
+
+This section defines every panel in the Hero Product Composition with production-level precision. No implementation interpretation is required beyond these specifications.
+
+---
+
+### Panel 1 — Primary: Dispatcher / Job Board
+
+| Property | Specification |
+|---|---|
+| **Exact purpose** | Prove that XDrive is an operational command centre. The visitor must recognise, instantly, that multiple jobs are being managed simultaneously across drivers, statuses, and routes. This is the single most important visual on the page. |
+| **Relative visual weight** | **55%** of the total composition area |
+| **Aspect ratio** | **5:3** (e.g. 640×384px at display size) |
+| **Screenshot source** | Live XDrive Dispatcher → Job Board view. Must show: ≥6 active jobs in table/board rows; driver name column; status badges (at least 3 different states: In Transit, Collected, Pending Assignment); origin/destination address columns; collection time column; GBP cost or rate visible |
+| **Framing style** | macOS-style desktop browser frame — dark chrome, three traffic-light dots (red/amber/green) top-left, no address bar, no browser tabs. Dark rounded container `--xd-radius-xl` (16px). Full-width of right column. |
+| **Lighting treatment** | Subtle blue glow emanates from behind this panel (`--xd-shadow-glow-blue`). The panel appears to be the light source in the composition. No harsh highlights. The glow reinforces the primary radial light in the background (§3a). |
+| **Shadow treatment** | `--xd-shadow-screenshot`: `0 24px 64px rgba(0,0,0,0.55), 0 8px 24px rgba(0,0,0,0.35)`. Plus glow layer: `0 0 80px rgba(47,107,255,0.12)`. Both combined. |
+| **Overlap behaviour** | Does **not** overlap any other panel. Secondary panels sit immediately below with a 10px gap. The Workflow Status Badge (§7a) overlaps this panel, anchored to its bottom-right corner. |
+| **Responsive behaviour** | 1440px: scales to ~520px wide; 1280px: ~480px wide; 1024px (tablet): 100% column width; 768px and below: 100% width, height proportional; 375px: full width, clipped to top 55% of height to preserve the most informative rows |
+| **Animation on first load** | Phase 2 (200–600ms from page load): fades in from `opacity: 0` to `opacity: 1` while rising from `translateY(24px)` to `translateY(0)`. Easing: `cubic-bezier(0.16, 1, 0.3, 1)`. Duration: 400ms. `prefers-reduced-motion`: renders immediately at final position, no transform. |
+
+---
+
+### Panel 2 — Secondary A: Job Marketplace / Job Creation
+
+| Property | Specification |
+|---|---|
+| **Exact purpose** | Represent the **Marketplace** layer — where work enters the platform. The visitor understands that jobs originate through a structured process, not a phone call or spreadsheet. |
+| **Relative visual weight** | **16%** of the total composition area |
+| **Aspect ratio** | **4:3** (e.g. 200×150px at display size) |
+| **Screenshot source** | Live XDrive → Job Creation form or Marketplace listing view. Must show: at minimum 3 populated form fields (collection address, delivery address, vehicle/goods type). Field values must use real UK address format. At least one dropdown or selector must be visible in a non-default state. |
+| **Framing style** | Dark rounded frame, `--xd-radius-lg` (12px), `1px solid --xd-border-dark`. No browser chrome. The frame alone defines the boundary. |
+| **Lighting treatment** | No dedicated glow. Inherits ambient light from the primary panel glow. Slightly dimmer than the primary panel — reinforces visual hierarchy. |
+| **Shadow treatment** | `--xd-shadow-card`: `0 8px 32px rgba(0,0,0,0.40), 0 2px 8px rgba(0,0,0,0.25)`. No glow layer. |
+| **Overlap behaviour** | Does not overlap Panel 1 or other secondary panels. Sits in the left position of the secondary row, 10px below Panel 1 and 8px to the left of Panel 2B. |
+| **Responsive behaviour** | 1280px+: ~31% of right column width; 1024px: ~33% width in horizontal 3-panel secondary row; 768px and below: hidden entirely; 375px: hidden entirely |
+| **Animation on first load** | Phase 3A (400–700ms from page load): fades in from `opacity: 0` to `opacity: 1` while rising from `translateY(16px)` to `translateY(0)`. 60ms stagger after Panel 1 completes. Easing: same spring curve. `prefers-reduced-motion`: immediate. |
+
+---
+
+### Panel 3 — Secondary B: Driver Mobile App
+
+| Property | Specification |
+|---|---|
+| **Exact purpose** | Represent the **Driver** layer — proving the platform reaches the field. The visitor understands drivers operate on a mobile interface that is part of the same system, not a separate app bolted on. |
+| **Relative visual weight** | **13%** of the total composition area |
+| **Aspect ratio** | **9:16** portrait (e.g. 100×178px at display size — tall, narrow, unmistakably mobile) |
+| **Screenshot source** | Live XDrive Driver Mobile app (Expo React Native). Must show: a single active job card with Accept, Navigate, or POD action buttons visible. Job reference number, origin/destination visible. Status in an active state (In Transit or Collected). Must not show an empty state or login screen. |
+| **Framing style** | Mobile phone frame — portrait, rounded rect corners (`border-radius: 24px`), no traffic lights, no browser chrome. Thin outer border `1px solid rgba(255,255,255,0.10)`. The frame shape must unambiguously read as "phone" at thumbnail scale. |
+| **Lighting treatment** | No dedicated glow. The contrast between the bright mobile UI and the dark frame creates its own visual separation. |
+| **Shadow treatment** | `--xd-shadow-card`: same as Panel 2. The tall narrow shape casts a naturally distinct shadow from the wide landscape panels. |
+| **Overlap behaviour** | Does not overlap any other panel. Sits in the centre of the secondary row, 8px gap on each side from Panel 2A and Panel 2C. Because it is portrait (taller than the landscape panels), it extends slightly below their bottom edge — this is correct and expected; do not clip it. |
+| **Responsive behaviour** | 1280px+: ~28% of right column width; 1024px: ~33% in secondary row; 768px and below: hidden; 375px: hidden |
+| **Animation on first load** | Phase 3B (460–760ms from page load): same as Panel 2A but 60ms later (120ms total stagger offset from Phase 3 start). `prefers-reduced-motion`: immediate. |
+
+---
+
+### Panel 4 — Secondary C: Finance / Invoice
+
+| Property | Specification |
+|---|---|
+| **Exact purpose** | Represent the **Finance** layer — proving the platform closes the loop from job to payment. The visitor understands that XDrive generates invoices automatically from completed jobs, not via a separate accounting tool. |
+| **Relative visual weight** | **16%** of the total composition area |
+| **Aspect ratio** | **4:3** (e.g. 200×150px at display size — mirrors Panel 2A width for visual symmetry in the secondary row) |
+| **Screenshot source** | Live XDrive → Invoice view. Must show: XDrive-generated invoice header, a job reference number, a GBP total amount (formatted as £X,XXX.XX), a company/client name, a due date, and at least one line-item row. The invoice must look generated by the platform, not a generic template. Status badge (Paid, Due, or Overdue) must be visible. |
+| **Framing style** | Same as Panel 2A: dark rounded frame, `--xd-radius-lg`, `1px solid --xd-border-dark`. No browser chrome. |
+| **Lighting treatment** | Same as Panel 2A. No dedicated glow. |
+| **Shadow treatment** | Same as Panel 2A: `--xd-shadow-card`. No glow. |
+| **Overlap behaviour** | Does not overlap any other panel. Sits in the right position of the secondary row, 8px to the right of Panel 2B (Driver Mobile). The bottom edge of Panel 2C aligns with the bottom edge of Panel 2A (landscape panels align at base; Driver Mobile may extend below). |
+| **Responsive behaviour** | 1280px+: ~31% of right column width; 1024px: ~33% in secondary row; 768px and below: hidden; 375px: hidden |
+| **Animation on first load** | Phase 3C (520–820ms from page load): same pattern, 60ms after Panel 3B (180ms total stagger offset from Phase 3 start). `prefers-reduced-motion`: immediate. |
+
+---
+
+### Visual Weight Summary
+
+| Panel | Role | Visual Weight | Ratio |
+|---|---|---|---|
+| Panel 1 — Dispatcher/Job Board | Command centre / Dispatch | 55% | 5:3 landscape |
+| Panel 2A — Marketplace | Job origin / Marketplace | 16% | 4:3 landscape |
+| Panel 2B — Driver Mobile | Field execution / Driver | 13% | 9:16 portrait |
+| Panel 2C — Finance/Invoice | Workflow close / Finance | 16% | 4:3 landscape |
+| **Total** | | **100%** | |
+
+The remaining composition area is structural negative space (gaps, padding, badge). This is intentional — the composition breathes.
+
+---
+
 ## 7a. Workflow Status Badge
 
 This replaces the "floating live metric badge" from Revision 1. It is a truthful operational indicator that does not depend on live data or platform scale.
@@ -513,6 +605,46 @@ The 5-second test is conducted by showing the Hero to someone unfamiliar with XD
 4. What would you do next on this page?
 
 If ≥ 3 of 5 understandings are not reported correctly, the Hero composition, headline, or visual direction must be revised before launch.
+
+---
+
+## 14. Hero Design Principles
+
+These principles are the governing rules for the Hero section. They apply to the initial implementation and to every future change, update, or redesign proposal. Any proposed Hero change that violates one of these principles must be rejected or revised before approval.
+
+---
+
+**1. The platform is always the hero — never decorative artwork.**
+
+The right column must show the real XDrive product. Illustrations, icons, abstract shapes, isometric graphics, or stock photography are permanently prohibited. If it cannot be replaced with a product screenshot, it does not belong in the Hero.
+
+**2. Every visual element must communicate operational value.**
+
+Nothing in the Hero exists for aesthetic decoration alone. Every panel, badge, indicator, and typographic element must earn its place by communicating something specific about XDrive's capabilities or the visitor's expected outcome. If an element cannot be explained in one sentence of operational value, it must be removed.
+
+**3. The visitor should understand the end-to-end workflow before reading deep copy.**
+
+The Hero composition — Marketplace → Dispatch → Driver → Finance — must be legible as a workflow, not as a collage. A visitor who reads only the headline, glances at the composition, and sees the Workflow Status Badge should be able to reconstruct the platform's end-to-end value chain without reading the subheadline or scrolling.
+
+**4. The Hero must create confidence, not excitement.**
+
+Excitement fades within seconds and attracts the wrong visitor. Confidence is durable and attracts qualified operators. Every decision — tone, colour, typography, motion — should be evaluated by this test: does this create confidence in a serious operations manager, or does it create excitement for a casual browser?
+
+**5. Simplicity is preferred over visual complexity.**
+
+If two approaches achieve the same communication goal, the simpler one is correct. Visual complexity is not a signal of quality; it is a signal of unresolved design thinking. Complexity must only be introduced when simplicity genuinely fails to communicate the required message.
+
+**6. Premium restraint is preferred over visual excess.**
+
+The Hero is not a trade show booth. Animations must be subtle. Colours must be disciplined within the XDrive token system. Typography must be clean and unhierarchically restrained. If a design element would look at home on a VC-funded consumer app, it is probably wrong for XDrive.
+
+**7. The Hero should remain visually relevant for years — not follow temporary design trends.**
+
+Decisions must be evaluated against a 3–5 year horizon, not the current SaaS design cycle. Glassmorphism, gradient text, bento-grid layouts, and animated background particles are examples of trends that will date the Hero within 18 months. The Hero's visual language should be rooted in function, precision, and the XDrive token system — these are timeless signals for a professional B2B product.
+
+---
+
+> **Using these principles:** When a future change to the Hero is proposed, each principle above should be reviewed as a checklist item. A change that satisfies all seven may proceed to blueprint revision. A change that cannot satisfy even one must be revised or rejected.
 
 ---
 
