@@ -24,21 +24,21 @@ const workflowFrames = [
   {
     stage: 'Post',
     title: 'Job posted',
-    detail: 'Courier and freight requirements enter the exchange with route, vehicle and timing context.',
+    detail: 'Route, vehicle and timing requirements enter the exchange.',
     image: '/marketplace-loading.webp',
     alt: 'XDrive marketplace workflow showing a transport request and quoting context',
   },
   {
     stage: 'Quote',
     title: 'Quotes received',
-    detail: 'Courier companies and operators respond while the job remains tied to one exchange record.',
+    detail: 'Courier companies and operators respond to the same job record.',
     image: '/marketplace-loading.webp',
     alt: 'XDrive freight exchange quote workflow with available job context',
   },
   {
     stage: 'Award',
     title: 'Work awarded',
-    detail: 'The awarded job moves from exchange activity into dispatch, POD and invoice readiness.',
+    detail: 'The awarded job moves into dispatch, POD and invoice readiness.',
     image: '/operations-dispatch-office.webp',
     alt: 'XDrive operations diary showing awarded work moving into dispatch',
   },
@@ -92,7 +92,7 @@ const productSections = [
   },
 ] as const;
 
-function ProductFrame({ image, alt, label }: { image: string; alt: string; label: string }) {
+function ProductFrame({ image, alt, label, priority = false }: { image: string; alt: string; label: string; priority?: boolean }) {
   return (
     <div className="overflow-hidden border border-[#D7E6FA] bg-white shadow-[0_28px_80px_rgba(0,59,143,0.18)]">
       <div className="flex h-10 items-center justify-between border-b border-[#D7E6FA] bg-[#F8FBFF] px-4">
@@ -104,7 +104,7 @@ function ProductFrame({ image, alt, label }: { image: string; alt: string; label
         <span className="text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]/70">{label}</span>
       </div>
       <div className="relative aspect-[16/9] bg-[#EEF6FF]">
-        <Image src={image} alt={alt} fill className="object-cover" />
+        <Image src={image} alt={alt} fill priority={priority} className="object-cover" />
       </div>
     </div>
   );
@@ -136,16 +136,16 @@ export function LandingPage() {
 
       <main>
         <section id="platform" className="relative overflow-hidden bg-white">
-          <div className="absolute right-[-22vw] top-[-18vw] h-[58vw] w-[58vw] rounded-full border-[34px] border-[#003B8F]" aria-hidden="true" />
-          <div className="absolute right-[-18vw] top-[-14vw] h-[50vw] w-[50vw] rounded-full border-[12px] border-[#FDB913]" aria-hidden="true" />
-          <div className="absolute bottom-0 left-0 h-28 w-[48vw] bg-[#003B8F]" aria-hidden="true" />
-          <div className="absolute bottom-28 left-[34vw] h-4 w-[38vw] -rotate-[28deg] bg-[#FDB913]" aria-hidden="true" />
+          <div className="absolute right-[-24vw] top-[-20vw] h-[58vw] w-[58vw] rounded-full border-[32px] border-[#003B8F]" aria-hidden="true" />
+          <div className="absolute right-[-19vw] top-[-15vw] h-[50vw] w-[50vw] rounded-full border-[12px] border-[#FDB913]" aria-hidden="true" />
+          <div className="absolute bottom-0 left-0 h-24 w-[46vw] bg-[#003B8F]" aria-hidden="true" />
+          <div className="absolute bottom-24 left-[34vw] h-4 w-[36vw] -rotate-[28deg] bg-[#FDB913]" aria-hidden="true" />
 
-          <div className="relative mx-auto grid min-h-[calc(100svh-68px)] max-w-[1500px] gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:py-16">
+          <div className="relative mx-auto grid min-h-[calc(100svh-68px)] max-w-[1500px] gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:py-12">
             <div className="max-w-2xl">
-              <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={410} height={110} priority className="h-auto w-[310px] max-w-full sm:w-[410px]" />
+              <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={410} height={110} priority className="h-auto w-[300px] max-w-full sm:w-[400px]" />
               <p className="mt-7 text-sm font-black uppercase tracking-[0.18em] text-[#FDB913]">Courier &amp; Freight Exchange Platform</p>
-              <h1 className="mt-4 text-[3.15rem] font-black leading-[0.95] tracking-tight text-[#002B6C] sm:text-[4.7rem] lg:text-[5.7rem]">
+              <h1 className="mt-4 text-[3rem] font-black leading-[0.95] tracking-tight text-[#002B6C] sm:text-[4.45rem] lg:text-[5.35rem]">
                 Move freight. Manage operations. Grow your network.
               </h1>
               <p className="mt-6 max-w-xl text-lg font-semibold leading-8 text-[#24416F]">
@@ -161,22 +161,18 @@ export function LandingPage() {
               </div>
             </div>
 
-            <div className="relative z-10 grid gap-5">
-              <div className="relative min-h-[280px] overflow-hidden border-[10px] border-white bg-[#E4F0FF] shadow-[0_30px_90px_rgba(0,59,143,0.25)] sm:min-h-[420px] lg:min-h-[560px]">
-                <Image src="/xdrive-courier-fleet-no-plates.webp" alt="XDrive logistics fleet operating across the UK" fill priority className="object-cover" />
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.08),rgba(0,59,143,0.08))]" />
-              </div>
-              <ProductFrame image="/marketplace-loading.webp" alt="XDrive courier and freight exchange showing available work" label="Courier & Freight Exchange" />
+            <div className="relative z-10">
+              <ProductFrame image="/marketplace-loading.webp" alt="XDrive courier and freight exchange showing available work" label="Courier & Freight Exchange" priority />
             </div>
           </div>
         </section>
 
-        <section className="bg-[#003B8F] px-5 py-7 text-white sm:px-8">
+        <section className="bg-[#003B8F] px-5 py-6 text-white sm:px-8">
           <div className="mx-auto grid max-w-[1500px] gap-5 sm:grid-cols-2 lg:grid-cols-5">
             {brandProof.map((item) => {
               const Icon = item.icon;
               return (
-                <div key={item.label} className="flex min-h-[74px] items-center gap-4 border-l border-white/20 pl-4">
+                <div key={item.label} className="flex min-h-[68px] items-center gap-4 border-l border-white/20 pl-4">
                   <Icon className="h-8 w-8 shrink-0 text-[#FDB913]" />
                   <p className="text-lg font-black leading-tight">{item.label}</p>
                 </div>
@@ -185,31 +181,41 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="workflow" className="bg-[#F7FAFF] px-5 py-20 sm:px-8 lg:py-24">
+        <section id="workflow" className="bg-[#F7FAFF] px-5 py-16 sm:px-8 lg:py-20">
           <div className="mx-auto max-w-[1500px]">
             <div className="max-w-3xl">
               <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FDB913]">Exchange workflow</p>
               <h2 className="mt-4 text-4xl font-black leading-tight text-[#002B6C] sm:text-6xl">Post to award. One job record.</h2>
               <p className="mt-5 max-w-xl text-base font-semibold leading-7 text-[#49607F]">The exchange record becomes the operational record, so work does not restart after the job is awarded.</p>
             </div>
-            <div className="mt-10 grid gap-5 lg:grid-cols-3">
-              {workflowFrames.map((frame) => (
-                <article key={frame.stage} className="border border-[#D7E6FA] bg-white">
-                  <ProductFrame image={frame.image} alt={frame.alt} label={`XD-2048 / ${frame.stage}`} />
-                  <div className="p-5">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]">{frame.stage}</p>
-                    <h3 className="mt-2 text-2xl font-black text-[#002B6C]">{frame.title}</h3>
-                    <p className="mt-3 text-sm font-semibold leading-6 text-[#49607F]">{frame.detail}</p>
-                  </div>
-                </article>
-              ))}
+            <div className="mt-9 overflow-hidden border border-[#D7E6FA] bg-white shadow-[0_20px_60px_rgba(0,59,143,0.12)]">
+              <div className="grid lg:grid-cols-3">
+                {workflowFrames.map((frame, index) => (
+                  <article key={frame.stage} className="border-[#D7E6FA] lg:border-r lg:last:border-r-0">
+                    <div className="relative aspect-[16/9] bg-[#EEF6FF]">
+                      <Image src={frame.image} alt={frame.alt} fill className="object-cover" />
+                      <div className="absolute left-4 top-4 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#003B8F] shadow-sm">XD-2048 / {frame.stage}</div>
+                      {index < workflowFrames.length - 1 && (
+                        <div className="absolute -right-5 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[#FDB913] text-[#002B6C] shadow-lg lg:flex">
+                          <ArrowRight className="h-5 w-5" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-5">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]">{frame.stage}</p>
+                      <h3 className="mt-2 text-2xl font-black text-[#002B6C]">{frame.title}</h3>
+                      <p className="mt-3 text-sm font-semibold leading-6 text-[#49607F]">{frame.detail}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
         {productSections.map((section) => (
-          <section key={section.id} id={section.id} className="border-t border-[#D7E6FA] bg-white px-5 py-20 sm:px-8 lg:py-24">
-            <div className={`mx-auto grid max-w-[1500px] gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center ${section.reverse ? 'lg:[&>*:first-child]:order-2' : ''}`}>
+          <section key={section.id} id={section.id} className="border-t border-[#D7E6FA] bg-white px-5 py-16 sm:px-8 lg:py-20">
+            <div className={`mx-auto grid max-w-[1500px] gap-9 lg:grid-cols-[1.05fr_0.95fr] lg:items-center ${section.reverse ? 'lg:[&>*:first-child]:order-2' : ''}`}>
               <div>
                 <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FDB913]">{section.kicker}</p>
                 <h2 className="mt-4 max-w-3xl text-4xl font-black leading-tight text-[#002B6C] sm:text-6xl">{section.headline}</h2>
@@ -220,7 +226,7 @@ export function LandingPage() {
           </section>
         ))}
 
-        <section id="access" className="grid min-h-[86svh] place-items-center bg-[#002B6C] px-5 py-20 text-center text-white sm:px-8">
+        <section id="access" className="grid min-h-[82svh] place-items-center bg-[#002B6C] px-5 py-20 text-center text-white sm:px-8">
           <div className="mx-auto max-w-4xl">
             <LockKeyhole className="mx-auto h-10 w-10 text-[#FDB913]" />
             <h2 className="mt-8 text-5xl font-black leading-[0.98] sm:text-7xl">XDrive Logistics is in controlled early access.</h2>
