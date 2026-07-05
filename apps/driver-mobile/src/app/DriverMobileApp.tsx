@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { fetchJobs, postJobStatus, uploadPod } from '../api/jobs';
+import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
 import { isSupabaseConfigured, supabase } from '../auth/supabase';
 import { getNextStep } from '../jobs/statusFlow';
 import type { DriverJob, JobScope } from '../jobs/types';
@@ -9,6 +10,11 @@ import { enqueueAction, getQueue, isOnline, saveQueue, updateQueueItem, type Que
 import { colors, spacing } from '../ui/theme';
 
 type Screen = 'login' | 'active' | 'jobs' | 'detail' | 'pod' | 'notifications' | 'profile';
+
+function getAccessToken(session: { access_token?: string | null } | null | undefined) {
+  const token = session?.access_token?.trim();
+  return token || null;
+}
 
 export default function DriverMobileApp() {
   const [screen, setScreen] = useState<Screen>('login');
@@ -56,15 +62,33 @@ export default function DriverMobileApp() {
   useEffect(() => {
     void supabase.auth.getSession()
       .then(({ data }) => {
-        const sessionToken = data.session?.access_token ?? null;
-        if (!sessionToken) return;
+        const sessionToken = getAccessToken(data.session);
+        if (!sessionToken) {
+          void clearSessionToken();
+          return;
+        }
         setToken(sessionToken);
+        void saveSessionToken(sessionToken);
         void loadJobs(sessionToken);
         void safeRegisterPushToken(sessionToken);
         void flushQueue(sessionToken);
       })
-      .catch(() => setScreen('login'));
+      .catch(() => {
+        void clearSessionToken();
+        setScreen('login');
+      });
     void getQueue().then(setQueue).catch(() => setQueue([]));
+
+    // Keep token state in sync whenever Supabase silently refreshes the session
+    // (access tokens expire after ~1 hour; without this the app sends stale JWTs).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextToken = getAccessToken(session);
+      setToken(nextToken);
+      if (nextToken) void saveSessionToken(nextToken);
+      else void clearSessionToken();
+      if (!session) setScreen('login');
+    });
+    return () => subscription.unsubscribe();
   }, [flushQueue, loadJobs]);
 
   async function signIn(email: string, password: string) {
@@ -85,16 +109,19 @@ export default function DriverMobileApp() {
     setLoading(false);
     const accessToken = sessionData.session?.access_token ?? null;
     if (!accessToken) {
-      setMessage('Login succeeded but session token is missing. Please try again.');
+      setMessage('Login succeeded but no access token was returned.');
+      await supabase.auth.signOut().catch(() => undefined);
       return;
     }
     setToken(accessToken);
+    try { await saveSessionToken(accessToken); } catch { /* SecureStore non-critical */ }
     void safeRegisterPushToken(accessToken);
     await loadJobs(accessToken);
   }
 
   async function signOut() {
     await supabase.auth.signOut();
+    await clearSessionToken();
     await saveQueue([]);
     setToken(null);
     setJob(null);

@@ -4,17 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { createClient } from '@supabase/supabase-js';
 
+// Metro/EAS statically inlines EXPO_PUBLIC_* variables at bundle time.
+// Using direct property access (not a variable) is required for Metro to inline them.
 const extra = Constants.expoConfig?.extra ?? {};
-const env: Partial<Record<'EXPO_PUBLIC_SUPABASE_URL' | 'EXPO_PUBLIC_SUPABASE_ANON_KEY', string>> =
-  typeof process !== 'undefined'
-    ? (process.env as unknown as Partial<Record<'EXPO_PUBLIC_SUPABASE_URL' | 'EXPO_PUBLIC_SUPABASE_ANON_KEY', string>>)
-    : {};
-const supabaseUrl = typeof extra.supabaseUrl === 'string' && extra.supabaseUrl
-  ? extra.supabaseUrl
-  : env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = typeof extra.supabaseAnonKey === 'string' && extra.supabaseAnonKey
-  ? extra.supabaseAnonKey
-  : env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const supabaseUrl =
+  (typeof extra.supabaseUrl === 'string' ? extra.supabaseUrl : process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').trim();
+const supabaseAnonKey =
+  (typeof extra.supabaseAnonKey === 'string' ? extra.supabaseAnonKey : process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '').trim();
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 

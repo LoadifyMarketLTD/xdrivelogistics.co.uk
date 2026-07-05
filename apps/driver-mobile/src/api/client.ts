@@ -8,20 +8,53 @@ type ApiOptions = {
   body?: unknown;
 };
 
-const fallbackBaseUrl = 'https://xdrivelogistics.co.uk';
+const fallbackBaseUrl = 'https://www.xdrivelogistics.co.uk';
+
+function normalizeApiBaseUrl(value: string | null | undefined) {
+  const normalized = value?.trim().replace(/\/+$/, '');
+  if (!normalized) return fallbackBaseUrl;
+
+  try {
+    const url = new URL(normalized);
+    if (url.hostname === 'xdrivelogistics.co.uk') {
+      url.hostname = 'www.xdrivelogistics.co.uk';
+    }
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return fallbackBaseUrl;
+  }
+}
 
 export function getApiBaseUrl() {
   const configured = Constants.expoConfig?.extra?.apiBaseUrl;
-  return typeof configured === 'string' && configured.length > 0 ? configured : fallbackBaseUrl;
+  return normalizeApiBaseUrl(typeof configured === 'string' ? configured : fallbackBaseUrl);
+}
+
+/**
+ * Resolve the bearer token to use for a request.
+ *
+ * Priority order:
+ *  1. Explicit token passed by the caller (fastest path after sign-in).
+ *  2. Live Supabase session (covers token-refresh races and any call sites
+ *     that do not forward the token explicitly).
+ */
+async function resolveAuthToken(explicitToken?: string | null): Promise<string | null> {
+  const normalized = explicitToken?.trim();
+  if (normalized) return normalized;
+
+  try {
+    const { data } = await supabase.auth.getSession();
+    const sessionToken = data.session?.access_token?.trim();
+    return sessionToken || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  let token: string | null = options.token ?? null;
-  if (!token) {
-    const { data } = await supabase.auth.getSession();
-    token = data.session?.access_token ?? null;
-  }
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+  const token = await resolveAuthToken(options.token);
+  const url = `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+  const response = await fetch(url, {
     method: options.method ?? 'GET',
     headers: {
       Accept: 'application/json',
