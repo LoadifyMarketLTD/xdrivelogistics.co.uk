@@ -9,7 +9,6 @@ import {
   Menu,
   Route,
   ShieldCheck,
-  Truck,
   Users,
 } from 'lucide-react';
 
