@@ -8,11 +8,26 @@ type ApiOptions = {
   body?: unknown;
 };
 
-const fallbackBaseUrl = 'https://xdrivelogistics.co.uk';
+const fallbackBaseUrl = 'https://www.xdrivelogistics.co.uk';
+
+function normalizeApiBaseUrl(value: string | null | undefined) {
+  const normalized = value?.trim().replace(/\/+$/, '');
+  if (!normalized) return fallbackBaseUrl;
+
+  try {
+    const url = new URL(normalized);
+    if (url.hostname === 'xdrivelogistics.co.uk') {
+      url.hostname = 'www.xdrivelogistics.co.uk';
+    }
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return fallbackBaseUrl;
+  }
+}
 
 export function getApiBaseUrl() {
   const configured = Constants.expoConfig?.extra?.apiBaseUrl;
-  return typeof configured === 'string' && configured.length > 0 ? configured : fallbackBaseUrl;
+  return normalizeApiBaseUrl(typeof configured === 'string' ? configured : fallbackBaseUrl);
 }
 
 /**

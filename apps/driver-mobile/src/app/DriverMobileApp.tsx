@@ -11,6 +11,11 @@ import { colors, spacing } from '../ui/theme';
 
 type Screen = 'login' | 'active' | 'jobs' | 'detail' | 'pod' | 'notifications' | 'profile';
 
+function getAccessToken(session: { access_token?: string | null } | null | undefined) {
+  const token = session?.access_token?.trim();
+  return token || null;
+}
+
 export default function DriverMobileApp() {
   const [screen, setScreen] = useState<Screen>('login');
   const [token, setToken] = useState<string | null>(null);
@@ -57,7 +62,7 @@ export default function DriverMobileApp() {
   useEffect(() => {
     void supabase.auth.getSession()
       .then(({ data }) => {
-        const sessionToken = data.session?.access_token ?? null;
+        const sessionToken = getAccessToken(data.session);
         if (!sessionToken) {
           void clearSessionToken();
           return;
@@ -77,7 +82,7 @@ export default function DriverMobileApp() {
     // Keep token state in sync whenever Supabase silently refreshes the session
     // (access tokens expire after ~1 hour; without this the app sends stale JWTs).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const nextToken = session?.access_token ?? null;
+      const nextToken = getAccessToken(session);
       setToken(nextToken);
       if (nextToken) void saveSessionToken(nextToken);
       else void clearSessionToken();
@@ -99,7 +104,12 @@ export default function DriverMobileApp() {
       setMessage(error?.message ?? 'Login failed.');
       return;
     }
-    const accessToken = data.session.access_token;
+    const accessToken = getAccessToken(data.session);
+    if (!accessToken) {
+      setMessage('Login succeeded but no access token was returned.');
+      await supabase.auth.signOut().catch(() => undefined);
+      return;
+    }
     setToken(accessToken);
     try { await saveSessionToken(accessToken); } catch { /* SecureStore non-critical */ }
     void safeRegisterPushToken(accessToken);
