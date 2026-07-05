@@ -1,0 +1,442 @@
+/*
+ * XDrive Homepage — Visual System Tokens
+ * Blueprint approved 2026-07-05
+ *
+ * SCOPE: Marketing homepage only.
+ * Do NOT use these tokens inside admin, driver, or super-admin layouts.
+ * All admin surfaces use the Tailwind HSL tokens defined in globals.css :root.
+ *
+ * Token naming: --xd-* (XDrive design system prefix)
+ */
+
+/* ─────────────────────────────────────────────
+   1. COLOUR SYSTEM
+   ───────────────────────────────────────────── */
+
+:root {
+  /* Core backgrounds */
+  --xd-bg-primary:   #070B14; /* Near-black navy — default page bg     */
+  --xd-bg-secondary: #0D1424; /* Dark section contrast                  */
+  --xd-bg-tertiary:  #131D33; /* Elevated dark surfaces (cards, panels) */
+
+  /* Light surfaces — used sparingly for visual rhythm */
+  --xd-surface-light: #F7F9FC;
+  --xd-surface-white: #FFFFFF;
+
+  /* Borders */
+  --xd-border-dark:  #24324D; /* Borders on dark surfaces               */
+  --xd-border-light: #D9E1EE; /* Borders on light surfaces              */
+
+  /* Brand / accent */
+  --xd-blue:       #2F6BFF; /* Primary CTA accent                       */
+  --xd-blue-hover: #2557D6; /* Hover state                              */
+  --xd-blue-soft:  #8FB0FF; /* Subtle highlights, focus rings           */
+
+  /* Text on dark */
+  --xd-text-dark-primary:   #F3F7FF; /* Headlines, primary body           */
+  --xd-text-dark-secondary: #A9B7D0; /* Supporting copy, captions         */
+
+  /* Text on light */
+  --xd-text-light-primary:   #0D1424; /* Headlines on white sections      */
+  --xd-text-light-secondary: #42526E; /* Supporting copy on white         */
+
+  /* Semantic */
+  --xd-success: #1FA971;
+  --xd-warning: #F5A524;
+  --xd-danger:  #E5484D;
+}
+
+/* ─────────────────────────────────────────────
+   2. TYPOGRAPHY SCALE  (1920 desktop baseline)
+   Font: Inter (already loaded via @fontsource/inter)
+   ───────────────────────────────────────────── */
+
+:root {
+  --xd-font-family: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Heading scale */
+  --xd-h1-size:   4.5rem;   /* 72px */
+  --xd-h1-line:   5rem;     /* 80px */
+  --xd-h1-weight: 700;
+
+  --xd-h2-size:   3.5rem;   /* 56px */
+  --xd-h2-line:   4rem;     /* 64px */
+  --xd-h2-weight: 700;
+
+  --xd-h3-size:   2.5rem;   /* 40px */
+  --xd-h3-line:   3rem;     /* 48px */
+  --xd-h3-weight: 650;
+
+  --xd-h4-size:   1.875rem; /* 30px */
+  --xd-h4-line:   2.375rem; /* 38px */
+  --xd-h4-weight: 600;
+
+  --xd-h5-size:   1.5rem;   /* 24px */
+  --xd-h5-line:   2rem;     /* 32px */
+  --xd-h5-weight: 600;
+
+  /* Body scale */
+  --xd-body-l-size:   1.25rem;  /* 20px */
+  --xd-body-l-line:   2rem;     /* 32px */
+  --xd-body-l-weight: 400;
+
+  --xd-body-m-size:   1.125rem; /* 18px */
+  --xd-body-m-line:   1.875rem; /* 30px */
+  --xd-body-m-weight: 400;
+
+  --xd-body-s-size:   1rem;     /* 16px */
+  --xd-body-s-line:   1.625rem; /* 26px */
+  --xd-body-s-weight: 400;
+
+  /* Utility text */
+  --xd-caption-size:   0.875rem; /* 14px */
+  --xd-caption-line:   1.375rem; /* 22px */
+  --xd-caption-weight: 500;
+
+  --xd-btn-size:   1rem;    /* 16px */
+  --xd-btn-line:   1.25rem; /* 20px */
+  --xd-btn-weight: 600;
+
+  --xd-card-title-size:   1.5rem;  /* 24px */
+  --xd-card-title-line:   2rem;    /* 32px */
+  --xd-card-title-weight: 600;
+
+  --xd-label-size:    0.75rem;  /* 12px */
+  --xd-label-line:    1.125rem; /* 18px */
+  --xd-label-weight:  600;
+  --xd-label-tracking: 0.08em;  /* eyebrow / badge labels */
+
+  /* Max readable paragraph width */
+  --xd-prose-width: 68ch;
+}
+
+/* ─────────────────────────────────────────────
+   3. LAYOUT SYSTEM
+   ───────────────────────────────────────────── */
+
+:root {
+  /* Container */
+  --xd-container-max:  1440px;
+  --xd-container-safe: 1320px;
+  --xd-gutter-desktop: 4rem;      /* 64px gutters at 1920 */
+  --xd-gutter-tablet:  2rem;      /* 32px */
+  --xd-gutter-mobile:  1.25rem;   /* 20px */
+
+  /* Grid */
+  --xd-grid-cols:   12;
+  --xd-grid-gap:    1.5rem; /* 24px */
+
+  /* Spacing scale (px equivalents, used as rem) */
+  --xd-sp-1:   0.25rem;  /*  4px */
+  --xd-sp-2:   0.5rem;   /*  8px */
+  --xd-sp-3:   0.75rem;  /* 12px */
+  --xd-sp-4:   1rem;     /* 16px */
+  --xd-sp-6:   1.5rem;   /* 24px */
+  --xd-sp-8:   2rem;     /* 32px */
+  --xd-sp-12:  3rem;     /* 48px */
+  --xd-sp-16:  4rem;     /* 64px */
+  --xd-sp-20:  5rem;     /* 80px */
+  --xd-sp-24:  6rem;     /* 96px */
+  --xd-sp-30:  7.5rem;   /* 120px */
+  --xd-sp-40:  10rem;    /* 160px */
+
+  /* Section rhythm */
+  --xd-section-py:        var(--xd-sp-30); /* 120px standard          */
+  --xd-section-py-dense:  var(--xd-sp-24); /*  96px dense              */
+  --xd-section-py-hero:   var(--xd-sp-40); /* 160px hero / CTA closing */
+
+  /* Card spacing */
+  --xd-card-p-lg:  2rem;    /* 32px */
+  --xd-card-p-md:  1.5rem;  /* 24px */
+  --xd-card-p-sm:  1.25rem; /* 20px */
+  --xd-card-gap:   1.5rem;  /* 24px */
+  --xd-card-gap-lg: 2rem;   /* 32px */
+}
+
+/* ─────────────────────────────────────────────
+   4. COMPONENT STYLES
+   ───────────────────────────────────────────── */
+
+:root {
+  /* Border radius */
+  --xd-radius-sm:  0.5rem;   /*  8px — badges, inputs        */
+  --xd-radius-md:  0.75rem;  /* 12px — buttons               */
+  --xd-radius-lg:  1rem;     /* 16px — cards                 */
+  --xd-radius-xl:  1.125rem; /* 18px — screenshot frames     */
+  --xd-radius-2xl: 1.5rem;   /* 24px — large panels          */
+
+  /* Shadows */
+  --xd-shadow-card:
+    0 1px 2px rgba(0, 0, 0, 0.30),
+    0 4px 16px rgba(0, 0, 0, 0.20);
+  --xd-shadow-card-hover:
+    0 2px 4px rgba(0, 0, 0, 0.35),
+    0 12px 40px rgba(0, 0, 0, 0.30);
+  --xd-shadow-screenshot:
+    0 2px 8px rgba(0, 0, 0, 0.40),
+    0 16px 48px rgba(0, 0, 0, 0.30);
+  --xd-shadow-glow-blue:
+    0 0 0 1px rgba(47, 107, 255, 0.20),
+    0 0 32px rgba(47, 107, 255, 0.12);
+
+  /* Glass panels (used sparingly) */
+  --xd-glass-bg:     rgba(19, 29, 51, 0.72);
+  --xd-glass-border: rgba(143, 176, 255, 0.10);
+  --xd-glass-blur:   12px;
+
+  /* Button — primary */
+  --xd-btn-bg:       var(--xd-blue);
+  --xd-btn-bg-hover: var(--xd-blue-hover);
+  --xd-btn-height:   3rem;    /* 48px */
+  --xd-btn-px:       1.5rem;  /* 24px */
+  --xd-btn-radius:   var(--xd-radius-md);
+  --xd-btn-focus-ring: 0 0 0 2px rgba(143, 176, 255, 0.40);
+
+  /* Nav */
+  --xd-nav-height:   5rem;    /* 80px (within 76–84px spec)  */
+  --xd-nav-bg:       rgba(7, 11, 20, 0.88);
+  --xd-nav-blur:     16px;
+  --xd-nav-border:   rgba(36, 50, 77, 0.70);
+}
+
+/* ─────────────────────────────────────────────
+   5. MOTION / ANIMATION
+   ───────────────────────────────────────────── */
+
+:root {
+  /* Durations */
+  --xd-dur-fast:   120ms; /* hover lift                     */
+  --xd-dur-base:   220ms; /* soft slide                     */
+  --xd-dur-slow:   320ms; /* section reveal, card entrance  */
+
+  /* Easing */
+  --xd-ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --xd-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Slide distance */
+  --xd-slide-sm:  8px;
+  --xd-slide-md:  16px;
+}
+
+/* Keyframes */
+@keyframes xd-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes xd-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(var(--xd-slide-md));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes xd-slide-right {
+  from {
+    opacity: 0;
+    transform: translateX(calc(-1 * var(--xd-slide-sm)));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   6. REUSABLE MARKETING UTILITY CLASSES
+   Prefixed xd- to avoid conflicts with Tailwind.
+   Only safe to use inside marketing/ components.
+   ───────────────────────────────────────────── */
+
+/* Containers */
+.xd-container {
+  width: 100%;
+  max-width: var(--xd-container-safe);
+  margin-inline: auto;
+  padding-inline: var(--xd-gutter-desktop);
+}
+
+@media (max-width: 1280px) {
+  .xd-container { padding-inline: var(--xd-gutter-tablet); }
+}
+
+@media (max-width: 768px) {
+  .xd-container { padding-inline: var(--xd-gutter-mobile); }
+}
+
+/* Section wrappers */
+.xd-section {
+  padding-block: var(--xd-section-py);
+}
+
+.xd-section--dense {
+  padding-block: var(--xd-section-py-dense);
+}
+
+.xd-section--hero {
+  padding-block: var(--xd-section-py-hero);
+}
+
+.xd-section--dark {
+  background-color: var(--xd-bg-primary);
+  color: var(--xd-text-dark-primary);
+}
+
+.xd-section--dark-secondary {
+  background-color: var(--xd-bg-secondary);
+  color: var(--xd-text-dark-primary);
+}
+
+.xd-section--light {
+  background-color: var(--xd-surface-light);
+  color: var(--xd-text-light-primary);
+}
+
+/* Cards */
+.xd-card {
+  background: linear-gradient(145deg, var(--xd-bg-secondary), var(--xd-bg-tertiary));
+  border: 1px solid var(--xd-border-dark);
+  border-radius: var(--xd-radius-lg);
+  padding: var(--xd-card-p-md);
+  box-shadow: var(--xd-shadow-card);
+  transition:
+    transform var(--xd-dur-fast) var(--xd-ease-out),
+    box-shadow var(--xd-dur-fast) var(--xd-ease-out);
+}
+
+.xd-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--xd-shadow-card-hover);
+}
+
+/* Glass panel */
+.xd-glass {
+  background: var(--xd-glass-bg);
+  backdrop-filter: blur(var(--xd-glass-blur));
+  -webkit-backdrop-filter: blur(var(--xd-glass-blur));
+  border: 1px solid var(--xd-glass-border);
+  border-radius: var(--xd-radius-lg);
+}
+
+/* Screenshot frame */
+.xd-screenshot {
+  border-radius: var(--xd-radius-xl);
+  border: 1px solid var(--xd-border-dark);
+  box-shadow: var(--xd-shadow-screenshot);
+  overflow: hidden;
+  display: block;
+  width: 100%;
+}
+
+/* Buttons */
+.xd-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: var(--xd-btn-height);
+  padding-inline: var(--xd-btn-px);
+  font-family: var(--xd-font-family);
+  font-size: var(--xd-btn-size);
+  font-weight: var(--xd-btn-weight);
+  line-height: var(--xd-btn-line);
+  border-radius: var(--xd-btn-radius);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color var(--xd-dur-fast) var(--xd-ease-out),
+    transform var(--xd-dur-fast) var(--xd-ease-out),
+    box-shadow var(--xd-dur-fast) var(--xd-ease-out);
+  white-space: nowrap;
+}
+
+.xd-btn--primary {
+  background-color: var(--xd-btn-bg);
+  color: #ffffff;
+}
+
+.xd-btn--primary:hover {
+  background-color: var(--xd-btn-bg-hover);
+  transform: translateY(-1px);
+}
+
+.xd-btn--primary:focus-visible {
+  outline: none;
+  box-shadow: var(--xd-btn-focus-ring);
+}
+
+.xd-btn--secondary {
+  background-color: transparent;
+  color: var(--xd-text-dark-primary);
+  border: 1px solid var(--xd-border-dark);
+}
+
+.xd-btn--secondary:hover {
+  background-color: var(--xd-bg-tertiary);
+  border-color: var(--xd-blue-soft);
+  transform: translateY(-1px);
+}
+
+/* Eyebrow / label */
+.xd-eyebrow {
+  font-size: var(--xd-label-size);
+  font-weight: var(--xd-label-weight);
+  line-height: var(--xd-label-line);
+  letter-spacing: var(--xd-label-tracking);
+  text-transform: uppercase;
+  color: var(--xd-blue-soft);
+}
+
+/* Heading utilities */
+.xd-h1 {
+  font-size: var(--xd-h1-size);
+  line-height: var(--xd-h1-line);
+  font-weight: var(--xd-h1-weight);
+  font-family: var(--xd-font-family);
+}
+
+.xd-h2 {
+  font-size: var(--xd-h2-size);
+  line-height: var(--xd-h2-line);
+  font-weight: var(--xd-h2-weight);
+  font-family: var(--xd-font-family);
+}
+
+.xd-h3 {
+  font-size: var(--xd-h3-size);
+  line-height: var(--xd-h3-line);
+  font-weight: var(--xd-h3-weight);
+  font-family: var(--xd-font-family);
+}
+
+/* Prose width constraint */
+.xd-prose {
+  max-width: var(--xd-prose-width);
+}
+
+/* Motion utilities */
+.xd-animate-fade-in {
+  animation: xd-fade-in var(--xd-dur-base) var(--xd-ease-out) both;
+}
+
+.xd-animate-slide-up {
+  animation: xd-slide-up var(--xd-dur-slow) var(--xd-ease-out) both;
+}
+
+/* Nav */
+.xd-nav {
+  position: fixed;
+  top: 0;
+  inset-inline: 0;
+  height: var(--xd-nav-height);
+  background: var(--xd-nav-bg);
+  backdrop-filter: blur(var(--xd-nav-blur));
+  -webkit-backdrop-filter: blur(var(--xd-nav-blur));
+  border-bottom: 1px solid var(--xd-nav-border);
+  z-index: 50;
+}
