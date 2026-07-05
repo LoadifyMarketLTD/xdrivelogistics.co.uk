@@ -20,6 +20,8 @@ const brandProof = [
   { label: 'Professional Network', icon: Users },
 ] as const;
 
+const exchangeTypes = ['Courier jobs', 'Freight jobs', 'Van work', 'Return loads', 'Scheduled transport'] as const;
+
 const workflowFrames = [
   {
     stage: 'Post',
@@ -41,6 +43,23 @@ const workflowFrames = [
     detail: 'The awarded job moves into dispatch, POD and invoice readiness.',
     image: '/operations-dispatch-office.webp',
     alt: 'XDrive operations diary showing awarded work moving into dispatch',
+  },
+] as const;
+
+const audienceSections = [
+  {
+    id: 'customers',
+    kicker: 'For Customers',
+    headline: 'Post work. Compare quotes. Award with control.',
+    copy: 'Transport customers can publish courier and freight requirements, receive operator quotes, and move the awarded job into one controlled record.',
+    points: ['Route and vehicle context', 'Quote comparison', 'POD and invoice readiness'],
+  },
+  {
+    id: 'couriers',
+    kicker: 'For Couriers',
+    headline: 'Find available work. Quote fast. Operate cleanly.',
+    copy: 'Courier companies and owner drivers can view relevant work, respond with quotes, and manage awarded jobs through dispatch, status updates and proof of delivery.',
+    points: ['Available exchange work', 'Awarded job workspace', 'Evidence returned to the record'],
   },
 ] as const;
 
@@ -92,6 +111,14 @@ const productSections = [
   },
 ] as const;
 
+const trustItems = [
+  'Company No. 13171804',
+  'UK-focused rollout',
+  'Controlled access',
+  'No client funds held by XDrive',
+  'POD and invoice records',
+] as const;
+
 function ProductFrame({ image, alt, label, priority = false }: { image: string; alt: string; label: string; priority?: boolean }) {
   return (
     <div className="overflow-hidden border border-[#D7E6FA] bg-white shadow-[0_28px_80px_rgba(0,59,143,0.18)]">
@@ -118,16 +145,19 @@ export function LandingPage() {
           <Link href="/" className="flex items-center">
             <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={218} height={58} priority className="h-[46px] w-auto" />
           </Link>
-          <nav className="hidden items-center gap-8 text-sm font-black text-[#003B8F]/70 md:flex">
+          <nav className="hidden items-center gap-7 text-sm font-black text-[#003B8F]/70 lg:flex">
             <a href="#platform" className="transition hover:text-[#003B8F]">Exchange</a>
-            <a href="#workflow" className="transition hover:text-[#003B8F]">Workflow</a>
+            <a href="#workflow" className="transition hover:text-[#003B8F]">How It Works</a>
+            <a href="#customers" className="transition hover:text-[#003B8F]">Customers</a>
+            <a href="#couriers" className="transition hover:text-[#003B8F]">Couriers</a>
             <a href="#access" className="transition hover:text-[#003B8F]">Access</a>
+            <Link href="/login" className="transition hover:text-[#003B8F]">Sign In</Link>
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/register" className="hidden bg-[#003B8F] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#002D73] sm:inline-flex">
               Request Access
             </Link>
-            <button className="inline-flex h-10 w-10 items-center justify-center border border-[#D7E6FA] text-[#003B8F] md:hidden" aria-label="Open menu">
+            <button className="inline-flex h-10 w-10 items-center justify-center border border-[#D7E6FA] text-[#003B8F] lg:hidden" aria-label="Open menu">
               <Menu className="h-5 w-5" />
             </button>
           </div>
@@ -181,10 +211,26 @@ export function LandingPage() {
           </div>
         </section>
 
+        <section className="border-b border-[#D7E6FA] bg-white px-5 py-8 sm:px-8">
+          <div className="mx-auto grid max-w-[1500px] gap-6 lg:grid-cols-[0.42fr_1fr] lg:items-center">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#FDB913]">What moves through XDrive</p>
+              <h2 className="mt-2 text-2xl font-black text-[#002B6C]">Real exchange work, one operational record.</h2>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              {exchangeTypes.map((item) => (
+                <div key={item} className="border border-[#D7E6FA] bg-[#F7FAFF] px-4 py-4 text-sm font-black text-[#003B8F]">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section id="workflow" className="bg-[#F7FAFF] px-5 py-16 sm:px-8 lg:py-20">
           <div className="mx-auto max-w-[1500px]">
             <div className="max-w-3xl">
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FDB913]">Exchange workflow</p>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FDB913]">How It Works</p>
               <h2 className="mt-4 text-4xl font-black leading-tight text-[#002B6C] sm:text-6xl">Post to award. One job record.</h2>
               <p className="mt-5 max-w-xl text-base font-semibold leading-7 text-[#49607F]">The exchange record becomes the operational record, so work does not restart after the job is awarded.</p>
             </div>
@@ -213,6 +259,26 @@ export function LandingPage() {
           </div>
         </section>
 
+        <section className="border-t border-[#D7E6FA] bg-white px-5 py-16 sm:px-8 lg:py-20">
+          <div className="mx-auto grid max-w-[1500px] gap-6 lg:grid-cols-2">
+            {audienceSections.map((section) => (
+              <article key={section.id} id={section.id} className="border border-[#D7E6FA] bg-[#F7FAFF] p-6 sm:p-8 lg:p-10">
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FDB913]">{section.kicker}</p>
+                <h2 className="mt-4 max-w-2xl text-3xl font-black leading-tight text-[#002B6C] sm:text-5xl">{section.headline}</h2>
+                <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-[#49607F]">{section.copy}</p>
+                <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                  {section.points.map((point) => (
+                    <div key={point} className="flex items-center gap-3 border border-[#D7E6FA] bg-white p-4 text-sm font-black text-[#003B8F]">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-[#FDB913]" />
+                      {point}
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
         {productSections.map((section) => (
           <section key={section.id} id={section.id} className="border-t border-[#D7E6FA] bg-white px-5 py-16 sm:px-8 lg:py-20">
             <div className={`mx-auto grid max-w-[1500px] gap-9 lg:grid-cols-[1.05fr_0.95fr] lg:items-center ${section.reverse ? 'lg:[&>*:first-child]:order-2' : ''}`}>
@@ -225,6 +291,17 @@ export function LandingPage() {
             </div>
           </section>
         ))}
+
+        <section className="border-t border-[#D7E6FA] bg-[#F7FAFF] px-5 py-10 sm:px-8">
+          <div className="mx-auto grid max-w-[1500px] gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {trustItems.map((item) => (
+              <div key={item} className="flex min-h-[66px] items-center gap-3 border border-[#D7E6FA] bg-white px-4 text-sm font-black text-[#003B8F]">
+                <ShieldCheck className="h-5 w-5 shrink-0 text-[#FDB913]" />
+                {item}
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section id="access" className="grid min-h-[82svh] place-items-center bg-[#002B6C] px-5 py-20 text-center text-white sm:px-8">
           <div className="mx-auto max-w-4xl">
@@ -254,18 +331,25 @@ export function LandingPage() {
       </main>
 
       <footer className="border-t border-[#D7E6FA] bg-white px-5 py-10 sm:px-8">
-        <div className="mx-auto grid max-w-[1500px] gap-8 text-sm font-semibold text-[#49607F] md:grid-cols-[1fr_auto_1fr] md:items-center">
+        <div className="mx-auto grid max-w-[1500px] gap-8 text-sm font-semibold text-[#49607F] lg:grid-cols-[1fr_auto_1fr] lg:items-start">
           <div>
             <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={190} height={50} className="h-[42px] w-auto" />
             <p className="mt-2">Courier & Freight Exchange Platform / Company No. 13171804</p>
           </div>
-          <div className="flex flex-wrap gap-5 font-black text-[#003B8F]">
+          <div className="grid gap-3 font-black text-[#003B8F] sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-6">
             <a href="#platform" className="transition hover:text-[#FDB913]">Exchange</a>
-            <a href="#workflow" className="transition hover:text-[#FDB913]">Workflow</a>
+            <a href="#workflow" className="transition hover:text-[#FDB913]">How It Works</a>
+            <a href="#customers" className="transition hover:text-[#FDB913]">Customers</a>
+            <a href="#couriers" className="transition hover:text-[#FDB913]">Couriers</a>
+            <a href="#access" className="transition hover:text-[#FDB913]">Access</a>
+            <Link href="/login" className="transition hover:text-[#FDB913]">Sign In</Link>
+            <Link href="/register" className="transition hover:text-[#FDB913]">Request Access</Link>
             <Link href="/privacy" className="transition hover:text-[#FDB913]">Privacy</Link>
             <Link href="/terms" className="transition hover:text-[#FDB913]">Terms</Link>
+            <Link href="/cookies" className="transition hover:text-[#FDB913]">Cookies</Link>
+            <Link href="/contact" className="transition hover:text-[#FDB913]">Contact</Link>
           </div>
-          <p className="md:text-right">2026 XDrive Logistics Ltd. All Rights Reserved.</p>
+          <p className="lg:text-right">2026 XDrive Logistics Ltd. All Rights Reserved.</p>
         </div>
       </footer>
     </div>
