@@ -15,6 +15,7 @@ import {
 import {
   earlyAccessPoints,
   faqs,
+  operationalStory,
   platformModules,
   problemPoints,
   roleCards,
@@ -36,28 +37,53 @@ export function LandingPage() {
 
         <section id="resources" className="border-b border-white/10 bg-[#f8fbff] px-4 py-16 text-[#0f172a] sm:px-6 lg:py-20">
           <div className="mx-auto max-w-7xl">
-            <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-              <div>
-                <span className="inline-flex rounded-full border border-[#dbe7ff] bg-[#eff6ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">
-                  Why XDrive exists
-                </span>
-                <h2 className="mt-4 max-w-3xl text-3xl font-black leading-tight sm:text-4xl">
-                  Built for the real gaps between request, execution, proof and invoicing.
-                </h2>
-                <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
-                  XDrive is aimed at the parts of logistics work that are often fragmented across calls, inboxes, spreadsheets and separate systems. The goal is not to decorate operations with fake metrics. The goal is to keep the job record connected.
-                </p>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {problemPoints.map((point) => (
-                  <article key={point.title} className="flex h-full flex-col rounded-3xl border border-[#dbe7ff] bg-white p-5 shadow-[0_24px_70px_-52px_rgba(15,23,42,0.35)] sm:last:col-span-2 xl:last:col-span-1">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1d4ed8]">Operational gap</p>
-                    <h3 className="mt-3 text-lg font-semibold leading-6 text-[#0f172a]">{point.title}</h3>
-                    <p className="mt-3 text-sm leading-6 text-slate-600">{point.detail}</p>
-                  </article>
-                ))}
-              </div>
+
+            {/* Section header */}
+            <div className="mx-auto max-w-3xl text-center">
+              <span className="inline-flex rounded-full border border-[#dbe7ff] bg-[#eff6ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">
+                Why XDrive exists
+              </span>
+              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-4xl">
+                The morning before XDrive
+              </h2>
             </div>
+
+            {/* Operational story */}
+            <div className="mx-auto mt-8 max-w-3xl rounded-3xl border border-[#dbe7ff] bg-white px-7 py-7 shadow-[0_24px_70px_-52px_rgba(15,23,42,0.25)]">
+              <p className="text-base leading-8 text-slate-600 sm:text-[1.05rem]">
+                {operationalStory}
+              </p>
+            </div>
+
+            {/* Problem cards */}
+            <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {problemPoints.map((point) => (
+                <article key={point.title} className="flex h-full flex-col rounded-3xl border border-[#dbe7ff] bg-white shadow-[0_24px_70px_-52px_rgba(15,23,42,0.25)]">
+                  <div className="border-b border-[#dbe7ff] px-6 py-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#dc2626]">The problem</p>
+                    <h3 className="mt-2 text-base font-semibold leading-snug text-[#0f172a]">{point.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{point.problem}</p>
+                  </div>
+                  <div className="border-b border-[#dbe7ff] px-6 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#b45309]">The cost</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{point.consequence}</p>
+                  </div>
+                  <div className="px-6 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f766e]">With XDrive</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{point.solution}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {/* Transition sentence */}
+            <div className="mx-auto mt-12 max-w-2xl text-center">
+              <p className="text-base leading-7 text-slate-500">
+                That is the day XDrive is built around.{' '}
+                <span className="font-semibold text-[#0f172a]">The workflow below maps exactly how a job moves — from the first request to a completed delivery record — with every step connected.</span>
+              </p>
+            </div>
+
           </div>
         </section>
 

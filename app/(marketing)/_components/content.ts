@@ -14,26 +14,39 @@ export const trustBarItems = [
   'Approved users only',
 ] as const;
 
+export const operationalStory =
+  "It is 7:30 on a Monday morning. A transport manager has fourteen jobs to move before noon. Three drivers are waiting for their job details. A customer is on hold wanting a delivery update, but the dispatcher cannot find the message thread because it moved from email to WhatsApp mid-week. The rate agreed over the phone last Thursday was never written down. A driver just arrived at the wrong address because the collection point changed yesterday and the update never reached him. By 9am, five phone calls have already been made just to find information that should have been ready in seconds — and not a single delivery has started yet.";
+
 export const problemPoints = [
   {
-    title: 'Jobs lost in WhatsApp and email chains',
-    detail: 'Transport requests, quote replies and changes often live in separate messages, making it easy to miss the latest instruction or commercial update.',
+    title: 'Job details buried across calls, messages and emails',
+    problem: 'Transport requests, changes and confirmations arrive through WhatsApp, email and phone calls — with no single place where everyone has the latest version.',
+    consequence: 'Dispatchers spend the first part of every morning making repeated phone calls just to confirm what was agreed, before they can plan a single run.',
+    solution: 'Every job lives in one record from the moment it is created. Dispatchers, drivers and customers all see the same information and the same updates — no chasing required.',
   },
   {
-    title: 'No clear POD history',
-    detail: 'Delivery evidence can be detached from the original job, leaving teams to chase photos, signatures and exceptions after the work is done.',
+    title: 'Drivers leaving the depot without the full picture',
+    problem: 'Drivers receive job details verbally or through a message thread. By the time they reach collection, the address has changed, the contact number is wrong or a note was missed.',
+    consequence: 'Drivers make repeated phone calls back to the office mid-run, wasting time on both sides and pushing every collection later than planned.',
+    solution: 'Drivers receive a complete job brief through XDrive before they leave — address, contact, instructions and any last-minute changes — all in one place.',
   },
   {
-    title: 'Driver updates disconnected from the office',
-    detail: 'Collections, delays, arrivals and delivery status updates are often passed manually, creating gaps between dispatch teams and drivers on the road.',
+    title: 'Missing delivery proof when it matters most',
+    problem: 'POD photos are taken on personal phones and sent through WhatsApp where they get buried. Paper signatures are left in the cab or lost between vehicles.',
+    consequence: 'When a customer queries a delivery or an invoice is disputed, teams spend hours trying to find missing delivery proof that may no longer exist.',
+    solution: 'Delivery proof is uploaded directly against the job record and stays permanently attached — accessible to dispatch, the customer and finance whenever it is needed.',
   },
   {
-    title: 'Invoices separated from job records',
-    detail: 'Finance teams end up checking separate notes, spreadsheets and inboxes instead of reviewing invoice readiness against the completed job history.',
+    title: 'Disconnected communication between drivers and the office',
+    problem: 'Drivers update their status by phone or text. Dispatch has no live view of what has been collected, what is running late or what has already been delivered.',
+    consequence: 'Transport managers cannot give customers accurate updates, leading to more incoming calls, more guesswork and a growing gap between the office and the road.',
+    solution: 'Driver status updates flow back to the operations diary as the job progresses, giving dispatch a live picture without needing to call every driver individually.',
   },
   {
-    title: 'Fleet visibility issues',
-    detail: 'Without a structured operational view, it is harder to see what is available, assigned, delayed or ready for the next collection window.',
+    title: 'Time lost chasing documents before an invoice can go out',
+    problem: 'Finance needs the agreed rate, the job details and the signed delivery proof before raising an invoice. These are all in different places and often involve duplicated work to piece together.',
+    consequence: 'Days pass between delivery and invoice because someone has to manually track down every piece of supporting evidence before the billing process can even begin.',
+    solution: 'The rate, the job record and the delivery evidence are linked from the start. Finance can see what is ready to invoice without rebuilding the history from scratch.',
   },
 ] as const;
 
