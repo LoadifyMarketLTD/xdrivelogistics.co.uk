@@ -35,15 +35,15 @@ const workflowFrames = [
     stage: 'Post',
     title: 'Job posted',
     detail: 'Route, vehicle and timing requirements enter the exchange.',
-    image: '/marketplace-loading.webp',
-    alt: 'XDrive marketplace workflow showing a transport request and quoting context',
+    image: '/load-poster-office.webp',
+    alt: 'XDrive customer posting courier and freight work from the load poster workspace',
   },
   {
     stage: 'Quote',
     title: 'Quotes received',
     detail: 'Courier companies and operators respond to the same job record.',
     image: '/marketplace-loading.webp',
-    alt: 'XDrive freight exchange quote workflow with available job context',
+    alt: 'XDrive courier and freight exchange quote board with available work context',
   },
   {
     stage: 'Award',
@@ -77,8 +77,8 @@ const productSections = [
     kicker: 'Courier & Freight Exchange',
     headline: 'Jobs posted. Quotes received. Work awarded.',
     copy: 'Courier and freight requests move from submission to awarded carrier without leaving the platform.',
-    image: '/marketplace-loading.webp',
-    alt: 'XDrive marketplace showing job opportunities and quote workflow',
+    image: '/customers-warehouse.webp',
+    alt: 'XDrive courier and freight exchange connected to warehouse and collection activity',
     reverse: false,
   },
   {
@@ -86,8 +86,8 @@ const productSections = [
     kicker: 'Operations Diary',
     headline: 'Dispatch. Everything. Live.',
     copy: 'Awarded jobs become operational records with driver, route, status and exception visibility.',
-    image: '/operations-dispatch-office.webp',
-    alt: 'XDrive operations diary with live dispatch and job visibility',
+    image: '/hero-dispatch-control.webp',
+    alt: 'XDrive dispatch control room with live operations visibility',
     reverse: true,
   },
   {
@@ -249,7 +249,7 @@ export function LandingPage() {
             </div>
 
             <div className="relative z-10">
-              <ProductFrame image="/marketplace-loading.webp" alt="XDrive courier and freight exchange showing available work" label="Courier & Freight Exchange" priority />
+              <ProductFrame image="/courier-fleet-depot.webp" alt="XDrive courier and freight exchange platform with fleet and depot visibility" label="Courier & Freight Exchange" priority />
             </div>
           </div>
         </section>
