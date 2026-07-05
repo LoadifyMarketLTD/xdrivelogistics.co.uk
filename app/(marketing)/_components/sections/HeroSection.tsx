@@ -8,7 +8,7 @@ export function HeroSection() {
         style={{ backgroundImage: "url('/xdrive-login-hero.webp.jpeg')" }}
         aria-hidden="true"
       />
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,17,31,0.96)_0%,rgba(7,17,31,0.86)_42%,rgba(7,17,31,0.34)_100%)]" />
+      <div className="absolute inset-0 bg-[rgba(7,17,31,0.93)]" />
       <div className="relative mx-auto flex min-h-[calc(100svh-150px)] w-full max-w-7xl items-center px-4 py-12 sm:min-h-[calc(100svh-140px)] sm:px-6 lg:min-h-[calc(100vh-160px)] lg:py-16">
         <div className="max-w-3xl">
           <span className="inline-flex rounded-full border border-[#f5c542]/40 bg-[#f5c542]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#f5c542]">
