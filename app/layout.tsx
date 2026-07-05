@@ -23,21 +23,19 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'XDrive Logistics | Courier & Delivery Management Platform',
+    default: 'XDrive Logistics | UK logistics operating platform',
     template: '%s | XDrive Logistics',
   },
-  description: 'XDrive Logistics connects self-employed courier drivers with businesses across the UK and Europe. Find loads, manage deliveries, and grow your transport business. 24/7 reliable freight services.',
+  description: 'XDrive is a product-led UK logistics operating platform covering request intake, marketplace bids, dispatch, driver updates, POD and invoice visibility.',
   keywords: [
     'XDrive Logistics',
-    'courier jobs UK',
-    'self employed driver',
+    'logistics operating platform',
+    'dispatch software UK',
+    'driver workflow',
+    'marketplace bidding logistics',
     'transport platform UK',
-    'owner driver jobs UK',
-    'courier driver app UK',
-    'freight loads UK',
-    'UK courier',
-    'express delivery',
-    'same day delivery',
+    'POD tracking',
+    'invoice visibility logistics',
     'pallet transport',
     'logistics Blackburn',
   ],
@@ -57,8 +55,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_GB',
     url: canonicalSiteOrigin,
-    title: 'XDrive Logistics - Premium Transport Services',
-    description: `Independent transport platform by ${COMPANY_CONFIG.legalName} for UK and EU courier operations.`,
+    title: 'XDrive Logistics - Product-led logistics workflow',
+    description: `Product-led logistics workflow by ${COMPANY_CONFIG.legalName} for request intake, dispatch, drivers, POD and finance visibility.`,
     siteName: 'XDrive Logistics',
     images: [
       {
@@ -69,8 +67,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'XDrive Logistics - Premium Transport Services',
-    description: `Independent transport platform by ${COMPANY_CONFIG.legalName} for UK and EU courier operations.`,
+    title: 'XDrive Logistics - Product-led logistics workflow',
+    description: `Product-led logistics workflow by ${COMPANY_CONFIG.legalName} for request intake, dispatch, drivers, POD and finance visibility.`,
     images: ['/xdrive-logo.jpeg'],
   },
   robots: {
