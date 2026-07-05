@@ -56,16 +56,16 @@ const productSections = [
   },
   {
     id: 'marketplace',
-    kicker: 'Marketplace',
+    kicker: 'Freight Exchange',
     headline: 'Jobs posted. Quotes received. Work awarded.',
-    copy: 'Transport requests move from submission to awarded carrier without leaving the platform.',
+    copy: 'Courier and freight requests move from submission to awarded carrier without leaving the platform.',
     image: '/marketplace-loading.webp',
     alt: 'XDrive marketplace showing job opportunities and quote workflow',
     reverse: true,
   },
   {
     id: 'driver',
-    kicker: 'Driver Workspace',
+    kicker: 'Courier Workspace',
     headline: 'Dispatched here. Worked there. Same job record.',
     copy: 'Drivers receive assigned work, update status and return evidence inside the XDrive workflow.',
     image: '/xdrive-driver-workspace-real.webp',
@@ -144,11 +144,12 @@ export function LandingPage() {
           <div className="relative mx-auto grid min-h-[calc(100svh-68px)] max-w-[1500px] gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:py-16">
             <div className="max-w-2xl">
               <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={410} height={110} priority className="h-auto w-[310px] max-w-full sm:w-[410px]" />
-              <h1 className="mt-8 text-[3.15rem] font-black leading-[0.95] tracking-tight text-[#002B6C] sm:text-[4.7rem] lg:text-[5.7rem]">
+              <p className="mt-7 text-sm font-black uppercase tracking-[0.18em] text-[#FDB913]">Courier &amp; Freight Exchange Platform</p>
+              <h1 className="mt-4 text-[3.15rem] font-black leading-[0.95] tracking-tight text-[#002B6C] sm:text-[4.7rem] lg:text-[5.7rem]">
                 Move freight. Manage operations. Grow your network.
               </h1>
               <p className="mt-6 max-w-xl text-lg font-semibold leading-8 text-[#24416F]">
-                Requests, quotes, dispatch, POD and invoice readiness connected inside one XDrive operating platform.
+                XDrive Logistics connects courier, freight exchange, dispatch, POD and invoice-readiness workflows inside one operating platform.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/register" className="inline-flex items-center gap-2 bg-[#003B8F] px-6 py-3 text-sm font-black text-white transition hover:bg-[#002D73]">
@@ -165,7 +166,7 @@ export function LandingPage() {
                 <Image src="/xdrive-courier-fleet-no-plates.webp" alt="XDrive logistics fleet operating across the UK" fill priority className="object-cover" />
                 <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.08),rgba(0,59,143,0.08))]" />
               </div>
-              <ProductFrame image="/operations-dispatch-office.webp" alt="XDrive operations diary showing active logistics work" label="Operations Diary" />
+              <ProductFrame image="/operations-dispatch-office.webp" alt="XDrive operations diary showing active logistics work" label="Courier & Freight Exchange Platform" />
             </div>
           </div>
         </section>
@@ -222,9 +223,9 @@ export function LandingPage() {
         <section id="access" className="grid min-h-[86svh] place-items-center bg-[#002B6C] px-5 py-20 text-center text-white sm:px-8">
           <div className="mx-auto max-w-4xl">
             <LockKeyhole className="mx-auto h-10 w-10 text-[#FDB913]" />
-            <h2 className="mt-8 text-5xl font-black leading-[0.98] sm:text-7xl">XDrive is in controlled early access.</h2>
+            <h2 className="mt-8 text-5xl font-black leading-[0.98] sm:text-7xl">XDrive Logistics is in controlled early access.</h2>
             <p className="mx-auto mt-6 max-w-2xl text-base font-semibold leading-7 text-white/70">
-              Access is reviewed, not automatic. If your operation fits the current rollout, apply and the team will contact you directly.
+              Access is reviewed, not automatic. If your courier or freight operation fits the current rollout, apply and the team will contact you directly.
             </p>
             <div className="mt-9 flex flex-wrap justify-center gap-3">
               <Link href="/register" className="inline-flex items-center gap-2 bg-[#FDB913] px-6 py-3 text-sm font-black text-[#002B6C] transition hover:bg-[#FFD24A]">
@@ -235,7 +236,7 @@ export function LandingPage() {
               </Link>
             </div>
             <div className="mt-10 grid gap-3 text-left sm:grid-cols-3">
-              {['Approved users only', '3-month free access', 'UK-focused rollout'].map((item) => (
+              {['Courier & freight exchange', '3-month free access', 'UK-focused rollout'].map((item) => (
                 <div key={item} className="flex items-center gap-3 border border-white/10 bg-white/5 p-4 text-sm font-bold text-white/85">
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-[#FDB913]" />
                   {item}
@@ -250,7 +251,7 @@ export function LandingPage() {
         <div className="mx-auto grid max-w-[1500px] gap-8 text-sm font-semibold text-[#49607F] md:grid-cols-[1fr_auto_1fr] md:items-center">
           <div>
             <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={190} height={50} className="h-[42px] w-auto" />
-            <p className="mt-2">Company No. 13171804 / UK-focused rollout</p>
+            <p className="mt-2">Courier & Freight Exchange Platform / Company No. 13171804</p>
           </div>
           <div className="flex flex-wrap gap-5 font-black text-[#003B8F]">
             <a href="#platform" className="transition hover:text-[#FDB913]">Platform</a>
