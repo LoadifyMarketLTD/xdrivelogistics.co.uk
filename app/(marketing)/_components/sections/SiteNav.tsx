@@ -33,9 +33,9 @@ export function SiteNav() {
     <>
       <header
         className={[
-          'fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,backdrop-filter] duration-200',
+          'fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,box-shadow,backdrop-filter] duration-200',
           scrolled
-            ? 'border-b border-xd-border-dark bg-[rgba(7,11,20,0.85)] backdrop-blur-[12px]'
+            ? 'border-b border-[rgba(47,107,255,0.18)] bg-[rgba(7,11,20,0.93)] backdrop-blur-[14px] shadow-[0_1px_12px_rgba(0,0,0,0.45)]'
             : 'border-b border-transparent bg-transparent',
         ].join(' ')}
         style={{ height: 'var(--xd-nav-height)' }}
