@@ -127,6 +127,44 @@ const trustItems = [
   'POD and invoice records',
 ] as const;
 
+const footerGroups = [
+  {
+    title: 'Platform',
+    links: [
+      { label: 'Exchange', href: '#platform' },
+      { label: 'How It Works', href: '#workflow' },
+      { label: 'Customers', href: '#customers' },
+      { label: 'Couriers', href: '#couriers' },
+    ],
+  },
+  {
+    title: 'Product',
+    links: [
+      { label: 'Operations Diary', href: '#operations' },
+      { label: 'Courier Workspace', href: '#driver' },
+      { label: 'POD & Records', href: '#pod' },
+      { label: 'Finance', href: '#finance' },
+    ],
+  },
+  {
+    title: 'Account',
+    links: [
+      { label: 'Request Access', href: '/register' },
+      { label: 'Sign In', href: '/login' },
+      { label: 'Access', href: '#access' },
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      { label: 'Contact', href: '/contact' },
+      { label: 'Privacy', href: '/privacy' },
+      { label: 'Terms', href: '/terms' },
+      { label: 'Cookies', href: '/cookies' },
+    ],
+  },
+] as const;
+
 function ProductFrame({ image, alt, label, priority = false }: { image: string; alt: string; label: string; priority?: boolean }) {
   return (
     <div className="overflow-hidden border border-[#D7E6FA] bg-white shadow-[0_28px_80px_rgba(0,59,143,0.18)]">
@@ -349,26 +387,44 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-[#D7E6FA] bg-white px-5 py-10 sm:px-8">
-        <div className="mx-auto grid max-w-[1500px] gap-8 text-sm font-semibold text-[#49607F] lg:grid-cols-[1fr_auto_1fr] lg:items-start">
-          <div>
-            <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={190} height={50} className="h-[42px] w-auto" />
-            <p className="mt-2">Courier & Freight Exchange Platform / Company No. 13171804</p>
+      <footer className="bg-[#002B6C] px-5 py-12 text-white sm:px-8">
+        <div className="mx-auto max-w-[1500px]">
+          <div className="grid gap-10 lg:grid-cols-[1.4fr_repeat(4,1fr)]">
+            <div className="max-w-sm">
+              <div className="inline-flex bg-white px-4 py-3">
+                <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={190} height={50} className="h-[42px] w-auto" />
+              </div>
+              <p className="mt-5 text-lg font-black text-white">Courier & Freight Exchange Platform</p>
+              <p className="mt-3 text-sm font-semibold leading-6 text-white/70">
+                XDrive Logistics connects posted work, courier quotes, awarded jobs, dispatch, POD and invoice readiness in one controlled workflow.
+              </p>
+              <div className="mt-5 grid gap-2 text-sm font-bold text-white/75">
+                <span>Company No. 13171804</span>
+                <span>UK-focused controlled rollout</span>
+              </div>
+            </div>
+
+            {footerGroups.map((group) => (
+              <div key={group.title}>
+                <h2 className="text-xs font-black uppercase tracking-[0.18em] text-[#FDB913]">{group.title}</h2>
+                <div className="mt-5 grid gap-3 text-sm font-bold text-white/75">
+                  {group.links.map((item) => {
+                    const isInternal = item.href.startsWith('#');
+                    return isInternal ? (
+                      <a key={item.href} href={item.href} className="transition hover:text-white">{item.label}</a>
+                    ) : (
+                      <Link key={item.href} href={item.href} className="transition hover:text-white">{item.label}</Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="grid gap-3 font-black text-[#003B8F] sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-6">
-            <a href="#platform" className="transition hover:text-[#FDB913]">Exchange</a>
-            <a href="#workflow" className="transition hover:text-[#FDB913]">How It Works</a>
-            <a href="#customers" className="transition hover:text-[#FDB913]">Customers</a>
-            <a href="#couriers" className="transition hover:text-[#FDB913]">Couriers</a>
-            <a href="#access" className="transition hover:text-[#FDB913]">Access</a>
-            <Link href="/login" className="transition hover:text-[#FDB913]">Sign In</Link>
-            <Link href="/register" className="transition hover:text-[#FDB913]">Request Access</Link>
-            <Link href="/privacy" className="transition hover:text-[#FDB913]">Privacy</Link>
-            <Link href="/terms" className="transition hover:text-[#FDB913]">Terms</Link>
-            <Link href="/cookies" className="transition hover:text-[#FDB913]">Cookies</Link>
-            <Link href="/contact" className="transition hover:text-[#FDB913]">Contact</Link>
+
+          <div className="mt-10 flex flex-col gap-4 border-t border-white/10 pt-6 text-xs font-bold text-white/60 sm:flex-row sm:items-center sm:justify-between">
+            <p>© 2026 XDrive Logistics Ltd. All Rights Reserved.</p>
+            <p>Move Freight. Manage Operations. Grow Your Network.</p>
           </div>
-          <p className="lg:text-right">2026 XDrive Logistics Ltd. All Rights Reserved.</p>
         </div>
       </footer>
     </div>
