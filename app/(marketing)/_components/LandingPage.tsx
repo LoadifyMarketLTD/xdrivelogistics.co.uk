@@ -11,6 +11,7 @@ import {
   Truck,
   UserRound,
 } from 'lucide-react';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../api/_lib/supabaseAdmin';
 
 import {
   earlyAccessPoints,
@@ -18,7 +19,6 @@ import {
   platformModules,
   problemPoints,
   roleCards,
-  trustBarItems,
   workflowSteps,
 } from './content';
 import { MarketingFooter } from './sections/MarketingFooter';
@@ -35,7 +35,64 @@ const roleHighlights = [
   'Invoice visibility',
 ] as const;
 
-export function LandingPage() {
+const OPEN_JOB_STATUSES = ['draft', 'posted', 'quoted', 'awarded', 'allocated', 'collected', 'in_transit'] as const;
+
+type LandingStats = {
+  companiesActive: number;
+  driversTotal: number;
+  jobsOpen: number;
+  jobsDelivered: number;
+  invoicesPaid: number;
+};
+
+const formatMetric = (value: number) => new Intl.NumberFormat('en-GB').format(value);
+
+const getLandingStats = async (): Promise<LandingStats | null> => {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
+
+  try {
+    const [companiesActiveResult, driversTotalResult, jobsOpenResult, jobsDeliveredResult, invoicesPaidResult] = await Promise.all([
+      supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
+      supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).in('status', [...OPEN_JOB_STATUSES]),
+      supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered'),
+      supabaseAdmin.from('invoices').select('id', { count: 'exact', head: true }).eq('status', 'paid'),
+    ]);
+
+    if (
+      companiesActiveResult.error ||
+      driversTotalResult.error ||
+      jobsOpenResult.error ||
+      jobsDeliveredResult.error ||
+      invoicesPaidResult.error
+    ) {
+      return null;
+    }
+
+    return {
+      companiesActive: companiesActiveResult.count ?? 0,
+      driversTotal: driversTotalResult.count ?? 0,
+      jobsOpen: jobsOpenResult.count ?? 0,
+      jobsDelivered: jobsDeliveredResult.count ?? 0,
+      invoicesPaid: invoicesPaidResult.count ?? 0,
+    };
+  } catch {
+    return null;
+  }
+};
+
+export async function LandingPage() {
+  const stats = await getLandingStats();
+  const trustBarItems = stats
+    ? [
+        `${formatMetric(stats.companiesActive)} active companies`,
+        `${formatMetric(stats.driversTotal)} registered drivers`,
+        `${formatMetric(stats.jobsOpen)} open jobs`,
+        `${formatMetric(stats.jobsDelivered)} delivered jobs`,
+        `${formatMetric(stats.invoicesPaid)} paid invoices`,
+      ]
+    : ['Real platform metrics', 'Visible when secure backend config is present', 'No fake dashboard counters', 'Controlled rollout', 'Approved users only'];
+
   return (
     <div className="bg-[#07111f] text-white">
       <MarketingHeader />
@@ -86,20 +143,38 @@ export function LandingPage() {
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,17,31,0.15)_0%,rgba(7,17,31,0.88)_100%)]" />
                 <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
                   <div className="rounded-2xl border border-white/15 bg-[#07111f]/82 p-5 backdrop-blur-sm">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#93c5fd]">Operational focus</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-200">
-                      One connected record from request to invoice, without fragmented updates across separate channels.
-                    </p>
-                    <ul className="mt-4 space-y-2 text-sm text-slate-300">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-[#93c5fd]" />
-                        Functional core workflows for approved users
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-[#93c5fd]" />
-                        Controlled rollout with honest module status
-                      </li>
-                    </ul>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#93c5fd]">Live platform snapshot</p>
+                    {stats ? (
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Active companies</p>
+                          <p className="mt-1 text-2xl font-black text-white">{formatMetric(stats.companiesActive)}</p>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Registered drivers</p>
+                          <p className="mt-1 text-2xl font-black text-white">{formatMetric(stats.driversTotal)}</p>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Open jobs</p>
+                          <p className="mt-1 text-2xl font-black text-white">{formatMetric(stats.jobsOpen)}</p>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Delivered jobs</p>
+                          <p className="mt-1 text-2xl font-black text-white">{formatMetric(stats.jobsDelivered)}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <ul className="mt-4 space-y-2 text-sm text-slate-300">
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-[#93c5fd]" />
+                          Displays real platform metrics when backend credentials are available
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-[#93c5fd]" />
+                          Never shows fabricated counters
+                        </li>
+                      </ul>
+                    )}
                   </div>
                 </div>
               </div>
