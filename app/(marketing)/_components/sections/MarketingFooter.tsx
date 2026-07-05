@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ExternalLink, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
+import { COMPANY_CONFIG } from '../../../config/company';
 
 const contactLinks = {
-  email: 'xdrivelogisticsltd@gmail.com',
-  phoneDisplay: '+44 7423 272138',
-  phoneHref: 'tel:+447423272138',
-  whatsapp: 'https://wa.me/447423272138',
+  email: COMPANY_CONFIG.email,
+  phoneDisplay: COMPANY_CONFIG.phoneDisplay,
+  phoneHref: `tel:${COMPANY_CONFIG.phone}`,
+  whatsapp: `https://wa.me/${COMPANY_CONFIG.whatsapp.number}`,
   facebook: 'https://www.facebook.com/share/14oVGis6nKe/',
   messenger: 'https://www.facebook.com/messages/t/xdrivelogistics/',
   instagram: 'https://www.instagram.com/xdrivelogistics/',
@@ -16,21 +17,22 @@ const contactLinks = {
 
 const footerColumns = {
   platform: [
-    { label: 'Marketplace', href: '#modules' },
-    { label: 'Operations', href: '#modules' },
-    { label: 'Fleet', href: '#modules' },
-    { label: 'Drivers', href: '#modules' },
-    { label: 'Finance', href: '#modules' },
+    { label: 'Product', href: '#product' },
+    { label: 'Workspaces', href: '#workspaces' },
+    { label: 'Flow', href: '#flow' },
+    { label: 'Rollout', href: '#rollout' },
+    { label: 'Quote Intake', href: '/request-quote' },
   ],
   solutions: [
-    { label: 'Transport Customers', href: '#solutions' },
-    { label: 'Courier Companies', href: '#solutions' },
-    { label: 'Owner Operators', href: '#solutions' },
-    { label: 'Drivers', href: '#solutions' },
+    { label: 'Customer Desk', href: '#workspaces' },
+    { label: 'Marketplace', href: '#workspaces' },
+    { label: 'Operations Centre', href: '#workspaces' },
+    { label: 'Driver Workspace', href: '#workspaces' },
   ],
   company: [
-    { label: 'About', href: '#resources' },
-    { label: 'Launch', href: '#launch' },
+    { label: 'Why this homepage changed', href: '#product' },
+    { label: 'Platform status', href: '#flow' },
+    { label: 'Launch', href: '#rollout' },
     { label: 'Contact', href: '#contact' },
   ],
   legal: [
@@ -77,7 +79,7 @@ export function MarketingFooter() {
             />
           </Link>
           <p className="mt-4 max-w-[240px] text-sm leading-relaxed text-slate-400">
-            MVP / early-access logistics platform for approved UK users across marketplace, operations, POD and finance records.
+            Product-led early-access logistics platform for approved UK users across intake, marketplace, operations, driver workflow and finance records.
           </p>
           <a
             href={contactLinks.maps}
@@ -86,7 +88,7 @@ export function MarketingFooter() {
             className="mt-4 inline-flex max-w-[280px] items-start gap-2 text-sm leading-relaxed text-slate-400 transition hover:text-white"
           >
             <MapPin className="h-4 w-4 text-amber-400" aria-hidden="true" />
-            <span>101 Cornelian Street, Blackburn, BB1 9QL, United Kingdom</span>
+            <span>{COMPANY_CONFIG.address.full}</span>
           </a>
           <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm text-slate-400">
             <a href={contactLinks.facebook} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 transition hover:text-white">
