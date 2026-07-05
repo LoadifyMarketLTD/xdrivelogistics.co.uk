@@ -99,10 +99,11 @@ export default function DriverMobileApp() {
       setMessage(error?.message ?? 'Login failed.');
       return;
     }
-    setToken(data.session.access_token);
-    await saveSessionToken(data.session.access_token);
-    void safeRegisterPushToken(data.session.access_token);
-    await loadJobs(data.session.access_token);
+    const accessToken = data.session.access_token;
+    setToken(accessToken);
+    try { await saveSessionToken(accessToken); } catch { /* SecureStore non-critical */ }
+    void safeRegisterPushToken(accessToken);
+    await loadJobs(accessToken);
   }
 
   async function signOut() {

@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 
-import { getSessionToken } from '../auth/sessionStore';
+import { supabase } from '../auth/supabase';
 
 type ApiOptions = {
   token?: string | null;
@@ -12,26 +12,39 @@ const fallbackBaseUrl = 'https://xdrivelogistics.co.uk';
 
 export function getApiBaseUrl() {
   const configured = Constants.expoConfig?.extra?.apiBaseUrl;
-  const baseUrl = typeof configured === 'string' && configured.length > 0 ? configured : fallbackBaseUrl;
-  return baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  return typeof configured === 'string' && configured.length > 0 ? configured : fallbackBaseUrl;
 }
 
-async function resolveAuthToken(explicitToken?: string | null) {
-  const normalizedExplicitToken = explicitToken?.trim();
-  if (normalizedExplicitToken) return normalizedExplicitToken;
+/**
+ * Resolve the bearer token to use for a request.
+ *
+ * Priority order:
+ *  1. Explicit token passed by the caller (fastest path after sign-in).
+ *  2. Live Supabase session (covers token-refresh races and any call sites
+ *     that do not forward the token explicitly).
+ */
+async function resolveAuthToken(explicitToken?: string | null): Promise<string | null> {
+  const normalized = explicitToken?.trim();
+  if (normalized) return normalized;
 
-  const storedToken = await getSessionToken();
-  return storedToken?.trim() || null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    const sessionToken = data.session?.access_token?.trim();
+    return sessionToken || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const token = await resolveAuthToken(options.token);
-  const response = await fetch(new URL(path, getApiBaseUrl()).toString(), {
+  const url = `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+  const response = await fetch(url, {
     method: options.method ?? 'GET',
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: ['Bearer', token].join(' ') } : {}),
+      ...(token ? { Authorization: 'Bearer ' + token } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
