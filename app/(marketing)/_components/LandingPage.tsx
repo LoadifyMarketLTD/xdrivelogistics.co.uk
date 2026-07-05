@@ -3,7 +3,6 @@ import Link from 'next/link';
 import {
   ArrowRight,
   BriefcaseBusiness,
-  Building2,
   CheckCircle2,
   ClipboardList,
   FileCheck2,
@@ -11,7 +10,6 @@ import {
   ShieldCheck,
   Truck,
   UserRound,
-  Users,
 } from 'lucide-react';
 
 import {
