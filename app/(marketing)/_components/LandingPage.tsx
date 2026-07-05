@@ -12,6 +12,14 @@ import {
   Users,
 } from 'lucide-react';
 
+const mainNav = [
+  { label: 'Exchange', href: '#platform' },
+  { label: 'How It Works', href: '#workflow' },
+  { label: 'Customers', href: '#customers' },
+  { label: 'Couriers', href: '#couriers' },
+  { label: 'Access', href: '#access' },
+] as const;
+
 const brandProof = [
   { label: 'UK-Wide Coverage', icon: MapPin },
   { label: 'Secure Transport', icon: ShieldCheck },
@@ -145,21 +153,32 @@ export function LandingPage() {
           <Link href="/" className="flex items-center">
             <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={218} height={58} priority className="h-[46px] w-auto" />
           </Link>
-          <nav className="hidden items-center gap-7 text-sm font-black text-[#003B8F]/70 lg:flex">
-            <a href="#platform" className="transition hover:text-[#003B8F]">Exchange</a>
-            <a href="#workflow" className="transition hover:text-[#003B8F]">How It Works</a>
-            <a href="#customers" className="transition hover:text-[#003B8F]">Customers</a>
-            <a href="#couriers" className="transition hover:text-[#003B8F]">Couriers</a>
-            <a href="#access" className="transition hover:text-[#003B8F]">Access</a>
+          <nav className="hidden items-center gap-5 text-sm font-black text-[#003B8F]/70 xl:flex">
+            {mainNav.map((item) => (
+              <a key={item.href} href={item.href} className="transition hover:text-[#003B8F]">{item.label}</a>
+            ))}
             <Link href="/login" className="transition hover:text-[#003B8F]">Sign In</Link>
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/register" className="hidden bg-[#003B8F] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#002D73] sm:inline-flex">
               Request Access
             </Link>
-            <button className="inline-flex h-10 w-10 items-center justify-center border border-[#D7E6FA] text-[#003B8F] lg:hidden" aria-label="Open menu">
-              <Menu className="h-5 w-5" />
-            </button>
+            <details className="group relative xl:hidden">
+              <summary className="inline-flex h-10 w-10 cursor-pointer list-none items-center justify-center border border-[#D7E6FA] text-[#003B8F] [&::-webkit-details-marker]:hidden" aria-label="Open menu">
+                <Menu className="h-5 w-5" />
+              </summary>
+              <div className="absolute right-0 top-12 w-[260px] border border-[#D7E6FA] bg-white p-3 text-sm font-black text-[#003B8F] shadow-[0_20px_50px_rgba(0,43,108,0.18)]">
+                {mainNav.map((item) => (
+                  <a key={item.href} href={item.href} className="block border-b border-[#D7E6FA] px-3 py-3 transition last:border-b-0 hover:bg-[#F7FAFF]">
+                    {item.label}
+                  </a>
+                ))}
+                <Link href="/login" className="block border-b border-[#D7E6FA] px-3 py-3 transition hover:bg-[#F7FAFF]">Sign In</Link>
+                <Link href="/register" className="mt-3 flex items-center justify-between bg-[#003B8F] px-3 py-3 text-white transition hover:bg-[#002D73]">
+                  Request Access <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </details>
           </div>
         </div>
       </header>
