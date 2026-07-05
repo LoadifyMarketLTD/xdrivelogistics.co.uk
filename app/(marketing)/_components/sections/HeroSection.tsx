@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { Fragment } from 'react';
 import { ArrowRight } from 'lucide-react';
 
 const TRUST_INDICATORS = [
@@ -168,19 +169,18 @@ export function HeroSection() {
             {/* Trust indicator strip — Phase 4 */}
             <div className="xd-trust-strip xd-hero-phase-4 mt-12">
               {TRUST_INDICATORS.map((item, i) => (
-                <>
+                <Fragment key={item.label}>
                   {i > 0 && (
                     <div
-                      key={`div-${item.label}`}
                       className="xd-trust-strip__divider"
                       aria-hidden="true"
                     />
                   )}
-                  <div key={item.label}>
+                  <div>
                     <span className="xd-trust-item__label">{item.label}</span>
                     <span className="xd-trust-item__sub">{item.sub}</span>
                   </div>
-                </>
+                </Fragment>
               ))}
             </div>
           </div>

@@ -185,8 +185,8 @@
   --xd-glass-blur:   12px;
 
   /* Button — primary */
-  --xd-btn-bg:       var(--xd-blue);
-  --xd-btn-bg-hover: var(--xd-blue-hover);
+  --xd-btn-bg:       #1A52D4; /* WCAG AA pass: ~6.6:1 on white (#2F6BFF was ~3.9:1) */
+  --xd-btn-bg-hover: #1441B0; /* Darker hover state                */
   --xd-btn-height:   3rem;    /* 48px */
   --xd-btn-px:       1.5rem;  /* 24px */
   --xd-btn-radius:   var(--xd-radius-md);

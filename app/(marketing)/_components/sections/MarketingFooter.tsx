@@ -164,7 +164,7 @@ export function MarketingFooter() {
         </div>
       </div>
 
-      <div className="mx-auto mt-8 max-w-[1200px] border-t border-slate-700 pt-6 text-xs text-slate-500">
+      <div className="mx-auto mt-8 max-w-[1200px] border-t border-slate-700 pt-6 text-xs text-slate-400">
         XDrive Logistics Ltd &bull; Company No. 13171804 &bull; Founded 1 February 2021 &bull; &copy; 2026 XDrive Logistics Ltd &bull; All Rights Reserved
       </div>
     </footer>
