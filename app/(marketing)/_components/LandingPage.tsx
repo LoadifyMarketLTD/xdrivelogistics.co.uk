@@ -41,36 +41,32 @@ export function LandingPage() {
       <MarketingHeader />
 
       <main>
-        <section className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.26),transparent_32%),linear-gradient(180deg,#07111f_0%,#08172b_55%,#0b1f39_100%)]">
-          <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:py-16">
+        <section className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.2),transparent_36%),linear-gradient(180deg,#07111f_0%,#08172b_58%,#0a1a2f_100%)]">
+          <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:py-20">
             <div>
               <span className="inline-flex rounded-full border border-[#60a5fa]/35 bg-[#1d4ed8]/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#93c5fd]">
                 Functional Early Access — approved logistics users only.
               </span>
-              <h1 className="mt-6 max-w-4xl text-4xl font-black leading-[0.98] text-white sm:text-5xl lg:text-6xl">
+              <h1 className="mt-6 max-w-4xl text-4xl font-black leading-[1.02] text-white sm:text-5xl lg:text-6xl">
                 Move Freight. Manage Operations. Grow Your Network.
               </h1>
-              <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
-                XDrive Logistics is a UK logistics platform for transport requests, quotes, carrier allocation, driver workflow, POD records, invoices and operational visibility.
+              <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
+                XDrive Logistics connects request, quote, allocation, driver execution, POD and invoice visibility in one operational workflow.
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-9 flex flex-wrap gap-3">
                 <Link href="/register" className="inline-flex items-center gap-2 rounded-xl bg-[#2563eb] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]">
                   Request Early Access <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link href="/login" className="inline-flex items-center rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
                   Sign In
                 </Link>
-              </div>
-              <p className="mt-4 text-sm text-slate-400">
-                Need a transport enquiry route first?{' '}
-                <Link href="/request-quote" className="font-semibold text-[#93c5fd] transition hover:text-white">
+                <Link href="/request-quote" className="inline-flex items-center rounded-xl border border-[#60a5fa]/30 bg-[#1d4ed8]/10 px-6 py-3 text-sm font-semibold text-[#bfdbfe] transition hover:border-[#93c5fd]/50 hover:text-white">
                   Request a quote
                 </Link>
-                .
-              </p>
-              <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {roleHighlights.map((item) => (
-                  <div key={item} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-200 backdrop-blur-sm">
+              </div>
+              <div className="mt-10 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {roleHighlights.slice(0, 3).map((item) => (
+                  <div key={item} className="rounded-2xl border border-[#60a5fa]/20 bg-[#0b1627]/65 px-4 py-3 text-sm font-medium text-slate-200">
                     {item}
                   </div>
                 ))}
@@ -78,7 +74,7 @@ export function LandingPage() {
             </div>
 
             <div className="grid gap-4">
-              <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[#0f172a] shadow-[0_32px_90px_-40px_rgba(37,99,235,0.55)]">
+              <div className="relative overflow-hidden rounded-[28px] border border-[#60a5fa]/20 bg-[#0f172a] shadow-[0_36px_100px_-52px_rgba(37,99,235,0.6)]">
                 <Image
                   src="/hero-dispatch-control.webp"
                   alt="XDrive Logistics marketing hero showing real logistics operations"
@@ -87,24 +83,23 @@ export function LandingPage() {
                   priority
                   className="h-[320px] w-full object-cover sm:h-[380px] lg:h-[480px]"
                 />
-                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,17,31,0.05)_0%,rgba(7,17,31,0.8)_100%)]" />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,17,31,0.15)_0%,rgba(7,17,31,0.88)_100%)]" />
                 <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-                  <div className="inline-flex rounded-full border border-white/20 bg-[#07111f]/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#93c5fd] backdrop-blur-sm">
-                    Public landing page — no fake live dashboard data
-                  </div>
-                  <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                    <div className="rounded-2xl border border-white/10 bg-[#07111f]/78 p-4 backdrop-blur-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#93c5fd]">Platform scope</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-200">
-                        Request, quote, allocation, driver workflow, POD records, invoice visibility and operational oversight in one product story.
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-[#07111f]/78 p-4 backdrop-blur-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#93c5fd]">Rollout position</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-200">
-                        Functional for approved users today, with broader network scale and additional modules continuing through controlled early access.
-                      </p>
-                    </div>
+                  <div className="rounded-2xl border border-white/15 bg-[#07111f]/82 p-5 backdrop-blur-sm">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#93c5fd]">Operational focus</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-200">
+                      One connected record from request to invoice, without fragmented updates across separate channels.
+                    </p>
+                    <ul className="mt-4 space-y-2 text-sm text-slate-300">
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-[#93c5fd]" />
+                        Functional core workflows for approved users
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-[#93c5fd]" />
+                        Controlled rollout with honest module status
+                      </li>
+                    </ul>
                   </div>
                 </div>
               </div>
@@ -113,18 +108,18 @@ export function LandingPage() {
         </section>
 
         <section className="border-b border-white/10 bg-[#0b1627]">
-          <div className="mx-auto grid w-full max-w-7xl gap-3 px-4 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-5">
+          <div className="mx-auto grid w-full max-w-7xl gap-3 px-4 py-6 sm:px-6 md:grid-cols-2 xl:grid-cols-5">
             {trustBarItems.map((item) => (
-              <div key={item} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm font-semibold text-slate-200">
+              <div key={item} className="rounded-xl border border-white/10 bg-transparent px-4 py-3 text-sm font-semibold text-slate-300">
                 {item}
               </div>
             ))}
           </div>
         </section>
 
-        <section id="resources" className="border-b border-white/10 bg-white px-4 py-14 text-[#0f172a] sm:px-6 lg:py-16">
+        <section id="resources" className="border-b border-white/10 bg-[#f8fbff] px-4 py-16 text-[#0f172a] sm:px-6 lg:py-20">
           <div className="mx-auto max-w-7xl">
-            <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+            <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
               <div>
                 <span className="inline-flex rounded-full border border-[#dbe7ff] bg-[#eff6ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">
                   Why XDrive exists
@@ -132,15 +127,15 @@ export function LandingPage() {
                 <h2 className="mt-4 max-w-3xl text-3xl font-black leading-tight sm:text-4xl">
                   Built for the real gaps between request, execution, proof and invoicing.
                 </h2>
-                <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
+                <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
                   XDrive is aimed at the parts of logistics work that are often fragmented across calls, inboxes, spreadsheets and separate systems. The goal is not to decorate operations with fake metrics. The goal is to keep the job record connected.
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {problemPoints.map((point) => (
-                  <article key={point.title} className="flex h-full flex-col rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.45)] sm:last:col-span-2 xl:last:col-span-1">
-                    <p className="text-sm font-semibold text-[#1d4ed8]">Problem</p>
-                    <h3 className="mt-2 text-lg font-semibold leading-6 text-[#0f172a]">{point.title}</h3>
+                  <article key={point.title} className="flex h-full flex-col rounded-3xl border border-[#dbe7ff] bg-white p-5 shadow-[0_24px_70px_-52px_rgba(15,23,42,0.35)] sm:last:col-span-2 xl:last:col-span-1">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1d4ed8]">Operational gap</p>
+                    <h3 className="mt-3 text-lg font-semibold leading-6 text-[#0f172a]">{point.title}</h3>
                     <p className="mt-3 text-sm leading-6 text-slate-600">{point.detail}</p>
                   </article>
                 ))}
