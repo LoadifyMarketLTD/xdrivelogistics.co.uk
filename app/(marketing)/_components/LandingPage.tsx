@@ -22,45 +22,45 @@ const brandProof = [
 
 const workflowFrames = [
   {
-    stage: 'Request',
-    title: 'Job created',
-    detail: 'Collection, delivery, vehicle and timing requirements captured against one job record.',
+    stage: 'Post',
+    title: 'Job posted',
+    detail: 'Courier and freight requirements enter the exchange with route, vehicle and timing context.',
     image: '/marketplace-loading.webp',
     alt: 'XDrive marketplace workflow showing a transport request and quoting context',
   },
   {
-    stage: 'Dispatch',
-    title: 'Driver assigned',
-    detail: 'The same job moves into dispatch with status, route and driver context visible.',
-    image: '/operations-dispatch-office.webp',
-    alt: 'XDrive operations diary showing dispatch activity and active job coordination',
+    stage: 'Quote',
+    title: 'Quotes received',
+    detail: 'Courier companies and operators respond while the job remains tied to one exchange record.',
+    image: '/marketplace-loading.webp',
+    alt: 'XDrive freight exchange quote workflow with available job context',
   },
   {
-    stage: 'Close',
-    title: 'POD ready',
-    detail: 'Delivery evidence and invoice context stay connected to the completed job.',
-    image: '/xdrive-finance-records-real.webp',
-    alt: 'XDrive finance records showing invoice and proof of delivery context',
+    stage: 'Award',
+    title: 'Work awarded',
+    detail: 'The awarded job moves from exchange activity into dispatch, POD and invoice readiness.',
+    image: '/operations-dispatch-office.webp',
+    alt: 'XDrive operations diary showing awarded work moving into dispatch',
   },
 ] as const;
 
 const productSections = [
   {
-    id: 'operations',
-    kicker: 'Operations Diary',
-    headline: 'Dispatch. Everything. Live.',
-    copy: 'Active jobs, exceptions, driver locations and status changes in one operational view.',
-    image: '/operations-dispatch-office.webp',
-    alt: 'XDrive operations diary with live dispatch and job visibility',
-    reverse: false,
-  },
-  {
     id: 'marketplace',
-    kicker: 'Freight Exchange',
+    kicker: 'Courier & Freight Exchange',
     headline: 'Jobs posted. Quotes received. Work awarded.',
     copy: 'Courier and freight requests move from submission to awarded carrier without leaving the platform.',
     image: '/marketplace-loading.webp',
     alt: 'XDrive marketplace showing job opportunities and quote workflow',
+    reverse: false,
+  },
+  {
+    id: 'operations',
+    kicker: 'Operations Diary',
+    headline: 'Dispatch. Everything. Live.',
+    copy: 'Awarded jobs become operational records with driver, route, status and exception visibility.',
+    image: '/operations-dispatch-office.webp',
+    alt: 'XDrive operations diary with live dispatch and job visibility',
     reverse: true,
   },
   {
@@ -119,7 +119,7 @@ export function LandingPage() {
             <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={218} height={58} priority className="h-[46px] w-auto" />
           </Link>
           <nav className="hidden items-center gap-8 text-sm font-black text-[#003B8F]/70 md:flex">
-            <a href="#platform" className="transition hover:text-[#003B8F]">Platform</a>
+            <a href="#platform" className="transition hover:text-[#003B8F]">Exchange</a>
             <a href="#workflow" className="transition hover:text-[#003B8F]">Workflow</a>
             <a href="#access" className="transition hover:text-[#003B8F]">Access</a>
           </nav>
@@ -149,7 +149,7 @@ export function LandingPage() {
                 Move freight. Manage operations. Grow your network.
               </h1>
               <p className="mt-6 max-w-xl text-lg font-semibold leading-8 text-[#24416F]">
-                XDrive Logistics connects courier, freight exchange, dispatch, POD and invoice-readiness workflows inside one operating platform.
+                XDrive Logistics helps transport customers post work, receive courier and freight quotes, award jobs, and carry each job into dispatch, POD and invoice readiness.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/register" className="inline-flex items-center gap-2 bg-[#003B8F] px-6 py-3 text-sm font-black text-white transition hover:bg-[#002D73]">
@@ -166,7 +166,7 @@ export function LandingPage() {
                 <Image src="/xdrive-courier-fleet-no-plates.webp" alt="XDrive logistics fleet operating across the UK" fill priority className="object-cover" />
                 <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.08),rgba(0,59,143,0.08))]" />
               </div>
-              <ProductFrame image="/operations-dispatch-office.webp" alt="XDrive operations diary showing active logistics work" label="Courier & Freight Exchange Platform" />
+              <ProductFrame image="/marketplace-loading.webp" alt="XDrive courier and freight exchange showing available work" label="Courier & Freight Exchange" />
             </div>
           </div>
         </section>
@@ -188,9 +188,9 @@ export function LandingPage() {
         <section id="workflow" className="bg-[#F7FAFF] px-5 py-20 sm:px-8 lg:py-24">
           <div className="mx-auto max-w-[1500px]">
             <div className="max-w-3xl">
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FDB913]">Connected workflow</p>
-              <h2 className="mt-4 text-4xl font-black leading-tight text-[#002B6C] sm:text-6xl">Request to POD. One job record.</h2>
-              <p className="mt-5 max-w-xl text-base font-semibold leading-7 text-[#49607F]">The same job moves through request, dispatch, delivery evidence and invoice readiness.</p>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FDB913]">Exchange workflow</p>
+              <h2 className="mt-4 text-4xl font-black leading-tight text-[#002B6C] sm:text-6xl">Post to award. One job record.</h2>
+              <p className="mt-5 max-w-xl text-base font-semibold leading-7 text-[#49607F]">The exchange record becomes the operational record, so work does not restart after the job is awarded.</p>
             </div>
             <div className="mt-10 grid gap-5 lg:grid-cols-3">
               {workflowFrames.map((frame) => (
@@ -254,7 +254,7 @@ export function LandingPage() {
             <p className="mt-2">Courier & Freight Exchange Platform / Company No. 13171804</p>
           </div>
           <div className="flex flex-wrap gap-5 font-black text-[#003B8F]">
-            <a href="#platform" className="transition hover:text-[#FDB913]">Platform</a>
+            <a href="#platform" className="transition hover:text-[#FDB913]">Exchange</a>
             <a href="#workflow" className="transition hover:text-[#FDB913]">Workflow</a>
             <Link href="/privacy" className="transition hover:text-[#FDB913]">Privacy</Link>
             <Link href="/terms" className="transition hover:text-[#FDB913]">Terms</Link>
