@@ -75,11 +75,8 @@ export function LandingPage() {
 
             {/* Transition */}
             <div className="mx-auto mt-12 max-w-2xl text-center">
-              <p className="text-base font-semibold leading-7 text-[#0f172a]">
-                XDrive is structured around a single connected job record — from the first request through to delivery proof and invoice visibility.
-              </p>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                The workflow below shows exactly how each stage is handled.
+              <p className="text-sm leading-6 text-slate-500">
+                The workflow below shows how XDrive addresses each stage of a transport job.
               </p>
             </div>
 
@@ -90,11 +87,11 @@ export function LandingPage() {
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Roles</span>
-                <h2 className="mt-2 text-3xl font-black sm:text-4xl">One platform story for the logistics roles around the same job.</h2>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Who it is built for</span>
+                <h2 className="mt-2 text-3xl font-black sm:text-4xl">Built for the people who run, manage and move transport every day.</h2>
               </div>
               <p className="max-w-2xl text-sm leading-6 text-slate-600">
-                The homepage presents one public narrative across desktop, tablet and mobile, while the platform itself supports different operational roles once access is approved.
+                XDrive supports the full set of roles involved in a transport job — from the customer submitting a request to the driver capturing delivery proof.
               </p>
             </div>
 
@@ -190,20 +187,12 @@ export function LandingPage() {
           <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
             <div>
               <span className="inline-flex rounded-full border border-[#60a5fa]/30 bg-[#2563eb]/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#93c5fd]">
-                Early Access
+                Transparency
               </span>
-              <h2 className="mt-4 text-3xl font-black text-white sm:text-4xl">Join a controlled rollout built for approved logistics users.</h2>
+              <h2 className="mt-4 text-3xl font-black text-white sm:text-4xl">A controlled rollout with a clear position on what is live today.</h2>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
-                XDrive is being rolled out carefully so the product can support real logistics operations without overstating marketplace scale or live public volume.
+                XDrive is in a functional early-access phase. The statements below reflect the actual rollout position — not an overstated version of it.
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link href="/register" className="inline-flex items-center gap-2 rounded-xl bg-[#2563eb] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]">
-                  Request Early Access <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link href="/login" className="inline-flex items-center rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
-                  Sign In
-                </Link>
-              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -220,7 +209,7 @@ export function LandingPage() {
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">FAQ</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Trust</span>
                 <h2 className="mt-2 text-3xl font-black sm:text-4xl">Honest answers about what XDrive is and where rollout stands.</h2>
               </div>
               <p className="max-w-2xl text-sm leading-6 text-slate-600">
@@ -245,7 +234,7 @@ export function LandingPage() {
         <section className="bg-[linear-gradient(180deg,#07111f_0%,#08172b_100%)] px-4 py-16 sm:px-6 lg:py-20">
           <div className="mx-auto max-w-5xl rounded-[32px] border border-white/10 bg-white/5 px-6 py-10 text-center shadow-[0_32px_90px_-40px_rgba(37,99,235,0.45)] backdrop-blur-sm sm:px-10 lg:px-14">
             <span className="inline-flex rounded-full border border-[#60a5fa]/30 bg-[#2563eb]/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#93c5fd]">
-              Final CTA
+              Get started
             </span>
             <h2 className="mt-4 text-3xl font-black text-white sm:text-4xl">Join the XDrive Early Access rollout</h2>
             <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-300">
