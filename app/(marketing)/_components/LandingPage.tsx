@@ -7,7 +7,6 @@ import {
   ClipboardList,
   FileCheck2,
   Gauge,
-  ShieldCheck,
   Truck,
   UserRound,
 } from 'lucide-react';
@@ -24,7 +23,7 @@ import { MarketingFooter } from './sections/MarketingFooter';
 import { SiteNav } from './sections/SiteNav';
 import { HeroSection } from './sections/HeroSection';
 
-const moduleIcons = [BriefcaseBusiness, ClipboardList, UserRound, Truck, FileCheck2, Gauge, ShieldCheck] as const;
+const moduleIcons = [BriefcaseBusiness, ClipboardList, UserRound, Truck, FileCheck2, Gauge] as const;
 
 export function LandingPage() {
   return (
@@ -53,21 +52,16 @@ export function LandingPage() {
             </div>
 
             {/* Problem cards */}
-            <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {problemPoints.map((point) => (
-                <article key={point.title} className="flex h-full flex-col rounded-3xl border border-[#dbe7ff] bg-white shadow-[0_24px_70px_-52px_rgba(15,23,42,0.25)]">
-                  <div className="border-b border-[#dbe7ff] px-6 py-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#dc2626]">Operational problem</p>
-                    <h3 className="mt-2 text-base font-semibold leading-snug text-[#0f172a]">{point.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">{point.problem}</p>
+                <article key={point.title} className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex flex-1 flex-col p-6">
+                    <h3 className="text-base font-semibold leading-snug text-[#0f172a]">{point.title}</h3>
+                    <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">{point.problem}</p>
                   </div>
-                  <div className="border-b border-[#dbe7ff] px-6 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#b45309]">Business consequence</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">{point.consequence}</p>
-                  </div>
-                  <div className="px-6 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f766e]">XDrive solution</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">{point.solution}</p>
+                  <div className="border-t border-[#dbe7ff] bg-[#eff6ff] px-6 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#1d4ed8]">XDrive solution</p>
+                    <p className="mt-1.5 text-sm leading-5 text-slate-600">{point.solution}</p>
                   </div>
                 </article>
               ))}
@@ -83,27 +77,27 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="solutions" className="border-b border-white/10 bg-[#eff6ff] px-4 py-14 text-[#0f172a] sm:px-6 lg:py-16">
+        <section id="solutions" className="border-b border-white/10 bg-white px-4 py-14 text-[#0f172a] sm:px-6 lg:py-16">
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Who it is built for</span>
-                <h2 className="mt-2 text-3xl font-black sm:text-4xl">Built for the people who run, manage and move transport every day.</h2>
+                <span className="inline-flex rounded-full border border-[#dbe7ff] bg-[#eff6ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Who it is built for</span>
+                <h2 className="mt-4 text-3xl font-black sm:text-4xl">Built for the people who run, manage and move transport every day.</h2>
               </div>
               <p className="max-w-2xl text-sm leading-6 text-slate-600">
                 XDrive supports the full set of roles involved in a transport job — from the customer submitting a request to the driver capturing delivery proof.
               </p>
             </div>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {roleCards.map((role) => (
-                <article key={role.title} className="flex h-full flex-col overflow-hidden rounded-3xl border border-[#dbe7ff] bg-white shadow-[0_24px_60px_-42px_rgba(15,23,42,0.45)]">
-                  <div className="h-48 bg-slate-100">
-                    <Image src={role.image} alt={role.imageAlt} width={960} height={720} className="h-full w-full object-cover" />
+                <article key={role.title} className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <div className="relative h-48 w-full bg-slate-100">
+                    <Image src={role.image} alt={role.imageAlt} fill sizes="(max-width: 1024px) 50vw, 33vw" className="object-cover" />
                   </div>
                   <div className="flex flex-1 flex-col p-5">
-                    <h3 className="text-xl font-semibold text-[#0f172a]">{role.title}</h3>
-                    <p className="mt-3 text-sm leading-6 text-slate-600">{role.subtitle}</p>
+                    <h3 className="text-base font-semibold text-[#0f172a]">{role.title}</h3>
+                    <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{role.subtitle}</p>
                   </div>
                 </article>
               ))}
@@ -115,58 +109,58 @@ export function LandingPage() {
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#93c5fd]">Workflow</span>
-                <h2 className="mt-2 text-3xl font-black text-white sm:text-4xl">Request → Quote → Award → Assign → Collect → Deliver → POD → Invoice</h2>
+                <span className="inline-flex rounded-full border border-[#93c5fd]/25 bg-[#93c5fd]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#93c5fd]">Workflow</span>
+                <h2 className="mt-4 text-3xl font-black text-white sm:text-4xl">Request → Quote → Award → Assign → Collect → Deliver → POD → Invoice</h2>
               </div>
               <p className="max-w-2xl text-sm leading-6 text-slate-300">
                 XDrive is structured around a transport job moving forward through a connected workflow rather than being rebuilt from scratch in each tool or message thread.
               </p>
             </div>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {workflowSteps.map((step, index) => (
-                <article key={step.title} className="flex h-full flex-col rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+                <article key={step.title} className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#2563eb] text-sm font-black text-white">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#2563eb] text-sm font-black text-white">
                       {String(index + 1).padStart(2, '0')}
                     </span>
-                    <CheckCircle2 className="h-5 w-5 text-[#93c5fd]" />
+                    <CheckCircle2 className="h-4 w-4 text-[#93c5fd]" />
                   </div>
-                  <h3 className="mt-4 text-xl font-semibold text-white">{step.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">{step.detail}</p>
+                  <h3 className="mt-4 text-base font-semibold text-white">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">{step.detail}</p>
                 </article>
               ))}
             </div>
           </div>
         </section>
 
-        <section id="modules" className="border-b border-white/10 bg-white px-4 py-14 text-[#0f172a] sm:px-6 lg:py-16">
+        <section id="modules" className="border-b border-white/10 bg-[#f8fbff] px-4 py-14 text-[#0f172a] sm:px-6 lg:py-16">
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Platform modules</span>
-                <h2 className="mt-2 text-3xl font-black sm:text-4xl">Operational modules with clear scope, users and rollout status.</h2>
+                <span className="inline-flex rounded-full border border-[#dbe7ff] bg-[#eff6ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Platform modules</span>
+                <h2 className="mt-4 text-3xl font-black sm:text-4xl">Operational modules with clear scope, users and rollout status.</h2>
               </div>
               <p className="max-w-2xl text-sm leading-6 text-slate-600">
                 Each module is positioned honestly: what it does, who uses it and whether it is functional today, in early access, or still planned.
               </p>
             </div>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {platformModules.map((module, index) => {
                 const Icon = moduleIcons[index];
                 return (
-                  <article key={module.title} className="flex h-full flex-col rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.45)]">
+                  <article key={module.title} className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                     <div className="flex items-start justify-between gap-4">
-                      <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#dbeafe] text-[#1d4ed8]">
+                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#dbeafe] text-[#1d4ed8]">
                         <Icon className="h-5 w-5" />
                       </span>
-                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">
                         {module.status}
                       </span>
                     </div>
-                    <h3 className="mt-5 text-xl font-semibold text-[#0f172a]">{module.title}</h3>
-                    <div className="mt-4 space-y-4 text-sm leading-6 text-slate-600">
+                    <h3 className="mt-4 text-base font-semibold text-[#0f172a]">{module.title}</h3>
+                    <div className="mt-3 flex flex-1 flex-col gap-4 text-sm leading-6 text-slate-600">
                       <div>
                         <p className="font-semibold text-[#0f172a]">What it does</p>
                         <p className="mt-1">{module.whatItDoes}</p>
@@ -197,7 +191,7 @@ export function LandingPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               {earlyAccessPoints.map((point) => (
-                <article key={point} className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm leading-6 text-slate-200 backdrop-blur-sm">
+                <article key={point} className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm leading-6 text-slate-200 backdrop-blur-sm">
                   {point}
                 </article>
               ))}
@@ -205,12 +199,12 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="faq" className="border-b border-white/10 bg-[#eff6ff] px-4 py-14 text-[#0f172a] sm:px-6 lg:py-16">
+        <section id="faq" className="border-b border-white/10 bg-white px-4 py-14 text-[#0f172a] sm:px-6 lg:py-16">
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Trust</span>
-                <h2 className="mt-2 text-3xl font-black sm:text-4xl">Honest answers about what XDrive is and where rollout stands.</h2>
+                <span className="inline-flex rounded-full border border-[#dbe7ff] bg-[#eff6ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Trust</span>
+                <h2 className="mt-4 text-3xl font-black sm:text-4xl">Honest answers about what XDrive is and where rollout stands.</h2>
               </div>
               <p className="max-w-2xl text-sm leading-6 text-slate-600">
                 The answers below are written to explain the current product position clearly without pretending the network is already at full public scale.
@@ -219,7 +213,7 @@ export function LandingPage() {
 
             <div className="mt-8 grid gap-4 xl:grid-cols-2">
               {faqs.map((faq, index) => (
-                <details key={faq.q} className="group rounded-3xl border border-[#dbe7ff] bg-white p-5 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.45)]" open={index === 0}>
+                <details key={faq.q} className="group rounded-2xl border border-slate-200 bg-[#f8fbff] p-5" open={index === 0}>
                   <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-base font-semibold text-[#0f172a]">
                     <span>{faq.q}</span>
                     <span className="mt-0.5 text-[#1d4ed8] transition group-open:rotate-45">+</span>

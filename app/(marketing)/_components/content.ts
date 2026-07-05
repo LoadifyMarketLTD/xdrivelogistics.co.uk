@@ -45,6 +45,12 @@ export const problemPoints = [
     consequence: 'Days pass between delivery and invoice because someone has to manually track down every piece of supporting evidence before the billing process can even begin.',
     solution: 'The rate, the job record and the delivery evidence are linked from the start. Finance can see what is ready to invoice without rebuilding the history from scratch.',
   },
+  {
+    title: 'Rate agreements separated from the job record',
+    problem: 'Agreed rates are confirmed by email or message but are never formally attached to the job itself. By the time an invoice needs to go out, finance has to trace back through correspondence to confirm what was actually agreed.',
+    consequence: 'Invoice queries arise when there is no clear audit trail linking the rate confirmation to the specific transport job that was awarded.',
+    solution: 'The awarded rate is locked to the job record at the moment of agreement. Finance can access the commercial context directly from the job rather than searching backwards through correspondence.',
+  },
 ] as const;
 
 export const roleCards = [
@@ -158,12 +164,6 @@ export const platformModules = [
     whoUsesIt: 'Courier companies, transport customers, owner drivers and finance admins.',
     status: 'Early Access',
   },
-  {
-    title: 'Super Admin Governance',
-    whatItDoes: 'Supports controlled rollout, access oversight and platform-level governance for approved users.',
-    whoUsesIt: 'Internal XDrive administrators and rollout managers.',
-    status: 'Functional',
-  },
 ] as const;
 
 export const earlyAccessPoints = [
@@ -229,9 +229,5 @@ export const faqs = [
   {
     q: 'How do I request access?',
     a: 'Use the Request Early Access route to register interest. The XDrive team can then review fit, role type and rollout readiness before approving access.',
-  },
-  {
-    q: 'Can I still request a transport quote without joining?',
-    a: 'Yes. The request-quote route remains available for transport enquiries even if you are not yet an approved platform user.',
   },
 ] as const;
