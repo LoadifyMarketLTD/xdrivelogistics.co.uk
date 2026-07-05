@@ -1,7 +1,6 @@
 import {
   CircleDollarSign,
   ClipboardCheck,
-  ClipboardList,
   FileCheck2,
   Layers,
   Route,
@@ -11,7 +10,6 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
-import type { HomepageVisualTone } from './HomepageVisualCard';
 
 export const navLinks = [
   { label: 'Platform', href: '#platform' },
@@ -19,57 +17,6 @@ export const navLinks = [
   { label: 'How It Works', href: '#how-it-works' },
   { label: 'Resources', href: '#resources' },
   { label: 'Contact', href: '#contact' },
-] as const;
-
-export const trustCards = [
-  { label: 'Company', value: 'XDrive Logistics Ltd' },
-  { label: 'Company No.', value: '13171804' },
-  { label: 'Current Stage', value: 'Functional Early Access' },
-  { label: 'Access', value: 'Approved logistics users' },
-  { label: 'Coverage', value: 'UK-focused rollout' },
-  { label: 'Focus', value: 'Marketplace to POD' },
-] as const;
-
-export const whyExistsCards = [
-  {
-    title: 'Built from real courier experience',
-    text: 'Created around the practical problems seen in daily UK transport work: job updates, driver communication, POD handling, invoices and operational visibility.',
-  },
-  {
-    title: 'Functional, controlled rollout',
-    text: 'XDrive is functional for approved early-access users, while the wider public marketplace network and broker/company volume continue to grow in a controlled way.',
-  },
-  {
-    title: 'Designed for workflow control',
-    text: 'The goal is to connect requests, quotes, assignments, delivery progress, POD records and finance visibility in one structured workspace.',
-  },
-] as const;
-
-export const problemCards = [
-  {
-    title: 'Lost job information',
-    text: 'Job details can get buried in emails, calls and WhatsApp messages. XDrive is designed to keep requests, quotes, allocations and updates attached to the same job record.',
-  },
-  {
-    title: 'Driver communication gaps',
-    text: 'Dispatchers need to know what is happening without constant phone calls. XDrive is designed to support driver status updates, collection progress, delivery progress and POD upload from one workflow.',
-  },
-  {
-    title: 'PODs disconnected from jobs',
-    text: 'Proof of delivery is valuable only when it stays linked to the completed job. XDrive is designed to keep PODs, delivery records and job history together.',
-  },
-  {
-    title: 'Invoice visibility problems',
-    text: 'Completed work, POD checks, invoices and payment status should not sit in separate places. XDrive is designed to connect finance records to the operational job history.',
-  },
-  {
-    title: 'Fleet and availability confusion',
-    text: 'Courier companies need clearer visibility over drivers, vehicles, availability and future positions. XDrive is being shaped to support fleet and driver coordination.',
-  },
-  {
-    title: 'Too many disconnected tools',
-    text: 'XDrive is not just another form or dashboard. The goal is to reduce reliance on spreadsheets, duplicated messages and disconnected systems.',
-  },
 ] as const;
 
 export const statusHighlights = [
@@ -95,86 +42,41 @@ export const statusHighlights = [
   },
 ] as const;
 
-export const earlyAccessBenefits = [
-  {
-    title: 'Early Access plan',
-    description: 'All approved users are assigned to the Early Access plan during the controlled rollout.',
-  },
-  {
-    title: '3-month free access',
-    description: 'Approved users receive 3 months of free access when joining the controlled rollout.',
-  },
-  {
-    title: 'No payment message on signup',
-    description: 'The public homepage keeps the Early Access offer simple and focused on joining, testing and using the platform.',
-  },
-  {
-    title: 'All approved logistics roles included',
-    description: 'Transport Customers, Courier Companies, Owner Drivers, Drivers, Load Posters and Dispatch Teams are included.',
-  },
-  {
-    title: 'No paywall blocks',
-    description: 'Approved users should be able to use supported Early Access features during the initial free access period.',
-  },
-  {
-    title: 'Controlled rollout',
-    description: 'Access remains approval-based so the platform can grow with the right transport users and operational feedback.',
-  },
-] as const;
-
 export const roleCards: ReadonlyArray<{
-  icon: LucideIcon;
   image: string;
   imageAlt: string;
   subtitle: string;
   title: string;
-  tone: HomepageVisualTone;
-  visualLabel: string;
 }> = [
   {
-    icon: Layers,
     title: 'Transport Customers',
     subtitle: 'Request transport, compare courier responses, follow job progress and keep delivery records organised from request to completion.',
     image: '/customers-warehouse.webp',
     imageAlt: 'Transport customer reviewing shipment activity, courier responses and delivery records in a structured workspace',
-    tone: 'blue',
-    visualLabel: 'Transport requests',
   },
   {
-    icon: Users,
     title: 'Courier Companies',
     subtitle: 'Manage incoming work, quotes, drivers, vehicles, PODs, invoices and operational history from one workspace.',
     image: '/xdrive-courier-fleet-no-plates.webp',
     imageAlt: 'Courier company fleet yard showing vehicle capacity and operational readiness without visible registration plates',
-    tone: 'slate',
-    visualLabel: 'Dispatch coordination',
   },
   {
-    icon: Truck,
     title: 'Owner Operators',
     subtitle: 'Find suitable work, submit clear quotes, manage awarded jobs and keep delivery records connected to completed transport.',
     image: '/owner-operator-van.webp',
     imageAlt: 'Owner operator managing route readiness, assigned work and delivery records',
-    tone: 'amber',
-    visualLabel: 'Owner operator workflow',
   },
   {
-    icon: ClipboardList,
     title: 'Load Posters',
     subtitle: 'Create structured transport requests, receive responses and track awarded work without losing key job details.',
     image: '/load-poster-office.webp',
     imageAlt: 'Load poster preparing a transport request and reviewing awarded workflow history',
-    tone: 'violet',
-    visualLabel: 'Load posting',
   },
   {
-    icon: UserRound,
     title: 'Drivers',
     subtitle: 'View assigned jobs, update progress, confirm collection and delivery milestones, and upload PODs through a mobile-first workflow.',
     image: '/xdrive-driver-pod-real.webp',
     imageAlt: 'Driver using a mobile workflow to update status and upload proof of delivery',
-    tone: 'emerald',
-    visualLabel: 'Driver mobile workflow',
   },
 ] as const;
 
@@ -397,43 +299,6 @@ export const workflow: ReadonlyArray<{
     title: 'Invoice',
     detail: 'Invoice and payment status records remain connected to the job history.',
     icon: ShieldCheck,
-  },
-] as const;
-
-export const featureCards: ReadonlyArray<{
-  title: string;
-  description: string;
-  icon: LucideIcon;
-}> = [
-  {
-    title: 'Marketplace',
-    description: 'Planned tools for load visibility, quote handling, awards and marketplace history.',
-    icon: Route,
-  },
-  {
-    title: 'Operations',
-    description: 'Diary-led job execution covering collections, deliveries, status updates and exceptions.',
-    icon: Layers,
-  },
-  {
-    title: 'Dispatch',
-    description: 'Assignment visibility for drivers, vehicles and workload coordination.',
-    icon: ClipboardCheck,
-  },
-  {
-    title: 'Driver Workflow',
-    description: 'Mobile-oriented actions for assigned work, progress updates and POD return.',
-    icon: Truck,
-  },
-  {
-    title: 'POD & Records',
-    description: 'Structured proof capture and document history linked to each completed job.',
-    icon: FileCheck2,
-  },
-  {
-    title: 'Finance',
-    description: 'Invoice, payment-status and dispute records without XDrive holding client funds.',
-    icon: CircleDollarSign,
   },
 ] as const;
 

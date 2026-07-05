@@ -127,9 +127,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
-  color: var(--color-text-white);
-  background-color: var(--color-primary-navy-dark);
   font-size: var(--font-size-body);
+  /* background-color and color are managed by Tailwind @layer base above */
 }
 
 main {
@@ -143,29 +142,30 @@ main {
   padding: 0 24px;
 }
 
-/* Typography */
-h1, h2, h3, h4, h5, h6 {
+/* Typography — scoped to legacy pages only to avoid breaking Tailwind components */
+.legacy-content h1, .legacy-content h2, .legacy-content h3,
+.legacy-content h4, .legacy-content h5, .legacy-content h6 {
   font-weight: var(--font-weight-bold);
   line-height: 1.2;
   color: var(--color-text);
 }
 
-h1 {
+.legacy-content h1 {
   font-size: var(--font-size-h1);
   margin-bottom: 1rem;
 }
 
-h2 {
+.legacy-content h2 {
   font-size: var(--font-size-h2);
   margin-bottom: 1rem;
 }
 
-h3 {
+.legacy-content h3 {
   font-size: var(--font-size-h3);
   margin-bottom: 0.75rem;
 }
 
-p {
+.legacy-content p {
   margin-bottom: 1rem;
   line-height: 1.7;
 }
@@ -279,31 +279,31 @@ label {
   color: var(--color-text-muted);
 }
 
-/* Links */
-a {
+/* Links — scoped to legacy pages only */
+.legacy-content a {
   color: var(--color-secondary-blue);
   text-decoration: none;
   transition: color 0.3s ease;
 }
 
-a:hover {
+.legacy-content a:hover {
   color: var(--color-light-blue);
   text-decoration: none;
 }
 
-/* Lists */
-ul {
+/* Lists — scoped to legacy pages only to avoid breaking navigation menus */
+.legacy-content ul {
   list-style: none;
   padding: 0;
 }
 
-ul li {
+.legacy-content ul li {
   padding: 0.75rem 0;
   padding-left: 1.5rem;
   position: relative;
 }
 
-ul li::before {
+.legacy-content ul li::before {
   content: "✓";
   position: absolute;
   left: 0;

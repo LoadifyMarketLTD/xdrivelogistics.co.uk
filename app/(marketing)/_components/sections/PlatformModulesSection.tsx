@@ -3,13 +3,13 @@ import { platformModules } from '../content';
 
 export function PlatformModulesSection() {
   return (
-    <section className="border-b border-slate-200 bg-white px-4 py-14 sm:px-6">
+    <section className="border-b border-slate-200 bg-white px-4 py-14 sm:px-6" id="modules">
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
           <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Operational modules</span>
           <h2 className="mt-2 text-3xl font-black text-[#0f172a] sm:text-4xl">Built around execution, not decoration.</h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            The public site should preview the platform shape without pretending that every module is already a public exchange.
+            Five operational areas covering marketplace quoting, dispatch, driver workflows, fleet coordination and finance records.
           </p>
         </div>
 
