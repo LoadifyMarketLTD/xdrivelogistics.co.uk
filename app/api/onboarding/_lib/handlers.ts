@@ -8,7 +8,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
-import type { OnboardingAccountType } from '../../_lib/onboarding';
+import { normalizeOnboardingStatus, type OnboardingAccountType } from '../../_lib/onboarding';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -49,6 +49,136 @@ const resolveApplication = async ({
 
 const validateAccountType = (raw: string, expected: OnboardingAccountType) => raw === expected;
 
+<<<<<<< HEAD
+=======
+const resolveApplicantPatchStatus = (
+  existingStatusRaw: string | null | undefined,
+  requestedStatus?: string,
+): { nextStatus: string; error?: string } => {
+  const existingStatus = normalizeOnboardingStatus(existingStatusRaw);
+  const immutableApplicantStatuses = new Set(['under_review', 'approved', 'rejected']);
+  const allowedRequestedStatuses = new Set(['draft', 'in_progress']);
+
+  if (requestedStatus && !allowedRequestedStatuses.has(requestedStatus)) {
+    return {
+      nextStatus: existingStatus,
+      error: 'Invalid status transition: applicants can only set draft or in_progress.',
+    };
+  }
+
+  if (immutableApplicantStatuses.has(existingStatus)) {
+    if (requestedStatus && requestedStatus !== existingStatus) {
+      return {
+        nextStatus: existingStatus,
+        error: `Invalid status transition: application in ${existingStatus} cannot be changed by applicant.`,
+      };
+    }
+    return { nextStatus: existingStatus };
+  }
+
+  if (existingStatus === 'request_changes') {
+    if (!requestedStatus) return { nextStatus: existingStatus };
+    if (requestedStatus === 'in_progress') return { nextStatus: 'in_progress' };
+    return {
+      nextStatus: existingStatus,
+      error: 'Invalid status transition: request_changes can only resume to in_progress.',
+    };
+  }
+
+  if (existingStatus === 'in_progress') {
+    if (!requestedStatus || requestedStatus === 'in_progress') return { nextStatus: 'in_progress' };
+    return {
+      nextStatus: existingStatus,
+      error: 'Invalid status transition: in_progress cannot regress to draft.',
+    };
+  }
+
+  if (existingStatus === 'draft') {
+    if (!requestedStatus || requestedStatus === 'draft') return { nextStatus: 'draft' };
+    return { nextStatus: 'in_progress' };
+  }
+
+  return { nextStatus: existingStatus };
+};
+
+/**
+ * Create (or locate) a pending-approval company for the submitting user.
+ * Returns the company id, or null on failure.
+ */
+const createOrLinkPendingCompany = async (
+  userId: string,
+  applicationId: string,
+  payload: Record<string, unknown>,
+): Promise<string | null> => {
+  if (!supabaseAdmin) return null;
+
+  // Re-use a company that was already created for this user
+  const { data: existingCompany } = await supabaseAdmin
+    .from('companies')
+    .select('id, status')
+    .eq('created_by', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingCompany?.id) {
+    const currentStatus = String(existingCompany.status ?? '').toLowerCase();
+    if (currentStatus !== 'active') {
+      await supabaseAdmin
+        .from('companies')
+        .update({ status: 'pending_approval' })
+        .eq('id', existingCompany.id);
+    }
+    await supabaseAdmin
+      .from('onboarding_applications')
+      .update({ company_id: existingCompany.id })
+      .eq('id', applicationId);
+    return existingCompany.id as string;
+  }
+
+  // Derive company name from payload fields (works for broker, fleet, owner-driver)
+  const companyName = (
+    String(
+      (payload.legal_company_name as string | undefined) ??
+      (payload.company_name as string | undefined) ??
+      (payload.full_name as string | undefined) ??
+      'Unnamed Company',
+    ).trim() || 'Unnamed Company'
+  );
+
+  const { data: company, error } = await supabaseAdmin
+    .from('companies')
+    .insert({
+      name: companyName,
+      status: 'pending_approval',
+      created_by: userId,
+    })
+    .select('id')
+    .single();
+
+  if (error || !company) return null;
+
+  // Owner membership
+  await supabaseAdmin.from('company_memberships').upsert(
+    {
+      company_id: company.id,
+      user_id: userId,
+      role_in_company: 'owner',
+      status: 'active',
+    },
+    { onConflict: 'company_id,user_id' },
+  );
+
+  // Link application → company
+  await supabaseAdmin
+    .from('onboarding_applications')
+    .update({ company_id: company.id })
+    .eq('id', applicationId);
+
+  return company.id as string;
+};
+
+>>>>>>> origin/main
 export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options: {
   expectedAccountType: OnboardingAccountType;
   patchSchema: TPatchSchema;
@@ -140,14 +270,21 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
 
     const payloadPatch = patchData.payload ?? {};
 
+<<<<<<< HEAD
     const nextStatus =
       patchData.status && ['draft', 'in_progress', 'request_changes', 'submitted'].includes(patchData.status)
         ? patchData.status
         : existing.status;
+=======
+    const statusDecision = resolveApplicantPatchStatus(existing.status, patchData.status);
+    if (statusDecision.error) {
+      return json(409, { error: statusDecision.error });
+    }
+>>>>>>> origin/main
 
     const updatePayload: Record<string, unknown> = {
       last_activity_at: new Date().toISOString(),
-      status: nextStatus,
+      status: statusDecision.nextStatus,
       payload: {
         ...(existing.payload as Record<string, unknown>),
         ...payloadPatch,
@@ -254,4 +391,3 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
     });
   };
 };
-
