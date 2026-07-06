@@ -98,6 +98,8 @@ const resolveApplicantPatchStatus = (
 
   return { nextStatus: existingStatus };
 };
+
+
 export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options: {
   expectedAccountType: OnboardingAccountType;
   patchSchema: TPatchSchema;
@@ -138,7 +140,7 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
     }
 
     if (token && !app.token_activated_at) {
-      const status = app.status === 'draft' ? 'in_progress' : normalizeOnboardingStatus(app.status);
+      const status = app.status === 'draft' ? 'in_progress' : app.status;
       const { data: activated, error: activationError } = await supabaseAdmin
         .from('onboarding_applications')
         .update({
