@@ -6,7 +6,7 @@ import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Types
 
 type BidRow = {
   id: string;
@@ -32,7 +32,7 @@ type BidRow = {
 
 type TabId = 'submitted' | 'accepted' | 'rejected';
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Helpers
 
 const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
   submitted: { bg: '#fef9c3', color: '#92400e' },
@@ -42,7 +42,7 @@ const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
 };
 
 function fmtDate(value: string | null) {
-  if (!value) return 'â€”';
+  if (!value) return '-';
   try {
     return new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   } catch { return value; }
@@ -62,7 +62,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'rejected',  label: 'Unsuccessful' },
 ];
 
-// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Component
 
 export default function MyQuotesPage() {
   const { user } = useAuth();
@@ -181,10 +181,9 @@ export default function MyQuotesPage() {
         )}
 
         {loading ? (
-          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading quotesâ€¦</div>
+          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading quotes...</div>
         ) : visibleBids.length === 0 ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ’¬</div>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>No quotes here</div>
             <div style={{ fontSize: '0.84rem', color: '#64748b' }}>
               No {activeTab} quotes found.
@@ -209,7 +208,7 @@ export default function MyQuotesPage() {
                     </div>
                     {bidPrice != null && (
                       <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
-                        Â£{bidPrice.toFixed(2)} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>your quote</span>
+                        GBP {bidPrice.toFixed(2)} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>your quote</span>
                       </span>
                     )}
                   </div>
@@ -219,7 +218,7 @@ export default function MyQuotesPage() {
                       <div>
                         <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Route</div>
                         <div style={{ fontSize: '0.83rem', color: '#0f172a' }}>
-                          {job.pickup_location ?? 'â€”'} â†’ {job.delivery_location ?? 'â€”'}
+                          {job.pickup_location ?? '-'} to {job.delivery_location ?? '-'}
                         </div>
                       </div>
                       <div>
@@ -229,7 +228,7 @@ export default function MyQuotesPage() {
                       {job.budget_amount != null && (
                         <div>
                           <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Budget</div>
-                          <div style={{ fontSize: '0.83rem', color: '#0f172a' }}>Â£{job.budget_amount.toFixed(2)}</div>
+                          <div style={{ fontSize: '0.83rem', color: '#0f172a' }}>GBP {job.budget_amount.toFixed(2)}</div>
                         </div>
                       )}
                     </div>

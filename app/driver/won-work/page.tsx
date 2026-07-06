@@ -7,7 +7,7 @@ import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Types
 
 type WonJob = {
   id: string;
@@ -26,7 +26,7 @@ type WonJob = {
   assigned_driver_id: string | null;
 };
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Helpers
 
 const STATUS_LABELS: Record<string, string> = {
   draft:     'Received',
@@ -55,7 +55,7 @@ const VEHICLE_LABELS: Record<string, string> = {
 };
 
 function fmtDate(value: string | null) {
-  if (!value) return 'â€”';
+  if (!value) return '-';
   try { return new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); }
   catch { return value; }
 }
@@ -68,7 +68,7 @@ const card: CSSProperties = {
   boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
 };
 
-// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Component
 
 export default function WonWorkPage() {
   const { user } = useAuth();
@@ -135,7 +135,7 @@ export default function WonWorkPage() {
             { label: 'Total',  value: pipelineCounts.total,     color: '#374151', bg: '#f3f4f6' },
           ].map((item) => (
             <div key={item.label} style={{ ...card, borderTop: `3px solid ${item.color}`, textAlign: 'center', padding: '0.8rem' }}>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: item.color }}>{loading ? 'â€¦' : item.value}</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: item.color }}>{loading ? '...' : item.value}</div>
               <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, marginTop: '0.15rem' }}>{item.label}</div>
             </div>
           ))}
@@ -151,7 +151,6 @@ export default function WonWorkPage() {
           <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading jobs...</div>
         ) : jobs.length === 0 ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ†</div>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>No jobs yet</div>
             <div style={{ fontSize: '0.84rem', color: '#64748b' }}>
               Assigned work will appear here when it is ready.
@@ -177,22 +176,22 @@ export default function WonWorkPage() {
                         {STATUS_LABELS[job.status] ?? job.status}
                       </span>
                       {job.companies?.name && (
-                        <span style={{ marginLeft: '0.4rem', fontSize: '0.72rem', color: '#64748b' }}>â€” {job.companies.name}</span>
+                        <span style={{ marginLeft: '0.4rem', fontSize: '0.72rem', color: '#64748b' }}>- {job.companies.name}</span>
                       )}
                     </div>
                     {job.budget_amount != null && (
-                      <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#15803d' }}>Â£{job.budget_amount.toFixed(2)}</span>
+                      <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#15803d' }}>GBP {job.budget_amount.toFixed(2)}</span>
                     )}
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.55rem', marginBottom: '0.65rem' }}>
                     <div>
                       <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Pickup</div>
-                      <div style={{ fontSize: '0.83rem', color: '#0f172a', fontWeight: 600 }}>{job.pickup_location ?? 'â€”'}</div>
+                      <div style={{ fontSize: '0.83rem', color: '#0f172a', fontWeight: 600 }}>{job.pickup_location ?? '-'}</div>
                     </div>
                     <div>
                       <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Delivery</div>
-                      <div style={{ fontSize: '0.83rem', color: '#0f172a', fontWeight: 600 }}>{job.delivery_location ?? 'â€”'}</div>
+                      <div style={{ fontSize: '0.83rem', color: '#0f172a', fontWeight: 600 }}>{job.delivery_location ?? '-'}</div>
                     </div>
                     <div>
                       <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Date</div>
@@ -212,7 +211,7 @@ export default function WonWorkPage() {
                         onClick={() => router.push(`/driver/jobs/${job.id}`)}
                         style={{ padding: '0.45rem 0.9rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}
                       >
-                        Open Active Job â†’
+                        Open Active Job
                       </button>
                     )}
                     <button
