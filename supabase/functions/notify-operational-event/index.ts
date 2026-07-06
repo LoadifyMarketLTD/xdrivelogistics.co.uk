@@ -189,6 +189,108 @@ async function handleOnboardingInvite(event: NotificationEvent): Promise<boolean
   return sendEmail(user.email, '🚀 Complete onboarding — XDrive Logistics', html);
 }
 
+async function emailCompanyOperators(companyId: string, subject: string, htmlFor: (name: string) => string): Promise<boolean> {
+  const { data: members } = await supabase
+    .from('company_memberships')
+    .select('user_id, role_in_company')
+    .eq('company_id', companyId)
+    .in('role_in_company', ['owner', 'admin', 'dispatcher'])
+    .eq('status', 'active');
+
+  if (!members?.length) return true;
+
+  const results = await Promise.allSettled(
+    members.map(async (m: { user_id: string }) => {
+      const user = await getUserEmail(m.user_id);
+      if (!user) return true;
+      return sendEmail(user.email, subject, htmlFor(user.name));
+    }),
+  );
+
+  return results.every((result) => result.status === 'fulfilled' && result.value !== false);
+}
+
+async function handleOnboardingSubmitted(event: NotificationEvent): Promise<boolean> {
+  const recipientUserId = event.recipient_user_id ?? (event.payload?.recipient_user_id as string | undefined);
+  if (!recipientUserId) return true;
+
+  const user = await getUserEmail(recipientUserId);
+  if (!user) return true;
+
+  const accountType = String(event.payload?.account_type ?? 'account').replace(/_/g, ' ');
+  const onboardingApplicationId = String(event.payload?.onboarding_application_id ?? event.entity_id);
+  const html = `
+    <h2>Onboarding submitted</h2>
+    <p>Hi ${user.name},</p>
+    <p>Your ${accountType} onboarding has been submitted for review.</p>
+    <p>Reference: <strong>${onboardingApplicationId}</strong></p>
+    <p>XDrive Logistics</p>
+  `;
+  return sendEmail(user.email, 'Onboarding submitted - XDrive Logistics', html);
+}
+
+async function handleOnboardingApproved(event: NotificationEvent): Promise<boolean> {
+  const recipientUserId = event.recipient_user_id ?? (event.payload?.recipient_user_id as string | undefined);
+  if (!recipientUserId) return true;
+
+  const user = await getUserEmail(recipientUserId);
+  if (!user) return true;
+
+  const html = `
+    <h2>Your XDrive workspace is approved</h2>
+    <p>Hi ${user.name},</p>
+    <p>Your onboarding has been approved. You can now sign in and use your workspace.</p>
+    <p><a href="${buildAppUrl('/login')}">Open XDrive</a></p>
+    <p>XDrive Logistics</p>
+  `;
+  return sendEmail(user.email, 'Onboarding approved - XDrive Logistics', html);
+}
+
+async function handleInvoiceDisputed(event: NotificationEvent): Promise<boolean> {
+  const invoiceId = String(event.payload?.invoice_id ?? event.entity_id);
+  const companyId = event.company_id ?? (event.payload?.company_id as string | undefined);
+
+  if (event.recipient_user_id) {
+    const user = await getUserEmail(event.recipient_user_id);
+    if (!user) return true;
+    return sendEmail(
+      user.email,
+      'Invoice disputed - XDrive Logistics',
+      `<h2>Invoice disputed</h2><p>Hi ${user.name},</p><p>Invoice <strong>${invoiceId}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+    );
+  }
+
+  if (!companyId) return true;
+  return emailCompanyOperators(
+    companyId,
+    'Invoice disputed - XDrive Logistics',
+    (name) => `<h2>Invoice disputed</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceId}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+  );
+}
+
+async function handleInvoiceCreated(event: NotificationEvent): Promise<boolean> {
+  const invoiceId = String(event.payload?.invoice_id ?? event.entity_id);
+  const invoiceNumber = String(event.payload?.invoice_number ?? invoiceId);
+  const companyId = event.company_id ?? (event.payload?.company_id as string | undefined);
+
+  if (event.recipient_user_id) {
+    const user = await getUserEmail(event.recipient_user_id);
+    if (!user) return true;
+    return sendEmail(
+      user.email,
+      'Invoice created - XDrive Logistics',
+      `<h2>Invoice created</h2><p>Hi ${user.name},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+    );
+  }
+
+  if (!companyId) return true;
+  return emailCompanyOperators(
+    companyId,
+    'Invoice created - XDrive Logistics',
+    (name) => `<h2>Invoice created</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+  );
+}
+
 async function processEvent(event: NotificationEvent): Promise<void> {
   let success = false;
   try {
@@ -204,6 +306,18 @@ async function processEvent(event: NotificationEvent): Promise<void> {
         break;
       case 'onboarding_invite':
         success = await handleOnboardingInvite(event);
+        break;
+      case 'onboarding_submitted':
+        success = await handleOnboardingSubmitted(event);
+        break;
+      case 'onboarding_approved':
+        success = await handleOnboardingApproved(event);
+        break;
+      case 'invoice_disputed':
+        success = await handleInvoiceDisputed(event);
+        break;
+      case 'invoice_created':
+        success = await handleInvoiceCreated(event);
         break;
       default:
         console.log(`[notify] Unknown event type: ${event.event_type} — skipping`);

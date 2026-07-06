@@ -6,7 +6,6 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import { JOB_STATUS, JOB_STATUS_LABEL } from '../../../config/company';
 import { supabase } from '../../../../lib/supabaseClient';
 import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../../lib/jobClientFields';
-import { buildDriverAssignmentUpdate } from '../../../../lib/jobAssignment';
 import { useAuth } from '../../../components/AuthContext';
 import { getLoadDetailSections, type LoadDetailSection } from '../../../../lib/loadPostingDetails';
 
@@ -252,7 +251,7 @@ export default function JobDetailPage() {
         setSaveMessage(`Failed to update exchange visibility: ${error.message}`);
       } else {
         setExchangeVisibility(newVisibility);
-        setSaveMessage(newVisibility === 'exchange' ? '✅ Load published to Exchange Marketplace!' : '✅ Load removed from Exchange Marketplace.');
+        setSaveMessage(newVisibility === 'exchange' ? 'âœ… Load published to Exchange Marketplace!' : 'âœ… Load removed from Exchange Marketplace.');
       }
     } catch (err) {
       setSaveMessage('Error updating exchange visibility.');
@@ -275,11 +274,8 @@ export default function JobDetailPage() {
         }
 
         const updatedAt = new Date().toISOString();
-        const assignmentUpdate = buildDriverAssignmentUpdate({
-          assignedDriverId: formData.assignedDriverId,
-          currentStatus: formData.status,
-          updatedAt,
-        });
+        let savedStatus = formData.status;
+        let savedAssignedDriverId = formData.assignedDriverId;
 
         const { error } = await supabase.from('jobs').update({
           client_name: formData.client.name,
@@ -297,7 +293,8 @@ export default function JobDetailPage() {
           cargo_type: formData.cargo.type.toLowerCase(),
           items: formData.cargo.quantity,
           job_distance_miles: formData.distanceMiles,
-          ...assignmentUpdate,
+          status: formData.status,
+          updated_at: updatedAt,
         }).eq('id', jobId).eq('company_id', companyId);
         if (error) {
           console.error('Failed to save job:', error.message);
@@ -305,7 +302,34 @@ export default function JobDetailPage() {
           setTimeout(() => setSaveMessage(''), 3000);
           return;
         }
-        const updatedJob = { ...formData, status: assignmentUpdate.status, updatedAt };
+
+        if (job?.assignedDriverId !== formData.assignedDriverId) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData.session?.access_token;
+          if (!accessToken) {
+            setSaveMessage('Session expired. Please sign in again.');
+            setTimeout(() => setSaveMessage(''), 3000);
+            return;
+          }
+
+          const assignmentResponse = await fetch(`/api/admin/jobs/${jobId}/assign-driver`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ driverId: formData.assignedDriverId, expectedDriverId: job?.assignedDriverId ?? null }),
+          });
+          const assignmentPayload = await assignmentResponse.json().catch(() => ({}));
+          if (!assignmentResponse.ok) {
+            setSaveMessage(`Driver assignment failed: ${assignmentPayload.error ?? 'Unknown error'}`);
+            setTimeout(() => setSaveMessage(''), 4000);
+            return;
+          }
+          savedStatus = assignmentPayload.job?.status ?? savedStatus;
+          savedAssignedDriverId = assignmentPayload.job?.assigned_driver_id ?? savedAssignedDriverId;
+        }
+        const updatedJob = { ...formData, status: savedStatus, assignedDriverId: savedAssignedDriverId, updatedAt };
         setJob(updatedJob);
         setFormData(updatedJob);
         setEditMode(false);
@@ -459,7 +483,7 @@ export default function JobDetailPage() {
                   Job Details
                 </h1>
                 <p style={{ margin: 0, opacity: 0.8, fontSize: '0.95rem' }}>
-                  {job.jobRef} • {editMode ? 'Edit Mode' : 'View Mode'}
+                  {job.jobRef} â€¢ {editMode ? 'Edit Mode' : 'View Mode'}
                 </p>
               </div>
               <button
@@ -478,7 +502,7 @@ export default function JobDetailPage() {
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)')}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)')}
               >
-                ← Back to Jobs
+                â† Back to Jobs
               </button>
             </div>
           </div>
@@ -509,7 +533,7 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#165a2d')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1F7A3D')}
                   >
-                    ✏️ Edit Job
+                    âœï¸ Edit Job
                   </button>
                   <button
                     onClick={handleGenerateInvoice}
@@ -529,7 +553,7 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2563eb')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#3b82f6')}
                   >
-                    📄 Generate Invoice
+                    ðŸ“„ Generate Invoice
                   </button>
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
@@ -547,7 +571,7 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#b91c1c')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
                   >
-                    🗑️ Delete
+                    ðŸ—‘ï¸ Delete
                   </button>
                   <button
                    onClick={handlePublishToExchange}
@@ -572,7 +596,7 @@ export default function JobDetailPage() {
                    }}
                    title={exchangeVisibility === 'exchange' ? 'Remove from Exchange Marketplace' : 'Publish to Exchange Marketplace'}
                   >
-                   {publishingExchange ? '⏳ Updating…' : exchangeVisibility === 'exchange' ? '🔒 Unpublish from Exchange' : '🏪 Publish to Exchange'}
+                   {publishingExchange ? 'â³ Updatingâ€¦' : exchangeVisibility === 'exchange' ? 'ðŸ”’ Unpublish from Exchange' : 'ðŸª Publish to Exchange'}
                   </button>
                 </>
               ) : (
@@ -595,7 +619,7 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#165a2d')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1F7A3D')}
                   >
-                    💾 Save Changes
+                    ðŸ’¾ Save Changes
                   </button>
                   <button
                     onClick={handleCancel}
@@ -613,7 +637,7 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#4b5563')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#6b7280')}
                   >
-                    ✖️ Cancel
+                    âœ–ï¸ Cancel
                   </button>
                 </>
               )}
@@ -745,14 +769,14 @@ export default function JobDetailPage() {
 
             {/* Driver Assignment */}
             <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #e5e7eb' }}>
-              <label style={labelStyle}>🚗 Assigned Driver</label>
+              <label style={labelStyle}>ðŸš— Assigned Driver</label>
               {editMode ? (
                 <select
                   value={formData.assignedDriverId ?? ''}
                   onChange={(e) => setFormData({ ...formData, assignedDriverId: e.target.value || null })}
                   style={{ ...inputStyle, maxWidth: '320px' }}
                 >
-                  <option value="">— Unassigned —</option>
+                  <option value="">â€” Unassigned â€”</option>
                   {drivers.length === 0 && (
                     <option value="" disabled>
                       No active drivers found for this company
@@ -865,7 +889,7 @@ export default function JobDetailPage() {
           {/* Pickup Details */}
           <div style={sectionStyle}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
-              📍 Pickup Details
+              ðŸ“ Pickup Details
             </h2>
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div>
@@ -927,7 +951,7 @@ export default function JobDetailPage() {
           {/* Delivery Details */}
           <div style={sectionStyle}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
-              🎯 Delivery Details
+              ðŸŽ¯ Delivery Details
             </h2>
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div>
@@ -989,7 +1013,7 @@ export default function JobDetailPage() {
           {/* Cargo Details */}
           <div style={sectionStyle}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
-              📦 Cargo Details
+              ðŸ“¦ Cargo Details
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div>
@@ -1082,7 +1106,7 @@ export default function JobDetailPage() {
           {formData.statusHistory && formData.statusHistory.length > 0 && (
             <div style={sectionStyle}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
-                📋 Status History
+                ðŸ“‹ Status History
               </h2>
               <div style={{ position: 'relative', paddingLeft: '2rem' }}>
                 {/* Timeline line */}
@@ -1136,7 +1160,7 @@ export default function JobDetailPage() {
           {formData.pod && (
             <div style={sectionStyle}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
-                ✅ Proof of Delivery
+                âœ… Proof of Delivery
               </h2>
 
               {/* Pickup Photos */}

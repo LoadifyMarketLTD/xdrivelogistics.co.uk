@@ -66,7 +66,7 @@ export async function POST(
 
   const { data: inv } = await supabaseAdmin
     .from('invoices')
-    .select('id, status')
+    .select('id, status, company_id')
     .eq('id', id)
     .eq('company_id', driver.companyId)
     .maybeSingle();
@@ -101,10 +101,29 @@ export async function POST(
 
   // Update invoice status to Disputed
   const now = new Date().toISOString();
-  await supabaseAdmin
+  const { error: invoiceUpdateError } = await supabaseAdmin
     .from('invoices')
     .update({ status: 'Disputed', disputed_at: now, updated_at: now })
     .eq('id', id);
+
+  if (invoiceUpdateError) return respond(500, { error: invoiceUpdateError.message });
+
+  const { error: notificationError } = await supabaseAdmin.from('notification_events').insert({
+    event_type: 'invoice_disputed',
+    entity_type: 'invoice',
+    entity_id: id,
+    company_id: inv.company_id,
+    payload: {
+      invoice_id: id,
+      dispute_id: inserted.id,
+      company_id: inv.company_id,
+      reason: (reason as string).trim(),
+    },
+  });
+
+  if (notificationError) {
+    console.error('[invoice_disputes] invoice_disputed notification failed', notificationError.message);
+  }
 
   return respond(201, { dispute: inserted });
 }

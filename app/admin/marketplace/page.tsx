@@ -7,7 +7,7 @@ import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getLoadDetailSummary } from '../../../lib/loadPostingDetails';
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type ExchangeLoad = {
   id: string;
@@ -52,6 +52,7 @@ type ExchangeLoad = {
   load_details: string | null;
   exchange_posted_at: string | null;
   awarded_carrier_company_id: string | null;
+  direct_invite_company_id: string | null;
   // joined
   companies: { name: string } | null;
   myBid?: BidRow | null;
@@ -91,6 +92,7 @@ type WonJob = {
   company_id: string;
   companies: { name: string } | null;
   awarded_carrier_company_id: string | null;
+  direct_invite_company_id?: string | null;
   created_at: string;
 };
 
@@ -113,7 +115,7 @@ function normalizeBidJob(job: BidJobJoinInput): BidRow['jobs'] {
   return { ...normalizedJob, companies: normalizeCompany(normalizedJob.companies) };
 }
 
-// ── Style constants ────────────────────────────────────────────────────────────
+// â”€â”€ Style constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const BID_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   submitted: { bg: '#e0f2fe', color: '#075985' },
@@ -131,7 +133,7 @@ const VEHICLE_LABEL: Record<string, string> = {
 };
 
 function fmtDate(iso: string | null): string {
-  if (!iso) return '—';
+  if (!iso) return 'â€”';
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
@@ -141,7 +143,7 @@ function resolveBidAmountGbp(bid: Pick<BidRow, 'bid_price_gbp' | 'amount'>): num
   return null;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function MarketplacePage() {
   const { user, hasSupabaseSession } = useAuth();
@@ -179,7 +181,7 @@ export default function MarketplacePage() {
   const [wonLoading, setWonLoading] = useState(false);
   const [wonError, setWonError] = useState('');
 
-  // ── Company resolution ─────────────────────────────────────────────────────
+  // â”€â”€ Company resolution â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     if (!hasSupabaseSession || !user?.id) return;
@@ -187,7 +189,7 @@ export default function MarketplacePage() {
     resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: null }).then(setCompanyId);
   }, [hasSupabaseSession, user?.id, user?.companyId]);
 
-  // ── Data loaders ───────────────────────────────────────────────────────────
+  // â”€â”€ Data loaders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const loadExchangeLoads = useCallback(async () => {
     if (!isSupabaseConfigured || !companyId) return;
@@ -197,8 +199,8 @@ export default function MarketplacePage() {
     // Fetch exchange-visible jobs from other companies with status=posted and not yet awarded
     const { data: jobsData, error: jobsError } = await supabase
       .from('jobs')
-      .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, weight_kg, pallets, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, budget_amount, is_fixed_price, currency, load_details, special_requirements, access_restrictions, exchange_posted_at, awarded_carrier_company_id, companies:companies!jobs_company_id_fkey(name)')
-      .eq('exchange_visibility', 'exchange')
+      .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, weight_kg, pallets, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, budget_amount, is_fixed_price, currency, load_details, special_requirements, access_restrictions, exchange_posted_at, awarded_carrier_company_id, direct_invite_company_id, companies(name)')
+      .or(`exchange_visibility.eq.exchange,and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${companyId})`)
       .eq('status', 'posted')
       .is('awarded_carrier_company_id', null)
       .neq('company_id', companyId)
@@ -246,7 +248,7 @@ export default function MarketplacePage() {
 
     const { data, error } = await supabase
       .from('job_bids')
-      .select('id, job_id, company_id, amount, bid_price_gbp, currency, message, status, created_at, jobs(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, company_id, companies:companies!jobs_company_id_fkey(name))')
+      .select('id, job_id, company_id, amount, bid_price_gbp, currency, message, status, created_at, jobs(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, company_id, companies(name))')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(100);
@@ -271,7 +273,7 @@ export default function MarketplacePage() {
 
     const { data, error } = await supabase
       .from('jobs')
-      .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, status, currency, budget_amount, company_id, awarded_carrier_company_id, created_at, companies:companies!jobs_company_id_fkey(name)')
+      .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, status, currency, budget_amount, company_id, awarded_carrier_company_id, created_at, companies(name)')
       .eq('awarded_carrier_company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(100);
@@ -296,7 +298,7 @@ export default function MarketplacePage() {
     if (tab === 'won')   void loadWonJobs();
   }, [companyId, tab, loadExchangeLoads, loadMyBids, loadWonJobs]);
 
-  // ── Bid submission ─────────────────────────────────────────────────────────
+  // â”€â”€ Bid submission â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const openBidModal = (load: ExchangeLoad) => {
     setBidTarget(load);
@@ -343,7 +345,7 @@ export default function MarketplacePage() {
     void loadExchangeLoads();
   };
 
-  // ── Bid withdrawal ─────────────────────────────────────────────────────────
+  // â”€â”€ Bid withdrawal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const withdrawBid = async (bidId: string) => {
     if (!companyId) return;
@@ -402,7 +404,7 @@ export default function MarketplacePage() {
     });
   }, [loads, vehicleFilter, pickupPostcodeFilter, cargoTypeFilter, weightMinFilter, dateFromFilter, dateToFilter, sortBy]);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const tabs: Array<{ id: Tab; label: string; count?: number }> = [
     { id: 'loads', label: 'All Live', count: filteredLoads.length },
@@ -420,13 +422,13 @@ export default function MarketplacePage() {
     <ProtectedRoute allowedRoles={['owner', 'broker', 'company_admin', 'company_staff', 'driver']}>
       <div style={{ display: 'flex', height: 'calc(100vh - 89px)', overflow: 'hidden', background: '#f5f7fa' }}>
 
-        {/* ── Left search panel ───────────────────────────────────────────── */}
+        {/* â”€â”€ Left search panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <aside style={{ width: '210px', flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', padding: '0.9rem', overflowY: 'auto', fontSize: '0.78rem' }}>
-          <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.75rem', fontSize: '0.8rem' }}>🔍 Search Loads</div>
+          <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.75rem', fontSize: '0.8rem' }}>ðŸ” Search Loads</div>
 
           {!isSupabaseConfigured && (
             <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '6px', padding: '0.5rem', marginBottom: '0.75rem', color: '#92400e', fontSize: '0.72rem' }}>
-              ⚠️ Supabase not configured
+              Supabase not configured
             </div>
           )}
 
@@ -483,7 +485,7 @@ export default function MarketplacePage() {
           </div>
         </aside>
 
-        {/* ── Main content ─────────────────────────────────────────────────── */}
+        {/* â”€â”€ Main content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
 
           {/* Top bar: tabs + refresh */}
@@ -519,21 +521,21 @@ export default function MarketplacePage() {
               onClick={() => void loadExchangeLoads()}
               style={{ padding: '0.3rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.75rem', color: '#64748b' }}
             >
-              ↻ Refresh
+              â†» Refresh
             </button>
           </div>
 
           {/* Content area */}
           <div style={{ padding: '0.85rem', flex: 1 }}>
 
-            {/* ── All Live Loads ──────────────────────────────────────────── */}
+            {/* â”€â”€ All Live Loads â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {tab === 'loads' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {loadsError && <ErrorBanner msg={loadsError} />}
                 {loadsLoading ? (
-                  <LoadingCard text="Loading exchange loads…" />
+                  <LoadingCard text="Loading exchange loadsâ€¦" />
                 ) : filteredLoads.length === 0 ? (
-                  <EmptyCard icon="📭" text="No loads match your current filters." />
+                  <EmptyCard icon="ðŸ“­" text="No loads match your current filters." />
                 ) : (
                   filteredLoads.map((load) => (
                     <LoadCard key={load.id} load={load} onBid={() => openBidModal(load)} />
@@ -542,14 +544,14 @@ export default function MarketplacePage() {
               </div>
             )}
 
-            {/* ── My Bids ─────────────────────────────────────────────────── */}
+            {/* â”€â”€ My Bids â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {tab === 'bids' && (
               <div>
                 {bidsError && <ErrorBanner msg={bidsError} />}
                 {bidsLoading ? (
-                  <LoadingCard text="Loading your bids…" />
+                  <LoadingCard text="Loading your bidsâ€¦" />
                 ) : bids.length === 0 ? (
-                  <EmptyCard icon="💼" text="No bids submitted yet. Browse All Live loads to get started." />
+                  <EmptyCard icon="ðŸ’¼" text="No bids submitted yet. Browse All Live loads to get started." />
                 ) : (
                   <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                     <div style={{ overflowX: 'auto' }}>
@@ -570,16 +572,16 @@ export default function MarketplacePage() {
                               <tr key={bid.id} style={{ borderBottom: i < paginatedBids.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
                                 <td style={{ padding: '0.7rem 0.85rem' }}>
                                   <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>
-                                    {job?.pickup_location || '—'} → {job?.delivery_location || '—'}
+                                    {job?.pickup_location || 'â€”'} â†’ {job?.delivery_location || 'â€”'}
                                   </div>
                                   <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.15rem' }}>
-                                    {job?.vehicle_type ? VEHICLE_LABEL[job.vehicle_type] ?? job.vehicle_type : '—'}
-                                    {job?.pickup_datetime ? ` · ${fmtDate(job.pickup_datetime)}` : ''}
+                                    {job?.vehicle_type ? VEHICLE_LABEL[job.vehicle_type] ?? job.vehicle_type : 'â€”'}
+                                    {job?.pickup_datetime ? ` Â· ${fmtDate(job.pickup_datetime)}` : ''}
                                   </div>
                                 </td>
-                                <td style={{ padding: '0.7rem 0.85rem', color: '#374151', fontSize: '0.85rem' }}>{job?.companies?.name || '—'}</td>
+                                <td style={{ padding: '0.7rem 0.85rem', color: '#374151', fontSize: '0.85rem' }}>{job?.companies?.name || 'â€”'}</td>
                                 <td style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>
-                                  {bAmount == null ? '—' : `£${bAmount.toFixed(2)}`}
+                                  {bAmount == null ? 'â€”' : `Â£${bAmount.toFixed(2)}`}
                                 </td>
                                 <td style={{ padding: '0.7rem 0.85rem' }}>
                                   <span style={{ background: bStyle.bg, color: bStyle.color, padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 600 }}>
@@ -606,7 +608,7 @@ export default function MarketplacePage() {
                     {bids.length > BIDS_PER_PAGE && (
                       <div style={{ borderTop: '1px solid #e2e8f0', padding: '0.6rem 0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#64748b' }}>
                         <span>
-                          Showing {safeBidsPage * BIDS_PER_PAGE + 1}–{Math.min((safeBidsPage + 1) * BIDS_PER_PAGE, bids.length)} of {bids.length}
+                          Showing {safeBidsPage * BIDS_PER_PAGE + 1}â€“{Math.min((safeBidsPage + 1) * BIDS_PER_PAGE, bids.length)} of {bids.length}
                         </span>
                         <div style={{ display: 'flex', gap: '0.4rem' }}>
                           <button
@@ -631,22 +633,22 @@ export default function MarketplacePage() {
               </div>
             )}
 
-            {/* ── Won Work ─────────────────────────────────────────────────── */}
+            {/* â”€â”€ Won Work â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {tab === 'won' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {wonError && <ErrorBanner msg={wonError} />}
                 {wonLoading ? (
-                  <LoadingCard text="Loading won jobs…" />
+                  <LoadingCard text="Loading won jobsâ€¦" />
                 ) : wonJobs.length === 0 ? (
-                  <EmptyCard icon="🏆" text="No won jobs yet. Keep bidding to win contracts." />
+                  <EmptyCard icon="ðŸ†" text="No won jobs yet. Keep bidding to win contracts." />
                 ) : (
                   wonJobs.map((job) => (
                     <div key={job.id} style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', borderLeft: '3px solid #16a34a', overflow: 'hidden' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.75rem', padding: '0.75rem 1rem', alignItems: 'start' }}>
                         <div>
                           <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600, marginBottom: '0.15rem' }}>From / To</div>
-                          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>{job.pickup_location || '—'}</div>
-                          <div style={{ fontWeight: 600, color: '#374151', fontSize: '0.88rem' }}>{job.delivery_location || '—'}</div>
+                          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>{job.pickup_location || 'â€”'}</div>
+                          <div style={{ fontWeight: 600, color: '#374151', fontSize: '0.88rem' }}>{job.delivery_location || 'â€”'}</div>
                         </div>
                         <div>
                           <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600, marginBottom: '0.15rem' }}>Details</div>
@@ -657,8 +659,8 @@ export default function MarketplacePage() {
                           {job.companies?.name && <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Posted by: {job.companies.name}</div>}
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          {job.budget_amount && <div style={{ fontWeight: 700, color: '#15803d', fontSize: '1rem' }}>£{job.budget_amount.toFixed(2)}</div>}
-                          <span style={{ display: 'inline-block', background: '#dcfce7', color: '#15803d', padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700, marginTop: '0.2rem' }}>✓ Awarded</span>
+                          {job.budget_amount && <div style={{ fontWeight: 700, color: '#15803d', fontSize: '1rem' }}>Â£{job.budget_amount.toFixed(2)}</div>}
+                          <span style={{ display: 'inline-block', background: '#dcfce7', color: '#15803d', padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700, marginTop: '0.2rem' }}>âœ“ Awarded</span>
                         </div>
                       </div>
                     </div>
@@ -670,23 +672,23 @@ export default function MarketplacePage() {
           </div>
         </main>
 
-        {/* ── Bid Modal ──────────────────────────────────────────────────────── */}
+        {/* â”€â”€ Bid Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {bidTarget && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
             <div style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
               <h2 style={{ margin: '0 0 0.75rem', fontSize: '1.1rem', color: '#0f172a' }}>Quote Now</h2>
 
               <div style={{ background: '#f8fafc', borderRadius: '6px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.85rem', color: '#374151', borderLeft: '3px solid #1d4ed8' }}>
-                <div style={{ fontWeight: 700 }}>{bidTarget.pickup_location || '—'} → {bidTarget.delivery_location || '—'}</div>
+                <div style={{ fontWeight: 700 }}>{bidTarget.pickup_location || 'â€”'} â†’ {bidTarget.delivery_location || 'â€”'}</div>
                 <div style={{ marginTop: '0.2rem', color: '#64748b', fontSize: '0.8rem' }}>
                   {bidTarget.vehicle_type ? VEHICLE_LABEL[bidTarget.vehicle_type] ?? bidTarget.vehicle_type : 'Vehicle TBC'}
-                  {bidTarget.pickup_datetime ? ` · ${fmtDate(bidTarget.pickup_datetime)}` : ''}
-                  {bidTarget.budget_amount ? ` · Budget: £${bidTarget.budget_amount.toFixed(2)}${bidTarget.is_fixed_price ? ' (fixed)' : ''}` : ''}
+                  {bidTarget.pickup_datetime ? ` Â· ${fmtDate(bidTarget.pickup_datetime)}` : ''}
+                  {bidTarget.budget_amount ? ` Â· Budget: Â£${bidTarget.budget_amount.toFixed(2)}${bidTarget.is_fixed_price ? ' (fixed)' : ''}` : ''}
                 </div>
               </div>
 
               <div style={{ marginBottom: '0.85rem' }}>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#374151', marginBottom: '0.3rem' }}>Your Quote Amount (£) *</label>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#374151', marginBottom: '0.3rem' }}>Your Quote Amount (Â£) *</label>
                 <input
                   type="number" min="0" step="0.01"
                   value={bidAmount}
@@ -701,7 +703,7 @@ export default function MarketplacePage() {
                 <textarea
                   rows={3} value={bidMessage}
                   onChange={(e) => setBidMessage(e.target.value)}
-                  placeholder="Vehicle availability, ETA, or any special notes…"
+                  placeholder="Vehicle availability, ETA, or any special notesâ€¦"
                   style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.88rem', resize: 'vertical', boxSizing: 'border-box' }}
                 />
               </div>
@@ -717,7 +719,7 @@ export default function MarketplacePage() {
                   disabled={bidSubmitting}
                   style={{ padding: '0.55rem 1.25rem', border: 'none', borderRadius: '6px', background: bidSubmitting ? '#9ca3af' : '#16a34a', color: '#fff', cursor: bidSubmitting ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.85rem' }}
                 >
-                  {bidSubmitting ? 'Submitting…' : 'Submit Quote'}
+                  {bidSubmitting ? 'Submittingâ€¦' : 'Submit Quote'}
                 </button>
               </div>
             </div>
@@ -728,7 +730,7 @@ export default function MarketplacePage() {
   );
 }
 
-// ── Shared style constants ─────────────────────────────────────────────────────
+// â”€â”€ Shared style constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -746,7 +748,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   return <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>{children}</div>;
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+// â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
   const hasBid = !!load.myBid;
@@ -756,7 +758,7 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
 
   return (
     <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderTop: hasBid ? '3px solid #3b82f6' : '3px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-      {/* Card body — 3 columns like CX */}
+      {/* Card body â€” 3 columns like CX */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', padding: '0.75rem 1rem', alignItems: 'start' }}>
 
         {/* Column 1: From / To */}
@@ -764,13 +766,13 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
           <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'baseline' }}>
             <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '38px' }}>From:</span>
             <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>
-              {load.pickup_location || '—'}{load.pickup_postcode ? `, ${load.pickup_postcode}` : ''}
+              {load.pickup_location || 'â€”'}{load.pickup_postcode ? `, ${load.pickup_postcode}` : ''}
             </span>
           </div>
           <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'baseline', marginTop: '0.2rem' }}>
             <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '38px' }}>To:</span>
             <span style={{ fontWeight: 600, color: '#374151', fontSize: '0.85rem' }}>
-              {load.delivery_location || '—'}{load.delivery_postcode ? `, ${load.delivery_postcode}` : ''}
+              {load.delivery_location || 'â€”'}{load.delivery_postcode ? `, ${load.delivery_postcode}` : ''}
             </span>
           </div>          {getLoadDetailSummary(load, 4).length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.3rem', marginTop: '0.45rem' }}>
@@ -794,7 +796,7 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
             <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '44px' }}>Deliver:</span>
             <span style={{ fontSize: '0.82rem', color: '#374151' }}>{load.delivery_datetime ? fmtDate(load.delivery_datetime) : 'ASAP'}</span>
           </div>
-          {load.weight_kg && <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: '#94a3b8' }}>{load.weight_kg}kg{load.pallets ? ` · ${load.pallets} pallets` : ''}</div>}
+          {load.weight_kg && <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: '#94a3b8' }}>{load.weight_kg}kg{load.pallets ? ` Â· ${load.pallets} pallets` : ''}</div>}
         </div>
 
         {/* Column 3: Posted by / badge / vehicle */}
@@ -811,25 +813,25 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
           )}
           {load.budget_amount && (
             <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>
-              £{load.budget_amount.toFixed(2)}
+              Â£{load.budget_amount.toFixed(2)}
               {load.is_fixed_price && <span style={{ fontSize: '0.68rem', color: '#94a3b8', marginLeft: '0.25rem' }}>fixed</span>}
             </div>
           )}
           {load.vehicle_type && (
             <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.2rem' }}>
-              🚛 {load.requested_vehicle_label ?? VEHICLE_LABEL[load.vehicle_type] ?? load.vehicle_type}
+              ðŸš› {load.requested_vehicle_label ?? VEHICLE_LABEL[load.vehicle_type] ?? load.vehicle_type}
             </div>
           )}
         </div>
       </div>
 
-      {/* Card footer — action row */}
+      {/* Card footer â€” action row */}
       <div style={{ borderTop: '1px solid #f1f5f9', padding: '0.45rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fafbfc' }}>
         {hasBid && load.myBid && bidStyle ? (
           <span style={{ background: bidStyle.bg, color: bidStyle.color, padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.73rem', fontWeight: 700 }}>
             {bidAccepted
-              ? `✓ Bid Accepted`
-              : `Bid: ${myBidAmount == null ? 'N/A' : `£${myBidAmount.toFixed(2)}`} · ${load.myBid.status.charAt(0).toUpperCase() + load.myBid.status.slice(1)}`}
+              ? `âœ“ Bid Accepted`
+              : `Bid: ${myBidAmount == null ? 'N/A' : `Â£${myBidAmount.toFixed(2)}`} Â· ${load.myBid.status.charAt(0).toUpperCase() + load.myBid.status.slice(1)}`}
           </span>
         ) : (
           <button
