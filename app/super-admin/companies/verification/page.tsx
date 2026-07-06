@@ -5,7 +5,7 @@ import SuperAdminModulePage from '@/app/super-admin/_components/SuperAdminModule
 export default function Page() {
   return (
     <SuperAdminModulePage
-      icon="��"
+      icon="ID"
       title="Company Verification Status"
       description="Verification controls and verification lifecycle status."
       section="Companies"

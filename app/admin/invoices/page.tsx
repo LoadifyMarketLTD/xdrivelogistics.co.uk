@@ -255,12 +255,12 @@ export default function InvoicesPage() {
           <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '0.75rem', marginBottom: '0.85rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <input
               type="text"
-              placeholder="Search invoices…"
+              placeholder="Search invoices..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{ flex: 1, minWidth: '200px', padding: '0.45rem 0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
             />
-            <button onClick={() => void loadInvoices()} style={{ padding: '0.45rem 0.75rem', background: '#fff', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>↻ Refresh</button>
+            <button onClick={() => void loadInvoices()} style={{ padding: '0.45rem 0.75rem', background: '#fff', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>Refresh</button>
           </div>
 
           {/* Invoices Table */}
@@ -279,7 +279,7 @@ export default function InvoicesPage() {
                 padding: '3rem 2rem',
                 textAlign: 'center'
               }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💰</div>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}></div>
                 <h3 style={{ fontSize: '1.25rem', color: '#1f2937', marginBottom: '0.5rem' }}>
                   No invoices found
                 </h3>
@@ -369,7 +369,7 @@ export default function InvoicesPage() {
                           {new Date(invoice.dueDate).toLocaleDateString('en-GB')}
                         </td>
                         <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937', fontWeight: '600', textAlign: 'right' }}>
-                          £{invoice.amount.toFixed(2)}
+                          GBP {invoice.amount.toFixed(2)}
                         </td>
                         <td style={{ padding: '0.8rem', textAlign: 'center' }}>
                           <span style={getStatusStyle(invoice.status)}>
@@ -415,7 +415,7 @@ export default function InvoicesPage() {
                                   opacity: markingPaidId === invoice.id ? 0.75 : 1,
                                 }}
                               >
-                                {markingPaidId === invoice.id ? 'Saving…' : 'Mark as Paid'}
+                                {markingPaidId === invoice.id ? 'Saving...' : 'Mark as Paid'}
                               </button>
                             )}
                           </div>
@@ -430,7 +430,7 @@ export default function InvoicesPage() {
           {!loading && filteredInvoices.length > INVOICES_PER_PAGE && (
             <div style={{ marginTop: '0.65rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b' }}>
               <span>
-                Showing {safeInvoicePage * INVOICES_PER_PAGE + 1}–{Math.min((safeInvoicePage + 1) * INVOICES_PER_PAGE, filteredInvoices.length)} of {filteredInvoices.length} invoices
+                Showing {safeInvoicePage * INVOICES_PER_PAGE + 1}-{Math.min((safeInvoicePage + 1) * INVOICES_PER_PAGE, filteredInvoices.length)} of {filteredInvoices.length} invoices
               </span>
               <div style={{ display: 'flex', gap: '0.45rem' }}>
                 <button
@@ -480,7 +480,7 @@ export default function InvoicesPage() {
               }}>
                 <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>Total Amount</div>
                 <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937' }}>
-                  £{filteredInvoices.reduce((sum, inv) => sum + inv.amount, 0).toFixed(2)}
+                  GBP {filteredInvoices.reduce((sum, inv) => sum + inv.amount, 0).toFixed(2)}
                 </div>
               </div>
             </div>
