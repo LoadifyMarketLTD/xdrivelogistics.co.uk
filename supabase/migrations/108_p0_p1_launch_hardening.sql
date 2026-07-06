@@ -1,4 +1,4 @@
-﻿-- P0/P1 launch hardening: canonical onboarding submit helper, customer role repair,
+-- P0/P1 launch hardening: canonical onboarding submit helper, customer role repair,
 -- direct-invite bid isolation, and bilateral dispute visibility.
 
 CREATE OR REPLACE FUNCTION public.submit_onboarding_application(p_application_id uuid)
@@ -184,7 +184,7 @@ CREATE POLICY job_bids_exchange_insert
         FROM public.drivers d
         WHERE d.user_id = auth.uid()
           AND d.company_id = job_bids.company_id
-          AND d.status NOT IN ('suspended', 'inactive', 'rejected')
+          AND d.status NOT IN ('suspended', 'inactive')
       )
       OR (
         company_id IS NULL
@@ -193,7 +193,7 @@ CREATE POLICY job_bids_exchange_insert
           FROM public.profiles p
           WHERE p.user_id = auth.uid()
             AND p.role = 'driver'
-            AND p.status NOT IN ('blocked', 'suspended', 'inactive', 'pending')
+            AND p.status = 'active'
         )
       )
     )

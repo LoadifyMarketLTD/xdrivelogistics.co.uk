@@ -1,4 +1,4 @@
-﻿-- P1-008: emit launch-critical invoice_created notification event.
+-- P1-008: emit launch-critical invoice_created notification event.
 
 CREATE OR REPLACE FUNCTION public.fn_notify_invoice_created()
 RETURNS trigger

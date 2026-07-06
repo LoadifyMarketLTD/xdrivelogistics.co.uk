@@ -1,4 +1,4 @@
-﻿-- P1-006: canonical, locked driver assignment path.
+-- P1-006: canonical, locked driver assignment path.
 
 CREATE OR REPLACE FUNCTION public.assign_job_driver_atomic(
   p_job_id uuid,

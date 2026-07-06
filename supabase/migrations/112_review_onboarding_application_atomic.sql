@@ -1,4 +1,4 @@
-﻿-- P1-005: atomic super-admin onboarding review path.
+-- P1-005: atomic super-admin onboarding review path.
 
 CREATE OR REPLACE FUNCTION public.review_onboarding_application_atomic(
   p_application_id uuid,

@@ -1,4 +1,4 @@
-﻿-- DRIFT-002: make email trigger configuration failures observable without
+-- DRIFT-002: make email trigger configuration failures observable without
 -- committing secrets. If app_settings is missing or pg_net fails, the event is
 -- marked skipped/failed instead of staying silently pending forever.
 
