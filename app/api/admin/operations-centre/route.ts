@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, supabaseValidator } from '../../_lib/supabaseAdmin';
 import { toCanonicalInvoiceStatusWithDueDate } from '../../../../lib/invoiceStatus';
+import { coordinatesFromLocation } from '../../../../lib/geoLocation';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim() || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || '';
@@ -55,30 +56,6 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function textFrom(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function numberFrom(value: unknown): number | null {
-  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  return Number.isFinite(n) ? n : null;
-}
-
-function coordinatesFromLocation(value: unknown): { lat: number | null; lng: number | null } {
-  const location = asRecord(value);
-  const directLat = numberFrom(location.lat ?? location.latitude);
-  const directLng = numberFrom(location.lng ?? location.lon ?? location.longitude);
-  if (directLat !== null && directLng !== null) return { lat: directLat, lng: directLng };
-
-  const coordinates = Array.isArray(location.coordinates) ? location.coordinates : [];
-  const lng = numberFrom(coordinates[0]);
-  const lat = numberFrom(coordinates[1]);
-  if (lat !== null && lng !== null) return { lat, lng };
-
-  if (typeof value === 'string') {
-    const match = value.match(/POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/i);
-    if (match) return { lat: Number(match[2]), lng: Number(match[1]) };
-  }
-
-  return { lat: null, lng: null };
 }
 
 function notificationTitle(event: NotificationRow) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { coordinatesFromLocation } from '../../../../lib/geoLocation';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -178,7 +179,8 @@ export async function GET(request: NextRequest) {
     const latestLocByDriver = new Map<string, { recorded_at: string; lat: number | null; lng: number | null }>();
     for (const loc of (locResult.data ?? []) as Array<{ driver_id: string; recorded_at: string; location: unknown }>) {
       if (!latestLocByDriver.has(loc.driver_id)) {
-        latestLocByDriver.set(loc.driver_id, { recorded_at: loc.recorded_at, lat: null, lng: null });
+        const coordinates = coordinatesFromLocation(loc.location);
+        latestLocByDriver.set(loc.driver_id, { recorded_at: loc.recorded_at, lat: coordinates.lat, lng: coordinates.lng });
       }
     }
 
@@ -301,14 +303,15 @@ export async function GET(request: NextRequest) {
       section,
       rows: deduped.map((loc) => {
         const drv = driverInfoById.get(loc.driver_id as string) ?? null;
+        const coordinates = coordinatesFromLocation((loc as { location: unknown }).location);
         return {
           id:                  loc.id,
           driver_id:           loc.driver_id,
           driver_name:         drv?.display_name ?? 'Unknown driver',
           availability_status: drv?.availability_status ?? 'offline',
           company_name:        drv?.company_id ? (companyNameById2.get(drv.company_id) ?? 'Unknown company') : 'Unknown company',
-          lat:                 null,
-          lng:                 null,
+          lat:                 coordinates.lat,
+          lng:                 coordinates.lng,
           heading:             null,
           speed_mph:           null,
           recorded_at:         loc.recorded_at,
