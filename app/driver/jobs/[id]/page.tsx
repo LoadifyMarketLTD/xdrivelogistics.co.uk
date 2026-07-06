@@ -8,6 +8,7 @@ import type { DbJob } from '../../../../lib/types/database';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { useAuth } from '../../../components/AuthContext';
 import { getLoadDetailSections } from '../../../../lib/loadPostingDetails';
+import { useDriverLocationPublisher } from '../../../hooks/useDriverLocationPublisher';
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Received',
@@ -140,6 +141,7 @@ export default function DriverJobDetailPage() {
     if (!normalizedDriverId) return;
     loadJob();
   }, [normalizedDriverId, loadJob]);
+  useDriverLocationPublisher(job?.status, Boolean(job));
 
   // ── Canvas signature helpers ─────────────────────────────────
   const startSig = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
