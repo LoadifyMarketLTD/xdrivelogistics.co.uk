@@ -1,4 +1,4 @@
-﻿-- DRIFT-003: notification_events.recipient_user_id integrity contract.
+-- DRIFT-003: notification_events.recipient_user_id integrity contract.
 -- Keep notifications when users are deleted, but clear the recipient pointer.
 
 DO $$
