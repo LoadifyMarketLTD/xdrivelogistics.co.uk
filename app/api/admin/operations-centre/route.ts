@@ -39,14 +39,56 @@ type JobRow = {
 
 type DriverRow = { id: string; display_name: string | null; availability_status: string | null; status: string | null; company_id: string | null };
 type VehicleRow = { id: string; reg_plate: string | null; type: string | null; assigned_driver_id: string | null; company_id: string | null };
-type DriverLocationRow = { id: string; driver_id: string; job_id: string | null; lat: number | null; lng: number | null; recorded_at: string | null };
+type DriverLocationRow = { id: string; driver_id: string; location: unknown; recorded_at: string | null };
 type BidRow = { id: string; job_id: string; status: string | null; created_at: string | null };
-type NotificationRow = { id: string; event_type: string | null; title: string | null; body: string | null; status: string | null; created_at: string | null; job_id: string | null };
+type NotificationRow = { id: string; event_type: string | null; entity_type: string | null; entity_id: string | null; payload: unknown; status: string | null; created_at: string | null };
 type TrackingRow = { id: string; job_id: string; event_type: string | null; message: string | null; created_at: string | null; created_by: string | null };
 type DocumentRow = { id: string; status: string | null; expiry_date: string | null; doc_type: string | null; created_at: string | null };
 
 function safeArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function textFrom(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function numberFrom(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  return Number.isFinite(n) ? n : null;
+}
+
+function coordinatesFromLocation(value: unknown): { lat: number | null; lng: number | null } {
+  const location = asRecord(value);
+  const directLat = numberFrom(location.lat ?? location.latitude);
+  const directLng = numberFrom(location.lng ?? location.lon ?? location.longitude);
+  if (directLat !== null && directLng !== null) return { lat: directLat, lng: directLng };
+
+  const coordinates = Array.isArray(location.coordinates) ? location.coordinates : [];
+  const lng = numberFrom(coordinates[0]);
+  const lat = numberFrom(coordinates[1]);
+  if (lat !== null && lng !== null) return { lat, lng };
+
+  if (typeof value === 'string') {
+    const match = value.match(/POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/i);
+    if (match) return { lat: Number(match[2]), lng: Number(match[1]) };
+  }
+
+  return { lat: null, lng: null };
+}
+
+function notificationTitle(event: NotificationRow) {
+  const payload = asRecord(event.payload);
+  return textFrom(payload.title) ?? textFrom(payload.subject) ?? statusLabel(event.event_type);
+}
+
+function notificationDetail(event: NotificationRow) {
+  const payload = asRecord(event.payload);
+  return textFrom(payload.body) ?? textFrom(payload.message) ?? textFrom(payload.description) ?? event.status ?? 'Notification';
 }
 
 function hasPod(job: JobRow) {
@@ -171,19 +213,17 @@ export async function GET(request: NextRequest) {
     invoicesRes,
     driverDocsRes,
     vehicleDocsRes,
-    companyDocsRes,
   ] = await Promise.all([
     client.from('jobs').select('id,status,current_status,assigned_driver_id,assigned_company_id,awarded_carrier_company_id,company_id,pickup_location,delivery_location,pickup_datetime,delivery_datetime,vehicle_type,requested_vehicle_type,budget_amount,delivery_photos,pod_photos,pod_generated,pod_required,status_history,updated_at,created_at').or(companyScope).order('updated_at', { ascending: false }).limit(limit),
     activeCompanyId ? client.from('drivers').select('id,display_name,availability_status,status,company_id').eq('company_id', activeCompanyId).limit(500) : client.from('drivers').select('id,display_name,availability_status,status,company_id').limit(500),
     activeCompanyId ? client.from('vehicles').select('id,reg_plate,type,assigned_driver_id,company_id').eq('company_id', activeCompanyId).limit(500) : client.from('vehicles').select('id,reg_plate,type,assigned_driver_id,company_id').limit(500),
-    activeCompanyId ? client.from('driver_locations').select('id,driver_id,job_id,lat,lng,recorded_at').eq('company_id', activeCompanyId).order('recorded_at', { ascending: false }).limit(300) : client.from('driver_locations').select('id,driver_id,job_id,lat,lng,recorded_at').order('recorded_at', { ascending: false }).limit(300),
+    client.from('driver_locations').select('id,driver_id,location,recorded_at').order('recorded_at', { ascending: false }).limit(300),
     client.from('job_bids').select('id,job_id,status,created_at').order('created_at', { ascending: false }).limit(500),
-    activeCompanyId ? client.from('notification_events').select('id,event_type,title,body,status,created_at,job_id').eq('company_id', activeCompanyId).order('created_at', { ascending: false }).limit(80) : client.from('notification_events').select('id,event_type,title,body,status,created_at,job_id').order('created_at', { ascending: false }).limit(80),
+    activeCompanyId ? client.from('notification_events').select('id,event_type,entity_type,entity_id,payload,status,created_at').eq('company_id', activeCompanyId).order('created_at', { ascending: false }).limit(80) : client.from('notification_events').select('id,event_type,entity_type,entity_id,payload,status,created_at').order('created_at', { ascending: false }).limit(80),
     client.from('job_tracking_events').select('id,job_id,event_type,message,created_at,created_by').order('created_at', { ascending: false }).limit(120),
     activeCompanyId ? client.from('invoices').select('id,status,due_date,amount,created_at').eq('company_id', activeCompanyId).order('created_at', { ascending: false }).limit(500) : client.from('invoices').select('id,status,due_date,amount,created_at').order('created_at', { ascending: false }).limit(500),
     client.from('driver_documents').select('id,status,expiry_date,doc_type,created_at').order('created_at', { ascending: false }).limit(250),
     client.from('vehicle_documents').select('id,status,expiry_date,doc_type,created_at').order('created_at', { ascending: false }).limit(250),
-    activeCompanyId ? client.from('company_documents').select('id,status,expiry_date,doc_type,created_at').eq('company_id', activeCompanyId).order('created_at', { ascending: false }).limit(250) : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (jobsRes.error) return respond(500, { error: jobsRes.error.message });
@@ -219,12 +259,15 @@ export async function GET(request: NextRequest) {
   const notifications = (notificationsRes.data ?? []) as NotificationRow[];
   const tracking = (trackingRes.data ?? []) as TrackingRow[];
   const invoices = (invoicesRes.data ?? []) as Array<{ status: string | null; due_date: string | null; amount: number | string | null; created_at: string | null }>;
-  const documents = ([...(driverDocsRes.data ?? []), ...(vehicleDocsRes.data ?? []), ...(companyDocsRes.data ?? [])] as DocumentRow[]);
+  const documents = ([...(driverDocsRes.data ?? []), ...(vehicleDocsRes.data ?? [])] as DocumentRow[]);
   const driversById = new Map(drivers.map((driver) => [driver.id, driver.display_name ?? 'Driver']));
   const vehicleByDriverId = new Map(vehicles.filter((vehicle) => vehicle.assigned_driver_id).map((vehicle) => [vehicle.assigned_driver_id as string, vehicle]));
   const bidsByJob = bids.reduce((map, bid) => map.set(bid.job_id, (map.get(bid.job_id) ?? 0) + 1), new Map<string, number>());
   const latestLocationByDriver = new Map<string, DriverLocationRow>();
-  for (const location of locations) if (!latestLocationByDriver.has(location.driver_id)) latestLocationByDriver.set(location.driver_id, location);
+  for (const location of locations) {
+    if (!driversById.has(location.driver_id)) continue;
+    if (!latestLocationByDriver.has(location.driver_id)) latestLocationByDriver.set(location.driver_id, location);
+  }
 
   const todayJobs = jobs.filter((job) => sameDay(job.pickup_datetime ?? job.created_at));
   const activeJobs = jobs.filter((job) => liveStatuses.has(norm(job.current_status ?? job.status)));
@@ -247,7 +290,7 @@ export async function GET(request: NextRequest) {
   const avg = (values: number[]) => values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
   const expiredDocuments = documents.filter((doc) => doc.expiry_date && new Date(doc.expiry_date).getTime() < Date.now());
   const rejectedDocuments = documents.filter((doc) => ['rejected', 'failed'].includes(norm(doc.status)));
-  const healthIssues = [jobsRes.error, driversRes.error, vehiclesRes.error, locationsRes.error, bidsRes.error, notificationsRes.error, trackingRes.error, invoicesRes.error, driverDocsRes.error, vehicleDocsRes.error, companyDocsRes.error].filter(Boolean).length;
+  const healthIssues = [jobsRes.error, driversRes.error, vehiclesRes.error, locationsRes.error, bidsRes.error, notificationsRes.error, trackingRes.error, invoicesRes.error, driverDocsRes.error, vehicleDocsRes.error].filter(Boolean).length;
 
   const jobCards = activeJobs.slice(0, 80).map((job) => {
     const vehicle = job.assigned_driver_id ? vehicleByDriverId.get(job.assigned_driver_id) : null;
@@ -269,16 +312,19 @@ export async function GET(request: NextRequest) {
   });
 
   const mapPoints = [
-    ...Array.from(latestLocationByDriver.values()).map((location) => ({
-      id: location.id,
-      kind: 'driver',
-      driverId: location.driver_id,
-      label: driversById.get(location.driver_id) ?? 'Driver',
-      lat: location.lat,
-      lng: location.lng,
-      status: drivers.find((driver) => driver.id === location.driver_id)?.availability_status ?? 'unknown',
-      updatedAt: location.recorded_at,
-    })),
+    ...Array.from(latestLocationByDriver.values()).map((location) => {
+      const coordinates = coordinatesFromLocation(location.location);
+      return {
+        id: location.id,
+        kind: 'driver',
+        driverId: location.driver_id,
+        label: driversById.get(location.driver_id) ?? 'Driver',
+        lat: coordinates.lat,
+        lng: coordinates.lng,
+        status: drivers.find((driver) => driver.id === location.driver_id)?.availability_status ?? 'unknown',
+        updatedAt: location.recorded_at,
+      };
+    }).filter((point) => point.lat !== null && point.lng !== null),
   ];
 
   const timeline = [
@@ -294,8 +340,8 @@ export async function GET(request: NextRequest) {
     ...notifications.map((event) => ({
       id: `notification-${event.id}`,
       time: formatTime(event.created_at),
-      title: event.title ?? statusLabel(event.event_type),
-      detail: event.body ?? event.status ?? 'Notification',
+      title: notificationTitle(event),
+      detail: notificationDetail(event),
       owner: 'Notification',
       tone: event.status === 'failed' ? 'red' : 'green',
       sort: new Date(event.created_at ?? 0).getTime(),
@@ -351,7 +397,7 @@ export async function GET(request: NextRequest) {
     mapPoints,
     timeline,
     alerts,
-    errors: [driversRes.error, vehiclesRes.error, locationsRes.error, bidsRes.error, notificationsRes.error, trackingRes.error, invoicesRes.error, driverDocsRes.error, vehicleDocsRes.error, companyDocsRes.error]
+    errors: [driversRes.error, vehiclesRes.error, locationsRes.error, bidsRes.error, notificationsRes.error, trackingRes.error, invoicesRes.error, driverDocsRes.error, vehicleDocsRes.error]
       .filter(Boolean)
       .map((error) => ({ message: error?.message ?? 'Unknown data source error' })),
   });

@@ -1,11 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+//  Types
 
 type BidWithJob = {
   id: string;
@@ -47,7 +47,7 @@ type JobGroup = {
   bids: BidWithJob[];
 };
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+//  Constants
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   submitted: { bg: '#e0f2fe', text: '#075985' },
@@ -63,7 +63,7 @@ const VEHICLE_LABEL: Record<string, string> = {
 };
 
 function fmtDate(iso: string | null) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
@@ -82,7 +82,7 @@ function resolveBidAmountGbp(
   return Number.isFinite(n) ? n : null;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+//  Component
 
 export default function BidsPage() {
   const { user } = useAuth();
@@ -94,7 +94,7 @@ export default function BidsPage() {
   const [actionError, setActionError] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null); // bidId being actioned
 
-  // ── Data loading ─────────────────────────────────────────────────────────────
+  //  Data loading
 
   const loadBids = useCallback(async () => {
     setLoading(true);
@@ -175,14 +175,14 @@ export default function BidsPage() {
 
   useEffect(() => { void loadBids(); }, [loadBids]);
 
-  // ── Access token helper ────────────────────────────────────────────────────
+  //  Access token helper
 
   const getAccessToken = async (): Promise<string | null> => {
     const { data: sessionData } = await supabase.auth.getSession();
     return sessionData.session?.access_token ?? null;
   };
 
-  // ── Accept bid ────────────────────────────────────────────────────────────
+  //  Accept bid
 
   const acceptBid = async (bidId: string) => {
     setActionError('');
@@ -206,7 +206,7 @@ export default function BidsPage() {
     setActionLoading(null);
   };
 
-  // ── Reject bid ────────────────────────────────────────────────────────────
+  //  Reject bid
 
   const rejectBid = async (bidId: string) => {
     setActionError('');
@@ -230,7 +230,7 @@ export default function BidsPage() {
     setActionLoading(null);
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  //  Render
 
   return (
     <ProtectedRoute>
@@ -247,23 +247,22 @@ export default function BidsPage() {
               onClick={() => void loadBids()}
               style={{ padding: '0.35rem 0.7rem', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontSize: '0.78rem', color: '#64748b' }}
             >
-              ↻ Refresh
+              Refresh
             </button>
           </div>
 
           {/* Banners */}
           {!isSupabaseConfigured && (
-            <Banner color="amber">⚠️ Supabase is not configured. Database features are disabled.</Banner>
+            <Banner color="amber">Supabase is not configured. Database features are disabled.</Banner>
           )}
           {error && <Banner color="red">{error}</Banner>}
           {actionError && <Banner color="red">{actionError}</Banner>}
 
           {/* Content */}
           {loading ? (
-            <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading…</div>
+            <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
           ) : jobGroups.length === 0 ? (
             <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '3rem', textAlign: 'center', color: '#6b7280', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
               <p style={{ margin: 0 }}>No bids received yet. Publish loads to the exchange to start receiving bids.</p>
             </div>
           ) : (
@@ -285,7 +284,7 @@ export default function BidsPage() {
   );
 }
 
-// ── JobBidGroup ────────────────────────────────────────────────────────────────
+//  JobBidGroup
 
 function JobBidGroup({
   group,
@@ -321,21 +320,21 @@ function JobBidGroup({
       <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #f3f4f6', backgroundColor: isAwarded ? '#f0fdf4' : '#f9fafb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <div>
           <div style={{ fontWeight: 700, color: '#111827', fontSize: '0.95rem' }}>
-            {group.jobPickup || '—'} → {group.jobDelivery || '—'}
+            {group.jobPickup || '-'} to {group.jobDelivery || '-'}
           </div>
           <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
             {group.jobVehicle ? VEHICLE_LABEL[group.jobVehicle] ?? group.jobVehicle : 'Vehicle TBC'}
-            {group.jobPickupDate ? ` · Pickup: ${fmtDate(group.jobPickupDate)}` : ''}
-            {' · '}
+            {group.jobPickupDate ? `  Pickup: ${fmtDate(group.jobPickupDate)}` : ''}
+            {'  '}
             <span style={{ textTransform: 'capitalize' }}>{group.exchangeVisibility}</span>
-            {' · '}
-            <span style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{group.jobId.slice(0, 8)}…</span>
+            {'  '}
+            <span style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{group.jobId.slice(0, 8)}...</span>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {isAwarded ? (
             <span style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '0.3rem 0.85rem', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 700 }}>
-              ✓ Awarded{awardedBid?.companies?.name ? ` — ${awardedBid.companies.name}` : ''}
+              Awarded{awardedBid?.companies?.name ? ` - ${awardedBid.companies.name}` : ''}
             </span>
           ) : (
             <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '0.3rem 0.85rem', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 600 }}>
@@ -369,15 +368,15 @@ function JobBidGroup({
                     {bid.companies?.name || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Unknown carrier</span>}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#9ca3af', fontFamily: 'monospace' }}>
-                    {bid.id.slice(0, 8)}…
+                    {bid.id.slice(0, 8)}...
                   </div>
                 </td>
                 <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#111827' }}>
-                  {bidAmount == null ? '—' : `£${bidAmount.toFixed(2)}`}
+                  {bidAmount == null ? '-' : `GBP ${bidAmount.toFixed(2)}`}
                   <span style={{ fontWeight: 400, fontSize: '0.8rem', color: '#6b7280', marginLeft: '0.25rem' }}>{bid.currency}</span>
                 </td>
                 <td style={{ padding: '0.85rem 1rem', color: '#6b7280', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85rem' }}>
-                  {bid.message || <span style={{ fontStyle: 'italic' }}>—</span>}
+                  {bid.message || <span style={{ fontStyle: 'italic' }}>-</span>}
                 </td>
                 <td style={{ padding: '0.85rem 1rem' }}>
                   <span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.65rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 600 }}>
@@ -396,7 +395,7 @@ function JobBidGroup({
                         title="Accept this bid and award the job to this carrier"
                         style={{ padding: '0.35rem 0.8rem', backgroundColor: isActioning ? '#e5e7eb' : '#d1fae5', color: isActioning ? '#9ca3af' : '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: isActioning ? 'not-allowed' : 'pointer' }}
                       >
-                        {isActioning ? '…' : '✓ Accept'}
+                        {isActioning ? '...' : 'Accept'}
                       </button>
                     )}
                     {canReject && (
@@ -406,11 +405,11 @@ function JobBidGroup({
                         title="Reject this bid"
                         style={{ padding: '0.35rem 0.8rem', backgroundColor: isActioning ? '#e5e7eb' : '#fee2e2', color: isActioning ? '#9ca3af' : '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: isActioning ? 'not-allowed' : 'pointer' }}
                       >
-                        {isActioning ? '…' : '✕ Reject'}
+                        {isActioning ? '...' : 'Reject'}
                       </button>
                     )}
                     {!canAccept && !canReject && (
-                      <span style={{ color: '#9ca3af', fontSize: '0.8rem', fontStyle: 'italic' }}>—</span>
+                      <span style={{ color: '#9ca3af', fontSize: '0.8rem', fontStyle: 'italic' }}>-</span>
                     )}
                   </div>
                 </td>
@@ -422,7 +421,7 @@ function JobBidGroup({
       {group.bids.length > BIDS_PER_PAGE && (
         <div style={{ borderTop: '1px solid #f3f4f6', padding: '0.65rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#6b7280' }}>
           <span>
-            Showing {safeGroupPage * BIDS_PER_PAGE + 1}–{Math.min((safeGroupPage + 1) * BIDS_PER_PAGE, group.bids.length)} of {group.bids.length}
+            Showing {safeGroupPage * BIDS_PER_PAGE + 1}-{Math.min((safeGroupPage + 1) * BIDS_PER_PAGE, group.bids.length)} of {group.bids.length}
           </span>
           <div style={{ display: 'flex', gap: '0.4rem' }}>
             <button
@@ -446,7 +445,7 @@ function JobBidGroup({
   );
 }
 
-// ── Banner ─────────────────────────────────────────────────────────────────────
+//  Banner
 
 function Banner({ children, color }: { children: React.ReactNode; color: 'red' | 'amber' }) {
   const styles = {
