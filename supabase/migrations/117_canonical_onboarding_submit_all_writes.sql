@@ -1,4 +1,4 @@
-﻿-- Final canonical onboarding submit path: all submit-time writes for customer,
+-- Final canonical onboarding submit path: all submit-time writes for customer,
 -- broker, fleet, and owner-driver are performed in one database transaction.
 
 CREATE OR REPLACE FUNCTION public.submit_onboarding_application(p_application_id uuid)

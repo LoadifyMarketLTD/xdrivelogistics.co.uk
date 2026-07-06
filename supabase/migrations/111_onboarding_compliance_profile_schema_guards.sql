@@ -1,4 +1,4 @@
-﻿-- P1-004 schema guard: onboarding submit routes already depend on these profile
+-- P1-004 schema guard: onboarding submit routes already depend on these profile
 -- tables; define them in migrations so clean environments can replay safely.
 
 CREATE TABLE IF NOT EXISTS public.fleet_compliance_profiles (
