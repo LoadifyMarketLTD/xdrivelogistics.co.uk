@@ -8,6 +8,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import type { Vehicle } from '../../../lib/types/database';
 import type { FleetPin } from './_components/FleetMap';
+import { coordinatesFromLocation } from '../../../lib/geoLocation';
 
 const FleetMap = lazy(() => import('./_components/FleetMap'));
 
@@ -21,8 +22,7 @@ type DriverLocationRow = {
   id: string;
   driver_id: string;
   recorded_at: string;
-  lat: number | null;
-  lng: number | null;
+  location: unknown;
 };
 
 type VehicleSelectRow = Omit<Vehicle, 'pallets_capacity' | 'has_straps' | 'has_blankets'> &
@@ -105,7 +105,7 @@ export default function FleetPage() {
 
       const [driverRes, locationRes] = await Promise.all([
         supabase.from('drivers').select('id, display_name, availability_status').eq('company_id', companyId),
-        supabase.from('driver_locations').select('id, driver_id, recorded_at, lat, lng').eq('company_id', companyId).order('recorded_at', { ascending: false }).limit(300),
+        supabase.from('driver_locations').select('id, driver_id, recorded_at, location').order('recorded_at', { ascending: false }).limit(300),
       ]);
 
       setVehicles(
@@ -116,12 +116,18 @@ export default function FleetPage() {
           has_blankets: vehicle.has_blankets ?? false,
         }))
       );
-      setDrivers((driverRes.data as FleetDriver[]) ?? []);
-      setLocations((locationRes.data as DriverLocationRow[]) ?? []);
+      const loadedDrivers = (driverRes.data as FleetDriver[]) ?? [];
+      const companyDriverIds = new Set(loadedDrivers.map((driver) => driver.id));
+      setDrivers(loadedDrivers);
+      setLocations(((locationRes.data as DriverLocationRow[]) ?? []).filter((location) => companyDriverIds.has(location.driver_id)));
       setLoading(false);
     };
     void load();
   }, [companyId]);
+
+  const driverById = useMemo(() => {
+    return new Map(drivers.map((driver) => [driver.id, driver]));
+  }, [drivers]);
 
   // ── Realtime: update fleet positions on new driver_locations rows ────────────
   useEffect(() => {
@@ -135,10 +141,10 @@ export default function FleetPage() {
           event:  'INSERT',
           schema: 'public',
           table:  'driver_locations',
-          filter: `company_id=eq.${companyId}`,
         },
         (payload: { new: Record<string, unknown> }) => {
           const newRow = payload.new as DriverLocationRow;
+          if (!driverById.has(newRow.driver_id)) return;
           setLocations((prev: DriverLocationRow[]) => {
             // Keep at most 300 rows; prepend the new one
             const updated = [newRow, ...prev.filter((r: DriverLocationRow) => r.id !== newRow.id)];
@@ -149,7 +155,7 @@ export default function FleetPage() {
       .subscribe();
 
     return () => { void supabase.removeChannel(channel); };
-  }, [companyId]);
+  }, [companyId, driverById]);
 
   const latestLocationByDriver = useMemo(() => {
     const map = new Map<string, DriverLocationRow>();
@@ -158,10 +164,6 @@ export default function FleetPage() {
     }
     return map;
   }, [locations]);
-
-  const driverById = useMemo(() => {
-    return new Map(drivers.map((driver) => [driver.id, driver]));
-  }, [drivers]);
 
   const availCounts = useMemo(() => {
     const counts = { available: 0, busy: 0, offline: 0, unassigned: 0 };
@@ -183,15 +185,16 @@ export default function FleetPage() {
       if (!v.assigned_driver_id) continue;
       const driver = driverById.get(v.assigned_driver_id);
       const loc = latestLocationByDriver.get(v.assigned_driver_id);
-      if (!loc || loc.lat == null || loc.lng == null) continue;
+      const coordinates = loc ? coordinatesFromLocation(loc.location) : { lat: null, lng: null };
+      if (!loc || coordinates.lat == null || coordinates.lng == null) continue;
       pins.push({
         driverId: v.assigned_driver_id,
         driverName: driver?.display_name ?? 'Unknown driver',
         vehicleReg: v.reg_plate ?? '',
         vehicleType: v.type ?? 'unknown',
         availabilityStatus: driver?.availability_status ?? null,
-        lat: loc.lat,
-        lng: loc.lng,
+        lat: coordinates.lat,
+        lng: coordinates.lng,
         trackedAt: loc.recorded_at,
       });
     }
@@ -249,8 +252,9 @@ export default function FleetPage() {
                 const latest = vehicle.assigned_driver_id ? latestLocationByDriver.get(vehicle.assigned_driver_id) : undefined;
                 const availKey = driver?.availability_status ?? (vehicle.assigned_driver_id ? 'unassigned' : 'unassigned');
                 const avail = AVAIL_CONFIG[availKey] ?? AVAIL_CONFIG.unassigned;
-                const locationStr = latest?.lat != null && latest?.lng != null
-                  ? `${latest.lat.toFixed(4)}, ${latest.lng.toFixed(4)}`
+                const latestCoordinates = latest ? coordinatesFromLocation(latest.location) : { lat: null, lng: null };
+                const locationStr = latestCoordinates.lat != null && latestCoordinates.lng != null
+                  ? `${latestCoordinates.lat.toFixed(4)}, ${latestCoordinates.lng.toFixed(4)}`
                   : null;
                 const trackedAt = latest ? new Date(latest.recorded_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
 

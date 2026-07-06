@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { toPostgisPoint } from '../../../../lib/geoLocation';
 
 type LocationPayload = {
   lat?: number;
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
   // Resolve driver row from auth user
   const { data: driverRow, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id')
+    .select('id')
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
@@ -57,14 +58,9 @@ export async function POST(request: NextRequest) {
   const { error: insertError } = await supabaseAdmin
     .from('driver_locations')
     .insert({
-      driver_id:  driverRow.id,
-      company_id: driverRow.company_id,
-      lat,
-      lng,
-      heading:    typeof body.heading === 'number' ? body.heading : null,
-      speed_mph:  typeof body.speed_mph === 'number' ? body.speed_mph : null,
+      driver_id: driverRow.id,
+      location: toPostgisPoint(lng, lat),
       recorded_at: now,
-      updated_at:  now,
     });
 
   if (insertError) {
