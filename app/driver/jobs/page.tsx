@@ -8,6 +8,7 @@ import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
+import { useDriverLocationPublisher } from '../../hooks/useDriverLocationPublisher';
 
 type DriverRow = {
   id: string;
@@ -130,6 +131,7 @@ export default function DriverHomePage() {
     () => jobs.find((job) => ACTIVE_STATUSES.includes(job.status)) ?? null,
     [jobs]
   );
+  useDriverLocationPublisher(activeJob?.status, Boolean(activeJob));
 
   const todaysJobs = useMemo(
     () => jobs.filter((job) => sameDay(job.pickup_datetime) || sameDay(job.delivery_datetime) || ACTIVE_STATUSES.includes(job.status)),
