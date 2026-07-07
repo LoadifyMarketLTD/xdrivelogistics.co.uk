@@ -16,6 +16,35 @@ function getAccessToken(session: { access_token?: string | null } | null | undef
   return token || null;
 }
 
+/**
+ * Validates that the authenticated user has the driver role.
+ * Returns the user ID if valid, or null if not a driver.
+ */
+async function validateDriverRole(userId: string): Promise<string | null> {
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !profile) {
+      console.warn('[auth] Profile fetch failed or not found:', error?.message);
+      return null;
+    }
+
+    if (profile.role !== 'driver') {
+      console.warn('[auth] User role is not driver:', profile.role);
+      return null;
+    }
+
+    return userId;
+  } catch (error) {
+    console.error('[auth] Driver role validation error:', error);
+    return null;
+  }
+}
+
 export default function DriverMobileApp() {
   const [screen, setScreen] = useState<Screen>('login');
   const [token, setToken] = useState<string | null>(null);
@@ -61,12 +90,31 @@ export default function DriverMobileApp() {
 
   useEffect(() => {
     void supabase.auth.getSession()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         const sessionToken = getAccessToken(data.session);
         if (!sessionToken) {
           void clearSessionToken();
           return;
         }
+        
+        // ✅ NEW: Validate driver role before allowing access
+        const userId = data.session?.user?.id;
+        if (!userId) {
+          setMessage('Session invalid: user ID not found.');
+          await supabase.auth.signOut().catch(() => undefined);
+          await clearSessionToken();
+          return;
+        }
+
+        const isDriver = await validateDriverRole(userId);
+        if (!isDriver) {
+          setMessage('Access denied: only drivers can use this app.');
+          await supabase.auth.signOut().catch(() => undefined);
+          await clearSessionToken();
+          setScreen('login');
+          return;
+        }
+
         setToken(sessionToken);
         void saveSessionToken(sessionToken);
         void loadJobs(sessionToken);
@@ -113,6 +161,22 @@ export default function DriverMobileApp() {
       await supabase.auth.signOut().catch(() => undefined);
       return;
     }
+
+    // ✅ NEW: Validate driver role before proceeding
+    const userId = sessionData.session?.user?.id;
+    if (!userId) {
+      setMessage('Session invalid: user ID not found.');
+      await supabase.auth.signOut().catch(() => undefined);
+      return;
+    }
+
+    const isDriver = await validateDriverRole(userId);
+    if (!isDriver) {
+      setMessage('Access denied: only drivers can use this app.');
+      await supabase.auth.signOut().catch(() => undefined);
+      return;
+    }
+
     setToken(accessToken);
     try { await saveSessionToken(accessToken); } catch { /* SecureStore non-critical */ }
     void safeRegisterPushToken(accessToken);
@@ -133,7 +197,14 @@ export default function DriverMobileApp() {
   async function submitStatus() {
     if (!job) return;
     if (!nextStep) {
-      setScreen('pod');
+      // ✅ NEW: If POD is required, force navigation to POD screen
+      if (job.podRequired) {
+        setMessage('Proof of Delivery is required before marking job as delivered.');
+        setScreen('pod');
+        return;
+      }
+      // Job is complete (no more steps and POD not required)
+      setMessage('Job complete. Ready to submit.');
       return;
     }
 
@@ -176,11 +247,11 @@ export default function DriverMobileApp() {
         <ScrollView contentContainerStyle={styles.content}>
           {message ? <Text style={styles.message}>{message}</Text> : null}
           {loading && <Text style={styles.subtle}>Loading...</Text>}
-          {screen === 'active' && job && <ActiveJobScreen job={job} pendingCount={queue.filter((item) => item.status === 'pending').length} nextLabel={nextStep?.label ?? 'Capture POD'} onPrimary={submitStatus} onDetail={() => setScreen('detail')} onPod={() => setScreen('pod')} />}
+          {screen === 'active' && job && <ActiveJobScreen job={job} pendingCount={queue.filter((item) => item.status === 'pending').length} nextLabel={nextStep?.label ?? 'Capture POD'} onPrimary=[...]}
           {screen === 'active' && !job && !loading && <EmptyJobsScreen onRefresh={() => token && loadJobs(token)} />}
-          {screen === 'jobs' && <JobsScreen scope={scope} jobs={jobs} onScope={(nextScope) => { setScope(nextScope); if (token) void loadJobs(token, nextScope); }} onOpen={(nextJob) => { setJob(nextJob); setScreen('detail'); }} />}
+          {screen === 'jobs' && <JobsScreen scope={scope} jobs={jobs} onScope={(nextScope) => { setScope(nextScope); if (token) void loadJobs(token, nextScope); }} onOpen={(nextJob) => { setJob(n[...]}
           {screen === 'detail' && job && <JobDetailScreen job={job} onPrimary={() => setScreen('active')} />}
-          {screen === 'pod' && job && <PodScreen job={job} token={token} onSaved={(updatedJob) => { if (updatedJob) setJob(updatedJob); setScreen('active'); }} onQueued={(queued) => setQueue((items) => [queued, ...items])} />}
+          {screen === 'pod' && job && <PodScreen job={job} token={token} onSaved={(updatedJob) => { if (updatedJob) setJob(updatedJob); setScreen('active'); }} onQueued={(queued) => setQueue((ite[...]}
           {screen === 'notifications' && <NotificationsScreen />}
           {screen === 'profile' && <ProfileScreen onSignOut={signOut} />}
         </ScrollView>
@@ -208,19 +279,19 @@ function LoginScreen({ onSignIn, message, loading }: { onSignIn: (email: string,
 }
 
 function Header({ onProfile, onNotifications }: { onProfile: () => void; onNotifications: () => void }) {
-  return <View style={styles.header}><View><Text style={styles.headerTitle}>Driver Workspace</Text><Text style={styles.subtle}>Today</Text></View><View style={styles.headerActions}><SmallButton label="Alerts" onPress={onNotifications} /><SmallButton label="Profile" onPress={onProfile} /></View></View>;
+  return <View style={styles.header}><View><Text style={styles.headerTitle}>Driver Workspace</Text><Text style={styles.subtle}>Today</Text></View><View style={styles.headerActions}><SmallButton l[...]}
 }
 
-function ActiveJobScreen({ job, pendingCount, nextLabel, onPrimary, onDetail, onPod }: { job: DriverJob; pendingCount: number; nextLabel: string; onPrimary: () => void; onDetail: () => void; onPod: () => void }) {
-  return <View style={styles.stack}><StatusPill label={job.status} tone={job.status === 'delivered' ? 'success' : 'primary'} />{pendingCount > 0 && <StatusPill label={`${pendingCount} pending sync`} tone="warning" />}<Panel><Text style={styles.label}>Active Job</Text><Text style={styles.title}>{job.reference}</Text><Text style={styles.route}>{job.pickupLocation}</Text><Text style={styles.arrow}>to</Text><Text style={styles.route}>{job.deliveryLocation}</Text></Panel><Panel><Info label="Pickup" value={job.pickupTime} /><Info label="Delivery" value={job.deliveryTime} /><Info label="Cargo" value={job.cargoType} /><Info label="Vehicle" value={job.vehicleRequirement} /></Panel><PrimaryButton label={nextLabel} onPress={onPrimary} /><SecondaryButton label="Job details" onPress={onDetail} />{job.podRequired && <SecondaryButton label="Open POD" onPress={onPod} />}</View>;
+function ActiveJobScreen({ job, pendingCount, nextLabel, onPrimary, onDetail, onPod }: { job: DriverJob; pendingCount: number; nextLabel: string; onPrimary: () => void; onDetail: () => void; onPo[...]} {
+  return <View style={styles.stack}><StatusPill label={job.status} tone={job.status === 'delivered' ? 'success' : 'primary'} />{pendingCount > 0 && <StatusPill label={`${pendingCount} pending syn[...]}
 }
 
 function JobsScreen({ scope, onScope, jobs, onOpen }: { scope: JobScope; onScope: (scope: JobScope) => void; jobs: DriverJob[]; onOpen: (job: DriverJob) => void }) {
-  return <View style={styles.stack}><Segmented value={scope} onChange={onScope} />{jobs.length === 0 ? <Text style={styles.subtle}>No jobs in this scope.</Text> : jobs.map((item) => <TouchableOpacity key={item.id} style={styles.jobRow} onPress={() => onOpen(item)}><Text style={styles.jobRef}>{item.reference}</Text><Text style={styles.subtle}>{item.pickupLocation}</Text><Text style={styles.subtle}>{item.deliveryLocation}</Text></TouchableOpacity>)}</View>;
+  return <View style={styles.stack}><Segmented value={scope} onChange={onScope} />{jobs.length === 0 ? <Text style={styles.subtle}>No jobs in this scope.</Text> : jobs.map((item) => <TouchableOpa[...]}
 }
 
 function JobDetailScreen({ job, onPrimary }: { job: DriverJob; onPrimary: () => void }) {
-  return <View style={styles.stack}><Panel><Text style={styles.title}>{job.reference}</Text><Info label="Pickup" value={job.pickupLocation} /><Info label="Delivery" value={job.deliveryLocation} /><Info label="Price" value={job.price} /><Info label="POD required" value={job.podRequired ? 'Yes' : 'No'} /><Info label="Contact" value={job.contactAllowed ? `${job.contactName ?? ''} ${job.contactPhone ?? ''}`.trim() : 'Restricted by policy'} /></Panel><PrimaryButton label="Back to active job" onPress={onPrimary} /></View>;
+  return <View style={styles.stack}><Panel><Text style={styles.title}>{job.reference}</Text><Info label="Pickup" value={job.pickupLocation} /><Info label="Delivery" value={job.deliveryLocation} /[...]}
 }
 
 function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: string | null; onSaved: (job?: DriverJob) => void; onQueued: (queued: QueuedAction) => void }) {
@@ -262,37 +333,37 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
     }
   }
 
-  return <View style={styles.stack}><Panel><Text style={styles.title}>Proof of Delivery</Text><Text style={styles.subtle}>{job.reference}</Text><Text style={styles.copy}>Add required POD evidence before delivery completion.</Text><Info label="Photos" value={String(photoUris.length)} /><Info label="Documents" value={String(documentUris.length)} /></Panel><SecondaryButton label="Add photo" onPress={addPhoto} /><SecondaryButton label="Add document" onPress={addDocument} /><TextInput placeholder="Recipient name" placeholderTextColor={colors.muted} style={styles.input} value={recipientName} onChangeText={setRecipientName} /><TextInput placeholder="Signature / signed by" placeholderTextColor={colors.muted} style={styles.input} value={signatureData} onChangeText={setSignatureData} /><TextInput placeholder="Delivery notes" placeholderTextColor={colors.muted} style={styles.input} value={notes} onChangeText={setNotes} /><PrimaryButton label="Save POD metadata" onPress={savePod} /></View>;
+  return <View style={styles.stack}><Panel><Text style={styles.title}>Proof of Delivery</Text><Text style={styles.subtle}>{job.reference}</Text><Text style={styles.copy}>Add required POD evidence[...]}
 }
 
 function EmptyJobsScreen({ onRefresh }: { onRefresh: () => void }) {
-  return <View style={styles.stack}><Panel><Text style={styles.title}>No active job</Text><Text style={styles.copy}>When a job is awarded and assigned, it will appear here.</Text></Panel><PrimaryButton label="Refresh jobs" onPress={onRefresh} /></View>;
+  return <View style={styles.stack}><Panel><Text style={styles.title}>No active job</Text><Text style={styles.copy}>When a job is awarded and assigned, it will appear here.</Text></Panel><Primary[...]}
 }
 
 function NotificationsScreen() {
-  return <View style={styles.stack}><Panel><Text style={styles.title}>Critical Notifications</Text><Text style={styles.copy}>Job awarded, job changed, cancellation and dispatcher updates will appear here.</Text></Panel></View>;
+  return <View style={styles.stack}><Panel><Text style={styles.title}>Critical Notifications</Text><Text style={styles.copy}>Job awarded, job changed, cancellation and dispatcher updates will app[...]}
 }
 
 function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
-  return <View style={styles.stack}><Panel><Text style={styles.title}>Driver Profile</Text><Info label="Account" value="Active session" /><Info label="App" value="XDrive Driver Mobile" /></Panel><PrimaryButton label="Sign out" onPress={onSignOut} /></View>;
+  return <View style={styles.stack}><Panel><Text style={styles.title}>Driver Profile</Text><Info label="Account" value="Active session" /><Info label="App" value="XDrive Driver Mobile" /></Panel>[...]}
 }
 
 function BottomNav({ active, onChange }: { active: Screen; onChange: (screen: Screen) => void }) {
   const items: Array<[Screen, string]> = [['active', 'Active'], ['jobs', 'Jobs'], ['pod', 'POD'], ['profile', 'Profile']];
-  return <View style={styles.nav}>{items.map(([item, label]) => <TouchableOpacity key={item} style={[styles.navItem, active === item && styles.navItemActive]} onPress={() => onChange(item)}><Text style={[styles.navText, active === item && styles.navTextActive]}>{label}</Text></TouchableOpacity>)}</View>;
+  return <View style={styles.nav}>{items.map(([item, label]) => <TouchableOpacity key={item} style={[styles.navItem, active === item && styles.navItemActive]} onPress={() => onChange(item)}><Text[...]}
 }
 
 function Segmented({ value, onChange }: { value: JobScope; onChange: (scope: JobScope) => void }) {
   const items: JobScope[] = ['active', 'upcoming', 'completed'];
-  return <View style={styles.segmented}>{items.map((item) => <TouchableOpacity key={item} style={[styles.segment, value === item && styles.segmentActive]} onPress={() => onChange(item)}><Text style={[styles.segmentText, value === item && styles.segmentTextActive]}>{item}</Text></TouchableOpacity>)}</View>;
+  return <View style={styles.segmented}>{items.map((item) => <TouchableOpacity key={item} style={[styles.segment, value === item && styles.segmentActive]} onPress={() => onChange(item)}><Text sty[...]}
 }
 
 function Panel({ children }: { children: ReactNode }) { return <View style={styles.panel}>{children}</View>; }
-function Info({ label, value }: { label: string; value: string }) { return <View style={styles.info}><Text style={styles.infoLabel}>{label}</Text><Text style={styles.infoValue}>{value}</Text></View>; }
-function StatusPill({ label, tone }: { label: string; tone: 'primary' | 'success' | 'warning' }) { const backgroundColor = tone === 'success' ? colors.success : tone === 'warning' ? colors.warning : colors.primary; return <Text style={[styles.pill, { backgroundColor }]}>{label.replace(/_/g, ' ')}</Text>; }
-function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) { return <TouchableOpacity style={[styles.primaryButton, disabled && styles.disabled]} onPress={onPress} disabled={disabled}><Text style={styles.primaryText}>{label}</Text></TouchableOpacity>; }
-function SecondaryButton({ label, onPress }: { label: string; onPress: () => void }) { return <TouchableOpacity style={styles.secondaryButton} onPress={onPress}><Text style={styles.secondaryText}>{label}</Text></TouchableOpacity>; }
-function SmallButton({ label, onPress }: { label: string; onPress: () => void }) { return <TouchableOpacity style={styles.smallButton} onPress={onPress}><Text style={styles.smallText}>{label}</Text></TouchableOpacity>; }
+function Info({ label, value }: { label: string; value: string }) { return <View style={styles.info}><Text style={styles.infoLabel}>{label}</Text><Text style={styles.infoValue}>{value}</Text></Vi[...]}
+function StatusPill({ label, tone }: { label: string; tone: 'primary' | 'success' | 'warning' }) { const backgroundColor = tone === 'success' ? colors.success : tone === 'warning' ? colors.warnin[...]}
+function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) { return <TouchableOpacity style={[styles.primaryButton, disabled && styles.disabl[...]}
+function SecondaryButton({ label, onPress }: { label: string; onPress: () => void }) { return <TouchableOpacity style={styles.secondaryButton} onPress={onPress}><Text style={styles.secondaryText}[...]}
+function SmallButton({ label, onPress }: { label: string; onPress: () => void }) { return <TouchableOpacity style={styles.smallButton} onPress={onPress}><Text style={styles.smallText}>{label}</Te[...]}
 
 async function safeRegisterPushToken(sessionToken: string) {
   try {
@@ -332,7 +403,7 @@ const styles = StyleSheet.create({
   smallButton: { borderColor: colors.border, borderWidth: 1, borderRadius: 8, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   smallText: { color: colors.text, fontSize: 12, fontWeight: '700' },
   disabled: { opacity: 0.4 },
-  pill: { alignSelf: 'flex-start', color: '#fff', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: 999, overflow: 'hidden', fontWeight: '800', textTransform: 'capitalize' },
+  pill: { alignSelf: 'flex-start', color: '#fff', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: 999, overflow: 'hidden', fontWeight: '800', textTransform: 'capitalize'[...]}
   jobRow: { backgroundColor: colors.panel, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: spacing.md, gap: spacing.xs },
   jobRef: { color: colors.text, fontSize: 18, fontWeight: '800' },
   segmented: { flexDirection: 'row', backgroundColor: colors.panel, borderRadius: 10, padding: 4, borderColor: colors.border, borderWidth: 1 },
@@ -340,7 +411,7 @@ const styles = StyleSheet.create({
   segmentActive: { backgroundColor: colors.primary },
   segmentText: { color: colors.muted, textTransform: 'capitalize', fontWeight: '700' },
   segmentTextActive: { color: '#fff' },
-  nav: { position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: 74, backgroundColor: colors.panel, borderTopColor: colors.border, borderTopWidth: 1, flexDirection: 'row', padding: spacing.sm },
+  nav: { position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: 74, backgroundColor: colors.panel, borderTopColor: colors.border, borderTopWidth: 1, flexDirection: 'row', padding: spacing[...]}
   navItem: { flex: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   navItemActive: { backgroundColor: colors.panelSoft },
   navText: { color: colors.muted, fontWeight: '700' },
