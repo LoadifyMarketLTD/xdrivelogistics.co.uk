@@ -15,9 +15,33 @@ const config: ExpoConfig = {
   },
   android: {
     package: 'co.uk.xdrivelogistics.driver',
-    permissions: ['CAMERA', 'POST_NOTIFICATIONS', 'ACCESS_NETWORK_STATE'],
+    permissions: [
+      'CAMERA',
+      'POST_NOTIFICATIONS',
+      'ACCESS_NETWORK_STATE',
+      'ACCESS_FINE_LOCATION',
+      'ACCESS_COARSE_LOCATION',
+    ],
+    intentFilters: [
+      {
+        action: 'VIEW',
+        data: [
+          {
+            scheme: 'https',
+            host: '*.xdrivelogistics.co.uk',
+          },
+        ],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
   },
-  plugins: ['expo-asset', 'expo-secure-store', 'expo-image-picker', 'expo-document-picker', 'expo-notifications'],
+  plugins: [
+    'expo-asset',
+    'expo-secure-store',
+    'expo-image-picker',
+    'expo-document-picker',
+    'expo-notifications',
+  ],
   extra: {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://www.xdrivelogistics.co.uk',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
