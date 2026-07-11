@@ -196,7 +196,7 @@ export default function DriverFinancePage() {
       const res = await fetch(`/api/driver/finance/jobs/${jobId}/generate-invoice`, {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ idempotency_key: crypto.randomUUID() }),
       });
       const json = await res.json() as { invoice?: { id: string }; error?: string };
       if (!res.ok) {

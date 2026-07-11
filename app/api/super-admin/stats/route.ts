@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     supabaseAdmin.from('companies').select('status', { count: 'exact' }),
     supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('jobs').select('status', { count: 'exact' }),
-    supabaseAdmin.from('invoices').select('status', { count: 'exact' }),
+    supabaseAdmin.from('invoices').select('payment_status', { count: 'exact' }),
   ]);
 
   if (companiesResult.error) {
@@ -67,9 +67,9 @@ export async function GET(request: NextRequest) {
   const jobsOpen = jobStatuses.filter((status) => OPEN_JOB_STATUSES.has(status)).length;
   const jobsDelivered = jobStatuses.filter((status) => status === 'delivered').length;
 
-  const invoiceStatuses = (invoicesResult.data ?? []).map((row) => String(row.status ?? '').trim().toLowerCase());
-  const paidInvoicesCount = invoiceStatuses.filter((status) => status === 'paid').length;
-  const invoicesCount = invoicesResult.count ?? invoiceStatuses.length;
+  const paymentStatuses = (invoicesResult.data ?? []).map((row) => String(row.payment_status ?? '').trim().toLowerCase());
+  const paidInvoicesCount = paymentStatuses.filter((status) => status === 'paid').length;
+  const invoicesCount = invoicesResult.count ?? paymentStatuses.length;
 
   return respond(200, {
     companiesTotal: companiesResult.count ?? companyStatuses.length,

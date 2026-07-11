@@ -75,6 +75,8 @@ type CustomerInvoice = {
   id: string;
   invoice_number: string;
   job_ref: string;
+  job_id?: string | null;
+  commercial_agreement_id?: string | null;
   invoice_date: string;
   due_date: string;
   status: CanonicalInvoiceStatus;
@@ -320,7 +322,7 @@ export default function CustomerPage() {
   const loadData = async () => {
     setLoading(true);
     setMessage('');
-    if (!isSupabaseConfigured || !user?.email) {
+    if (!isSupabaseConfigured || !user?.id) {
       setLoading(false);
       return;
     }
@@ -338,16 +340,15 @@ export default function CustomerPage() {
       return;
     }
 
-    const [quoteRes, jobRes, bidRes, invoiceRes, updateRes] = await Promise.all([
-      supabase.from('quotes').select('id, company_id, created_by, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at').eq('company_id', companyId).eq('customer_email', user.email).order('created_at', { ascending: false }),
-      supabase.from('jobs').select('id, status, awarded_carrier_company_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, cargo_type, pallets, weight_kg, load_details, special_requirements, access_restrictions, delivery_photos, created_at, updated_at').eq('company_id', companyId).eq('created_by', user.id).order('updated_at', { ascending: false }),
-      supabase.from('job_bids').select('id, job_id, company_id, amount, bid_price_gbp, currency, message, status, created_at, jobs!inner(id, status, company_id, created_by, pickup_location, delivery_location, pickup_datetime, vehicle_type, awarded_carrier_company_id), companies:company_id(name)').eq('jobs.company_id', companyId).eq('jobs.created_by', user.id).order('created_at', { ascending: false }),
-      supabase.from('invoices').select('id, invoice_number, job_ref, invoice_date, due_date, status, payment_status, amount, net_amount, vat_amount, vat_rate, payment_terms, late_fee, client_name, client_email, client_address, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, pod_photos, signature, recipient_name, created_at').eq('company_id', companyId).eq('client_email', user.email).order('created_at', { ascending: false }),
+    const [quoteRes, jobRes, bidRes, updateRes] = await Promise.all([
+      supabase.from('quotes').select('id, company_id, created_by, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at').eq('company_id', companyId).order('created_at', { ascending: false }),
+      supabase.from('jobs').select('id, status, awarded_carrier_company_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, cargo_type, pallets, weight_kg, load_details, special_requirements, access_restrictions, delivery_photos, created_at, updated_at').eq('company_id', companyId).order('updated_at', { ascending: false }),
+      supabase.from('job_bids').select('id, job_id, company_id, amount, bid_price_gbp, currency, message, status, created_at, jobs!inner(id, status, company_id, created_by, pickup_location, delivery_location, pickup_datetime, vehicle_type, awarded_carrier_company_id), companies:company_id(name)').eq('jobs.company_id', companyId).order('created_at', { ascending: false }),
       supabase.from('notification_events').select('id, event_type, entity_type, entity_id, payload, status, created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(40),
     ]);
 
-    if (quoteRes.error || jobRes.error || bidRes.error || invoiceRes.error || updateRes.error) {
-      setMessage(quoteRes.error?.message ?? jobRes.error?.message ?? bidRes.error?.message ?? invoiceRes.error?.message ?? updateRes.error?.message ?? 'Unable to load customer data.');
+    if (quoteRes.error || jobRes.error || bidRes.error || updateRes.error) {
+      setMessage(quoteRes.error?.message ?? jobRes.error?.message ?? bidRes.error?.message ?? updateRes.error?.message ?? 'Unable to load customer data.');
       setLoading(false);
       return;
     }
@@ -366,7 +367,35 @@ export default function CustomerPage() {
     } else {
       setJobDocuments([]);
     }
-    const invoiceRows = ((invoiceRes.data ?? []) as CustomerInvoice[]).map((invoice) => ({
+    const jobIds = jobRows.map((job) => job.id);
+    const [invoiceBuyerRes, invoiceByJobRes] = await Promise.all([
+      supabase
+        .from('invoices')
+        .select('id, invoice_number, job_ref, job_id, commercial_agreement_id, invoice_date, due_date, status, payment_status, amount, net_amount, vat_amount, vat_rate, payment_terms, late_fee, client_name, client_email, client_address, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, pod_photos, signature, recipient_name, created_at')
+        .eq('buyer_company_id', companyId)
+        .order('created_at', { ascending: false }),
+      jobIds.length > 0
+        ? supabase
+            .from('invoices')
+            .select('id, invoice_number, job_ref, job_id, commercial_agreement_id, invoice_date, due_date, status, payment_status, amount, net_amount, vat_amount, vat_rate, payment_terms, late_fee, client_name, client_email, client_address, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, pod_photos, signature, recipient_name, created_at')
+            .in('job_id', jobIds)
+            .is('buyer_company_id', null)
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (invoiceBuyerRes.error || invoiceByJobRes.error) {
+      setMessage(invoiceBuyerRes.error?.message ?? invoiceByJobRes.error?.message ?? 'Unable to load customer invoices.');
+      setLoading(false);
+      return;
+    }
+
+    const invoiceById = new Map<string, CustomerInvoice>();
+    for (const invoice of ([...(invoiceBuyerRes.data ?? []), ...(invoiceByJobRes.data ?? [])] as CustomerInvoice[])) {
+      invoiceById.set(invoice.id, invoice);
+    }
+
+    const invoiceRows = Array.from(invoiceById.values()).map((invoice) => ({
       ...invoice,
       status: toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status),
       payment_status: toCanonicalPaymentStatus(invoice.payment_status),
@@ -391,7 +420,7 @@ export default function CustomerPage() {
   useEffect(() => {
     void loadData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, user?.email, user?.id]);
+  }, [companyId, user?.id]);
 
   const metrics = useMemo(() => ({
     openLoads: jobs.filter((job) => !['delivered', 'invoiced', 'paid', 'cancelled'].includes(job.status)).length,
@@ -400,7 +429,10 @@ export default function CustomerPage() {
     awardedJobs: jobs.filter((job) => Boolean(job.awarded_carrier_company_id) || ['awarded', 'allocated', 'collected', 'in_transit', 'delivered', 'invoiced', 'paid'].includes(job.status)).length,
     activeDeliveries: jobs.filter((job) => ['awarded', 'allocated', 'collected', 'in_transit'].includes(job.status)).length,
     podReady: jobs.filter((job) => (job.delivery_photos?.length ?? 0) > 0).length,
-    unpaidInvoices: invoices.filter((invoice) => !['Paid', 'Cancelled'].includes(invoice.status)).length,
+    unpaidInvoices: invoices.filter((invoice) => {
+      const paymentStatus = toCanonicalPaymentStatus(invoice.payment_status);
+      return paymentStatus !== 'paid' && paymentStatus !== 'refunded';
+    }).length,
   }), [jobs, quotes, bids, invoices]);
 
   const bidGroups = useMemo(() => {

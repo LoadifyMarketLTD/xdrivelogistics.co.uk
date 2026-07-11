@@ -13,7 +13,7 @@ import {
   resolveInvoiceClientName,
   selectWithMissingColumnFallback,
 } from '../../lib/supabaseSchemaCompat';
-import { toCanonicalInvoiceDisplayStatus } from '../../lib/invoiceStatus';
+import { toCanonicalInvoiceDisplayStatus, toCanonicalPaymentStatus } from '../../lib/invoiceStatus';
 import { getNavSectionsForRole } from './workflowUi';
 import { mapAppRole, type AppUserRole } from '../../lib/authRole';
 
@@ -266,28 +266,34 @@ const loadInvoicesWithCompat = async (companyId: string): Promise<InvoiceRow[]> 
     throw new Error(error.message ?? 'Failed to load invoices.');
   }
 
-  return rows.map((row, index) => ({
-    id: String(row.id ?? `invoice-${index}`),
-    invoice_number: missingColumns.has('invoice_number') ? 'Invoice' : String(row.invoice_number ?? 'Invoice'),
-    status: toCanonicalInvoiceDisplayStatus(
-      missingColumns.has('status') ? null : String(row.status ?? null),
-      missingColumns.has('due_date') ? String(row.created_at ?? new Date().toISOString()) : String(row.due_date ?? row.created_at ?? new Date().toISOString()),
-      missingColumns.has('payment_status') ? null : String(row.payment_status ?? null)
-    ),
-    payment_status: missingColumns.has('payment_status') ? null : String(row.payment_status ?? null),
-    due_date: missingColumns.has('due_date')
-      ? String(row.created_at ?? new Date().toISOString())
-      : String(row.due_date ?? row.created_at ?? new Date().toISOString()),
-    amount: missingColumns.has('amount')
-      ? null
-      : typeof row.amount === 'number'
-        ? row.amount
-        : row.amount == null
-          ? null
-          : Number(row.amount),
-    client_name: resolveInvoiceClientName(row),
-    created_at: String(row.created_at ?? new Date().toISOString()),
-  }));
+  return rows.map((row, index) => {
+    const rawPaymentStatus =
+      missingColumns.has('payment_status') || typeof row.payment_status !== 'string'
+        ? null
+        : row.payment_status;
+    return {
+      id: String(row.id ?? `invoice-${index}`),
+      invoice_number: missingColumns.has('invoice_number') ? 'Invoice' : String(row.invoice_number ?? 'Invoice'),
+      status: toCanonicalInvoiceDisplayStatus(
+        missingColumns.has('status') ? null : String(row.status ?? null),
+        missingColumns.has('due_date') ? String(row.created_at ?? new Date().toISOString()) : String(row.due_date ?? row.created_at ?? new Date().toISOString()),
+        rawPaymentStatus
+      ),
+      payment_status: toCanonicalPaymentStatus(rawPaymentStatus),
+      due_date: missingColumns.has('due_date')
+        ? String(row.created_at ?? new Date().toISOString())
+        : String(row.due_date ?? row.created_at ?? new Date().toISOString()),
+      amount: missingColumns.has('amount')
+        ? null
+        : typeof row.amount === 'number'
+          ? row.amount
+          : row.amount == null
+            ? null
+            : Number(row.amount),
+      client_name: resolveInvoiceClientName(row),
+      created_at: String(row.created_at ?? new Date().toISOString()),
+    };
+  });
 };
 
 const loadVehicleDocumentsWithCompat = async (companyId: string): Promise<DocRow[]> => {
@@ -591,10 +597,10 @@ export default function AdminPage() {
       const pendingQuotes = quotes.filter((q) => ['draft', 'sent'].includes(q.status)).length;
       const documentRows = [...driverDocs, ...vehicleDocs];
       const openInvoices = invoices.filter((invoice) => {
-        const status = getInvoiceStatus(invoice.due_date, invoice.status);
-        return status !== 'Paid';
+        const paymentStatus = toCanonicalPaymentStatus(invoice.payment_status);
+        return paymentStatus !== 'paid' && paymentStatus !== 'refunded';
       });
-      const overdueInvoices = invoices.filter((invoice) => getInvoiceStatus(invoice.due_date, invoice.status) === 'Overdue');
+      const overdueInvoices = invoices.filter((invoice) => toCanonicalPaymentStatus(invoice.payment_status) === 'overdue');
       const attentionDocs = documentRows.filter((doc) => doc.status === 'expired' || doc.status === 'rejected');
       const expiringDocs = documentRows.filter((doc) => doc.status !== 'expired' && isExpiringSoon(doc.expiry_date, 30));
       const activity = [
