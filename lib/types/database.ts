@@ -1,4 +1,4 @@
-export type CompanyRole = 'owner' | 'admin' | 'dispatcher' | 'member' | 'viewer';
+export type CompanyRole = 'owner' | 'admin' | 'dispatcher' | 'finance' | 'member' | 'viewer';
 export type MembershipStatus = 'invited' | 'active' | 'suspended';
 export type DocStatus = 'pending' | 'approved' | 'rejected' | 'expired';
 export type JobStatus =
@@ -364,6 +364,7 @@ export interface Invoice {
   invoice_date: string;
   due_date: string;
   status: InvoiceStatus;
+  payment_status?: string | null;
   client_name: string;
   client_address: string | null;
   client_email: string | null;
@@ -379,6 +380,10 @@ export interface Invoice {
   vat_rate: 0 | 5 | 20;
   currency: string;
   payment_terms: string;
+  invoice_origin?: string | null;
+  commercial_agreement_id?: string | null;
+  buyer_company_id?: string | null;
+  supplier_company_id?: string | null;
   late_fee: string | null;
   pod_photos: string[] | null;
   signature: string | null;

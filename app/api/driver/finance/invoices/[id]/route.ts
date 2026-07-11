@@ -50,12 +50,12 @@ export async function GET(
       .order('changed_at', { ascending: true }),
     supabaseAdmin
       .from('invoice_payment_history')
-      .select('id, amount, currency, paid_at, settlement_method, external_reference, note, status_after')
+      .select('id, amount, currency, paid_at, settlement_method, external_reference, note')
       .eq('invoice_id', id)
       .order('paid_at', { ascending: false }),
     supabaseAdmin
       .from('invoice_disputes')
-      .select('id, reason, details, status, resolution_note, created_at, resolved_at')
+      .select('id, reason, details, status, resolution_note, commercial_agreement_id, buyer_company_id, supplier_company_id, job_id, created_at, resolved_at')
       .eq('invoice_id', id)
       .order('created_at', { ascending: false }),
     supabaseAdmin

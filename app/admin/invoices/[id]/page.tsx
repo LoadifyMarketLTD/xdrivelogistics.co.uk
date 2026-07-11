@@ -354,7 +354,7 @@ export default function InvoiceDetailPage() {
       }
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, company_id, created_by, invoice_number, job_ref, job_id, invoice_date, due_date, status, client_name, client_address, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, amount, net_amount, vat_amount, vat_rate, currency, payment_terms, late_fee, pod_photos, signature, recipient_name, created_at, updated_at')
+        .select('id, company_id, created_by, invoice_number, job_ref, job_id, invoice_date, due_date, status, payment_status, client_name, client_address, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, amount, net_amount, vat_amount, vat_rate, currency, payment_terms, late_fee, pod_photos, signature, recipient_name, created_at, updated_at')
         .eq('id', invoiceId)
         .eq('company_id', companyId)
         .single();
@@ -382,7 +382,10 @@ export default function InvoiceDetailPage() {
         isNew,
         invoiceId,
         companyId,
-        insertRow: row as Record<string, unknown>,
+        insertRow: {
+          ...row,
+          invoice_origin: 'manual',
+        } as Record<string, unknown>,
         updateFields: {
           ...updateFields,
           updated_at: new Date().toISOString(),
@@ -426,20 +429,34 @@ export default function InvoiceDetailPage() {
     }
 
     setRecordingPayment(true);
-    const { error } = await supabase.from('invoice_payment_history').insert({
-      invoice_id: invoiceId,
-      company_id: companyId,
-      recorded_by: user?.id ?? null,
-      amount,
-      currency: 'GBP',
-      paid_at: new Date(paymentInput.paidAt).toISOString(),
-      settlement_method: paymentInput.method,
-      external_reference: paymentInput.reference.trim() || null,
-      note: paymentInput.note.trim() || null,
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) {
+      setSaveMessage('A live Supabase session is required to record payments safely.');
+      setRecordingPayment(false);
+      return;
+    }
+
+    const response = await fetch(`/api/admin/invoices/${invoiceId}/payment-history`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount,
+        currency: 'GBP',
+        paid_at: new Date(paymentInput.paidAt).toISOString(),
+        settlement_method: paymentInput.method,
+        external_reference: paymentInput.reference.trim() || null,
+        note: paymentInput.note.trim() || null,
+        idempotency_key: crypto.randomUUID(),
+      }),
     });
 
-    if (error) {
-      setSaveMessage(`Error recording payment: ${error.message}`);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Failed to record payment.' })) as { error?: string };
+      setSaveMessage(`Error recording payment: ${payload.error ?? 'Failed to record payment.'}`);
       setRecordingPayment(false);
       return;
     }
@@ -457,34 +474,42 @@ export default function InvoiceDetailPage() {
   };
 
   const handleMarkAsPaid = async () => {
-    if (isNew || !companyId || !invoiceId || formData.status === 'Paid' || markingPaid) return;
+    if (isNew || !companyId || !invoiceId || outstandingBalance <= 0 || markingPaid) return;
     setMarkingPaid(true);
-    const nowIso = new Date().toISOString();
-    const { error: invoiceError } = await supabase
-      .from('invoices')
-      .update({ status: 'Paid', updated_at: nowIso })
-      .eq('id', invoiceId)
-      .eq('company_id', companyId);
-
-    if (invoiceError) {
-      setSaveMessage(`Error marking invoice as paid: ${invoiceError.message}`);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) {
+      setSaveMessage('A live Supabase session is required to record payments safely.');
       setMarkingPaid(false);
       return;
     }
 
-    if (linkedJobId) {
-      const { error: jobError } = await supabase
-        .from('jobs')
-        .update({ status: 'paid', updated_at: nowIso })
-        .eq('id', linkedJobId)
-        .eq('company_id', companyId);
-      if (jobError) {
-        setSaveMessage(`Invoice marked as paid, but linked job update failed: ${jobError.message}`);
-      }
+    const response = await fetch(`/api/admin/invoices/${invoiceId}/payment-history`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount: Number(outstandingBalance.toFixed(2)),
+        currency: 'GBP',
+        paid_at: new Date().toISOString(),
+        settlement_method: paymentInput.method,
+        external_reference: paymentInput.reference.trim() || null,
+        note: paymentInput.note.trim() || 'Recorded as full settlement from admin invoice detail.',
+        idempotency_key: crypto.randomUUID(),
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Failed to settle invoice.' })) as { error?: string };
+      setSaveMessage(`Error settling invoice: ${payload.error ?? 'Failed to settle invoice.'}`);
+      setMarkingPaid(false);
+      return;
     }
 
     await loadInvoice();
-    setSaveMessage('Invoice marked as paid.');
+    setSaveMessage('Invoice settled successfully.');
     setMarkingPaid(false);
   };
 
@@ -546,6 +571,8 @@ export default function InvoiceDetailPage() {
     color: '#374151',
     marginBottom: '0.5rem',
   };
+  const totalPaid = paymentHistory.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const outstandingBalance = Math.max(0, Number(formData.amount || 0) - totalPaid);
 
   return (
     <ProtectedRoute>
@@ -675,7 +702,7 @@ export default function InvoiceDetailPage() {
                   >
                     {downloadingPdf ? '⏳ Preparing PDF…' : '⬇️ Download PDF'}
                   </button>
-                  {!isNew && formData.status !== 'Paid' && (
+                  {!isNew && outstandingBalance > 0 && (
                     <button
                       onClick={() => void handleMarkAsPaid()}
                       disabled={markingPaid}
@@ -692,7 +719,7 @@ export default function InvoiceDetailPage() {
                         transition: 'background-color 0.2s',
                       }}
                     >
-                      {markingPaid ? '⏳ Updating…' : '✅ Mark as Paid'}
+                      {markingPaid ? '⏳ Updating…' : '✅ Settle Outstanding Balance'}
                     </button>
                   )}
                   <button
