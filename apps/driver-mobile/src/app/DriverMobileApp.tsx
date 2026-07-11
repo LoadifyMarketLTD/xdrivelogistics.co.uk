@@ -25,6 +25,7 @@ import type {
   JobScope,
 } from '../jobs/types';
 import { enqueueAction, getQueue, isOnline, saveQueue, updateQueueItem, type QueuedAction } from '../offline/queue';
+import { SignaturePad } from '../ui/SignaturePad';
 import { colors, spacing } from '../ui/theme';
 
 // ─── Screen types ────────────────────────────────────────────────────────────
@@ -1040,7 +1041,7 @@ function PodScreen({
   const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [documentUris, setDocumentUris] = useState<string[]>([]);
   const [recipientName, setRecipientName] = useState('');
-  const [signatureData, setSignatureData] = useState('');
+  const [signatureData, setSignatureData] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
 
   async function addPhoto() {
@@ -1058,7 +1059,7 @@ function PodScreen({
   }
 
   async function savePod() {
-    const payload = { photoUris, documentUris, recipientName, signatureData, notes };
+    const payload = { photoUris, documentUris, recipientName, signatureData: signatureData ?? '', notes };
     if (!token || !(await isOnline())) {
       const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
@@ -1074,6 +1075,9 @@ function PodScreen({
       onSaved();
     }
   }
+
+  const canSave =
+    photoUris.length > 0 || documentUris.length > 0 || !!recipientName || !!signatureData;
 
   return (
     <View style={styles.stack}>
@@ -1098,6 +1102,7 @@ function PodScreen({
           value={recipientName}
           onChangeText={setRecipientName}
         />
+        <SignaturePad onCapture={setSignatureData} />
         <TextInput
           placeholder="Notes (optional)"
           placeholderTextColor={colors.muted}
@@ -1109,7 +1114,7 @@ function PodScreen({
         <PrimaryButton
           label="Save POD"
           onPress={savePod}
-          disabled={photoUris.length === 0 && documentUris.length === 0 && !recipientName}
+          disabled={!canSave}
         />
       </Panel>
     </View>
