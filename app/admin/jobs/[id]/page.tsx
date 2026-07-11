@@ -187,9 +187,22 @@ export default function JobDetailPage() {
               const deliveryPhotos = Array.isArray(row.delivery_photos)
                 ? (row.delivery_photos as string[]).filter((photo) => typeof photo === 'string' && photo.length > 0)
                 : [];
-              const signature = typeof row.delivery_signature_data === 'string' && row.delivery_signature_data.length > 0
-                ? row.delivery_signature_data
-                : undefined;
+              const signature = (() => {
+                const raw = row.delivery_signature_data;
+                if (typeof raw === 'string' && raw.length > 0) {
+                  // Mobile driver stores { type, value, ... } as JSON text; web driver stores the data URL directly.
+                  try {
+                    const parsed = JSON.parse(raw) as unknown;
+                    if (parsed && typeof parsed === 'object' && 'value' in parsed && typeof (parsed as Record<string, unknown>).value === 'string') {
+                      return (parsed as Record<string, unknown>).value as string;
+                    }
+                  } catch {
+                    // Not JSON — treat as a raw data URL (web driver path)
+                  }
+                  return raw;
+                }
+                return undefined;
+              })();
               const recipientName = typeof row.client_signature_name === 'string' && row.client_signature_name.length > 0
                 ? row.client_signature_name
                 : undefined;
