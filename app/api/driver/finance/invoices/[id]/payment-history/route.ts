@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { canRecordInvoicePayments } from '../../../../../../lib/financePermissions';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -53,7 +54,7 @@ export async function GET(
 
   const { data: inv } = await supabaseAdmin
     .from('invoices')
-    .select('id, amount')
+    .select('id, amount, payment_status')
     .eq('id', id)
     .eq('company_id', driver.companyId)
     .maybeSingle();
@@ -61,7 +62,7 @@ export async function GET(
 
   const { data, error } = await supabaseAdmin
     .from('invoice_payment_history')
-    .select('id, amount, currency, paid_at, settlement_method, external_reference, note, status_after, created_at')
+    .select('id, amount, currency, paid_at, settlement_method, external_reference, note, created_at')
     .eq('invoice_id', id)
     .order('paid_at', { ascending: false });
 
@@ -78,6 +79,7 @@ export async function GET(
       totalPaid,
       balance: Math.max(0, balance),
       fullySettled: balance <= 0,
+      paymentStatus: inv.payment_status ?? 'unpaid',
     },
   });
 }
@@ -85,7 +87,7 @@ export async function GET(
 // POST /api/driver/finance/invoices/[id]/payment-history
 // Body: { amount, idempotency_key, currency?, paid_at?, settlement_method?, external_reference?, note? }
 // idempotency_key is required to prevent duplicate payment records.
-// Caller must be an owner, admin, or dispatcher — regular drivers cannot record payments.
+// Caller must be an owner, admin, dispatcher, or finance member — regular drivers cannot record payments.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -100,16 +102,15 @@ export async function POST(
 
   // Only admin-tier members may record payments — never bare drivers.
   const callerRole = await resolveCompanyRole(driver.userId, driver.companyId);
-  const ALLOWED_ROLES = ['owner', 'admin', 'dispatcher'];
-  if (!callerRole || !ALLOWED_ROLES.includes(callerRole)) {
+  if (!canRecordInvoicePayments(callerRole)) {
     return respond(403, {
-      error: 'Forbidden — only owner, admin, or dispatcher may record invoice payments.',
+      error: 'Forbidden — only owner, admin, dispatcher, or finance may record invoice payments.',
     });
   }
 
   const { data: inv } = await supabaseAdmin
     .from('invoices')
-    .select('id, amount, status')
+    .select('id, amount, payment_status')
     .eq('id', id)
     .eq('company_id', driver.companyId)
     .maybeSingle();
