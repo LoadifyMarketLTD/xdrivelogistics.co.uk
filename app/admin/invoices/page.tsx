@@ -11,11 +11,13 @@ import {
   resolveInvoiceClientName,
 } from '../../../lib/supabaseSchemaCompat';
 import {
+  toCanonicalInvoiceDisplayStatus,
   toCanonicalInvoiceStatusWithDueDate,
+  toCanonicalPaymentStatus,
   type CanonicalInvoiceStatus,
 } from '../../../lib/invoiceStatus';
 
-type InvoiceListItem = InvoiceData & { jobId: string | null };
+type InvoiceListItem = InvoiceData & { jobId: string | null; paymentStatus: string | null };
 
 function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): InvoiceListItem {
   const invoiceDate =
@@ -27,7 +29,11 @@ function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): Invo
   const dueDate = typeof row.due_date === 'string' ? row.due_date : invoiceDate;
   const paymentTerms = row.payment_terms === 'Pay now' || row.payment_terms === '30 days' ? row.payment_terms : '14 days';
   const status =
-    toCanonicalInvoiceStatusWithDueDate(typeof row.status === 'string' ? row.status : null, dueDate);
+    toCanonicalInvoiceDisplayStatus(
+      typeof row.status === 'string' ? row.status : null,
+      dueDate,
+      typeof row.payment_status === 'string' ? row.payment_status : null
+    );
   return {
     id: typeof row.id === 'string' ? row.id : fallbackId,
     invoiceNumber: typeof row.invoice_number === 'string' ? row.invoice_number : `Invoice-${fallbackId.slice(0, 8)}`,
@@ -54,6 +60,7 @@ function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): Invo
     signature: typeof row.signature === 'string' ? row.signature : undefined,
     recipientName: typeof row.recipient_name === 'string' ? row.recipient_name : undefined,
     jobId: typeof row.job_id === 'string' ? row.job_id : null,
+    paymentStatus: typeof row.payment_status === 'string' ? row.payment_status : null,
   };
 }
 
@@ -64,7 +71,6 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | CanonicalInvoiceStatus>('All');
   const INVOICES_PER_PAGE = 12;
@@ -87,7 +93,7 @@ export default function InvoicesPage() {
       return;
     }
     const activeColumns = [
-      'id', 'company_id', 'created_by', 'invoice_number', 'job_ref', 'job_id', 'invoice_date', 'due_date', 'status',
+      'id', 'company_id', 'created_by', 'invoice_number', 'job_ref', 'job_id', 'invoice_date', 'due_date', 'status', 'payment_status',
       'client_name', 'client_address', 'client_email', 'pickup_location', 'pickup_datetime', 'delivery_location',
       'delivery_datetime', 'delivery_recipient', 'service_description', 'amount', 'net_amount', 'vat_amount',
       'vat_rate', 'currency', 'payment_terms', 'late_fee', 'pod_photos', 'signature', 'recipient_name', 'created_at',
@@ -137,39 +143,6 @@ export default function InvoicesPage() {
     safeInvoicePage * INVOICES_PER_PAGE,
     (safeInvoicePage + 1) * INVOICES_PER_PAGE,
   );
-
-  const handleMarkAsPaid = async (invoice: InvoiceListItem) => {
-    if (!companyId || markingPaidId || invoice.status === 'Paid') return;
-    setMarkingPaidId(invoice.id);
-    setLoadError('');
-
-    const nowIso = new Date().toISOString();
-    const { error: invoiceError } = await supabase
-      .from('invoices')
-      .update({ status: 'Paid', updated_at: nowIso })
-      .eq('id', invoice.id)
-      .eq('company_id', companyId);
-
-    if (invoiceError) {
-      setLoadError(`Failed to mark invoice paid: ${invoiceError.message}`);
-      setMarkingPaidId(null);
-      return;
-    }
-
-    if (invoice.jobId) {
-      const { error: jobError } = await supabase
-        .from('jobs')
-        .update({ status: 'paid', updated_at: nowIso })
-        .eq('id', invoice.jobId)
-        .eq('company_id', companyId);
-      if (jobError) {
-        setLoadError(`Invoice marked paid, but job status update failed: ${jobError.message}`);
-      }
-    }
-
-    await loadInvoices();
-    setMarkingPaidId(null);
-  };
 
   const getStatusStyle = (status: string) => {
     const baseStyle: React.CSSProperties = {
@@ -396,13 +369,12 @@ export default function InvoicesPage() {
                             >
                               View
                             </button>
-                            {invoice.status !== 'Paid' && (
+                            {toCanonicalPaymentStatus(invoice.paymentStatus) !== 'paid' && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  void handleMarkAsPaid(invoice);
+                                  router.push(`/admin/invoices/${invoice.id}`);
                                 }}
-                                disabled={markingPaidId === invoice.id}
                                 style={{
                                   padding: '0.4rem 0.8rem',
                                   backgroundColor: '#dcfce7',
@@ -411,11 +383,10 @@ export default function InvoicesPage() {
                                   borderRadius: '6px',
                                   fontSize: '0.8rem',
                                   fontWeight: '600',
-                                  cursor: markingPaidId === invoice.id ? 'not-allowed' : 'pointer',
-                                  opacity: markingPaidId === invoice.id ? 0.75 : 1,
+                                  cursor: 'pointer',
                                 }}
                               >
-                                {markingPaidId === invoice.id ? 'Saving...' : 'Mark as Paid'}
+                                Record Payment
                               </button>
                             )}
                           </div>

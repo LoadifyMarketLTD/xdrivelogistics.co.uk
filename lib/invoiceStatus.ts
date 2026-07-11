@@ -8,6 +8,15 @@ export const CANONICAL_INVOICE_STATUSES = [
 ] as const;
 
 export type CanonicalInvoiceStatus = (typeof CANONICAL_INVOICE_STATUSES)[number];
+export const CANONICAL_PAYMENT_STATUSES = [
+  'unpaid',
+  'partially_paid',
+  'paid',
+  'overdue',
+  'disputed',
+  'refunded',
+] as const;
+export type CanonicalPaymentStatus = (typeof CANONICAL_PAYMENT_STATUSES)[number];
 
 export const LEGACY_INVOICE_STATUSES = ['Pending', 'Submitted', 'Approved'] as const;
 export type LegacyInvoiceStatus = (typeof LEGACY_INVOICE_STATUSES)[number];
@@ -60,6 +69,28 @@ export const toCanonicalInvoiceStatusWithDueDate = (
   if (Number.isNaN(due.getTime())) return canonical;
   return new Date() > due ? 'Overdue' : canonical;
 };
+
+export const toCanonicalPaymentStatus = (
+  value: string | null | undefined,
+  fallback: CanonicalPaymentStatus = 'unpaid'
+): CanonicalPaymentStatus => {
+  if (!value) return fallback;
+
+  const normalized = value.toLowerCase();
+  return CANONICAL_PAYMENT_STATUSES.find((status) => status === normalized) ?? fallback;
+};
+
+export const isInvoiceFullyPaid = (paymentStatus: string | null | undefined) =>
+  toCanonicalPaymentStatus(paymentStatus) === 'paid';
+
+export const toCanonicalInvoiceDisplayStatus = (
+  invoiceStatus: string | null | undefined,
+  dueDate: string | null | undefined,
+  paymentStatus: string | null | undefined
+): CanonicalInvoiceStatus =>
+  isInvoiceFullyPaid(paymentStatus)
+    ? 'Paid'
+    : toCanonicalInvoiceStatusWithDueDate(invoiceStatus, dueDate);
 
 export const buildInvoiceStatusSummary = (statuses: Array<string | null | undefined>) =>
   statuses.reduce(

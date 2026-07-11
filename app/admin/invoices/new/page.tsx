@@ -215,6 +215,7 @@ export default function NewInvoicePage() {
         vat_rate: vatRate,
         currency: currency || 'GBP',
         payment_terms: paymentTerms,
+        invoice_origin: 'manual',
         late_fee: COMPANY_CONFIG.payment.lateFeeNote,
         pod_photos: null,
         signature: null,

@@ -132,7 +132,7 @@ export default function DispatchersPage() {
     }
 
     void Promise.all([loadDispatchers(companyId), loadCompanyName(companyId)]);
-  }, [companyResolved, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [companyResolved, companyId]);
 
   const handleCreate = async () => {
     if (!formData.display_name.trim()) {

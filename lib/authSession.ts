@@ -90,6 +90,7 @@ const resolveFinanceAccess = (
 ): 'full' | 'limited' | 'hidden' => {
   if (role === 'owner' || role === 'company_admin') return 'full';
   if (role !== 'company_staff') return 'hidden';
+  if (membershipRole === 'finance') return 'full';
 
   const explicitFinanceFlag =
     readMetadataFlag(sessionUser.user_metadata, 'finance_view') ||
