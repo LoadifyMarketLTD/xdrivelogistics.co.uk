@@ -24,8 +24,10 @@ async function resolveDriver(request: NextRequest) {
 // Generates a draft marketplace invoice from the job's commercial agreement.
 // For marketplace jobs (exchange/direct visibility) a commercial agreement MUST
 // exist — the route never falls back to jobs.budget_amount.
+// For non-marketplace (direct/private) jobs: uses body.amount if supplied,
+// otherwise falls back to jobs.budget_amount automatically.
 // Required body: { idempotency_key }
-// Optional body: { client_name?, client_email?, payment_terms?, vat_rate?, service_description? }
+// Optional body: { amount?, client_name?, client_email?, payment_terms?, vat_rate?, service_description? }
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
@@ -59,7 +61,7 @@ export async function POST(
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
     .select(
-      'id, company_id, awarded_carrier_company_id, exchange_visibility, status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email'
+      'id, company_id, awarded_carrier_company_id, exchange_visibility, status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount'
     )
     .eq('id', jobId)
     .or(`company_id.eq.${driver.companyId},awarded_carrier_company_id.eq.${driver.companyId}`)
@@ -167,16 +169,21 @@ export async function POST(
     typeof job.client_email === 'string' ? job.client_email : null;
 
   // Amount: for marketplace jobs use the commercial agreement exclusively.
-  // For non-marketplace jobs allow caller-supplied amount only.
+  // For non-marketplace jobs prefer caller-supplied amount; fall back to the
+  // job's budget_amount so the UI does not need to pass it explicitly.
   const rawAmount: number = isMarketplaceJob
     ? (agreedAmount ?? 0)
-    : (typeof body.amount === 'number' && body.amount > 0 ? body.amount : 0);
+    : (typeof body.amount === 'number' && body.amount > 0
+        ? body.amount
+        : (typeof job.budget_amount === 'number' && (job.budget_amount as number) > 0
+            ? (job.budget_amount as number)
+            : 0));
 
   if (rawAmount <= 0) {
     return respond(422, {
       error: isMarketplaceJob
         ? 'Commercial agreement has a zero or missing amount.'
-        : 'amount must be a positive number.',
+        : 'No amount available: supply a positive amount in the request body or ensure the job has a budget_amount.',
     });
   }
 
