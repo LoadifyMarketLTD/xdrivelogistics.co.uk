@@ -14,7 +14,7 @@ import {
   mobileMutedTextStyle,
 } from './MobileUiPrimitives';
 
-type MobileTab = 'home' | 'loads' | 'quotes' | 'jobs' | 'more';
+type MobileTab = 'home' | 'alerts' | 'quotes' | 'bookings' | 'more';
 
 type MobileJob = {
   id: string;
@@ -36,16 +36,6 @@ type MobileJob = {
   delivered_at: string | null;
   updated_at: string | null;
   created_at: string | null;
-};
-
-type AvailableLoad = {
-  id: string;
-  pickup_location: string | null;
-  delivery_location: string | null;
-  pickup_datetime: string | null;
-  vehicle_type: string | null;
-  budget_amount: number | null;
-  status: string | null;
 };
 
 type DriverBid = {
@@ -84,16 +74,25 @@ type DriverDocument = {
   created_at: string | null;
 };
 
+type DriverNotification = {
+  id: string;
+  title: string;
+  body: string | null;
+  type: string | null;
+  read_at: string | null;
+  created_at: string | null;
+};
+
 const statusLabels: Record<string, string> = {
   draft: 'Draft',
   posted: 'Posted',
-  awarded: 'Awarded',
-  allocated: 'Allocated',
-  on_my_way: 'On route',
-  on_site_pickup: 'Arrived pickup',
+  awarded: 'Assigned',
+  allocated: 'Assigned',
+  on_my_way: 'On Route',
+  on_site_pickup: 'At Pickup',
   loaded: 'Loaded',
-  on_site_delivery: 'Arrived delivery',
-  in_transit: 'In transit',
+  on_site_delivery: 'At Delivery',
+  in_transit: 'In Transit',
   delivered: 'Delivered',
   completed: 'Completed',
 };
@@ -114,6 +113,8 @@ const fmtDateTime = (value: string | null | undefined) => {
 
 const normalizeStatus = (job: MobileJob | null) => job?.current_status || job?.status || 'allocated';
 const isLiveJob = (job: MobileJob) => !['delivered', 'completed', 'cancelled'].includes(normalizeStatus(job));
+const isAssignedJob = (job: MobileJob) => ['awarded', 'allocated'].includes(normalizeStatus(job));
+const isInProgressJob = (job: MobileJob) => ['on_my_way', 'on_site_pickup', 'loaded', 'on_site_delivery', 'in_transit'].includes(normalizeStatus(job));
 
 const pageStyle: CSSProperties = {
   minHeight: '100vh',
@@ -129,17 +130,18 @@ export default function DriverMobileApp() {
   const podInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<MobileTab>('home');
   const [jobs, setJobs] = useState<MobileJob[]>([]);
-  const [loads, setLoads] = useState<AvailableLoad[]>([]);
   const [bids, setBids] = useState<DriverBid[]>([]);
   const [vehicle, setVehicle] = useState<VehicleRow | null>(null);
   const [notes, setNotes] = useState<DriverJobNote[]>([]);
   const [documents, setDocuments] = useState<DriverDocument[]>([]);
+  const [notifications, setNotifications] = useState<DriverNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [message, setMessage] = useState('');
 
   const driverId = user?.driverId ?? null;
   const companyId = user?.companyId ?? null;
+  const userId = user?.id ?? null;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -149,7 +151,7 @@ export default function DriverMobileApp() {
       return;
     }
 
-    const [jobRes, vehicleRes, loadRes, bidRes, documentRes] = await Promise.all([
+    const [jobRes, vehicleRes, bidRes, documentRes, notifRes] = await Promise.all([
       supabase
         .from('jobs')
         .select('id, status, current_status, pickup_location, delivery_location, pickup_datetime, delivery_datetime, client_name, vehicle_type, load_details, delivery_photos, pod_photos, on_my_way_at, on_site_pickup_at, loaded_at, on_site_delivery_at, delivered_at, updated_at, created_at')
@@ -162,13 +164,6 @@ export default function DriverMobileApp() {
         .eq('assigned_driver_id', driverId)
         .limit(1)
         .maybeSingle(),
-      supabase
-        .from('jobs')
-        .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, budget_amount, status')
-        .in('status', ['posted', 'open'])
-        .is('awarded_carrier_company_id', null)
-        .order('pickup_datetime', { ascending: true })
-        .limit(25),
       companyId
         ? supabase
             .from('job_bids')
@@ -183,15 +178,23 @@ export default function DriverMobileApp() {
         .eq('driver_id', driverId)
         .order('created_at', { ascending: false })
         .limit(20),
+      userId
+        ? supabase
+            .from('notifications')
+            .select('id, title, body, type, read_at, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(50)
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     if (jobRes.error) setMessage(`Jobs could not be loaded: ${jobRes.error.message}`);
     const jobRows = (jobRes.data ?? []) as MobileJob[];
     setJobs(jobRows);
     setVehicle((vehicleRes.data ?? null) as VehicleRow | null);
-    setLoads((loadRes.data ?? []) as AvailableLoad[]);
     setBids((bidRes.data ?? []) as unknown as DriverBid[]);
     setDocuments((documentRes.data ?? []) as DriverDocument[]);
+    setNotifications((notifRes.data ?? []) as DriverNotification[]);
 
     if (jobRows.length) {
       const { data: noteRows } = await supabase
@@ -205,7 +208,7 @@ export default function DriverMobileApp() {
       setNotes([]);
     }
     setLoading(false);
-  }, [driverId, companyId]);
+  }, [driverId, companyId, userId]);
 
   useEffect(() => {
     void loadData();
@@ -214,11 +217,14 @@ export default function DriverMobileApp() {
   const activeJob = useMemo(() => jobs.find(isLiveJob) ?? jobs[0] ?? null, [jobs]);
   const todaysJobs = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
-    return jobs.filter((job) => (job.pickup_datetime ?? job.created_at ?? '').slice(0, 10) === today).slice(0, 6);
+    return jobs.filter((job: MobileJob) => (job.pickup_datetime ?? job.created_at ?? '').slice(0, 10) === today).slice(0, 6);
   }, [jobs]);
-  const completedJobs = jobs.filter((job) => ['delivered', 'completed'].includes(normalizeStatus(job)));
+  const completedJobs = jobs.filter((job: MobileJob) => ['delivered', 'completed'].includes(normalizeStatus(job)));
   const activeJobs = jobs.filter(isLiveJob);
-  const activeJobNotes = activeJob ? notes.filter((note) => note.job_id === activeJob.id).slice(0, 3) : [];
+  const assignedJobs = jobs.filter(isAssignedJob);
+  const inProgressJobs = jobs.filter(isInProgressJob);
+  const activeJobNotes = activeJob ? notes.filter((note: DriverJobNote) => note.job_id === activeJob.id).slice(0, 3) : [];
+  const unreadNotifCount = notifications.filter((n: DriverNotification) => !n.read_at).length;
 
   const updateStatus = async (
     job: MobileJob,
@@ -281,6 +287,16 @@ export default function DriverMobileApp() {
     await loadData();
   };
 
+  const markAllNotificationsRead = async () => {
+    if (!userId || !isSupabaseConfigured) return;
+    await supabase
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .is('read_at', null);
+    await loadData();
+  };
+
   const Header = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
@@ -294,117 +310,207 @@ export default function DriverMobileApp() {
     </div>
   );
 
-  const Home = () => (
-    <div style={{ display: 'grid', gap: '0.75rem' }}>
-      <MobileCard highlighted>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ color: '#facc15', fontSize: '0.72rem', fontWeight: 900, letterSpacing: '0.06em' }}>ACTIVE JOB</div>
-            <h1 style={{ margin: '0.35rem 0 0', fontSize: '1.25rem', lineHeight: 1.15 }}>
-              {activeJob ? `${activeJob.pickup_location || 'Pickup TBC'} to ${activeJob.delivery_location || 'Delivery TBC'}` : 'No active job'}
-            </h1>
-          </div>
-          {activeJob && <StatusPill status={normalizeStatus(activeJob)} />}
-        </div>
-
-        {activeJob ? (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginTop: '0.9rem' }}>
-              <MobileKpiItem label="Pickup" value={fmtDateTime(activeJob.pickup_datetime)} />
-              <MobileKpiItem label="Delivery" value={fmtDateTime(activeJob.delivery_datetime)} />
-              <MobileKpiItem label="Customer" value={activeJob.client_name || 'TBC'} />
-              <MobileKpiItem label="Vehicle" value={activeJob.vehicle_type?.replace(/_/g, ' ') || vehicle?.reg_plate || 'TBC'} />
-            </div>
-            <StatusActions job={activeJob} busyAction={busyAction} updateStatus={updateStatus} />
-            <button onClick={() => podInputRef.current?.click()} disabled={busyAction === 'pod'} style={primaryActionButton}>
-              {busyAction === 'pod' ? 'Uploading POD...' : 'Upload POD'}
-            </button>
-          </>
-        ) : (
-          <div style={{ ...mobileMutedTextStyle, marginTop: '0.75rem' }}>You have no active assigned work right now.</div>
-        )}
-      </MobileCard>
-
-      <MobileCard>
-        <MobileSectionTitle>Next stop</MobileSectionTitle>
-        {activeJob ? (
-          <div>
-            <div style={{ fontSize: '1rem', fontWeight: 800 }}>{nextStopLabel(activeJob)}</div>
-            <div style={{ ...mobileMutedTextStyle, marginTop: '0.3rem' }}>{nextStopAddress(activeJob)}</div>
-          </div>
-        ) : <div style={mobileMutedTextStyle}>No next stop available.</div>}
-      </MobileCard>
-
-      <MobileCard>
-        <MobileSectionTitle>Today&apos;s jobs</MobileSectionTitle>
-        <JobMiniList jobs={todaysJobs.length ? todaysJobs : activeJobs.slice(0, 4)} />
-      </MobileCard>
-
-      <MobileCard>
-        <MobileSectionTitle>Driver messages / notes</MobileSectionTitle>
-        {activeJobNotes.length === 0 ? (
-          <div style={mobileMutedTextStyle}>No notes for the active job.</div>
-        ) : (
-          <div style={{ display: 'grid', gap: '0.5rem' }}>
-            {activeJobNotes.map((note) => (
-              <div key={note.id} style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '0.7rem' }}>
-                <div style={{ fontWeight: 780, lineHeight: 1.35 }}>{note.note}</div>
-                <div style={{ ...mobileMutedTextStyle, marginTop: '0.25rem' }}>{fmtDateTime(note.created_at)}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </MobileCard>
-
-      <MobileCard>
-        <MobileSectionTitle>Tracking</MobileSectionTitle>
-        <MobileKpiGrid>
-          <MobileKpiItem label="Driver status" value={activeJob ? statusLabels[normalizeStatus(activeJob)] ?? normalizeStatus(activeJob) : 'Available'} />
-          <MobileKpiItem label="Assigned vehicle" value={vehicle ? [vehicle.reg_plate, vehicle.make, vehicle.model].filter(Boolean).join(' ') : 'TBC'} />
-        </MobileKpiGrid>
-      </MobileCard>
-    </div>
-  );
-
-  const Loads = () => (
-    <MobileCard>
-      <MobileSectionTitle>Available loads</MobileSectionTitle>
-      <div style={{ display: 'grid', gap: '0.6rem' }}>
-        {loads.length === 0 ? <div style={mobileMutedTextStyle}>No available loads match your account right now.</div> : loads.map((load) => (
-          <button key={load.id} onClick={() => setMessage('Load detail and quote actions stay inside the mobile app.')} style={listButton}>
-            <div style={{ fontWeight: 800 }}>{load.pickup_location || 'Pickup TBC'} to {load.delivery_location || 'Delivery TBC'}</div>
-            <div style={mobileMutedTextStyle}>{fmtDateTime(load.pickup_datetime)} · {load.vehicle_type?.replace(/_/g, ' ') || 'Vehicle TBC'} · {load.budget_amount ? `£${Number(load.budget_amount).toFixed(0)}` : 'Quote required'}</div>
-          </button>
-        ))}
-      </div>
-    </MobileCard>
-  );
-
-  const Quotes = () => {
-    const submitted = bids.filter((bid) => bid.status === 'submitted');
-    const won = bids.filter((bid) => bid.status === 'accepted');
-    const unsuccessful = bids.filter((bid) => ['rejected', 'withdrawn', 'unsuccessful'].includes(bid.status));
+  const Home = () => {
+    const vehicleLabel = vehicle ? [vehicle.reg_plate, vehicle.make, vehicle.model].filter(Boolean).join(' ') : 'No vehicle assigned';
     return (
       <div style={{ display: 'grid', gap: '0.75rem' }}>
-        <QuoteGroup title="Submitted" bids={submitted} />
-        <QuoteGroup title="Won" bids={won} />
-        <QuoteGroup title="Unsuccessful" bids={unsuccessful} />
+        {unreadNotifCount > 0 && (
+          <button onClick={() => setTab('alerts')} style={{ ...moreButton, background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 12, padding: '0.65rem 0.75rem' }}>
+            <span>🔔 {unreadNotifCount} unread notification{unreadNotifCount !== 1 ? 's' : ''}</span>
+            <span style={{ color: '#60a5fa' }}>View →</span>
+          </button>
+        )}
+        <MobileCard>
+          <MobileKpiGrid>
+            <MobileKpiItem label="Assigned" value={String(assignedJobs.length)} />
+            <MobileKpiItem label="In Progress" value={String(inProgressJobs.length)} />
+            <MobileKpiItem label="Completed" value={String(completedJobs.length)} />
+            <MobileKpiItem label="Assigned vehicle" value={vehicleLabel} />
+          </MobileKpiGrid>
+        </MobileCard>
+        <MobileCard highlighted>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ color: '#facc15', fontSize: '0.72rem', fontWeight: 900, letterSpacing: '0.06em' }}>ACTIVE JOB</div>
+              <h1 style={{ margin: '0.35rem 0 0', fontSize: '1.25rem', lineHeight: 1.15 }}>
+                {activeJob ? `${activeJob.pickup_location || 'Pickup TBC'} to ${activeJob.delivery_location || 'Delivery TBC'}` : 'No active job'}
+              </h1>
+            </div>
+            {activeJob && <StatusPill status={normalizeStatus(activeJob)} />}
+          </div>
+          {activeJob ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginTop: '0.9rem' }}>
+                <MobileKpiItem label="Pickup" value={fmtDateTime(activeJob.pickup_datetime)} />
+                <MobileKpiItem label="Delivery" value={fmtDateTime(activeJob.delivery_datetime)} />
+                <MobileKpiItem label="Customer" value={activeJob.client_name || 'TBC'} />
+                <MobileKpiItem label="Vehicle" value={activeJob.vehicle_type?.replace(/_/g, ' ') || vehicleLabel} />
+              </div>
+              <StatusActions job={activeJob} busyAction={busyAction} updateStatus={updateStatus} />
+              <button onClick={() => podInputRef.current?.click()} disabled={busyAction === 'pod'} style={primaryActionButton}>
+                {busyAction === 'pod' ? 'Uploading POD...' : 'Upload POD'}
+              </button>
+            </>
+          ) : (
+            <div style={{ ...mobileMutedTextStyle, marginTop: '0.75rem' }}>You have no active assigned work right now.</div>
+          )}
+        </MobileCard>
+        <MobileCard>
+          <MobileSectionTitle>Next stop</MobileSectionTitle>
+          {activeJob ? (
+            <div>
+              <div style={{ fontSize: '1rem', fontWeight: 800 }}>{nextStopLabel(activeJob)}</div>
+              <div style={{ ...mobileMutedTextStyle, marginTop: '0.3rem' }}>{nextStopAddress(activeJob)}</div>
+            </div>
+          ) : <div style={mobileMutedTextStyle}>No next stop available.</div>}
+        </MobileCard>
+        <MobileCard>
+          <MobileSectionTitle>Today&apos;s jobs</MobileSectionTitle>
+          <JobMiniList jobs={todaysJobs.length ? todaysJobs : activeJobs.slice(0, 4)} />
+        </MobileCard>
+        {activeJobNotes.length > 0 && (
+          <MobileCard>
+            <MobileSectionTitle>Job notes</MobileSectionTitle>
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {activeJobNotes.map((note) => (
+                <div key={note.id} style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '0.7rem' }}>
+                  <div style={{ fontWeight: 780, lineHeight: 1.35 }}>{note.note}</div>
+                  <div style={{ ...mobileMutedTextStyle, marginTop: '0.25rem' }}>{fmtDateTime(note.created_at)}</div>
+                </div>
+              ))}
+            </div>
+          </MobileCard>
+        )}
       </div>
     );
   };
 
-  const Jobs = () => (
-    <div style={{ display: 'grid', gap: '0.75rem' }}>
-      <MobileCard>
-        <MobileSectionTitle>Active jobs</MobileSectionTitle>
-        <JobMiniList jobs={activeJobs} />
-      </MobileCard>
-      <MobileCard>
-        <MobileSectionTitle>Completed</MobileSectionTitle>
-        <JobMiniList jobs={completedJobs.slice(0, 8)} />
-      </MobileCard>
-    </div>
-  );
+  const Alerts = () => {
+    const [notifFilter, setNotifFilter] = useState<'all' | 'unread' | 'important'>('all');
+    const filtered = notifications.filter((n) => {
+      if (notifFilter === 'unread') return !n.read_at;
+      if (notifFilter === 'important') return ['job_assigned', 'job_cancelled', 'pod_rejected', 'document_rejected'].includes(n.type ?? '');
+      return true;
+    });
+    return (
+      <div style={{ display: 'grid', gap: '0.75rem' }}>
+        <MobileCard>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+            <MobileSectionTitle>Alerts</MobileSectionTitle>
+            {unreadNotifCount > 0 && (
+              <button onClick={() => void markAllNotificationsRead()} style={{ ...ghostButton, fontSize: '0.72rem' }}>Mark all read</button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            {(['all', 'unread', 'important'] as const).map((f) => (
+              <button key={f} onClick={() => setNotifFilter(f)} style={{ flex: 1, minHeight: 36, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: notifFilter === f ? '#facc15' : 'transparent', color: notifFilter === f ? '#111827' : '#cbd5e1', fontWeight: 800, fontSize: '0.72rem', cursor: 'pointer' }}>
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+        </MobileCard>
+        {filtered.length === 0 ? (
+          <MobileCard>
+            <MobileSectionTitle>No notifications</MobileSectionTitle>
+            <div style={mobileMutedTextStyle}>
+              {notifFilter === 'unread' ? 'All notifications are read.' : 'Notifications for job assignments, updates, POD approvals and messages will appear here.'}
+            </div>
+          </MobileCard>
+        ) : (
+          filtered.map((n) => (
+            <MobileCard key={n.id} style={{ borderColor: !n.read_at ? 'rgba(59,130,246,0.4)' : undefined }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                <div style={{ fontSize: '1.3rem' }}>{notificationIcon(n.type)}</div>
+                {!n.read_at && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', flexShrink: 0 }} />}
+              </div>
+              <div style={{ fontWeight: 850 }}>{n.title}</div>
+              {n.body && <div style={mobileMutedTextStyle}>{n.body}</div>}
+              <div style={{ ...mobileMutedTextStyle, fontSize: '0.65rem' }}>{fmtDateTime(n.created_at)}</div>
+            </MobileCard>
+          ))
+        )}
+      </div>
+    );
+  };
+
+  const Quotes = () => {
+    const [quoteFilter, setQuoteFilter] = useState<'all' | 'submitted' | 'accepted' | 'rejected'>('all');
+    const filtered = quoteFilter === 'all' ? bids : bids.filter((b) => b.status === quoteFilter);
+    return (
+      <div style={{ display: 'grid', gap: '0.75rem' }}>
+        <MobileCard>
+          <MobileSectionTitle>Quotes</MobileSectionTitle>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            {(['all', 'submitted', 'accepted', 'rejected'] as const).map((f) => (
+              <button key={f} onClick={() => setQuoteFilter(f)} style={{ flex: 1, minHeight: 36, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: quoteFilter === f ? '#facc15' : 'transparent', color: quoteFilter === f ? '#111827' : '#cbd5e1', fontWeight: 800, fontSize: '0.68rem', cursor: 'pointer' }}>
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+        </MobileCard>
+        {filtered.length === 0 ? (
+          <MobileCard><div style={mobileMutedTextStyle}>No quotes to show.</div></MobileCard>
+        ) : (
+          filtered.map((bid) => (
+            <MobileCard key={bid.id}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.55rem' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 850 }}>{bid.jobs?.pickup_location || 'Pickup TBC'} → {bid.jobs?.delivery_location || 'Delivery TBC'}</div>
+                  <div style={{ ...mobileMutedTextStyle, marginTop: '0.2rem' }}>{fmtDateTime(bid.jobs?.pickup_datetime)} · £{Number(bid.bid_price_gbp ?? bid.amount ?? 0).toFixed(2)}</div>
+                </div>
+                <StatusPill status={bid.status} />
+              </div>
+              <div style={{ ...mobileMutedTextStyle, fontSize: '0.65rem' }}>{fmtDateTime(bid.created_at)}</div>
+            </MobileCard>
+          ))
+        )}
+      </div>
+    );
+  };
+
+  const Bookings = () => {
+    const [bookingTab, setBookingTab] = useState<'assigned' | 'inprogress' | 'completed'>('assigned');
+    const current = bookingTab === 'assigned' ? assignedJobs : bookingTab === 'inprogress' ? inProgressJobs : completedJobs;
+    return (
+      <div style={{ display: 'grid', gap: '0.75rem' }}>
+        <MobileCard>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <MobileSectionTitle>Bookings</MobileSectionTitle>
+            <button onClick={() => void loadData()} style={ghostButton}>Refresh</button>
+          </div>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            {([['assigned', assignedJobs.length], ['inprogress', inProgressJobs.length], ['completed', completedJobs.length]] as Array<['assigned' | 'inprogress' | 'completed', number]>).map(([t, count]) => (
+              <button key={t} onClick={() => setBookingTab(t)} style={{ flex: 1, minHeight: 44, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: bookingTab === t ? '#facc15' : 'transparent', color: bookingTab === t ? '#111827' : '#cbd5e1', fontWeight: 800, fontSize: '0.68rem', cursor: 'pointer' }}>
+                <div>{count}</div>
+                <div>{t === 'inprogress' ? 'Active' : t.charAt(0).toUpperCase() + t.slice(1)}</div>
+              </button>
+            ))}
+          </div>
+        </MobileCard>
+        {current.length === 0 ? (
+          <MobileCard><div style={mobileMutedTextStyle}>No {bookingTab === 'inprogress' ? 'in-progress' : bookingTab} jobs right now.</div></MobileCard>
+        ) : (
+          current.map((job) => (
+            <MobileCard key={job.id}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.55rem' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {job.pickup_location || 'Pickup TBC'} → {job.delivery_location || 'Delivery TBC'}
+                  </div>
+                  <div style={{ ...mobileMutedTextStyle, marginTop: '0.2rem' }}>{fmtTime(job.pickup_datetime)} pickup · {fmtTime(job.delivery_datetime)} delivery</div>
+                </div>
+                <StatusPill status={normalizeStatus(job)} />
+              </div>
+              <Timeline job={job} />
+              {isInProgressJob(job) && (
+                <StatusActions job={job} busyAction={busyAction} updateStatus={updateStatus} />
+              )}
+            </MobileCard>
+          ))
+        )}
+      </div>
+    );
+  };
 
   const More = () => (
     <MobileCard>
@@ -426,14 +532,14 @@ export default function DriverMobileApp() {
         ))}
       </div>
       {[
-        ['Jobs', 'jobs'],
-        ['POD upload', 'pod'],
+        ['Bookings', 'bookings'],
+        ['Upload POD', 'pod'],
         ['Profile', '/driver/change-password'],
-        ['Password', '/driver/change-password'],
-        ['Support', 'mailto:support@xdrivelogistics.co.uk'],
+        ['Change Password', '/driver/change-password'],
+        ['Help & Support', 'mailto:support@xdrivelogistics.co.uk'],
       ].map(([label, href]) => (
         <button key={label} onClick={() => {
-          if (href === 'jobs') setTab('jobs');
+          if (href === 'bookings') setTab('bookings');
           else if (href === 'pod') podInputRef.current?.click();
           else if (href.startsWith('mailto:')) window.location.href = href;
           else router.push(href);
@@ -456,14 +562,14 @@ export default function DriverMobileApp() {
         {loading ? <MobileCard>Loading work...</MobileCard> : (
           <>
             {tab === 'home' && <Home />}
-            {tab === 'loads' && <Loads />}
+            {tab === 'alerts' && <Alerts />}
             {tab === 'quotes' && <Quotes />}
-            {tab === 'jobs' && <Jobs />}
+            {tab === 'bookings' && <Bookings />}
             {tab === 'more' && <More />}
           </>
         )}
         <input ref={podInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={(event) => void uploadPod(event.target.files?.[0] ?? null)} />
-        <BottomNav active={tab} onChange={setTab} />
+        <BottomNav active={tab} onChange={setTab} unreadCount={unreadNotifCount} />
       </main>
     </ProtectedRoute>
   );
@@ -542,30 +648,13 @@ function Timeline({ job }: { job: MobileJob }) {
   );
 }
 
-function QuoteGroup({ title, bids }: { title: string; bids: DriverBid[] }) {
-  return (
-    <MobileCard>
-      <MobileSectionTitle>{title}</MobileSectionTitle>
-      {bids.length === 0 ? <div style={mobileMutedTextStyle}>No quotes in this section.</div> : (
-        <div style={{ display: 'grid', gap: '0.55rem' }}>
-          {bids.map((bid) => (
-            <div key={bid.id} style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '0.72rem' }}>
-              <div style={{ fontWeight: 850 }}>{bid.jobs?.pickup_location || 'Pickup TBC'} to {bid.jobs?.delivery_location || 'Delivery TBC'}</div>
-              <div style={mobileMutedTextStyle}>{fmtDateTime(bid.jobs?.pickup_datetime)} · £{Number(bid.bid_price_gbp ?? bid.amount ?? 0).toFixed(2)}</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </MobileCard>
-  );
-}
 
-function BottomNav({ active, onChange }: { active: MobileTab; onChange: (tab: MobileTab) => void }) {
+function BottomNav({ active, onChange, unreadCount }: { active: MobileTab; onChange: (tab: MobileTab) => void; unreadCount: number }) {
   const items: Array<[MobileTab, string]> = [
     ['home', 'Home'],
-    ['loads', 'Loads'],
+    ['alerts', 'Alerts'],
     ['quotes', 'Quotes'],
-    ['jobs', 'Jobs'],
+    ['bookings', 'Bookings'],
     ['more', 'More'],
   ];
   return (
@@ -573,7 +662,12 @@ function BottomNav({ active, onChange }: { active: MobileTab; onChange: (tab: Mo
       {items.map(([id, label]) => {
         const selected = active === id;
         return (
-          <button key={id} onClick={() => onChange(id)} style={{ minHeight: 48, border: 'none', borderRadius: 12, background: selected ? '#facc15' : 'transparent', color: selected ? '#111827' : '#cbd5e1', fontSize: '0.7rem', fontWeight: 900, cursor: 'pointer' }}>
+          <button key={id} onClick={() => onChange(id)} style={{ minHeight: 48, border: 'none', borderRadius: 12, background: selected ? '#facc15' : 'transparent', color: selected ? '#111827' : '#cbd5e1', fontSize: '0.7rem', fontWeight: 900, cursor: 'pointer', position: 'relative' }}>
+            {id === 'alerts' && unreadCount > 0 && (
+              <span style={{ position: 'absolute', top: 4, right: 6, background: '#ef4444', color: '#fff', borderRadius: '50%', minWidth: 16, height: 16, fontSize: '0.6rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
             {label}
           </button>
         );
@@ -631,16 +725,6 @@ const primaryActionButton: CSSProperties = {
   cursor: 'pointer',
 };
 
-const listButton: CSSProperties = {
-  width: '100%',
-  textAlign: 'left',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: 13,
-  background: 'rgba(255,255,255,0.045)',
-  color: '#fff',
-  padding: '0.8rem',
-  cursor: 'pointer',
-};
 
 const moreButton: CSSProperties = {
   width: '100%',
@@ -656,3 +740,21 @@ const moreButton: CSSProperties = {
   fontWeight: 800,
   cursor: 'pointer',
 };
+
+function notificationIcon(type: string | null) {
+  switch (type) {
+    case 'job_assigned': return '📋';
+    case 'job_updated': return '🔄';
+    case 'job_cancelled': return '❌';
+    case 'quote_accepted': return '✅';
+    case 'quote_rejected': return '❌';
+    case 'pod_approved': return '✅';
+    case 'pod_rejected': return '❌';
+    case 'document_approved': return '📄';
+    case 'document_rejected': return '📄';
+    case 'document_expiring': return '⚠️';
+    case 'new_message': return '💬';
+    case 'payment': return '💰';
+    default: return '🔔';
+  }
+}
