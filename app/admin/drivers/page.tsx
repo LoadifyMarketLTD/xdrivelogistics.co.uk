@@ -145,7 +145,7 @@ export default function DriversPage() {
       return;
     }
     void Promise.all([loadDrivers(companyId), loadCompanies(companyId)]);
-  }, [companyResolved, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [companyResolved, companyId]);
 
   useEffect(() => {
     setDriverPage(0);
