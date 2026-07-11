@@ -1,9 +1,13 @@
-export const PAYMENT_RECORDING_ROLES = new Set([
+const PAYMENT_RECORDING_ROLE_VALUES = [
   'owner',
   'admin',
   'dispatcher',
   'finance',
-] as const);
+] as const;
+
+export type PaymentRecordingRole = (typeof PAYMENT_RECORDING_ROLE_VALUES)[number];
+
+export const PAYMENT_RECORDING_ROLES = new Set<PaymentRecordingRole>(PAYMENT_RECORDING_ROLE_VALUES);
 
 export const canRecordInvoicePayments = (role: string | null | undefined) =>
-  Boolean(role && PAYMENT_RECORDING_ROLES.has(role as (typeof PAYMENT_RECORDING_ROLES extends Set<infer T> ? T : never)));
+  Boolean(role && PAYMENT_RECORDING_ROLES.has(role as PaymentRecordingRole));

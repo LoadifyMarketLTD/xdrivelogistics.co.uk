@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
-import { canRecordInvoicePayments } from '../../../../../../lib/financePermissions';
+import { canRecordInvoicePayments } from '@/lib/financePermissions';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });

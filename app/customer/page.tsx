@@ -9,7 +9,11 @@ import { labelToVehicleType, labelToCargoType } from '../../lib/vehicleTypes';
 import { downloadInvoicePdf } from '../../lib/invoicePdf';
 import { loadCompanySettings } from '../../lib/companySettings';
 import type { InvoiceData } from '../components/InvoiceTemplate';
-import { toCanonicalInvoiceStatusWithDueDate, type CanonicalInvoiceStatus } from '../../lib/invoiceStatus';
+import {
+  toCanonicalInvoiceDisplayStatus,
+  toCanonicalPaymentStatus,
+  type CanonicalInvoiceStatus,
+} from '../../lib/invoiceStatus';
 
 type CustomerTab = 'dashboard' | 'post' | 'quotes' | 'deliveries' | 'invoices' | 'updates';
 
@@ -79,6 +83,7 @@ type CustomerInvoice = {
   vat_amount: number;
   vat_rate: 0 | 5 | 20;
   payment_terms: string;
+  payment_status: string | null;
   late_fee: string | null;
   client_name: string;
   client_email: string | null;
@@ -251,7 +256,7 @@ const toInvoiceData = (invoice: CustomerInvoice): InvoiceData => ({
   jobRef: invoice.job_ref,
   date: invoice.invoice_date,
   dueDate: invoice.due_date,
-  status: toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.due_date),
+  status: toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status),
   clientName: invoice.client_name,
   clientAddress: invoice.client_address ?? '',
   clientEmail: invoice.client_email ?? '',
@@ -337,7 +342,7 @@ export default function CustomerPage() {
       supabase.from('quotes').select('id, company_id, created_by, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at').eq('company_id', companyId).eq('customer_email', user.email).order('created_at', { ascending: false }),
       supabase.from('jobs').select('id, status, awarded_carrier_company_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, cargo_type, pallets, weight_kg, load_details, special_requirements, access_restrictions, delivery_photos, created_at, updated_at').eq('company_id', companyId).eq('created_by', user.id).order('updated_at', { ascending: false }),
       supabase.from('job_bids').select('id, job_id, company_id, amount, bid_price_gbp, currency, message, status, created_at, jobs!inner(id, status, company_id, created_by, pickup_location, delivery_location, pickup_datetime, vehicle_type, awarded_carrier_company_id), companies:company_id(name)').eq('jobs.company_id', companyId).eq('jobs.created_by', user.id).order('created_at', { ascending: false }),
-      supabase.from('invoices').select('id, invoice_number, job_ref, invoice_date, due_date, status, amount, net_amount, vat_amount, vat_rate, payment_terms, late_fee, client_name, client_email, client_address, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, pod_photos, signature, recipient_name, created_at').eq('company_id', companyId).eq('client_email', user.email).order('created_at', { ascending: false }),
+      supabase.from('invoices').select('id, invoice_number, job_ref, invoice_date, due_date, status, payment_status, amount, net_amount, vat_amount, vat_rate, payment_terms, late_fee, client_name, client_email, client_address, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, pod_photos, signature, recipient_name, created_at').eq('company_id', companyId).eq('client_email', user.email).order('created_at', { ascending: false }),
       supabase.from('notification_events').select('id, event_type, entity_type, entity_id, payload, status, created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(40),
     ]);
 
@@ -363,7 +368,8 @@ export default function CustomerPage() {
     }
     const invoiceRows = ((invoiceRes.data ?? []) as CustomerInvoice[]).map((invoice) => ({
       ...invoice,
-      status: toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.due_date),
+      status: toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status),
+      payment_status: toCanonicalPaymentStatus(invoice.payment_status),
     }));
     setUpdates((updateRes.data ?? []) as CustomerUpdate[]);
     setInvoices(invoiceRows);
