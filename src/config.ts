@@ -1,5 +1,5 @@
 export const config = {
-  xdriveBaseUrl: process.env.EXPO_PUBLIC_XDRIVE_BASE_URL ?? "http://127.0.0.1:3005",
+  xdriveBaseUrl: process.env.EXPO_PUBLIC_XDRIVE_BASE_URL ?? "https://xdrivelogistics.co.uk",
   supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? "",
   supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "",
 };
