@@ -49,9 +49,12 @@ export async function POST(
   if (jobError) return respond(500, { error: jobError.message });
   if (!job) return respond(404, { error: 'Job not found.' });
 
-  if (job.status !== 'delivered' && job.status !== 'completed') {
+  // Canonical job lifecycle: delivered → invoiced → paid.
+  // 'completed' was never a valid status value; allow both delivered and invoiced
+  // so that a carrier who marked the job invoiced can still retrieve/regenerate.
+  if (!['delivered', 'invoiced'].includes(job.status as string)) {
     return respond(409, {
-      error: `Invoice can only be generated for a delivered or completed job. Current status: "${job.status}".`,
+      error: `Invoice can only be generated for a delivered or invoiced job. Current status: "${job.status as string}".`,
     });
   }
 
@@ -95,8 +98,25 @@ export async function POST(
     typeof bodyClientEmail === 'string' ? bodyClientEmail :
     typeof job.client_email === 'string' ? job.client_email : null;
 
+  // Prefer the accepted bid amount over the customer's budget_amount.
+  // budget_amount is the customer's ceiling, not the agreed carrier rate.
+  let agreedBidAmount: number | null = null;
+  if (driver.companyId) {
+    const { data: acceptedBid } = await supabaseAdmin
+      .from('job_bids')
+      .select('amount')
+      .eq('job_id', jobId)
+      .eq('company_id', driver.companyId)
+      .eq('status', 'accepted')
+      .maybeSingle();
+    if (acceptedBid && typeof acceptedBid.amount === 'number' && acceptedBid.amount > 0) {
+      agreedBidAmount = acceptedBid.amount as number;
+    }
+  }
+
   const rawAmount =
     typeof bodyAmount === 'number' ? bodyAmount :
+    agreedBidAmount !== null ? agreedBidAmount :
     typeof job.budget_amount === 'number' ? job.budget_amount : 0;
 
   const vatRate =

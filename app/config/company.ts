@@ -28,14 +28,18 @@ export const COMPANY_CONFIG = {
   },
   
   // Payment configuration (MASTER SPEC)
+  // Bank-transfer details are read from server-only env vars (no NEXT_PUBLIC_ prefix).
+  // They must NEVER be embedded in client-side JavaScript bundles.
+  // On the client these fields resolve to '' (empty string); the rendered values
+  // come from the company_settings table fetched via authenticated API routes.
   payment: {
     bankTransfer: {
-      accountName: process.env.NEXT_PUBLIC_COMPANY_BANK_ACCOUNT_NAME?.trim() || '',
-      sortCode: process.env.NEXT_PUBLIC_COMPANY_BANK_SORT_CODE?.trim() || '',
-      accountNumber: process.env.NEXT_PUBLIC_COMPANY_BANK_ACCOUNT_NUMBER?.trim() || '',
+      accountName: process.env.COMPANY_BANK_ACCOUNT_NAME?.trim() || '',
+      sortCode: process.env.COMPANY_BANK_SORT_CODE?.trim() || '',
+      accountNumber: process.env.COMPANY_BANK_ACCOUNT_NUMBER?.trim() || '',
     },
     paypal: {
-      email: process.env.NEXT_PUBLIC_COMPANY_PAYPAL_EMAIL?.trim() || '',
+      email: process.env.COMPANY_PAYPAL_EMAIL?.trim() || '',
     },
     terms: ['Pay now', '14 days', '30 days'] as const,
     lateFeeNote: 'Late payments may incur administrative charges.',
