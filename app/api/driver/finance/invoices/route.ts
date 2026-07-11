@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import {
   buildInvoiceStatusSummary,
-  isInvoiceFullyPaid,
   toCanonicalInvoiceDisplayStatus,
   toCanonicalInvoiceStatus,
   toLegacyInvoiceStatusForDb,

@@ -208,6 +208,7 @@ export async function POST(
       vat_rate: vatRate,
       currency: agreementCurrency ?? (typeof job.currency === 'string' ? job.currency : 'GBP'),
       payment_terms: paymentTerms,
+      payment_status: 'unpaid',
       // Linkage columns (populated for marketplace jobs only).
       commercial_agreement_id: commercialAgreementId,
       buyer_company_id: buyerCompanyId,

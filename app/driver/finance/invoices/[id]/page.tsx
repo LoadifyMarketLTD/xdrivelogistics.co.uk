@@ -6,7 +6,8 @@ import ProtectedRoute from '../../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../../../lib/supabaseClient';
 import {
-  toCanonicalInvoiceStatusWithDueDate,
+  toCanonicalInvoiceDisplayStatus,
+  toCanonicalPaymentStatus,
   type CanonicalInvoiceStatus,
 } from '../../../../../lib/invoiceStatus';
 
@@ -22,6 +23,7 @@ type InvoiceDetail = {
   invoice_date: string;
   due_date: string;
   status: InvoiceStatus;
+  payment_status: string | null;
   client_name: string;
   client_address: string | null;
   client_email: string | null;
@@ -59,7 +61,6 @@ type PaymentRecord = {
   settlement_method: string;
   external_reference: string | null;
   note: string | null;
-  status_after: string | null;
 };
 
 type DisputeRecord = {
@@ -68,6 +69,10 @@ type DisputeRecord = {
   details: string | null;
   status: string;
   resolution_note: string | null;
+  commercial_agreement_id?: string | null;
+  buyer_company_id?: string | null;
+  supplier_company_id?: string | null;
+  job_id?: string | null;
   created_at: string;
   resolved_at: string | null;
 };
@@ -186,7 +191,12 @@ export default function DriverInvoiceDetailPage({
       };
       setInvoice({
         ...json.invoice,
-        status: toCanonicalInvoiceStatusWithDueDate(json.invoice.status, json.invoice.due_date),
+        status: toCanonicalInvoiceDisplayStatus(
+          json.invoice.status,
+          json.invoice.due_date,
+          json.invoice.payment_status
+        ),
+        payment_status: toCanonicalPaymentStatus(json.invoice.payment_status),
       });
       setStatusHistory(json.statusHistory ?? []);
       setPayments(json.payments ?? []);
@@ -238,6 +248,7 @@ export default function DriverInvoiceDetailPage({
         settlement_method: payMethod,
         external_reference: payRef || null,
         note: payNote || null,
+        idempotency_key: crypto.randomUUID(),
       }),
     });
     if (!res.ok) {
@@ -449,7 +460,7 @@ export default function DriverInvoiceDetailPage({
             </div>
             <div>
               <div style={labelStyle}>Due Date</div>
-              <div style={{ ...valueStyle, color: new Date(invoice.due_date) < new Date() && invoice.status !== 'Paid' ? '#dc2626' : '#1e293b' }}>
+              <div style={{ ...valueStyle, color: new Date(invoice.due_date) < new Date() && invoice.payment_status !== 'paid' ? '#dc2626' : '#1e293b' }}>
                 {fmtDate(invoice.due_date)}
               </div>
               <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{invoice.payment_terms}</div>
@@ -508,12 +519,14 @@ export default function DriverInvoiceDetailPage({
               </div>
             </div>
           </div>
-          <button
-            onClick={() => setShowPaymentForm(!showPaymentForm)}
-            style={btnSecondary}
-          >
-            {showPaymentForm ? 'Cancel' : '+ Record Payment'}
-          </button>
+          {invoice.payment_status !== 'paid' && (
+            <button
+              onClick={() => setShowPaymentForm(!showPaymentForm)}
+              style={btnSecondary}
+            >
+              {showPaymentForm ? 'Cancel' : '+ Record Payment'}
+            </button>
+          )}
 
           {showPaymentForm && (
             <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
@@ -703,7 +716,7 @@ export default function DriverInvoiceDetailPage({
         <div style={cardStyle}>
           <div style={{ ...sectionTitle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>⚠️ Disputes</span>
-            {invoice.status !== 'Paid' && (
+            {invoice.payment_status !== 'paid' && (
               <button onClick={() => setShowDisputeForm(!showDisputeForm)} style={{ ...btnDanger, fontSize: '0.75rem', padding: '0.3rem 0.75rem' }}>
                 {showDisputeForm ? 'Cancel' : 'Open Dispute'}
               </button>

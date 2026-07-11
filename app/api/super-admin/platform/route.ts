@@ -96,8 +96,8 @@ export async function GET(request: NextRequest) {
       supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }),
       supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered'),
       supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).in('status', ['posted', 'allocated', 'in_transit']),
-      supabaseAdmin.from('invoices').select('id, amount, status').limit(2000),
-      supabaseAdmin.from('invoices').select('id, amount').eq('status', 'Paid').limit(2000),
+      supabaseAdmin.from('invoices').select('id, amount, payment_status').limit(2000),
+      supabaseAdmin.from('invoices').select('id, amount').eq('payment_status', 'paid').limit(2000),
       supabaseAdmin.from('quotes').select('id', { count: 'exact', head: true }),
       supabaseAdmin.from('job_bids').select('id', { count: 'exact', head: true }),
     ]);

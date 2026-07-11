@@ -782,7 +782,7 @@ export default function InvoiceDetailPage() {
                         style={inputStyle}
                       >
                         <option value="bank_transfer">Bank transfer</option>
-                        <option value="external_settlement">External reference</option>
+                        <option value="other">Other / external reference</option>
                         <option value="cash">Cash</option>
                         <option value="other">Other</option>
                       </select>
