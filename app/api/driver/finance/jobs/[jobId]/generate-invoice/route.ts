@@ -84,11 +84,14 @@ export async function POST(
   let supplierCompanyId: string | null = null;
   let agreedAmount: number | null = null;
   let agreementCurrency: string | null = null;
+  let agreementVatRate: 0 | 5 | 20 | null = null;
+  let agreementVatAmount: number | null = null;
+  let agreementGrossAmount: number | null = null;
 
   if (isMarketplaceJob) {
     const { data: agreement } = await supabaseAdmin
       .from('job_commercial_agreements')
-      .select('id, buyer_company_id, supplier_company_id, agreed_amount, currency')
+      .select('id, buyer_company_id, supplier_company_id, agreed_amount, currency, vat_rate, vat_amount, agreed_gross_amount')
       .eq('job_id', jobId)
       .eq('supplier_company_id', driver.companyId)
       .maybeSingle();
@@ -106,6 +109,10 @@ export async function POST(
     supplierCompanyId = agreement.supplier_company_id as string;
     agreedAmount = agreement.agreed_amount as number;
     agreementCurrency = agreement.currency as string;
+    const rawVat = agreement.vat_rate as number | null;
+    agreementVatRate = rawVat === 0 || rawVat === 5 || rawVat === 20 ? rawVat : 0;
+    agreementVatAmount = agreement.vat_amount as number | null;
+    agreementGrossAmount = agreement.agreed_gross_amount as number | null;
 
     const { data: existingByAgreement, error: existingByAgreementError } = await supabaseAdmin
       .from('invoices')
@@ -173,12 +180,20 @@ export async function POST(
     });
   }
 
-  const vatRate =
-    bodyVatRate === 5 || bodyVatRate === 20 ? (bodyVatRate as 0 | 5 | 20) : 20;
+  // For marketplace invoices, VAT data is sourced exclusively from the commercial
+  // agreement snapshot — the caller cannot override it.
+  // For non-marketplace invoices, fall back to caller-supplied rate or 20%.
+  const vatRate: 0 | 5 | 20 = isMarketplaceJob
+    ? (agreementVatRate ?? 0)
+    : (bodyVatRate === 5 || bodyVatRate === 20 ? (bodyVatRate as 0 | 5 | 20) : 20);
 
   const netAmount = rawAmount;
-  const vatAmount = Math.round(netAmount * (vatRate / 100) * 100) / 100;
-  const totalAmount = Math.round((netAmount + vatAmount) * 100) / 100;
+  const vatAmount = isMarketplaceJob && agreementVatAmount !== null
+    ? agreementVatAmount
+    : Math.round(netAmount * (vatRate / 100) * 100) / 100;
+  const totalAmount = isMarketplaceJob && agreementGrossAmount !== null
+    ? agreementGrossAmount
+    : Math.round((netAmount + vatAmount) * 100) / 100;
 
   const paymentTerms =
     typeof bodyPaymentTerms === 'string' ? bodyPaymentTerms : '14 days';
