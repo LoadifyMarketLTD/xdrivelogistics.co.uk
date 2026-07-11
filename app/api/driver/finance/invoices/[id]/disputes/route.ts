@@ -42,7 +42,7 @@ export async function GET(
 
   const { data, error } = await supabaseAdmin
     .from('invoice_disputes')
-    .select('id, reason, details, status, resolution_note, created_at, resolved_at')
+    .select('id, reason, details, status, resolution_note, commercial_agreement_id, buyer_company_id, supplier_company_id, job_id, created_at, resolved_at')
     .eq('invoice_id', id)
     .order('created_at', { ascending: false });
 
@@ -66,7 +66,7 @@ export async function POST(
 
   const { data: inv } = await supabaseAdmin
     .from('invoices')
-    .select('id, status, company_id')
+    .select('id, status, company_id, job_id, commercial_agreement_id, buyer_company_id, supplier_company_id')
     .eq('id', id)
     .eq('company_id', driver.companyId)
     .maybeSingle();
@@ -90,6 +90,10 @@ export async function POST(
       invoice_id: id,
       company_id: driver.companyId,
       created_by: driver.userId,
+      job_id: inv.job_id ?? null,
+      commercial_agreement_id: inv.commercial_agreement_id ?? null,
+      buyer_company_id: inv.buyer_company_id ?? null,
+      supplier_company_id: inv.supplier_company_id ?? null,
       reason: (reason as string).trim(),
       details: typeof details === 'string' ? details : null,
       status: 'open',

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import {
   buildInvoiceStatusSummary,
+  toCanonicalInvoiceDisplayStatus,
   toCanonicalInvoiceStatus,
-  toCanonicalInvoiceStatusWithDueDate,
   toLegacyInvoiceStatusForDb,
   type CanonicalInvoiceStatus,
 } from '../../../../../lib/invoiceStatus';
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
   let query = supabaseAdmin
     .from('invoices')
     .select(
-      'id, invoice_number, job_ref, job_id, invoice_date, due_date, status, client_name, amount, net_amount, vat_amount, currency, submitted_at, approved_at, disputed_at, paid_at, created_at, updated_at'
+      'id, invoice_number, job_ref, job_id, invoice_date, due_date, status, payment_status, client_name, amount, net_amount, vat_amount, currency, submitted_at, approved_at, disputed_at, paid_at, created_at, updated_at'
     )
     .eq('company_id', driver.companyId)
     .eq('created_by', driver.userId)
@@ -50,16 +50,24 @@ export async function GET(request: NextRequest) {
 
   if (statusFilter && statusFilter !== 'All') {
     const canonicalFilter = toCanonicalInvoiceStatus(statusFilter, 'Draft');
-    const dbFilter = toLegacyInvoiceStatusForDb(canonicalFilter);
-    query = query.eq('status', dbFilter);
+    if (canonicalFilter === 'Paid') {
+      query = query.eq('payment_status', 'paid');
+    } else {
+      const dbFilter = toLegacyInvoiceStatusForDb(canonicalFilter);
+      query = query.eq('status', dbFilter);
+    }
   }
 
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
 
-  const rows = ((data ?? []) as Array<{ status: string | null; due_date?: string | null; [key: string]: unknown }>).map((row) => ({
+  const rows = ((data ?? []) as Array<{ status: string | null; payment_status?: string | null; due_date?: string | null; [key: string]: unknown }>).map((row) => ({
     ...row,
-    status: toCanonicalInvoiceStatusWithDueDate(row.status, typeof row.due_date === 'string' ? row.due_date : null),
+    status: toCanonicalInvoiceDisplayStatus(
+      row.status,
+      typeof row.due_date === 'string' ? row.due_date : null,
+      row.payment_status
+    ),
   }));
   const summary = buildInvoiceStatusSummary(rows.map((row) => row.status as CanonicalInvoiceStatus));
 
@@ -159,6 +167,8 @@ export async function POST(request: NextRequest) {
       vat_rate: numVatRate,
       currency: typeof currency === 'string' ? currency : 'GBP',
       payment_terms: typeof payment_terms === 'string' ? payment_terms : '14 days',
+      payment_status: 'unpaid',
+      invoice_origin: 'manual',
       late_fee: typeof late_fee === 'string' ? late_fee : null,
     })
     .select('id, invoice_number, status')

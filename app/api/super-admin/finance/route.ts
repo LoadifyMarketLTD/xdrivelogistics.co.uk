@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import {
   buildInvoiceStatusSummary,
-  toCanonicalInvoiceStatusWithDueDate,
+  isInvoiceFullyPaid,
+  toCanonicalInvoiceDisplayStatus,
+  toCanonicalPaymentStatus,
 } from '../../../../lib/invoiceStatus';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
@@ -35,7 +37,6 @@ type InvoicePaymentHistoryRow = {
   settlement_method: string | null;
   external_reference: string | null;
   note: string | null;
-  status_after: string | null;
   paid_at: string | null;
   created_at: string;
 };
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
   if (section === 'invoices') {
     const { data, error } = await supabaseAdmin
       .from('invoices')
-      .select('id, invoice_number, company_id, status, amount, currency, client_name, invoice_date, due_date, created_at')
+      .select('id, invoice_number, company_id, status, payment_status, amount, currency, client_name, invoice_date, due_date, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -75,15 +76,16 @@ export async function GET(request: NextRequest) {
 
     const normalizedRows = rows.map((r) => ({
       ...r,
-      status: toCanonicalInvoiceStatusWithDueDate(
+      status: toCanonicalInvoiceDisplayStatus(
         r.status as string | null | undefined,
         r.due_date as string | null | undefined,
+        r.payment_status as string | null | undefined,
       ),
     }));
 
     const totalAmount = normalizedRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const paidAmount = normalizedRows
-      .filter((r) => r.status === 'Paid')
+      .filter((r) => toCanonicalPaymentStatus(r.payment_status as string | null | undefined) === 'paid')
       .reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
     const summary = buildInvoiceStatusSummary(normalizedRows.map((row) => row.status));
@@ -107,15 +109,25 @@ export async function GET(request: NextRequest) {
   if (section === 'payments') {
     const { data, error } = await supabaseAdmin
       .from('invoice_payment_history')
-      .select('id, company_id, invoice_id, amount, currency, settlement_method, external_reference, note, status_after, paid_at, created_at')
+      .select('id, company_id, invoice_id, amount, currency, settlement_method, external_reference, note, paid_at, created_at')
       .order('paid_at', { ascending: false })
       .limit(limit);
 
     if (error) return respond(500, { error: error.message });
 
     const rows = (data ?? []) as InvoicePaymentHistoryRow[];
+    const invoiceIds = Array.from(new Set(rows.map((r) => r.invoice_id).filter(Boolean)));
+    const { data: invoiceStates } = invoiceIds.length === 0
+      ? { data: [] }
+      : await supabaseAdmin
+          .from('invoices')
+          .select('id, payment_status')
+          .in('id', invoiceIds);
     const nameById = await companyNameMap(
       Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
+    );
+    const paymentStatusByInvoiceId = new Map(
+      ((invoiceStates ?? []) as Array<{ id: string; payment_status: string | null }>).map((row) => [row.id, row.payment_status])
     );
 
     const totalAmount = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
@@ -125,13 +137,13 @@ export async function GET(request: NextRequest) {
       rows: rows.map((r) => ({
         ...r,
         company_name: nameById.get(r.company_id as string) ?? 'Unknown',
-        status: r.status_after ?? 'recorded',
+        payment_status: toCanonicalPaymentStatus(paymentStatusByInvoiceId.get(r.invoice_id) ?? null),
       })),
       summary: {
         total: rows.length,
-        paid: rows.filter((r) => r.status_after === 'paid').length,
-        disputed: rows.filter((r) => r.status_after === 'disputed').length,
-        recorded: rows.filter((r) => !r.status_after).length,
+        paid: rows.filter((r) => isInvoiceFullyPaid(paymentStatusByInvoiceId.get(r.invoice_id) ?? null)).length,
+        partially_paid: rows.filter((r) => toCanonicalPaymentStatus(paymentStatusByInvoiceId.get(r.invoice_id) ?? null) === 'partially_paid').length,
+        unpaid: rows.filter((r) => toCanonicalPaymentStatus(paymentStatusByInvoiceId.get(r.invoice_id) ?? null) === 'unpaid').length,
         totalAmount,
       },
     });
@@ -142,13 +154,13 @@ export async function GET(request: NextRequest) {
     const [paidResult, allResult] = await Promise.all([
       supabaseAdmin
         .from('invoices')
-        .select('id, amount, currency, invoice_date, company_id')
-        .eq('status', 'paid')
+        .select('id, amount, currency, invoice_date, company_id, payment_status')
+        .eq('payment_status', 'paid')
         .order('invoice_date', { ascending: false })
         .limit(500),
       supabaseAdmin
         .from('invoices')
-        .select('id, amount, status')
+        .select('id, amount, payment_status')
         .limit(2000),
     ]);
 
@@ -192,7 +204,7 @@ export async function GET(request: NextRequest) {
   if (section === 'fees') {
     const { data, error } = await supabaseAdmin
       .from('invoices')
-      .select('id, invoice_number, company_id, amount, net_amount, vat_amount, vat_rate, status, invoice_date, created_at')
+      .select('id, invoice_number, company_id, amount, net_amount, vat_amount, vat_rate, status, payment_status, invoice_date, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -203,7 +215,7 @@ export async function GET(request: NextRequest) {
       Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
     );
 
-    const paidRows = rows.filter((r) => r.status === 'paid');
+    const paidRows = rows.filter((r) => isInvoiceFullyPaid(r.payment_status as string | null | undefined));
     const totalVat = paidRows.reduce((s, r) => s + (Number(r.vat_amount) || 0), 0);
     const totalNet = paidRows.reduce((s, r) => s + (Number(r.net_amount) || 0), 0);
 
