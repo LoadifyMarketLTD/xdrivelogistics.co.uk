@@ -129,8 +129,8 @@ export async function GET(request: NextRequest) {
       })),
       summary: {
         total: rows.length,
-        paid: rows.filter((r) => r.status_after === 'paid').length,
-        disputed: rows.filter((r) => r.status_after === 'disputed').length,
+        paid: rows.filter((r) => r.status_after === 'Paid').length,
+        disputed: rows.filter((r) => r.status_after === 'Disputed').length,
         recorded: rows.filter((r) => !r.status_after).length,
         totalAmount,
       },
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
       supabaseAdmin
         .from('invoices')
         .select('id, amount, currency, invoice_date, company_id')
-        .eq('status', 'paid')
+        .eq('status', 'Paid')
         .order('invoice_date', { ascending: false })
         .limit(500),
       supabaseAdmin
@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
       Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
     );
 
-    const paidRows = rows.filter((r) => r.status === 'paid');
+    const paidRows = rows.filter((r) => r.status === 'Paid');
     const totalVat = paidRows.reduce((s, r) => s + (Number(r.vat_amount) || 0), 0);
     const totalNet = paidRows.reduce((s, r) => s + (Number(r.net_amount) || 0), 0);
 

@@ -4,6 +4,12 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
+const PAYMENT_ALLOWED_SETTLEMENT_METHODS = [
+  'bank_transfer', 'faster_payments', 'bacs', 'chaps', 'cash',
+  'cheque', 'card', 'paypal', 'other',
+] as const;
+type SettlementMethod = typeof PAYMENT_ALLOWED_SETTLEMENT_METHODS[number];
+
 async function resolveDriver(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
   const token = getBearerToken(request);
@@ -17,6 +23,19 @@ async function resolveDriver(request: NextRequest) {
     .maybeSingle();
   if (!driverRow) return null;
   return { userId: authData.user.id, driverId: driverRow.id as string, companyId: driverRow.company_id as string };
+}
+
+/** Returns the caller's role_in_company or null if they are not an active member. */
+async function resolveCompanyRole(userId: string, companyId: string): Promise<string | null> {
+  if (!supabaseAdmin) return null;
+  const { data } = await supabaseAdmin
+    .from('company_memberships')
+    .select('role_in_company')
+    .eq('user_id', userId)
+    .eq('company_id', companyId)
+    .eq('status', 'active')
+    .maybeSingle();
+  return (data?.role_in_company as string | undefined) ?? null;
 }
 
 // GET /api/driver/finance/invoices/[id]/payment-history
@@ -64,7 +83,8 @@ export async function GET(
 }
 
 // POST /api/driver/finance/invoices/[id]/payment-history
-// Body: { amount, currency?, paid_at?, payment_method?, external_reference?, note? }
+// Body: { amount, currency?, paid_at?, settlement_method?, external_reference?, note?, idempotency_key? }
+// Caller must be an owner, admin, or dispatcher — regular drivers cannot record payments.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -76,6 +96,15 @@ export async function POST(
   if (!driver) return respond(401, { error: 'Unauthorized' });
 
   const { id } = await params;
+
+  // Only admin-tier members may record payments — never bare drivers.
+  const callerRole = await resolveCompanyRole(driver.userId, driver.companyId);
+  const ALLOWED_ROLES = ['owner', 'admin', 'dispatcher'];
+  if (!callerRole || !ALLOWED_ROLES.includes(callerRole)) {
+    return respond(403, {
+      error: 'Forbidden — only owner, admin, or dispatcher may record invoice payments.',
+    });
+  }
 
   const { data: inv } = await supabaseAdmin
     .from('invoices')
@@ -92,28 +121,53 @@ export async function POST(
     return respond(400, { error: 'Invalid JSON body.' });
   }
 
-  const { amount, currency, paid_at, settlement_method, external_reference, note } = body;
+  const { amount, currency, paid_at, settlement_method, external_reference, note, idempotency_key } = body;
 
   if (!amount || Number(amount) <= 0) {
     return respond(400, { error: 'amount must be a positive number.' });
   }
 
+  // Validate settlement_method against the canonical allowed set.
+  const resolvedMethod: SettlementMethod =
+    typeof settlement_method === 'string' &&
+    (PAYMENT_ALLOWED_SETTLEMENT_METHODS as readonly string[]).includes(settlement_method)
+      ? (settlement_method as SettlementMethod)
+      : 'bank_transfer';
+
+  const insertPayload: Record<string, unknown> = {
+    invoice_id: id,
+    company_id: driver.companyId,
+    recorded_by: driver.userId,
+    amount: Number(amount),
+    currency: typeof currency === 'string' ? currency : 'GBP',
+    paid_at: typeof paid_at === 'string' ? paid_at : new Date().toISOString(),
+    settlement_method: resolvedMethod,
+    external_reference: typeof external_reference === 'string' ? external_reference : null,
+    note: typeof note === 'string' ? note : null,
+  };
+
+  if (typeof idempotency_key === 'string' && idempotency_key.trim()) {
+    insertPayload.idempotency_key = idempotency_key.trim();
+  }
+
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from('invoice_payment_history')
-    .insert({
-      invoice_id: id,
-      company_id: driver.companyId,
-      recorded_by: driver.userId,
-      amount: Number(amount),
-      currency: typeof currency === 'string' ? currency : 'GBP',
-      paid_at: typeof paid_at === 'string' ? paid_at : new Date().toISOString(),
-      settlement_method: typeof settlement_method === 'string' ? settlement_method : 'bank_transfer',
-      external_reference: typeof external_reference === 'string' ? external_reference : null,
-      note: typeof note === 'string' ? note : null,
-    })
-    .select('id, amount, currency, paid_at, settlement_method, external_reference, note')
+    .insert(insertPayload)
+    .select('id, amount, currency, paid_at, settlement_method, external_reference, note, idempotency_key')
     .single();
 
-  if (insertError) return respond(500, { error: insertError.message });
+  if (insertError) {
+    // Idempotency conflict: unique constraint violation on (invoice_id, idempotency_key).
+    if (insertError.code === '23505') {
+      return respond(409, {
+        error: 'Duplicate payment: a record with this idempotency_key already exists for this invoice.',
+      });
+    }
+    // Overpayment: raised by the fn_guard_invoice_overpayment BEFORE INSERT trigger.
+    if (insertError.code === 'P0001' && insertError.message.includes('Overpayment')) {
+      return respond(422, { error: insertError.message });
+    }
+    return respond(500, { error: insertError.message });
+  }
   return respond(201, { payment: inserted });
 }
