@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiFormRequest, apiRequest } from './client';
 import type { DriverJob, DriverNotification, DriverProfile, DriverQuote, DriverVehicle, JobScope } from '../jobs/types';
 
 export async function fetchJobs(scope: JobScope, token: string) {
@@ -13,8 +13,64 @@ export async function postJobStatus(jobId: string, endpoint: string, token: stri
   return apiRequest<{ ok: true }>(`/api/driver/mobile/jobs/${jobId}/${endpoint}`, { method: 'POST', token });
 }
 
-export async function uploadPod(jobId: string, token: string, metadata: Record<string, unknown>) {
-  return apiRequest<{ ok: true }>(`/api/driver/mobile/jobs/${jobId}/pod`, { method: 'POST', token, body: metadata });
+type PodMetadata = {
+  photoUris?: string[];
+  documentUris?: string[];
+  recipientName?: string;
+  signatureData?: string;
+  notes?: string;
+};
+
+function guessMimeType(uri: string, fallback: string) {
+  const ext = uri.split('?')[0]?.split('.').pop()?.toLowerCase();
+  if (!ext) return fallback;
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'pdf') return 'application/pdf';
+  return fallback;
+}
+
+function fileNameFromUri(uri: string, prefix: string, index: number) {
+  const tail = uri.split('?')[0]?.split('/').pop()?.trim();
+  if (tail && tail.includes('.')) return tail;
+  return `${prefix}-${index + 1}.bin`;
+}
+
+export async function uploadPod(jobId: string, token: string, metadata: PodMetadata) {
+  const photoUris = Array.isArray(metadata.photoUris) ? metadata.photoUris.filter(Boolean) : [];
+  const documentUris = Array.isArray(metadata.documentUris) ? metadata.documentUris.filter(Boolean) : [];
+
+  if (photoUris.length > 0 || documentUris.length > 0) {
+    const formData = new FormData();
+    if (metadata.recipientName) formData.append('recipientName', metadata.recipientName);
+    if (metadata.signatureData) formData.append('signatureData', metadata.signatureData);
+    if (metadata.notes) formData.append('notes', metadata.notes);
+
+    photoUris.forEach((uri, index) => {
+      formData.append('photos', {
+        uri,
+        type: guessMimeType(uri, 'image/jpeg'),
+        name: fileNameFromUri(uri, 'photo', index),
+      } as unknown as Blob);
+    });
+
+    documentUris.forEach((uri, index) => {
+      formData.append('documents', {
+        uri,
+        type: guessMimeType(uri, 'application/octet-stream'),
+        name: fileNameFromUri(uri, 'document', index),
+      } as unknown as Blob);
+    });
+
+    return apiFormRequest<{ ok: true; job?: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/pod`, {
+      method: 'POST',
+      token,
+      formData,
+    });
+  }
+
+  return apiRequest<{ ok: true; job?: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/pod`, { method: 'POST', token, body: metadata });
 }
 
 export async function fetchNotifications(token: string, unreadOnly = false) {

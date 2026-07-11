@@ -1,3 +1,4 @@
+import path from 'path';
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import {
@@ -12,6 +13,19 @@ import {
   respond,
   safeArray,
 } from '../../../_lib';
+
+const POD_BUCKET = 'pod-docs';
+const MAX_POD_UPLOAD_BYTES = 15 * 1024 * 1024;
+const allowedPodMimeTypes = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
+
+const sanitizeFilename = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, '_');
 
 type ActionConfig = {
   currentStatus: string;
@@ -135,11 +149,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 }
 
 async function savePod(request: NextRequest, jobId: string, userId: string, driverId: string) {
-  let body: Record<string, unknown>;
-  try {
-    body = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return respond(400, { error: 'Invalid JSON body.' });
+  const contentType = request.headers.get('content-type')?.toLowerCase() ?? '';
+
+  let body: Record<string, unknown> = {};
+  let photoFiles: File[] = [];
+  let documentFiles: File[] = [];
+  if (contentType.includes('multipart/form-data')) {
+    const formData = await request.formData();
+    photoFiles = formData.getAll('photos').filter((value): value is File => value instanceof File);
+    documentFiles = formData.getAll('documents').filter((value): value is File => value instanceof File);
+    body = {
+      recipientName: String(formData.get('recipientName') ?? ''),
+      signatureData: String(formData.get('signatureData') ?? ''),
+      notes: String(formData.get('notes') ?? ''),
+    };
+  } else {
+    try {
+      body = (await request.json()) as Record<string, unknown>;
+    } catch {
+      return respond(400, { error: 'Invalid JSON body.' });
+    }
   }
 
   const { data: existing, error: loadError } = await supabaseAdmin!
@@ -156,8 +185,14 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   const now = new Date().toISOString();
   const photos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
   const podPhotos = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
-  const photoUris = safeArray(body.photoUris).filter((item): item is string => typeof item === 'string' && item.length > 0);
-  const documentUris = safeArray(body.documentUris).filter((item): item is string => typeof item === 'string' && item.length > 0);
+  const photoUris = safeArray(body.photoUris).filter(
+    (item): item is string => typeof item === 'string' && item.length > 0 && !item.startsWith('file://')
+  );
+  const documentUris = safeArray(body.documentUris).filter(
+    (item): item is string => typeof item === 'string' && item.length > 0 && !item.startsWith('file://')
+  );
+  const uploadedMedia = await uploadPodFiles(jobId, photoFiles, documentFiles, now);
+  if ('error' in uploadedMedia) return respond(uploadedMedia.status, { error: uploadedMedia.error });
   const signatureData = typeof body.signatureData === 'string' && body.signatureData.trim()
     ? { type: 'driver_mobile_signature', value: body.signatureData.trim(), captured_at: now, captured_by: userId }
     : job.delivery_signature_data ?? null;
@@ -165,8 +200,8 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   const { data: updated, error: updateError } = await supabaseAdmin!
     .from('jobs')
     .update({
-      delivery_photos: [...photos, ...photoUris],
-      pod_photos: [...podPhotos, ...documentUris],
+      delivery_photos: [...photos, ...photoUris, ...uploadedMedia.photoPaths],
+      pod_photos: [...podPhotos, ...documentUris, ...uploadedMedia.documentPaths],
       delivery_signature_data: signatureData,
       client_signature_name: typeof body.recipientName === 'string' && body.recipientName.trim() ? body.recipientName.trim() : null,
       delivery_notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null,
@@ -179,8 +214,62 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     .select(jobSelect)
     .single();
 
-  if (updateError) return respond(500, { error: updateError.message });
+  if (updateError) {
+    await cleanupPodFiles(uploadedMedia.uploadedPaths);
+    return respond(500, { error: updateError.message });
+  }
   await insertTrackingEvent(jobId, userId, 'delivered', 'POD metadata uploaded');
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
+}
+
+async function uploadPodFiles(jobId: string, photoFiles: File[], documentFiles: File[], nowIso: string) {
+  const uploadedPaths: string[] = [];
+  const photoPaths: string[] = [];
+  const documentPaths: string[] = [];
+  const timestamp = Date.parse(nowIso) || Date.now();
+  const allFiles = [
+    ...photoFiles.map((file, index) => ({ file, kind: 'photo' as const, index })),
+    ...documentFiles.map((file, index) => ({ file, kind: 'document' as const, index })),
+  ];
+
+  for (const { file, kind, index } of allFiles) {
+    if (file.size <= 0 || file.size > MAX_POD_UPLOAD_BYTES) {
+      await cleanupPodFiles(uploadedPaths);
+      return { status: 413, error: 'POD files must be between 1 byte and 15MB.' };
+    }
+    const fileMime = (file.type || '').toLowerCase();
+    if (fileMime && !allowedPodMimeTypes.has(fileMime)) {
+      await cleanupPodFiles(uploadedPaths);
+      return { status: 415, error: `Unsupported POD file type: ${file.type || 'unknown'}.` };
+    }
+
+    const extension = path.extname(file.name || '').toLowerCase() || (kind === 'photo' ? '.jpg' : '.bin');
+    const baseName = sanitizeFilename(path.basename(file.name || `${kind}-${index + 1}${extension}`, extension));
+    const objectPath = `jobs/${jobId}/driver-mobile/${timestamp}-${kind}-${index + 1}-${baseName}${extension}`;
+    const bytes = await file.arrayBuffer();
+    const { error } = await supabaseAdmin!.storage.from(POD_BUCKET).upload(objectPath, bytes, {
+      upsert: false,
+      contentType: file.type || undefined,
+    });
+
+    if (error) {
+      await cleanupPodFiles(uploadedPaths);
+      return { status: 500, error: error.message };
+    }
+
+    uploadedPaths.push(objectPath);
+    if (kind === 'photo') photoPaths.push(objectPath);
+    else documentPaths.push(objectPath);
+  }
+
+  return { uploadedPaths, photoPaths, documentPaths };
+}
+
+async function cleanupPodFiles(paths: string[]) {
+  if (!paths.length || !supabaseAdmin) return;
+  const { error } = await supabaseAdmin.storage.from(POD_BUCKET).remove(paths);
+  if (error) {
+    console.error('[mobile-pod] failed cleanup after upload error', { paths, error: error.message });
+  }
 }

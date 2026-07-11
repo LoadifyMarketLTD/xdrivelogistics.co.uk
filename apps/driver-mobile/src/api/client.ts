@@ -8,6 +8,12 @@ type ApiOptions = {
   body?: unknown;
 };
 
+type ApiFormOptions = {
+  token?: string | null;
+  method?: 'POST' | 'PATCH';
+  formData: FormData;
+};
+
 const fallbackBaseUrl = 'https://www.xdrivelogistics.co.uk';
 
 function normalizeApiBaseUrl(value: string | null | undefined) {
@@ -62,6 +68,25 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = typeof payload?.error === 'string' ? payload.error : `Request failed with HTTP ${response.status}`;
+    throw new Error(message);
+  }
+  return payload as T;
+}
+
+export async function apiFormRequest<T>(path: string, options: ApiFormOptions): Promise<T> {
+  const token = await resolveAuthToken(options.token);
+  const url = `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+  const response = await fetch(url, {
+    method: options.method ?? 'POST',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: 'Bearer ' + token } : {}),
+    },
+    body: options.formData,
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
