@@ -145,6 +145,10 @@ EXECUTE FUNCTION public.fn_lock_accepted_bid();
 --   j. Creates a job_commercial_agreements row in the same transaction.
 -- The function runs as SECURITY DEFINER / service_role, bypassing RLS on the
 -- commercial_agreements table (which has no INSERT policy for authenticated).
+--
+-- DROP required because the return type gains a new OUT column
+-- (commercial_agreement_id) which PostgreSQL cannot apply via CREATE OR REPLACE.
+DROP FUNCTION IF EXISTS public.accept_job_bid_atomic(uuid, uuid);
 
 CREATE OR REPLACE FUNCTION public.accept_job_bid_atomic(
   p_bid_id        uuid,
