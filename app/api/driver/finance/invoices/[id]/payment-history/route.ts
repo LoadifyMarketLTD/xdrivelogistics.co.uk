@@ -171,7 +171,7 @@ export async function POST(
     }
     // Overpayment: raised by the fn_guard_invoice_overpayment BEFORE INSERT trigger.
     if (insertError.code === 'P0001' && insertError.message.includes('Overpayment')) {
-      return respond(422, { error: insertError.message });
+      return respond(422, { error: 'Payment amount exceeds the outstanding invoice balance.' });
     }
     return respond(500, { error: insertError.message });
   }
