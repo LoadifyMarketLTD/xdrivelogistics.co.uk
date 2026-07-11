@@ -24,7 +24,7 @@ export async function fetchNotifications(token: string, unreadOnly = false) {
 
 export async function markNotificationsRead(token: string, ids?: string[]) {
   const body = ids ? { ids } : { markAll: true };
-  return apiRequest<{ ok: true }>('/api/driver/mobile/notifications', { method: 'POST', token, body });
+  return apiRequest<{ ok: true }>('/api/driver/mobile/notifications', { method: 'PATCH', token, body });
 }
 
 export async function fetchQuotes(token: string) {
@@ -37,4 +37,17 @@ export async function fetchVehicle(token: string) {
 
 export async function fetchProfile(token: string) {
   return apiRequest<{ profile: DriverProfile }>('/api/driver/mobile/profile', { token });
+}
+
+export type DriverDocument = {
+  id: string;
+  doc_type: string | null;
+  status: string | null;
+  expiry_date: string | null;
+  created_at: string | null;
+  rejection_reason?: string | null;
+};
+
+export async function fetchDocuments(token: string) {
+  return apiRequest<{ documents: DriverDocument[] }>('/api/driver/mobile/documents', { token });
 }

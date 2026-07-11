@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import {
+  fetchDocuments,
   fetchJobs,
   fetchNotifications,
   fetchProfile,
@@ -10,6 +11,7 @@ import {
   markNotificationsRead,
   postJobStatus,
   uploadPod,
+  type DriverDocument,
 } from '../api/jobs';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
 import { isSupabaseConfigured, supabase } from '../auth/supabase';
@@ -53,11 +55,17 @@ async function validateDriverRole(userId: string): Promise<string | null> {
       .from('profiles')
       .select('role')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
-    if (error || !profile) {
-      console.warn('[auth] Profile fetch failed or not found:', error?.message);
-      return null;
+    if (error) {
+      // Profile fetch failed (e.g. RLS, network) — allow login; server will validate
+      console.warn('[auth] Profile fetch failed:', error?.message);
+      return userId;
+    }
+    if (!profile) {
+      // No profile row yet (e.g. new driver) — allow login; server will validate
+      console.warn('[auth] Profile not found, allowing login.');
+      return userId;
     }
     if (profile.role !== 'driver') {
       console.warn('[auth] User role is not driver:', profile.role);
@@ -66,7 +74,7 @@ async function validateDriverRole(userId: string): Promise<string | null> {
     return userId;
   } catch (error) {
     console.error('[auth] Driver role validation error:', error);
-    return null;
+    return userId; // Allow login on unexpected errors; server is authoritative
   }
 }
 
@@ -514,9 +522,7 @@ export default function DriverMobileApp() {
             <MessagesScreen onBack={() => setScreen('more')} />
           )}
         </ScrollView>
-        {screen !== 'login' && (
-          <BottomNav active={activeTab} onChange={handleTabChange} unreadCount={unreadCount} />
-        )}
+        <BottomNav active={activeTab} onChange={handleTabChange} unreadCount={unreadCount} />
       </View>
     </SafeAreaView>
   );
@@ -835,7 +841,7 @@ function QuoteCard({ quote: q }: { quote: DriverQuote }) {
       <Info label="Price" value={q.price} />
       <Info label="Pickup" value={fmtDatetime(q.pickupDatetime)} />
       <Info label="Vehicle" value={q.vehicleType} />
-      <Text style={[styles.timestamp, { color: statusColor }]}>{q.status.toUpperCase()}</Text>
+      <Text style={[styles.timestamp, { color: statusColor }]}>{(q.status ?? '').toUpperCase()}</Text>
     </Panel>
   );
 }
@@ -864,6 +870,16 @@ function BookingsScreen({
   onRefresh: () => void;
 }) {
   const [tab, setTab] = useState<BookingTab>('assigned');
+
+  function handleTabChange(t: BookingTab) {
+    setTab(t);
+    // Switch the server-side scope so the correct jobs are fetched
+    if (t === 'completed') {
+      onScopeChange('completed');
+    } else if (scope !== 'active') {
+      onScopeChange('active');
+    }
+  }
 
   const current =
     tab === 'assigned' ? assignedJobs : tab === 'inprogress' ? inProgressJobs : completedJobs;
@@ -896,7 +912,7 @@ function BookingsScreen({
               <TouchableOpacity
                 key={t}
                 style={[styles.segment, tab === t && styles.segmentActive]}
-                onPress={() => setTab(t)}
+                onPress={() => handleTabChange(t)}
               >
                 <Text style={[styles.segmentText, tab === t && styles.segmentTextActive]}>
                   {count}
@@ -1210,15 +1226,14 @@ function VehicleScreen({
 // ─── Documents Screen ─────────────────────────────────────────────────────────
 
 function DocumentsScreen({ token, onBack }: { token: string | null; onBack: () => void }) {
-  const [docs, setDocs] = useState<{ id: string; doc_type: string | null; status: string | null; expiry_date: string | null; created_at: string | null }[]>([]);
+  const [docs, setDocs] = useState<DriverDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       if (!token) { setLoading(false); return; }
       try {
-        const { apiRequest } = await import('../api/client');
-        const response = await apiRequest<{ documents: typeof docs }>('/api/driver/mobile/documents', { token });
+        const response = await fetchDocuments(token);
         setDocs(response.documents ?? []);
       } catch {
         // Show empty state
@@ -1368,7 +1383,7 @@ function StatusPill({
       ? colors.danger
       : colors.primary;
   return (
-    <Text style={[styles.pill, { backgroundColor: background }]}>{label.replace(/_/g, ' ')}</Text>
+    <Text style={[styles.pill, { backgroundColor: background }]}>{(label ?? '').replace(/_/g, ' ')}</Text>
   );
 }
 

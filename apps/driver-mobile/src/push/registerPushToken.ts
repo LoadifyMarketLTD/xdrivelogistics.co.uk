@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 
@@ -8,7 +9,11 @@ export async function registerPushToken(sessionToken: string) {
     if (!Device.isDevice) return null;
     const permission = await Notifications.requestPermissionsAsync();
     if (permission.status !== 'granted') return null;
-    const token = await Notifications.getExpoPushTokenAsync();
+    const projectId: string | undefined =
+      typeof Constants.expoConfig?.extra?.eas?.projectId === 'string'
+        ? Constants.expoConfig.extra.eas.projectId
+        : undefined;
+    const token = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
     await apiRequest('/api/driver/mobile/device-token', {
       method: 'POST',
       token: sessionToken,

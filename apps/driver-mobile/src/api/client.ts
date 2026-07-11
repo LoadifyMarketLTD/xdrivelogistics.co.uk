@@ -4,7 +4,7 @@ import { supabase } from '../auth/supabase';
 
 type ApiOptions = {
   token?: string | null;
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PATCH';
   body?: unknown;
 };
 
