@@ -83,7 +83,8 @@ export async function GET(
 }
 
 // POST /api/driver/finance/invoices/[id]/payment-history
-// Body: { amount, currency?, paid_at?, settlement_method?, external_reference?, note?, idempotency_key? }
+// Body: { amount, idempotency_key, currency?, paid_at?, settlement_method?, external_reference?, note? }
+// idempotency_key is required to prevent duplicate payment records.
 // Caller must be an owner, admin, or dispatcher — regular drivers cannot record payments.
 export async function POST(
   request: NextRequest,
@@ -127,6 +128,13 @@ export async function POST(
     return respond(400, { error: 'amount must be a positive number.' });
   }
 
+  // idempotency_key is mandatory at the API level to prevent duplicate payments.
+  if (typeof idempotency_key !== 'string' || !idempotency_key.trim()) {
+    return respond(400, {
+      error: 'idempotency_key is required. Supply a client-generated UUID to prevent duplicate payment records.',
+    });
+  }
+
   // Validate settlement_method against the canonical allowed set.
   const resolvedMethod: SettlementMethod =
     typeof settlement_method === 'string' &&
@@ -144,11 +152,8 @@ export async function POST(
     settlement_method: resolvedMethod,
     external_reference: typeof external_reference === 'string' ? external_reference : null,
     note: typeof note === 'string' ? note : null,
+    idempotency_key: idempotency_key.trim(),
   };
-
-  if (typeof idempotency_key === 'string' && idempotency_key.trim()) {
-    insertPayload.idempotency_key = idempotency_key.trim();
-  }
 
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from('invoice_payment_history')
