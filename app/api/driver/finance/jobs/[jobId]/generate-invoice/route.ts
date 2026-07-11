@@ -75,21 +75,6 @@ export async function POST(
     });
   }
 
-  // Check if an invoice already exists for this job+company (idempotency).
-  const { data: existing } = await supabaseAdmin
-    .from('invoices')
-    .select('id, invoice_number, status')
-    .eq('job_id', jobId)
-    .eq('company_id', driver.companyId)
-    .maybeSingle();
-
-  if (existing) {
-    return respond(409, {
-      error: 'An invoice already exists for this job.',
-      invoice: existing,
-    });
-  }
-
   const isMarketplaceJob =
     job.exchange_visibility === 'exchange' || job.exchange_visibility === 'direct';
 
@@ -121,6 +106,41 @@ export async function POST(
     supplierCompanyId = agreement.supplier_company_id as string;
     agreedAmount = agreement.agreed_amount as number;
     agreementCurrency = agreement.currency as string;
+
+    const { data: existingByAgreement, error: existingByAgreementError } = await supabaseAdmin
+      .from('invoices')
+      .select('id, invoice_number, status, invoice_generation_idempotency_key')
+      .eq('commercial_agreement_id', commercialAgreementId)
+      .eq('invoice_origin', 'marketplace')
+      .maybeSingle();
+
+    if (existingByAgreementError) {
+      return respond(500, { error: existingByAgreementError.message });
+    }
+
+    if (existingByAgreement) {
+      return respond(200, {
+        invoice: {
+          ...existingByAgreement,
+          status: toCanonicalInvoiceStatus((existingByAgreement as { status?: string }).status),
+        },
+      });
+    }
+  } else {
+    // Non-marketplace route guard remains job-scoped.
+    const { data: existing } = await supabaseAdmin
+      .from('invoices')
+      .select('id, invoice_number, status')
+      .eq('job_id', jobId)
+      .eq('company_id', driver.companyId)
+      .maybeSingle();
+
+    if (existing) {
+      return respond(409, {
+        error: 'An invoice already exists for this job.',
+        invoice: existing,
+      });
+    }
   }
 
   const {
@@ -214,11 +234,45 @@ export async function POST(
       buyer_company_id: buyerCompanyId,
       supplier_company_id: supplierCompanyId,
       invoice_origin: isMarketplaceJob ? 'marketplace' : 'direct',
+      invoice_generation_idempotency_key: isMarketplaceJob ? idempotencyKey : null,
     })
     .select('id, invoice_number, status')
     .single();
 
   if (insertError) {
+    if (insertError.code === '23505' && isMarketplaceJob && commercialAgreementId) {
+      const [existingByKeyResult, existingByAgreementResult] = await Promise.all([
+        supabaseAdmin
+          .from('invoices')
+          .select('id, invoice_number, status')
+          .eq('invoice_generation_idempotency_key', idempotencyKey)
+          .eq('invoice_origin', 'marketplace')
+          .maybeSingle(),
+        supabaseAdmin
+          .from('invoices')
+          .select('id, invoice_number, status')
+          .eq('commercial_agreement_id', commercialAgreementId)
+          .eq('invoice_origin', 'marketplace')
+          .maybeSingle(),
+      ]);
+
+      const replayInvoice = existingByKeyResult.data ?? existingByAgreementResult.data;
+      const replayError = existingByKeyResult.error ?? existingByAgreementResult.error;
+
+      if (replayError) {
+        return respond(500, { error: replayError.message });
+      }
+
+      if (replayInvoice) {
+        return respond(200, {
+          invoice: {
+            ...replayInvoice,
+            status: toCanonicalInvoiceStatus((replayInvoice as { status?: string }).status),
+          },
+        });
+      }
+    }
+
     // Unique constraint on (company_id, invoice_number) — extremely rare race condition.
     if (insertError.code === '23505') {
       return respond(409, { error: 'Invoice number conflict — please retry.' });

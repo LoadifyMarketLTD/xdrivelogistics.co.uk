@@ -98,6 +98,7 @@ export default function CustomerJobDetailPage() {
   const { user } = useAuth();
   const jobId = params?.id;
 
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [job, setJob] = useState<JobDetail | null>(null);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [notes, setNotes] = useState<NoteRow[]>([]);
@@ -108,10 +109,36 @@ export default function CustomerJobDetailPage() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!isSupabaseConfigured || !user?.id) {
+        if (!cancelled) setCompanyId(user?.companyId ?? null);
+        return;
+      }
+      if (user.companyId) {
+        if (!cancelled) setCompanyId(user.companyId);
+        return;
+      }
+      const { data } = await supabase
+        .from('company_memberships')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .neq('status', 'suspended')
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled) setCompanyId((data?.company_id as string) ?? null);
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.companyId]);
+
+  useEffect(() => {
     const run = async () => {
       setLoading(true);
       setMessage('');
-      if (!isSupabaseConfigured || !jobId || !user?.id) {
+      if (!isSupabaseConfigured || !jobId || !companyId) {
         setLoading(false);
         return;
       }
@@ -120,7 +147,7 @@ export default function CustomerJobDetailPage() {
         .from('jobs')
         .select('id, company_id, created_by, status, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, vehicle_type, cargo_type, load_details, special_requirements, access_restrictions, delivery_photos, pod_photos, awarded_carrier_company_id, assigned_driver_id, status_history, created_at, updated_at')
         .eq('id', jobId)
-        .eq('created_by', user.id)
+        .eq('company_id', companyId)
         .maybeSingle();
 
       if (jobError || !jobRow) {
@@ -147,7 +174,7 @@ export default function CustomerJobDetailPage() {
     };
 
     void run();
-  }, [jobId, user?.id]);
+  }, [companyId, jobId]);
 
   const podFiles = useMemo(() => {
     if (!job) return [];
