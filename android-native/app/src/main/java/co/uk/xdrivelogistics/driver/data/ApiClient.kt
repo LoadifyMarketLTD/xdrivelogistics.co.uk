@@ -253,11 +253,13 @@ class ApiClient(
         }
     }
 
-    suspend fun loadDriverBids(session: DriverSession): Result<List<DriverBid>> = networkResult {
+    suspend fun loadDriverBids(session: DriverSession, profile: DriverProfile): Result<List<DriverBid>> = networkResult {
         val encodedUserId = URLEncoder.encode(session.userId, StandardCharsets.UTF_8.toString())
+        val encodedDriverId = URLEncoder.encode(profile.driverId, StandardCharsets.UTF_8.toString())
+        val encodedCompanyId = URLEncoder.encode(profile.companyId, StandardCharsets.UTF_8.toString())
         val select = "id,job_id,amount,bid_price_gbp,currency,status,message,created_at,jobs(pickup_location,delivery_location,pickup_datetime,client_name)"
         val request = supabaseRequest(
-            "/rest/v1/job_bids?select=$select&bidder_user_id=eq.$encodedUserId&order=created_at.desc&limit=100",
+            "/rest/v1/job_bids?select=$select&or=(bidder_user_id.eq.$encodedUserId,bidder_driver_id.eq.$encodedDriverId,company_id.eq.$encodedCompanyId)&order=created_at.desc&limit=100",
             session.accessToken,
         )
         http.newCall(request).execute().use { response ->
@@ -622,10 +624,11 @@ class ApiClient(
         }
     }
 
-    suspend fun loadAssignedJobs(session: DriverSession, driverId: String): Result<List<DriverJob>> = networkResult {
+    suspend fun loadAssignedJobs(session: DriverSession, profile: DriverProfile): Result<List<DriverJob>> = networkResult {
         val select = "id,status,current_status,pickup_location,delivery_location,pickup_datetime,delivery_datetime,client_name,client_phone,collection_contact_phone,delivery_contact_phone,vehicle_type,cargo_type,budget_amount,load_details,delivery_photos,pod_photos,distance_miles,job_distance_miles,pickup_postcode,delivery_postcode"
-        val encodedDriverId = URLEncoder.encode(driverId, StandardCharsets.UTF_8.toString())
-        val query = "select=$select&or=(status.eq.posted,assigned_driver_id.eq.$encodedDriverId)&order=pickup_datetime.asc&limit=100"
+        val encodedDriverId = URLEncoder.encode(profile.driverId, StandardCharsets.UTF_8.toString())
+        val encodedCompanyId = URLEncoder.encode(profile.companyId, StandardCharsets.UTF_8.toString())
+        val query = "select=$select&or=(status.eq.posted,assigned_driver_id.eq.$encodedDriverId,assigned_company_id.eq.$encodedCompanyId,awarded_carrier_company_id.eq.$encodedCompanyId)&order=pickup_datetime.asc&limit=100"
         val request = supabaseRequest("/rest/v1/jobs?$query", session.accessToken)
 
         http.newCall(request).execute().use { response ->

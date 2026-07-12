@@ -144,12 +144,12 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             .onSuccess { profile ->
                 val documents = api.loadDriverDocuments(session, profile).getOrDefault(emptyList())
                 val preferences = api.loadJobSearchPreferences(session, profile.driverId).getOrDefault(emptyMap())
-                val bids = api.loadDriverBids(session).getOrDefault(emptyList())
+                val bids = api.loadDriverBids(session, profile).getOrDefault(emptyList())
                 val notifications = api.loadDriverNotifications(session).getOrDefault(emptyList())
                 val returnJourney = api.loadReturnJourney(session, profile.driverId).getOrNull()
                 val invoices = api.loadDriverInvoices(session, profile.companyId).getOrDefault(emptyList())
                 val nearbyDrivers = api.loadNearbyDrivers(session, profile.companyId).getOrDefault(emptyList())
-                api.loadAssignedJobs(session, profile.driverId)
+                api.loadAssignedJobs(session, profile)
                     .onSuccess { jobs ->
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
