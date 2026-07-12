@@ -8,7 +8,6 @@ import type { DbJob } from '../../../../lib/types/database';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { useAuth } from '../../../components/AuthContext';
 import { getLoadDetailSections } from '../../../../lib/loadPostingDetails';
-import { useDriverLocationPublisher } from '../../../hooks/useDriverLocationPublisher';
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Received',
@@ -16,9 +15,14 @@ const STATUS_LABEL: Record<string, string> = {
   quoted: 'Quoted',
   awarded: 'Awarded',
   allocated: 'Allocated',
+  on_my_way: 'On My Way',
+  on_site_pickup: 'At Pickup',
+  loaded: 'Loaded',
+  on_site_delivery: 'At Delivery',
   collected: 'Collected',
   in_transit: 'In Transit',
   delivered: 'Delivered',
+  completed: 'Completed',
   invoiced: 'Invoiced',
   paid: 'Paid',
   cancelled: 'Cancelled',
@@ -141,7 +145,6 @@ export default function DriverJobDetailPage() {
     if (!normalizedDriverId) return;
     loadJob();
   }, [normalizedDriverId, loadJob]);
-  useDriverLocationPublisher(job?.status, Boolean(job));
 
   // ── Canvas signature helpers ─────────────────────────────────
   const startSig = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -248,17 +251,27 @@ export default function DriverJobDetailPage() {
     setActionLoading(true);
     setError('');
 
-    const newHistory = appendStatusHistory(job.status_history, newStatus);
-    const { error: dbError } = await supabase
-      .from('jobs')
-      .update({
-        status: newStatus,
-        status_history: newHistory,
-        driver_notes: driverNotes || null,
-        ...extraFields,
-      })
-      .eq('id', job.id)
-      .eq('assigned_driver_id', normalizedDriverId);
+    const body: Record<string, unknown> = {
+      p_driver_id: normalizedDriverId,
+      p_job_id: job.id,
+      p_next_status: newStatus,
+      p_driver_notes: driverNotes || null,
+    };
+
+    if (typeof extraFields.collection_photo_url === 'string') {
+      body.p_collection_photo_url = extraFields.collection_photo_url;
+    }
+    if (Array.isArray(extraFields.delivery_photos)) {
+      body.p_delivery_photos = extraFields.delivery_photos;
+    }
+    if (typeof extraFields.delivery_signature_data === 'string') {
+      body.p_delivery_signature_data = extraFields.delivery_signature_data;
+    }
+    if (typeof extraFields.client_signature_name === 'string') {
+      body.p_client_signature_name = extraFields.client_signature_name;
+    }
+
+    const { error: dbError } = await supabase.rpc('driver_update_job_status_atomic', body);
 
     if (dbError) {
       setError(dbError.message);
@@ -294,24 +307,25 @@ export default function DriverJobDetailPage() {
 
   const handleCollect = () =>
   {
-    if (!collectionPhotoPreview) {
-      setError('Collection photo is required before confirming collection.');
+    updateJobStatus('on_my_way');
+  };
+
+  const handleArrivePickup = () => updateJobStatus('on_site_pickup');
+
+  const handleLoad = () =>
+  {
+    const collectionPhoto = collectionPhotoPreview ?? job?.collection_photo_url ?? null;
+    if (!collectionPhoto) {
+      setError('Loading photo is required before marking the job as loaded.');
       return;
     }
-    updateJobStatus('collected', {
-      collection_photo_url: collectionPhotoPreview,
+    updateJobStatus('loaded', {
+      collection_photo_url: collectionPhoto,
     });
   };
 
   const handleStartTransit = () => {
-    const collectionPhoto = collectionPhotoPreview ?? job?.collection_photo_url ?? null;
-    if (!collectionPhoto) {
-      setError('Collection photo is required before marking the job as in transit.');
-      return;
-    }
-    updateJobStatus('in_transit', {
-      collection_photo_url: collectionPhoto,
-    });
+    updateJobStatus('on_site_delivery');
   };
 
   const handleDeliver = () => {
@@ -352,9 +366,12 @@ export default function DriverJobDetailPage() {
     );
   }
 
-  const canCollect = job.status === 'allocated';
-  const canStartTransit = job.status === 'collected';
-  const canDeliver = job.status === 'in_transit';
+  const currentStatus = job.current_status ?? job.status;
+  const canCollect = currentStatus === 'allocated';
+  const canArrivePickup = currentStatus === 'on_my_way';
+  const canLoad = currentStatus === 'on_site_pickup';
+  const canStartTransit = currentStatus === 'loaded';
+  const canDeliver = currentStatus === 'on_site_delivery';
   const clientFields = getJobClientFields(job);
   const hasEnRoute = milestones.has('driver_en_route');
   const hasArrivedPickup = milestones.has('arrived_pickup');
@@ -400,7 +417,7 @@ export default function DriverJobDetailPage() {
             borderRadius: '20px',
           }}
         >
-          {STATUS_LABEL[job.status] ?? job.status}
+          {STATUS_LABEL[currentStatus] ?? currentStatus}
         </span>
       </header>
 
@@ -510,10 +527,10 @@ export default function DriverJobDetailPage() {
           </Section>
         )}
         {/* Collection photo – shown until the trip starts */}
-        {(canCollect || canStartTransit) && (
-          <Section title="Collection Photo">
+        {(canLoad || currentStatus === 'loaded') && (
+          <Section title="Loading Photos & Message">
             <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0 0 0.75rem' }}>
-              Take a photo at collection before confirming pick-up.
+              Add loading images and a message before marking the job as loaded.
             </p>
             <input
               ref={collectionInputRef}
@@ -542,6 +559,22 @@ export default function DriverJobDetailPage() {
                 📷 Take / Upload Photo
               </button>
             )}
+            <textarea
+              value={driverNotes}
+              onChange={e => setDriverNotes(e.target.value)}
+              placeholder="Message about loading, goods condition, access, waiting time, or issue..."
+              rows={3}
+              style={{
+                width: '100%',
+                marginTop: '0.75rem',
+                padding: '0.65rem 0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                fontSize: '0.9rem',
+                resize: 'vertical',
+                boxSizing: 'border-box',
+              }}
+            />
           </Section>
         )}
 
@@ -642,7 +675,7 @@ export default function DriverJobDetailPage() {
       </div>
 
       {/* Action bar */}
-      {(canCollect || canStartTransit || canDeliver) && (
+      {(canCollect || canArrivePickup || canLoad || canStartTransit || canDeliver) && (
         <div
           style={{
             position: 'fixed',
@@ -664,6 +697,16 @@ export default function DriverJobDetailPage() {
               style={actionBtn('#1d4ed8')}
             >
               {actionLoading ? 'Updating…' : '🚚 Confirm Collection'}
+            </button>
+          )}
+          {canArrivePickup && (
+            <button onClick={handleArrivePickup} disabled={actionLoading} style={actionBtn('#1d4ed8')}>
+              {actionLoading ? 'Updating...' : 'Arrived Pickup'}
+            </button>
+          )}
+          {canLoad && (
+            <button onClick={handleLoad} disabled={actionLoading} style={actionBtn('#0f766e')}>
+              {actionLoading ? 'Updating...' : 'Loaded'}
             </button>
           )}
           {canStartTransit && (
