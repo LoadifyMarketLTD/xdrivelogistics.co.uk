@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
@@ -49,6 +49,7 @@ type ExchangeLoad = {
   load_details: string | null;
   exchange_posted_at: string | null;
   awarded_carrier_company_id: string | null;
+  direct_invite_company_id: string | null;
   companies: { name: string } | Array<{ name: string }> | null;
 };
 
@@ -196,7 +197,7 @@ export default function AvailableLoadsPage() {
 
       const loadsPromise = supabase
         .from('jobs')
-        .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, weight_kg, pallets, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, budget_amount, is_fixed_price, currency, load_details, special_requirements, access_restrictions, exchange_posted_at, awarded_carrier_company_id, companies:companies!jobs_company_id_fkey(name)')
+        .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, weight_kg, pallets, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, budget_amount, is_fixed_price, currency, load_details, special_requirements, access_restrictions, exchange_posted_at, awarded_carrier_company_id, direct_invite_company_id, companies!jobs_company_id_fkey(name)')
         .not('exchange_posted_at', 'is', null)
         .is('awarded_carrier_company_id', null)
         .in('status', ['posted'])
@@ -374,9 +375,9 @@ export default function AvailableLoadsPage() {
             <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>Available Loads</h2>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#64748b' }}>
               {loading
-                ? 'Loading exchange board...'
+                ? 'Loading exchange boardâ€¦'
                 : `${filteredLoads.length} load${filteredLoads.length !== 1 ? 's' : ''} ready to review`}
-              {refreshing && ' - Refreshing...'}
+              {refreshing && ' Â· Refreshingâ€¦'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -391,7 +392,7 @@ export default function AvailableLoadsPage() {
               disabled={loading || refreshing}
               style={{ padding: '0.55rem 1rem', backgroundColor: '#1d4ed8', border: 'none', borderRadius: '8px', fontSize: '0.83rem', fontWeight: 600, cursor: loading || refreshing ? 'not-allowed' : 'pointer', color: '#fff', opacity: loading || refreshing ? 0.7 : 1 }}
             >
-              {refreshing ? 'Refreshing...' : 'Refresh'}
+              {refreshing ? 'Refreshingâ€¦' : 'Refresh'}
             </button>
           </div>
         </div>
@@ -421,13 +422,14 @@ export default function AvailableLoadsPage() {
         </div>
 
         {filtersPending && !loading && (
-          <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.75rem' }}>Applying filters...</div>
+          <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.75rem' }}>Applying filtersâ€¦</div>
         )}
 
         {loading ? (
-          <div style={{ ...card, color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading exchange loads...</div>
+          <div style={{ ...card, color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading exchange loadsâ€¦</div>
         ) : showNoExchangeLoads ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ“­</div>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>No exchange loads available right now</div>
             <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.9rem' }}>
               Try refreshing in a moment or use the search page when new loads are posted.
@@ -441,6 +443,7 @@ export default function AvailableLoadsPage() {
           </div>
         ) : showNoFilteredLoads ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ“‹</div>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>No loads match your active filters</div>
             <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.9rem' }}>
               Broaden the vehicle, date, postcode, or cargo filters to see more live loads.
@@ -479,7 +482,7 @@ export default function AvailableLoadsPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {load.budget_amount != null && (
                         <span style={{ fontSize: '1.1rem', fontWeight: 800, color: load.is_fixed_price ? '#15803d' : '#0f172a' }}>
-                          GBP {load.budget_amount.toFixed(2)}
+                          Â£{load.budget_amount.toFixed(2)}
                           {!load.is_fixed_price && <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#64748b' }}> budget</span>}
                         </span>
                       )}
@@ -533,13 +536,13 @@ export default function AvailableLoadsPage() {
                         step="0.01"
                         value={bidAmount}
                         onChange={(e) => setBidAmount(e.target.value)}
-                        placeholder="Your price (GBP)"
+                        placeholder="Your price (Â£)"
                         style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
                       />
                       <textarea
                         value={bidMessage}
                         onChange={(e) => setBidMessage(e.target.value)}
-                        placeholder="Optional message to shipper..."
+                        placeholder="Optional message to shipperâ€¦"
                         rows={2}
                         style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.85rem', width: '100%', resize: 'vertical' }}
                       />
@@ -549,7 +552,7 @@ export default function AvailableLoadsPage() {
                           disabled={bidLoading || !bidAmount}
                           style={{ flex: 1, minWidth: '180px', padding: '0.6rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: bidLoading ? 'not-allowed' : 'pointer', opacity: bidLoading ? 0.6 : 1 }}
                         >
-                          {bidLoading ? 'Submitting...' : 'Submit Quote'}
+                          {bidLoading ? 'Submittingâ€¦' : 'Submit Quote'}
                         </button>
                         <button
                           onClick={() => {
@@ -577,7 +580,7 @@ export default function AvailableLoadsPage() {
                         </button>
                       ) : (
                         <span style={{ fontSize: '0.82rem', color: '#6d28d9', fontWeight: 600 }}>
-                          Quote submitted: GBP {load.myBidAmount?.toFixed(2) ?? '-'}
+                          Quote submitted: Â£{load.myBidAmount?.toFixed(2) ?? 'â€”'}
                         </span>
                       )}
                       <button

@@ -61,7 +61,7 @@ export default function BrokerAwardsPage() {
     // Jobs where this company is the awarded carrier
     const { data, error: err } = await supabase
       .from('jobs')
-      .select('id, pickup_location, delivery_location, pickup_datetime, delivery_datetime, vehicle_type, cargo_type, status, awarded_carrier_company_id, created_at, companies:company_id(name)')
+      .select('id, pickup_location, delivery_location, pickup_datetime, delivery_datetime, vehicle_type, cargo_type, status, awarded_carrier_company_id, created_at, companies!jobs_company_id_fkey(name)')
       .eq('awarded_carrier_company_id', companyId)
       .in('status', ['awarded','allocated','collected','in_transit','delivered','invoiced','paid'])
       .order('created_at', { ascending: false })
