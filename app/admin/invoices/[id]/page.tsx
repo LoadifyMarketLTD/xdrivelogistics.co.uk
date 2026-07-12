@@ -71,6 +71,7 @@ function invoiceDataToDb(inv: InvoiceData, companyId: string, jobId: string | nu
     vat_rate: inv.vatRate,
     currency: 'GBP',
     payment_terms: inv.paymentTerms,
+    invoice_origin: 'manual',
     late_fee: inv.lateFee || null,
     pod_photos: inv.podPhotos ?? null,
     signature: inv.signature ?? null,
@@ -359,7 +360,7 @@ export default function InvoiceDetailPage() {
         .eq('company_id', companyId)
         .single();
       if (!error && data) {
-        setFormData(dbToInvoiceData(data as Invoice));
+        setFormData(dbToInvoiceData(data as unknown as Invoice));
         setLinkedJobId(typeof data.job_id === 'string' ? data.job_id : null);
         await loadInvoiceLedger(invoiceId, companyId);
         return;
