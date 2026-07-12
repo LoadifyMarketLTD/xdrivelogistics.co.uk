@@ -230,7 +230,7 @@ class MainActivity : ComponentActivity() {
 
                 LaunchedEffect(state.error, state.message, state.selectedTab) {
                     if (state.selectedTab != DriverTab.ACTION) {
-                        if (state.error.isNotBlank()) snackbarHostState.showSnackbar(state.error)
+                        if (state.error.isNotBlank()) snackbarHostState.showSnackbar(state.error.toDriverSafeError())
                         if (state.message.isNotBlank()) snackbarHostState.showSnackbar(state.message)
                     }
                 }
@@ -477,7 +477,6 @@ private fun DriverAppShell(
             title = state.headerTitle(),
             isLoading = state.isLoading,
             onRefresh = onRefresh,
-            onLogout = onLogout,
         )
 
         Box(modifier = Modifier.weight(1f)) {
@@ -498,7 +497,7 @@ private fun DriverAppShell(
 }
 
 @Composable
-private fun AppHeader(title: String, isLoading: Boolean, onRefresh: () -> Unit, onLogout: () -> Unit) {
+private fun AppHeader(title: String, isLoading: Boolean, onRefresh: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -509,8 +508,7 @@ private fun AppHeader(title: String, isLoading: Boolean, onRefresh: () -> Unit, 
         Spacer(Modifier.width(12.dp))
         Text(title, color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
         if (isLoading) CircularProgressIndicator(color = Yellow, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-        TextButton(onClick = onRefresh) { Text("Refresh", color = TextSecondary) }
-        TextButton(onClick = onLogout) { Text("Logout", color = Danger) }
+        TextButton(onClick = onRefresh) { Text("Refresh", color = TextSecondary, fontSize = 13.sp) }
     }
 }
 
@@ -583,7 +581,7 @@ private fun DashboardScreen(
         }
         item {
             if (nextJob == null) {
-                EmptyState("No posted jobs found.", "Posted work will appear here when loads are published to drivers.")
+                EmptyState("No posted jobs found.", "Try refresh, increase the search radius, or clear vehicle filters.")
             } else {
                 JobCard(
                     job = nextJob,
@@ -819,7 +817,7 @@ private fun MyJobsScreen(
         item { XDriveTextField(query, { query = it }, "Search my jobs", "Find") }
         item { SegmentedTabs(listOf("Allocated", "Active", "In Progress", "Completed", "Cancelled"), filter) { filter = it } }
         if (filtered.isEmpty()) {
-            item { EmptyState("No $filter jobs.", "Awarded and assigned work will appear here.") }
+            item { EmptyState("No $filter jobs.", "Refresh or check Bookings from Profile if you recently won work.") }
         }
         items(filtered, key = { it.id }) { job ->
             JobCard(
@@ -862,7 +860,7 @@ private fun BookingsScreen(
     ) {
         item { SegmentedTabs(listOf("Current", "Past 7 Days", "Past 14 Days", "History"), filter) { filter = it } }
         if (visible.isEmpty()) {
-            item { EmptyState("No bookings.", "Awarded jobs become bookings and can be opened from here.") }
+            item { EmptyState("No bookings.", "Accepted work and recent completed jobs will appear here.") }
         } else {
             items(visible, key = { it.id }) { job ->
                 BookingCard(job) {
@@ -914,7 +912,7 @@ private fun SmartPayScreen(state: DriverUiState) {
     ) {
         item {
             XDriveCard {
-                Text("SmartPay", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 22.sp)
+                Text("XDrive Pay", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 22.sp)
                 Text("${visible.size} invoices | GBP ${"%.2f".format(Locale.UK, total)}", color = TextSecondary, fontSize = 13.sp)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -926,7 +924,7 @@ private fun SmartPayScreen(state: DriverUiState) {
         }
         item { SegmentedTabs(listOf("All", "Pending", "Awaiting Payment", "Paid", "Overdue"), filter) { filter = it } }
         if (visible.isEmpty()) {
-            item { EmptyState("No invoices.", "Completed work invoices will appear here from the live finance backend.") }
+            item { EmptyState("No invoices.", "Completed jobs that are ready for payment will appear here.") }
         } else {
             items(visible, key = { it.id }) { invoice ->
                 InvoiceCard(invoice)
@@ -974,7 +972,7 @@ private fun MyQuotesScreen(state: DriverUiState) {
             item {
                 EmptyState(
                     "No ${filter.lowercase()} quotes.",
-                    "Quotes submitted from this driver account will appear here with amount, route and status.",
+                    "Quotes you send will appear here with amount, route and outcome.",
                 )
             }
         } else {
@@ -1089,7 +1087,7 @@ private fun ActionScreen(
         }
         item { SegmentedTabs(listOf("Summary", "Stops", "Status", "POD"), detailTab) { detailTab = it } }
         if (selected == null) {
-            item { EmptyState("No job selected.", "Posted work will appear here when dispatch publishes it for driver quotes.") }
+            item { EmptyState("No job selected.", "Open a posted job from Nearby to view details or send a quote.") }
         } else {
             when (detailTab) {
                 "Summary" -> item { JobSummaryPanel(selected, onSubmitQuote) }
@@ -1229,8 +1227,8 @@ private fun PostedJobDetailScreen(
         if (errorMessage.isNotBlank() || statusMessage.isNotBlank()) {
             item {
                 QuoteStatusBanner(
-                    title = if (errorMessage.isNotBlank()) "Quote blocked" else "Quote status",
-                    body = errorMessage.ifBlank { statusMessage },
+                    title = if (errorMessage.isNotBlank()) "Action needed" else "Quote status",
+                    body = errorMessage.toDriverSafeError().ifBlank { statusMessage },
                     isError = errorMessage.isNotBlank(),
                 )
             }
@@ -1289,8 +1287,8 @@ private fun PostedJobDetailScreen(
             LightDetailCard(contentPadding = 12.dp) {
                 if (errorMessage.isNotBlank() || statusMessage.isNotBlank()) {
                     QuoteStatusBanner(
-                        title = if (errorMessage.isNotBlank()) "Latest response" else "Quote status",
-                        body = errorMessage.ifBlank { statusMessage },
+                        title = if (errorMessage.isNotBlank()) "Action needed" else "Quote status",
+                        body = errorMessage.toDriverSafeError().ifBlank { statusMessage },
                         isError = errorMessage.isNotBlank(),
                     )
                     Spacer(Modifier.height(12.dp))
@@ -1570,7 +1568,7 @@ private fun MessagesScreen(
             item {
                 EmptyState(
                     "No notifications",
-                    "Dispatcher, support, system and payment messages will appear here when the backend creates them.",
+                    "New dispatch, support and payment messages will appear here.",
                 )
             }
         } else {
@@ -1683,11 +1681,11 @@ private fun ProfileScreen(
         item {
             XDriveCard {
                 Text("Driver Information", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                InfoLine("Driver", state.profile?.displayName?.ifBlank { "-" } ?: "-")
-                InfoLine("Driver ID", state.profile?.driverId ?: "-")
-                InfoLine("Company ID", state.profile?.companyId ?: "-")
-                InfoLine("Vehicle", state.profile?.vehicleLabel?.ifBlank { "No assigned vehicle" } ?: "No assigned vehicle")
-                InfoLine("Registration", state.profile?.vehicleRegistration?.ifBlank { "-" } ?: "-")
+                InfoLine("Driver", state.profile?.displayName?.ifBlank { state.session?.email?.substringBefore("@") ?: "Driver" } ?: "Driver")
+                InfoLine("Email", state.profile?.email?.ifBlank { state.session?.email ?: "-" } ?: "-")
+                InfoLine("Company", "XDrive carrier account")
+                InfoLine("Vehicle", state.profile?.vehicleLabel?.ifBlank { "Vehicle not linked" } ?: "Vehicle not linked")
+                InfoLine("Registration", state.profile?.vehicleRegistration?.ifBlank { "Not set" } ?: "Not set")
                 InfoLine("Status", "Active")
             }
         }
@@ -1733,7 +1731,7 @@ private fun ProfileScreen(
         }
         item {
             XDriveCard {
-                Text("SmartPay", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("XDrive Pay", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 val pending = state.invoices.count { it.status.contains("pending", ignoreCase = true) || it.status.contains("submitted", ignoreCase = true) }
                 val paid = state.invoices.count { it.status.contains("paid", ignoreCase = true) }
                 val overdue = state.invoices.count { it.status.contains("overdue", ignoreCase = true) }
@@ -1926,8 +1924,9 @@ private fun JobCard(
             Spacer(Modifier.height(12.dp))
             InfoLine("Pickup", job.pickupLocation.ifBlank { "-" })
             InfoLine("Delivery", job.deliveryLocation.ifBlank { "-" })
-            InfoLine("Time", job.pickupDatetime ?: "Not set")
-            if (job.loadDetails.isNotBlank()) InfoLine("Load", job.loadDetails)
+            InfoLine("Pickup time", job.pickupDatetime.driverDateTimeLabel())
+            job.deliveryDatetime?.takeIf { it.isNotBlank() }?.let { InfoLine("Delivery time", it.driverDateTimeLabel()) }
+            job.humanLoadLines().forEach { (label, value) -> InfoLine(label, value) }
             Spacer(Modifier.height(12.dp))
             if (job.isPosted()) {
                 QuoteBox(onSubmitQuote)
@@ -1952,7 +1951,7 @@ private fun JobCard(
 
 @Composable
 private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (DriverTab) -> Unit) {
-    val tabs = listOf(DriverTab.NEARBY, DriverTab.QUOTES, DriverTab.BOOKINGS, DriverTab.JOBS, DriverTab.SMARTPAY, DriverTab.MESSAGES, DriverTab.PROFILE)
+    val tabs = listOf(DriverTab.NEARBY, DriverTab.QUOTES, DriverTab.JOBS, DriverTab.MESSAGES, DriverTab.PROFILE)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1970,8 +1969,13 @@ private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (Drive
                     .padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(tab.navIcon(activeCount), color = if (tab == selected) Yellow else TextSecondary, fontSize = 16.sp)
-                Text(tab.navLabel(), color = if (tab == selected) Yellow else TextSecondary, fontSize = 11.sp, maxLines = 1)
+                Text(
+                    tab.navLabel(activeCount),
+                    color = if (tab == selected) Yellow else TextSecondary,
+                    fontSize = 13.sp,
+                    fontWeight = if (tab == selected) FontWeight.Bold else FontWeight.Normal,
+                    maxLines = 1,
+                )
             }
         }
     }
@@ -2016,15 +2020,34 @@ private fun StatusTimeline(status: String) {
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         steps.forEachIndexed { index, step ->
             val reached = if (step == "pod") status in listOf("delivered", "completed") else index <= current
+            val isCurrent = step == status || (status == "delivered" && step == "delivered")
+            val indicatorColor = when {
+                reached && !isCurrent -> Success
+                isCurrent -> Yellow
+                else -> Border
+            }
+            val textColor = when {
+                reached || isCurrent -> TextPrimary
+                else -> TextSecondary
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(10.dp)
+                        .size(if (isCurrent) 12.dp else 10.dp)
                         .clip(CircleShape)
-                        .background(if (reached) Yellow else Border)
+                        .background(indicatorColor)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(step.statusLabel(), color = if (reached) TextPrimary else TextSecondary, fontSize = 12.sp)
+                Text(
+                    when {
+                        reached && !isCurrent -> "Done - ${step.statusLabel()}"
+                        isCurrent -> "Current - ${step.statusLabel()}"
+                        else -> step.statusLabel()
+                    },
+                    color = textColor,
+                    fontSize = 12.sp,
+                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                )
             }
         }
     }
@@ -2372,14 +2395,57 @@ private fun String?.marketplaceDeliveryTime(): String =
         ?.format(DateTimeFormatter.ofPattern("HH:mm 'BST' | dd MMM", Locale.UK))
         ?: "ASAP"
 
+private fun String?.driverDateTimeLabel(): String {
+    val date = parseXDriveDateTime(this) ?: return "Not set"
+    val local = date.atZoneSameInstant(ZoneId.of("Europe/London"))
+    val today = java.time.LocalDate.now(ZoneId.of("Europe/London"))
+    val day = when (local.toLocalDate()) {
+        today -> "Today"
+        today.plusDays(1) -> "Tomorrow"
+        else -> local.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.UK))
+    }
+    return "$day, ${local.format(DateTimeFormatter.ofPattern("HH:mm", Locale.UK))}"
+}
+
 private fun parseXDriveDateTime(value: String?): OffsetDateTime? =
     runCatching {
         value?.takeIf { it.isNotBlank() }?.let { OffsetDateTime.parse(it) }
     }.getOrNull()
 
 private fun String.extractLoadField(key: String): String? {
-    val match = Regex("\"$key\"\\s*:\\s*\"([^\"]+)\"", RegexOption.IGNORE_CASE).find(this)
-    return match?.groupValues?.getOrNull(1)?.takeIf { it.isNotBlank() }
+    val quoted = Regex("\"$key\"\\s*:\\s*\"([^\"]+)\"", RegexOption.IGNORE_CASE).find(this)
+    if (quoted != null) return quoted.groupValues.getOrNull(1)?.takeIf { it.isNotBlank() }
+    val raw = Regex("\"$key\"\\s*:\\s*([^,}\\]]+)", RegexOption.IGNORE_CASE).find(this)
+    return raw?.groupValues?.getOrNull(1)?.trim()?.trim('"')?.takeIf { it.isNotBlank() && it != "null" }
+}
+
+private fun DriverJob.humanLoadLines(): List<Pair<String, String>> {
+    val details = loadDetails.trim()
+    if (details.isBlank()) return emptyList()
+    val fields = listOf(
+        "Goods" to listOf("goods", "load", "cargo", "cargo_type", "freight", "description"),
+        "Weight" to listOf("weight", "load_weight", "weight_kg"),
+        "Quantity" to listOf("quantity", "qty", "pallets", "pieces"),
+        "Notes" to listOf("notes", "note", "special_requirements", "requirements"),
+    ).mapNotNull { (label, keys) ->
+        keys.firstNotNullOfOrNull { key -> details.extractLoadField(key) }?.let { label to it }
+    }
+    if (fields.isNotEmpty()) return fields.distinctBy { it.first }
+    return if (details.startsWith("{") || details.startsWith("[")) emptyList() else listOf("Load" to details.take(120))
+}
+
+private fun String.toDriverSafeError(): String {
+    val lower = lowercase(Locale.UK)
+    return when {
+        isBlank() -> ""
+        "unable to resolve host" in lower || "no address associated with hostname" in lower ->
+            "Connection problem. Check internet signal and refresh."
+        "violates check constraint" in lower || "relation" in lower || "sql" in lower || "postgres" in lower ->
+            "The action could not be completed. Please refresh and try again."
+        "status update could not be applied" in lower ->
+            "The status could not be updated. Please refresh and try again."
+        else -> this
+    }
 }
 
 private fun DriverTab.screenTitle() = when (this) {
@@ -2387,7 +2453,7 @@ private fun DriverTab.screenTitle() = when (this) {
     DriverTab.QUOTES -> "My Quotes"
     DriverTab.BOOKINGS -> "Bookings"
     DriverTab.JOBS -> "My Jobs"
-    DriverTab.SMARTPAY -> "SmartPay"
+    DriverTab.SMARTPAY -> "XDrive Pay"
     DriverTab.ACTION -> "Job Details"
     DriverTab.MESSAGES -> "Alerts"
     DriverTab.PROFILE -> "Profile"
@@ -2402,11 +2468,11 @@ private fun DriverUiState.headerTitle(): String {
     }
 }
 
-private fun DriverTab.navLabel() = when (this) {
+private fun DriverTab.navLabel(activeCount: Int = 0) = when (this) {
     DriverTab.NEARBY -> "Nearby"
     DriverTab.QUOTES -> "Quotes"
     DriverTab.BOOKINGS -> "Bookings"
-    DriverTab.JOBS -> "My Jobs"
+    DriverTab.JOBS -> if (activeCount > 0) "Jobs $activeCount" else "Jobs"
     DriverTab.SMARTPAY -> "Pay"
     DriverTab.ACTION -> "Job"
     DriverTab.MESSAGES -> "Alerts"
@@ -2449,6 +2515,13 @@ private fun DriverJob.statusLabel(): String = driverStatusKey().statusLabel()
 private fun String.statusLabel(): String =
     when (this) {
         "pod" -> "POD"
+        "allocated" -> "Accepted"
+        "on_my_way" -> "On My Way to Collection"
+        "on_site_pickup" -> "Arrived at Collection"
+        "loaded" -> "Loaded"
+        "on_site_delivery" -> "Arrived at Delivery"
+        "delivered" -> "Delivered (POD)"
+        "completed" -> "Completed"
         else -> split('_').joinToString(" ") { part -> part.replaceFirstChar { it.uppercase() } }
     }
 
@@ -2500,9 +2573,9 @@ private fun DriverJob.nextStatus(): String = when (driverStatusKey()) {
 
 private fun DriverJob.nextActionLabel(): String = when (nextStatus()) {
     "on_my_way" -> "On My Way"
-    "on_site_pickup" -> "Arrived Pickup"
+    "on_site_pickup" -> "Arrived at Collection"
     "loaded" -> "Loaded / Collected"
-    "on_site_delivery" -> "Arrived Delivery"
+    "on_site_delivery" -> "Arrived at Delivery"
     "delivered" -> "Mark as Delivered"
     "completed" -> "Complete Job"
     else -> "No further action"

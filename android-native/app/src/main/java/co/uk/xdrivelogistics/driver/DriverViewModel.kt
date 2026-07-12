@@ -96,7 +96,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Login failed.",
+                        error = error.friendlyDriverMessage("Login failed."),
                     )
                 }
         }
@@ -173,7 +173,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 profile = profile,
-                                error = error.message ?: "Failed to load jobs.",
+                                error = error.friendlyDriverMessage("Failed to load jobs."),
                             )
                         }
                     }
@@ -184,7 +184,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.friendlySessionMessage() ?: error.message ?: "Failed to load driver profile.",
+                        error = error.friendlySessionMessage() ?: error.friendlyDriverMessage("Failed to load driver profile."),
                     )
                 }
             }
@@ -223,7 +223,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Failed to send note.",
+                        error = error.friendlyDriverMessage("Failed to send note."),
                     )
                 }
         }
@@ -234,7 +234,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             val session = _uiState.value.session ?: return@launch
             api.markNotificationRead(session, notificationId)
                 .onSuccess { refreshDriverData() }
-                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message ?: "Failed to mark alert read.") }
+                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.friendlyDriverMessage("Failed to mark alert read.")) }
         }
     }
 
@@ -243,7 +243,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             val session = _uiState.value.session ?: return@launch
             api.deleteNotification(session, notificationId)
                 .onSuccess { refreshDriverData() }
-                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message ?: "Failed to delete alert.") }
+                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.friendlyDriverMessage("Failed to delete alert.")) }
         }
     }
 
@@ -262,7 +262,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     refreshDriverData()
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = error.message ?: "Failed to save journey.")
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = error.friendlyDriverMessage("Failed to save journey."))
                 }
         }
     }
@@ -282,7 +282,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Failed to publish location.",
+                        error = error.friendlyDriverMessage("Failed to publish location."),
                     )
                 }
         }
@@ -303,7 +303,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Failed to update password.",
+                        error = error.friendlyDriverMessage("Failed to update password."),
                     )
                 }
         }
@@ -356,7 +356,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Failed to update job status.",
+                        error = error.friendlyDriverMessage("Failed to update job status."),
                     )
                 }
         }
@@ -393,7 +393,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Failed to submit quote.",
+                        error = error.friendlyDriverMessage("Failed to submit quote."),
                     )
                 }
         }
@@ -428,7 +428,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Failed to upload POD.",
+                        error = error.friendlyDriverMessage("Failed to upload POD."),
                     )
                 }
         }
@@ -463,7 +463,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Failed to upload document.",
+                        error = error.friendlyDriverMessage("Failed to upload document."),
                     )
                 }
         }
@@ -491,7 +491,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Failed to update job preference.",
+                        error = error.friendlyDriverMessage("Failed to update job preference."),
                     )
                 }
         }
@@ -533,3 +533,19 @@ private fun Throwable.isSessionError(): Boolean {
 
 private fun Throwable.friendlySessionMessage(): String? =
     if (isSessionError()) "Your session expired. Please sign in again." else null
+
+private fun Throwable.friendlyDriverMessage(fallback: String): String {
+    val text = message.orEmpty()
+    val lower = text.lowercase()
+    return when {
+        isSessionError() -> "Your session expired. Please sign in again."
+        "unable to resolve host" in lower || "no address associated with hostname" in lower ->
+            "Connection problem. Check internet signal and refresh."
+        "violates check constraint" in lower || "relation" in lower || "postgres" in lower || "sql" in lower ->
+            "The action could not be completed. Please refresh and try again."
+        "status update could not be applied" in lower ->
+            "The status could not be updated. Please refresh and try again."
+        text.isNotBlank() -> text
+        else -> fallback
+    }
+}
