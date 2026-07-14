@@ -34,6 +34,20 @@ type BidWithJob = {
   vehicle_type: string | null;
   awarded_carrier_company_id: string | null;
   companies: { name: string } | null;
+  carrierIdentity: {
+    displayName: string;
+    companyName: string | null;
+    companyType: string | null;
+    personName: string | null;
+  } | null;
+};
+
+type CarrierIdentity = {
+  bidId: string;
+  companyName: string | null;
+  companyType: string | null;
+  personName: string | null;
+  displayName: string;
 };
 
 type JobGroup = {
@@ -122,34 +136,24 @@ export default function BidsPage() {
     }
 
     const bidRows = (data ?? []) as unknown as BidWithJob[];
-    const bidderCompanyIds = Array.from(
-      new Set(
-        bidRows
-          .map((bid) => bid.bidder_company_id)
-          .filter((id): id is string => Boolean(id)),
-      ),
-    );
-
-    let companyNameById = new Map<string, string>();
-    if (bidderCompanyIds.length > 0) {
-      const { data: companyRows } = await supabase
-        .from('companies')
-        .select('id, name')
-        .in('id', bidderCompanyIds);
-
-      companyNameById = new Map(
-        (companyRows ?? [])
-          .map((row) => [row.id, row.name] as const)
-          .filter((entry): entry is readonly [string, string] => typeof entry[0] === 'string' && typeof entry[1] === 'string'),
-      );
+    const token = await getAccessToken();
+    let identityByBidId = new Map<string, CarrierIdentity>();
+    if (token) {
+      const identityResponse = await fetch('/api/admin/bids/identities', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (identityResponse.ok) {
+        const identityJson = await identityResponse.json() as { identities?: CarrierIdentity[] };
+        identityByBidId = new Map((identityJson.identities ?? []).map((identity) => [identity.bidId, identity]));
+      }
     }
 
     const enrichedBids = bidRows.map((bid) => ({
       ...bid,
-      companies:
-        bid.bidder_company_id && companyNameById.has(bid.bidder_company_id)
-          ? { name: companyNameById.get(bid.bidder_company_id)! }
-          : null,
+      companies: identityByBidId.get(bid.id)?.companyName
+        ? { name: identityByBidId.get(bid.id)!.companyName! }
+        : null,
+      carrierIdentity: identityByBidId.get(bid.id) ?? null,
     }));
 
     // Group bids by job
@@ -365,11 +369,16 @@ function JobBidGroup({
               <tr key={bid.id} style={{ borderBottom: i < visibleBids.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
                 <td style={{ padding: '0.85rem 1rem' }}>
                   <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.88rem' }}>
-                    {bid.companies?.name || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Unknown carrier</span>}
+                    {bid.carrierIdentity?.displayName || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Carrier profile incomplete</span>}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#9ca3af', fontFamily: 'monospace' }}>
-                    {bid.id.slice(0, 8)}...
-                  </div>
+                  {bid.carrierIdentity?.companyName && bid.carrierIdentity.personName && (
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{bid.carrierIdentity.personName}</div>
+                  )}
+                  {bid.carrierIdentity?.companyType && (
+                    <div style={{ fontSize: '0.72rem', color: '#9ca3af', textTransform: 'capitalize' }}>
+                      {bid.carrierIdentity.companyType.replaceAll('_', ' ')}
+                    </div>
+                  )}
                 </td>
                 <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#111827' }}>
                   {bidAmount == null ? '-' : `GBP ${bidAmount.toFixed(2)}`}
