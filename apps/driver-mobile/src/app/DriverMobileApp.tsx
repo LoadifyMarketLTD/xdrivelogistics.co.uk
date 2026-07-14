@@ -6,10 +6,11 @@ import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
 import { isSupabaseConfigured, supabase } from '../auth/supabase';
 import { getNextStep } from '../jobs/statusFlow';
 import type { DriverJob, JobScope } from '../jobs/types';
+import { LiveLoadsScreen } from '../live-loads/LiveLoadsScreen';
 import { enqueueAction, getQueue, isOnline, saveQueue, updateQueueItem, type QueuedAction } from '../offline/queue';
 import { colors, spacing } from '../ui/theme';
 
-type Screen = 'login' | 'active' | 'jobs' | 'detail' | 'pod' | 'notifications' | 'profile';
+type Screen = 'login' | 'liveLoads' | 'active' | 'jobs' | 'detail' | 'pod' | 'notifications' | 'profile';
 
 function getAccessToken(session: { access_token?: string | null } | null | undefined) {
   const token = session?.access_token?.trim();
@@ -244,7 +245,7 @@ export default function DriverMobileApp() {
       <StatusBar barStyle="light-content" />
       <View style={styles.shell}>
         <Header onProfile={() => setScreen('profile')} onNotifications={() => setScreen('notifications')} />
-        <ScrollView contentContainerStyle={styles.content}>
+        {screen === 'liveLoads' ? <LiveLoadsScreen /> : <ScrollView contentContainerStyle={styles.content}>
           {message ? <Text style={styles.message}>{message}</Text> : null}
           {loading && <Text style={styles.subtle}>Loading...</Text>}
           {screen === 'active' && job && <ActiveJobScreen job={job} pendingCount={queue.filter((item) => item.status === 'pending').length} nextLabel={nextStep?.label ?? 'Capture POD'} onPrimary=[...]}
@@ -254,7 +255,7 @@ export default function DriverMobileApp() {
           {screen === 'pod' && job && <PodScreen job={job} token={token} onSaved={(updatedJob) => { if (updatedJob) setJob(updatedJob); setScreen('active'); }} onQueued={(queued) => setQueue((ite[...]}
           {screen === 'notifications' && <NotificationsScreen />}
           {screen === 'profile' && <ProfileScreen onSignOut={signOut} />}
-        </ScrollView>
+        </ScrollView>}
         <BottomNav active={screen} onChange={setScreen} />
       </View>
     </SafeAreaView>
@@ -349,7 +350,7 @@ function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
 }
 
 function BottomNav({ active, onChange }: { active: Screen; onChange: (screen: Screen) => void }) {
-  const items: Array<[Screen, string]> = [['active', 'Active'], ['jobs', 'Jobs'], ['pod', 'POD'], ['profile', 'Profile']];
+  const items: Array<[Screen, string]> = [['liveLoads', 'Loads'], ['active', 'Active'], ['jobs', 'Jobs'], ['pod', 'POD'], ['profile', 'Profile']];
   return <View style={styles.nav}>{items.map(([item, label]) => <TouchableOpacity key={item} style={[styles.navItem, active === item && styles.navItemActive]} onPress={() => onChange(item)}><Text[...]}
 }
 
