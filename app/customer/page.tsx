@@ -784,11 +784,14 @@ export default function CustomerPage() {
                 <Card title="Delivery Unloading">{['Forklift Available', 'Tail Lift Required', 'Handball Required'].map((label, index) => <Toggle key={label} label={label} checked={[form.deliveryForklift, form.deliveryTailLift, form.deliveryHandball][index]} onChange={(value) => setField(['deliveryForklift', 'deliveryTailLift', 'deliveryHandball'][index] as keyof LoadForm, value as never)} />)}</Card>
               </div>
 
-              <Card title="Access Restrictions">{checks(accessOptions, form.accessRestrictions, 'accessRestrictions')}</Card>
-              <Card title="Special Requirements">{checks(specialOptions, form.specialRequirements, 'specialRequirements')}</Card>
-              <Card title="Documents">
+              <Card title="Load Options">
+                <p className="opts-group-label">Access Restrictions</p>
+                {checks(accessOptions, form.accessRestrictions, 'accessRestrictions')}
+                <p className="opts-group-label">Special Requirements</p>
+                {checks(specialOptions, form.specialRequirements, 'specialRequirements')}
+                <p className="opts-group-label">Documents Required</p>
                 {checks(documentOptions, form.documents, 'documents')}
-                <input type="file" multiple onChange={(event) => setField('documents', Array.from(event.target.files ?? []).map((file) => file.name))} />
+                <div style={{ marginTop: 10 }}>{field('Other Attachments', <input type="file" multiple onChange={(event) => setField('documents', Array.from(event.target.files ?? []).map((file) => file.name))} />)}</div>
               </Card>
               <Card title="Notes">{field('Operational Notes', <textarea value={form.notes} onChange={(e) => setField('notes', e.target.value)} placeholder="Site instructions, booking windows, driver notes." />)}</Card>
 
@@ -966,10 +969,14 @@ export default function CustomerPage() {
           .savebar { justify-content: flex-end; }
           .field { display: grid; gap: 4px; margin-bottom: 12px; }
           input, select, textarea { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 8px; padding: 11px; font: inherit; background: white; color: #0f172a; }
+          input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; border: revert; border-radius: revert; background: revert; box-shadow: none; }
           textarea { min-height: 82px; resize: vertical; }
-          .checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
-          .checks label, .toggle { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; display: flex; align-items: center; gap: 8px; font-weight: 700; }
-          .toggle { justify-content: space-between; margin-bottom: 8px; }
+          .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
+          .checks label { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
+          .checks label:hover { border-color: #f5c84c; background: #fffbeb; }
+          .checks label input[type="checkbox"] { flex-shrink: 0; }
+          .toggle { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 6px; }
+          .opts-group-label { margin: 12px 0 6px; font-size: 12px; font-weight: 900; text-transform: uppercase; color: #64748b; letter-spacing: .04em; }
           .notice { border-radius: 8px; padding: 12px; margin-bottom: 12px; font-weight: 800; }
           .warn { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
           .ok { background: #dcfce7; color: #14532d; border: 1px solid #22c55e; }
