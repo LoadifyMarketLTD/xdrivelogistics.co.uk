@@ -59,7 +59,7 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `****** } : {}),
+      ...(token ? { Authorization: 'Bearer ' + token } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
