@@ -12,7 +12,8 @@
     "mobile:dev": "npm --prefix apps/driver-mobile run start",
     "mobile:android": "npm --prefix apps/driver-mobile run android",
     "mobile:apk": "npm --prefix apps/driver-mobile run build:android:apk",
-    "test:e2e": "playwright test",
+    "test:e2e:setup": "playwright install chromium webkit",
+    "test:e2e": "npm run test:e2e:setup && playwright test",
     "test:e2e:ui": "playwright test --ui",
     "preview": "next start",
     "validate:supabase-env": "node ./scripts/validate-supabase-env.mjs"
