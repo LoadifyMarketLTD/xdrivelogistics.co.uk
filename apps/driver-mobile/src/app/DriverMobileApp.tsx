@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Alert, Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SignatureCanvas, { type SignatureViewRef } from 'react-native-signature-canvas';
 
-import { fetchJob, fetchJobs, postJobStatus, uploadPod } from '../api/jobs';
+import { fetchJob, fetchJobs, postJobStatus, uploadPod, uploadPodFile } from '../api/jobs';
 import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
 import { isSupabaseConfigured, supabase } from '../auth/supabase';
@@ -677,10 +677,11 @@ function JobDetailScreen({ job, onPrimary }: { job: DriverJob; onPrimary: () => 
 function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: string | null; onSaved: (job?: DriverJob) => void; onQueued: (queued: QueuedAction) => void }) {
   const signatureRef = useRef<SignatureViewRef | null>(null);
   const [photoUris, setPhotoUris] = useState<string[]>([]);
-  const [documentUris, setDocumentUris] = useState<string[]>([]);
+  const [documentFiles, setDocumentFiles] = useState<Array<{ uri: string; mimeType: string }>>([]);
   const [recipientName, setRecipientName] = useState('');
   const [signatureData, setSignatureData] = useState('');
   const [notes, setNotes] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   async function addPhoto() {
     const ImagePicker = await import('expo-image-picker');
@@ -693,7 +694,15 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
   async function addDocument() {
     const DocumentPicker = await import('expo-document-picker');
     const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
-    if (!result.canceled) setDocumentUris((items) => [...items, ...result.assets.map((asset) => asset.uri)]);
+    if (!result.canceled) {
+      setDocumentFiles((items) => [
+        ...items,
+        ...result.assets.map((asset) => ({
+          uri: asset.uri,
+          mimeType: asset.mimeType ?? 'application/octet-stream',
+        })),
+      ]);
+    }
   }
 
   async function savePod() {
@@ -701,20 +710,51 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
       Alert.alert('Recipient required', 'Enter the recipient name before saving POD.');
       return;
     }
-    if (photoUris.length === 0 && documentUris.length === 0 && !signatureData.trim()) {
+    if (photoUris.length === 0 && documentFiles.length === 0 && !signatureData.trim()) {
       Alert.alert('Evidence required', 'Capture a signature, photo or document before saving POD.');
       return;
     }
 
-    const payload = { photoUris, documentUris, recipientName, signatureData, notes };
-    if (!token || !(await isOnline())) {
+    const online = !!token && (await isOnline());
+
+    // When online, upload files to Supabase Storage first so that the stored
+    // paths resolve to real objects rather than local device URIs.
+    let resolvedPhotoUris = photoUris;
+    let resolvedDocumentUris = documentFiles.map((f) => f.uri);
+
+    if (online && token) {
+      setUploading(true);
+      try {
+        resolvedPhotoUris = await Promise.all(
+          photoUris.map((uri) => uploadPodFile(job.id, uri, 'image/jpeg', token)),
+        );
+        resolvedDocumentUris = await Promise.all(
+          documentFiles.map((f) => uploadPodFile(job.id, f.uri, f.mimeType, token)),
+        );
+      } catch {
+        // Storage upload failed — proceed with local URIs; the action will
+        // be queued so the metadata is not lost even if files are unavailable.
+      } finally {
+        setUploading(false);
+      }
+    }
+
+    const payload = {
+      photoUris: resolvedPhotoUris,
+      documentUris: resolvedDocumentUris,
+      recipientName,
+      signatureData,
+      notes,
+    };
+
+    if (!online) {
       const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
       onSaved();
       return;
     }
     try {
-      const response = await uploadPod(job.id, token, payload);
+      const response = await uploadPod(job.id, token!, payload);
       onSaved('job' in response ? response.job as DriverJob : undefined);
     } catch {
       const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
@@ -731,7 +771,7 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
         <Text style={styles.copy}>Add required POD evidence before marking the job as delivered.</Text>
       </Panel>
       <SecondaryButton label={photoUris.length > 0 ? `Photos (${photoUris.length}) – add more` : 'Add photo'} onPress={() => void addPhoto()} />
-      <SecondaryButton label={documentUris.length > 0 ? `Documents (${documentUris.length}) – add more` : 'Add document'} onPress={() => void addDocument()} />
+      <SecondaryButton label={documentFiles.length > 0 ? `Documents (${documentFiles.length}) – add more` : 'Add document'} onPress={() => void addDocument()} />
       <TextInput
         placeholder="Recipient name"
         placeholderTextColor={colors.muted}
@@ -780,7 +820,7 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
           <Text style={styles.subtle}>Draw directly in the signature panel above.</Text>
         )}
       </Panel>
-      <PrimaryButton label="Save POD" onPress={() => void savePod()} />
+      <PrimaryButton label={uploading ? 'Uploading files…' : 'Save POD'} onPress={() => void savePod()} />
     </View>
   );
 }
