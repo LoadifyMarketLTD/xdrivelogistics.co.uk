@@ -170,11 +170,17 @@ export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'
 export function mapJob(row: MobileJobRow) {
   const contactName = row.delivery_contact_name || row.collection_contact_name || row.client_name || undefined;
   const contactPhone = row.delivery_contact_phone || row.collection_contact_phone || row.client_phone || undefined;
+  const lifecycle = String(row.status ?? '').toLowerCase();
+  const currentStatus = String(row.current_status ?? '').toLowerCase();
+  const assignmentDecisionRequired = ['awarded', 'allocated'].includes(lifecycle)
+    && ['awarded', 'allocated', 'driver_pending_acceptance'].includes(currentStatus || lifecycle);
   return {
     id: row.id,
     reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
     status: mobileStatus(row),
+    currentStatus: row.current_status,
     lifecycleStatus: row.status,
+    assignmentDecisionRequired,
     pickupLocation: row.pickup_location || 'Pickup TBC',
     deliveryLocation: row.delivery_location || 'Delivery TBC',
     pickupTime: row.pickup_datetime || 'Pickup time TBC',

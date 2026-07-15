@@ -80,9 +80,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id, action } = await params;
   if (action === 'pod') return savePod(request, id, driver.userId, driver.driverId, driver.db);
 
-  const config = actions[action];
-  if (!config) return respond(404, { error: 'Unsupported driver action.' });
-
   const { data: existing, error: loadError } = await driver.db
     .from('jobs')
     .select(jobSelect)
@@ -95,6 +92,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const job = existing as unknown as MobileJobRow;
   const lifecycle = String(job.status ?? '').toLowerCase();
+  const currentStatus = String(job.current_status ?? '').toLowerCase();
+
+  if (action === 'accept-assignment') {
+    return acceptAssignment(job, id, driver.userId, driver.driverId, driver.db);
+  }
+  if (action === 'reject-assignment') {
+    return rejectAssignment(job, id, driver.userId, driver.driverId, driver.db);
+  }
+
+  const config = actions[action];
+  if (!config) return respond(404, { error: 'Unsupported driver action.' });
+
+  const assignmentDecisionRequired = ['awarded', 'allocated'].includes(lifecycle)
+    && ['awarded', 'allocated', 'driver_pending_acceptance'].includes(currentStatus || lifecycle);
+  if (assignmentDecisionRequired) {
+    return respond(409, { error: 'Accept or reject this assignment before updating trip progress.' });
+  }
+
   if (!config.allowedLifecycle.includes(lifecycle)) {
     return respond(409, { error: `Job cannot perform ${action} from ${lifecycle || 'unknown'} status.` });
   }
@@ -131,6 +146,104 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   await insertTrackingEvent(driver.db, id, driver.userId, config.eventType, config.label);
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
+}
+
+async function acceptAssignment(job: MobileJobRow, jobId: string, userId: string, driverId: string, db: MobileDbClient) {
+  const lifecycle = String(job.status ?? '').toLowerCase();
+  if (!['awarded', 'allocated'].includes(lifecycle)) {
+    return respond(409, { error: `Job cannot accept assignment from ${lifecycle || 'unknown'} status.` });
+  }
+
+  const now = new Date().toISOString();
+  const { data: updated, error } = await db
+    .from('jobs')
+    .update({
+      status: 'allocated',
+      current_status: 'driver_confirmed',
+      status_updated_at: now,
+      updated_at: now,
+      status_history: appendStatusHistory(job.status_history, {
+        status: 'driver_confirmed',
+        lifecycle_status: 'allocated',
+        label: 'Driver accepted assignment',
+        timestamp: now,
+        actor_user_id: userId,
+        source: 'driver_mobile',
+      }),
+    })
+    .eq('id', jobId)
+    .eq('assigned_driver_id', driverId)
+    .select(jobSelect)
+    .single();
+
+  if (error) return respond(500, { error: error.message });
+  await insertTrackingEvent(db, jobId, userId, 'note', 'Driver accepted assignment');
+  await insertAssignmentDecisionNotification(db, job, userId, driverId, 'driver_assignment_accepted', 'allocated');
+
+  return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
+}
+
+async function rejectAssignment(job: MobileJobRow, jobId: string, userId: string, driverId: string, db: MobileDbClient) {
+  const lifecycle = String(job.status ?? '').toLowerCase();
+  if (!['awarded', 'allocated'].includes(lifecycle)) {
+    return respond(409, { error: `Job cannot reject assignment from ${lifecycle || 'unknown'} status.` });
+  }
+
+  const fallbackLifecycle = job.awarded_carrier_company_id ? 'awarded' : 'posted';
+  const now = new Date().toISOString();
+  const { data: updated, error } = await db
+    .from('jobs')
+    .update({
+      assigned_driver_id: null,
+      assigned_company_id: job.awarded_carrier_company_id ?? null,
+      status: fallbackLifecycle,
+      current_status: fallbackLifecycle,
+      status_updated_at: now,
+      updated_at: now,
+      status_history: appendStatusHistory(job.status_history, {
+        status: 'driver_rejected',
+        lifecycle_status: fallbackLifecycle,
+        label: 'Driver rejected assignment',
+        timestamp: now,
+        actor_user_id: userId,
+        source: 'driver_mobile',
+      }),
+    })
+    .eq('id', jobId)
+    .eq('assigned_driver_id', driverId)
+    .select(jobSelect)
+    .single();
+
+  if (error) return respond(500, { error: error.message });
+  await insertTrackingEvent(db, jobId, userId, 'note', 'Driver rejected assignment');
+  await insertAssignmentDecisionNotification(db, job, userId, driverId, 'driver_assignment_rejected', fallbackLifecycle);
+
+  return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
+}
+
+async function insertAssignmentDecisionNotification(
+  db: MobileDbClient,
+  job: MobileJobRow,
+  userId: string,
+  driverId: string,
+  eventType: string,
+  lifecycleAfter: string,
+) {
+  await db.from('notification_events').insert({
+    event_type: eventType,
+    entity_type: 'job',
+    entity_id: job.id,
+    company_id: job.awarded_carrier_company_id ?? job.company_id,
+    payload: {
+      job_id: job.id,
+      driver_id: driverId,
+      actor_user_id: userId,
+      lifecycle_before: job.status,
+      lifecycle_after: lifecycleAfter,
+      pickup_location: job.pickup_location,
+      delivery_location: job.delivery_location,
+    },
+  });
 }
 
 async function savePod(request: NextRequest, jobId: string, userId: string, driverId: string, db: MobileDbClient) {
