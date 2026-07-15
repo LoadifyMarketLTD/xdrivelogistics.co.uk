@@ -971,7 +971,7 @@ function ProfileScreen({ resources, queue, onRefresh, onSignOut }: { resources: 
       <Panel>
         <Text style={styles.infoLabel}>Company</Text>
         <Info label="Name" value={stringField(company.name)} />
-        <Info label="Member code" value={stringField(company.company_number)} />
+        <Info label="Member code" value={stringField(company.xd_id)} />
         <Info label="Type" value={stringField(company.company_type)} />
       </Panel>
       <Panel>

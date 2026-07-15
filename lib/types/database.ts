@@ -39,6 +39,7 @@ export interface Company {
   id: string;
   name: string;
   company_number: string | null;
+  xd_id: string | null;
   vat_number: string | null;
   email: string | null;
   phone: string | null;

@@ -18,7 +18,7 @@ function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null
     ...row,
     public_reference: `XDL-${String(row.id ?? '').slice(0, 8).toUpperCase()}`,
     posting_company_name: company?.name ?? row.booked_by_company_name ?? null,
-    posting_company_member_code: company?.company_number ?? null,
+    posting_company_member_code: company?.xd_id ?? null,
     pickup_location: privateDetailsRevealed ? row.pickup_location : publicArea(row.pickup_postcode),
     delivery_location: privateDetailsRevealed ? row.delivery_location : publicArea(row.delivery_postcode),
     collection_contact_name: privateDetailsRevealed ? row.collection_contact_name : null,
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
   const jobs = (jobsResult.data ?? []) as AnyRow[];
 
   const companyIds = [...new Set([context.companyId, ...jobs.map((job) => String(job.company_id ?? '')).filter(Boolean)])];
-  const companiesResult = await context.db.from('companies').select('id,name,company_number,company_type').in('id', companyIds);
+  const companiesResult = await context.db.from('companies').select('id,name,xd_id,company_type').in('id', companyIds);
   if (companiesResult.error) return NextResponse.json({ error: companiesResult.error.message }, { status: 500 });
   const companies = new Map(((companiesResult.data ?? []) as AnyRow[]).map((company) => [String(company.id), company]));
   const jobsById = new Map(jobs.map((job) => [String(job.id), sanitizeQuoteJob(job, context.driverId, companies.get(String(job.company_id)))]));
