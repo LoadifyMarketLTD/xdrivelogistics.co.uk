@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
-import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import {
   appendStatusHistory,
   hasPod,
+  MobileDbClient,
   insertTrackingEvent,
   isDriverContext,
   jobSelect,
@@ -74,17 +74,16 @@ const actions: Record<string, ActionConfig> = {
 };
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; action: string }> }) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
   const { id, action } = await params;
-  if (action === 'pod') return savePod(request, id, driver.userId, driver.driverId);
+  if (action === 'pod') return savePod(request, id, driver.userId, driver.driverId, driver.db);
 
   const config = actions[action];
   if (!config) return respond(404, { error: 'Unsupported driver action.' });
 
-  const { data: existing, error: loadError } = await supabaseAdmin
+  const { data: existing, error: loadError } = await driver.db
     .from('jobs')
     .select(jobSelect)
     .eq('id', id)
@@ -120,7 +119,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (config.lifecycleStatus) updatePayload.status = config.lifecycleStatus;
   if (config.timestampField) updatePayload[config.timestampField] = now;
 
-  const { data: updated, error: updateError } = await supabaseAdmin
+  const { data: updated, error: updateError } = await driver.db
     .from('jobs')
     .update(updatePayload)
     .eq('id', id)
@@ -129,12 +128,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .single();
 
   if (updateError) return respond(500, { error: updateError.message });
-  await insertTrackingEvent(id, driver.userId, config.eventType, config.label);
+  await insertTrackingEvent(driver.db, id, driver.userId, config.eventType, config.label);
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }
 
-async function savePod(request: NextRequest, jobId: string, userId: string, driverId: string) {
+async function savePod(request: NextRequest, jobId: string, userId: string, driverId: string, db: MobileDbClient) {
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -142,7 +141,7 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     return respond(400, { error: 'Invalid JSON body.' });
   }
 
-  const { data: existing, error: loadError } = await supabaseAdmin!
+  const { data: existing, error: loadError } = await db
     .from('jobs')
     .select(jobSelect)
     .eq('id', jobId)
@@ -162,7 +161,7 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     ? { type: 'driver_mobile_signature', value: body.signatureData.trim(), captured_at: now, captured_by: userId }
     : job.delivery_signature_data ?? null;
 
-  const { data: updated, error: updateError } = await supabaseAdmin!
+  const { data: updated, error: updateError } = await db
     .from('jobs')
     .update({
       delivery_photos: [...photos, ...photoUris],
@@ -180,7 +179,7 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     .single();
 
   if (updateError) return respond(500, { error: updateError.message });
-  await insertTrackingEvent(jobId, userId, 'delivered', 'POD metadata uploaded');
+  await insertTrackingEvent(db, jobId, userId, 'delivered', 'POD metadata uploaded');
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }

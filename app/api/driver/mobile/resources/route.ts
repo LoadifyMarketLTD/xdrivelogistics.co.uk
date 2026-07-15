@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver } from '../_lib';
 
 type AnyRow = Record<string, unknown>;
@@ -42,11 +41,11 @@ export async function GET(request: NextRequest) {
   if (!isDriverContext(context)) return context;
 
   const [driverResult, bidsResult, documentsResult, invoicesResult, alertsResult] = await Promise.all([
-    supabaseAdmin!.from('drivers').select('*').eq('id', context.driverId).maybeSingle(),
-    supabaseAdmin!.from('job_bids').select('*').or(`bidder_user_id.eq.${context.userId},bidder_driver_id.eq.${context.driverId}`).order('created_at', { ascending: false }).limit(100),
-    supabaseAdmin!.from('driver_documents').select('*').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
-    supabaseAdmin!.from('invoices').select('*').eq('created_by', context.userId).order('created_at', { ascending: false }).limit(100),
-    supabaseAdmin!.from('notification_events').select('id,event_type,entity_type,entity_id,payload,status,created_at').eq('recipient_user_id', context.userId).order('created_at', { ascending: false }).limit(100),
+    context.db.from('drivers').select('*').eq('id', context.driverId).maybeSingle(),
+    context.db.from('job_bids').select('*').or(`bidder_user_id.eq.${context.userId},bidder_driver_id.eq.${context.driverId}`).order('created_at', { ascending: false }).limit(100),
+    context.db.from('driver_documents').select('*').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
+    context.db.from('invoices').select('*').eq('created_by', context.userId).order('created_at', { ascending: false }).limit(100),
+    context.db.from('notification_events').select('id,event_type,entity_type,entity_id,payload,status,created_at').eq('recipient_user_id', context.userId).order('created_at', { ascending: false }).limit(100),
   ]);
 
   const firstError = driverResult.error ?? bidsResult.error ?? documentsResult.error ?? invoicesResult.error ?? alertsResult.error;
@@ -56,18 +55,18 @@ export async function GET(request: NextRequest) {
   const bids = (bidsResult.data ?? []) as AnyRow[];
   const jobIds = [...new Set(bids.map((bid) => String(bid.job_id ?? '')).filter(Boolean))];
   const jobsResult = jobIds.length > 0
-    ? await supabaseAdmin!.from('jobs').select('*').in('id', jobIds)
+    ? await context.db.from('jobs').select('*').in('id', jobIds)
     : { data: [], error: null };
   if (jobsResult.error) return NextResponse.json({ error: jobsResult.error.message }, { status: 500 });
   const jobs = (jobsResult.data ?? []) as AnyRow[];
 
   const companyIds = [...new Set([context.companyId, ...jobs.map((job) => String(job.company_id ?? '')).filter(Boolean)])];
-  const companiesResult = await supabaseAdmin!.from('companies').select('id,name,company_number,company_type').in('id', companyIds);
+  const companiesResult = await context.db.from('companies').select('id,name,company_number,company_type').in('id', companyIds);
   if (companiesResult.error) return NextResponse.json({ error: companiesResult.error.message }, { status: 500 });
   const companies = new Map(((companiesResult.data ?? []) as AnyRow[]).map((company) => [String(company.id), company]));
   const jobsById = new Map(jobs.map((job) => [String(job.id), sanitizeQuoteJob(job, context.driverId, companies.get(String(job.company_id)))]));
 
-  const vehicleResult = await supabaseAdmin!
+  const vehicleResult = await context.db
     .from('vehicles')
     .select('*')
     .eq('assigned_driver_id', context.driverId)
@@ -77,11 +76,12 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
   if (vehicleResult.error) return NextResponse.json({ error: vehicleResult.error.message }, { status: 500 });
 
-  const userResult = await supabaseAdmin!.auth.admin.getUserById(context.userId);
-  const email = String(driver?.email ?? userResult.data.user?.email ?? '');
+  const email = String(driver?.email ?? context.userEmail ?? '');
+  const fullName = String(context.userFullName ?? '').trim();
+  const displayName = String(driver?.display_name ?? (fullName || email));
   return NextResponse.json({
     resources: {
-      name: String(driver?.display_name ?? userResult.data.user?.user_metadata?.full_name ?? email),
+      name: displayName,
       email,
       phone: String(driver?.phone ?? ''),
       driver,
@@ -117,16 +117,16 @@ export async function POST(request: NextRequest) {
   }
 
   const path = `${context.companyId}/${context.driverId}/${randomUUID()}-${fileName}`;
-  const { error: storageError } = await supabaseAdmin!.storage.from('driver-docs').upload(path, bytes, { contentType: mimeType, upsert: false });
+  const { error: storageError } = await context.db.storage.from('driver-docs').upload(path, bytes, { contentType: mimeType, upsert: false });
   if (storageError) return NextResponse.json({ error: storageError.message }, { status: 500 });
-  const { error: documentError } = await supabaseAdmin!.from('driver_documents').insert({
+  const { error: documentError } = await context.db.from('driver_documents').insert({
     driver_id: context.driverId,
     doc_type: docType,
     file_path: path,
     status: 'pending',
   });
   if (documentError) {
-    await supabaseAdmin!.storage.from('driver-docs').remove([path]);
+    await context.db.storage.from('driver-docs').remove([path]);
     return NextResponse.json({ error: documentError.message }, { status: 500 });
   }
   return NextResponse.json({ ok: true });

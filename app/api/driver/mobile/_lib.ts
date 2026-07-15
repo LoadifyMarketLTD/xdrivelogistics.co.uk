@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { createUserScopedClient, getBearerToken, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 
 export const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -7,7 +7,12 @@ export type DriverContext = {
   userId: string;
   driverId: string;
   companyId: string;
+  userEmail: string | null;
+  userFullName: string | null;
+  db: MobileDbClient;
 };
+
+export type MobileDbClient = NonNullable<typeof supabaseAdmin>;
 
 export type MobileJobRow = {
   id: string;
@@ -47,18 +52,29 @@ export type MobileJobRow = {
   created_at: string | null;
 };
 
-export async function requireDriver(request: NextRequest): Promise<DriverContext | NextResponse> {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
+function resolveMobileDbClient(token: string): MobileDbClient | null {
+  if (supabaseAdmin) return supabaseAdmin;
+  return createUserScopedClient(token);
+}
 
+export async function requireDriver(request: NextRequest): Promise<DriverContext | NextResponse> {
   const token = getBearerToken(request);
   if (!token) return respond(401, { error: 'Missing bearer token.' });
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  const validatorClient = supabaseValidator ?? resolveMobileDbClient(token);
+  if (!validatorClient) {
+    return respond(503, { error: 'Mobile auth config is unavailable.' });
+  }
+
+  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: 'Invalid session.' });
 
-  const { data: driverRow, error: driverError } = await supabaseAdmin
+  const db = resolveMobileDbClient(token);
+  if (!db) {
+    return respond(503, { error: 'Mobile data access is unavailable.' });
+  }
+
+  const { data: driverRow, error: driverError } = await db
     .from('drivers')
     .select('id, company_id, user_id, app_access, status')
     .eq('user_id', authData.user.id)
@@ -68,11 +84,15 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   if (!driverRow) return respond(403, { error: 'Driver record not found.' });
   if ((driverRow as { app_access?: boolean }).app_access === false) return respond(403, { error: 'Driver app access is disabled.' });
   if (String((driverRow as { status?: string | null }).status ?? '').toLowerCase() !== 'active') return respond(403, { error: 'Driver account is not active.' });
+  const metadata = ((authData.user.user_metadata ?? null) as Record<string, unknown> | null) ?? null;
 
   return {
     userId: authData.user.id,
     driverId: String((driverRow as { id: string }).id),
     companyId: String((driverRow as { company_id: string }).company_id),
+    userEmail: typeof authData.user.email === 'string' ? authData.user.email : null,
+    userFullName: metadata && typeof metadata.full_name === 'string' ? metadata.full_name : null,
+    db,
   };
 }
 
@@ -173,9 +193,8 @@ export function mapJob(row: MobileJobRow) {
   };
 }
 
-export async function insertTrackingEvent(jobId: string, userId: string, eventType: string, note: string) {
-  if (!supabaseAdmin) return;
-  await supabaseAdmin.from('job_tracking_events').insert({
+export async function insertTrackingEvent(db: MobileDbClient, jobId: string, userId: string, eventType: string, note: string) {
+  await db.from('job_tracking_events').insert({
     job_id: jobId,
     created_by: userId,
     event_type: eventType,

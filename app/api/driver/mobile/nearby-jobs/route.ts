@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { sortSmartDestinationCandidates } from '../../../../../lib/smartDestinationPriority';
-import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver, respond } from '../_lib';
 
 type NearbyJobRow = {
@@ -210,7 +209,6 @@ function isInternational(row: NearbyJobRow) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
@@ -219,7 +217,7 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Number(searchParams.get('limit') ?? 50) || 50, 100);
   const destinationMode = searchParams.get('mode') === 'destination';
 
-  let query = supabaseAdmin
+  let query = driver.db
     .from('jobs')
     .select(nearbySelect)
     .or(`exchange_visibility.eq.exchange,and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${driver.companyId})`)
@@ -241,7 +239,7 @@ export async function GET(request: NextRequest) {
     return respond(200, { jobs: rows.map((row) => mapNearbyJob(row)) });
   }
 
-  const { data: currentJob, error: currentJobError } = await supabaseAdmin
+  const { data: currentJob, error: currentJobError } = await driver.db
     .from('jobs')
     .select('id,delivery_postcode,delivery_lat,delivery_lng,delivery_datetime,delivery_time_slot,status,updated_at')
     .eq('assigned_driver_id', driver.driverId)
@@ -279,9 +277,9 @@ export async function GET(request: NextRequest) {
   const radiusMiles = ['10', '20', '30'].includes(String(requestedRadius)) ? Number(requestedRadius) : 10;
 
   const [driverAccess, companyAccess, vehicleAccess] = await Promise.all([
-    supabaseAdmin.from('drivers').select('international_work_approved').eq('id', driver.driverId).maybeSingle(),
-    supabaseAdmin.from('companies').select('international_work_approved').eq('id', driver.companyId).maybeSingle(),
-    supabaseAdmin.from('vehicles').select('international_work_approved,type').eq('assigned_driver_id', driver.driverId).maybeSingle(),
+    driver.db.from('drivers').select('international_work_approved').eq('id', driver.driverId).maybeSingle(),
+    driver.db.from('companies').select('international_work_approved').eq('id', driver.companyId).maybeSingle(),
+    driver.db.from('vehicles').select('international_work_approved,type').eq('assigned_driver_id', driver.driverId).maybeSingle(),
   ]);
   const internationalApproved = driverAccess.data?.international_work_approved === true
     && companyAccess.data?.international_work_approved === true
