@@ -102,7 +102,7 @@ function companyInfo(companies: NearbyJobRow['companies']) {
 
 function publicArea(postcode: unknown) {
   const value = String(postcode ?? '').trim().toUpperCase();
-  return value ? `Approx. area Â· ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
+  return value ? `Approx. area · ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
 }
 
 function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
