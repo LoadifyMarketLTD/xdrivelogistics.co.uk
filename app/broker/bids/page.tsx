@@ -64,7 +64,7 @@ export default function BrokerBidsPage() {
     setError('');
     const { data, error: err } = await supabase
       .from('job_bids')
-      .select('id, job_id, amount, bid_price_gbp, currency, message, status, created_at, jobs:job_id(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, status, companies:company_id(name))')
+      .select('id, job_id, amount, bid_price_gbp, currency, message, status, created_at, jobs:job_id(id, pickup_location, delivery_location, pickup_datetime, vehicle_type, status, companies:companies!jobs_company_id_fkey(name))')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(200);
