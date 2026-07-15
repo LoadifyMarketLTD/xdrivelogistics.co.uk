@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import 'leaflet/dist/leaflet.css';
 
 export interface FleetPin {
   driverId: string;
@@ -37,14 +38,7 @@ export default function FleetMap({ pins, style }: FleetMapProps) {
     const init = async () => {
       const L = (await import('leaflet')).default;
 
-      // Inject Leaflet CSS once
-      if (!document.getElementById('leaflet-css')) {
-        const link = document.createElement('link');
-        link.id = 'leaflet-css';
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
-      }
+      // Leaflet CSS is imported at module level — no runtime injection needed.
 
       if (!isMounted || !containerRef.current) return;
 
