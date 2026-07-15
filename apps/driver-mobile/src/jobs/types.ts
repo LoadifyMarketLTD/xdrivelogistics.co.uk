@@ -13,6 +13,7 @@ export type DriverJob = {
   id: string;
   reference: string;
   status: CanonicalJobStatus;
+  lifecycleStatus?: string | null;
   pickupLocation: string;
   deliveryLocation: string;
   pickupTime: string;
@@ -22,9 +23,12 @@ export type DriverJob = {
   price: string;
   priority: 'normal' | 'high';
   podRequired: boolean;
+  podGenerated?: boolean;
   contactAllowed: boolean;
   contactName?: string;
   contactPhone?: string;
+  requirements?: string;
+  updatedAt?: string | null;
 };
 
-export type QueuedActionStatus = 'pending' | 'synced' | 'failed';
+export type QueuedActionStatus = 'pending' | 'syncing' | 'synced' | 'failed';
