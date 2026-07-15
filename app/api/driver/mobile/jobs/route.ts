@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond } from '../_lib';
 
 const scopes: Record<string, string[]> = {
@@ -9,7 +8,6 @@ const scopes: Record<string, string[]> = {
 };
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
@@ -17,7 +15,7 @@ export async function GET(request: NextRequest) {
   const scope = searchParams.get('scope') || 'active';
   const limit = Math.min(Number(searchParams.get('limit') ?? 100) || 100, 250);
 
-  let query = supabaseAdmin
+  let query = driver.db
     .from('jobs')
     .select(jobSelect)
     .eq('assigned_driver_id', driver.driverId)
