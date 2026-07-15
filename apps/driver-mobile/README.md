@@ -72,3 +72,9 @@ For Android credentials, EAS can generate and manage the keystore during the fir
 - The mobile client does not decide critical business transitions.
 - Status changes use atomic backend endpoints.
 - Offline actions are queued and retried; the UI must show pending/synced/failed states.
+
+## Functional APK Audit
+
+- Use `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/apps/driver-mobile/docs/apk-functional-audit-workbook.md` as the canonical ecran-cu-ecran, buton-cu-buton audit workbook.
+- Fill baseline metadata (APK build ID/hash + environment) before starting execution.
+- Record all defects in the in-file Functional Gap Register and convert approved fixes into P0/P1/P2 remediation backlog items.
