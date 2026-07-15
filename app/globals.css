@@ -257,6 +257,18 @@ select {
   color: var(--color-text-dark);
 }
 
+/* Checkboxes and radios must not inherit the full-width/padding block styling */
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  padding: 0;
+  border: revert;
+  border-radius: revert;
+  background: revert;
+  box-shadow: none;
+  transition: none;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: var(--color-text-muted);
