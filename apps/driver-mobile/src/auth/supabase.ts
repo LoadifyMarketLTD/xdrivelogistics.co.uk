@@ -43,7 +43,8 @@ function isValidSupabaseAnonKey(value: string) {
 }
 
 function hasValidConfig(config: SupabaseConfig | null | undefined): config is SupabaseConfig {
-  return Boolean(config) && isValidSupabaseUrl(config.supabaseUrl) && isValidSupabaseAnonKey(config.supabaseAnonKey);
+  if (!config) return false;
+  return isValidSupabaseUrl(config.supabaseUrl) && isValidSupabaseAnonKey(config.supabaseAnonKey);
 }
 
 function bundledConfig(): SupabaseConfig | null {
@@ -81,8 +82,8 @@ async function fetchRuntimeConfig(): Promise<SupabaseConfig | null> {
 
   if (!response?.ok) return null;
 
-  const payload = (await response.json().catch(() => null)) as Partial<SupabaseConfig> | null;
-  if (!hasValidConfig(payload as SupabaseConfig | null)) return null;
+  const payload = (await response.json().catch(() => null)) as SupabaseConfig | null;
+  if (!hasValidConfig(payload)) return null;
   return {
     supabaseUrl: payload.supabaseUrl,
     supabaseAnonKey: payload.supabaseAnonKey,
@@ -181,7 +182,7 @@ export const supabase: any = {
       }
     },
     onAuthStateChange(callback: any) {
-      let unsubscribe = () => undefined;
+      let unsubscribe: () => void = () => undefined;
       let cancelled = false;
 
       void ensureSupabaseClient().then((activeClient) => {

@@ -115,7 +115,7 @@ export async function fetchActiveQuotedJobIds() {
     .eq('bidder_user_id', auth.user.id)
     .in('status', ['submitted', 'accepted', 'awarded', 'approved']);
   if (error) throw new Error(error.message);
-  return new Set((data ?? []).map((row) => String(row.job_id)));
+  return new Set((data ?? []).map((row: { job_id: string }) => String(row.job_id)));
 }
 
 export async function submitLiveLoadQuote(jobId: string, amount: number, message?: string) {
