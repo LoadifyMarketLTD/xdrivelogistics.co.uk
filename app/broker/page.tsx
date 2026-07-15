@@ -164,7 +164,7 @@ export default function BrokerDashboardPage() {
         .limit(100),
       supabase
         .from('job_bids')
-        .select('id, job_id, company_id, amount, bid_price_gbp, status, created_at, companies:company_id(name)')
+        .select('id, job_id, company_id, amount, bid_price_gbp, status, created_at, companies:companies!job_bids_company_id_fkey(name)')
         .order('created_at', { ascending: false })
         .limit(150),
       supabase

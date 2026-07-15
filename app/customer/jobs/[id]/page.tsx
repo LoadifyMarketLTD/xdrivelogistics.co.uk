@@ -161,7 +161,7 @@ export default function CustomerJobDetailPage() {
         supabase.from('job_notes').select('id, note, created_at').eq('job_id', jobId).order('created_at', { ascending: true }),
         supabase.from('job_documents').select('id, doc_type, file_path, file_url, file_type, created_at').eq('job_id', jobId).order('created_at', { ascending: false }),
         supabase.from('invoices').select('id, invoice_number, status, payment_status, amount, invoice_date, due_date').eq('job_id', jobId).order('created_at', { ascending: false }),
-        supabase.from('job_bids').select('id, status, amount, bid_price_gbp, companies:company_id(name)').eq('job_id', jobId).eq('status', 'accepted').maybeSingle(),
+        supabase.from('job_bids').select('id, status, amount, bid_price_gbp, companies:companies!job_bids_company_id_fkey(name)').eq('job_id', jobId).eq('status', 'accepted').maybeSingle(),
       ]);
 
       setJob(jobRow as JobDetail);
