@@ -84,12 +84,14 @@ const timelineSteps = [
   ['posted', 'Posted'],
   ['quoted', 'Quoted'],
   ['awarded', 'Awarded'],
+  ['allocated', 'Allocated'],
   ['collected', 'Collected'],
   ['in_transit', 'In Transit'],
   ['delivered', 'Delivered'],
   ['pod_uploaded', 'POD Uploaded'],
   ['invoiced', 'Invoice Issued'],
   ['paid', 'Paid'],
+  ['closed', 'Closed'],
 ] as const;
 
 export default function CustomerJobDetailPage() {
@@ -105,6 +107,7 @@ export default function CustomerJobDetailPage() {
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [acceptedBid, setAcceptedBid] = useState<BidRow | null>(null);
+  const [bidCount, setBidCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
 
@@ -156,12 +159,13 @@ export default function CustomerJobDetailPage() {
         return;
       }
 
-      const [eventRes, noteRes, documentRes, invoiceRes, bidRes] = await Promise.all([
+      const [eventRes, noteRes, documentRes, invoiceRes, bidRes, bidCountRes] = await Promise.all([
         supabase.from('job_tracking_events').select('id, event_type, message, meta, created_at').eq('job_id', jobId).order('created_at', { ascending: true }),
         supabase.from('job_notes').select('id, note, created_at').eq('job_id', jobId).order('created_at', { ascending: true }),
         supabase.from('job_documents').select('id, doc_type, file_path, file_url, file_type, created_at').eq('job_id', jobId).order('created_at', { ascending: false }),
         supabase.from('invoices').select('id, invoice_number, status, payment_status, amount, invoice_date, due_date').eq('job_id', jobId).order('created_at', { ascending: false }),
         supabase.from('job_bids').select('id, status, amount, bid_price_gbp, companies:companies!job_bids_company_id_fkey(name)').eq('job_id', jobId).eq('status', 'accepted').maybeSingle(),
+        supabase.from('job_bids').select('id', { count: 'exact', head: true }).eq('job_id', jobId),
       ]);
 
       setJob(jobRow as JobDetail);
@@ -170,6 +174,7 @@ export default function CustomerJobDetailPage() {
       setDocuments((documentRes.data ?? []) as DocumentRow[]);
       setInvoices((invoiceRes.data ?? []) as InvoiceRow[]);
       setAcceptedBid((bidRes.data ?? null) as unknown as BidRow | null);
+      setBidCount(bidCountRes.count ?? 0);
       setLoading(false);
     };
 
@@ -203,12 +208,15 @@ export default function CustomerJobDetailPage() {
       if (event.event_type) set.add(event.event_type);
     }
     if (job?.status) set.add(job.status);
+    if (bidCount > 0) set.add('quoted');
     if (acceptedBid) set.add('awarded');
+    if (set.has('awarded') && (set.has('allocated') || String(job?.status ?? '').toLowerCase() === 'allocated')) set.add('allocated');
     if (podFiles.length > 0) set.add('pod_uploaded');
     if (invoices.length > 0) set.add('invoiced');
     if (invoices.some((invoice) => invoice.payment_status === 'paid')) set.add('paid');
+    if (set.has('paid')) set.add('closed');
     return set;
-  }, [acceptedBid, events, invoices, job, podFiles.length]);
+  }, [acceptedBid, bidCount, events, invoices, job, podFiles.length]);
 
   const resolvePodUrl = async (path: string) => {
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
