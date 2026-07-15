@@ -8,12 +8,12 @@ import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { formatDateTime, routeSummary } from './superAdminFormatters';
 
 const THEME = {
-  pageBg: '#0f172a',
-  cardBg: '#1e293b',
-  cardBorder: '#334155',
-  text: '#f1f5f9',
-  muted: '#94a3b8',
-  accent: '#f59e0b',
+  pageBg:     'var(--background)',
+  cardBg:     'var(--xd-surface)',
+  cardBorder: 'var(--xd-border)',
+  text:       'var(--xd-text)',
+  muted:      'var(--xd-text-muted)',
+  accent:     'var(--xd-gold)',
 };
 
 interface SuperAdminModulePageProps {

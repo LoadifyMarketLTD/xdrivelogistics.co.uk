@@ -2,36 +2,122 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   XDRIVE LOGISTICS — CANONICAL DESIGN TOKENS
+   Single source of truth for the entire platform.
+   All Tailwind utilities and inline styles should reference these variables.
+   ──────────────────────────────────────────────────────────────────────────── */
+
 @layer base {
   :root {
-    --background: 220 25% 8%;
-    --foreground: 0 0% 98%;
-    --card: 220 20% 12%;
-    --card-foreground: 0 0% 98%;
-    --popover: 220 20% 12%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 24 95% 53%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 15% 18%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 220 15% 22%;
-    --muted-foreground: 220 10% 60%;
-    --accent: 24 95% 53%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
-    --ring: 24 95% 53%;
-    --radius: 0.625rem;
-    --sidebar-background: 220 25% 8%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 24 95% 53%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 18%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 220 15% 20%;
-    --sidebar-ring: 24 95% 53%;
+    /* ── Backgrounds ── */
+    --background:    220 28% 7%;   /* #0b1120  Page canvas                  */
+    --surface:       220 24% 11%;  /* #131d2e  Cards, panels                */
+    --surface-raised:220 22% 15%;  /* #1c2a3f  Elevated surfaces            */
+    --surface-hover: 220 20% 18%;  /* #222f42  Hover state on surface       */
+
+    /* ── Foreground ── */
+    --foreground:    0 0% 97%;     /* #f7f7f7  Primary text                 */
+    --muted-fg:      220 12% 58%;  /* #8b95a6  Secondary / muted text       */
+    --subtle-fg:     220 10% 40%;  /* #5c6472  Disabled / placeholder       */
+
+    /* ── Brand Accent — Amber / Gold ── */
+    --primary:       38 92% 50%;   /* #f59e0b  XDrive gold accent           */
+    --primary-fg:    220 28% 7%;   /* #0b1120  Text on primary              */
+    --primary-hover: 38 92% 44%;   /* #d97706  Hover on primary             */
+    --primary-muted: 38 92% 50% / 0.15; /* Subtle tint background          */
+
+    /* ── Semantic ── */
+    --success:       142 71% 40%;  /* #22c55e  Green                        */
+    --success-fg:    0 0% 100%;
+    --warning:       43 96% 56%;   /* #fbbf24  Amber warning                */
+    --warning-fg:    220 28% 7%;
+    --danger:        0 84% 60%;    /* #ef4444  Red                          */
+    --danger-fg:     0 0% 100%;
+    --info:          217 91% 60%;  /* #3b82f6  Blue                         */
+    --info-fg:       0 0% 100%;
+
+    /* ── Borders & Inputs ── */
+    --border:        220 18% 22%;  /* #282f3c  Default border               */
+    --border-strong: 220 18% 32%;  /* #3a4557  Stronger border              */
+    --input:         220 18% 22%;  /* Same as border                        */
+    --ring:          38 92% 50%;   /* Focus ring — amber                    */
+
+    /* ── Tailwind component aliases ── */
+    --card:              var(--surface);
+    --card-foreground:   var(--foreground);
+    --popover:           var(--surface-raised);
+    --popover-foreground:var(--foreground);
+    --secondary:         var(--surface-raised);
+    --secondary-foreground: var(--foreground);
+    --muted:             var(--surface-raised);
+    --muted-foreground:  var(--muted-fg);
+    --accent:            var(--primary);
+    --accent-foreground: var(--primary-fg);
+    --destructive:       var(--danger);
+    --destructive-foreground: var(--danger-fg);
+
+    /* ── Sidebar (matches app shell) ── */
+    --sidebar-background:          var(--background);
+    --sidebar-foreground:          var(--foreground);
+    --sidebar-primary:             var(--primary);
+    --sidebar-primary-foreground:  var(--primary-fg);
+    --sidebar-accent:              var(--surface-raised);
+    --sidebar-accent-foreground:   var(--foreground);
+    --sidebar-border:              var(--border);
+    --sidebar-ring:                var(--primary);
+
+    /* ── Border radius scale ── */
+    --radius: 0.5rem;       /* 8px  — base                                  */
+    --radius-sm:   4px;
+    --radius-md:   8px;
+    --radius-lg:   12px;
+    --radius-xl:   16px;
+    --radius-2xl:  24px;
+
+    /* ── Shadow / Elevation ── */
+    --shadow-xs:   0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow-sm:   0 2px 8px 0 rgb(0 0 0 / 0.35);
+    --shadow-md:   0 4px 16px 0 rgb(0 0 0 / 0.4);
+    --shadow-lg:   0 8px 32px 0 rgb(0 0 0 / 0.45);
+    --shadow-nav:  0 2px 12px 0 rgb(0 0 0 / 0.5);
+
+    /* ── Typography ── */
+    --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-weight-regular:  400;
+    --font-weight-medium:   500;
+    --font-weight-semibold: 600;
+    --font-weight-bold:     700;
+    --font-weight-extrabold:800;
+
+    /* ── Spacing scale (4px base) ── */
+    --sp-1:  4px;
+    --sp-2:  8px;
+    --sp-3:  12px;
+    --sp-4:  16px;
+    --sp-5:  20px;
+    --sp-6:  24px;
+    --sp-8:  32px;
+    --sp-10: 40px;
+    --sp-12: 48px;
+    --sp-16: 64px;
+
+    /* ── Brand palette (for marketing / legacy references) ── */
+    --xd-navy:        #0A2239;
+    --xd-navy-mid:    #1F3A5F;
+    --xd-gold:        #F59E0B;
+    --xd-gold-dark:   #D97706;
+    --xd-gold-subtle: rgba(245, 158, 11, 0.15);
+    --xd-green:       #22c55e;
+    --xd-blue:        #3b82f6;
+    --xd-red:         #ef4444;
+    --xd-amber:       #fbbf24;
+    --xd-surface:     #131d2e;
+    --xd-surface-2:   #1c2a3f;
+    --xd-border:      #282f3c;
+    --xd-text:        #f7f7f7;
+    --xd-text-muted:  #8b95a6;
+    --xd-text-subtle: #5c6472;
   }
 }
 
@@ -44,406 +130,104 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+    font-family: var(--font-family);
   }
-}
-
-@layer utilities {
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-orange-600;
-  }
-  .glass {
-    @apply bg-white/5 backdrop-blur-lg border border-white/10;
-  }
-  .glow-orange {
-    box-shadow: 0 0 40px rgba(249, 115, 22, 0.3);
-  }
-}
-
-/* Legacy CSS variables kept for inline-styled admin/driver pages */
-:root {
-  /* Inter font loaded via @fontsource/inter */
-  --font-inter: 'Inter', system-ui, -apple-system, sans-serif;
-  /* Brand Colors */
-  --color-primary-navy-dark: #0A2239;
-  --color-primary-navy: #1F3A5F;
-  --color-secondary-blue: #2F6FB3;
-  --color-gold-primary: #D4AF37;
-  --color-gold-dark: #B8941F;
-  --color-green-primary: #1F7A3D;
-  --color-green-whatsapp: #25D366;
-  --color-bg-light: #F4F7FA;
-  --color-text-white: #FFFFFF;
-  --color-text-white-transparent: rgba(255,255,255,0.85);
-  --color-text-dark: #0A2239;
-  
-  /* Typography (Inter font) */
-  --font-family: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
-  --font-size-hero: clamp(2rem, 5vw, 3rem);
-  --font-size-h1: clamp(2rem, 5vw, 3rem);
-  --font-size-h2: 14px;
-  --font-size-body: 16px;
-  --font-weight-regular: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  --font-weight-bold: 700;
-  --font-weight-extrabold: 800;
-  
-  /* Spacing */
-  --section-padding-desktop: 64px;
-  --section-padding-mobile: 40px;
-  --spacing-24: 24px;
-  --spacing-32: 32px;
-  --spacing-48: 48px;
-  --spacing-64: 64px;
-  
-  /* Border Radius */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 12px;
-  
-  /* Effects */
-  --glass-bg: rgba(255,255,255,0.08);
-  --glass-border: rgba(255,255,255,0.12);
-  --transition-speed: 0.3s;
 }
 
 * {
   box-sizing: border-box;
-  padding: 0;
-  margin: 0;
 }
 
 html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
-  scroll-behavior: smooth;
-}
-
-body {
-  font-family: var(--font-family);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  line-height: 1.6;
-  font-size: var(--font-size-body);
-  /* background-color and color are managed by Tailwind @layer base above */
 }
 
 main {
   min-height: 100vh;
 }
 
-/* Container */
-.container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 24px;
+/* ── Utility classes ──────────────────────────────────────────────────── */
+
+@layer utilities {
+  /* XDrive branded gradient text */
+  .xd-text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, var(--xd-gold) 0%, var(--xd-gold-dark) 100%);
+  }
+  /* Subtle glass surface */
+  .xd-glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  /* Gold glow */
+  .xd-glow-gold {
+    box-shadow: 0 0 32px rgba(245, 158, 11, 0.25);
+  }
+  /* Fade-in animation */
+  .xd-fade-in {
+    animation: xdFadeInUp 0.5s ease forwards;
+  }
 }
 
-/* Typography — scoped to legacy pages only to avoid breaking Tailwind components */
-.legacy-content h1, .legacy-content h2, .legacy-content h3,
-.legacy-content h4, .legacy-content h5, .legacy-content h6 {
-  font-weight: var(--font-weight-bold);
-  line-height: 1.2;
-  color: var(--color-text);
+/* ── Animations ──────────────────────────────────────────────────────── */
+
+@keyframes xdFadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.legacy-content h1 {
-  font-size: var(--font-size-h1);
-  margin-bottom: 1rem;
+@keyframes xdSpin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-.legacy-content h2 {
-  font-size: var(--font-size-h2);
-  margin-bottom: 1rem;
-}
-
-.legacy-content h3 {
-  font-size: var(--font-size-h3);
-  margin-bottom: 0.75rem;
-}
-
-.legacy-content p {
-  margin-bottom: 1rem;
-  line-height: 1.7;
-}
-
-/* Buttons - Premium Clean Style */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 24px;
-  font-size: var(--font-size-button);
-  font-weight: var(--font-weight-semibold);
-  border-radius: var(--button-radius);
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-decoration: none;
-  height: 48px;
-  font-family: var(--font-family);
-}
-
-.btn-primary {
-  background-color: var(--color-cta-green);
-  color: white;
-  box-shadow: 0 2px 8px rgba(31, 122, 61, 0.2);
-}
-
-.btn-primary:hover {
-  background-color: #1a6633;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(31, 122, 61, 0.3);
-  text-decoration: none;
-}
-
-.btn-secondary {
-  background-color: transparent;
-  color: var(--color-primary-navy);
-  border: 2px solid var(--color-primary-navy);
-}
-
-.btn-secondary:hover {
-  background-color: var(--color-primary-navy);
-  color: white;
-  transform: translateY(-2px);
-}
-
-/* Cards - Premium Clean Style */
-.card {
-  background: var(--color-card-bg);
-  padding: var(--card-padding);
-  border-radius: var(--card-radius);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--card-shadow);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--card-shadow-hover);
-}
-
-/* Grid Layouts */
-.grid {
-  display: grid;
-  gap: 24px;
-  grid-template-columns: 1fr;
-}
-
-.grid-2 {
-  grid-template-columns: 1fr;
-}
-
-.grid-3 {
-  grid-template-columns: 1fr;
-}
-
-/* Form Elements - Premium Clean Style */
-input,
-textarea,
-select {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--input-radius);
-  font-size: 15px;
-  font-family: var(--font-family);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  background: white;
-  color: var(--color-text-dark);
-}
-
-/* Checkboxes and radios must not inherit the full-width/padding block styling */
+/* ── Checkbox / radio reset ──────────────────────────────────────────── */
 input[type="checkbox"],
 input[type="radio"] {
   width: auto;
   padding: 0;
-  border: revert;
-  border-radius: revert;
-  background: revert;
-  box-shadow: none;
-  transition: none;
 }
 
-input::placeholder,
-textarea::placeholder {
-  color: var(--color-text-muted);
+/* ── Legacy scoped styles (marketing/onboarding pages) ───────────────── */
+
+.legacy-content h1,
+.legacy-content h2,
+.legacy-content h3,
+.legacy-content h4,
+.legacy-content h5,
+.legacy-content h6 {
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
 }
 
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: var(--color-secondary-blue);
-  box-shadow: 0 0 0 3px rgba(30, 78, 140, 0.1);
-}
+.legacy-content p { margin-bottom: 1rem; line-height: 1.7; }
 
-label {
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text);
-}
-
-.text-muted {
-  color: var(--color-text-muted);
-}
-
-/* Links — scoped to legacy pages only */
 .legacy-content a {
-  color: var(--color-secondary-blue);
+  color: var(--xd-blue);
   text-decoration: none;
-  transition: color 0.3s ease;
+  transition: color 0.2s ease;
 }
+.legacy-content a:hover { color: var(--xd-gold); }
 
-.legacy-content a:hover {
-  color: var(--color-light-blue);
-  text-decoration: none;
-}
-
-/* Lists — scoped to legacy pages only to avoid breaking navigation menus */
-.legacy-content ul {
-  list-style: none;
-  padding: 0;
-}
-
+.legacy-content ul { list-style: none; padding: 0; }
 .legacy-content ul li {
-  padding: 0.75rem 0;
-  padding-left: 1.5rem;
+  padding: 0.75rem 0 0.75rem 1.5rem;
   position: relative;
 }
-
 .legacy-content ul li::before {
   content: "✓";
   position: absolute;
   left: 0;
-  color: var(--color-cta);
+  color: var(--xd-green);
   font-weight: bold;
 }
 
-/* Responsive Grid */
-@media (min-width: 768px) {
-  .grid-2 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .grid-3 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .container {
-    padding: 0 32px;
-  }
-}
+/* ── Print — show only invoice print area ────────────────────────────── */
 
-@media (min-width: 1024px) {
-  .grid-3 {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  
-  :root {
-    --font-size-h1: 3rem;
-    --font-size-h2: 2.25rem;
-    --font-size-h3: 1.75rem;
-  }
-}
-
-@media (max-width: 768px) {
-  :root {
-    --font-size-h1: 2rem;
-    --font-size-h2: 1.75rem;
-    --font-size-h3: 1.25rem;
-    --section-padding: 48px;
-    --card-padding: 24px;
-  }
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Premium Clean Theme Utilities */
-.premium-card {
-  background: white;
-  border: 1px solid var(--color-border);
-  border-radius: var(--card-radius);
-  box-shadow: var(--card-shadow);
-  padding: var(--card-padding);
-}
-
-.premium-card:hover {
-  box-shadow: var(--card-shadow-hover);
-}
-
-.navy-text {
-  color: var(--color-primary-navy);
-}
-
-.green-text {
-  color: var(--color-cta-green);
-}
-
-.soft-glow {
-  box-shadow: var(--soft-glow);
-}
-
-/* WhatsApp Button Styles */
-.whatsapp-btn {
-  background: #25D366;
-  color: white;
-  transition: all 0.3s ease;
-}
-
-.whatsapp-btn:hover {
-  background: #20ba5a;
-  box-shadow: 0 4px 16px rgba(37, 211, 102, 0.3);
-  transform: translateY(-2px);
-}
-
-/* Floating Animation */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-}
-
-.float-animation {
-  animation: float 3s ease-in-out infinite;
-}
-
-/* FAZA 2: Premium card refinements */
-:root {
-  --radius-2xl: 20px;
-  --shadow-card-premium: 0 4px 24px rgba(31, 58, 95, 0.12);
-  --shadow-card-hover: 0 12px 36px rgba(31, 58, 95, 0.2);
-  --color-cta-green: #2E7D32;
-  --color-bg-soft: #F4F6F8;
-}
-
-/* FAZA 8: Scroll fade-in animation */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.fade-in-up {
-  animation: fadeInUp 0.6s ease forwards;
-}
-
-/* Smooth scroll */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Print styles — hide admin chrome, show only invoice */
 @media print {
   body * { visibility: hidden; }
   #invoice-print-area,

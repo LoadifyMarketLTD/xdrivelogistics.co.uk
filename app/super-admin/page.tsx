@@ -6,16 +6,16 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import { supabase } from '../../lib/supabaseClient';
 
 const THEME = {
-  pageBg: '#eef2f6',
+  pageBg: 'var(--background)',
   cardBg: '#ffffff',
-  cardBorder: '#d7e0ea',
-  text: '#0f172a',
-  muted: '#475569',
-  softMuted: '#64748b',
-  blue: '#1d4ed8',
-  green: '#15803d',
+  cardBorder: 'var(--xd-border)',
+  text: 'var(--background)',
+  muted: 'var(--xd-text-subtle)',
+  softMuted: 'var(--xd-text-subtle)',
+  blue: 'var(--xd-gold)',
+  green: 'var(--xd-green)',
   amber: '#d97706',
-  red: '#dc2626',
+  red: 'var(--xd-red)',
   ink: '#111827',
 };
 
