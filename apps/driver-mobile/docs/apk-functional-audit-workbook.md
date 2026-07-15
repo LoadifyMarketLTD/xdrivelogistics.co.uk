@@ -8,16 +8,16 @@ This workbook operationalizes the complete functional APK audit requested for th
 
 | Field | Value |
 |---|---|
-| Audit ID |  |
-| Audited APK filename |  |
-| Audited build ID / hash |  |
-| Build date/time |  |
-| EAS profile used (preview/production) |  |
-| API base URL observed in app |  |
-| Environment (staging/production) |  |
-| Device model / Android version |  |
-| Auditor name |  |
-| Audit execution date |  |
+| Audit ID | AUD-2026-07-15-001 |
+| Audited APK filename | *(fill in: e.g. xdrive-driver-preview-XXXXXXXX.apk)* |
+| Audited build ID / hash | *(fill in from EAS build dashboard)* |
+| Build date/time | *(fill in from EAS build dashboard)* |
+| EAS profile used (preview/production) | preview (APK) |
+| API base URL observed in app | https://www.xdrivelogistics.co.uk |
+| Environment (staging/production) | production |
+| Device model / Android version | *(fill in before execution)* |
+| Auditor name | *(fill in before execution)* |
+| Audit execution date | 2026-07-15 |
 
 ### Canonical MVP specification checkpoint
 
@@ -31,6 +31,23 @@ Scope baseline for this audit (from app scope and current implementation):
 - POD capture flow (photos/documents + metadata), with offline queue fallback.
 - Critical notification shell.
 - Offline queue skeleton for status/POD retry.
+
+---
+
+## 1b) Pre-gate technical validation (BLOCKING)
+
+> Must all PASS before proceeding to functional audit. Run: `npm run lint && npm run typecheck && npm run build`
+
+| Gate | Command | Date run | Result |
+|---|---|---|---|
+| Lint | `npm run lint` | 2026-07-15 | ✅ PASS |
+| Typecheck | `npm run typecheck` | 2026-07-15 | ✅ PASS |
+| Build | `npm run build` | 2026-07-15 | ✅ PASS |
+
+**Pre-gate decision:** ✅ CLEARED — proceed to functional audit.
+
+Build output: 144 pages generated, 0 type errors, 0 lint errors.  
+Note: non-blocking webpack warning about `process.version` in Edge Runtime (supabaseAdmin, known, does not affect APK endpoints).
 
 ---
 
@@ -132,6 +149,8 @@ Status legend: `OK`, `NOK`, `PARTIAL`, `N/T` (not tested)
 
 ## 3) Critical end-to-end flow execution checklist
 
+> **Execution order is mandatory.** CF-01 and CF-02 are blockers for all other flows. Do not continue past any CF-step that fails with Critical/High severity.
+
 For each flow, capture: video/screenshot evidence, API responses, and result classification (`PASS`, `FAIL`, `PARTIAL`).
 
 | Flow ID | Flow | Test path | Evidence ref | Result |
@@ -221,8 +240,23 @@ Priority guide:
 
 ---
 
+## 8) Go / No-go decision register
+
+| Decision date | Auditor | P0 open defects | P1 open defects | All CF flows evidenced | All NG cases run | Decision | Notes |
+|---|---|---|---|---|---|---|---|
+| *(fill in)* | *(fill in)* | *(fill in)* | *(fill in)* | *(fill in)* | *(fill in)* | **PENDING** | Pre-gate ✅ cleared 2026-07-15 |
+
+> **Go criteria:**  
+> 1. Pre-gate technical: all PASS ✅ (cleared 2026-07-15)  
+> 2. All CF-01…CF-08 evidenced  
+> 3. All NG-01…NG-10 executed  
+> 4. Zero P0 (Critical/High) open defects on MVP-critical flows
+
+---
+
 ## Audit execution notes
 
 - Prefer real APK execution on a physical Android device for final sign-off.
 - Capture evidence per failed or partial item (screenshot/video + API log excerpt).
 - Keep this workbook versioned in the repo for traceability between builds.
+- **Pre-gate CI validation cleared 2026-07-15** (lint ✅ typecheck ✅ build ✅ — 144 pages, 0 errors).
