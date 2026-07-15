@@ -44,7 +44,7 @@ type NearbyJobRow = {
   job_distance_minutes: number | null;
   distance_to_pickup_miles: number | string | null;
   exchange_posted_at: string | null;
-  companies?: { name?: string | null; company_number?: string | null } | Array<{ name?: string | null; company_number?: string | null }> | null;
+  companies?: { name?: string | null; xd_id?: string | null } | Array<{ name?: string | null; xd_id?: string | null }> | null;
 };
 
 const nearbySelect = [
@@ -87,7 +87,7 @@ const nearbySelect = [
   'access_restrictions',
   'job_distance_miles',
   'exchange_posted_at',
-  'companies(name,company_number)',
+  'companies(name,xd_id)',
 ].join(',');
 
 function numberOrNull(value: unknown) {
@@ -102,7 +102,7 @@ function companyInfo(companies: NearbyJobRow['companies']) {
 
 function publicArea(postcode: unknown) {
   const value = String(postcode ?? '').trim().toUpperCase();
-  return value ? `Approx. area Â· ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
+  return value ? `Approx. area · ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
 }
 
 function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
@@ -111,7 +111,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
   return {
     id: row.id,
     publicReference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
-    poster: { name: company?.name ?? null, memberCode: company?.company_number ?? null },
+    poster: { name: company?.name ?? null, memberCode: company?.xd_id ?? null },
     posterCompanyName: company?.name ?? null,
     pickup: {
       addressSummary: publicArea(row.pickup_postcode),
