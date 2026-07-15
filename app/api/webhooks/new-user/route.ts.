@@ -1,0 +1,55 @@
+import { NextResponse } from 'next/server';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    
+    // Datele trimise automat de Supabase la crearea profilului
+    const { email, first_name, profile_role } = body.record; 
+
+    // 1. Notificarea profesională de Onboarding pentru UTILIZATOR
+    await resend.emails.send({
+      from: 'XDrive Logistics <onboarding@xdrivelogistics.co.uk>',
+      to: [email],
+      subject: 'Welcome to XDrive Logistics - Let’s get you onboarded!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #0f172a;">Welcome to XDrive Logistics, ${first_name || 'Partner'}!</h2>
+          <p style="color: #334155; font-size: 16px; line-height: 1.5;">
+            Thank you for registering on our platform. Your account has been successfully created with the role of <strong>${profile_role}</strong>.
+          </p>
+          <p style="color: #334155; font-size: 16px;">To start scaling your transport operations, please complete your onboarding profile:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://xdrivelogistics.co.uk" style="background-color: #1e3a8a; color: white; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">Complete Onboarding</a>
+          </div>
+          <p style="color: #64748b; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+            XDrive Logistics Ltd. - Courier & Freight Exchange Platform. No client funds held.
+          </p>
+        </div>
+      `
+    });
+
+    // 2. Notificarea instantanee pentru TINE (Administratorul)
+    await resend.emails.send({
+      from: 'XDrive System <system@xdrivelogistics.co.uk>',
+      to: ['dannycourierltd@gmail.com'], // E-mailul tău de admin din tabel
+      subject: '🚨 ALERT: New User Registered on XDrive!',
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f8fafc; border-left: 4px solid #1e3a8a;">
+          <h3 style="margin-top: 0;">A new user has just registered on the platform:</h3>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Selected Role:</strong> ${profile_role}</p>
+          <p><strong>Registration Time:</strong> ${new Date().toISOString()}</p>
+          <p style="margin-bottom: 0;"><a href="https://supabase.com" target="_blank">Open Supabase Dashboard</a> to review documents.</p>
+        </div>
+      `
+    });
+
+    return NextResponse.json({ success: true, message: 'Emails dispatched successfully' });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
