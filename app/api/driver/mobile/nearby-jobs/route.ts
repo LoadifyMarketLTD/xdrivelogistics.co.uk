@@ -186,7 +186,9 @@ async function postcodeCoordinates(postcodes: unknown[]) {
       const coordinates = validCoordinates(item.result?.latitude, item.result?.longitude);
       if (coordinates) result.set(postcodeKey(item.query), coordinates);
     }
-  } catch {}
+  } catch {
+    // Postcode enrichment is best-effort; keep available jobs when lookup fails.
+  }
   return result;
 }
 
