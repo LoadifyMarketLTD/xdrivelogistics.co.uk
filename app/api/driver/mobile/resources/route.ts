@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     .select('*')
     .eq('assigned_driver_id', context.driverId)
     .eq('company_id', context.companyId)
-    .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (vehicleResult.error) return NextResponse.json({ error: vehicleResult.error.message }, { status: 500 });
