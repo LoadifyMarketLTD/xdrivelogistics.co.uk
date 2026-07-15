@@ -72,7 +72,7 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     id: 'home',
     label: 'Platform Home',
     // visible to all admin-area roles
-    items: [{ id: 'dashboard', label: 'Platform Home', icon: '🏠', href: '/admin' }],
+    items: [{ id: 'dashboard', label: 'Platform Home', icon: 'home', href: '/admin' }],
   },
   {
     id: 'marketplace',
@@ -80,7 +80,7 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     // Company staff can find work and convert won work; permissions stay policy-based.
     roles: ['owner', 'company_admin', 'company_staff', 'broker', 'driver'],
     items: [
-      { id: 'marketplace', label: 'Load Board', icon: '🏪', href: '/admin/marketplace' },
+      { id: 'marketplace', label: 'Load Board', icon: 'shop', href: '/admin/marketplace' },
     ],
   },
   {
@@ -88,7 +88,7 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     label: 'Driver Work',
     roles: ['driver'],
     items: [
-      { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
+      { id: 'jobs', label: 'Jobs', icon: 'pkg', href: '/admin/jobs' },
     ],
   },
   {
@@ -97,8 +97,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     // Company staff can price and quote; decision actions remain API/RLS protected.
     roles: ['owner', 'company_admin', 'company_staff', 'broker'],
     items: [
-      { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
-      { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
+      { id: 'quotes', label: 'Quotes', icon: 'msg', href: '/admin/quotes' },
+      { id: 'bids', label: 'Bids', icon: 'bids', href: '/admin/bids' },
     ],
   },
   {
@@ -107,10 +107,10 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     // Dispatchers and admins manage day-to-day operations; brokers do not
     roles: ['owner', 'company_admin', 'company_staff'],
     items: [
-      { id: 'operationsCentre', label: 'Operations Centre', icon: 'OC', href: '/admin/operations-centre' },
-      { id: 'diary', label: 'Diary', icon: '🗓️', href: '/admin/diary' },
-      { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
-      { id: 'disputes', label: 'Disputes', icon: '⚖️', href: '/admin/disputes' },
+      { id: 'operationsCentre', label: 'Operations Centre', icon: 'ops', href: '/admin/operations-centre' },
+      { id: 'diary', label: 'Diary', icon: 'cal', href: '/admin/diary' },
+      { id: 'jobs', label: 'Jobs', icon: 'pkg', href: '/admin/jobs' },
+      { id: 'disputes', label: 'Disputes', icon: 'jus', href: '/admin/disputes' },
     ],
   },
   {
@@ -119,7 +119,7 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     // Fleet management: owner, admin, dispatcher
     roles: ['owner', 'company_admin', 'company_staff'],
     items: [
-      { id: 'fleet', label: 'Fleet Workspace', icon: '🧭', href: '/admin/fleet' },
+      { id: 'fleet', label: 'Fleet Workspace', icon: 'nav', href: '/admin/fleet' },
     ],
   },
   {
@@ -128,7 +128,7 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     // Driver roster: owner, admin, dispatcher
     roles: ['owner', 'company_admin', 'company_staff'],
     items: [
-      { id: 'drivers', label: 'Driver Roster', icon: '👤', href: '/admin/drivers' },
+      { id: 'drivers', label: 'Driver Roster', icon: 'usr', href: '/admin/drivers' },
     ],
   },
   {
@@ -137,7 +137,7 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     // Vehicle registry: owner, admin, dispatcher
     roles: ['owner', 'company_admin', 'company_staff'],
     items: [
-      { id: 'vehicles', label: 'Vehicle Registry', icon: '🚛', href: '/admin/vehicles' },
+      { id: 'vehicles', label: 'Vehicle Registry', icon: 'trk', href: '/admin/vehicles' },
     ],
   },
   {
@@ -146,7 +146,7 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     // Document compliance: owner, admin, dispatcher
     roles: ['owner', 'company_admin', 'company_staff'],
     items: [
-      { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
+      { id: 'documents', label: 'Documents', icon: 'doc', href: '/admin/documents' },
     ],
   },
   {
@@ -155,7 +155,7 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     // Finance visibility can be policy-gated for staff (limited mode).
     roles: ['owner', 'company_admin', 'company_staff'],
     items: [
-      { id: 'invoices', label: 'Invoices', icon: '💰', href: '/admin/invoices' },
+      { id: 'invoices', label: 'Invoices', icon: 'inv', href: '/admin/invoices' },
     ],
   },
   {
@@ -164,7 +164,7 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     // Company directory: owner, admin, broker (network participants)
     roles: ['owner', 'company_admin', 'broker'],
     items: [
-      { id: 'companies', label: 'Companies', icon: '🏢', href: '/admin/companies' },
+      { id: 'companies', label: 'Companies', icon: 'co', href: '/admin/companies' },
     ],
   },
   {
@@ -173,8 +173,8 @@ export const PLATFORM_NAV_SECTIONS: NavSection[] = [
     // Team management and settings: owner and admin only
     roles: ['owner', 'company_admin'],
     items: [
-      { id: 'dispatchers', label: 'Memberships', icon: '👥', href: '/admin/dispatchers' },
-      { id: 'settings', label: 'Settings', icon: '⚙️', href: '/admin/settings' },
+      { id: 'dispatchers', label: 'Memberships', icon: 'team', href: '/admin/dispatchers' },
+      { id: 'settings', label: 'Settings', icon: 'set', href: '/admin/settings' },
     ],
   },
 ];
@@ -207,15 +207,15 @@ export const getNavSectionsForRole = (role: AppUserRole | null, context: NavVisi
         id: 'driver_workspace',
         label: 'Driver Workspace',
         items: [
-          { id: 'marketplace', label: 'Loads', icon: '🏪', href: '/admin/marketplace' },
-          { id: 'quotes', label: 'Quotes', icon: '💬', href: '/admin/quotes' },
-          { id: 'bids', label: 'Bids', icon: '💼', href: '/admin/bids' },
-          { id: 'diary', label: 'Diary', icon: '📅', href: '/admin/diary' },
-          { id: 'jobs', label: 'Jobs', icon: '📦', href: '/admin/jobs' },
-          { id: 'vehicles', label: 'My Vehicle', icon: '🚚', href: '/admin/vehicles' },
-          { id: 'returns', label: 'Return Journeys', icon: '↩', href: '/admin/returns' },
-          { id: 'documents', label: 'Documents', icon: '📄', href: '/admin/documents' },
-          { id: 'invoices', label: 'Invoices', icon: '💷', href: '/admin/invoices' },
+          { id: 'marketplace', label: 'Loads', icon: 'shop', href: '/admin/marketplace' },
+          { id: 'quotes', label: 'Quotes', icon: 'msg', href: '/admin/quotes' },
+          { id: 'bids', label: 'Bids', icon: 'bids', href: '/admin/bids' },
+          { id: 'diary', label: 'Diary', icon: 'cal', href: '/admin/diary' },
+          { id: 'jobs', label: 'Jobs', icon: 'pkg', href: '/admin/jobs' },
+          { id: 'vehicles', label: 'My Vehicle', icon: 'van', href: '/admin/vehicles' },
+          { id: 'returns', label: 'Return Journeys', icon: 'ret', href: '/admin/returns' },
+          { id: 'documents', label: 'Documents', icon: 'doc', href: '/admin/documents' },
+          { id: 'invoices', label: 'Invoices', icon: 'inv', href: '/admin/invoices' },
         ],
       },
     ];

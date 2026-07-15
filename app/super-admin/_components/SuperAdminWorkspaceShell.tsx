@@ -9,17 +9,6 @@ import { COMPANY_CONFIG } from '../../config/company';
 type NavItem = { id: string; label: string; shortLabel?: string; href: string };
 type NavGroup = { label: string; summary: string; items: NavItem[] };
 
-const THEME = {
-  pageBg: '#eef2f6',
-  shellBg: '#f8fafc',
-  shellBorder: '#d7e0ea',
-  shellMuted: '#64748b',
-  shellText: '#0f172a',
-  accent: '#f59e0b',
-  blue: '#1d4ed8',
-  danger: '#dc2626',
-};
-
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Dashboard',
@@ -148,16 +137,16 @@ export default function SuperAdminWorkspaceShell({ children }: SuperAdminWorkspa
   };
 
   if (!hydrated) {
-    return <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg }} />;
+    return <div style={{ minHeight: '100vh', backgroundColor: 'var(--background)' }} />;
   }
 
   const sidebarStyle: CSSProperties = {
     width: isMobile ? '292px' : '254px',
-    backgroundColor: THEME.shellBg,
-    color: THEME.shellText,
+    backgroundColor: 'var(--xd-surface)',
+    color: 'var(--xd-text)',
     display: 'flex',
     flexDirection: 'column',
-    borderRight: `1px solid ${THEME.shellBorder}`,
+    borderRight: '1px solid var(--xd-border)',
     position: isMobile ? 'fixed' : 'sticky',
     top: 0,
     height: '100vh',
@@ -171,10 +160,10 @@ export default function SuperAdminWorkspaceShell({ children }: SuperAdminWorkspa
   const navButtonStyle = (active: boolean): CSSProperties => ({
     width: '100%',
     padding: '0.42rem 0.55rem',
-    backgroundColor: active ? '#eff6ff' : 'transparent',
-    color: active ? THEME.blue : THEME.shellText,
+    backgroundColor: active ? 'var(--xd-gold-subtle)' : 'transparent',
+    color: active ? 'var(--xd-gold)' : 'var(--xd-text)',
     border: 'none',
-    borderLeft: active ? `3px solid ${THEME.blue}` : '3px solid transparent',
+    borderLeft: active ? '3px solid var(--xd-gold)' : '3px solid transparent',
     textAlign: 'left',
     cursor: 'pointer',
     display: 'flex',
@@ -183,33 +172,33 @@ export default function SuperAdminWorkspaceShell({ children }: SuperAdminWorkspa
     gap: '0.45rem',
     fontSize: '0.75rem',
     fontWeight: active ? 800 : 650,
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-md)',
   });
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: THEME.pageBg }}>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--background)' }}>
       {isMobile && sidebarOpen && (
-        <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.55)', zIndex: 30 }} />
+        <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 30 }} />
       )}
 
       <aside style={sidebarStyle}>
-        <div style={{ padding: '0.85rem 0.85rem 0.75rem', borderBottom: `1px solid ${THEME.shellBorder}`, backgroundColor: '#ffffff' }}>
+        <div style={{ padding: '0.85rem 0.85rem 0.75rem', borderBottom: '1px solid var(--xd-border)', backgroundColor: 'var(--xd-surface-2)' }}>
           <button onClick={() => router.push('/super-admin')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.45rem' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#0f172a', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                <span style={{ color: '#f59e0b', fontWeight: 900, fontSize: '1rem' }}>X</span>
+              <div style={{ width: '32px', height: '32px', borderRadius: 'var(--radius-md)', background: 'var(--xd-gold)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                <span style={{ color: 'var(--xd-navy)', fontWeight: 900, fontSize: '1rem' }}>X</span>
               </div>
               <div>
-                <div style={{ fontWeight: 800, fontSize: '0.84rem', color: THEME.shellText, lineHeight: 1.15 }}>{COMPANY_CONFIG.legalName}</div>
-                <div style={{ fontSize: '0.66rem', color: THEME.shellMuted, marginTop: '0.08rem' }}>Global Platform View</div>
+                <div style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--xd-text)', lineHeight: 1.15 }}>{COMPANY_CONFIG.legalName}</div>
+                <div style={{ fontSize: '0.66rem', color: 'var(--xd-text-muted)', marginTop: '0.08rem' }}>Global Platform View</div>
               </div>
             </div>
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-            <span style={{ display: 'inline-block', fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#92400e', backgroundColor: '#fef3c7', padding: '0.2rem 0.45rem', borderRadius: '999px' }}>
+            <span style={{ display: 'inline-block', fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--xd-gold)', backgroundColor: 'var(--xd-gold-subtle)', padding: '0.2rem 0.45rem', borderRadius: '999px' }}>
               Platform Owner
             </span>
-            <button onClick={() => router.push('/admin')} style={{ border: '1px solid #dbe4ef', background: '#f8fafc', color: '#334155', borderRadius: '999px', padding: '0.2rem 0.45rem', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}>
+            <button onClick={() => router.push('/admin')} style={{ border: '1px solid var(--xd-border)', background: 'var(--xd-surface-2)', color: 'var(--xd-text-muted)', borderRadius: '999px', padding: '0.2rem 0.45rem', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}>
               Company View
             </button>
           </div>
@@ -219,8 +208,8 @@ export default function SuperAdminWorkspaceShell({ children }: SuperAdminWorkspa
           {NAV_GROUPS.map((group) => (
             <div key={group.label} style={{ marginBottom: '0.46rem' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '0.5rem', padding: '0.28rem 0.45rem 0.22rem' }}>
-                <div style={{ fontSize: '0.62rem', fontWeight: 850, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#475569' }}>{group.label}</div>
-                <div style={{ fontSize: '0.6rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>{group.items.length}</div>
+                <div style={{ fontSize: '0.62rem', fontWeight: 850, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--xd-text-subtle)' }}>{group.label}</div>
+                <div style={{ fontSize: '0.6rem', color: 'var(--xd-text-subtle)', whiteSpace: 'nowrap' }}>{group.items.length}</div>
               </div>
               <div style={{ display: 'grid', gap: '0.12rem' }}>
                 {group.items.map((item) => {
@@ -228,7 +217,7 @@ export default function SuperAdminWorkspaceShell({ children }: SuperAdminWorkspa
                   return (
                     <button key={item.id} onClick={() => { router.push(item.href); if (isMobile) setSidebarOpen(false); }} style={navButtonStyle(active)}>
                       <span>{item.shortLabel ?? item.label}</span>
-                      {active && <span style={{ width: '6px', height: '6px', borderRadius: '999px', backgroundColor: THEME.blue }} />}
+                      {active && <span style={{ width: '6px', height: '6px', borderRadius: '999px', backgroundColor: 'var(--xd-gold)' }} />}
                     </button>
                   );
                 })}
@@ -237,14 +226,14 @@ export default function SuperAdminWorkspaceShell({ children }: SuperAdminWorkspa
           ))}
         </nav>
 
-        <div style={{ padding: '0.75rem', borderTop: `1px solid ${THEME.shellBorder}`, backgroundColor: '#ffffff' }}>
-          <div style={{ fontSize: '0.66rem', color: '#92400e', marginBottom: '0.15rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Platform Administrator</div>
-          <div style={{ fontSize: '0.68rem', color: THEME.shellMuted, marginBottom: '0.5rem', wordBreak: 'break-word' }}>{user?.email ?? ''}</div>
+        <div style={{ padding: '0.75rem', borderTop: '1px solid var(--xd-border)', backgroundColor: 'var(--xd-surface-2)' }}>
+          <div style={{ fontSize: '0.66rem', color: 'var(--xd-gold)', marginBottom: '0.15rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Platform Administrator</div>
+          <div style={{ fontSize: '0.68rem', color: 'var(--xd-text-muted)', marginBottom: '0.5rem', wordBreak: 'break-word' }}>{user?.email ?? ''}</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
-            <button onClick={() => router.push('/admin')} style={{ padding: '0.44rem', backgroundColor: '#ffffff', color: '#0f172a', border: `1px solid ${THEME.shellBorder}`, borderRadius: '8px', fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer' }}>
+            <button onClick={() => router.push('/admin')} style={{ padding: '0.44rem', backgroundColor: 'var(--xd-surface)', color: 'var(--xd-text)', border: '1px solid var(--xd-border)', borderRadius: 'var(--radius-md)', fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer' }}>
               Company
             </button>
-            <button onClick={() => void logout()} style={{ padding: '0.44rem', backgroundColor: '#fef2f2', color: THEME.danger, border: '1px solid #fecaca', borderRadius: '8px', fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer' }}>
+            <button onClick={() => void logout()} style={{ padding: '0.44rem', backgroundColor: 'rgba(239,68,68,0.12)', color: 'var(--xd-red)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 'var(--radius-md)', fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer' }}>
               Sign out
             </button>
           </div>
@@ -252,7 +241,7 @@ export default function SuperAdminWorkspaceShell({ children }: SuperAdminWorkspa
       </aside>
 
       {isMobile && (
-        <button onClick={() => setSidebarOpen(true)} style={{ position: 'fixed', top: '1rem', left: '1rem', zIndex: 20, backgroundColor: '#ffffff', border: `1px solid ${THEME.shellBorder}`, borderRadius: '10px', padding: '0.55rem 0.65rem', cursor: 'pointer', color: THEME.shellText, fontSize: '1rem', lineHeight: 1, boxShadow: '0 8px 20px rgba(15,23,42,0.14)' }}>
+        <button onClick={() => setSidebarOpen(true)} style={{ position: 'fixed', top: '1rem', left: '1rem', zIndex: 20, backgroundColor: 'var(--xd-surface)', border: '1px solid var(--xd-border)', borderRadius: 'var(--radius-lg)', padding: '0.55rem 0.65rem', cursor: 'pointer', color: 'var(--xd-text)', fontSize: '1rem', lineHeight: 1, boxShadow: 'var(--shadow-md)' }}>
           Menu
         </button>
       )}

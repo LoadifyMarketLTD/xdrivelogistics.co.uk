@@ -9,46 +9,48 @@ interface PrimaryButtonProps {
   style?: CSSProperties;
 }
 
-export function PrimaryButton({ 
-  children, 
-  onClick, 
-  href, 
-  variant = 'primary', 
+export function PrimaryButton({
+  children,
+  onClick,
+  href,
+  variant = 'primary',
   size = 'md',
-  style 
+  style,
 }: PrimaryButtonProps) {
   const baseStyles: CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     padding: size === 'lg' ? '1rem 2rem' : '0.875rem 1.75rem',
-    fontSize: size === 'lg' ? '1.1rem' : '1rem',
-    fontWeight: 'var(--font-weight-semibold)',
-    borderRadius: 'var(--radius-lg)',
+    fontSize: size === 'lg' ? '1.05rem' : '0.95rem',
+    fontWeight: 'var(--font-weight-semibold)' as CSSProperties['fontWeight'],
+    fontFamily: 'var(--font-family)',
+    borderRadius: 'var(--radius-md)',
     border: 'none',
     cursor: 'pointer',
-    transition: 'all 0.3s ease',
+    transition: 'all 0.2s ease',
     textDecoration: 'none',
     ...style,
   };
 
   const variantStyles: CSSProperties = variant === 'primary'
     ? {
-        backgroundColor: 'var(--color-gold-primary)',
-        color: 'var(--color-primary-navy-dark)',
+        backgroundColor: 'var(--xd-gold)',
+        color: 'var(--xd-navy)',
+        boxShadow: '0 2px 12px rgba(245,158,11,0.3)',
       }
     : {
         backgroundColor: 'transparent',
-        color: 'var(--color-text-white)',
-        border: '2px solid var(--color-text-white)',
+        color: '#fff',
+        border: '2px solid rgba(255,255,255,0.6)',
       };
 
   const combinedStyles = { ...baseStyles, ...variantStyles };
 
   const handleHover = (e: React.MouseEvent<HTMLElement>) => {
     if (variant === 'primary') {
-      e.currentTarget.style.backgroundColor = 'var(--color-gold-dark)';
-      e.currentTarget.style.transform = 'translateY(-2px)';
+      e.currentTarget.style.backgroundColor = 'var(--xd-gold-dark)';
+      e.currentTarget.style.transform = 'translateY(-1px)';
     } else {
       e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
     }
@@ -56,7 +58,7 @@ export function PrimaryButton({
 
   const handleMouseLeave = (e: React.MouseEvent<HTMLElement>) => {
     if (variant === 'primary') {
-      e.currentTarget.style.backgroundColor = 'var(--color-gold-primary)';
+      e.currentTarget.style.backgroundColor = 'var(--xd-gold)';
       e.currentTarget.style.transform = 'translateY(0)';
     } else {
       e.currentTarget.style.backgroundColor = 'transparent';
