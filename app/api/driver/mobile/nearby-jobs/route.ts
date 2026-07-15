@@ -87,8 +87,6 @@ const nearbySelect = [
   'special_requirements',
   'access_restrictions',
   'job_distance_miles',
-  'job_distance_minutes',
-  'distance_to_pickup_miles',
   'exchange_posted_at',
   'companies(name,company_number)',
 ].join(',');
