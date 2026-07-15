@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest } from 'next/server';
 
-const supabaseUrl =
+export const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
   process.env.SUPABASE_URL?.trim() ||
   '';
@@ -20,11 +20,12 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() && !process.env.SUPABASE_SERV
 // Anon key (public) — used for JWT validation so that token verification never
 // depends on the service-role key being present/correct.  The service-role key
 // is only needed for privileged admin operations (inviteUserByEmail, etc.).
-const supabaseAnonKey =
+export const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
   '';
 
 export const isSupabaseAdminConfigured = Boolean(supabaseUrl && supabaseServiceKey);
+export const isSupabaseValidatorConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 const clientOpts = {
   auth: {
@@ -41,9 +42,21 @@ export const supabaseAdmin = isSupabaseAdminConfigured
 // always works even when the service-role key is misconfigured or absent in
 // non-production environments (e.g. Netlify deploy previews).
 export const supabaseValidator =
-  supabaseUrl && supabaseAnonKey
+  isSupabaseValidatorConfigured
     ? createClient(supabaseUrl, supabaseAnonKey, clientOpts)
     : supabaseAdmin;
+
+export function createUserScopedClient(accessToken: string) {
+  if (!isSupabaseValidatorConfigured || !accessToken) return null;
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    ...clientOpts,
+    global: {
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+      },
+    },
+  });
+}
 
 export const getBearerToken = (request: NextRequest) => {
   const authHeader = request.headers.get('authorization') ?? '';

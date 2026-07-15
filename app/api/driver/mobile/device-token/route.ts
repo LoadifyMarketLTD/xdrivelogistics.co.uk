@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver, respond } from '../_lib';
 
 export async function POST(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
@@ -17,7 +15,7 @@ export async function POST(request: NextRequest) {
   const token = typeof body.token === 'string' ? body.token.trim() : '';
   if (!token) return respond(400, { error: 'token is required.' });
 
-  const { error } = await supabaseAdmin
+  const { error } = await driver.db
     .from('drivers')
     .update({ device_token: token })
     .eq('id', driver.driverId);

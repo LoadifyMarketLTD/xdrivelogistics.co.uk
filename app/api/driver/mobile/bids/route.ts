@@ -1,15 +1,10 @@
 import { NextRequest } from 'next/server';
 
-import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver, respond } from '../_lib';
 
 const activeBidStatuses = ['submitted', 'accepted', 'awarded', 'approved'];
 
 export async function POST(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
@@ -24,7 +19,7 @@ export async function POST(request: NextRequest) {
   }
   if (message.length > 1_000) return respond(400, { error: 'Quote message is too long.' });
 
-  const { data: job, error: jobError } = await supabaseAdmin
+  const { data: job, error: jobError } = await driver.db
     .from('jobs')
     .select('id,company_id,status,exchange_visibility,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id')
     .eq('id', jobId)
@@ -42,7 +37,7 @@ export async function POST(request: NextRequest) {
     && !job.awarded_carrier_company_id;
   if (!available) return respond(409, { error: 'This job is no longer available for quotation.' });
 
-  const { data: existing, error: existingError } = await supabaseAdmin
+  const { data: existing, error: existingError } = await driver.db
     .from('job_bids')
     .select('id')
     .eq('job_id', jobId)
@@ -52,7 +47,7 @@ export async function POST(request: NextRequest) {
   if (existingError) return respond(500, { error: existingError.message });
   if ((existing ?? []).length > 0) return respond(409, { error: 'You already have an active quote for this job.' });
 
-  const { data: bid, error: insertError } = await supabaseAdmin
+  const { data: bid, error: insertError } = await driver.db
     .from('job_bids')
     .insert({
       job_id: jobId,
