@@ -13,7 +13,9 @@ export type DriverJob = {
   id: string;
   reference: string;
   status: CanonicalJobStatus;
+  currentStatus?: string | null;
   lifecycleStatus?: string | null;
+  assignmentDecisionRequired?: boolean;
   pickupLocation: string;
   deliveryLocation: string;
   pickupTime: string;

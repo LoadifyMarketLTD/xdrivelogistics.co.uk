@@ -31,6 +31,8 @@ type QueueCounts = Record<QueuedActionStatus, number>;
 
 const notificationEventTitles: Record<string, string> = {
   job_assigned: 'Job assigned',
+  driver_assignment_accepted: 'Assignment accepted',
+  driver_assignment_rejected: 'Assignment rejected',
   bid_accepted: 'Bid accepted',
   pod_uploaded: 'POD uploaded',
   job_cancelled: 'Job cancelled',
@@ -122,6 +124,14 @@ function notificationSummary(alert: DriverAlert) {
 
   if (alert.event_type === 'pod_uploaded') {
     return `${pickup || 'Pickup'} → ${delivery || 'Delivery'} marked delivered.`;
+  }
+
+  if (alert.event_type === 'driver_assignment_accepted') {
+    return 'Driver confirmed availability for this assignment.';
+  }
+
+  if (alert.event_type === 'driver_assignment_rejected') {
+    return 'Driver rejected this assignment and it returned to dispatch.';
   }
 
   return dispatcherMessage || `${stringField(alert.entity_type, 'Record')} #${stringField(alert.entity_id, '').slice(0, 8).toUpperCase() || 'update'}`;
@@ -417,6 +427,10 @@ export default function DriverMobileApp() {
 
   async function submitStatus() {
     if (!job) return;
+    if (job.assignmentDecisionRequired) {
+      setMessage('Accept or reject this assignment before updating trip progress.');
+      return;
+    }
     if (!nextStep) {
       setMessage('Job status is already up to date.');
       return;
@@ -463,6 +477,58 @@ export default function DriverMobileApp() {
     ]);
   }
 
+  async function submitAssignmentDecision(decision: 'accept' | 'reject') {
+    if (!job) return;
+    const endpoint = decision === 'accept' ? 'accept-assignment' : 'reject-assignment';
+    const successMessage = decision === 'accept'
+      ? 'Assignment accepted. You can now start the trip.'
+      : 'Assignment rejected. The job was returned for reallocation.';
+
+    const apply = async () => {
+      if (!token || !(await isOnline())) {
+        const queued = await enqueueAction({ jobId: job.id, endpoint });
+        setQueue((items) => [queued, ...items]);
+        if (decision === 'accept') {
+          setJob((current) => (current ? { ...current, assignmentDecisionRequired: false, currentStatus: 'driver_confirmed', lifecycleStatus: 'allocated' } : current));
+        } else {
+          setJob(null);
+          setScreen('jobs');
+        }
+        setMessage('Action saved offline. It will sync automatically when connectivity returns.');
+        return;
+      }
+
+      try {
+        const response = await postJobStatus(job.id, endpoint, token);
+        if ('job' in response) {
+          setJob(response.job as DriverJob);
+        }
+        setMessage(successMessage);
+        if (decision === 'reject') {
+          await loadJobs(token, scope);
+          setScreen('jobs');
+          return;
+        }
+        await loadJobs(token, scope, { navigate: false });
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Unable to update assignment.');
+      }
+    };
+
+    if (decision === 'reject') {
+      Alert.alert('Reject assignment', 'Are you sure you want to reject this assigned job?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reject', style: 'destructive', onPress: () => void apply() },
+      ]);
+      return;
+    }
+
+    Alert.alert('Accept assignment', 'Confirm that you accept this assigned job.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Accept', onPress: () => void apply() },
+    ]);
+  }
+
   function handleBottomNavChange(nextScreen: Screen) {
     if ((nextScreen === 'pod' || nextScreen === 'active' || nextScreen === 'detail') && !job) {
       setScreen('jobs');
@@ -491,8 +557,11 @@ export default function DriverMobileApp() {
                 job={job}
                 queue={queue}
                 counts={queueCounts}
-                nextLabel={nextStep?.label ?? 'Delivered'}
+                primaryLabel={job.assignmentDecisionRequired ? 'Accept assignment' : (nextStep?.label ?? 'Delivered')}
+                assignmentDecisionRequired={Boolean(job.assignmentDecisionRequired)}
                 onPrimary={() => void submitStatus()}
+                onAcceptAssignment={() => void submitAssignmentDecision('accept')}
+                onRejectAssignment={() => void submitAssignmentDecision('reject')}
                 onDetail={() => setScreen('detail')}
                 onPod={() => setScreen('pod')}
                 onRetryFailed={() => void retryFailedQueueItems()}
@@ -586,8 +655,11 @@ function ActiveJobScreen({
   job,
   queue,
   counts,
-  nextLabel,
+  primaryLabel,
+  assignmentDecisionRequired,
   onPrimary,
+  onAcceptAssignment,
+  onRejectAssignment,
   onDetail,
   onPod,
   onRetryFailed,
@@ -596,8 +668,11 @@ function ActiveJobScreen({
   job: DriverJob;
   queue: QueuedAction[];
   counts: QueueCounts;
-  nextLabel: string;
+  primaryLabel: string;
+  assignmentDecisionRequired: boolean;
   onPrimary: () => void;
+  onAcceptAssignment: () => void;
+  onRejectAssignment: () => void;
   onDetail: () => void;
   onPod: () => void;
   onRetryFailed: () => void;
@@ -624,7 +699,14 @@ function ActiveJobScreen({
         <Info label="POD" value={job.podGenerated ? 'Captured' : job.podRequired ? 'Required' : 'Not required'} />
         {job.price ? <Info label="Price" value={job.price} /> : null}
       </Panel>
-      <PrimaryButton label={nextLabel} onPress={onPrimary} />
+      {assignmentDecisionRequired ? (
+        <View style={styles.assignmentDecision}>
+          <PrimaryButton label={primaryLabel} onPress={onAcceptAssignment} />
+          <SecondaryButton label="Reject assignment" onPress={onRejectAssignment} />
+        </View>
+      ) : (
+        <PrimaryButton label={primaryLabel} onPress={onPrimary} />
+      )}
       <SecondaryButton label="Job detail" onPress={onDetail} />
       <SecondaryButton label="Capture POD" onPress={onPod} />
       <QueuePanel queue={recentQueue} counts={counts} onRetryFailed={onRetryFailed} onSyncNow={onSyncNow} />
@@ -1017,6 +1099,7 @@ const styles = StyleSheet.create({
   primaryText: { color: '#fff', fontWeight: '800', fontSize: 16 },
   secondaryButton: { minHeight: 50, borderRadius: 10, borderColor: colors.border, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.panelSoft, paddingHorizontal: spacing.md },
   secondaryText: { color: colors.text, fontWeight: '700' },
+  assignmentDecision: { gap: spacing.sm },
   smallButton: { borderColor: colors.border, borderWidth: 1, borderRadius: 8, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   smallText: { color: colors.text, fontSize: 12, fontWeight: '700' },
   disabled: { opacity: 0.4 },
