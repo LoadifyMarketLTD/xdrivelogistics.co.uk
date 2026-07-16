@@ -10,10 +10,10 @@ export const metadata: Metadata = {
 export default function BrokerLayout({ children }: { children: ReactNode }) {
   return (
     <div
+      className="authenticated-workspace"
       style={{
         minHeight: '100dvh',
-        backgroundColor: '#f3f4f6',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        backgroundColor: '#f5f7fa',
       }}
     >
       {children}

@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import BrokerWorkspaceTabs from '../_components/BrokerWorkspaceTabs';
 
 type BidRow = {
   id: string;
@@ -33,12 +34,6 @@ const BID_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   rejected: { bg: '#fee2e2', text: '#991b1b' },
   withdrawn:{ bg: '#f3f4f6', text: '#6b7280' },
 };
-
-const NAV_ITEMS = [
-  { label: 'Load Board', href: '/broker/loads' },
-  { label: 'My Bids',    href: '/broker/bids' },
-  { label: 'Awards',     href: '/broker/awards' },
-];
 
 export default function BrokerBidsPage() {
   const { user } = useAuth();
@@ -124,15 +119,8 @@ export default function BrokerBidsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['broker', 'owner']}>
-      <div style={{ minHeight: '100vh', background: '#f3f4f6' }}>
-        <nav style={{ background: '#0f172a', padding: '0.75rem 1.25rem', display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ color: '#94a3b8', fontWeight: 700, marginRight: '0.75rem', fontSize: '0.9rem' }}>🤝 Broker</span>
-          {NAV_ITEMS.map(n => (
-            <button key={n.href} onClick={() => router.push(n.href)} style={{ background: n.href === '/broker/bids' ? '#1d4ed8' : 'transparent', color: '#f1f5f9', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', padding: '0.4rem 0.9rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
-              {n.label}
-            </button>
-          ))}
-        </nav>
+      <div style={{ minHeight: '100vh', background: '#f5f7fa' }}>
+        <BrokerWorkspaceTabs />
 
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1.25rem' }}>
           <h1 style={{ margin: '0 0 0.25rem', fontWeight: 700, fontSize: '1.5rem', color: '#0f172a' }}>My Bids</h1>
