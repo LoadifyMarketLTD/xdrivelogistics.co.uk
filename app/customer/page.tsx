@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { LogOut } from 'lucide-react';
 import { useAuth } from '../components/AuthContext';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
@@ -280,7 +281,7 @@ const toInvoiceData = (invoice: CustomerInvoice): InvoiceData => ({
 });
 
 export default function CustomerPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [tab, setTab] = useState<CustomerTab>('dashboard');
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -299,7 +300,18 @@ export default function CustomerPage() {
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [awardingBidId, setAwardingBidId] = useState<string | null>(null);
   const [podJobId, setPodJobId] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [form, setForm] = useState<LoadForm>(() => newLoadForm());
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -706,6 +718,15 @@ export default function CustomerPage() {
               style={{ padding: '0.4rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.78rem', color: '#64748b', textAlign: 'center' as const }}
             >
               Settings
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleLogout()}
+              disabled={loggingOut}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', padding: '0.45rem', border: '1px solid #fecaca', borderRadius: '5px', background: '#fef2f2', cursor: loggingOut ? 'wait' : 'pointer', fontSize: '0.78rem', fontWeight: 700, color: '#b91c1c', opacity: loggingOut ? 0.65 : 1, textAlign: 'center' as const }}
+            >
+              <LogOut size={14} aria-hidden="true" />
+              {loggingOut ? 'Signing out…' : 'Sign out'}
             </button>
           </div>
 
