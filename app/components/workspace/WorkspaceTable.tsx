@@ -1,6 +1,6 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, ComponentPropsWithoutRef, ReactNode } from 'react';
 import { WS_SURFACE, WS_BORDER, WS_SURFACE_HEAD, WS_TEXT_MUTED, WS_BORDER_LIGHT, WS_BORDER_INPUT } from './tokens';
 
 export interface WorkspacePaginationProps {
@@ -96,9 +96,12 @@ export default function WorkspaceTable({ columns, children, minWidth = '820px', 
 }
 
 /** Standard tbody <tr> — applies light bottom border between rows */
-export function WorkspaceTableTr({ children, last }: { children: ReactNode; last?: boolean }) {
+export function WorkspaceTableTr({ children, last, style, ...props }: ComponentPropsWithoutRef<'tr'> & { children: ReactNode; last?: boolean }) {
   return (
-    <tr style={{ borderBottom: last ? 'none' : `1px solid ${WS_BORDER_LIGHT}` }}>
+    <tr
+      {...props}
+      style={{ borderBottom: last ? 'none' : `1px solid ${WS_BORDER_LIGHT}`, ...style }}
+    >
       {children}
     </tr>
   );
