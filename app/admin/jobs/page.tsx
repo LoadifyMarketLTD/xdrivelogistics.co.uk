@@ -882,7 +882,7 @@ export default function JobsPage() {
  <span style={{ fontSize: '1.25rem' }}>{stat.icon}</span>
  </div>
  <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937' }}>
- {getStatusCount(stat.status)}
+ {stat.status === 'All' ? jobs.length : jobs.filter((job) => job.status === stat.status).length}
  </div>
  </div>
  ))}
