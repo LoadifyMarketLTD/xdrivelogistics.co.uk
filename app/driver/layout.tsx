@@ -21,10 +21,11 @@ export default function DriverAppLayout({
 }) {
   return (
     <div
-      className="authenticated-workspace"
       style={{
         minHeight: '100dvh',
-        backgroundColor: '#f5f7fa',
+        backgroundColor: '#f3f4f6',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       }}
     >
       {children}

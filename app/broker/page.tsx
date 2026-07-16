@@ -41,19 +41,19 @@ type BrokerInvoice = {
 };
 
 const THEME = {
-  pageBg:     '#f5f7fa',
-  shellBg:    '#ffffff',
+  pageBg:     'var(--background)',
+  shellBg:    'var(--xd-surface)',
   shellBorder:'var(--xd-border)',
-  cardBg:     '#ffffff',
+  cardBg:     'var(--xd-surface)',
   cardBorder: 'var(--xd-border)',
   text:       'var(--xd-text)',
   muted:      'var(--xd-text-muted)',
   softMuted:  'var(--xd-text-subtle)',
-  blue:       '#1d4ed8',
+  blue:       'var(--xd-gold)',
   green:      'var(--xd-green)',
   amber:      'var(--xd-amber)',
   red:        'var(--xd-red)',
-  ink:        '#0f172a',
+  ink:        'var(--xd-text)',
 };
 
 const navGroups = [

@@ -96,8 +96,8 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
             onClick={() => router.push('/admin')}
             style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
           >
-            <div style={{ width: '32px', height: '32px', borderRadius: 'var(--radius-md)', background: 'var(--xd-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: '#ffffff', fontWeight: 900, fontSize: '1rem', letterSpacing: '-1px', fontFamily: 'sans-serif' }}>X</span>
+            <div style={{ width: '32px', height: '32px', borderRadius: 'var(--radius-md)', background: 'var(--xd-gold)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: 'var(--xd-navy)', fontWeight: 900, fontSize: '1rem', letterSpacing: '-1px', fontFamily: 'sans-serif' }}>X</span>
             </div>
             <span style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--xd-text)', whiteSpace: 'nowrap' }}>
               {companyName ?? 'XDrive Logistics'}
@@ -109,7 +109,7 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
             {capabilities.canPostLoads && (
               <button
                 onClick={() => router.push('/admin/marketplace')}
-                style={{ background: 'var(--xd-green)', color: '#ffffff', border: 'none', borderRadius: 'var(--radius-md)', padding: '0.38rem 0.9rem', fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer', whiteSpace: 'nowrap', letterSpacing: '0.04em' }}
+                style={{ background: 'var(--xd-gold)', color: 'var(--xd-navy)', border: 'none', borderRadius: 'var(--radius-md)', padding: '0.38rem 0.9rem', fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer', whiteSpace: 'nowrap', letterSpacing: '0.04em' }}
               >
                 + POST LOAD
               </button>
@@ -154,13 +154,13 @@ export default function AdminPlatformShell({ children }: { children: ReactNode }
                 style={{
                   padding: '0.6rem 0.85rem',
                   border: 'none',
-                  borderBottom: isActive ? '2px solid var(--xd-blue)' : '2px solid transparent',
+                  borderBottom: isActive ? '2px solid var(--xd-gold)' : '2px solid transparent',
                   background: 'none',
                   cursor: 'pointer',
                   fontSize: '0.7rem',
                   fontWeight: 700,
                   letterSpacing: '0.05em',
-                  color: isActive ? 'var(--xd-blue)' : 'var(--xd-text-muted)',
+                  color: isActive ? 'var(--xd-gold)' : 'var(--xd-text-muted)',
                   whiteSpace: 'nowrap',
                   flexShrink: 0,
                   marginBottom: '-1px',
