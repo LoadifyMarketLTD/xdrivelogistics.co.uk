@@ -1,12 +1,12 @@
 import type { CSSProperties } from 'react';
 
 export const SUPER_ADMIN_THEME = {
-  pageBg: '#f5f7fa',
-  shellBg: '#ffffff',
-  shellBorder: '#e2e8f0',
+  pageBg: '#eef2f6',
+  shellBg: '#f8fafc',
+  shellBorder: '#d7e0ea',
   cardBg: '#ffffff',
-  cardBorder: '#e2e8f0',
-  cardShadow: 'none',
+  cardBorder: '#d7e0ea',
+  cardShadow: '0 6px 16px rgba(15, 23, 42, 0.08)',
   text: '#0f172a',
   muted: '#475569',
   subtle: '#64748b',
@@ -16,7 +16,7 @@ export const SUPER_ADMIN_THEME = {
   success: '#15803d',
   warning: '#c2410c',
   danger: '#b91c1c',
-  radius: '8px',
+  radius: '10px',
 } as const;
 
 export const superAdminCardStyle: CSSProperties = {
