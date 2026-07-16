@@ -39,7 +39,7 @@ export default function Page() {
           key: 'type',
           label: 'Type',
           render: (row) => (
-            <span style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '0.72rem', color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {row.type}
             </span>
           ),
@@ -48,14 +48,14 @@ export default function Page() {
           key: 'message',
           label: 'Message',
           render: (row) => (
-            <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{row.message}</span>
+            <span style={{ fontSize: '0.75rem', color: '#0B2F6B' }}>{row.message}</span>
           ),
         },
         {
           key: 'status',
           label: 'Status',
           render: (row) => (
-            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: row.status === 'failed' ? '#ef4444' : row.status === 'pending' ? '#f59e0b' : '#94a3b8' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: row.status === 'failed' ? '#F5A300' : row.status === 'pending' ? '#F5A300' : '#F4F6F8' }}>
               {row.status}
             </span>
           ),

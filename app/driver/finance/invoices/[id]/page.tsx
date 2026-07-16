@@ -89,12 +89,12 @@ type DocumentRecord = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<InvoiceStatus, { bg: string; text: string }> = {
-  Draft:     { bg: '#fef3c7', text: '#92400e' },
-  Sent:      { bg: '#e0e7ff', text: '#3730a3' },
-  Cancelled: { bg: '#e2e8f0', text: '#475569' },
-  Paid:      { bg: '#d1fae5', text: '#065f46' },
-  Disputed:  { bg: '#fce7f3', text: '#9d174d' },
-  Overdue:   { bg: '#fee2e2', text: '#991b1b' },
+  Draft:     { bg: '#F4F6F8', text: '#F5A300' },
+  Sent:      { bg: '#F4F6F8', text: '#1D57D8' },
+  Cancelled: { bg: '#F4F6F8', text: '#0B2F6B' },
+  Paid:      { bg: '#F4F6F8', text: '#0B2F6B' },
+  Disputed:  { bg: '#F4F6F8', text: '#F5A300' },
+  Overdue:   { bg: '#F4F6F8', text: '#F5A300' },
 };
 
 const fmtCurrency = (amount: number, currency = 'GBP') =>
@@ -317,10 +317,10 @@ export default function DriverInvoiceDetailPage({
   // ── Styles ────────────────────────────────────────────────────────────────────
 
   const cardStyle: CSSProperties = {
-    background: '#fff',
+    background: '#FFFFFF',
     borderRadius: '10px',
-    border: '1px solid #d7e0ea',
-    boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+    border: '1px solid rgba(11, 47, 107, 0.16)',
+    boxShadow: '0 2px 8px rgba(26, 31, 43, 0.06)',
     padding: '1.25rem',
     marginBottom: '1rem',
   };
@@ -328,15 +328,15 @@ export default function DriverInvoiceDetailPage({
   const sectionTitle: CSSProperties = {
     fontSize: '0.875rem',
     fontWeight: 700,
-    color: '#1e293b',
+    color: '#0B2F6B',
     marginBottom: '0.75rem',
     paddingBottom: '0.5rem',
-    borderBottom: '1px solid #e2e8f0',
+    borderBottom: '1px solid rgba(11, 47, 107, 0.16)',
   };
 
   const labelStyle: CSSProperties = {
     fontSize: '0.72rem',
-    color: '#64748b',
+    color: '#0B2F6B',
     fontWeight: 600,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
@@ -345,13 +345,13 @@ export default function DriverInvoiceDetailPage({
 
   const valueStyle: CSSProperties = {
     fontSize: '0.875rem',
-    color: '#1e293b',
+    color: '#0B2F6B',
   };
 
   const inputStyle: CSSProperties = {
     width: '100%',
     padding: '0.5rem 0.75rem',
-    border: '1px solid #d1d5db',
+    border: '1px solid rgba(11, 47, 107, 0.16)',
     borderRadius: '6px',
     fontSize: '0.875rem',
     outline: 'none',
@@ -360,8 +360,8 @@ export default function DriverInvoiceDetailPage({
 
   const btnPrimary: CSSProperties = {
     padding: '0.5rem 1.1rem',
-    background: '#1d4ed8',
-    color: '#fff',
+    background: '#1D57D8',
+    color: '#FFFFFF',
     border: 'none',
     borderRadius: '7px',
     fontSize: '0.83rem',
@@ -371,13 +371,14 @@ export default function DriverInvoiceDetailPage({
 
   const btnDanger: CSSProperties = {
     ...btnPrimary,
-    background: '#dc2626',
+    background: '#F5A300',
+    color: '#1A1F2B',
   };
 
   const btnSecondary: CSSProperties = {
     ...btnPrimary,
-    background: '#f1f5f9',
-    color: '#475569',
+    background: '#F4F6F8',
+    color: '#0B2F6B',
   };
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -386,7 +387,7 @@ export default function DriverInvoiceDetailPage({
     return (
       <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
         <DriverWorkspaceShell>
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>Loading invoice…</div>
+          <div style={{ padding: '3rem', textAlign: 'center', color: '#0B2F6B' }}>Loading invoice…</div>
         </DriverWorkspaceShell>
       </ProtectedRoute>
     );
@@ -397,7 +398,7 @@ export default function DriverInvoiceDetailPage({
       <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
         <DriverWorkspaceShell>
           <div style={{ padding: '2rem' }}>
-            <div style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.875rem' }}>
+            <div style={{ color: '#1A1F2B', marginBottom: '1rem', fontSize: '0.875rem' }}>
               {loadError || 'Invoice not found.'}
             </div>
             <button onClick={() => router.push('/driver/finance')} style={btnSecondary}>
@@ -409,7 +410,7 @@ export default function DriverInvoiceDetailPage({
     );
   }
 
-  const sc = STATUS_COLORS[invoice.status as InvoiceStatus] ?? { bg: '#f1f5f9', text: '#475569' };
+  const sc = STATUS_COLORS[invoice.status as InvoiceStatus] ?? { bg: '#F4F6F8', text: '#0B2F6B' };
   const totalPaid = payments.reduce((s: number, p: PaymentRecord) => s + Number(p.amount), 0);
   const balance = Math.max(0, Number(invoice.amount) - totalPaid);
 
@@ -427,10 +428,10 @@ export default function DriverInvoiceDetailPage({
         <div style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>
+              <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#1A1F2B' }}>
                 {invoice.invoice_number}
               </h2>
-              <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+              <div style={{ fontSize: '0.78rem', color: '#0B2F6B', marginTop: '0.2rem' }}>
                 Ref: {invoice.job_ref} · Created {fmtDate(invoice.created_at)}
               </div>
             </div>
@@ -443,14 +444,14 @@ export default function DriverInvoiceDetailPage({
             <div>
               <div style={labelStyle}>Client</div>
               <div style={valueStyle}>{invoice.client_name}</div>
-              {invoice.client_email && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{invoice.client_email}</div>}
+              {invoice.client_email && <div style={{ fontSize: '0.75rem', color: '#0B2F6B' }}>{invoice.client_email}</div>}
             </div>
             <div>
               <div style={labelStyle}>Amount</div>
               <div style={{ ...valueStyle, fontWeight: 800, fontSize: '1.1rem' }}>
                 {fmtCurrency(Number(invoice.amount), invoice.currency)}
               </div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+              <div style={{ fontSize: '0.72rem', color: '#0B2F6B' }}>
                 Net {fmtCurrency(Number(invoice.net_amount), invoice.currency)} + VAT {invoice.vat_rate}%
               </div>
             </div>
@@ -460,15 +461,15 @@ export default function DriverInvoiceDetailPage({
             </div>
             <div>
               <div style={labelStyle}>Due Date</div>
-              <div style={{ ...valueStyle, color: new Date(invoice.due_date) < new Date() && invoice.payment_status !== 'paid' ? '#dc2626' : '#1e293b' }}>
+              <div style={{ ...valueStyle, color: new Date(invoice.due_date) < new Date() && invoice.payment_status !== 'paid' ? '#F5A300' : '#0B2F6B' }}>
                 {fmtDate(invoice.due_date)}
               </div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{invoice.payment_terms}</div>
+              <div style={{ fontSize: '0.72rem', color: '#0B2F6B' }}>{invoice.payment_terms}</div>
             </div>
             {invoice.pickup_location && (
               <div>
                 <div style={labelStyle}>Route</div>
-                <div style={{ fontSize: '0.78rem', color: '#475569' }}>
+                <div style={{ fontSize: '0.78rem', color: '#0B2F6B' }}>
                   {invoice.pickup_location} → {invoice.delivery_location ?? '—'}
                 </div>
               </div>
@@ -476,16 +477,16 @@ export default function DriverInvoiceDetailPage({
             {invoice.service_description && (
               <div style={{ gridColumn: 'span 2' }}>
                 <div style={labelStyle}>Service</div>
-                <div style={{ fontSize: '0.78rem', color: '#475569' }}>{invoice.service_description}</div>
+                <div style={{ fontSize: '0.78rem', color: '#0B2F6B' }}>{invoice.service_description}</div>
               </div>
             )}
           </div>
 
           {/* Submit action */}
           {invoice.status === 'Draft' && (
-            <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+            <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(11, 47, 107, 0.16)' }}>
               {submitError && (
-                <div style={{ marginBottom: '0.5rem', color: '#dc2626', fontSize: '0.83rem' }}>{submitError}</div>
+                <div style={{ marginBottom: '0.5rem', color: '#1A1F2B', fontSize: '0.83rem' }}>{submitError}</div>
               )}
               <button
                 onClick={() => void handleSubmit()}
@@ -508,13 +509,13 @@ export default function DriverInvoiceDetailPage({
             </div>
             <div>
               <div style={labelStyle}>Total Received</div>
-              <div style={{ ...valueStyle, fontWeight: 700, color: totalPaid > 0 ? '#065f46' : '#94a3b8' }}>
+              <div style={{ ...valueStyle, fontWeight: 700, color: totalPaid > 0 ? '#0B2F6B' : '#F4F6F8' }}>
                 {fmtCurrency(totalPaid, invoice.currency)}
               </div>
             </div>
             <div>
               <div style={labelStyle}>Outstanding Balance</div>
-              <div style={{ ...valueStyle, fontWeight: 700, color: balance > 0 ? '#dc2626' : '#065f46' }}>
+              <div style={{ ...valueStyle, fontWeight: 700, color: balance > 0 ? '#F5A300' : '#0B2F6B' }}>
                 {fmtCurrency(balance, invoice.currency)}
               </div>
             </div>
@@ -529,9 +530,9 @@ export default function DriverInvoiceDetailPage({
           )}
 
           {showPaymentForm && (
-            <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
+            <div style={{ marginTop: '1rem', padding: '1rem', background: '#F4F6F8', borderRadius: '8px' }}>
               {paymentError && (
-                <div style={{ marginBottom: '0.5rem', color: '#dc2626', fontSize: '0.83rem' }}>{paymentError}</div>
+                <div style={{ marginBottom: '0.5rem', color: '#1A1F2B', fontSize: '0.83rem' }}>{paymentError}</div>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
                 <div>
@@ -590,13 +591,13 @@ export default function DriverInvoiceDetailPage({
 
           {payments.length > 0 && (
             <div style={{ marginTop: '1rem' }}>
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.5rem' }}>Payment Records</div>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.5rem' }}>Payment Records</div>
               {payments.map((p) => (
-                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.83rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <span style={{ fontWeight: 700, color: '#065f46' }}>{fmtCurrency(Number(p.amount), p.currency)}</span>
-                  <span style={{ color: '#64748b' }}>Method: {p.settlement_method}</span>
-                  {p.external_reference && <span style={{ color: '#94a3b8' }}>Ref: {p.external_reference}</span>}
-                  <span style={{ color: '#94a3b8' }}>{fmtDate(p.paid_at)}</span>
+                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', fontSize: '0.83rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <span style={{ fontWeight: 700, color: '#0B2F6B' }}>{fmtCurrency(Number(p.amount), p.currency)}</span>
+                  <span style={{ color: '#0B2F6B' }}>Method: {p.settlement_method}</span>
+                  {p.external_reference && <span style={{ color: '#0B2F6B' }}>Ref: {p.external_reference}</span>}
+                  <span style={{ color: '#0B2F6B' }}>{fmtDate(p.paid_at)}</span>
                 </div>
               ))}
             </div>
@@ -607,23 +608,23 @@ export default function DriverInvoiceDetailPage({
         <div style={cardStyle}>
           <div style={sectionTitle}>📋 Status Timeline</div>
           {statusHistory.length === 0 ? (
-            <div style={{ fontSize: '0.83rem', color: '#94a3b8' }}>No status history yet.</div>
+            <div style={{ fontSize: '0.83rem', color: '#0B2F6B' }}>No status history yet.</div>
           ) : (
             <div style={{ position: 'relative' }}>
               {statusHistory.map((h, i) => (
                 <div key={h.id} style={{ display: 'flex', gap: '0.75rem', marginBottom: i < statusHistory.length - 1 ? '0.75rem' : 0 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#1d4ed8', flexShrink: 0, marginTop: '0.2rem' }} />
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#1D57D8', flexShrink: 0, marginTop: '0.2rem' }} />
                     {i < statusHistory.length - 1 && (
-                      <div style={{ width: 1, flex: 1, background: '#e2e8f0', marginTop: '0.3rem' }} />
+                      <div style={{ width: 1, flex: 1, background: '#F4F6F8', marginTop: '0.3rem' }} />
                     )}
                   </div>
                   <div style={{ paddingBottom: '0.5rem' }}>
-                    <div style={{ fontSize: '0.83rem', fontWeight: 600, color: '#1e293b' }}>
+                    <div style={{ fontSize: '0.83rem', fontWeight: 600, color: '#0B2F6B' }}>
                       {h.from_status ? `${h.from_status} → ${h.to_status}` : h.to_status}
                     </div>
-                    {h.note && <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>{h.note}</div>}
-                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.15rem' }}>{fmtDateTime(h.changed_at)}</div>
+                    {h.note && <div style={{ fontSize: '0.75rem', color: '#0B2F6B', marginTop: '0.15rem' }}>{h.note}</div>}
+                    <div style={{ fontSize: '0.72rem', color: '#0B2F6B', marginTop: '0.15rem' }}>{fmtDateTime(h.changed_at)}</div>
                   </div>
                 </div>
               ))}
@@ -641,9 +642,9 @@ export default function DriverInvoiceDetailPage({
           </div>
 
           {showDocForm && (
-            <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
+            <div style={{ marginBottom: '1rem', padding: '1rem', background: '#F4F6F8', borderRadius: '8px' }}>
               {docError && (
-                <div style={{ marginBottom: '0.5rem', color: '#dc2626', fontSize: '0.83rem' }}>{docError}</div>
+                <div style={{ marginBottom: '0.5rem', color: '#1A1F2B', fontSize: '0.83rem' }}>{docError}</div>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
                 <div style={{ gridColumn: 'span 2' }}>
@@ -691,22 +692,22 @@ export default function DriverInvoiceDetailPage({
           )}
 
           {documents.length === 0 ? (
-            <div style={{ fontSize: '0.83rem', color: '#94a3b8' }}>No documents attached.</div>
+            <div style={{ fontSize: '0.83rem', color: '#0B2F6B' }}>No documents attached.</div>
           ) : (
             documents.map((doc) => (
-              <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0', borderBottom: '1px solid #f1f5f9', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <div>
                   <a
                     href={doc.file_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ fontSize: '0.83rem', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none' }}
+                    style={{ fontSize: '0.83rem', color: '#1D57D8', fontWeight: 600, textDecoration: 'none' }}
                   >
                     📄 {doc.file_name ?? 'Document'}
                   </a>
-                  <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem', color: '#94a3b8' }}>{doc.doc_type}</span>
+                  <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem', color: '#0B2F6B' }}>{doc.doc_type}</span>
                 </div>
-                <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{fmtDate(doc.created_at)}</span>
+                <span style={{ fontSize: '0.72rem', color: '#0B2F6B' }}>{fmtDate(doc.created_at)}</span>
               </div>
             ))
           )}
@@ -724,9 +725,9 @@ export default function DriverInvoiceDetailPage({
           </div>
 
           {showDisputeForm && (
-            <div style={{ marginBottom: '1rem', padding: '1rem', background: '#fff1f2', borderRadius: '8px', border: '1px solid #fecdd3' }}>
+            <div style={{ marginBottom: '1rem', padding: '1rem', background: '#F4F6F8', borderRadius: '8px', border: '1px solid rgba(11, 47, 107, 0.16)' }}>
               {disputeError && (
-                <div style={{ marginBottom: '0.5rem', color: '#dc2626', fontSize: '0.83rem' }}>{disputeError}</div>
+                <div style={{ marginBottom: '0.5rem', color: '#1A1F2B', fontSize: '0.83rem' }}>{disputeError}</div>
               )}
               <div style={{ marginBottom: '0.75rem' }}>
                 <div style={labelStyle}>Reason *</div>
@@ -758,23 +759,23 @@ export default function DriverInvoiceDetailPage({
           )}
 
           {disputes.length === 0 ? (
-            <div style={{ fontSize: '0.83rem', color: '#94a3b8' }}>No disputes raised.</div>
+            <div style={{ fontSize: '0.83rem', color: '#0B2F6B' }}>No disputes raised.</div>
           ) : (
             disputes.map((d) => (
-              <div key={d.id} style={{ padding: '0.75rem', background: '#fff1f2', borderRadius: '8px', border: '1px solid #fecdd3', marginBottom: '0.5rem' }}>
+              <div key={d.id} style={{ padding: '0.75rem', background: '#F4F6F8', borderRadius: '8px', border: '1px solid rgba(11, 47, 107, 0.16)', marginBottom: '0.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                  <span style={{ fontSize: '0.83rem', fontWeight: 700, color: '#9d174d' }}>{d.reason}</span>
-                  <span style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '999px', background: d.status === 'resolved' ? '#d1fae5' : '#fee2e2', color: d.status === 'resolved' ? '#065f46' : '#991b1b', fontWeight: 700 }}>
+                  <span style={{ fontSize: '0.83rem', fontWeight: 700, color: '#1A1F2B' }}>{d.reason}</span>
+                  <span style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '999px', background: d.status === 'resolved' ? '#F4F6F8' : '#F4F6F8', color: d.status === 'resolved' ? '#0B2F6B' : '#F5A300', fontWeight: 700 }}>
                     {d.status}
                   </span>
                 </div>
-                {d.details && <div style={{ fontSize: '0.78rem', color: '#475569', marginBottom: '0.3rem' }}>{d.details}</div>}
+                {d.details && <div style={{ fontSize: '0.78rem', color: '#0B2F6B', marginBottom: '0.3rem' }}>{d.details}</div>}
                 {d.resolution_note && (
-                  <div style={{ fontSize: '0.78rem', color: '#065f46', background: '#d1fae5', padding: '0.4rem', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '0.78rem', color: '#0B2F6B', background: '#F4F6F8', padding: '0.4rem', borderRadius: '6px' }}>
                     Resolution: {d.resolution_note}
                   </div>
                 )}
-                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.3rem' }}>
+                <div style={{ fontSize: '0.72rem', color: '#0B2F6B', marginTop: '0.3rem' }}>
                   Opened {fmtDateTime(d.created_at)}
                   {d.resolved_at ? ` · Resolved ${fmtDate(d.resolved_at)}` : ''}
                 </div>

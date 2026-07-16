@@ -36,10 +36,10 @@ type SupabaseErrorLike = {
 };
 
 const AVAIL_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  available: { label: '🟢 Available', color: '#15803d', bg: '#f0fdf4', border: '#86efac' },
-  busy: { label: '🟡 On a Job', color: '#b45309', bg: '#fefce8', border: '#fde68a' },
-  offline: { label: '🔴 Offline', color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
-  unassigned: { label: '⚪ Unassigned', color: '#64748b', bg: '#f8fafc', border: '#e2e8f0' },
+  available: { label: '🟢 Available', color: '#1D57D8', bg: '#F4F6F8', border: '#1D57D8' },
+  busy: { label: '🟡 On a Job', color: '#1A1F2B', bg: '#F4F6F8', border: '#F5A300' },
+  offline: { label: '🔴 Offline', color: '#1A1F2B', bg: '#F4F6F8', border: '#F4F6F8' },
+  unassigned: { label: '⚪ Unassigned', color: '#0B2F6B', bg: '#F4F6F8', border: '#F4F6F8' },
 };
 
 const VEHICLE_TYPE_LABEL: Record<string, string> = {
@@ -203,20 +203,20 @@ export default function FleetPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
+      <div style={{ background: '#F4F6F8', padding: '0.85rem' }}>
         <div style={{ width: '100%', maxWidth: '1280px', margin: '0 auto' }}>
 
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
             <div>
-              <h1 style={{ margin: 0, color: '#111827', fontSize: '1.7rem', fontWeight: 700 }}>Fleet Workspace</h1>
-              <p style={{ margin: '0.25rem 0 0 0', color: '#6b7280', fontSize: '0.84rem' }}>Live vehicle and driver availability.</p>
+              <h1 style={{ margin: 0, color: '#1A1F2B', fontSize: '1.7rem', fontWeight: 700 }}>Fleet Workspace</h1>
+              <p style={{ margin: '0.25rem 0 0 0', color: '#0B2F6B', fontSize: '0.84rem' }}>Live vehicle and driver availability.</p>
             </div>
           </div>
 
           {/* Live map */}
           {!loading && (
-            <Suspense fallback={<div style={{ background: '#f1f5f9', borderRadius: '12px', height: '340px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>Loading map…</div>}>
+            <Suspense fallback={<div style={{ background: '#F4F6F8', borderRadius: '12px', height: '340px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0B2F6B' }}>Loading map…</div>}>
               <FleetMap
                 pins={mapPins}
                 style={{ height: '340px', marginBottom: '1rem' }}
@@ -228,13 +228,13 @@ export default function FleetPage() {
           {!loading && (
             <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
               {[
-                { key: 'available', label: '🟢 Available', count: availCounts.available, color: '#15803d', bg: '#f0fdf4', border: '#86efac' },
-                { key: 'busy', label: '🟡 On a Job', count: availCounts.busy, color: '#b45309', bg: '#fefce8', border: '#fde68a' },
-                { key: 'offline', label: '🔴 Offline', count: availCounts.offline, color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
-                { key: 'unassigned', label: '⚪ No Driver', count: availCounts.unassigned, color: '#64748b', bg: '#f8fafc', border: '#e2e8f0' },
+                { key: 'available', label: '🟢 Available', count: availCounts.available, color: '#1D57D8', bg: '#F4F6F8', border: '#1D57D8' },
+                { key: 'busy', label: '🟡 On a Job', count: availCounts.busy, color: '#1A1F2B', bg: '#F4F6F8', border: '#F5A300' },
+                { key: 'offline', label: '🔴 Offline', count: availCounts.offline, color: '#1A1F2B', bg: '#F4F6F8', border: '#F4F6F8' },
+                { key: 'unassigned', label: '⚪ No Driver', count: availCounts.unassigned, color: '#0B2F6B', bg: '#F4F6F8', border: '#F4F6F8' },
               ].map((s) => (
                 <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.35rem 0.75rem', borderRadius: '999px', background: s.bg, border: `1px solid ${s.border}`, fontSize: '0.8rem', fontWeight: 700, color: s.color }}>
-                  {s.label} <span style={{ background: s.color, color: '#fff', borderRadius: '999px', padding: '0.05rem 0.45rem', fontSize: '0.72rem' }}>{s.count}</span>
+                  {s.label} <span style={{ background: s.color, color: '#FFFFFF', borderRadius: '999px', padding: '0.05rem 0.45rem', fontSize: '0.72rem' }}>{s.count}</span>
                 </div>
               ))}
             </div>
@@ -242,9 +242,9 @@ export default function FleetPage() {
 
           {/* Operational card grid */}
           {loading ? (
-            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '2rem', color: '#6b7280' }}>Loading fleet…</div>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '2rem', color: '#0B2F6B' }}>Loading fleet…</div>
           ) : vehicles.length === 0 ? (
-            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '2rem', color: '#6b7280' }}>No vehicles found.</div>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '2rem', color: '#0B2F6B' }}>No vehicles found.</div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '0.75rem' }}>
               {vehicles.map((vehicle) => {
@@ -262,10 +262,10 @@ export default function FleetPage() {
                   <div
                     key={vehicle.id}
                     style={{
-                      background: '#fff',
+                      background: '#FFFFFF',
                       borderRadius: '12px',
                       border: `1px solid ${avail.border}`,
-                      boxShadow: '0 4px 12px rgba(15,23,42,0.06)',
+                      boxShadow: '0 4px 12px rgba(26, 31, 43, 0.06)',
                       padding: '0.9rem',
                       display: 'flex',
                       flexDirection: 'column',
@@ -275,8 +275,8 @@ export default function FleetPage() {
                     {/* Card header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
                       <div>
-                        <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>{vehicle.reg_plate || 'No plate'}</div>
-                        <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.1rem' }}>
+                        <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#1A1F2B' }}>{vehicle.reg_plate || 'No plate'}</div>
+                        <div style={{ fontSize: '0.78rem', color: '#0B2F6B', marginTop: '0.1rem' }}>
                           {VEHICLE_TYPE_LABEL[vehicle.type ?? ''] ?? vehicle.type?.replace(/_/g, ' ') ?? 'Unknown type'}
                           {vehicle.payload_kg ? ` · ${vehicle.payload_kg} kg` : ''}
                         </div>
@@ -287,26 +287,26 @@ export default function FleetPage() {
                     </div>
 
                     {/* Driver row */}
-                    <div style={{ fontSize: '0.82rem', color: '#374151' }}>
-                      <span style={{ color: '#64748b', fontWeight: 600 }}>Driver: </span>
+                    <div style={{ fontSize: '0.82rem', color: '#1A1F2B' }}>
+                      <span style={{ color: '#0B2F6B', fontWeight: 600 }}>Driver: </span>
                       {driver ? (
-                        <span style={{ color: '#0f172a', fontWeight: 700 }}>{driver.display_name}</span>
+                        <span style={{ color: '#1A1F2B', fontWeight: 700 }}>{driver.display_name}</span>
                       ) : (
-                        <span style={{ color: '#94a3b8' }}>No driver assigned</span>
+                        <span style={{ color: '#0B2F6B' }}>No driver assigned</span>
                       )}
                     </div>
 
                     {/* Location row */}
-                    <div style={{ fontSize: '0.8rem', color: '#374151' }}>
-                      <span style={{ color: '#64748b', fontWeight: 600 }}>Location: </span>
+                    <div style={{ fontSize: '0.8rem', color: '#1A1F2B' }}>
+                      <span style={{ color: '#0B2F6B', fontWeight: 600 }}>Location: </span>
                       {locationStr ? (
-                        <span>{locationStr} <span style={{ color: '#94a3b8' }}>· {trackedAt}</span></span>
+                        <span>{locationStr} <span style={{ color: '#0B2F6B' }}>· {trackedAt}</span></span>
                       ) : (
-                        <span style={{ color: '#94a3b8' }}>Not tracked</span>
+                        <span style={{ color: '#0B2F6B' }}>Not tracked</span>
                       )}
                     </div>
 
-                    <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Use Drivers and Jobs modules for assignment workflows.</div>
+                    <div style={{ fontSize: '0.78rem', color: '#0B2F6B' }}>Use Drivers and Jobs modules for assignment workflows.</div>
                   </div>
                 );
               })}

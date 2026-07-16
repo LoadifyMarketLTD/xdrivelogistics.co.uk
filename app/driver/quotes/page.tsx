@@ -35,10 +35,10 @@ type TabId = 'submitted' | 'accepted' | 'rejected';
 //  Helpers
 
 const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
-  submitted: { bg: '#fef9c3', color: '#92400e' },
-  accepted:  { bg: '#d1fae5', color: '#065f46' },
-  rejected:  { bg: '#fee2e2', color: '#991b1b' },
-  withdrawn: { bg: '#f3f4f6', color: '#6b7280' },
+  submitted: { bg: '#F4F6F8', color: '#1A1F2B' },
+  accepted:  { bg: '#F4F6F8', color: '#0B2F6B' },
+  rejected:  { bg: '#F4F6F8', color: '#1A1F2B' },
+  withdrawn: { bg: '#F4F6F8', color: '#0B2F6B' },
 };
 
 function fmtDate(value: string | null) {
@@ -49,11 +49,11 @@ function fmtDate(value: string | null) {
 }
 
 const card: CSSProperties = {
-  backgroundColor: '#ffffff',
-  border: '1px solid #d7e0ea',
+  backgroundColor: '#FFFFFF',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '10px',
   padding: '1rem',
-  boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+  boxShadow: '0 2px 8px rgba(26, 31, 43, 0.06)',
 };
 
 const TABS: Array<{ id: TabId; label: string }> = [
@@ -147,7 +147,7 @@ export default function MyQuotesPage() {
       <DriverWorkspaceShell
         subtitle="Submitted, won and unsuccessful quotes only."
       >
-        <h2 style={{ margin: '0 0 1rem', fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>My Quotes</h2>
+        <h2 style={{ margin: '0 0 1rem', fontSize: '1.35rem', fontWeight: 700, color: '#1A1F2B' }}>My Quotes</h2>
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
@@ -158,16 +158,16 @@ export default function MyQuotesPage() {
               style={{
                 padding: '0.45rem 0.9rem',
                 borderRadius: '8px',
-                border: activeTab === tab.id ? '1.5px solid #1d4ed8' : '1px solid #e2e8f0',
-                backgroundColor: activeTab === tab.id ? '#eff6ff' : '#ffffff',
-                color: activeTab === tab.id ? '#1d4ed8' : '#374151',
+                border: activeTab === tab.id ? '1.5px solid #1D57D8' : '1px solid #F4F6F8',
+                backgroundColor: activeTab === tab.id ? '#F4F6F8' : '#FFFFFF',
+                color: activeTab === tab.id ? '#1D57D8' : '#1A1F2B',
                 fontWeight: activeTab === tab.id ? 700 : 500,
                 cursor: 'pointer',
                 fontSize: '0.83rem',
               }}
             >
               {tab.label}
-              <span style={{ marginLeft: '0.35rem', fontSize: '0.72rem', color: activeTab === tab.id ? '#1d4ed8' : '#94a3b8' }}>
+              <span style={{ marginLeft: '0.35rem', fontSize: '0.72rem', color: activeTab === tab.id ? '#1D57D8' : '#F4F6F8' }}>
                 ({counts[tab.id]})
               </span>
             </button>
@@ -175,31 +175,31 @@ export default function MyQuotesPage() {
         </div>
 
         {error && (
-          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.7rem', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+          <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1A1F2B', borderRadius: '8px', padding: '0.7rem', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
             {error}
           </div>
         )}
 
         {loading ? (
-          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading quotes...</div>
+          <div style={{ color: '#0B2F6B', padding: '2rem', textAlign: 'center' }}>Loading quotes...</div>
         ) : visibleBids.length === 0 ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>No quotes here</div>
-            <div style={{ fontSize: '0.84rem', color: '#64748b' }}>
+            <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.3rem' }}>No quotes here</div>
+            <div style={{ fontSize: '0.84rem', color: '#0B2F6B' }}>
               No {activeTab} quotes found.
             </div>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: '0.7rem' }}>
             {visibleBids.map((bid) => {
-              const statusStyle = STATUS_STYLES[bid.status] ?? { bg: '#f3f4f6', color: '#374151' };
+              const statusStyle = STATUS_STYLES[bid.status] ?? { bg: '#F4F6F8', color: '#1A1F2B' };
               const bidPrice = bid.bid_price_gbp ?? bid.amount ?? null;
               const job = bid.jobs;
               return (
                 <div key={bid.id} style={{ ...card, borderLeft: `3px solid ${statusStyle.color}` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' }}>
                     <div>
-                      <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
+                      <span style={{ fontSize: '0.72rem', color: '#0B2F6B', fontWeight: 600 }}>
                         {job?.companies?.name ?? 'Unknown shipper'}
                       </span>
                       <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem', fontWeight: 700, backgroundColor: statusStyle.bg, color: statusStyle.color, padding: '0.12rem 0.45rem', borderRadius: '999px' }}>
@@ -207,8 +207,8 @@ export default function MyQuotesPage() {
                       </span>
                     </div>
                     {bidPrice != null && (
-                      <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
-                        GBP {bidPrice.toFixed(2)} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>your quote</span>
+                      <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1A1F2B' }}>
+                        GBP {bidPrice.toFixed(2)} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#0B2F6B' }}>your quote</span>
                       </span>
                     )}
                   </div>
@@ -216,36 +216,36 @@ export default function MyQuotesPage() {
                   {job && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.55rem', marginBottom: '0.6rem' }}>
                       <div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Route</div>
-                        <div style={{ fontSize: '0.83rem', color: '#0f172a' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#0B2F6B', fontWeight: 600, marginBottom: '0.1rem' }}>Route</div>
+                        <div style={{ fontSize: '0.83rem', color: '#1A1F2B' }}>
                           {job.pickup_location ?? '-'} to {job.delivery_location ?? '-'}
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Pickup date</div>
-                        <div style={{ fontSize: '0.83rem', color: '#0f172a' }}>{fmtDate(job.pickup_datetime)}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#0B2F6B', fontWeight: 600, marginBottom: '0.1rem' }}>Pickup date</div>
+                        <div style={{ fontSize: '0.83rem', color: '#1A1F2B' }}>{fmtDate(job.pickup_datetime)}</div>
                       </div>
                       {job.budget_amount != null && (
                         <div>
-                          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Budget</div>
-                          <div style={{ fontSize: '0.83rem', color: '#0f172a' }}>GBP {job.budget_amount.toFixed(2)}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#0B2F6B', fontWeight: 600, marginBottom: '0.1rem' }}>Budget</div>
+                          <div style={{ fontSize: '0.83rem', color: '#1A1F2B' }}>GBP {job.budget_amount.toFixed(2)}</div>
                         </div>
                       )}
                     </div>
                   )}
 
                   {bid.message && (
-                    <div style={{ fontSize: '0.8rem', color: '#374151', backgroundColor: '#f8fafc', borderRadius: '6px', padding: '0.55rem', marginBottom: '0.5rem' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#1A1F2B', backgroundColor: '#F4F6F8', borderRadius: '6px', padding: '0.55rem', marginBottom: '0.5rem' }}>
                       &ldquo;{bid.message}&rdquo;
                     </div>
                   )}
 
-                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Submitted: {fmtDate(bid.created_at)}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#0B2F6B' }}>Submitted: {fmtDate(bid.created_at)}</div>
                   {bid.status === 'submitted' && (
                     <div style={{ marginTop: '0.6rem' }}>
                       <button
                         onClick={() => void handleWithdrawBid(bid.id)}
-                        style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff', color: '#374151', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
+                        style={{ padding: '0.3rem 0.7rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', background: '#FFFFFF', color: '#1A1F2B', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
                       >
                         Withdraw Bid
                       </button>

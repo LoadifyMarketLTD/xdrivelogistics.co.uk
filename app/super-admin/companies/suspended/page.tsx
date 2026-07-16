@@ -13,7 +13,7 @@ const THEME = {
   accent: 'var(--xd-gold)',
   green: 'var(--xd-green)',
   red: 'var(--xd-red)',
-  orange: '#f97316',
+  orange: '#F5A300',
 };
 
 type Company = {
@@ -95,7 +95,7 @@ function SuspendedContent() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Suspended Companies</h1>
-            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245, 163, 0, 0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
               Companies
             </span>
           </div>
@@ -106,13 +106,13 @@ function SuspendedContent() {
       </div>
 
       {actionMessage && (
-        <div style={{ backgroundColor: 'rgba(245,158,11,0.1)', border: `1px solid ${THEME.accent}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.accent, fontSize: '0.82rem', marginBottom: '1rem' }}>
+        <div style={{ backgroundColor: 'rgba(245, 163, 0, 0.1)', border: `1px solid ${THEME.accent}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.accent, fontSize: '0.82rem', marginBottom: '1rem' }}>
           {actionMessage}
         </div>
       )}
 
       {error && (
-        <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
+        <div style={{ backgroundColor: 'rgba(245, 163, 0, 0.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
           ⚠️ {error}
         </div>
       )}
@@ -140,7 +140,7 @@ function SuspendedContent() {
                 <tr key={co.id} style={{ borderBottom: `1px solid ${THEME.cardBorder}` }}>
                   <td style={{ padding: '0.75rem 0.9rem', color: THEME.text, fontWeight: 600 }}>
                     {co.name}
-                    <span style={{ marginLeft: '0.4rem', fontSize: '0.66rem', color: THEME.red, backgroundColor: 'rgba(239,68,68,0.1)', border: `1px solid ${THEME.red}`, borderRadius: '4px', padding: '0.1rem 0.35rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                    <span style={{ marginLeft: '0.4rem', fontSize: '0.66rem', color: THEME.red, backgroundColor: 'rgba(245, 163, 0, 0.1)', border: `1px solid ${THEME.red}`, borderRadius: '4px', padding: '0.1rem 0.35rem', fontWeight: 700, textTransform: 'uppercase' }}>
                       Suspended
                     </span>
                   </td>

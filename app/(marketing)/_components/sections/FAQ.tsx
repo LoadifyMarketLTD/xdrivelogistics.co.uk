@@ -18,12 +18,12 @@ export function FAQ() {
   }
 
   return (
-    <section id="faq" className="bg-[#f8fafc] px-4 py-14 sm:px-6">
+    <section id="faq" className="bg-[#F4F6F8] px-4 py-14 sm:px-6">
       <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[360px_1fr]">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">FAQ</span>
-          <h2 className="mt-2 text-3xl font-black text-[#0f172a] sm:text-4xl">Clear answers before onboarding.</h2>
-          <p className="mt-4 text-sm leading-6 text-slate-600">
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1D57D8]">FAQ</span>
+          <h2 className="mt-2 text-3xl font-black text-[#1A1F2B] sm:text-4xl">Clear answers before onboarding.</h2>
+          <p className="mt-4 text-sm leading-6 text-[#0B2F6B]">
             Short answers about the platform scope, early access and how XDrive is positioned during MVP.
           </p>
         </div>
@@ -32,16 +32,16 @@ export function FAQ() {
           {visibleFaqs.map((faq, index) => {
             const isOpen = openSet.has(index);
             return (
-              <article key={faq.q} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <article key={faq.q} className="overflow-hidden rounded-xl border border-[#0B2F6B]/15 bg-white shadow-sm">
                 <button
                   onClick={() => toggle(index)}
                   aria-expanded={isOpen}
-                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-semibold text-[#0f172a]"
+                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm font-semibold text-[#1A1F2B]"
                 >
                   {faq.q}
-                  <span className="text-lg text-[#1d4ed8]">{isOpen ? '-' : '+'}</span>
+                  <span className="text-lg text-[#1D57D8]">{isOpen ? '-' : '+'}</span>
                 </button>
-                {isOpen ? <p className="border-t border-slate-200 px-5 py-4 text-sm leading-6 text-slate-600">{faq.a}</p> : null}
+                {isOpen ? <p className="border-t border-[#0B2F6B]/15 px-5 py-4 text-sm leading-6 text-[#0B2F6B]">{faq.a}</p> : null}
               </article>
             );
           })}

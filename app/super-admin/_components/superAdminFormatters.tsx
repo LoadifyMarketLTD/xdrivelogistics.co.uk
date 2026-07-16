@@ -32,25 +32,25 @@ export function routeSummary(
 }
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  draft: { bg: '#334155', text: '#e2e8f0' },
-  posted: { bg: '#1d4ed8', text: '#dbeafe' },
-  allocated: { bg: '#7c3aed', text: '#ede9fe' },
-  in_transit: { bg: '#0f766e', text: '#ccfbf1' },
-  delivered: { bg: '#166534', text: '#dcfce7' },
-  cancelled: { bg: '#991b1b', text: '#fee2e2' },
-  disputed: { bg: '#9a3412', text: '#ffedd5' },
-  active: { bg: '#166534', text: '#dcfce7' },
-  suspended: { bg: '#991b1b', text: '#fee2e2' },
-  pending: { bg: '#854d0e', text: '#fef9c3' },
-  pending_approval: { bg: '#854d0e', text: '#fef9c3' },
-  rejected: { bg: '#9a3412', text: '#ffedd5' },
-  paid: { bg: '#166534', text: '#dcfce7' },
+  draft: { bg: '#1D57D8', text: '#F4F6F8' },
+  posted: { bg: '#1D57D8', text: '#F4F6F8' },
+  allocated: { bg: '#1D57D8', text: '#F4F6F8' },
+  in_transit: { bg: '#1D57D8', text: '#F4F6F8' },
+  delivered: { bg: '#1D57D8', text: '#F4F6F8' },
+  cancelled: { bg: '#F5A300', text: '#F4F6F8' },
+  disputed: { bg: '#F5A300', text: '#F4F6F8' },
+  active: { bg: '#1D57D8', text: '#F4F6F8' },
+  suspended: { bg: '#F5A300', text: '#F4F6F8' },
+  pending: { bg: '#F5A300', text: '#F4F6F8' },
+  pending_approval: { bg: '#F5A300', text: '#F4F6F8' },
+  rejected: { bg: '#F5A300', text: '#F4F6F8' },
+  paid: { bg: '#1D57D8', text: '#F4F6F8' },
 };
 
 export function StatusChip({ value }: { value: string | null | undefined }) {
   const rawValue = (value ?? 'unknown').toString();
   const normalized = rawValue.toLowerCase();
-  const palette = STATUS_COLORS[normalized] ?? { bg: '#334155', text: '#e2e8f0' };
+  const palette = STATUS_COLORS[normalized] ?? { bg: '#1D57D8', text: '#F4F6F8' };
   return (
     <span
       style={{

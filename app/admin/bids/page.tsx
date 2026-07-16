@@ -79,10 +79,10 @@ type JobGroup = {
 //  Constants
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  submitted: { bg: '#e0f2fe', text: '#075985' },
-  accepted: { bg: '#d1fae5', text: '#065f46' },
-  rejected: { bg: '#fee2e2', text: '#991b1b' },
-  withdrawn: { bg: '#f3f4f6', text: '#6b7280' },
+  submitted: { bg: '#F4F6F8', text: '#1D57D8' },
+  accepted: { bg: '#F4F6F8', text: '#0B2F6B' },
+  rejected: { bg: '#F4F6F8', text: '#F5A300' },
+  withdrawn: { bg: '#F4F6F8', text: '#0B2F6B' },
 };
 
 const VEHICLE_LABEL: Record<string, string> = {
@@ -273,7 +273,7 @@ export default function BidsPage() {
           />
           <WorkspaceContent>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-              <p style={{ color: '#64748b', margin: '0 0 1rem 0', fontSize: '0.8rem' }}>
+              <p style={{ color: '#0B2F6B', margin: '0 0 1rem 0', fontSize: '0.8rem' }}>
                 Review and accept or reject bids on your exchange loads.
               </p>
 
@@ -340,13 +340,13 @@ function JobBidGroup({
   const submittedCount = group.bids.filter((b) => b.bid_status === 'submitted').length;
 
   return (
-    <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden', border: isAwarded ? '1px solid #86efac' : '1px solid #e5e7eb' }}>
-      <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #f3f4f6', backgroundColor: isAwarded ? '#f0fdf4' : '#f9fafb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+    <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 4px rgba(26, 31, 43, 0.08)', overflow: 'hidden', border: isAwarded ? '1px solid #1D57D8' : '1px solid #F4F6F8' }}>
+      <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', backgroundColor: isAwarded ? '#F4F6F8' : '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <div>
-          <div style={{ fontWeight: 700, color: '#111827', fontSize: '0.95rem' }}>
+          <div style={{ fontWeight: 700, color: '#1A1F2B', fontSize: '0.95rem' }}>
             {group.jobPickup || '-'} to {group.jobDelivery || '-'}
           </div>
-          <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
+          <div style={{ fontSize: '0.8rem', color: '#0B2F6B', marginTop: '0.2rem' }}>
             {group.jobVehicle ? VEHICLE_LABEL[group.jobVehicle] ?? group.jobVehicle : 'Vehicle TBC'}
             {group.jobPickupDate ? `  Pickup: ${fmtDate(group.jobPickupDate)}` : ''}
             {'  '}
@@ -357,11 +357,11 @@ function JobBidGroup({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {isAwarded ? (
-            <WorkspaceStatusBadge bg="#d1fae5" color="#065f46">
+            <WorkspaceStatusBadge bg="#F4F6F8" color="#0B2F6B">
               Awarded{awardedBid?.companies?.name ? ` - ${awardedBid.companies.name}` : ''}
             </WorkspaceStatusBadge>
           ) : (
-            <WorkspaceStatusBadge bg="#fef3c7" color="#92400e">
+            <WorkspaceStatusBadge bg="#F4F6F8" color="#F5A300">
               {submittedCount} submitted bid{submittedCount !== 1 ? 's' : ''}
             </WorkspaceStatusBadge>
           )}
@@ -388,23 +388,23 @@ function JobBidGroup({
           return (
             <WorkspaceTableTr key={bid.id} last={i === visibleBids.length - 1}>
               <WorkspaceTableTd>
-                <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.88rem' }}>
-                  {bid.carrierIdentity?.displayName || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Carrier profile incomplete</span>}
+                <div style={{ fontWeight: 600, color: '#1A1F2B', fontSize: '0.88rem' }}>
+                  {bid.carrierIdentity?.displayName || <span style={{ color: '#0B2F6B', fontStyle: 'italic' }}>Carrier profile incomplete</span>}
                 </div>
                 {bid.carrierIdentity?.companyName && bid.carrierIdentity.personName && (
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{bid.carrierIdentity.personName}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#0B2F6B' }}>{bid.carrierIdentity.personName}</div>
                 )}
                 {bid.carrierIdentity?.companyType && (
-                  <div style={{ fontSize: '0.72rem', color: '#9ca3af', textTransform: 'capitalize' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#0B2F6B', textTransform: 'capitalize' }}>
                     {bid.carrierIdentity.companyType.replaceAll('_', ' ')}
                   </div>
                 )}
               </WorkspaceTableTd>
-              <WorkspaceTableTd style={{ fontWeight: 700, color: '#111827' }}>
+              <WorkspaceTableTd style={{ fontWeight: 700, color: '#1A1F2B' }}>
                 {bidAmount == null ? '-' : `GBP ${bidAmount.toFixed(2)}`}
-                <span style={{ fontWeight: 400, fontSize: '0.8rem', color: '#6b7280', marginLeft: '0.25rem' }}>{bid.currency}</span>
+                <span style={{ fontWeight: 400, fontSize: '0.8rem', color: '#0B2F6B', marginLeft: '0.25rem' }}>{bid.currency}</span>
               </WorkspaceTableTd>
-              <WorkspaceTableTd style={{ color: '#6b7280', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85rem' }}>
+              <WorkspaceTableTd style={{ color: '#0B2F6B', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85rem' }}>
                 {bid.message || <span style={{ fontStyle: 'italic' }}>-</span>}
               </WorkspaceTableTd>
               <WorkspaceTableTd>
@@ -412,7 +412,7 @@ function JobBidGroup({
                   {bid.bid_status.charAt(0).toUpperCase() + bid.bid_status.slice(1)}
                 </WorkspaceStatusBadge>
               </WorkspaceTableTd>
-              <WorkspaceTableTd style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+              <WorkspaceTableTd style={{ color: '#0B2F6B', fontSize: '0.85rem' }}>
                 {fmtDate(bid.created_at)}
               </WorkspaceTableTd>
               <WorkspaceTableTd>
@@ -422,7 +422,7 @@ function JobBidGroup({
                       onClick={() => onAccept(bid.id)}
                       disabled={isActioning}
                       title="Accept this bid and award the job to this carrier"
-                      style={{ padding: '0.35rem 0.8rem', backgroundColor: isActioning ? '#e5e7eb' : '#d1fae5', color: isActioning ? '#9ca3af' : '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: isActioning ? 'not-allowed' : 'pointer' }}
+                      style={{ padding: '0.35rem 0.8rem', backgroundColor: isActioning ? '#F4F6F8' : '#F4F6F8', color: isActioning ? '#F4F6F8' : '#0B2F6B', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: isActioning ? 'not-allowed' : 'pointer' }}
                     >
                       {isActioning ? '...' : 'Accept'}
                     </button>
@@ -432,13 +432,13 @@ function JobBidGroup({
                       onClick={() => onReject(bid.id)}
                       disabled={isActioning}
                       title="Reject this bid"
-                      style={{ padding: '0.35rem 0.8rem', backgroundColor: isActioning ? '#e5e7eb' : '#fee2e2', color: isActioning ? '#9ca3af' : '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: isActioning ? 'not-allowed' : 'pointer' }}
+                      style={{ padding: '0.35rem 0.8rem', backgroundColor: isActioning ? '#F4F6F8' : '#F4F6F8', color: isActioning ? '#F4F6F8' : '#F5A300', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: isActioning ? 'not-allowed' : 'pointer' }}
                     >
                       {isActioning ? '...' : 'Reject'}
                     </button>
                   )}
                   {!canAccept && !canReject && (
-                    <span style={{ color: '#9ca3af', fontSize: '0.8rem', fontStyle: 'italic' }}>-</span>
+                    <span style={{ color: '#0B2F6B', fontSize: '0.8rem', fontStyle: 'italic' }}>-</span>
                   )}
                 </div>
               </WorkspaceTableTd>

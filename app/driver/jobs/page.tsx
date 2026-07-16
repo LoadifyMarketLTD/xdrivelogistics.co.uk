@@ -176,26 +176,26 @@ export default function DriverHomePage() {
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
             <div>
-              <p style={{ margin: 0, color: '#facc15', fontSize: '0.72rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Active work</p>
-              <h1 style={{ margin: '0.1rem 0 0', color: '#f8fafc', fontSize: '1.45rem', lineHeight: 1.1 }}>What is next?</h1>
+              <p style={{ margin: 0, color: '#F5A300', fontSize: '0.72rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Active work</p>
+              <h1 style={{ margin: '0.1rem 0 0', color: '#F4F6F8', fontSize: '1.45rem', lineHeight: 1.1 }}>What is next?</h1>
             </div>
-            <button onClick={() => void loadHome()} disabled={loading} aria-label="Refresh" style={{ width: '44px', height: '44px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', background: '#111d2f', color: '#facc15', display: 'grid', placeItems: 'center', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.55 : 1 }}>
+            <button onClick={() => void loadHome()} disabled={loading} aria-label="Refresh" style={{ width: '44px', height: '44px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.1)', background: '#1A1F2B', color: '#F5A300', display: 'grid', placeItems: 'center', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.55 : 1 }}>
               <RefreshCw size={20} />
             </button>
           </div>
 
-          <div style={{ borderRadius: '24px', border: '1px solid rgba(250,204,21,0.22)', background: activeJob ? 'linear-gradient(145deg, #18243a, #101b2d)' : '#111d2f', padding: '1rem', boxShadow: '0 18px 40px rgba(0,0,0,0.28)' }}>
+          <div style={{ borderRadius: '24px', border: '1px solid rgba(245, 163, 0, 0.22)', background: activeJob ? 'linear-gradient(145deg, #0B2F6B, #1A1F2B)' : '#1A1F2B', padding: '1rem', boxShadow: '0 18px 40px rgba(26, 31, 43, 0.28)' }}>
             {loading ? (
-              <div style={{ color: '#94a3b8', padding: '2rem 0', textAlign: 'center', fontWeight: 700 }}>Loading work</div>
+              <div style={{ color: '#F4F6F8', padding: '2rem 0', textAlign: 'center', fontWeight: 700 }}>Loading work</div>
             ) : activeJob ? (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '1rem' }}>
                   <div>
-                    <span style={{ display: 'inline-flex', color: '#0b1524', background: '#facc15', borderRadius: '999px', padding: '0.22rem 0.55rem', fontSize: '0.72rem', fontWeight: 900 }}>{STATUS_LABELS[activeJob.status] ?? activeJob.status}</span>
-                    <h2 style={{ margin: '0.65rem 0 0', color: '#f8fafc', fontSize: '1.35rem', lineHeight: 1.15 }}>{activeJob.pickup_location ?? 'Pickup TBC'}</h2>
-                    <p style={{ margin: '0.25rem 0 0', color: '#94a3b8', fontWeight: 700 }}>to {activeJob.delivery_location ?? 'Delivery TBC'}</p>
+                    <span style={{ display: 'inline-flex', color: '#1A1F2B', background: '#F5A300', borderRadius: '999px', padding: '0.22rem 0.55rem', fontSize: '0.72rem', fontWeight: 900 }}>{STATUS_LABELS[activeJob.status] ?? activeJob.status}</span>
+                    <h2 style={{ margin: '0.65rem 0 0', color: '#F4F6F8', fontSize: '1.35rem', lineHeight: 1.15 }}>{activeJob.pickup_location ?? 'Pickup TBC'}</h2>
+                    <p style={{ margin: '0.25rem 0 0', color: '#F4F6F8', fontWeight: 700 }}>to {activeJob.delivery_location ?? 'Delivery TBC'}</p>
                   </div>
-                  <button onClick={() => router.push(`/driver/jobs/${activeJob.id}`)} style={{ alignSelf: 'flex-start', minHeight: '42px', borderRadius: '14px', border: 'none', background: '#f8fafc', color: '#0b1524', padding: '0 0.85rem', fontWeight: 900, cursor: 'pointer' }}>Open</button>
+                  <button onClick={() => router.push(`/driver/jobs/${activeJob.id}`)} style={{ alignSelf: 'flex-start', minHeight: '42px', borderRadius: '14px', border: 'none', background: '#F4F6F8', color: '#1A1F2B', padding: '0 0.85rem', fontWeight: 900, cursor: 'pointer' }}>Open</button>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '1rem' }}>
@@ -214,9 +214,9 @@ export default function DriverHomePage() {
               </>
             ) : (
               <div style={{ textAlign: 'center', padding: '2.25rem 0.5rem' }}>
-                <CheckCircle2 size={42} color="#86efac" />
-                <h2 style={{ color: '#f8fafc', margin: '0.7rem 0 0.25rem', fontSize: '1.25rem' }}>No active job</h2>
-                <p style={{ color: '#94a3b8', margin: 0, lineHeight: 1.45 }}>You are clear right now. New work will appear here first.</p>
+                <CheckCircle2 size={42} color="#1D57D8" />
+                <h2 style={{ color: '#F4F6F8', margin: '0.7rem 0 0.25rem', fontSize: '1.25rem' }}>No active job</h2>
+                <p style={{ color: '#F4F6F8', margin: 0, lineHeight: 1.45 }}>You are clear right now. New work will appear here first.</p>
               </div>
             )}
           </div>
@@ -227,17 +227,17 @@ export default function DriverHomePage() {
           </div>
 
           <section style={{ display: 'grid', gap: '0.55rem' }}>
-            <h2 style={{ color: '#f8fafc', fontSize: '1rem', margin: '0.25rem 0 0' }}>Today's jobs</h2>
+            <h2 style={{ color: '#F4F6F8', fontSize: '1rem', margin: '0.25rem 0 0' }}>Today's jobs</h2>
             {todaysJobs.length === 0 ? (
-              <div style={{ color: '#94a3b8', background: '#111d2f', borderRadius: '18px', padding: '1rem', border: '1px solid rgba(255,255,255,0.08)' }}>No jobs scheduled for today.</div>
+              <div style={{ color: '#F4F6F8', background: '#1A1F2B', borderRadius: '18px', padding: '1rem', border: '1px solid rgba(255, 255, 255, 0.08)' }}>No jobs scheduled for today.</div>
             ) : (
               todaysJobs.map((job) => (
-                <button key={job.id} onClick={() => router.push(`/driver/jobs/${job.id}`)} style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#111d2f', color: '#f8fafc', borderRadius: '18px', padding: '0.85rem', textAlign: 'left', display: 'grid', gap: '0.35rem', cursor: 'pointer' }}>
+                <button key={job.id} onClick={() => router.push(`/driver/jobs/${job.id}`)} style={{ border: '1px solid rgba(255, 255, 255, 0.08)', background: '#1A1F2B', color: '#F4F6F8', borderRadius: '18px', padding: '0.85rem', textAlign: 'left', display: 'grid', gap: '0.35rem', cursor: 'pointer' }}>
                   <span style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
                     <strong style={{ fontSize: '0.95rem' }}>{job.pickup_location ?? 'Pickup TBC'}</strong>
-                    <span style={{ color: '#facc15', fontWeight: 900, fontSize: '0.78rem' }}>{fmtTime(job.pickup_datetime)}</span>
+                    <span style={{ color: '#F5A300', fontWeight: 900, fontSize: '0.78rem' }}>{fmtTime(job.pickup_datetime)}</span>
                   </span>
-                  <span style={{ color: '#94a3b8', fontSize: '0.82rem' }}>to {job.delivery_location ?? 'Delivery TBC'}</span>
+                  <span style={{ color: '#F4F6F8', fontSize: '0.82rem' }}>to {job.delivery_location ?? 'Delivery TBC'}</span>
                 </button>
               ))
             )}
@@ -250,22 +250,22 @@ export default function DriverHomePage() {
 
 function Notice({ tone, text }: { tone: 'error' | 'success'; text: string }) {
   const isError = tone === 'error';
-  return <div style={{ background: isError ? 'rgba(239,68,68,0.14)' : 'rgba(34,197,94,0.14)', border: `1px solid ${isError ? 'rgba(248,113,113,0.35)' : 'rgba(134,239,172,0.35)'}`, color: isError ? '#fecaca' : '#bbf7d0', borderRadius: '16px', padding: '0.75rem 0.85rem', fontSize: '0.85rem', fontWeight: 800 }}>{text}</div>;
+  return <div style={{ background: isError ? 'rgba(245, 163, 0, 0.14)' : 'rgba(29, 87, 216, 0.14)', border: `1px solid ${isError ? 'rgba(245, 163, 0, 0.35)' : 'rgba(29, 87, 216, 0.35)'}`, color: isError ? '#F4F6F8' : '#F4F6F8', borderRadius: '16px', padding: '0.75rem 0.85rem', fontSize: '0.85rem', fontWeight: 800 }}>{text}</div>;
 }
 
 function MiniMetric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '18px', padding: '0.75rem', minHeight: '82px' }}>
-      <div style={{ color: '#facc15', marginBottom: '0.35rem' }}>{icon}</div>
-      <div style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ color: '#f8fafc', fontWeight: 900, fontSize: '0.88rem', marginTop: '0.15rem' }}>{value}</div>
+    <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: '18px', padding: '0.75rem', minHeight: '82px' }}>
+      <div style={{ color: '#F5A300', marginBottom: '0.35rem' }}>{icon}</div>
+      <div style={{ color: '#F4F6F8', fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ color: '#F4F6F8', fontWeight: 900, fontSize: '0.88rem', marginTop: '0.15rem' }}>{value}</div>
     </div>
   );
 }
 
 function QuickAction({ icon, label, disabled, onClick }: { icon: React.ReactNode; label: string; disabled?: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} disabled={disabled} style={{ minHeight: '54px', borderRadius: '18px', border: 'none', background: disabled ? 'rgba(148,163,184,0.14)' : '#facc15', color: disabled ? '#64748b' : '#0b1524', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.55rem', fontWeight: 900, fontSize: '0.95rem', cursor: disabled ? 'default' : 'pointer' }}>
+    <button onClick={onClick} disabled={disabled} style={{ minHeight: '54px', borderRadius: '18px', border: 'none', background: disabled ? 'rgba(244, 246, 248, 0.14)' : '#F5A300', color: disabled ? '#0B2F6B' : '#1A1F2B', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.55rem', fontWeight: 900, fontSize: '0.95rem', cursor: disabled ? 'default' : 'pointer' }}>
       {icon}{label}
     </button>
   );
@@ -273,9 +273,9 @@ function QuickAction({ icon, label, disabled, onClick }: { icon: React.ReactNode
 
 function StatusTile({ label, value }: { label: string; value: string | number }) {
   return (
-    <div style={{ background: '#111d2f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '18px', padding: '0.85rem' }}>
-      <div style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 900, textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ color: '#f8fafc', fontSize: '1.05rem', fontWeight: 900, marginTop: '0.2rem' }}>{value}</div>
+    <div style={{ background: '#1A1F2B', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '18px', padding: '0.85rem' }}>
+      <div style={{ color: '#F4F6F8', fontSize: '0.72rem', fontWeight: 900, textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ color: '#F4F6F8', fontSize: '1.05rem', fontWeight: 900, marginTop: '0.2rem' }}>{value}</div>
     </div>
   );
 }

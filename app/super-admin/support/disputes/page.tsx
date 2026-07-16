@@ -47,14 +47,14 @@ export default function Page() {
           key: 'details',
           label: 'Details',
           render: (row) => (
-            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{row.details ?? '—'}</span>
+            <span style={{ fontSize: '0.72rem', color: '#0B2F6B' }}>{row.details ?? '—'}</span>
           ),
         },
         {
           key: 'resolution_note',
           label: 'Resolution',
           render: (row) => (
-            <span style={{ fontSize: '0.72rem', color: row.resolution_note ? '#22c55e' : '#94a3b8' }}>
+            <span style={{ fontSize: '0.72rem', color: row.resolution_note ? '#1D57D8' : '#F4F6F8' }}>
               {row.resolution_note ?? '—'}
             </span>
           ),

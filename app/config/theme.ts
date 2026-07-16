@@ -1,63 +1,62 @@
-// Premium Dark + Gold Theme Configuration
-// XDrive Logistics Brand Colors - Exact specification from requirements
+// Official XDrive Logistics platform colour system.
 
 export const THEME = {
-  // Color Palette - XDrive Logistics Brand Colors (EXACT SPEC)
+  // Official brand palette and derived alpha tints.
   colors: {
     // Primary - Navy
     primary: {
-      dark: '#0A2239',      // Navy dark (EXACT) - Header, Footer, Main background
-      navy: '#1F3A5F',      // Navy Primary (EXACT) - Services, CTA sections
-      slate: '#2D3748',     // Medium dark
+      dark: '#1A1F2B',
+      navy: '#0B2F6B',
+      slate: '#1D57D8',
     },
     
-    // Accent - Premium Gold
+    // Accent - brand orange
     gold: {
-      primary: '#D4AF37',   // Gold accent (EXACT) - Logo X, highlights
-      light: '#E5C158',     // Light gold
-      dark: '#B8941F',      // Dark gold (EXACT) - hover state
+      primary: '#F5A300',
+      light: '#F5A300',
+      dark: '#0B2F6B',
     },
     
-    // CTA Green
+    // Legacy green aliases resolve to the official action blue.
     green: {
-      primary: '#1F7A3D',   // Green CTA (EXACT) - Checkmarks
-      dark: '#1B5E20',      // Dark green (hover)
-      light: '#4CAF50',     // Light green
-      whatsapp: '#25D366',  // WhatsApp green (EXACT)
-      whatsappHover: '#20ba5a', // WhatsApp hover
+      primary: '#1D57D8',   // Green CTA (EXACT) - Checkmarks
+      dark: '#1D57D8',      // Dark green (hover)
+      light: '#1D57D8',     // Light green
+      whatsapp: '#1D57D8',  // WhatsApp green (EXACT)
+      whatsappHover: '#1D57D8', // WhatsApp hover
     },
     
     // Text Colors
     text: {
       primary: '#FFFFFF',   // White text (EXACT)
-      secondary: 'rgba(255,255,255,0.85)', // White transparent (EXACT)
-      muted: '#94A3B8',     // Muted gray
-      dark: '#0A2239',      // Dark text (EXACT) - for light backgrounds
+      secondary: 'rgba(255, 255, 255, 0.85)', // White transparent (EXACT)
+      muted: '#F4F6F8',     // Muted gray
+      dark: '#1A1F2B',      // Dark text (EXACT) - for light backgrounds
     },
     
     // Background Colors
     background: {
-      light: '#F4F7FA',     // Light Background (EXACT)
-      dark: '#0A2239',      // Dark background (EXACT)
+      light: '#F4F6F8',     // Light Background (EXACT)
+      dark: '#1A1F2B',      // Dark background (EXACT)
     },
     
     // Glass Effects
     glass: {
       light: 'rgba(255, 255, 255, 0.1)',
       medium: 'rgba(255, 255, 255, 0.15)',
-      dark: 'rgba(0, 0, 0, 0.3)',
+      dark: 'rgba(26, 31, 43, 0.3)',
     },
     
     // Borders
     border: {
       light: 'rgba(255, 255, 255, 0.2)',
-      gold: 'rgba(212, 175, 55, 0.3)',
+      gold: 'rgba(245, 163, 0, 0.3)',
     },
     
     // Semantic Colors
-    success: '#10B981',
-    warning: '#F59E0B',
-    error: '#EF4444',
+    success: '#1D57D8',
+    warning: '#F5A300',
+    error: '#F5A300',
   },
   
   // Typography
@@ -126,12 +125,12 @@ export const THEME = {
   
   // Shadows
   shadows: {
-    sm: '0 2px 8px rgba(0, 0, 0, 0.1)',
-    md: '0 4px 16px rgba(0, 0, 0, 0.2)',
-    lg: '0 8px 32px rgba(0, 0, 0, 0.3)',
-    xl: '0 12px 48px rgba(0, 0, 0, 0.4)',
-    gold: '0 4px 24px rgba(212, 175, 55, 0.3)',
-    glow: '0 0 20px rgba(212, 175, 55, 0.4)',
+    sm: '0 2px 8px rgba(26, 31, 43, 0.1)',
+    md: '0 4px 16px rgba(26, 31, 43, 0.2)',
+    lg: '0 8px 32px rgba(26, 31, 43, 0.3)',
+    xl: '0 12px 48px rgba(26, 31, 43, 0.4)',
+    gold: '0 4px 24px rgba(245, 163, 0, 0.3)',
+    glow: '0 0 20px rgba(245, 163, 0, 0.4)',
   },
   
   // Glassmorphism
@@ -147,7 +146,7 @@ export const THEME = {
       border: '1px solid rgba(255, 255, 255, 0.25)',
     },
     dark: {
-      background: 'rgba(0, 0, 0, 0.3)',
+      background: 'rgba(26, 31, 43, 0.3)',
       backdropFilter: 'blur(20px)',
       border: '1px solid rgba(255, 255, 255, 0.15)',
     },
@@ -202,7 +201,7 @@ export const greenButton = {
   fontWeight: THEME.typography.weights.semibold,
   cursor: 'pointer',
   transition: THEME.transitions.medium,
-  boxShadow: '0 4px 24px rgba(46, 125, 50, 0.3)',
+  boxShadow: '0 4px 24px rgba(29, 87, 216, 0.3)',
   textTransform: 'uppercase' as const,
   letterSpacing: '0.5px',
 };
@@ -217,7 +216,7 @@ export const whatsappButton = {
   fontWeight: THEME.typography.weights.semibold,
   cursor: 'pointer',
   transition: THEME.transitions.medium,
-  boxShadow: '0 4px 16px rgba(37, 211, 102, 0.4)',
+  boxShadow: '0 4px 16px rgba(29, 87, 216, 0.4)',
   textTransform: 'uppercase' as const,
   letterSpacing: '0.5px',
 };

@@ -62,9 +62,9 @@ export default function RequestQuotePage() {
     width: '100%',
     padding: '0.8rem 0.9rem',
     borderRadius: '10px',
-    border: '1px solid rgba(255,255,255,0.2)',
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    color: '#fff',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    color: '#FFFFFF',
     fontSize: '0.95rem',
   };
 
@@ -73,8 +73,8 @@ export default function RequestQuotePage() {
       <main
         style={{
           minHeight: '100vh',
-          background: 'linear-gradient(135deg, #0A2239 0%, #1F3A5F 60%, #0A2239 100%)',
-          color: '#fff',
+          background: 'linear-gradient(135deg, #1A1F2B 0%, #1D57D8 60%, #1A1F2B 100%)',
+          color: '#FFFFFF',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -86,8 +86,8 @@ export default function RequestQuotePage() {
             maxWidth: '520px',
             width: '100%',
             textAlign: 'center',
-            backgroundColor: 'rgba(255,255,255,0.08)',
-            border: '1px solid rgba(255,255,255,0.15)',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
             borderRadius: '20px',
             padding: '2.5rem 2rem',
           }}
@@ -96,17 +96,17 @@ export default function RequestQuotePage() {
             <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={180} height={40} style={{ width: 'auto', height: '40px', margin: '0 auto' }} />
           </div>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
-          <h1 style={{ margin: '0 0 0.75rem', fontSize: '1.8rem', color: '#fff' }}>
+          <h1 style={{ margin: '0 0 0.75rem', fontSize: '1.8rem', color: '#FFFFFF' }}>
             Quote Request Received!
           </h1>
-          <p style={{ margin: '0 0 1.5rem', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6' }}>
+          <p style={{ margin: '0 0 1.5rem', color: 'rgba(255, 255, 255, 0.8)', lineHeight: '1.6' }}>
             Thank you — our team will review your request and come back to you with a
             competitive quote. This usually takes less than an hour during business hours.
           </p>
           <div
             style={{
-              backgroundColor: 'rgba(46,125,50,0.15)',
-              border: '1px solid rgba(46,125,50,0.35)',
+              backgroundColor: 'rgba(29, 87, 216, 0.15)',
+              border: '1px solid rgba(29, 87, 216, 0.35)',
               borderRadius: '12px',
               padding: '1rem 1.25rem',
               marginBottom: '1.75rem',
@@ -115,7 +115,7 @@ export default function RequestQuotePage() {
               gap: '0.5rem',
             }}
           >
-            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#81C784', marginBottom: '0.25rem' }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1D57D8', marginBottom: '0.25rem' }}>
               ⏱ What happens next?
             </div>
             {[
@@ -124,7 +124,7 @@ export default function RequestQuotePage() {
               '3. You receive a quote via email or WhatsApp',
               '4. Confirm booking and schedule pickup',
             ].map((step) => (
-              <div key={step} style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.8)' }}>
+              <div key={step} style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.8)' }}>
                 {step}
               </div>
             ))}
@@ -134,8 +134,8 @@ export default function RequestQuotePage() {
               href={whatsappDefaultMessageHref}
               style={{
                 padding: '0.75rem 1.25rem',
-                backgroundColor: '#25D366',
-                color: '#fff',
+                backgroundColor: '#1D57D8',
+                color: '#FFFFFF',
                 borderRadius: '8px',
                 textDecoration: 'none',
                 fontWeight: 700,
@@ -148,13 +148,13 @@ export default function RequestQuotePage() {
               href="/"
               style={{
                 padding: '0.75rem 1.25rem',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                color: '#fff',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                color: '#FFFFFF',
                 borderRadius: '8px',
                 textDecoration: 'none',
                 fontWeight: 600,
                 fontSize: '0.9rem',
-                border: '1px solid rgba(255,255,255,0.2)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
               }}
             >
               Back to Homepage
@@ -169,8 +169,8 @@ export default function RequestQuotePage() {
     <main
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #0A2239 0%, #1F3A5F 60%, #0A2239 100%)',
-        color: '#fff',
+        background: 'linear-gradient(135deg, #1A1F2B 0%, #1D57D8 60%, #1A1F2B 100%)',
+        color: '#FFFFFF',
         padding: '2rem 1rem 3rem',
       }}
     >
@@ -178,13 +178,13 @@ export default function RequestQuotePage() {
         <div>
           <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={180} height={40} priority style={{ width: 'auto', height: '40px' }} />
         </div>
-        <a href="/" style={{ color: '#D4AF37', textDecoration: 'none', fontWeight: 700 }}>
+        <a href="/" style={{ color: '#F5A300', textDecoration: 'none', fontWeight: 700 }}>
           ← Back to homepage
         </a>
 
         <section style={{ display: 'grid', gap: '0.8rem' }}>
           <h1 style={{ margin: 0, fontSize: 'clamp(1.8rem,4vw,2.4rem)' }}>Request a Quote</h1>
-          <p style={{ margin: 0, color: 'rgba(255,255,255,0.85)' }}>
+          <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.85)' }}>
             Marketing → Quote request → Admin processing starts here.
           </p>
         </section>
@@ -193,8 +193,8 @@ export default function RequestQuotePage() {
           <form
             onSubmit={onSubmit}
             style={{
-              backgroundColor: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.15)',
+              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
               borderRadius: '14px',
               padding: '1rem',
               display: 'grid',
@@ -202,7 +202,7 @@ export default function RequestQuotePage() {
             }}
           >
             {error && (
-              <div style={{ backgroundColor: 'rgba(185,28,28,0.25)', border: '1px solid #ef4444', borderRadius: '10px', padding: '0.75rem' }}>
+              <div style={{ backgroundColor: 'rgba(245, 163, 0, 0.25)', border: '1px solid #F5A300', borderRadius: '10px', padding: '0.75rem' }}>
                 {error}
               </div>
             )}
@@ -227,8 +227,8 @@ export default function RequestQuotePage() {
               style={{
                 border: 'none',
                 borderRadius: '10px',
-                backgroundColor: '#1F7A3D',
-                color: '#fff',
+                backgroundColor: '#1D57D8',
+                color: '#FFFFFF',
                 fontWeight: 700,
                 padding: '0.9rem 1rem',
                 cursor: loading ? 'not-allowed' : 'pointer',
@@ -240,8 +240,8 @@ export default function RequestQuotePage() {
 
           <aside
             style={{
-              backgroundColor: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.15)',
+              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
               borderRadius: '14px',
               padding: '1rem',
               display: 'grid',
@@ -250,9 +250,9 @@ export default function RequestQuotePage() {
             }}
           >
             <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Need instant contact?</h2>
-            <a href={whatsappDefaultMessageHref} style={{ color: '#fff', textDecoration: 'none', backgroundColor: '#25D366', borderRadius: '8px', padding: '0.7rem 0.8rem', fontWeight: 700 }}>WhatsApp</a>
-            <a href={phoneHref} style={{ color: '#fff', textDecoration: 'none', backgroundColor: '#1F3A5F', borderRadius: '8px', padding: '0.7rem 0.8rem', fontWeight: 700 }}>Call {COMPANY_CONFIG.phoneDisplay}</a>
-            <a href={`mailto:${COMPANY_CONFIG.email}`} style={{ color: '#fff', textDecoration: 'none', backgroundColor: '#1F3A5F', borderRadius: '8px', padding: '0.7rem 0.8rem', fontWeight: 700 }}>{COMPANY_CONFIG.email}</a>
+            <a href={whatsappDefaultMessageHref} style={{ color: '#FFFFFF', textDecoration: 'none', backgroundColor: '#1D57D8', borderRadius: '8px', padding: '0.7rem 0.8rem', fontWeight: 700 }}>WhatsApp</a>
+            <a href={phoneHref} style={{ color: '#FFFFFF', textDecoration: 'none', backgroundColor: '#1D57D8', borderRadius: '8px', padding: '0.7rem 0.8rem', fontWeight: 700 }}>Call {COMPANY_CONFIG.phoneDisplay}</a>
+            <a href={`mailto:${COMPANY_CONFIG.email}`} style={{ color: '#FFFFFF', textDecoration: 'none', backgroundColor: '#1D57D8', borderRadius: '8px', padding: '0.7rem 0.8rem', fontWeight: 700 }}>{COMPANY_CONFIG.email}</a>
           </aside>
         </div>
       </div>

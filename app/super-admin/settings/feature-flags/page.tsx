@@ -86,10 +86,10 @@ const PLATFORM_FLAGS = [
 ] as const;
 
 const statusColor = (s: string) =>
-  s === 'enabled' ? THEME.green : s === 'disabled' ? '#ef4444' : THEME.accent;
+  s === 'enabled' ? THEME.green : s === 'disabled' ? '#F5A300' : THEME.accent;
 
 const statusBg = (s: string) =>
-  s === 'enabled' ? 'rgba(34,197,94,0.1)' : s === 'disabled' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)';
+  s === 'enabled' ? 'rgba(29, 87, 216, 0.1)' : s === 'disabled' ? 'rgba(245, 163, 0, 0.1)' : 'rgba(245, 163, 0, 0.1)';
 
 export default function Page() {
   return (
@@ -100,7 +100,7 @@ export default function Page() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Feature Flags</h1>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Settings</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245, 163, 0, 0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Settings</span>
             </div>
             <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>Platform feature rollout status. Dynamic toggle controls coming in next release.</p>
           </div>
@@ -111,7 +111,7 @@ export default function Page() {
             const catFlags = PLATFORM_FLAGS.filter((f) => f.category === cat);
             const enabledCount = catFlags.filter((f) => f.status === 'enabled').length;
             return (
-              <div key={cat} style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.5rem 0.85rem' }}>
+              <div key={cat} style={{ backgroundColor: '#1A1F2B', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.5rem 0.85rem' }}>
                 <span style={{ color: THEME.text, fontSize: '0.82rem', fontWeight: 600 }}>{cat}</span>
                 <span style={{ color: THEME.muted, fontSize: '0.72rem', marginLeft: '0.5rem' }}>{enabledCount}/{catFlags.length} enabled</span>
               </div>
@@ -141,7 +141,7 @@ export default function Page() {
               </div>
               <p style={{ color: THEME.muted, fontSize: '0.78rem', margin: '0.25rem 0 0' }}>{flag.description}</p>
               <div style={{ marginTop: '0.5rem' }}>
-                <span style={{ fontSize: '0.65rem', color: '#475569', backgroundColor: '#0b1220', padding: '0.15rem 0.4rem', borderRadius: '3px' }}>
+                <span style={{ fontSize: '0.65rem', color: '#0B2F6B', backgroundColor: '#1A1F2B', padding: '0.15rem 0.4rem', borderRadius: '3px' }}>
                   {flag.category}
                 </span>
               </div>

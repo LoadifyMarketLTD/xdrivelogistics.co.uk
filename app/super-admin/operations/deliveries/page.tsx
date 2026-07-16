@@ -35,7 +35,7 @@ export default function Page() {
           render: (row) => (
             <div>
               <div>{routeSummary(row.pickup_location, row.pickup_postcode, row.delivery_location, row.delivery_postcode)}</div>
-              <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+              <div style={{ fontSize: '0.74rem', color: '#0B2F6B', marginTop: '0.2rem' }}>
                 Pickup: {formatDateTime(row.pickup_datetime)} · Delivery: {formatDateTime(row.delivery_datetime)}
               </div>
             </div>

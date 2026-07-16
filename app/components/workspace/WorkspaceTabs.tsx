@@ -48,7 +48,7 @@ export default function WorkspaceTabs({ tabs, activeTab, onTabChange }: Props) {
               <span
                 style={{
                   marginLeft: '0.35rem',
-                  background: active ? WS_BLUE_BG : '#f1f5f9',
+                  background: active ? WS_BLUE_BG : '#F4F6F8',
                   color: active ? WS_BLUE : WS_TEXT_MUTED,
                   borderRadius: '8px',
                   padding: '0.05rem 0.4rem',

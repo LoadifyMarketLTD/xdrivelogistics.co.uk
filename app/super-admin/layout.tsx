@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
-import SuperAdminWorkspaceShell from './_components/SuperAdminWorkspaceShell';
+import { WorkspacePlatformShell } from '../components/workspace';
 
 export const metadata: Metadata = {
   title: 'Super Admin | XDrive Logistics',
@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function SuperAdminLayout({ children }: { children: ReactNode }) {
-  return <div className="authenticated-workspace"><SuperAdminWorkspaceShell>{children}</SuperAdminWorkspaceShell></div>;
+  return <div className="authenticated-workspace"><WorkspacePlatformShell area="super-admin">{children}</WorkspacePlatformShell></div>;
 }

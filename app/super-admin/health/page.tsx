@@ -141,7 +141,7 @@ export default function Page() {
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Platform Health</h1>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Platform</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245, 163, 0, 0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Platform</span>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: statusColor(overallStatus), marginLeft: '0.5rem' }}>
                 {statusLabel(overallStatus)}
               </span>
@@ -150,7 +150,7 @@ export default function Page() {
           </div>
           <button
             onClick={() => void runChecks()}
-            style={{ padding: '0.45rem 1rem', backgroundColor: THEME.accent, color: '#0f172a', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}
+            style={{ padding: '0.45rem 1rem', backgroundColor: THEME.accent, color: '#1A1F2B', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}
           >
             🔄 Re-check
           </button>
@@ -168,7 +168,7 @@ export default function Page() {
               key={check.service}
               style={{
                 backgroundColor: THEME.cardBg,
-                border: `1px solid ${check.status === 'error' ? THEME.red : check.status === 'ok' ? 'rgba(34,197,94,0.3)' : THEME.cardBorder}`,
+                border: `1px solid ${check.status === 'error' ? THEME.red : check.status === 'ok' ? 'rgba(29, 87, 216, 0.3)' : THEME.cardBorder}`,
                 borderRadius: '10px',
                 padding: '1rem',
               }}

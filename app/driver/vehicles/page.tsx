@@ -18,11 +18,11 @@ type VehicleRow = {
 };
 
 const card: CSSProperties = {
-  backgroundColor: '#ffffff',
-  border: '1px solid #d7e0ea',
+  backgroundColor: '#FFFFFF',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '12px',
   padding: '1rem',
-  boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+  boxShadow: '0 2px 8px rgba(26, 31, 43, 0.06)',
 };
 
 export default function DriverVehiclesPage() {
@@ -66,23 +66,23 @@ export default function DriverVehiclesPage() {
       <DriverWorkspaceShell subtitle="Assigned vehicle summary and upcoming self-service vehicle tools.">
         <div style={{ display: 'grid', gap: '1rem', maxWidth: '920px' }}>
           {error && (
-            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem' }}>
+            <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1A1F2B', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem' }}>
               {error}
             </div>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
             <div style={card}>
-              <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>Vehicle workspace</div>
-              <h1 style={{ margin: 0, fontSize: '1.35rem', color: '#0f172a' }}>Vehicles</h1>
-              <p style={{ margin: '0.55rem 0 0', color: '#475569', lineHeight: 1.6, fontSize: '0.9rem' }}>
+              <div style={{ fontSize: '0.76rem', color: '#0B2F6B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>Vehicle workspace</div>
+              <h1 style={{ margin: 0, fontSize: '1.35rem', color: '#1A1F2B' }}>Vehicles</h1>
+              <p style={{ margin: '0.55rem 0 0', color: '#0B2F6B', lineHeight: 1.6, fontSize: '0.9rem' }}>
                 Dispatcher-managed vehicle assignment is shown here. Driver-side create or edit tools are intentionally disabled until the backend workflow is ready.
               </p>
             </div>
 
             <div style={card}>
-              <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>What&apos;s coming next</div>
-              <ul style={{ margin: 0, paddingLeft: '1rem', color: '#475569', fontSize: '0.86rem', lineHeight: 1.7 }}>
+              <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.35rem' }}>What&apos;s coming next</div>
+              <ul style={{ margin: 0, paddingLeft: '1rem', color: '#0B2F6B', fontSize: '0.86rem', lineHeight: 1.7 }}>
                 <li>Assigned vehicle history</li>
                 <li>Compliance reminders linked to your current vehicle</li>
                 <li>Read-only checks before document expiry</li>
@@ -91,9 +91,9 @@ export default function DriverVehiclesPage() {
           </div>
 
           <div style={card}>
-            <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.8rem' }}>Current assignment</div>
+            <div style={{ fontSize: '0.76rem', color: '#0B2F6B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.8rem' }}>Current assignment</div>
             {loading ? (
-              <div style={{ color: '#64748b', fontSize: '0.9rem' }}>Loading assigned vehicle…</div>
+              <div style={{ color: '#0B2F6B', fontSize: '0.9rem' }}>Loading assigned vehicle…</div>
             ) : vehicle ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
                 {[
@@ -103,16 +103,16 @@ export default function DriverVehiclesPage() {
                   { label: 'Payload', value: vehicle.payload_kg ? `${vehicle.payload_kg} kg` : 'Not set' },
                   { label: 'Tail lift', value: vehicle.has_tail_lift ? 'Yes' : 'No' },
                 ].map((item) => (
-                  <div key={item.label} style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '0.85rem' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '0.15rem' }}>{item.label}</div>
-                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>{item.value}</div>
+                  <div key={item.label} style={{ backgroundColor: '#F4F6F8', borderRadius: '8px', padding: '0.85rem' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#0B2F6B', marginBottom: '0.15rem' }}>{item.label}</div>
+                    <div style={{ fontWeight: 700, color: '#1A1F2B', fontSize: '0.88rem' }}>{item.value}</div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ border: '1px dashed #cbd5e1', borderRadius: '10px', padding: '1rem', textAlign: 'center', backgroundColor: '#f8fafc' }}>
-                <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.25rem' }}>No vehicle assigned yet</div>
-                <div style={{ color: '#64748b', fontSize: '0.85rem', lineHeight: 1.6 }}>
+              <div style={{ border: '1px dashed #F4F6F8', borderRadius: '10px', padding: '1rem', textAlign: 'center', backgroundColor: '#F4F6F8' }}>
+                <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.25rem' }}>No vehicle assigned yet</div>
+                <div style={{ color: '#0B2F6B', fontSize: '0.85rem', lineHeight: 1.6 }}>
                   Your dispatcher still manages assignment. Once a vehicle is linked to your driver record, the summary will appear here automatically.
                 </div>
               </div>

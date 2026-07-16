@@ -178,14 +178,14 @@ const DEFAULT_DASHBOARD: DashboardState = {
 };
 
 const ENTERPRISE_THEME = {
-  pageBg: '#eef2f6',
-  shellBg: '#f8fafc',
-  shellBorder: '#d7e0ea',
-  shellMuted: '#64748b',
-  shellText: '#0f172a',
-  cardBg: '#ffffff',
-  cardBorder: '#d7e0ea',
-  cardShadow: '0 6px 16px rgba(15, 23, 42, 0.08)',
+  pageBg: '#F4F6F8',
+  shellBg: '#F4F6F8',
+  shellBorder: '#F4F6F8',
+  shellMuted: '#0B2F6B',
+  shellText: '#1A1F2B',
+  cardBg: '#FFFFFF',
+  cardBorder: '#F4F6F8',
+  cardShadow: '0 6px 16px rgba(26, 31, 43, 0.08)',
   radius: '10px',
   spacing: {
     xxs: '0.35rem',
@@ -196,13 +196,13 @@ const ENTERPRISE_THEME = {
     xl: '1.5rem',
   },
   colors: {
-    success: '#15803d',
-    warning: '#c2410c',
-    danger: '#b91c1c',
-    live: '#1d4ed8',
-    driverQuote: '#7c3aed',
-    text: '#0f172a',
-    muted: '#475569',
+    success: '#1D57D8',
+    warning: '#F5A300',
+    danger: '#F5A300',
+    live: '#1D57D8',
+    driverQuote: '#1D57D8',
+    text: '#1A1F2B',
+    muted: '#0B2F6B',
   },
 };
 
@@ -822,7 +822,7 @@ export default function AdminPage() {
       metric: dashboard.jobsByStatus.posted,
       metricLabel: 'Published loads',
       detail: dashboard.jobsByStatus.posted > 0 ? 'Published loads are waiting for diary allocation.' : 'No published loads are waiting for allocation.',
-      accent: '#0f766e',
+      accent: '#1D57D8',
     },
     {
       id: 'quotes-bids',
@@ -833,7 +833,7 @@ export default function AdminPage() {
       metric: dashboard.overview.pendingQuotes + dashboard.market.incomingBids,
       metricLabel: 'Commercial actions',
       detail: `${dashboard.overview.pendingQuotes} quotes pending • ${dashboard.market.incomingBids} bids received`,
-      accent: '#c2410c',
+      accent: '#F5A300',
       secondaryHref: '/admin/bids',
       secondaryLabel: 'Open bids',
     },
@@ -846,7 +846,7 @@ export default function AdminPage() {
       metric: dashboard.overview.activeJobs,
       metricLabel: 'Live jobs',
       detail: `${dashboard.jobsByStatus.posted} awaiting allocation • ${dashboard.jobsByStatus.inTransit} in transit`,
-      accent: '#1d4ed8',
+      accent: '#1D57D8',
       secondaryHref: '/admin/jobs',
       secondaryLabel: 'Open jobs',
     },
@@ -859,7 +859,7 @@ export default function AdminPage() {
       metric: dashboard.resources.fleetUnits,
       metricLabel: 'Fleet units',
       detail: `${dashboard.resources.driverCoverageGap} coverage gap • ${dashboard.jobsByStatus.inTransit} moving now`,
-      accent: '#4338ca',
+      accent: '#1D57D8',
     },
     {
       id: 'drivers',
@@ -870,7 +870,7 @@ export default function AdminPage() {
       metric: dashboard.overview.activeDrivers,
       metricLabel: 'Active drivers',
       detail: `${availableDrivers.length} available right now`,
-      accent: '#15803d',
+      accent: '#1D57D8',
     },
     {
       id: 'vehicles',
@@ -881,7 +881,7 @@ export default function AdminPage() {
       metric: dashboard.resources.fleetUnits,
       metricLabel: 'Vehicle records',
       detail: 'Keep vehicle capacity and capability data up to date.',
-      accent: '#0f766e',
+      accent: '#1D57D8',
     },
     {
       id: 'compliance',
@@ -892,7 +892,7 @@ export default function AdminPage() {
       metric: dashboard.compliance.attentionRequired,
       metricLabel: 'Alerts',
       detail: `${dashboard.compliance.pendingDocs} pending • ${dashboard.compliance.expiringSoon} expiring soon`,
-      accent: '#7c3aed',
+      accent: '#1D57D8',
     },
     {
       id: 'finance',
@@ -903,7 +903,7 @@ export default function AdminPage() {
       metric: dashboard.finance.outstandingInvoices,
       metricLabel: 'Open invoices',
       detail: `${dashboard.finance.overdueInvoices} overdue • ${formatCurrency(dashboard.finance.outstandingRevenue)} outstanding`,
-      accent: '#047857',
+      accent: '#1D57D8',
       secondaryHref: '/admin/invoices/new',
       secondaryLabel: 'Create invoice',
     },
@@ -916,7 +916,7 @@ export default function AdminPage() {
       metric: resolvedCompanyId ? 'Active' : 'Pending',
       metricLabel: 'Company context',
       detail: resolvedCompanyId ? `${companyLabel} is ready in the network workspace.` : 'Resolve company context before trading.',
-      accent: '#0f172a',
+      accent: '#1A1F2B',
     },
     {
       id: 'administration',
@@ -927,7 +927,7 @@ export default function AdminPage() {
       metric: activeRoleLabel,
       metricLabel: 'Current role',
       detail: 'Use settings and memberships to manage company governance.',
-      accent: '#334155',
+      accent: '#1D57D8',
       secondaryHref: '/admin/dispatchers',
       secondaryLabel: 'Open memberships',
       roles: ['owner', 'company_admin'],
@@ -942,7 +942,7 @@ export default function AdminPage() {
         {isMobile && sidebarOpen && (
           <div
             onClick={() => setSidebarOpen(false)}
-            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(2, 6, 23, 0.5)', zIndex: 30 }}
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(26, 31, 43, 0.5)', zIndex: 30 }}
           />
         )}
         <aside
@@ -968,7 +968,7 @@ export default function AdminPage() {
             <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: ENTERPRISE_THEME.shellMuted }}>Role</span>
-                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#1d4ed8', backgroundColor: '#dbeafe', padding: '0.1rem 0.45rem', borderRadius: '999px' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#1D57D8', backgroundColor: '#F4F6F8', padding: '0.1rem 0.45rem', borderRadius: '999px' }}>
                   {activeRoleLabel}
                 </span>
               </div>
@@ -1007,7 +1007,7 @@ export default function AdminPage() {
                       style={{
                         width: '100%',
                         padding: '0.58rem 0.72rem',
-                        backgroundColor: isActive ? '#eff6ff' : 'transparent',
+                        backgroundColor: isActive ? '#F4F6F8' : 'transparent',
                         color: ENTERPRISE_THEME.shellText,
                         borderTop: 'none',
                         borderRight: 'none',
@@ -1032,7 +1032,7 @@ export default function AdminPage() {
                           display: 'grid',
                           placeItems: 'center',
                           fontSize: '0.88rem',
-                          backgroundColor: isActive ? '#dbeafe' : '#e2e8f0',
+                          backgroundColor: isActive ? '#F4F6F8' : '#F4F6F8',
                         }}
                       >
                         {item.icon}
@@ -1055,7 +1055,7 @@ export default function AdminPage() {
               style={{
                 width: '100%',
                 padding: '0.52rem',
-                backgroundColor: '#ffffff',
+                backgroundColor: '#FFFFFF',
                 color: ENTERPRISE_THEME.shellText,
                 border: `1px solid ${ENTERPRISE_THEME.cardBorder}`,
                 borderRadius: '6px',
@@ -1073,9 +1073,9 @@ export default function AdminPage() {
               style={{
                 width: '100%',
                 padding: '0.52rem',
-                backgroundColor: '#fee2e2',
-                color: '#b91c1c',
-                border: '1px solid #fecaca',
+                backgroundColor: '#F4F6F8',
+                color: '#1A1F2B',
+                border: '1px solid rgba(11, 47, 107, 0.16)',
                 borderRadius: '6px',
                 fontSize: '0.8rem',
                 fontWeight: '600',
@@ -1111,7 +1111,7 @@ export default function AdminPage() {
           <section style={{ ...sectionCardStyle, marginBottom: '0.9rem', padding: isMobile ? '1rem' : '1.15rem 1.2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
               <div style={{ maxWidth: '760px' }}>
-                <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748b', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                   XDrive Logistics Ltd
                 </div>
                 <h2 style={{ fontSize: '1.55rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: '0 0 0.25rem 0' }}>Platform Home</h2>
@@ -1141,7 +1141,7 @@ export default function AdminPage() {
                   onClick={() => router.push('/admin/diary')}
                   style={{
                     padding: '0.58rem 0.95rem',
-                    backgroundColor: '#ffffff',
+                    backgroundColor: '#FFFFFF',
                     border: `1px solid ${ENTERPRISE_THEME.cardBorder}`,
                     borderRadius: '8px',
                     cursor: 'pointer',
@@ -1159,7 +1159,7 @@ export default function AdminPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem', marginBottom: '0.9rem' }}>
             {contextCards.map((card) => (
               <section key={card.label} style={{ ...sectionCardStyle, padding: '0.85rem 0.95rem' }}>
-                <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>
+                <div style={{ fontSize: '0.72rem', color: '#0B2F6B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>
                   {card.label}
                 </div>
                 <div style={{ fontSize: '0.96rem', fontWeight: 700, color: ENTERPRISE_THEME.colors.text, marginBottom: '0.18rem', wordBreak: 'break-word' }}>
@@ -1173,12 +1173,12 @@ export default function AdminPage() {
           {dashboardError && (
             <div
               style={{
-                backgroundColor: '#fef3c7',
-                border: '1px solid #f59e0b',
+                backgroundColor: '#F4F6F8',
+                border: '1px solid #F5A300',
                 borderRadius: '8px',
                 padding: '0.75rem 0.9rem',
                 marginBottom: '0.9rem',
-                color: '#92400e',
+                color: '#1A1F2B',
                 fontWeight: '600',
                 fontSize: '0.83rem',
               }}
@@ -1194,20 +1194,20 @@ export default function AdminPage() {
                 flexWrap: 'wrap',
                 gap: '0.5rem',
                 alignItems: 'center',
-                backgroundColor: '#fff7ed',
-                border: '1px solid #fed7aa',
+                backgroundColor: '#F4F6F8',
+                border: '1px solid rgba(11, 47, 107, 0.16)',
                 borderRadius: '10px',
                 padding: '0.65rem 0.9rem',
                 marginBottom: '0.9rem',
               }}
               data-testid="admin-needs-attention-bar"
             >
-              <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#9a3412', marginRight: '0.25rem' }}>Needs attention</span>
+              <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#1A1F2B', marginRight: '0.25rem' }}>Needs attention</span>
               {dashboard.jobsByStatus.posted > 0 && (
                 <button
                   className="panel-button"
                   onClick={() => router.push('/admin/diary')}
-                  style={{ backgroundColor: '#fbbf24', color: '#78350f', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                  style={{ backgroundColor: '#F5A300', color: '#1A1F2B', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
                 >
                   Diary / Operations: {dashboard.jobsByStatus.posted} awaiting allocation
                 </button>
@@ -1216,7 +1216,7 @@ export default function AdminPage() {
                 <button
                   className="panel-button"
                   onClick={() => router.push('/admin/invoices')}
-                  style={{ backgroundColor: '#f87171', color: '#7f1d1d', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                  style={{ backgroundColor: '#F5A300', color: '#1A1F2B', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
                 >
                   Finance / Invoices: {dashboard.finance.overdueInvoices} overdue
                 </button>
@@ -1225,7 +1225,7 @@ export default function AdminPage() {
                 <button
                   className="panel-button"
                   onClick={() => router.push('/admin/documents')}
-                  style={{ backgroundColor: '#a78bfa', color: '#2e1065', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                  style={{ backgroundColor: '#1D57D8', color: '#1D57D8', border: 'none', borderRadius: '999px', padding: '0.28rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
                 >
                   Compliance / Documents: {dashboard.compliance.attentionRequired} alert{dashboard.compliance.attentionRequired !== 1 ? 's' : ''}
                 </button>
@@ -1245,17 +1245,17 @@ export default function AdminPage() {
                 <section key={card.id} className="module-card" style={{ ...sectionCardStyle, padding: '0.95rem', borderTop: `3px solid ${card.accent}` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
                     <div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#0B2F6B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>
                         {card.label}
                       </div>
                       <div style={{ fontSize: '0.78rem', color: ENTERPRISE_THEME.colors.muted, lineHeight: 1.45 }}>{card.summary}</div>
                     </div>
-                    <span style={{ width: '32px', height: '32px', borderRadius: '10px', display: 'grid', placeItems: 'center', backgroundColor: '#f8fafc', fontSize: '1rem' }}>
+                    <span style={{ width: '32px', height: '32px', borderRadius: '10px', display: 'grid', placeItems: 'center', backgroundColor: '#F4F6F8', fontSize: '1rem' }}>
                       {card.icon}
                     </span>
                   </div>
                   <div style={{ marginBottom: '0.55rem' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.18rem' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#0B2F6B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.18rem' }}>
                       {card.metricLabel}
                     </div>
                     <div style={{ fontSize: '1.35rem', fontWeight: 700, color: card.accent }}>
@@ -1290,7 +1290,7 @@ export default function AdminPage() {
                           padding: '0.46rem 0.72rem',
                           borderRadius: '7px',
                           border: `1px solid ${ENTERPRISE_THEME.cardBorder}`,
-                          backgroundColor: '#ffffff',
+                          backgroundColor: '#FFFFFF',
                           color: ENTERPRISE_THEME.colors.text,
                           fontWeight: 700,
                           cursor: 'pointer',
@@ -1341,8 +1341,8 @@ export default function AdminPage() {
                         width: '100%',
                         padding: '0.58rem',
                         borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                        backgroundColor: '#fffbeb',
+                        border: '1px solid rgba(11, 47, 107, 0.16)',
+                        backgroundColor: '#F4F6F8',
                         cursor: 'pointer',
                         textAlign: 'left',
                       }}
@@ -1403,8 +1403,8 @@ export default function AdminPage() {
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           gap: '0.6rem',
-                          backgroundColor: availability === 'available' ? '#f0fdf4' : '#f8fafc',
-                          border: `1px solid ${availability === 'available' ? '#bbf7d0' : '#e2e8f0'}`,
+                          backgroundColor: availability === 'available' ? '#F4F6F8' : '#F4F6F8',
+                          border: `1px solid ${availability === 'available' ? '#F4F6F8' : '#F4F6F8'}`,
                           borderRadius: '8px',
                           padding: '0.55rem 0.7rem',
                         }}
@@ -1416,7 +1416,7 @@ export default function AdminPage() {
                           </div>
                           <div style={{ fontSize: '0.74rem', color: ENTERPRISE_THEME.colors.muted }}>{availabilityLabel}</div>
                         </div>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: availability === 'available' ? '#15803d' : '#475569' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: availability === 'available' ? '#1D57D8' : '#0B2F6B' }}>
                           {availability === 'available' ? 'Ready now' : 'Monitor'}
                         </span>
                       </div>
@@ -1427,7 +1427,7 @@ export default function AdminPage() {
             </section>
 
             {/* ── Compliance Expiry Alerts widget ──────────────────────── */}
-            <section style={{ ...sectionCardStyle, borderTop: '3px solid #a78bfa' }}>
+            <section style={{ ...sectionCardStyle, borderTop: '3px solid #1D57D8' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.68rem', gap: '0.5rem' }}>
                 <div>
                   <h3 style={{ fontSize: '1.02rem', fontWeight: '700', color: ENTERPRISE_THEME.colors.text, margin: 0 }}>Compliance Expiry Alerts</h3>
@@ -1446,7 +1446,7 @@ export default function AdminPage() {
               {dashboardLoading ? (
                 <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.82rem' }}>Loading…</div>
               ) : expiryAlerts.length === 0 ? (
-                <div style={{ color: '#15803d', fontSize: '0.82rem', padding: '0.4rem 0', fontWeight: 600 }}>✓ No documents expiring in the next 30 days.</div>
+                <div style={{ color: '#1D57D8', fontSize: '0.82rem', padding: '0.4rem 0', fontWeight: 600 }}>✓ No documents expiring in the next 30 days.</div>
               ) : (
                 <div style={{ display: 'grid', gap: '0.45rem' }}>
                   {expiryAlerts.map((alert) => {
@@ -1460,8 +1460,8 @@ export default function AdminPage() {
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           gap: '0.6rem',
-                          backgroundColor: urgent ? '#fef3c7' : '#f8fafc',
-                          border: `1px solid ${urgent ? '#fcd34d' : '#e2e8f0'}`,
+                          backgroundColor: urgent ? '#F4F6F8' : '#F4F6F8',
+                          border: `1px solid ${urgent ? '#F5A300' : '#F4F6F8'}`,
                           borderRadius: '8px',
                           padding: '0.55rem 0.7rem',
                         }}
@@ -1478,7 +1478,7 @@ export default function AdminPage() {
                           style={{
                             fontSize: '0.72rem',
                             fontWeight: 700,
-                            color: urgent ? '#92400e' : '#475569',
+                            color: urgent ? '#F5A300' : '#0B2F6B',
                             whiteSpace: 'nowrap',
                           }}
                         >
@@ -1514,8 +1514,8 @@ export default function AdminPage() {
                         width: '100%',
                         padding: '0.58rem',
                         borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                        backgroundColor: '#f8fafc',
+                        border: '1px solid rgba(11, 47, 107, 0.16)',
+                        backgroundColor: '#F4F6F8',
                         cursor: 'pointer',
                         textAlign: 'left',
                       }}
@@ -1525,7 +1525,7 @@ export default function AdminPage() {
                         <div style={{ fontWeight: '700', color: ENTERPRISE_THEME.colors.text, marginBottom: '0.15rem', fontSize: '0.82rem' }}>{item.title}</div>
                         <div style={{ color: ENTERPRISE_THEME.colors.muted, fontSize: '0.76rem' }}>{item.meta}</div>
                       </div>
-                      <div style={{ color: '#94a3b8', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>{formatTimestamp(item.date)}</div>
+                      <div style={{ color: '#0B2F6B', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>{formatTimestamp(item.date)}</div>
                     </button>
                   ))}
                 </div>
@@ -1535,14 +1535,14 @@ export default function AdminPage() {
 
           <style jsx>{`
             .nav-item:hover {
-              background-color: #f1f5f9;
+              background-color: #0B2F6B;
             }
             .panel-button:hover {
               filter: brightness(0.98);
             }
             .activity-row:hover,
             .module-card:hover {
-              background-color: #f8fafc;
+              background-color: #0B2F6B;
             }
           `}</style>
         </main>

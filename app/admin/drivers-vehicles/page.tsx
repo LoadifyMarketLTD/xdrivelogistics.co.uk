@@ -19,8 +19,8 @@ export default function DriversVehiclesRedirectPage() {
   }, [router]);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: '#6b7280', fontSize: '0.95rem' }}>Redirecting to Drivers…</p>
+    <div style={{ minHeight: '100vh', background: '#F4F6F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p style={{ color: '#0B2F6B', fontSize: '0.95rem' }}>Redirecting to Drivers…</p>
     </div>
   );
 }

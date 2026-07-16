@@ -18,7 +18,7 @@ export default function Toast({ message, type = 'success', onClose, duration = 3
     return () => clearTimeout(timer);
   }, [onClose, duration]);
 
-  const backgroundColor = type === 'success' ? '#1E7A3E' : type === 'error' ? '#dc2626' : '#2563eb';
+  const backgroundColor = type === 'success' ? '#1D57D8' : type === 'error' ? '#F5A300' : '#1D57D8';
 
   return (
     <div
@@ -30,7 +30,7 @@ export default function Toast({ message, type = 'success', onClose, duration = 3
         color: 'white',
         padding: '16px 24px',
         borderRadius: '10px',
-        boxShadow: '0 14px 40px rgba(10,40,90,0.3)',
+        boxShadow: '0 14px 40px rgba(11, 47, 107, 0.3)',
         zIndex: 9999,
         maxWidth: '320px',
         animation: 'slideIn 0.3s ease-out',

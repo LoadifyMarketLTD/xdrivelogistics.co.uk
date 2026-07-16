@@ -56,7 +56,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
         alignItems: 'center',
         minHeight: '100vh',
         fontSize: '1.25rem',
-        color: '#2563eb'
+        color: '#1D57D8'
       }}>
         Loading...
       </div>

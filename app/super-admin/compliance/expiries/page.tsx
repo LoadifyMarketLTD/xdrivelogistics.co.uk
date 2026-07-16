@@ -33,7 +33,7 @@ export default function Page() {
           render: (row) => (
             <div>
               <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>{row.entity_name}</div>
-              <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{row.entity_type}</div>
+              <div style={{ fontSize: '0.68rem', color: '#0B2F6B' }}>{row.entity_type}</div>
             </div>
           ),
         },
@@ -56,7 +56,7 @@ export default function Page() {
           key: 'expiry_date',
           label: 'Expiry Date',
           render: (row) => (
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: row.is_expired ? '#ef4444' : row.expires_soon ? '#f59e0b' : '#f1f5f9' }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: row.is_expired ? '#F5A300' : row.expires_soon ? '#F5A300' : '#F4F6F8' }}>
               {row.expiry_date}
             </span>
           ),
@@ -67,7 +67,7 @@ export default function Page() {
           render: (row) => (
             <span style={{
               fontSize: '0.8rem', fontWeight: 700,
-              color: row.is_expired ? '#ef4444' : row.days_until_expiry <= 7 ? '#ef4444' : row.days_until_expiry <= 30 ? '#f59e0b' : '#22c55e',
+              color: row.is_expired ? '#F5A300' : row.days_until_expiry <= 7 ? '#F5A300' : row.days_until_expiry <= 30 ? '#F5A300' : '#1D57D8',
             }}>
               {row.is_expired ? `${Math.abs(row.days_until_expiry)}d ago` : `${row.days_until_expiry}d`}
             </span>

@@ -28,19 +28,19 @@ const DOC_TYPES = [
 ];
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  pending:  { bg: '#fef3c7', text: '#92400e' },
-  approved: { bg: '#d1fae5', text: '#065f46' },
-  rejected: { bg: '#fee2e2', text: '#991b1b' },
-  expired:  { bg: '#f3f4f6', text: '#6b7280' },
+  pending:  { bg: '#F4F6F8', text: '#F5A300' },
+  approved: { bg: '#F4F6F8', text: '#0B2F6B' },
+  rejected: { bg: '#F4F6F8', text: '#F5A300' },
+  expired:  { bg: '#F4F6F8', text: '#0B2F6B' },
 };
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '0.6rem 0.75rem', border: '1px solid #d1d5db',
+  width: '100%', padding: '0.6rem 0.75rem', border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '8px', fontSize: '0.9rem', boxSizing: 'border-box',
 };
 const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: '0.82rem', fontWeight: 600,
-  color: '#374151', marginBottom: '0.35rem',
+  color: '#1A1F2B', marginBottom: '0.35rem',
 };
 
 export default function DriverDocumentsPage() {
@@ -158,9 +158,9 @@ export default function DriverDocumentsPage() {
   };
 
   const cardStyle: React.CSSProperties = {
-    backgroundColor: '#ffffff', border: '1px solid #d7e0ea',
+    backgroundColor: '#FFFFFF', border: '1px solid rgba(11, 47, 107, 0.16)',
     borderRadius: '12px', padding: '1.25rem',
-    boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+    boxShadow: '0 2px 8px rgba(26, 31, 43, 0.06)',
   };
 
   return (
@@ -171,14 +171,14 @@ export default function DriverDocumentsPage() {
           {/* Header */}
           <div style={{ ...cardStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
-              <h1 style={{ margin: 0, fontSize: '1.35rem', color: '#0f172a' }}>🗂️ My Documents</h1>
-              <p style={{ margin: '0.3rem 0 0', fontSize: '0.86rem', color: '#64748b' }}>
+              <h1 style={{ margin: 0, fontSize: '1.35rem', color: '#1A1F2B' }}>🗂️ My Documents</h1>
+              <p style={{ margin: '0.3rem 0 0', fontSize: '0.86rem', color: '#0B2F6B' }}>
                 Upload your licence, insurance, DBS and other compliance documents for admin review.
               </p>
             </div>
             <button
               onClick={() => { setShowUpload(v => !v); setUploadError(''); setUploadSuccess(''); }}
-              style={{ padding: '0.6rem 1.1rem', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}
+              style={{ padding: '0.6rem 1.1rem', background: '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}
             >
               {showUpload ? '✕ Cancel' : '+ Upload Document'}
             </button>
@@ -186,15 +186,15 @@ export default function DriverDocumentsPage() {
 
           {/* Upload Form */}
           {showUpload && (
-            <div style={{ ...cardStyle, border: '1px solid #bfdbfe', background: '#eff6ff' }}>
-              <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: 700, color: '#1e40af' }}>📤 Upload New Document</h2>
+            <div style={{ ...cardStyle, border: '1px solid rgba(11, 47, 107, 0.16)', background: '#F4F6F8' }}>
+              <h2 style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: 700, color: '#1D57D8' }}>📤 Upload New Document</h2>
               {uploadError && (
-                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.7rem', marginBottom: '0.85rem', color: '#dc2626', fontSize: '0.88rem' }}>
+                <div style={{ background: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '0.7rem', marginBottom: '0.85rem', color: '#1A1F2B', fontSize: '0.88rem' }}>
                   {uploadError}
                 </div>
               )}
               {uploadSuccess && (
-                <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: '8px', padding: '0.7rem', marginBottom: '0.85rem', color: '#14532d', fontWeight: 600, fontSize: '0.88rem' }}>
+                <div style={{ background: '#F4F6F8', border: '1px solid #1D57D8', borderRadius: '8px', padding: '0.7rem', marginBottom: '0.85rem', color: '#1D57D8', fontWeight: 600, fontSize: '0.88rem' }}>
                   ✅ {uploadSuccess}
                 </div>
               )}
@@ -228,7 +228,7 @@ export default function DriverDocumentsPage() {
                 <button
                   onClick={() => { void handleUpload(); }}
                   disabled={uploading || !file}
-                  style={{ padding: '0.7rem 1rem', background: uploading || !file ? '#93c5fd' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: uploading || !file ? 'not-allowed' : 'pointer' }}
+                  style={{ padding: '0.7rem 1rem', background: uploading || !file ? '#F4F6F8' : '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: uploading || !file ? 'not-allowed' : 'pointer' }}
                 >
                   {uploading ? 'Uploading…' : 'Submit Document'}
                 </button>
@@ -238,9 +238,9 @@ export default function DriverDocumentsPage() {
 
           {/* Document List */}
           {loading ? (
-            <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: '2rem' }}>Loading documents…</div>
+            <div style={{ ...cardStyle, textAlign: 'center', color: '#0B2F6B', padding: '2rem' }}>Loading documents…</div>
           ) : docs.length === 0 ? (
-            <div style={{ ...cardStyle, textAlign: 'center', color: '#64748b', padding: '2rem' }}>
+            <div style={{ ...cardStyle, textAlign: 'center', color: '#0B2F6B', padding: '2rem' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📋</div>
               <div style={{ fontWeight: 700, marginBottom: '0.3rem' }}>No documents uploaded yet</div>
               <div style={{ fontSize: '0.86rem' }}>Click &quot;Upload Document&quot; above to submit your compliance paperwork.</div>
@@ -249,9 +249,9 @@ export default function DriverDocumentsPage() {
             <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+                  <tr style={{ background: '#F4F6F8', borderBottom: '1px solid rgba(11, 47, 107, 0.16)' }}>
                     {['Document', 'Issued', 'Expires', 'Status', 'Actions'].map(h => (
-                      <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.78rem', color: '#64748b', fontWeight: 700 }}>{h}</th>
+                      <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.78rem', color: '#0B2F6B', fontWeight: 700 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -259,12 +259,12 @@ export default function DriverDocumentsPage() {
                   {docs.map((doc, i) => {
                     const sc = STATUS_COLORS[doc.status] ?? STATUS_COLORS.pending;
                     return (
-                      <tr key={doc.id} style={{ borderBottom: i < docs.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                      <tr key={doc.id} style={{ borderBottom: i < docs.length - 1 ? '1px solid #F4F6F8' : 'none' }}>
                         <td style={{ padding: '0.75rem 1rem', fontWeight: 600, fontSize: '0.88rem' }}>{doc.doc_type}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#64748b' }}>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#0B2F6B' }}>
                           {doc.issued_date ? new Date(doc.issued_date).toLocaleDateString('en-GB') : '—'}
                         </td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: doc.expiry_date && new Date(doc.expiry_date) < new Date() ? '#dc2626' : '#64748b' }}>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: doc.expiry_date && new Date(doc.expiry_date) < new Date() ? '#F5A300' : '#0B2F6B' }}>
                           {doc.expiry_date ? new Date(doc.expiry_date).toLocaleDateString('en-GB') : '—'}
                         </td>
                         <td style={{ padding: '0.75rem 1rem' }}>
@@ -272,7 +272,7 @@ export default function DriverDocumentsPage() {
                             {doc.status}
                           </span>
                           {doc.rejection_reason && (
-                            <div style={{ fontSize: '0.74rem', color: '#991b1b', marginTop: '0.2rem' }}>
+                            <div style={{ fontSize: '0.74rem', color: '#1A1F2B', marginTop: '0.2rem' }}>
                               ⚠️ {doc.rejection_reason}
                             </div>
                           )}
@@ -281,12 +281,12 @@ export default function DriverDocumentsPage() {
                           {doc.file_path ? (
                             <button
                               onClick={() => { void getSignedUrl(doc.file_path!, doc.id); }}
-                              style={{ padding: '0.3rem 0.65rem', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem' }}
+                              style={{ padding: '0.3rem 0.65rem', background: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1D57D8', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem' }}
                             >
                               View
                             </button>
                           ) : (
-                            <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>No file</span>
+                            <span style={{ fontSize: '0.8rem', color: '#0B2F6B' }}>No file</span>
                           )}
                         </td>
                       </tr>
@@ -297,7 +297,7 @@ export default function DriverDocumentsPage() {
             </div>
           )}
 
-          <div style={{ fontSize: '0.8rem', color: '#94a3b8', textAlign: 'center' }}>
+          <div style={{ fontSize: '0.8rem', color: '#0B2F6B', textAlign: 'center' }}>
             Signed in as {user?.email ?? '—'} · Documents are reviewed by your dispatcher within 1–2 business days
           </div>
         </div>
@@ -305,4 +305,3 @@ export default function DriverDocumentsPage() {
     </ProtectedRoute>
   );
 }
-

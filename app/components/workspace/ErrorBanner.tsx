@@ -3,12 +3,12 @@
 import type { CSSProperties } from 'react';
 
 const style: CSSProperties = {
-  backgroundColor: '#fef2f2',
-  border: '1px solid #fca5a5',
+  backgroundColor: 'rgba(245, 163, 0, 0.14)',
+  border: '1px solid #F5A300',
   borderRadius: '8px',
   padding: '0.75rem 1rem',
   marginBottom: '1rem',
-  color: '#991b1b',
+  color: '#1A1F2B',
   fontSize: '0.88rem',
 };
 

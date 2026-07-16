@@ -62,7 +62,7 @@ export default function Page() {
           key: 'transition',
           label: 'Status Change',
           render: (row) => (
-            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+            <span style={{ fontSize: '0.75rem', color: '#0B2F6B' }}>
               {row.old_status} → {row.new_status}
             </span>
           ),
@@ -71,7 +71,7 @@ export default function Page() {
           key: 'reason',
           label: 'Reason',
           render: (row) => (
-            <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{row.reason}</span>
+            <span style={{ fontSize: '0.75rem', color: '#0B2F6B' }}>{row.reason}</span>
           ),
         },
       ]}

@@ -147,7 +147,7 @@ export default function SuperAdminModulePage({
         {children ?? (
           <div style={{ ...superAdminCardStyle, padding: '1rem' }}>
             {dataError && (
-              <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: '8px', padding: '0.65rem 0.9rem', color: '#ef4444', fontSize: '0.82rem', marginBottom: '1rem' }}>
+              <div style={{ backgroundColor: 'rgba(245, 163, 0, 0.1)', border: '1px solid #F5A300', borderRadius: '8px', padding: '0.65rem 0.9rem', color: '#1A1F2B', fontSize: '0.82rem', marginBottom: '1rem' }}>
                 ⚠️ {dataError}
               </div>
             )}
@@ -161,7 +161,7 @@ export default function SuperAdminModulePage({
                 { label: 'Drivers', value: stats?.driversTotal ?? '—' },
                 { label: 'Unpaid invoices', value: stats?.invoicesUnpaid ?? '—' },
               ].map((item) => (
-                <div key={item.label} style={{ backgroundColor: '#f8fafc', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem' }}>
+                <div key={item.label} style={{ backgroundColor: '#F4F6F8', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem' }}>
                   <div style={{ color: THEME.text, fontSize: '1rem', fontWeight: 700 }}>{loading ? '…' : item.value}</div>
                   <div style={{ color: THEME.muted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</div>
                 </div>
@@ -169,7 +169,7 @@ export default function SuperAdminModulePage({
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.75rem' }}>
-              <div style={{ backgroundColor: '#f8fafc', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
+              <div style={{ backgroundColor: '#F4F6F8', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
                 <h3 style={{ margin: '0 0 0.5rem', color: THEME.text, fontSize: '0.84rem' }}>Recent platform jobs</h3>
                 {loading ? (
                   <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>Loading…</div>
@@ -192,7 +192,7 @@ export default function SuperAdminModulePage({
                 )}
               </div>
 
-              <div style={{ backgroundColor: '#f8fafc', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
+              <div style={{ backgroundColor: '#F4F6F8', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
                 <h3 style={{ margin: '0 0 0.5rem', color: THEME.text, fontSize: '0.84rem' }}>Recent quote requests</h3>
                 {loading ? (
                   <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>Loading…</div>
@@ -229,7 +229,7 @@ export function BackToSuperAdminButton() {
   return (
     <button
       onClick={() => router.push('/super-admin')}
-      style={{ padding: '0.5rem 1rem', backgroundColor: THEME.accent, color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
+      style={{ padding: '0.5rem 1rem', backgroundColor: THEME.accent, color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
     >
       ← Back to Dashboard
     </button>

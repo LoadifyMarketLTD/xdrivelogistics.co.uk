@@ -417,8 +417,19 @@ export const resolveAuthenticatedUser = async (
         };
       }
 
+      // Only company owners/admins can read the companies row under RLS
+      // (companies_select_* policies). Dispatchers, company staff and other
+      // non-owner members receive no row (data === null) even though the
+      // company is perfectly valid. Historically this block treated the
+      // absent row as "not active" and returned account_blocked, which locked
+      // every dispatcher / company_staff / member out of their workspace.
+      //
+      // Only block when we can POSITIVELY read a non-active status. An absent
+      // or unreadable row is not treated as blocked here — the row is still
+      // protected by RLS and the route is still enforced server-side in
+      // middleware, so this does not weaken backend security.
       const companyStatus = String(companyStatusRes.data?.status ?? '').trim().toLowerCase();
-      if (companyStatus !== 'active') {
+      if (companyStatusRes.data && companyStatus && companyStatus !== 'active') {
         console.debug('[XDrive Auth] auth resolution failed', {
           reason: 'account_blocked',
           userId: sessionUser.id,

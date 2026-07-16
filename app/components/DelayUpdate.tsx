@@ -38,19 +38,19 @@ export default function DelayUpdate({ jobRef, onSend, onCancel }: DelayUpdatePro
       backgroundColor: 'white',
       padding: '1rem',
       borderRadius: '8px',
-      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+      boxShadow: '0 1px 3px rgba(26, 31, 43, 0.1)'
     }}>
       <h3 style={{
         fontSize: '1rem',
         fontWeight: '600',
-        color: '#1f2937',
+        color: '#0B2F6B',
         marginBottom: '0.25rem'
       }}>
         Send Delay Update
       </h3>
       <p style={{
         fontSize: '0.875rem',
-        color: '#6b7280',
+        color: '#0B2F6B',
         marginBottom: '1rem'
       }}>
         {jobRef}
@@ -62,7 +62,7 @@ export default function DelayUpdate({ jobRef, onSend, onCancel }: DelayUpdatePro
           display: 'block',
           fontSize: '0.875rem',
           fontWeight: '500',
-          color: '#374151',
+          color: '#1A1F2B',
           marginBottom: '0.5rem'
         }}>
           Estimated Delay
@@ -77,9 +77,9 @@ export default function DelayUpdate({ jobRef, onSend, onCancel }: DelayUpdatePro
               key={option.minutes}
               onClick={() => setSelectedDelay(option.minutes)}
               style={{
-                backgroundColor: selectedDelay === option.minutes ? '#3b82f6' : '#f3f4f6',
-                color: selectedDelay === option.minutes ? 'white' : '#374151',
-                border: selectedDelay === option.minutes ? '2px solid #2563eb' : '2px solid #e5e7eb',
+                backgroundColor: selectedDelay === option.minutes ? '#1D57D8' : '#F4F6F8',
+                color: selectedDelay === option.minutes ? 'white' : '#1A1F2B',
+                border: selectedDelay === option.minutes ? '2px solid #1D57D8' : '2px solid #F4F6F8',
                 borderRadius: '8px',
                 padding: '0.875rem',
                 fontSize: '1rem',
@@ -101,7 +101,7 @@ export default function DelayUpdate({ jobRef, onSend, onCancel }: DelayUpdatePro
           display: 'block',
           fontSize: '0.875rem',
           fontWeight: '500',
-          color: '#374151',
+          color: '#1A1F2B',
           marginBottom: '0.5rem'
         }}>
           Reason for Delay
@@ -114,7 +114,7 @@ export default function DelayUpdate({ jobRef, onSend, onCancel }: DelayUpdatePro
           style={{
             width: '100%',
             padding: '0.75rem',
-            border: '1px solid #d1d5db',
+            border: '1px solid #F4F6F8',
             borderRadius: '6px',
             fontSize: '1rem',
             resize: 'vertical',
@@ -133,8 +133,8 @@ export default function DelayUpdate({ jobRef, onSend, onCancel }: DelayUpdatePro
           <button
             onClick={onCancel}
             style={{
-              backgroundColor: '#f3f4f6',
-              color: '#374151',
+              backgroundColor: '#F4F6F8',
+              color: '#1A1F2B',
               border: 'none',
               borderRadius: '8px',
               padding: '0.75rem',
@@ -150,8 +150,8 @@ export default function DelayUpdate({ jobRef, onSend, onCancel }: DelayUpdatePro
         <button
           onClick={handleSend}
           style={{
-            backgroundColor: '#f59e0b',
-            color: 'white',
+            backgroundColor: '#F5A300',
+            color: '#1A1F2B',
             border: 'none',
             borderRadius: '8px',
             padding: '0.75rem',

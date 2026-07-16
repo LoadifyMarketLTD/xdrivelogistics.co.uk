@@ -17,49 +17,49 @@ const ROLES = [
     label: '👑 Platform Owner',
     description: 'Full super-admin access. Can approve/suspend companies, view all data, manage all platform settings.',
     scopes: ['super-admin/*', 'all companies', 'all users', 'all finance', 'all compliance', 'audit logs', 'feature flags'],
-    color: '#f59e0b',
+    color: '#1A1F2B',
   },
   {
     role: 'company_admin',
     label: '🏢 Company Admin',
     description: 'Manages their own company — drivers, vehicles, jobs, invoices, dispatchers.',
     scopes: ['company/drivers', 'company/vehicles', 'company/jobs', 'company/invoices', 'company/dispatchers'],
-    color: '#3b82f6',
+    color: '#1D57D8',
   },
   {
     role: 'admin_staff',
     label: '👔 Admin Staff',
     description: 'Company staff with administrative access. Can manage jobs and drivers within their company.',
     scopes: ['company/jobs', 'company/drivers', 'company/vehicles'],
-    color: '#8b5cf6',
+    color: '#1D57D8',
   },
   {
     role: 'dispatcher',
     label: '📡 Dispatcher',
     description: 'Assigns jobs to drivers, monitors active deliveries, manages job workflows.',
     scopes: ['dispatch/jobs', 'dispatch/allocations', 'dispatch/tracking'],
-    color: '#06b6d4',
+    color: '#1D57D8',
   },
   {
     role: 'driver',
     label: '🚚 Driver',
     description: 'Accepts and manages own job assignments. Can capture POD and update delivery status.',
     scopes: ['driver/jobs', 'driver/pod', 'driver/profile'],
-    color: '#22c55e',
+    color: '#1D57D8',
   },
   {
     role: 'customer',
     label: '📦 Customer',
     description: 'Can submit quote requests and track their own shipments.',
     scopes: ['quotes/request', 'quotes/track'],
-    color: '#94a3b8',
+    color: '#0B2F6B',
   },
   {
     role: 'viewer',
     label: '👁️ Viewer',
     description: 'Read-only access to assigned company resources.',
     scopes: ['read-only'],
-    color: '#475569',
+    color: '#0B2F6B',
   },
 ] as const;
 
@@ -72,7 +72,7 @@ export default function Page() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Roles &amp; Permissions</h1>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Settings</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245, 163, 0, 0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Settings</span>
             </div>
             <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>Platform role model and permission matrix. {ROLES.length} canonical roles defined.</p>
           </div>
@@ -89,7 +89,7 @@ export default function Page() {
                 <span style={{ color: role.color, fontWeight: 700, fontSize: '0.88rem' }}>
                   {role.label.split(' ').slice(1).join(' ')}
                 </span>
-                <span style={{ fontSize: '0.65rem', fontFamily: 'monospace', color: '#475569', backgroundColor: '#0b1220', padding: '0.15rem 0.45rem', borderRadius: '3px', marginLeft: 'auto' }}>
+                <span style={{ fontSize: '0.65rem', fontFamily: 'monospace', color: '#0B2F6B', backgroundColor: '#1A1F2B', padding: '0.15rem 0.45rem', borderRadius: '3px', marginLeft: 'auto' }}>
                   {role.role}
                 </span>
               </div>
@@ -98,7 +98,7 @@ export default function Page() {
                 {role.scopes.map((scope) => (
                   <span
                     key={scope}
-                    style={{ fontSize: '0.65rem', backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, color: '#94a3b8', padding: '0.15rem 0.45rem', borderRadius: '4px' }}
+                    style={{ fontSize: '0.65rem', backgroundColor: '#1A1F2B', border: `1px solid ${THEME.cardBorder}`, color: '#0B2F6B', padding: '0.15rem 0.45rem', borderRadius: '4px' }}
                   >
                     {scope}
                   </span>

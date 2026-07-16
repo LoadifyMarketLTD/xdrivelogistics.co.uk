@@ -72,7 +72,7 @@ export default function InvoiceTemplate({
   };
 
   const headerStyle: React.CSSProperties = {
-    backgroundColor: '#0A2239',
+    backgroundColor: '#1A1F2B',
     color: 'white',
     padding: '2rem',
     marginBottom: '2rem',
@@ -85,7 +85,7 @@ export default function InvoiceTemplate({
 
   const labelStyle: React.CSSProperties = {
     fontSize: '0.85rem',
-    color: '#6b7280',
+    color: '#0B2F6B',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
@@ -94,7 +94,7 @@ export default function InvoiceTemplate({
 
   const valueStyle: React.CSSProperties = {
     fontSize: '1rem',
-    color: '#1f2937',
+    color: '#0B2F6B',
     marginBottom: '1rem',
   };
 
@@ -105,19 +105,19 @@ export default function InvoiceTemplate({
   };
 
   const thStyle: React.CSSProperties = {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F4F6F8',
     padding: '0.75rem',
     textAlign: 'left',
     fontSize: '0.875rem',
     fontWeight: '600',
-    color: '#374151',
-    borderBottom: '2px solid #e5e7eb',
+    color: '#1A1F2B',
+    borderBottom: '2px solid #F4F6F8',
   };
 
   const tdStyle: React.CSSProperties = {
     padding: '0.75rem',
-    borderBottom: '1px solid #e5e7eb',
-    color: '#1f2937',
+    borderBottom: '1px solid #F4F6F8',
+    color: '#0B2F6B',
   };
 
   const printStyles = `
@@ -198,17 +198,17 @@ export default function InvoiceTemplate({
                 fontSize: '0.875rem',
                 fontWeight: '600',
                 backgroundColor: 
-                  statusLabel === 'Paid' ? '#d1fae5' :
-                  statusLabel === 'Sent' ? '#e0e7ff' :
-                  statusLabel === 'Disputed' ? '#fce7f3' :
-                  statusLabel === 'Draft' ? '#fef3c7' :
-                  statusLabel === 'Cancelled' ? '#e2e8f0' : '#fee2e2',
+                  statusLabel === 'Paid' ? '#F4F6F8' :
+                  statusLabel === 'Sent' ? '#F4F6F8' :
+                  statusLabel === 'Disputed' ? '#F4F6F8' :
+                  statusLabel === 'Draft' ? '#F4F6F8' :
+                  statusLabel === 'Cancelled' ? '#F4F6F8' : '#F4F6F8',
                 color:
-                  statusLabel === 'Paid' ? '#065f46' :
-                  statusLabel === 'Sent' ? '#3730a3' :
-                  statusLabel === 'Disputed' ? '#9d174d' :
-                  statusLabel === 'Draft' ? '#92400e' :
-                  statusLabel === 'Cancelled' ? '#475569' : '#991b1b',
+                  statusLabel === 'Paid' ? '#0B2F6B' :
+                  statusLabel === 'Sent' ? '#1D57D8' :
+                  statusLabel === 'Disputed' ? '#F5A300' :
+                  statusLabel === 'Draft' ? '#F5A300' :
+                  statusLabel === 'Cancelled' ? '#0B2F6B' : '#F5A300',
               }}>
                 {statusLabel}
               </div>
@@ -238,7 +238,7 @@ export default function InvoiceTemplate({
             <div style={labelStyle}>Pickup</div>
             <div style={valueStyle}>
               <div>{invoice.pickupLocation}</div>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+              <div style={{ fontSize: '0.875rem', color: '#0B2F6B' }}>
                 {new Date(invoice.pickupDateTime).toLocaleString('en-GB')}
               </div>
             </div>
@@ -248,10 +248,10 @@ export default function InvoiceTemplate({
             <div style={labelStyle}>Delivery</div>
             <div style={valueStyle}>
               <div>{invoice.deliveryLocation}</div>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+              <div style={{ fontSize: '0.875rem', color: '#0B2F6B' }}>
                 {new Date(invoice.deliveryDateTime).toLocaleString('en-GB')}
               </div>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+              <div style={{ fontSize: '0.875rem', color: '#0B2F6B' }}>
                 Recipient: {invoice.deliveryRecipient}
               </div>
             </div>
@@ -282,24 +282,24 @@ export default function InvoiceTemplate({
         </div>
 
         {/* VAT Breakdown */}
-        <div style={{ ...sectionStyle, backgroundColor: '#f9fafb', padding: '1.5rem', borderRadius: '8px', marginTop: '1rem' }}>
-          <div style={{ ...labelStyle, fontSize: '1rem', marginBottom: '1rem', color: '#0A2239' }}>VAT Breakdown</div>
+        <div style={{ ...sectionStyle, backgroundColor: '#FFFFFF', padding: '1.5rem', borderRadius: '8px', marginTop: '1rem' }}>
+          <div style={{ ...labelStyle, fontSize: '1rem', marginBottom: '1rem', color: '#1A1F2B' }}>VAT Breakdown</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.95rem', color: '#374151' }}>Net Amount</span>
-              <span style={{ fontSize: '0.95rem', fontWeight: '600', color: '#1f2937' }}>
+              <span style={{ fontSize: '0.95rem', color: '#1A1F2B' }}>Net Amount</span>
+              <span style={{ fontSize: '0.95rem', fontWeight: '600', color: '#0B2F6B' }}>
                 £{invoice.netAmount.toFixed(2)}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.95rem', color: '#374151' }}>VAT ({invoice.vatRate}%)</span>
-              <span style={{ fontSize: '0.95rem', fontWeight: '600', color: '#1f2937' }}>
+              <span style={{ fontSize: '0.95rem', color: '#1A1F2B' }}>VAT ({invoice.vatRate}%)</span>
+              <span style={{ fontSize: '0.95rem', fontWeight: '600', color: '#0B2F6B' }}>
                 £{invoice.vatAmount.toFixed(2)}
               </span>
             </div>
-            <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0A2239' }}>Total Amount</span>
-              <span style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1F7A3D' }}>
+            <div style={{ borderTop: '2px solid #F4F6F8', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '1.1rem', fontWeight: '700', color: '#1A1F2B' }}>Total Amount</span>
+              <span style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1D57D8' }}>
                 £{invoice.amount.toFixed(2)}
               </span>
             </div>
@@ -307,48 +307,48 @@ export default function InvoiceTemplate({
         </div>
 
         {/* Payment Terms & Due Date */}
-        <div style={{ ...sectionStyle, backgroundColor: '#fef3c7', padding: '1.5rem', borderRadius: '8px', marginTop: '1.5rem', border: '2px solid #f59e0b' }}>
+        <div style={{ ...sectionStyle, backgroundColor: '#F4F6F8', padding: '1.5rem', borderRadius: '8px', marginTop: '1.5rem', border: '2px solid #F5A300' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
-              <div style={{ ...labelStyle, color: '#92400e', marginBottom: '0.5rem' }}>Payment Terms</div>
-              <div style={{ fontSize: '1rem', fontWeight: '600', color: '#92400e' }}>
+              <div style={{ ...labelStyle, color: '#1A1F2B', marginBottom: '0.5rem' }}>Payment Terms</div>
+              <div style={{ fontSize: '1rem', fontWeight: '600', color: '#1A1F2B' }}>
                 {invoice.paymentTerms}
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ ...labelStyle, color: '#92400e', marginBottom: '0.5rem' }}>Payment Due Date</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#92400e' }}>
+              <div style={{ ...labelStyle, color: '#1A1F2B', marginBottom: '0.5rem' }}>Payment Due Date</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1A1F2B' }}>
                 {paymentDueDate.toLocaleDateString('en-GB')}
               </div>
             </div>
           </div>
-          <div style={{ fontSize: '0.875rem', color: '#92400e', marginTop: '1rem', fontWeight: '500' }}>
+          <div style={{ fontSize: '0.875rem', color: '#1A1F2B', marginTop: '1rem', fontWeight: '500' }}>
             {invoice.lateFee || COMPANY_CONFIG.payment.lateFeeAmount}
           </div>
         </div>
 
         {/* Payment Details */}
-        <div style={{ ...sectionStyle, borderTop: '2px solid #0A2239', paddingTop: '1.5rem', marginTop: '2rem' }}>
-          <div style={{ ...labelStyle, fontSize: '1.1rem', marginBottom: '1rem', color: '#0A2239' }}>Payment Methods</div>
+        <div style={{ ...sectionStyle, borderTop: '2px solid #1A1F2B', paddingTop: '1.5rem', marginTop: '2rem' }}>
+          <div style={{ ...labelStyle, fontSize: '1.1rem', marginBottom: '1rem', color: '#1A1F2B' }}>Payment Methods</div>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem' }}>
-            <div style={{ backgroundColor: '#f3f4f6', padding: '1.25rem', borderRadius: '8px' }}>
-              <div style={{ ...labelStyle, fontSize: '0.95rem', color: '#0A2239', marginBottom: '0.75rem' }}>Bank Transfer</div>
+            <div style={{ backgroundColor: '#F4F6F8', padding: '1.25rem', borderRadius: '8px' }}>
+              <div style={{ ...labelStyle, fontSize: '0.95rem', color: '#1A1F2B', marginBottom: '0.75rem' }}>Bank Transfer</div>
               {bankTransferConfigured ? (
-                <div style={{ fontSize: '0.95rem', color: '#1f2937', lineHeight: '1.8', fontWeight: '500' }}>
+                <div style={{ fontSize: '0.95rem', color: '#0B2F6B', lineHeight: '1.8', fontWeight: '500' }}>
                   <div style={{ marginBottom: '0.5rem' }}><strong>{companySettings.bankAccountName}</strong></div>
                   <div>Sort Code: <strong>{companySettings.bankSortCode}</strong></div>
                   <div>Account: <strong>{companySettings.bankAccountNumber}</strong></div>
                 </div>
               ) : (
-                <div style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: '500' }}>
+                <div style={{ fontSize: '0.95rem', color: '#0B2F6B', fontWeight: '500' }}>
                   Bank transfer details available on request.
                 </div>
               )}
             </div>
-            <div style={{ backgroundColor: '#f3f4f6', padding: '1.25rem', borderRadius: '8px' }}>
-              <div style={{ ...labelStyle, fontSize: '0.95rem', color: '#0A2239', marginBottom: '0.75rem' }}>PayPal</div>
-              <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: '500' }}>
+            <div style={{ backgroundColor: '#F4F6F8', padding: '1.25rem', borderRadius: '8px' }}>
+              <div style={{ ...labelStyle, fontSize: '0.95rem', color: '#1A1F2B', marginBottom: '0.75rem' }}>PayPal</div>
+              <div style={{ fontSize: '0.95rem', color: '#0B2F6B', fontWeight: '500' }}>
                 {companySettings.paypalEmail || 'PayPal details available on request.'}
               </div>
             </div>
@@ -357,13 +357,13 @@ export default function InvoiceTemplate({
 
         {/* Proof of Delivery Section */}
         {(invoice.podPhotos || invoice.signature || invoice.recipientName) && (
-          <div className="pod-section" style={{ ...sectionStyle, borderTop: '2px solid #0A2239', paddingTop: '1.5rem', marginTop: '2rem' }}>
-            <div style={{ ...labelStyle, fontSize: '1.1rem', marginBottom: '1rem', color: '#0A2239' }}>Proof of Delivery</div>
+          <div className="pod-section" style={{ ...sectionStyle, borderTop: '2px solid #1A1F2B', paddingTop: '1.5rem', marginTop: '2rem' }}>
+            <div style={{ ...labelStyle, fontSize: '1.1rem', marginBottom: '1rem', color: '#1A1F2B' }}>Proof of Delivery</div>
             
             {invoice.recipientName && (
               <div style={{ marginBottom: '1rem' }}>
                 <div style={{ ...labelStyle, fontSize: '0.9rem' }}>Received By</div>
-                <div style={{ fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
+                <div style={{ fontSize: '1rem', fontWeight: '600', color: '#0B2F6B' }}>
                   {invoice.recipientName}
                 </div>
               </div>
@@ -372,7 +372,7 @@ export default function InvoiceTemplate({
             {invoice.deliveryDateTime && (
               <div style={{ marginBottom: '1rem' }}>
                 <div style={{ ...labelStyle, fontSize: '0.9rem' }}>Delivered At</div>
-                <div style={{ fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
+                <div style={{ fontSize: '1rem', fontWeight: '600', color: '#0B2F6B' }}>
                   {new Date(invoice.deliveryDateTime).toLocaleString('en-GB')}
                 </div>
               </div>
@@ -387,7 +387,7 @@ export default function InvoiceTemplate({
                   style={{ 
                     maxWidth: '300px', 
                     maxHeight: '150px', 
-                    border: '1px solid #e5e7eb', 
+                    border: '1px solid rgba(11, 47, 107, 0.16)',
                     borderRadius: '4px',
                     backgroundColor: 'white'
                   }} 
@@ -413,7 +413,7 @@ export default function InvoiceTemplate({
                         width: '100%',
                         maxWidth: '200px',
                         height: 'auto',
-                        border: '1px solid #e5e7eb',
+                        border: '1px solid #F4F6F8',
                         borderRadius: '4px',
                         objectFit: 'cover'
                       }} 
@@ -426,11 +426,11 @@ export default function InvoiceTemplate({
         )}
 
         {/* Footer */}
-        <div style={{ ...sectionStyle, textAlign: 'center', paddingTop: '2rem', paddingBottom: '2rem', borderTop: '1px solid #e5e7eb', marginTop: '2rem' }}>
-          <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: 0 }}>
+        <div style={{ ...sectionStyle, textAlign: 'center', paddingTop: '2rem', paddingBottom: '2rem', borderTop: '1px solid #F4F6F8', marginTop: '2rem' }}>
+          <p style={{ fontSize: '0.875rem', color: '#0B2F6B', margin: 0 }}>
             Thank you for your business!
           </p>
-          <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: '0.5rem 0 0 0' }}>
+          <p style={{ fontSize: '0.875rem', color: '#0B2F6B', margin: '0.5rem 0 0 0' }}>
             For any queries, please contact us at {companySettings.email || COMPANY_CONFIG.email}
           </p>
         </div>

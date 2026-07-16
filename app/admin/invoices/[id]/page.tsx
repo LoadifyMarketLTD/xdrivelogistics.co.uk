@@ -558,7 +558,7 @@ export default function InvoiceDetailPage() {
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '0.75rem',
-    border: '2px solid #e5e7eb',
+    border: '2px solid rgba(11, 47, 107, 0.16)',
     borderRadius: '6px',
     fontSize: '0.95rem',
     outline: 'none',
@@ -569,7 +569,7 @@ export default function InvoiceDetailPage() {
     display: 'block',
     fontSize: '0.875rem',
     fontWeight: '600',
-    color: '#374151',
+    color: '#1A1F2B',
     marginBottom: '0.5rem',
   };
   const totalPaid = paymentHistory.reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -577,14 +577,14 @@ export default function InvoiceDetailPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#F4F6F8' }}>
         {/* Header */}
         <div
           style={{
-            backgroundColor: '#1e293b',
+            backgroundColor: '#0B2F6B',
             color: 'white',
             padding: '1.5rem 2rem',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+            boxShadow: '0 2px 8px rgba(26, 31, 43, 0.1)',
           }}
         >
           <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
@@ -639,7 +639,7 @@ export default function InvoiceDetailPage() {
                   padding: '1.5rem',
                   borderRadius: '12px',
                   marginBottom: '1.5rem',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                  boxShadow: '0 2px 8px rgba(26, 31, 43, 0.1)',
                 }}
               >
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -649,7 +649,7 @@ export default function InvoiceDetailPage() {
                       flex: 1,
                       minWidth: '120px',
                       padding: '0.75rem 1.5rem',
-                      backgroundColor: '#10b981',
+                      backgroundColor: '#1D57D8',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
@@ -658,8 +658,8 @@ export default function InvoiceDetailPage() {
                       cursor: 'pointer',
                       transition: 'background-color 0.2s',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1D57D8')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1D57D8')}
                   >
                     💾 Save Invoice
                   </button>
@@ -669,7 +669,7 @@ export default function InvoiceDetailPage() {
                       flex: 1,
                       minWidth: '120px',
                       padding: '0.75rem 1.5rem',
-                      backgroundColor: '#3b82f6',
+                      backgroundColor: '#1D57D8',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
@@ -678,8 +678,8 @@ export default function InvoiceDetailPage() {
                       cursor: 'pointer',
                       transition: 'background-color 0.2s',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2563eb')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#3b82f6')}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1D57D8')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1D57D8')}
                   >
                     👁️ {showPreview ? 'Hide' : 'Show'} Preview
                   </button>
@@ -687,7 +687,7 @@ export default function InvoiceDetailPage() {
                     onClick={() => void handleDownloadPdf()}
                     style={{
                       padding: '0.75rem 1.25rem',
-                      backgroundColor: '#6b7280',
+                      backgroundColor: '#0B2F6B',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
@@ -697,8 +697,8 @@ export default function InvoiceDetailPage() {
                       opacity: downloadingPdf ? 0.7 : 1,
                       transition: 'background-color 0.2s',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#4b5563')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#6b7280')}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0B2F6B')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0B2F6B')}
                     disabled={downloadingPdf}
                   >
                     {downloadingPdf ? '⏳ Preparing PDF…' : '⬇️ Download PDF'}
@@ -709,7 +709,7 @@ export default function InvoiceDetailPage() {
                       disabled={markingPaid}
                       style={{
                         padding: '0.75rem 1.25rem',
-                        backgroundColor: '#166534',
+                        backgroundColor: '#1D57D8',
                         color: 'white',
                         border: 'none',
                         borderRadius: '8px',
@@ -727,7 +727,7 @@ export default function InvoiceDetailPage() {
                     onClick={handleWhatsAppShare}
                     style={{
                       padding: '0.75rem 1.25rem',
-                      backgroundColor: '#25d366',
+                      backgroundColor: '#1D57D8',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
@@ -736,8 +736,8 @@ export default function InvoiceDetailPage() {
                       cursor: 'pointer',
                       transition: 'background-color 0.2s',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#20ba5a')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#25d366')}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1D57D8')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1D57D8')}
                   >
                     📱 WhatsApp
                   </button>
@@ -747,8 +747,8 @@ export default function InvoiceDetailPage() {
                     style={{
                       marginTop: '1rem',
                       padding: '0.75rem',
-                      backgroundColor: saveMessage.includes('Error') ? '#fee2e2' : '#d1fae5',
-                      color: saveMessage.includes('Error') ? '#991b1b' : '#065f46',
+                      backgroundColor: saveMessage.includes('Error') ? '#F4F6F8' : '#F4F6F8',
+                      color: saveMessage.includes('Error') ? '#F5A300' : '#0B2F6B',
                       borderRadius: '6px',
                       fontSize: '0.875rem',
                       fontWeight: '500',
@@ -760,8 +760,8 @@ export default function InvoiceDetailPage() {
                 )}
 
                 {!isNew && (
-                  <div style={{ marginTop: '1rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem', display: 'grid', gap: '0.75rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1rem', color: '#1f2937' }}>Finance Tracking (recording only)</h3>
+                  <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(11, 47, 107, 0.16)', paddingTop: '1rem', display: 'grid', gap: '0.75rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', color: '#0B2F6B' }}>Finance Tracking (recording only)</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.5rem' }}>
                       <input
                         type="number"
@@ -809,8 +809,8 @@ export default function InvoiceDetailPage() {
                         padding: '0.625rem 1rem',
                         borderRadius: '8px',
                         border: 'none',
-                        backgroundColor: '#0f766e',
-                        color: '#fff',
+                        backgroundColor: '#1D57D8',
+                        color: '#FFFFFF',
                         fontWeight: 600,
                         cursor: recordingPayment ? 'not-allowed' : 'pointer',
                         opacity: recordingPayment ? 0.7 : 1,
@@ -820,32 +820,32 @@ export default function InvoiceDetailPage() {
                     </button>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
-                      <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.75rem', maxHeight: '200px', overflowY: 'auto' }}>
+                      <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '0.75rem', maxHeight: '200px', overflowY: 'auto' }}>
                         <strong style={{ display: 'block', marginBottom: '0.5rem' }}>Status timeline</strong>
                         {statusHistory.length === 0 ? (
-                          <div style={{ color: '#64748b', fontSize: '0.875rem' }}>No status history yet.</div>
+                          <div style={{ color: '#0B2F6B', fontSize: '0.875rem' }}>No status history yet.</div>
                         ) : (
                           statusHistory.map((item) => (
-                            <div key={item.id} style={{ fontSize: '0.85rem', marginBottom: '0.5rem', color: '#334155' }}>
+                            <div key={item.id} style={{ fontSize: '0.85rem', marginBottom: '0.5rem', color: '#1D57D8' }}>
                               <div>
                                 {item.from_status ?? '—'} → <strong>{item.to_status}</strong>
                               </div>
-                              <div style={{ color: '#64748b' }}>{new Date(item.changed_at).toLocaleString('en-GB')}</div>
+                              <div style={{ color: '#0B2F6B' }}>{new Date(item.changed_at).toLocaleString('en-GB')}</div>
                             </div>
                           ))
                         )}
                       </div>
-                      <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.75rem', maxHeight: '200px', overflowY: 'auto' }}>
+                      <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '0.75rem', maxHeight: '200px', overflowY: 'auto' }}>
                         <strong style={{ display: 'block', marginBottom: '0.5rem' }}>Payment history</strong>
                         {paymentHistory.length === 0 ? (
-                          <div style={{ color: '#64748b', fontSize: '0.875rem' }}>No payments recorded yet.</div>
+                          <div style={{ color: '#0B2F6B', fontSize: '0.875rem' }}>No payments recorded yet.</div>
                         ) : (
                           paymentHistory.map((item) => (
-                            <div key={item.id} style={{ fontSize: '0.85rem', marginBottom: '0.5rem', color: '#334155' }}>
+                            <div key={item.id} style={{ fontSize: '0.85rem', marginBottom: '0.5rem', color: '#1D57D8' }}>
                               <div>
                                 <strong>£{Number(item.amount).toFixed(2)}</strong> — payment record method: {item.settlement_method}
                               </div>
-                              <div style={{ color: '#64748b' }}>{new Date(item.paid_at).toLocaleString('en-GB')}</div>
+                              <div style={{ color: '#0B2F6B' }}>{new Date(item.paid_at).toLocaleString('en-GB')}</div>
                             </div>
                           ))
                         )}
@@ -861,10 +861,10 @@ export default function InvoiceDetailPage() {
                   backgroundColor: 'white',
                   padding: '1.5rem',
                   borderRadius: '12px',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                  boxShadow: '0 2px 8px rgba(26, 31, 43, 0.1)',
                 }}
               >
-                <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0B2F6B', marginBottom: '1.5rem' }}>
                   Invoice Details
                 </h2>
 
@@ -875,7 +875,7 @@ export default function InvoiceDetailPage() {
                       type="text"
                       value={formData.invoiceNumber}
                       readOnly
-                      style={{ ...inputStyle, backgroundColor: '#f9fafb', cursor: 'not-allowed' }}
+                      style={{ ...inputStyle, backgroundColor: '#FFFFFF', cursor: 'not-allowed' }}
                     />
                   </div>
                   <div>
@@ -884,7 +884,7 @@ export default function InvoiceDetailPage() {
                       type="text"
                       value={formData.jobRef}
                       readOnly
-                      style={{ ...inputStyle, backgroundColor: '#f9fafb', cursor: 'not-allowed' }}
+                      style={{ ...inputStyle, backgroundColor: '#FFFFFF', cursor: 'not-allowed' }}
                     />
                   </div>
                   <div>
@@ -894,8 +894,8 @@ export default function InvoiceDetailPage() {
                       value={formData.date}
                       onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   </div>
                   <div>
@@ -916,7 +916,7 @@ export default function InvoiceDetailPage() {
                       type="date"
                       value={formData.dueDate}
                       readOnly
-                      style={{ ...inputStyle, backgroundColor: '#f9fafb', cursor: 'not-allowed' }}
+                      style={{ ...inputStyle, backgroundColor: '#FFFFFF', cursor: 'not-allowed' }}
                     />
                   </div>
                   <div>
@@ -933,7 +933,7 @@ export default function InvoiceDetailPage() {
                   </div>
                 </div>
 
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginTop: '1.5rem', marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#0B2F6B', marginTop: '1.5rem', marginBottom: '1rem' }}>
                   Client Details
                 </h3>
                 <div style={{ display: 'grid', gap: '1rem' }}>
@@ -945,8 +945,8 @@ export default function InvoiceDetailPage() {
                       onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
                       placeholder="Client Name"
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   </div>
                   <div>
@@ -957,8 +957,8 @@ export default function InvoiceDetailPage() {
                       placeholder="Full address"
                       rows={3}
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   </div>
                   <div>
@@ -969,13 +969,13 @@ export default function InvoiceDetailPage() {
                       onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
                       placeholder="client@example.com"
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   </div>
                 </div>
 
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginTop: '1.5rem', marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#0B2F6B', marginTop: '1.5rem', marginBottom: '1rem' }}>
                   Pickup Details
                 </h3>
                 <div style={{ display: 'grid', gap: '1rem' }}>
@@ -987,8 +987,8 @@ export default function InvoiceDetailPage() {
                       onChange={(e) => setFormData({ ...formData, pickupLocation: e.target.value })}
                       placeholder="Pickup address"
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   </div>
                   <div>
@@ -998,13 +998,13 @@ export default function InvoiceDetailPage() {
                       value={formData.pickupDateTime}
                       onChange={(e) => setFormData({ ...formData, pickupDateTime: e.target.value })}
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   </div>
                 </div>
 
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginTop: '1.5rem', marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#0B2F6B', marginTop: '1.5rem', marginBottom: '1rem' }}>
                   Delivery Details
                 </h3>
                 <div style={{ display: 'grid', gap: '1rem' }}>
@@ -1016,8 +1016,8 @@ export default function InvoiceDetailPage() {
                       onChange={(e) => setFormData({ ...formData, deliveryLocation: e.target.value })}
                       placeholder="Delivery address"
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   </div>
                   <div>
@@ -1027,8 +1027,8 @@ export default function InvoiceDetailPage() {
                       value={formData.deliveryDateTime}
                       onChange={(e) => setFormData({ ...formData, deliveryDateTime: e.target.value })}
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   </div>
                   <div>
@@ -1039,13 +1039,13 @@ export default function InvoiceDetailPage() {
                       onChange={(e) => setFormData({ ...formData, deliveryRecipient: e.target.value })}
                       placeholder="Recipient name"
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   </div>
                 </div>
 
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginTop: '1.5rem', marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#0B2F6B', marginTop: '1.5rem', marginBottom: '1rem' }}>
                   Service & Payment
                 </h3>
                 <div style={{ display: 'grid', gap: '1rem' }}>
@@ -1057,8 +1057,8 @@ export default function InvoiceDetailPage() {
                       placeholder="Description of courier service provided"
                       rows={3}
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
@@ -1083,28 +1083,28 @@ export default function InvoiceDetailPage() {
                         onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
                         placeholder="0.00"
                         style={inputStyle}
-                        onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                        onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                        onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                       />
                     </div>
                   </div>
-                  <div style={{ backgroundColor: '#f9fafb', padding: '1rem', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                  <div style={{ backgroundColor: '#FFFFFF', padding: '1rem', borderRadius: '6px', border: '1px solid rgba(11, 47, 107, 0.16)' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', fontSize: '0.95rem' }}>
                       <div>
-                        <span style={{ color: '#6b7280', fontWeight: '500' }}>Net Amount:</span>
-                        <span style={{ fontWeight: '600', color: '#1f2937', marginLeft: '0.5rem' }}>
+                        <span style={{ color: '#0B2F6B', fontWeight: '500' }}>Net Amount:</span>
+                        <span style={{ fontWeight: '600', color: '#0B2F6B', marginLeft: '0.5rem' }}>
                           £{formData.netAmount.toFixed(2)}
                         </span>
                       </div>
                       <div>
-                        <span style={{ color: '#6b7280', fontWeight: '500' }}>VAT ({formData.vatRate}%):</span>
-                        <span style={{ fontWeight: '600', color: '#1f2937', marginLeft: '0.5rem' }}>
+                        <span style={{ color: '#0B2F6B', fontWeight: '500' }}>VAT ({formData.vatRate}%):</span>
+                        <span style={{ fontWeight: '600', color: '#0B2F6B', marginLeft: '0.5rem' }}>
                           £{formData.vatAmount.toFixed(2)}
                         </span>
                       </div>
                       <div>
-                        <span style={{ color: '#6b7280', fontWeight: '500' }}>Total:</span>
-                        <span style={{ fontWeight: '700', color: '#10b981', marginLeft: '0.5rem' }}>
+                        <span style={{ color: '#0B2F6B', fontWeight: '500' }}>Total:</span>
+                        <span style={{ fontWeight: '700', color: '#1D57D8', marginLeft: '0.5rem' }}>
                           £{formData.amount.toFixed(2)}
                         </span>
                       </div>
@@ -1121,12 +1121,12 @@ export default function InvoiceDetailPage() {
                   style={{
                     backgroundColor: 'white',
                     borderRadius: '12px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    boxShadow: '0 2px 8px rgba(26, 31, 43, 0.1)',
                     overflow: 'hidden',
                   }}
                 >
-                  <div style={{ padding: '1.5rem', borderBottom: '2px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                    <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', margin: 0 }}>
+                  <div style={{ padding: '1.5rem', borderBottom: '2px solid rgba(11, 47, 107, 0.16)', backgroundColor: '#FFFFFF' }}>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0B2F6B', margin: 0 }}>
                       Invoice Preview
                     </h2>
                   </div>

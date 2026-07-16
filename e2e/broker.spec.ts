@@ -17,6 +17,9 @@ test.describe('Broker workspace', () => {
   test('broker dashboard loads', async ({ page }) => {
     await page.goto('/broker');
     await expect(page.locator('h1')).toContainText(/broker/i);
+    await expect(page.getByRole('navigation', { name: /broker workspace/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^loads$/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^fleet$/i })).toHaveCount(0);
   });
 
   test('load board page loads', async ({ page }) => {

@@ -276,7 +276,7 @@ export default function SettingsPage() {
   const inputStyle = {
     width: '100%',
     padding: '0.75rem',
-    border: '1px solid #d1d5db',
+    border: '1px solid rgba(11, 47, 107, 0.16)',
     borderRadius: '6px',
     fontSize: '0.95rem',
     boxSizing: 'border-box' as const,
@@ -287,7 +287,7 @@ export default function SettingsPage() {
     display: 'block',
     fontSize: '0.9rem',
     fontWeight: '500' as const,
-    color: '#374151',
+    color: '#1A1F2B',
     marginBottom: '0.5rem',
   };
 
@@ -301,10 +301,10 @@ export default function SettingsPage() {
   const sectionTitleStyle = {
     fontSize: '1rem',
     fontWeight: '600' as const,
-    color: '#1f2937',
+    color: '#0B2F6B',
     marginBottom: '1.25rem',
     paddingBottom: '0.5rem',
-    borderBottom: '1px solid #e5e7eb',
+    borderBottom: '1px solid rgba(11, 47, 107, 0.16)',
   };
 
   return (
@@ -314,10 +314,10 @@ export default function SettingsPage() {
           <WorkspaceContent>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
-            <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>
+            <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#0B2F6B', margin: '0 0 0.5rem 0' }}>
               Settings
             </h1>
-            <p style={{ color: '#6b7280', margin: 0 }}>
+            <p style={{ color: '#0B2F6B', margin: 0 }}>
               Configure system and company settings
             </p>
           </div>
@@ -326,8 +326,8 @@ export default function SettingsPage() {
             style={{
               padding: '0.75rem 1.5rem',
               backgroundColor: 'white',
-              color: '#0A2239',
-              border: '1px solid #d1d5db',
+              color: '#1A1F2B',
+              border: '1px solid rgba(11, 47, 107, 0.16)',
               borderRadius: '8px',
               fontSize: '0.95rem',
               fontWeight: '600',
@@ -335,12 +335,12 @@ export default function SettingsPage() {
               transition: 'all 0.2s',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#f9fafb';
-              e.currentTarget.style.borderColor = '#0A2239';
+              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.borderColor = '#1A1F2B';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'white';
-              e.currentTarget.style.borderColor = '#d1d5db';
+              e.currentTarget.style.borderColor = '#F4F6F8';
             }}
           >
             ← Back to Dashboard
@@ -349,12 +349,12 @@ export default function SettingsPage() {
 
         {saved && (
           <div style={{
-            backgroundColor: '#dcfce7',
-            border: '1px solid #1F7A3D',
+            backgroundColor: '#F4F6F8',
+            border: '1px solid #1D57D8',
             borderRadius: '8px',
             padding: '1rem 1.5rem',
             marginBottom: '1.5rem',
-            color: '#14532d',
+            color: '#1D57D8',
             fontWeight: '600',
             display: 'flex',
             alignItems: 'center',
@@ -368,12 +368,12 @@ export default function SettingsPage() {
 
         {!isSupabaseConfigured && (
           <div style={{
-            backgroundColor: '#fef3c7',
-            border: '1px solid #f59e0b',
+            backgroundColor: '#F4F6F8',
+            border: '1px solid #F5A300',
             borderRadius: '8px',
             padding: '1rem 1.5rem',
             marginBottom: '1.5rem',
-            color: '#92400e',
+            color: '#1A1F2B',
             fontWeight: '600',
           }}>
             Supabase is not configured. Settings are read-only until NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are available.
@@ -389,7 +389,7 @@ export default function SettingsPage() {
               flexShrink: 0,
               backgroundColor: 'white',
               borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              boxShadow: '0 2px 8px rgba(26, 31, 43, 0.1)',
               overflow: 'hidden',
             }}>
               {TABS.map((tab) => (
@@ -399,10 +399,10 @@ export default function SettingsPage() {
                   style={{
                     width: '100%',
                     padding: '1rem 1.25rem',
-                    backgroundColor: activeTab === tab.id ? '#f0fdf4' : 'transparent',
-                    color: activeTab === tab.id ? '#1F7A3D' : '#374151',
+                    backgroundColor: activeTab === tab.id ? '#F4F6F8' : 'transparent',
+                    color: activeTab === tab.id ? '#1D57D8' : '#1A1F2B',
                     border: 'none',
-                    borderLeft: activeTab === tab.id ? '4px solid #1F7A3D' : '4px solid transparent',
+                    borderLeft: activeTab === tab.id ? '4px solid #1D57D8' : '4px solid transparent',
                     textAlign: 'left',
                     cursor: 'pointer',
                     display: 'flex',
@@ -413,7 +413,7 @@ export default function SettingsPage() {
                     transition: 'all 0.2s',
                   }}
                   onMouseEnter={(e) => {
-                    if (activeTab !== tab.id) e.currentTarget.style.backgroundColor = '#f9fafb';
+                    if (activeTab !== tab.id) e.currentTarget.style.backgroundColor = '#FFFFFF';
                   }}
                   onMouseLeave={(e) => {
                     if (activeTab !== tab.id) e.currentTarget.style.backgroundColor = 'transparent';
@@ -425,7 +425,7 @@ export default function SettingsPage() {
               ))}
             </div>
 
-            <div style={{ flex: 1, backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '2rem' }}>
+            <div style={{ flex: 1, backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(26, 31, 43, 0.1)', padding: '2rem' }}>
               {activeTab === 'memberCompany' && (
                 <div>
                   <h2 style={sectionTitleStyle}>Company Information</h2>
@@ -530,24 +530,24 @@ export default function SettingsPage() {
                 <div>
                   <h2 style={sectionTitleStyle}>Account Details</h2>
                   <div style={{
-                    backgroundColor: '#f9fafb',
-                    border: '1px solid #e5e7eb',
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid rgba(11, 47, 107, 0.16)',
                     borderRadius: '8px',
                     padding: '1.25rem',
                     marginBottom: '1.5rem',
                   }}>
-                    <div style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: '0.25rem' }}>Logged in as</div>
-                    <div style={{ fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>{user?.email}</div>
+                    <div style={{ fontSize: '0.9rem', color: '#0B2F6B', marginBottom: '0.25rem' }}>Logged in as</div>
+                    <div style={{ fontSize: '1rem', fontWeight: '600', color: '#0B2F6B' }}>{user?.email}</div>
                   </div>
                   <div style={{ marginBottom: '1.25rem' }}>
                     <label style={labelStyle}>Email Address</label>
                     <input
                       type="email"
-                      style={{ ...inputStyle, backgroundColor: '#f9fafb', color: '#6b7280' }}
+                      style={{ ...inputStyle, backgroundColor: '#FFFFFF', color: '#0B2F6B' }}
                       value={user?.email || ''}
                       readOnly
                     />
-                    <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.25rem' }}>
+                    <p style={{ fontSize: '0.8rem', color: '#0B2F6B', marginTop: '0.25rem' }}>
                       Contact your administrator to change your email address.
                     </p>
                   </div>
@@ -578,7 +578,7 @@ export default function SettingsPage() {
                       disabled={changingPassword || !isSupabaseConfigured}
                       style={{
                         padding: '0.75rem 1.5rem',
-                        backgroundColor: changingPassword || !isSupabaseConfigured ? '#86efac' : '#1F7A3D',
+                        backgroundColor: changingPassword || !isSupabaseConfigured ? '#1D57D8' : '#1D57D8',
                         color: 'white',
                         border: 'none',
                         borderRadius: '8px',
@@ -596,7 +596,7 @@ export default function SettingsPage() {
               {activeTab === 'other' && (
                 <div>
                   <h2 style={sectionTitleStyle}>Email Notifications</h2>
-                  <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                  <p style={{ color: '#0B2F6B', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
                     Choose which events trigger an email notification.
                   </p>
                   {[
@@ -612,19 +612,19 @@ export default function SettingsPage() {
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         padding: '1rem',
-                        borderBottom: '1px solid #f3f4f6',
+                        borderBottom: '1px solid rgba(11, 47, 107, 0.16)',
                       }}
                     >
                       <div>
-                        <div style={{ fontWeight: '600', color: '#1f2937', fontSize: '0.95rem' }}>{item.label}</div>
-                        <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.2rem' }}>{item.description}</div>
+                        <div style={{ fontWeight: '600', color: '#0B2F6B', fontSize: '0.95rem' }}>{item.label}</div>
+                        <div style={{ fontSize: '0.85rem', color: '#0B2F6B', marginTop: '0.2rem' }}>{item.description}</div>
                       </div>
                       <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                         <input
                           type="checkbox"
                           checked={notifForm[item.key as keyof typeof notifForm]}
                           onChange={(e) => setNotifForm({ ...notifForm, [item.key]: e.target.checked })}
-                          style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#1F7A3D' }}
+                          style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#1D57D8' }}
                         />
                       </label>
                     </div>
@@ -724,13 +724,13 @@ export default function SettingsPage() {
                 <div>
                   <h2 style={sectionTitleStyle}>Help</h2>
                   <div style={{ display: 'grid', gap: '0.8rem' }}>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb' }}>
-                      <div style={{ fontWeight: 700, color: '#111827', marginBottom: '0.25rem' }}>Need operational help?</div>
-                      <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>Use Diary for live jobs, Fleet for locations, and Drivers & Vehicles for admin management.</div>
+                    <div style={{ border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '1rem', backgroundColor: '#FFFFFF' }}>
+                      <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.25rem' }}>Need operational help?</div>
+                      <div style={{ color: '#0B2F6B', fontSize: '0.9rem' }}>Use Diary for live jobs, Fleet for locations, and Drivers & Vehicles for admin management.</div>
                     </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb' }}>
-                      <div style={{ fontWeight: 700, color: '#111827', marginBottom: '0.25rem' }}>Support flow</div>
-                      <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>Collect screen details and route, then contact your internal support owner.</div>
+                    <div style={{ border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '1rem', backgroundColor: '#FFFFFF' }}>
+                      <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.25rem' }}>Support flow</div>
+                      <div style={{ color: '#0B2F6B', fontSize: '0.9rem' }}>Collect screen details and route, then contact your internal support owner.</div>
                     </div>
                   </div>
                 </div>
@@ -740,17 +740,17 @@ export default function SettingsPage() {
                 <div>
                   <h2 style={sectionTitleStyle}>Contact</h2>
                   <div style={{ display: 'grid', gap: '0.8rem' }}>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
-                      <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Company Email</div>
-                      <div style={{ color: '#111827', fontWeight: 600 }}>{companyForm.email || 'Not set'}</div>
+                    <div style={{ border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '1rem' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#0B2F6B' }}>Company Email</div>
+                      <div style={{ color: '#1A1F2B', fontWeight: 600 }}>{companyForm.email || 'Not set'}</div>
                     </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
-                      <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Company Phone</div>
-                      <div style={{ color: '#111827', fontWeight: 600 }}>{companyForm.phone || 'Not set'}</div>
+                    <div style={{ border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '1rem' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#0B2F6B' }}>Company Phone</div>
+                      <div style={{ color: '#1A1F2B', fontWeight: 600 }}>{companyForm.phone || 'Not set'}</div>
                     </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
-                      <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Address</div>
-                      <div style={{ color: '#111827', fontWeight: 600 }}>{[companyForm.street, companyForm.city, companyForm.postcode].filter(Boolean).join(', ') || 'Not set'}</div>
+                    <div style={{ border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '1rem' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#0B2F6B' }}>Address</div>
+                      <div style={{ color: '#1A1F2B', fontWeight: 600 }}>{[companyForm.street, companyForm.city, companyForm.postcode].filter(Boolean).join(', ') || 'Not set'}</div>
                     </div>
                   </div>
                 </div>
@@ -763,7 +763,7 @@ export default function SettingsPage() {
                   disabled={saving || !isSupabaseConfigured}
                   style={{
                     padding: '0.75rem 2rem',
-                    backgroundColor: saving || !isSupabaseConfigured ? '#86efac' : '#1F7A3D',
+                    backgroundColor: saving || !isSupabaseConfigured ? '#1D57D8' : '#1D57D8',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
@@ -773,10 +773,10 @@ export default function SettingsPage() {
                     transition: 'background-color 0.2s',
                   }}
                   onMouseEnter={(e) => {
-                    if (!saving && isSupabaseConfigured) e.currentTarget.style.backgroundColor = '#166534';
+                    if (!saving && isSupabaseConfigured) e.currentTarget.style.backgroundColor = '#1D57D8';
                   }}
                   onMouseLeave={(e) => {
-                    if (!saving && isSupabaseConfigured) e.currentTarget.style.backgroundColor = '#1F7A3D';
+                    if (!saving && isSupabaseConfigured) e.currentTarget.style.backgroundColor = '#1D57D8';
                   }}
                 >
                   {saving ? 'Saving…' : 'Save Settings'}

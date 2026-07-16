@@ -18,18 +18,18 @@ type DriverProfileRow = {
 };
 
 const card: CSSProperties = {
-  backgroundColor: '#ffffff',
-  border: '1px solid #d7e0ea',
+  backgroundColor: '#FFFFFF',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '10px',
   padding: '1rem',
-  boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+  boxShadow: '0 2px 8px rgba(26, 31, 43, 0.06)',
 };
 
 const inputStyle: CSSProperties = {
   width: '100%',
   padding: '0.7rem 0.75rem',
   borderRadius: '8px',
-  border: '1px solid #cbd5e1',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   fontSize: '0.92rem',
 };
 
@@ -144,41 +144,41 @@ export default function DriverProfilePage() {
       >
         <div style={{ display: 'grid', gap: '1rem' }}>
           {error && (
-            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem' }}>
+            <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1A1F2B', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem' }}>
               {error}
             </div>
           )}
           {success && (
-            <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>
+            <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1D57D8', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>
               {success}
             </div>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
             <div style={card}>
-              <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.45rem' }}>Account summary</div>
+              <div style={{ fontSize: '0.76rem', color: '#0B2F6B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.45rem' }}>Account summary</div>
               {[
                 { label: 'Workspace mode', value: workspaceMode },
                 { label: 'Role', value: 'Driver' },
                 { label: 'Company context', value: driver?.company_id ?? user?.companyId ?? 'Not linked' },
                 { label: 'Driver record', value: driver?.id ?? user?.driverId ?? 'Not linked' },
               ].map((item) => (
-                <div key={item.label} style={{ padding: '0.65rem 0', borderTop: '1px solid #eef2f7' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '0.15rem' }}>{item.label}</div>
-                  <div style={{ fontSize: '0.88rem', color: '#0f172a', fontWeight: 600, wordBreak: 'break-word' }}>{item.value}</div>
+                <div key={item.label} style={{ padding: '0.65rem 0', borderTop: '1px solid rgba(11, 47, 107, 0.16)' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#0B2F6B', marginBottom: '0.15rem' }}>{item.label}</div>
+                  <div style={{ fontSize: '0.88rem', color: '#1A1F2B', fontWeight: 600, wordBreak: 'break-word' }}>{item.value}</div>
                 </div>
               ))}
             </div>
 
             <div style={card}>
-              <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.45rem' }}>Availability</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.25rem' }}>{availabilityLabel}</div>
-              <div style={{ fontSize: '0.84rem', color: '#475569', lineHeight: 1.5 }}>
+              <div style={{ fontSize: '0.76rem', color: '#0B2F6B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.45rem' }}>Availability</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#1A1F2B', marginBottom: '0.25rem' }}>{availabilityLabel}</div>
+              <div style={{ fontSize: '0.84rem', color: '#0B2F6B', lineHeight: 1.5 }}>
                 Manage working slots, driver persona, and radius preferences from the availability page.
               </div>
               <button
                 onClick={() => window.location.assign('/driver/availability')}
-                style={{ marginTop: '0.8rem', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid #d7e0ea', backgroundColor: '#f8fafc', color: '#0f172a', fontWeight: 600, cursor: 'pointer' }}
+                style={{ marginTop: '0.8rem', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(11, 47, 107, 0.16)', backgroundColor: '#F4F6F8', color: '#1A1F2B', fontWeight: 600, cursor: 'pointer' }}
               >
                 Open availability
               </button>
@@ -186,40 +186,40 @@ export default function DriverProfilePage() {
           </div>
 
           <div style={{ ...card, maxWidth: '680px' }}>
-            <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.8rem' }}>Driver identity &amp; contact</div>
+            <div style={{ fontSize: '0.76rem', color: '#0B2F6B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.8rem' }}>Driver identity &amp; contact</div>
             {loading ? (
-              <div style={{ color: '#64748b', fontSize: '0.9rem' }}>Loading profile…</div>
+              <div style={{ color: '#0B2F6B', fontSize: '0.9rem' }}>Loading profile…</div>
             ) : (
               <div style={{ display: 'grid', gap: '0.9rem' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Display name</label>
+                  <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: '#1A1F2B' }}>Display name</label>
                   <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} style={inputStyle} placeholder="Driver name" />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Phone</label>
+                  <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: '#1A1F2B' }}>Phone</label>
                   <input value={phone} onChange={(event) => setPhone(event.target.value)} style={inputStyle} placeholder="Contact number" />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
-                  <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '0.8rem' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '0.15rem' }}>Email</div>
-                    <div style={{ fontWeight: 600, color: '#0f172a', wordBreak: 'break-word' }}>{contactEmail}</div>
+                  <div style={{ backgroundColor: '#F4F6F8', borderRadius: '8px', padding: '0.8rem' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#0B2F6B', marginBottom: '0.15rem' }}>Email</div>
+                    <div style={{ fontWeight: 600, color: '#1A1F2B', wordBreak: 'break-word' }}>{contactEmail}</div>
                   </div>
-                  <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '0.8rem' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '0.15rem' }}>Driver account status</div>
-                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{driver?.status ?? 'Unknown'}</div>
+                  <div style={{ backgroundColor: '#F4F6F8', borderRadius: '8px', padding: '0.8rem' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#0B2F6B', marginBottom: '0.15rem' }}>Driver account status</div>
+                    <div style={{ fontWeight: 600, color: '#1A1F2B' }}>{driver?.status ?? 'Unknown'}</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
                   <button
                     onClick={() => void handleSave()}
                     disabled={saving}
-                    style={{ padding: '0.7rem 1rem', borderRadius: '8px', border: 'none', backgroundColor: '#1d4ed8', color: '#fff', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+                    style={{ padding: '0.7rem 1rem', borderRadius: '8px', border: 'none', backgroundColor: '#1D57D8', color: '#FFFFFF', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
                   >
                     {saving ? 'Saving…' : 'Save profile'}
                   </button>
                   <button
                     onClick={() => window.location.assign('/driver/change-password')}
-                    style={{ padding: '0.7rem 1rem', borderRadius: '8px', border: '1px solid #d7e0ea', backgroundColor: '#f8fafc', color: '#0f172a', fontWeight: 600, cursor: 'pointer' }}
+                    style={{ padding: '0.7rem 1rem', borderRadius: '8px', border: '1px solid rgba(11, 47, 107, 0.16)', backgroundColor: '#F4F6F8', color: '#1A1F2B', fontWeight: 600, cursor: 'pointer' }}
                   >
                     Password &amp; security
                   </button>

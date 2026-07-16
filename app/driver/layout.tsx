@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from 'next';
+import { WorkspacePlatformShell } from '../components/workspace';
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#0A2239',
+  themeColor: '#1A1F2B',
 };
 
 export const metadata: Metadata = {
@@ -20,14 +21,8 @@ export default function DriverAppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className="authenticated-workspace"
-      style={{
-        minHeight: '100dvh',
-        backgroundColor: '#f5f7fa',
-      }}
-    >
-      {children}
+    <div className="authenticated-workspace">
+      <WorkspacePlatformShell area="driver">{children}</WorkspacePlatformShell>
     </div>
   );
 }

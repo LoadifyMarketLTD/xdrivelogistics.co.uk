@@ -20,11 +20,11 @@ import { useAuth } from '../../components/AuthContext';
 const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'machinery', 'retail_goods', 'mixed_freight', 'adr_goods', 'temperature_controlled_freight', 'equipment', 'other'];
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  draft: { bg: '#f3f4f6', text: '#6b7280' },
-  sent: { bg: '#e0f2fe', text: '#075985' },
-  accepted: { bg: '#d1fae5', text: '#065f46' },
-  declined: { bg: '#fee2e2', text: '#991b1b' },
-  converted: { bg: '#ede9fe', text: '#5b21b6' },
+  draft: { bg: '#F4F6F8', text: '#0B2F6B' },
+  sent: { bg: '#F4F6F8', text: '#1D57D8' },
+  accepted: { bg: '#F4F6F8', text: '#0B2F6B' },
+  declined: { bg: '#F4F6F8', text: '#F5A300' },
+  converted: { bg: '#F4F6F8', text: '#1D57D8' },
 };
 
 const QUOTE_TABS: Array<{ id: string; label: string; statuses: string[] }> = [
@@ -192,8 +192,8 @@ export default function QuotesPage() {
     }
   };
 
-  const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
-  const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
+  const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
+  const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#1A1F2B', marginBottom: '0.5rem' };
   const filteredQuotes = useMemo(() => {
     const activeStatuses = QUOTE_TABS.find((tab) => tab.id === activeTab)?.statuses ?? [];
     return quotes.filter((quote) => {
@@ -231,7 +231,7 @@ export default function QuotesPage() {
         <WorkspaceAside title="🔍 Search Quotes">
 
           {!isSupabaseConfigured && (
-            <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '5px', padding: '0.45rem', marginBottom: '0.6rem', color: '#92400e', fontSize: '0.7rem' }}>⚠️ Supabase not configured</div>
+            <div style={{ background: '#F4F6F8', border: '1px solid #F5A300', borderRadius: '5px', padding: '0.45rem', marginBottom: '0.6rem', color: '#1A1F2B', fontSize: '0.7rem' }}>⚠️ Supabase not configured</div>
           )}
 
           <div style={{ marginBottom: '0.5rem' }}>
@@ -286,7 +286,7 @@ export default function QuotesPage() {
             action={(
               <button
                 onClick={() => setShowModal(true)}
-                style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.38rem 0.85rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                style={{ background: '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '6px', padding: '0.38rem 0.85rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
                 + New Quote
               </button>
@@ -294,7 +294,7 @@ export default function QuotesPage() {
           />
           <WorkspaceContent>
           {flowMessage && (
-            <div style={{ margin: '0.85rem 0.85rem 0', background: '#ecfdf5', border: '1px solid #86efac', borderRadius: '8px', padding: '0.65rem 0.8rem', color: '#166534', fontSize: '0.82rem', fontWeight: 600 }}>
+            <div style={{ margin: '0.85rem 0.85rem 0', background: '#F4F6F8', border: '1px solid #1D57D8', borderRadius: '8px', padding: '0.65rem 0.8rem', color: '#1D57D8', fontSize: '0.82rem', fontWeight: 600 }}>
               {flowMessage}
             </div>
           )}
@@ -318,28 +318,28 @@ export default function QuotesPage() {
                   const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
                   return (
                     <WorkspaceTableTr key={q.id} last={i === paginatedQuotes.length - 1}>
-                      <WorkspaceTableTd style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{q.customer_name || '—'}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#374151', fontSize: '0.82rem' }}>{q.pickup_location || '—'}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#374151', fontSize: '0.82rem' }}>{q.delivery_location || '—'}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#64748b', fontSize: '0.8rem' }}>{(q.vehicle_type && VEHICLE_TYPE_LABELS[q.vehicle_type]) || q.vehicle_type?.replace(/_/g, ' ') || '—'}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.85rem' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ fontWeight: 600, color: '#1A1F2B', fontSize: '0.85rem' }}>{q.customer_name || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#1A1F2B', fontSize: '0.82rem' }}>{q.pickup_location || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#1A1F2B', fontSize: '0.82rem' }}>{q.delivery_location || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B', fontSize: '0.8rem' }}>{(q.vehicle_type && VEHICLE_TYPE_LABELS[q.vehicle_type]) || q.vehicle_type?.replace(/_/g, ' ') || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ fontWeight: 700, color: '#1A1F2B', fontSize: '0.85rem' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</WorkspaceTableTd>
                       <WorkspaceTableTd>
                         <WorkspaceStatusBadge bg={sc.bg} color={sc.text}>{q.status}</WorkspaceStatusBadge>
                       </WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#94a3b8', fontSize: '0.78rem' }}>{new Date(q.created_at).toLocaleDateString('en-GB')}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B', fontSize: '0.78rem' }}>{new Date(q.created_at).toLocaleDateString('en-GB')}</WorkspaceTableTd>
                       <WorkspaceTableTd>
                         <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                           {q.status === 'draft' && (
-                            <button onClick={() => handleUpdateStatus(q.id, 'sent')} style={{ padding: '0.22rem 0.55rem', border: 'none', borderRadius: '5px', background: '#e0f2fe', color: '#075985', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>Send</button>
+                            <button onClick={() => handleUpdateStatus(q.id, 'sent')} style={{ padding: '0.22rem 0.55rem', border: 'none', borderRadius: '5px', background: '#F4F6F8', color: '#1D57D8', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>Send</button>
                           )}
                           {(q.status === 'draft' || q.status === 'sent') && (
                             <>
-                              <button onClick={() => handleUpdateStatus(q.id, 'accepted')} style={{ padding: '0.22rem 0.55rem', border: 'none', borderRadius: '5px', background: '#dcfce7', color: '#15803d', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>Accept</button>
-                              <button onClick={() => handleUpdateStatus(q.id, 'declined')} style={{ padding: '0.22rem 0.55rem', border: 'none', borderRadius: '5px', background: '#fee2e2', color: '#991b1b', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>Decline</button>
+                              <button onClick={() => handleUpdateStatus(q.id, 'accepted')} style={{ padding: '0.22rem 0.55rem', border: 'none', borderRadius: '5px', background: '#F4F6F8', color: '#1D57D8', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>Accept</button>
+                              <button onClick={() => handleUpdateStatus(q.id, 'declined')} style={{ padding: '0.22rem 0.55rem', border: 'none', borderRadius: '5px', background: '#F4F6F8', color: '#1A1F2B', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>Decline</button>
                             </>
                           )}
                           {q.status === 'accepted' && (
-                            <button onClick={() => handleConvertToJob(q)} disabled={convertingId === q.id} style={{ padding: '0.25rem 0.6rem', border: 'none', borderRadius: '5px', background: '#16a34a', color: '#fff', cursor: convertingId === q.id ? 'not-allowed' : 'pointer', fontSize: '0.73rem', fontWeight: 700 }}>
+                            <button onClick={() => handleConvertToJob(q)} disabled={convertingId === q.id} style={{ padding: '0.25rem 0.6rem', border: 'none', borderRadius: '5px', background: '#1D57D8', color: '#FFFFFF', cursor: convertingId === q.id ? 'not-allowed' : 'pointer', fontSize: '0.73rem', fontWeight: 700 }}>
                               {convertingId === q.id ? 'Converting…' : '→ Job'}
                             </button>
                           )}
@@ -354,11 +354,11 @@ export default function QuotesPage() {
         </WorkspaceMain>
 
         {showModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-            <div style={{ background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>New Quote</h2>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#64748b' }}>×</button>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(26, 31, 43, 0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflow: 'auto' }}>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#1A1F2B' }}>New Quote</h2>
+                <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#0B2F6B' }}>×</button>
               </div>
               <div style={{ padding: '1.25rem 1.5rem', display: 'grid', gap: '0.85rem' }}>
                 {error && <ErrorBanner msg={error} />}
@@ -398,9 +398,9 @@ export default function QuotesPage() {
                 </div>
                 <div><label style={labelStyle}>Amount (£)</label><input style={inputStyle} type="number" step="0.01" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} placeholder="250.00" /></div>
               </div>
-              <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ padding: '0.6rem 1.25rem', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: '7px', cursor: 'pointer', fontSize: '0.85rem' }}>Cancel</button>
-                <button onClick={handleCreate} style={{ padding: '0.6rem 1.25rem', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}>Create Quote</button>
+              <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid rgba(11, 47, 107, 0.16)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button onClick={() => { setShowModal(false); setError(''); }} style={{ padding: '0.6rem 1.25rem', background: '#FFFFFF', color: '#1A1F2B', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '7px', cursor: 'pointer', fontSize: '0.85rem' }}>Cancel</button>
+                <button onClick={handleCreate} style={{ padding: '0.6rem 1.25rem', background: '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}>Create Quote</button>
               </div>
             </div>
           </div>

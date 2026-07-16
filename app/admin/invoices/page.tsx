@@ -89,19 +89,19 @@ const INVOICE_STATUS_TABS = ['All', 'Draft', 'Sent', 'Overdue', 'Paid', 'Dispute
 const getStatusColors = (status: string) => {
   switch (status) {
     case 'Paid':
-      return { bg: '#d1fae5', color: '#065f46' };
+      return { bg: '#F4F6F8', color: '#0B2F6B' };
     case 'Draft':
-      return { bg: '#fef3c7', color: '#92400e' };
+      return { bg: '#F4F6F8', color: '#1A1F2B' };
     case 'Sent':
-      return { bg: '#e0e7ff', color: '#3730a3' };
+      return { bg: '#F4F6F8', color: '#1D57D8' };
     case 'Overdue':
-      return { bg: '#fee2e2', color: '#991b1b' };
+      return { bg: '#F4F6F8', color: '#1A1F2B' };
     case 'Disputed':
-      return { bg: '#fce7f3', color: '#9d174d' };
+      return { bg: '#F4F6F8', color: '#1A1F2B' };
     case 'Cancelled':
-      return { bg: '#e2e8f0', color: '#475569' };
+      return { bg: '#F4F6F8', color: '#0B2F6B' };
     default:
-      return { bg: '#f3f4f6', color: '#374151' };
+      return { bg: '#F4F6F8', color: '#1A1F2B' };
   }
 };
 
@@ -212,13 +212,13 @@ export default function InvoicesPage() {
             </button>
           </div>
 
-          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.9rem' }}>
+          <div style={{ borderTop: '1px solid rgba(11, 47, 107, 0.16)', paddingTop: '0.9rem' }}>
             <WorkspaceFieldLabel>Results</WorkspaceFieldLabel>
-            <div style={{ color: '#0f172a', fontWeight: 700, marginBottom: '0.85rem' }}>
+            <div style={{ color: '#1A1F2B', fontWeight: 700, marginBottom: '0.85rem' }}>
               {filteredInvoices.length} invoice{filteredInvoices.length === 1 ? '' : 's'}
             </div>
             <WorkspaceFieldLabel>Total Amount</WorkspaceFieldLabel>
-            <div style={{ color: '#0f172a', fontWeight: 700 }}>
+            <div style={{ color: '#1A1F2B', fontWeight: 700 }}>
               GBP {filteredInvoices.reduce((sum, inv) => sum + inv.amount, 0).toFixed(2)}
             </div>
           </div>
@@ -240,8 +240,8 @@ export default function InvoicesPage() {
           <WorkspaceContent>
             <div style={{ marginBottom: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
               <div>
-                <h1 style={{ margin: 0, fontSize: '1.9rem', fontWeight: 700, color: '#0f172a' }}>Invoices</h1>
-                <p style={{ margin: '0.4rem 0 0', color: '#64748b' }}>Search, review, and manage company invoices.</p>
+                <h1 style={{ margin: 0, fontSize: '1.9rem', fontWeight: 700, color: '#1A1F2B' }}>Invoices</h1>
+                <p style={{ margin: '0.4rem 0 0', color: '#0B2F6B' }}>Search, review, and manage company invoices.</p>
               </div>
               <button onClick={() => void loadInvoices()} style={wsBtnAction}>↻ Refresh</button>
             </div>
@@ -286,22 +286,22 @@ export default function InvoicesPage() {
                       key={invoice.id}
                       last={index === paginatedInvoices.length - 1}
                       onClick={() => router.push(`/admin/invoices/${invoice.id}`)}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; }}
                       style={{ cursor: 'pointer', transition: 'background-color 0.2s' }}
                     >
-                      <WorkspaceTableTd style={{ fontSize: '0.9rem', color: '#1f2937', fontWeight: '500' }}>
+                      <WorkspaceTableTd style={{ fontSize: '0.9rem', color: '#0B2F6B', fontWeight: '500' }}>
                         {invoice.invoiceNumber}
                       </WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ fontSize: '0.9rem', color: '#1f2937' }}>{invoice.jobRef}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ fontSize: '0.9rem', color: '#1f2937' }}>{invoice.clientName}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ fontSize: '0.9rem', color: '#6b7280' }}>
+                      <WorkspaceTableTd style={{ fontSize: '0.9rem', color: '#0B2F6B' }}>{invoice.jobRef}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ fontSize: '0.9rem', color: '#0B2F6B' }}>{invoice.clientName}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ fontSize: '0.9rem', color: '#0B2F6B' }}>
                         {new Date(invoice.date).toLocaleDateString('en-GB')}
                       </WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ fontSize: '0.9rem', color: '#6b7280' }}>
+                      <WorkspaceTableTd style={{ fontSize: '0.9rem', color: '#0B2F6B' }}>
                         {new Date(invoice.dueDate).toLocaleDateString('en-GB')}
                       </WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ fontSize: '0.9rem', color: '#1f2937', fontWeight: '600', textAlign: 'right' }}>
+                      <WorkspaceTableTd style={{ fontSize: '0.9rem', color: '#0B2F6B', fontWeight: '600', textAlign: 'right' }}>
                         GBP {invoice.amount.toFixed(2)}
                       </WorkspaceTableTd>
                       <WorkspaceTableTd style={{ textAlign: 'center' }}>
@@ -316,7 +316,7 @@ export default function InvoicesPage() {
                               e.stopPropagation();
                               router.push(`/admin/invoices/${invoice.id}`);
                             }}
-                            style={{ ...wsBtnAction, backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }}
+                            style={{ ...wsBtnAction, backgroundColor: '#F4F6F8', color: '#1D57D8', border: '1px solid rgba(11, 47, 107, 0.16)' }}
                           >
                             View
                           </button>
@@ -326,7 +326,7 @@ export default function InvoicesPage() {
                                 e.stopPropagation();
                                 router.push(`/admin/invoices/${invoice.id}`);
                               }}
-                              style={{ ...wsBtnAction, backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' }}
+                              style={{ ...wsBtnAction, backgroundColor: '#F4F6F8', color: '#1D57D8', border: '1px solid rgba(11, 47, 107, 0.16)' }}
                             >
                               Record Payment
                             </button>

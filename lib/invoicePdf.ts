@@ -69,7 +69,7 @@ export async function downloadInvoicePdf({
       y: cursorY,
       size: BODY_FONT_SIZE,
       font: boldFont,
-      color: rgb(0.2, 0.23, 0.27),
+      color: rgb(0.102, 0.122, 0.169),
     });
     let lineY = cursorY;
     for (const line of lines) {
@@ -78,7 +78,7 @@ export async function downloadInvoicePdf({
         y: lineY,
         size: BODY_FONT_SIZE,
         font: regularFont,
-        color: rgb(0.07, 0.09, 0.15),
+        color: rgb(0.102, 0.122, 0.169),
       });
       lineY -= 14;
     }
@@ -92,7 +92,7 @@ export async function downloadInvoicePdf({
       y: cursorY,
       size: 13,
       font: boldFont,
-      color: rgb(0.04, 0.13, 0.22),
+      color: rgb(0.043, 0.184, 0.42),
     });
     cursorY -= SECTION_GAP;
   };
@@ -102,7 +102,7 @@ export async function downloadInvoicePdf({
     y: height - 110,
     width,
     height: 110,
-    color: rgb(0.04, 0.13, 0.22),
+    color: rgb(0.043, 0.184, 0.42),
   });
 
   page.drawText(companySettings.companyName, {
@@ -118,7 +118,7 @@ export async function downloadInvoicePdf({
     y: height - 78,
     size: 12,
     font: regularFont,
-    color: rgb(0.93, 0.96, 1),
+    color: rgb(0.957, 0.965, 0.973),
   });
 
   cursorY = height - 145;
@@ -188,7 +188,7 @@ export async function downloadInvoicePdf({
         y: cursorY,
         size: BODY_FONT_SIZE,
         font: boldFont,
-        color: rgb(0.2, 0.23, 0.27),
+        color: rgb(0.102, 0.122, 0.169),
       });
       cursorY -= 14;
       page.drawImage(embeddedImage, {

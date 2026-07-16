@@ -83,14 +83,14 @@ export default function Page() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Platform Analytics</h1>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Platform</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245, 163, 0, 0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Platform</span>
             </div>
             <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>Cross-company KPI dashboard and operational trend reporting.</p>
           </div>
         </div>
 
         {error && (
-          <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: '8px', padding: '0.65rem 0.9rem', color: '#ef4444', fontSize: '0.82rem', marginBottom: '1rem' }}>
+          <div style={{ backgroundColor: 'rgba(245, 163, 0, 0.1)', border: '1px solid #F5A300', borderRadius: '8px', padding: '0.65rem 0.9rem', color: '#1A1F2B', fontSize: '0.82rem', marginBottom: '1rem' }}>
             ⚠️ {error}
           </div>
         )}
@@ -101,7 +101,7 @@ export default function Page() {
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.65rem', marginBottom: '1.25rem' }}>
               {kpiCards.map((card) => (
-                <div key={card.label} style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.75rem' }}>
+                <div key={card.label} style={{ backgroundColor: '#1A1F2B', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.75rem' }}>
                   <div style={{ color: card.color, fontSize: '1.15rem', fontWeight: 700 }}>{card.value}</div>
                   <div style={{ color: THEME.muted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '0.15rem' }}>{card.label}</div>
                 </div>

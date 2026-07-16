@@ -1,12 +1,10 @@
 import type { ReactNode } from 'react';
-import NotificationBell from '../components/NotificationBell';
-import AdminPlatformShell from './AdminPlatformShell';
+import { WorkspacePlatformShell } from '../components/workspace';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="authenticated-workspace">
-      <AdminPlatformShell>{children}</AdminPlatformShell>
-      <NotificationBell />
+      <WorkspacePlatformShell area="admin">{children}</WorkspacePlatformShell>
     </div>
   );
 }

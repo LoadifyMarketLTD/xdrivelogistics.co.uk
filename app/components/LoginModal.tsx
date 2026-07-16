@@ -83,7 +83,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backgroundColor: 'rgba(26, 31, 43, 0.75)',
             zIndex: 50,
           }}
         />
@@ -101,14 +101,14 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
             maxHeight: '90vh',
             overflow: 'auto',
             zIndex: 51,
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            boxShadow: '0 25px 50px -12px rgba(26, 31, 43, 0.25)',
           }}
         >
           <Dialog.Title
             style={{
               fontSize: '1.5rem',
               fontWeight: '700',
-              color: '#0A2239',
+              color: '#1A1F2B',
               marginBottom: '1rem',
             }}
           >
@@ -118,7 +118,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           <Dialog.Description
             style={{
               fontSize: '0.95rem',
-              color: '#5B6B85',
+              color: '#0B2F6B',
               marginBottom: '1.5rem',
             }}
           >
@@ -134,7 +134,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 style={{
                   display: 'block',
                   marginBottom: '0.5rem',
-                  color: '#0B1B33',
+                  color: '#1A1F2B',
                   fontWeight: '500',
                   fontSize: '0.9rem',
                 }}
@@ -151,14 +151,14 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 style={{
                   width: '100%',
                   padding: '0.75rem',
-                  border: '1px solid #E5E7EB',
+                  border: '1px solid #F4F6F8',
                   borderRadius: '6px',
                   fontSize: '1rem',
                   outline: 'none',
                   transition: 'border-color 0.2s',
                 }}
-                onFocus={(e) => (e.target.style.borderColor = '#1E4E8C')}
-                onBlur={(e) => (e.target.style.borderColor = '#E5E7EB')}
+                onFocus={(e) => (e.target.style.borderColor = '#1D57D8')}
+                onBlur={(e) => (e.target.style.borderColor = '#F4F6F8')}
               />
             </div>
 
@@ -169,7 +169,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                   style={{
                     display: 'block',
                     marginBottom: '0.5rem',
-                    color: '#0B1B33',
+                    color: '#1A1F2B',
                     fontWeight: '500',
                     fontSize: '0.9rem',
                   }}
@@ -186,14 +186,14 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    border: '1px solid #E5E7EB',
+                    border: '1px solid #F4F6F8',
                     borderRadius: '6px',
                     fontSize: '1rem',
                     outline: 'none',
                     transition: 'border-color 0.2s',
                   }}
-                  onFocus={(e) => (e.target.style.borderColor = '#1E4E8C')}
-                  onBlur={(e) => (e.target.style.borderColor = '#E5E7EB')}
+                  onFocus={(e) => (e.target.style.borderColor = '#1D57D8')}
+                  onBlur={(e) => (e.target.style.borderColor = '#F4F6F8')}
                 />
               </div>
             )}
@@ -210,7 +210,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                   }}
                   disabled={loading}
                   style={{
-                    color: '#1E4E8C',
+                    color: '#1D57D8',
                     background: 'none',
                     border: 'none',
                     fontSize: '0.9rem',
@@ -229,11 +229,11 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 style={{
                   padding: '0.75rem',
                   marginBottom: '1rem',
-                  backgroundColor: '#FEE2E2',
-                  color: '#DC2626',
+                  backgroundColor: '#F4F6F8',
+                  color: '#1A1F2B',
                   borderRadius: '6px',
                   fontSize: '0.875rem',
-                  border: '1px solid #FCA5A5',
+                  border: '1px solid #F4F6F8',
                 }}
               >
                 {error}
@@ -245,11 +245,11 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 style={{
                   padding: '0.75rem',
                   marginBottom: '1rem',
-                  backgroundColor: '#D1FAE5',
-                  color: '#065F46',
+                  backgroundColor: '#F4F6F8',
+                  color: '#0B2F6B',
                   borderRadius: '6px',
                   fontSize: '0.875rem',
-                  border: '1px solid #6EE7B7',
+                  border: '1px solid #1D57D8',
                 }}
               >
                 {successMessage}
@@ -262,7 +262,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               style={{
                 width: '100%',
                 padding: '0.875rem',
-                backgroundColor: loading ? '#86EFAC' : '#1F7A3D',
+                backgroundColor: loading ? '#1D57D8' : '#1D57D8',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
@@ -291,7 +291,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                   }}
                   disabled={loading}
                   style={{
-                    color: '#1E4E8C',
+                    color: '#1D57D8',
                     background: 'none',
                     border: 'none',
                     fontSize: '0.9rem',
@@ -302,9 +302,9 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                   Back to Sign in
                 </button>
               ) : (
-                <p style={{ margin: 0, color: '#6B7280', fontSize: '0.85rem' }}>
+                <p style={{ margin: 0, color: '#0B2F6B', fontSize: '0.85rem' }}>
                   Need access?{' '}
-                  <Link href="/register" onClick={onClose} style={{ color: '#1E4E8C', fontWeight: 600 }}>
+                  <Link href="/register" onClick={onClose} style={{ color: '#1D57D8', fontWeight: 600 }}>
                     Create account
                   </Link>
                 </p>
@@ -323,20 +323,20 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 height: '2rem',
                 borderRadius: '50%',
                 border: 'none',
-                background: 'rgba(0, 0, 0, 0.1)',
+                background: 'rgba(26, 31, 43, 0.1)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: '1.25rem',
-                color: '#6B7280',
+                color: '#0B2F6B',
                 transition: 'background-color 0.2s',
               }}
               onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.2)')
+                (e.currentTarget.style.backgroundColor = 'rgba(26, 31, 43, 0.2)')
               }
               onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.1)')
+                (e.currentTarget.style.backgroundColor = 'rgba(26, 31, 43, 0.1)')
               }
             >
               ×

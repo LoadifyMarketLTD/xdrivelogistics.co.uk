@@ -18,7 +18,7 @@ export function Field({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={{ width: '100%', border: '1px solid #D1D5DB', borderRadius: 6, padding: '0.6rem 0.75rem' }}
+        style={{ width: '100%', border: '1px solid #F4F6F8', borderRadius: 6, padding: '0.6rem 0.75rem' }}
       />
     </label>
   );
@@ -78,21 +78,21 @@ export function PageLayout({
         Current step: <strong>{currentStep}</strong>
       </p>
 
-      <div style={{ background: '#E5E7EB', borderRadius: 8, overflow: 'hidden', marginBottom: '1rem' }}>
-        <div style={{ width: `${progress}%`, height: 10, background: '#2563EB' }} />
+      <div style={{ background: '#F4F6F8', borderRadius: 8, overflow: 'hidden', marginBottom: '1rem' }}>
+        <div style={{ width: `${progress}%`, height: 10, background: '#1D57D8' }} />
       </div>
       <p style={{ marginTop: 0 }}>{progress.toFixed(0)}% complete</p>
 
       {children}
 
-      {error && <p style={{ color: '#B91C1C' }}>{error}</p>}
-      {message && <p style={{ color: '#166534' }}>{message}</p>}
+      {error && <p style={{ color: '#1A1F2B' }}>{error}</p>}
+      {message && <p style={{ color: '#1D57D8' }}>{message}</p>}
 
       <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
         <button
           onClick={onSave}
           disabled={saving}
-          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #D1D5DB', cursor: 'pointer' }}
+          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #F4F6F8', cursor: 'pointer' }}
         >
           Save and continue later
         </button>
@@ -103,8 +103,8 @@ export function PageLayout({
             padding: '0.75rem 1rem',
             borderRadius: 6,
             border: 'none',
-            background: '#1D4ED8',
-            color: '#fff',
+            background: '#1D57D8',
+            color: '#FFFFFF',
             cursor: 'pointer',
           }}
         >
@@ -112,7 +112,7 @@ export function PageLayout({
         </button>
         <button
           onClick={backToLogin}
-          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #D1D5DB', cursor: 'pointer' }}
+          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #F4F6F8', cursor: 'pointer' }}
         >
           Back to login
         </button>

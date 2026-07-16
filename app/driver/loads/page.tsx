@@ -124,16 +124,16 @@ function useDebouncedValue<T>(value: T, delay = 250) {
 }
 
 const card: CSSProperties = {
-  backgroundColor: '#ffffff',
-  border: '1px solid #d7e0ea',
+  backgroundColor: '#FFFFFF',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '10px',
   padding: '1rem',
-  boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+  boxShadow: '0 2px 8px rgba(26, 31, 43, 0.06)',
 };
 
 const filterInputStyle: CSSProperties = {
   padding: '0.55rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '6px',
   fontSize: '0.82rem',
 };
@@ -360,20 +360,20 @@ export default function AvailableLoadsPage() {
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell subtitle="Available work, nearby loads and simple quote actions.">
         {successMsg && (
-          <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', borderRadius: '8px', padding: '0.7rem 0.9rem', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem' }}>
+          <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1D57D8', borderRadius: '8px', padding: '0.7rem 0.9rem', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem' }}>
             {successMsg}
           </div>
         )}
         {error && (
-          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.7rem 0.9rem', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem' }}>
+          <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1A1F2B', borderRadius: '8px', padding: '0.7rem 0.9rem', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem' }}>
             {error}
           </div>
         )}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>Available Loads</h2>
-            <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+            <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: '#1A1F2B' }}>Available Loads</h2>
+            <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#0B2F6B' }}>
               {loading
                 ? 'Loading exchange board…'
                 : `${filteredLoads.length} load${filteredLoads.length !== 1 ? 's' : ''} ready to review`}
@@ -383,14 +383,14 @@ export default function AvailableLoadsPage() {
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button
               onClick={() => router.push('/driver/loads/search')}
-              style={{ padding: '0.55rem 1rem', backgroundColor: '#f1f5f9', border: '1px solid #d7e0ea', borderRadius: '8px', fontSize: '0.83rem', fontWeight: 600, cursor: 'pointer', color: '#0f172a' }}
+              style={{ padding: '0.55rem 1rem', backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', fontSize: '0.83rem', fontWeight: 600, cursor: 'pointer', color: '#1A1F2B' }}
             >
               Search
             </button>
             <button
               onClick={() => void fetchLoads({ background: !loading })}
               disabled={loading || refreshing}
-              style={{ padding: '0.55rem 1rem', backgroundColor: '#1d4ed8', border: 'none', borderRadius: '8px', fontSize: '0.83rem', fontWeight: 600, cursor: loading || refreshing ? 'not-allowed' : 'pointer', color: '#fff', opacity: loading || refreshing ? 0.7 : 1 }}
+              style={{ padding: '0.55rem 1rem', backgroundColor: '#1D57D8', border: 'none', borderRadius: '8px', fontSize: '0.83rem', fontWeight: 600, cursor: loading || refreshing ? 'not-allowed' : 'pointer', color: '#FFFFFF', opacity: loading || refreshing ? 0.7 : 1 }}
             >
               {refreshing ? 'Refreshing…' : 'Refresh'}
             </button>
@@ -415,28 +415,28 @@ export default function AvailableLoadsPage() {
           </select>
           <button
             onClick={clearFilters}
-            style={{ padding: '0.55rem', backgroundColor: '#f8fafc', border: '1px solid #d7e0ea', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}
+            style={{ padding: '0.55rem', backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}
           >
             Clear filters
           </button>
         </div>
 
         {filtersPending && !loading && (
-          <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.75rem' }}>Applying filters…</div>
+          <div style={{ fontSize: '0.78rem', color: '#0B2F6B', marginBottom: '0.75rem' }}>Applying filters…</div>
         )}
 
         {loading ? (
-          <div style={{ ...card, color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading exchange loads…</div>
+          <div style={{ ...card, color: '#0B2F6B', padding: '2rem', textAlign: 'center' }}>Loading exchange loads…</div>
         ) : showNoExchangeLoads ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>No exchange loads available right now</div>
-            <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.9rem' }}>
+            <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.35rem' }}>No exchange loads available right now</div>
+            <div style={{ fontSize: '0.85rem', color: '#0B2F6B', marginBottom: '0.9rem' }}>
               Try refreshing in a moment or use the search page when new loads are posted.
             </div>
             <button
               onClick={() => void fetchLoads()}
-              style={{ padding: '0.6rem 1rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+              style={{ padding: '0.6rem 1rem', backgroundColor: '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
             >
               Retry board
             </button>
@@ -444,50 +444,50 @@ export default function AvailableLoadsPage() {
         ) : showNoFilteredLoads ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>No loads match your active filters</div>
-            <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.9rem' }}>
+            <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.35rem' }}>No loads match your active filters</div>
+            <div style={{ fontSize: '0.85rem', color: '#0B2F6B', marginBottom: '0.9rem' }}>
               Broaden the vehicle, date, postcode, or cargo filters to see more live loads.
             </div>
             <button
               onClick={clearFilters}
-              style={{ padding: '0.6rem 1rem', backgroundColor: '#f8fafc', color: '#0f172a', border: '1px solid #d7e0ea', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+              style={{ padding: '0.6rem 1rem', backgroundColor: '#F4F6F8', color: '#1A1F2B', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
             >
               Clear active filters
             </button>
           </div>
         ) : (
           <>
-            <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '0.75rem', fontWeight: 600 }}>
+            <div style={{ fontSize: '0.82rem', color: '#0B2F6B', marginBottom: '0.75rem', fontWeight: 600 }}>
               Showing {visibleLoads.length} of {filteredLoads.length} loaded result{filteredLoads.length !== 1 ? 's' : ''}
             </div>
             <div style={{ display: 'grid', gap: '0.75rem' }}>
               {visibleLoads.map((load) => (
-                <div key={load.id} style={{ ...card, borderLeft: `3px solid ${load.myBidStatus ? '#7c3aed' : '#1d4ed8'}` }}>
+                <div key={load.id} style={{ ...card, borderLeft: `3px solid ${load.myBidStatus ? '#1D57D8' : '#1D57D8'}` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.7rem' }}>
                     <div>
-                      <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
+                      <span style={{ fontSize: '0.72rem', color: '#0B2F6B', fontWeight: 600 }}>
                         {normalizeCompany(load.companies)?.name ?? 'Unknown shipper'}
                       </span>
                       {load.vehicle_type && (
-                        <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', backgroundColor: '#e0f2fe', color: '#075985', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
+                        <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', backgroundColor: '#F4F6F8', color: '#1D57D8', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
                           {load.requested_vehicle_label ?? VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type}
                         </span>
                       )}
                       {load.cargo_type && (
-                        <span style={{ marginLeft: '0.35rem', fontSize: '0.7rem', backgroundColor: '#f3e8ff', color: '#6d28d9', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
+                        <span style={{ marginLeft: '0.35rem', fontSize: '0.7rem', backgroundColor: '#F4F6F8', color: '#1D57D8', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
                           {load.requested_cargo_label ?? load.cargo_type}
                         </span>
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {load.budget_amount != null && (
-                        <span style={{ fontSize: '1.1rem', fontWeight: 800, color: load.is_fixed_price ? '#15803d' : '#0f172a' }}>
+                        <span style={{ fontSize: '1.1rem', fontWeight: 800, color: load.is_fixed_price ? '#1D57D8' : '#1A1F2B' }}>
                           £{load.budget_amount.toFixed(2)}
-                          {!load.is_fixed_price && <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#64748b' }}> budget</span>}
+                          {!load.is_fixed_price && <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#0B2F6B' }}> budget</span>}
                         </span>
                       )}
                       {load.myBidStatus && (
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, backgroundColor: '#ede9fe', color: '#6d28d9', padding: '0.15rem 0.5rem', borderRadius: '999px' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, backgroundColor: '#F4F6F8', color: '#1D57D8', padding: '0.15rem 0.5rem', borderRadius: '999px' }}>
                           Bid: {load.myBidStatus}
                         </span>
                       )}
@@ -496,22 +496,22 @@ export default function AvailableLoadsPage() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.6rem', marginBottom: '0.75rem' }}>
                     <div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.15rem' }}>Pickup</div>
-                      <div style={{ fontSize: '0.84rem', color: '#0f172a', fontWeight: 600 }}>{load.pickup_location ?? 'Not specified'}</div>
-                      {load.pickup_postcode && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{load.pickup_postcode}</div>}
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>{fmtDate(load.pickup_datetime)}</div>
+                      <div style={{ fontSize: '0.7rem', color: '#0B2F6B', fontWeight: 600, marginBottom: '0.15rem' }}>Pickup</div>
+                      <div style={{ fontSize: '0.84rem', color: '#1A1F2B', fontWeight: 600 }}>{load.pickup_location ?? 'Not specified'}</div>
+                      {load.pickup_postcode && <div style={{ fontSize: '0.75rem', color: '#0B2F6B' }}>{load.pickup_postcode}</div>}
+                      <div style={{ fontSize: '0.75rem', color: '#0B2F6B', marginTop: '0.15rem' }}>{fmtDate(load.pickup_datetime)}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.15rem' }}>Delivery</div>
-                      <div style={{ fontSize: '0.84rem', color: '#0f172a', fontWeight: 600 }}>{load.delivery_location ?? 'Not specified'}</div>
-                      {load.delivery_postcode && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{load.delivery_postcode}</div>}
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>{fmtDate(load.delivery_datetime)}</div>
+                      <div style={{ fontSize: '0.7rem', color: '#0B2F6B', fontWeight: 600, marginBottom: '0.15rem' }}>Delivery</div>
+                      <div style={{ fontSize: '0.84rem', color: '#1A1F2B', fontWeight: 600 }}>{load.delivery_location ?? 'Not specified'}</div>
+                      {load.delivery_postcode && <div style={{ fontSize: '0.75rem', color: '#0B2F6B' }}>{load.delivery_postcode}</div>}
+                      <div style={{ fontSize: '0.75rem', color: '#0B2F6B', marginTop: '0.15rem' }}>{fmtDate(load.delivery_datetime)}</div>
                     </div>
                     {(load.weight_kg || load.pallets) && (
                       <div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.15rem' }}>Cargo</div>
-                        {load.weight_kg && <div style={{ fontSize: '0.84rem', color: '#0f172a' }}>{load.weight_kg} kg</div>}
-                        {load.pallets && <div style={{ fontSize: '0.84rem', color: '#0f172a' }}>{load.pallets} pallets</div>}
+                        <div style={{ fontSize: '0.7rem', color: '#0B2F6B', fontWeight: 600, marginBottom: '0.15rem' }}>Cargo</div>
+                        {load.weight_kg && <div style={{ fontSize: '0.84rem', color: '#1A1F2B' }}>{load.weight_kg} kg</div>}
+                        {load.pallets && <div style={{ fontSize: '0.84rem', color: '#1A1F2B' }}>{load.pallets} pallets</div>}
                       </div>
                     )}
                   </div>
@@ -519,17 +519,17 @@ export default function AvailableLoadsPage() {
                   {getLoadDetailSummary(load, 8).length > 0 && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '0.45rem', marginBottom: '0.75rem' }}>
                       {getLoadDetailSummary(load, 8).map((item) => (
-                        <div key={`${load.id}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '0.45rem 0.55rem' }}>
-                          <div style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
-                          <div style={{ fontSize: '0.78rem', color: '#0f172a', fontWeight: 650 }}>{item.value}</div>
+                        <div key={`${load.id}-${item.label}`} style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '7px', padding: '0.45rem 0.55rem' }}>
+                          <div style={{ fontSize: '0.65rem', color: '#0B2F6B', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
+                          <div style={{ fontSize: '0.78rem', color: '#1A1F2B', fontWeight: 650 }}>{item.value}</div>
                         </div>
                       ))}
                     </div>
                   )}
 
                   {bidLoadId === load.id ? (
-                    <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.9rem', display: 'grid', gap: '0.6rem' }}>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0f172a' }}>Submit your quote</div>
+                    <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '0.9rem', display: 'grid', gap: '0.6rem' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1A1F2B' }}>Submit your quote</div>
                       <input
                         type="number"
                         min="1"
@@ -537,20 +537,20 @@ export default function AvailableLoadsPage() {
                         value={bidAmount}
                         onChange={(e) => setBidAmount(e.target.value)}
                         placeholder="Your price (£)"
-                        style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
+                        style={{ padding: '0.6rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
                       />
                       <textarea
                         value={bidMessage}
                         onChange={(e) => setBidMessage(e.target.value)}
                         placeholder="Optional message to shipper…"
                         rows={2}
-                        style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.85rem', width: '100%', resize: 'vertical' }}
+                        style={{ padding: '0.6rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', fontSize: '0.85rem', width: '100%', resize: 'vertical' }}
                       />
                       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                         <button
                           onClick={() => void handleBidSubmit(load.id)}
                           disabled={bidLoading || !bidAmount}
-                          style={{ flex: 1, minWidth: '180px', padding: '0.6rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: bidLoading ? 'not-allowed' : 'pointer', opacity: bidLoading ? 0.6 : 1 }}
+                          style={{ flex: 1, minWidth: '180px', padding: '0.6rem', backgroundColor: '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: bidLoading ? 'not-allowed' : 'pointer', opacity: bidLoading ? 0.6 : 1 }}
                         >
                           {bidLoading ? 'Submitting…' : 'Submit Quote'}
                         </button>
@@ -560,7 +560,7 @@ export default function AvailableLoadsPage() {
                             setBidAmount('');
                             setBidMessage('');
                           }}
-                          style={{ padding: '0.6rem 1rem', backgroundColor: '#f1f5f9', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
+                          style={{ padding: '0.6rem 1rem', backgroundColor: '#F4F6F8', color: '#1A1F2B', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
                         >
                           Cancel
                         </button>
@@ -574,25 +574,25 @@ export default function AvailableLoadsPage() {
                             setBidLoadId(load.id);
                             setBidAmount(load.budget_amount ? String(load.budget_amount) : '');
                           }}
-                          style={{ padding: '0.5rem 0.9rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.83rem' }}
+                          style={{ padding: '0.5rem 0.9rem', backgroundColor: '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.83rem' }}
                         >
                           Submit Quote
                         </button>
                       ) : (
-                        <span style={{ fontSize: '0.82rem', color: '#6d28d9', fontWeight: 600 }}>
+                        <span style={{ fontSize: '0.82rem', color: '#1D57D8', fontWeight: 600 }}>
                           Quote submitted: £{load.myBidAmount?.toFixed(2) ?? '—'}
                         </span>
                       )}
                       <button
                         onClick={() => router.push('/driver/loads/search')}
-                        style={{ padding: '0.5rem 0.9rem', backgroundColor: '#f8fafc', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '0.83rem' }}
+                        style={{ padding: '0.5rem 0.9rem', backgroundColor: '#F4F6F8', color: '#1A1F2B', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '0.83rem' }}
                       >
                         Search similar
                       </button>
                     </div>
                   )}
 
-                  <div style={{ marginTop: '0.55rem', fontSize: '0.72rem', color: '#94a3b8' }}>
+                  <div style={{ marginTop: '0.55rem', fontSize: '0.72rem', color: '#0B2F6B' }}>
                     Posted: {fmtDate(load.exchange_posted_at)}
                   </div>
                 </div>
@@ -603,7 +603,7 @@ export default function AvailableLoadsPage() {
               <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
                 <button
                   onClick={() => setVisibleCount((current) => current + LOADS_PAGE_SIZE)}
-                  style={{ padding: '0.7rem 1rem', backgroundColor: '#f8fafc', color: '#0f172a', border: '1px solid #d7e0ea', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                  style={{ padding: '0.7rem 1rem', backgroundColor: '#F4F6F8', color: '#1A1F2B', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
                 >
                   Load more results
                 </button>

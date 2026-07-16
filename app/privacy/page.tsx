@@ -44,11 +44,11 @@ export default function PrivacyPage() {
         >
           Privacy Policy
         </h1>
-        <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '2.5rem', fontSize: '0.9rem' }}>
+        <p style={{ color: 'rgba(255, 255, 255, 0.5)', marginBottom: '2.5rem', fontSize: '0.9rem' }}>
           Last updated: {LAST_UPDATED}
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: '1.7', color: 'rgba(255,255,255,0.82)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: '1.7', color: 'rgba(255, 255, 255, 0.82)' }}>
           <Section title="1. Who We Are">
             {COMPANY_CONFIG.legalName} (Company Number {COMPANY_CONFIG.companyNumber}), registered at {COMPANY_CONFIG.address.street},
             {COMPANY_CONFIG.address.city}, {COMPANY_CONFIG.address.postcode}, {COMPANY_CONFIG.address.country}, is the data controller for personal data collected

@@ -119,20 +119,20 @@ export default function BrokerLoadsPage() {
     ? loads.filter(l => (l.vehicle_type ?? '').includes(filterVehicle))
     : loads;
 
-  const inputStyle = { width: '100%', padding: '0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', boxSizing: 'border-box' as const };
+  const inputStyle = { width: '100%', padding: '0.7rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', fontSize: '0.9rem', boxSizing: 'border-box' as const };
 
   return (
     <ProtectedRoute allowedRoles={['broker', 'owner']}>
-      <div style={{ minHeight: '100vh', background: '#f5f7fa' }}>
+      <div style={{ minHeight: '100vh', background: '#F4F6F8' }}>
         <BrokerWorkspaceTabs />
 
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
             <div>
-              <h1 style={{ margin: 0, fontWeight: 700, fontSize: '1.5rem', color: '#0f172a' }}>Load Board</h1>
-              <p style={{ margin: '0.25rem 0 0', color: '#64748b', fontSize: '0.85rem' }}>Browse loads posted by carriers on the exchange.</p>
+              <h1 style={{ margin: 0, fontWeight: 700, fontSize: '1.5rem', color: '#1A1F2B' }}>Load Board</h1>
+              <p style={{ margin: '0.25rem 0 0', color: '#0B2F6B', fontSize: '0.85rem' }}>Browse loads posted by carriers on the exchange.</p>
             </div>
-            <select value={filterVehicle} onChange={e => setFilterVehicle(e.target.value)} style={{ padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem' }}>
+            <select value={filterVehicle} onChange={e => setFilterVehicle(e.target.value)} style={{ padding: '0.5rem 0.75rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', fontSize: '0.85rem' }}>
               <option value=''>All vehicle types</option>
               {[
                 ['van_small', 'Small Van'],
@@ -163,48 +163,48 @@ export default function BrokerLoadsPage() {
             </select>
           </div>
 
-          {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', color: '#dc2626' }}>{error}</div>}
-          {bidSuccess && <div style={{ background: '#dcfce7', border: '1px solid #1F7A3D', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', color: '#14532d', fontWeight: 600 }}>{bidSuccess}</div>}
+          {error && <div style={{ background: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', color: '#1A1F2B' }}>{error}</div>}
+          {bidSuccess && <div style={{ background: '#F4F6F8', border: '1px solid #1D57D8', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', color: '#1D57D8', fontWeight: 600 }}>{bidSuccess}</div>}
 
           {loading ? (
-            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>Loading loads…</div>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '2rem', textAlign: 'center', color: '#0B2F6B' }}>Loading loads…</div>
           ) : filtered.length === 0 ? (
-            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>No posted loads found on the exchange right now.</div>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '2rem', textAlign: 'center', color: '#0B2F6B' }}>No posted loads found on the exchange right now.</div>
           ) : (
             <div style={{ display: 'grid', gap: '0.75rem' }}>
               {filtered.map(load => (
-                <div key={load.id} style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '1.1rem' }}>
+                <div key={load.id} style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '1.1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>
+                      <div style={{ fontWeight: 700, fontSize: '1rem', color: '#1A1F2B' }}>
                         {load.pickup_location || '—'} → {load.delivery_location || '—'}
                       </div>
-                      <div style={{ color: '#64748b', fontSize: '0.82rem', marginTop: '0.25rem' }}>
+                      <div style={{ color: '#0B2F6B', fontSize: '0.82rem', marginTop: '0.25rem' }}>
                         Posted by <strong>{(load.companies as { name: string } | null)?.name ?? 'Unknown'}</strong>
                         {load.exchange_posted_at ? ` · ${new Date(load.exchange_posted_at).toLocaleDateString('en-GB')}` : ''}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       {load.budget_amount ? (
-                        <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#1d4ed8' }}>
+                        <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#1D57D8' }}>
                           £{Number(load.budget_amount).toFixed(2)}
                           {load.is_fixed_price ? ' (fixed)' : ' (budget)'}
                         </div>
-                      ) : <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Open bid</div>}
+                      ) : <div style={{ color: '#0B2F6B', fontSize: '0.85rem' }}>Open bid</div>}
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.65rem' }}>
-                    {(load.requested_vehicle_label || load.vehicle_type) && <span style={{ background: '#f1f5f9', color: '#475569', padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.76rem', fontWeight: 600 }}>{load.requested_vehicle_label ?? load.vehicle_type?.replace(/_/g,' ')}</span>}
-                    {(load.requested_cargo_label || load.cargo_type) && <span style={{ background: '#fef9c3', color: '#92400e', padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.76rem', fontWeight: 600 }}>{load.requested_cargo_label ?? load.cargo_type}</span>}
-                    {load.pickup_datetime && <span style={{ color: '#64748b', fontSize: '0.76rem' }}>Pickup: {new Date(load.pickup_datetime).toLocaleDateString('en-GB')}</span>}
+                    {(load.requested_vehicle_label || load.vehicle_type) && <span style={{ background: '#F4F6F8', color: '#0B2F6B', padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.76rem', fontWeight: 600 }}>{load.requested_vehicle_label ?? load.vehicle_type?.replace(/_/g,' ')}</span>}
+                    {(load.requested_cargo_label || load.cargo_type) && <span style={{ background: '#F4F6F8', color: '#1A1F2B', padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.76rem', fontWeight: 600 }}>{load.requested_cargo_label ?? load.cargo_type}</span>}
+                    {load.pickup_datetime && <span style={{ color: '#0B2F6B', fontSize: '0.76rem' }}>Pickup: {new Date(load.pickup_datetime).toLocaleDateString('en-GB')}</span>}
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.45rem', marginTop: '0.7rem' }}>
                     {getLoadDetailSummary(load, 8).map((item) => (
-                      <div key={`${load.id}-${item.label}`} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '0.45rem 0.55rem' }}>
-                        <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#0f172a', fontWeight: 600 }}>{item.value}</div>
+                      <div key={`${load.id}-${item.label}`} style={{ background: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '7px', padding: '0.45rem 0.55rem' }}>
+                        <div style={{ fontSize: '0.68rem', color: '#0B2F6B', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#1A1F2B', fontWeight: 600 }}>{item.value}</div>
                       </div>
                     ))}
                   </div>
@@ -212,29 +212,29 @@ export default function BrokerLoadsPage() {
                   <div style={{ marginTop: '0.85rem' }}>
                     <button
                       onClick={() => { setBidLoadId(load.id); setBidAmount(''); setBidMessage(''); setBidSuccess(''); setError(''); }}
-                      style={{ padding: '0.5rem 1.1rem', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}
+                      style={{ padding: '0.5rem 1.1rem', background: '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}
                     >
                       Place Bid
                     </button>
                   </div>
 
                   {bidLoadId === load.id && (
-                    <div style={{ marginTop: '0.85rem', padding: '0.85rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'grid', gap: '0.75rem' }}>
+                    <div style={{ marginTop: '0.85rem', padding: '0.85rem', background: '#F4F6F8', borderRadius: '8px', border: '1px solid rgba(11, 47, 107, 0.16)', display: 'grid', gap: '0.75rem' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                         <div>
-                          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Bid Amount (£) *</label>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1A1F2B', display: 'block', marginBottom: '0.3rem' }}>Bid Amount (£) *</label>
                           <input style={inputStyle} type="number" min="0" step="0.01" value={bidAmount} onChange={e => setBidAmount(e.target.value)} placeholder="e.g. 250.00" />
                         </div>
                         <div>
-                          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Message (optional)</label>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1A1F2B', display: 'block', marginBottom: '0.3rem' }}>Message (optional)</label>
                           <input style={inputStyle} value={bidMessage} onChange={e => setBidMessage(e.target.value)} placeholder="Notes for the shipper" />
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <button onClick={() => { void handleBid(); }} disabled={bidSubmitting} style={{ padding: '0.55rem 1.1rem', background: '#1F7A3D', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}>
+                        <button onClick={() => { void handleBid(); }} disabled={bidSubmitting} style={{ padding: '0.55rem 1.1rem', background: '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}>
                           {bidSubmitting ? 'Submitting…' : 'Submit Bid'}
                         </button>
-                        <button onClick={() => setBidLoadId(null)} style={{ padding: '0.55rem 1.1rem', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: '7px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                        <button onClick={() => setBidLoadId(null)} style={{ padding: '0.55rem 1.1rem', background: '#FFFFFF', color: '#1A1F2B', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '7px', cursor: 'pointer', fontSize: '0.85rem' }}>
                           Cancel
                         </button>
                       </div>

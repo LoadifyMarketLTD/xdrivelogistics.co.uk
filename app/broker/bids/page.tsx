@@ -29,10 +29,10 @@ type BidRow = {
 };
 
 const BID_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  submitted:  { bg: '#fef9c3', text: '#92400e' },
-  accepted: { bg: '#dcfce7', text: '#14532d' },
-  rejected: { bg: '#fee2e2', text: '#991b1b' },
-  withdrawn:{ bg: '#f3f4f6', text: '#6b7280' },
+  submitted:  { bg: '#F4F6F8', text: '#F5A300' },
+  accepted: { bg: '#F4F6F8', text: '#1D57D8' },
+  rejected: { bg: '#F4F6F8', text: '#F5A300' },
+  withdrawn:{ bg: '#F4F6F8', text: '#0B2F6B' },
 };
 
 export default function BrokerBidsPage() {
@@ -84,31 +84,31 @@ export default function BrokerBidsPage() {
   const BidCard = ({ bid }: { bid: BidRow }) => {
     const color = BID_STATUS_COLORS[bid.status] ?? BID_STATUS_COLORS.pending;
     return (
-      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '1rem' }}>
+      <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontWeight: 700, color: '#0f172a' }}>
+            <div style={{ fontWeight: 700, color: '#1A1F2B' }}>
               {bid.jobs?.pickup_location || '—'} → {bid.jobs?.delivery_location || '—'}
             </div>
-            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.8rem', color: '#0B2F6B', marginTop: '0.2rem' }}>
               Shipper: <strong>{(bid.jobs?.companies as { name: string } | null)?.name ?? 'Unknown'}</strong>
               {bid.jobs?.pickup_datetime ? ` · ${new Date(bid.jobs.pickup_datetime).toLocaleDateString('en-GB')}` : ''}
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#1d4ed8' }}>
+            <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#1D57D8' }}>
               £{Number(bid.bid_price_gbp ?? bid.amount ?? 0).toFixed(2)}
             </div>
             <span style={{ background: color.bg, color: color.text, padding: '0.2rem 0.55rem', borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700 }}>{bid.status}</span>
           </div>
         </div>
-        {bid.message && <p style={{ margin: '0.5rem 0 0', fontSize: '0.82rem', color: '#475569' }}>Note: {bid.message}</p>}
-        <div style={{ fontSize: '0.76rem', color: '#94a3b8', marginTop: '0.4rem' }}>Submitted: {new Date(bid.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</div>
+        {bid.message && <p style={{ margin: '0.5rem 0 0', fontSize: '0.82rem', color: '#0B2F6B' }}>Note: {bid.message}</p>}
+        <div style={{ fontSize: '0.76rem', color: '#0B2F6B', marginTop: '0.4rem' }}>Submitted: {new Date(bid.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</div>
         {bid.status === 'submitted' && (
           <button
             onClick={() => { void handleWithdraw(bid.id); }}
             disabled={withdrawingId === bid.id}
-            style={{ marginTop: '0.65rem', padding: '0.4rem 0.9rem', background: '#fff', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: '7px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
+            style={{ marginTop: '0.65rem', padding: '0.4rem 0.9rem', background: '#FFFFFF', color: '#1A1F2B', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '7px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
           >
             {withdrawingId === bid.id ? 'Withdrawing…' : 'Withdraw Bid'}
           </button>
@@ -119,26 +119,26 @@ export default function BrokerBidsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['broker', 'owner']}>
-      <div style={{ minHeight: '100vh', background: '#f5f7fa' }}>
+      <div style={{ minHeight: '100vh', background: '#F4F6F8' }}>
         <BrokerWorkspaceTabs />
 
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1.25rem' }}>
-          <h1 style={{ margin: '0 0 0.25rem', fontWeight: 700, fontSize: '1.5rem', color: '#0f172a' }}>My Bids</h1>
-          <p style={{ margin: '0 0 1.25rem', color: '#64748b', fontSize: '0.85rem' }}>Track all bids your company has submitted on the exchange.</p>
+          <h1 style={{ margin: '0 0 0.25rem', fontWeight: 700, fontSize: '1.5rem', color: '#1A1F2B' }}>My Bids</h1>
+          <p style={{ margin: '0 0 1.25rem', color: '#0B2F6B', fontSize: '0.85rem' }}>Track all bids your company has submitted on the exchange.</p>
 
-          {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', color: '#dc2626' }}>{error}</div>}
+          {error && <div style={{ background: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', color: '#1A1F2B' }}>{error}</div>}
 
           {loading ? (
-            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>Loading bids…</div>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '2rem', textAlign: 'center', color: '#0B2F6B' }}>Loading bids…</div>
           ) : bids.length === 0 ? (
-            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
-              No bids yet. <button onClick={() => router.push('/broker/loads')} style={{ color: '#1d4ed8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, textDecoration: 'underline' }}>Browse the Load Board</button>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '2rem', textAlign: 'center', color: '#0B2F6B' }}>
+              No bids yet. <button onClick={() => router.push('/broker/loads')} style={{ color: '#1D57D8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, textDecoration: 'underline' }}>Browse the Load Board</button>
             </div>
           ) : (
             <>
               {pending.length > 0 && (
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>⏳ Pending ({pending.length})</h2>
+                  <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1A1F2B', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>⏳ Pending ({pending.length})</h2>
                   <div style={{ display: 'grid', gap: '0.65rem' }}>
                     {pending.map(b => <BidCard key={b.id} bid={b} />)}
                   </div>
@@ -146,7 +146,7 @@ export default function BrokerBidsPage() {
               )}
               {accepted.length > 0 && (
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#14532d', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>✅ Accepted ({accepted.length})</h2>
+                  <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1D57D8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>✅ Accepted ({accepted.length})</h2>
                   <div style={{ display: 'grid', gap: '0.65rem' }}>
                     {accepted.map(b => <BidCard key={b.id} bid={b} />)}
                   </div>
@@ -154,7 +154,7 @@ export default function BrokerBidsPage() {
               )}
               {other.length > 0 && (
                 <div>
-                  <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>Archive ({other.length})</h2>
+                  <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>Archive ({other.length})</h2>
                   <div style={{ display: 'grid', gap: '0.65rem' }}>
                     {other.map(b => <BidCard key={b.id} bid={b} />)}
                   </div>

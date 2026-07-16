@@ -65,12 +65,12 @@ export default function PODPhotoUpload({
       backgroundColor: 'white',
       padding: '1rem',
       borderRadius: '8px',
-      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+      boxShadow: '0 1px 3px rgba(26, 31, 43, 0.1)'
     }}>
       <h3 style={{
         fontSize: '1rem',
         fontWeight: '600',
-        color: '#1f2937',
+        color: '#0B2F6B',
         marginBottom: '0.75rem'
       }}>
         {podType === 'pickup' ? 'Pickup Photos' : 'Delivery Photos'} ({photos.length}/{maxPhotos})
@@ -89,7 +89,7 @@ export default function PODPhotoUpload({
             aspectRatio: '1',
             borderRadius: '8px',
             overflow: 'hidden',
-            border: '2px solid #e5e7eb'
+            border: '2px solid #F4F6F8'
           }}>
             <img 
               src={photo} 
@@ -106,7 +106,7 @@ export default function PODPhotoUpload({
                 position: 'absolute',
                 top: '4px',
                 right: '4px',
-                backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                backgroundColor: 'rgba(245, 163, 0, 0.9)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '50%',
@@ -142,7 +142,7 @@ export default function PODPhotoUpload({
             onClick={handleCameraCapture}
             style={{
               width: '100%',
-              backgroundColor: '#3b82f6',
+              backgroundColor: '#1D57D8',
               color: 'white',
               border: 'none',
               borderRadius: '8px',

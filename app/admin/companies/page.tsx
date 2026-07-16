@@ -209,7 +209,7 @@ export default function CompaniesPage() {
   const inputStyle = {
     ...wsInputStyle,
     padding: '0.75rem',
-    border: '1px solid #d1d5db',
+    border: '1px solid rgba(11, 47, 107, 0.16)',
     borderRadius: '6px',
     fontSize: '0.95rem',
     marginBottom: 0,
@@ -245,7 +245,7 @@ export default function CompaniesPage() {
           />
           <WorkspaceContent>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-              <p style={{ color: '#6b7280', margin: '0 0 1rem 0', fontSize: '0.9rem' }}>
+              <p style={{ color: '#0B2F6B', margin: '0 0 1rem 0', fontSize: '0.9rem' }}>
                 Manage companies and memberships.
               </p>
 
@@ -289,16 +289,16 @@ export default function CompaniesPage() {
                 >
                   {paginatedCompanies.map((c, i) => (
                     <WorkspaceTableTr key={c.id} last={i === paginatedCompanies.length - 1}>
-                      <WorkspaceTableTd style={{ fontWeight: 600, color: '#1f2937' }}>{c.name}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#6b7280' }}>{c.company_number || '—'}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#6b7280' }}>{c.email || '—'}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#6b7280' }}>{c.phone || '—'}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#6b7280' }}>{c.city || '—'}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#6b7280' }}>{new Date(c.created_at).toLocaleDateString()}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ fontWeight: 600, color: '#0B2F6B' }}>{c.name}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B' }}>{c.company_number || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B' }}>{c.email || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B' }}>{c.phone || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B' }}>{c.city || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B' }}>{new Date(c.created_at).toLocaleDateString()}</WorkspaceTableTd>
                       <WorkspaceTableTd>
                         <button
                           onClick={() => openEditModal(c)}
-                          style={{ ...wsBtnAction, padding: '0.35rem 0.75rem', backgroundColor: '#e0f2fe', border: 'none', color: '#075985', fontWeight: 600 }}
+                          style={{ ...wsBtnAction, padding: '0.35rem 0.75rem', backgroundColor: '#F4F6F8', border: 'none', color: '#1D57D8', fontWeight: 600 }}
                         >
                           Edit
                         </button>
@@ -311,11 +311,11 @@ export default function CompaniesPage() {
           </WorkspaceContent>
 
           {showModal && (
-            <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+            <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(26, 31, 43, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
               <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflow: 'auto' }}>
-                <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Create Company</h2>
-                  <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+                <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#0B2F6B' }}>Create Company</h2>
+                  <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#0B2F6B' }}>×</button>
                 </div>
                 <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
                   {error && <ErrorBanner msg={error} />}
@@ -358,7 +358,7 @@ export default function CompaniesPage() {
                     </div>
                   </div>
                 </div>
-                <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(11, 47, 107, 0.16)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
                   <button onClick={() => { setShowModal(false); setError(''); }} style={{ ...wsBtnSecondary, padding: '0.75rem 1.5rem', fontSize: '0.95rem' }}>Cancel</button>
                   <button onClick={handleCreate} style={{ ...wsBtnPrimary, flex: '0 0 auto', padding: '0.75rem 1.5rem', fontSize: '0.95rem' }}>Create Company</button>
                 </div>
@@ -367,11 +367,11 @@ export default function CompaniesPage() {
           )}
 
           {editingCompany && (
-            <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+            <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(26, 31, 43, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
               <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflow: 'auto' }}>
-                <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Edit Company</h2>
-                  <button onClick={() => setEditingCompany(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+                <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#0B2F6B' }}>Edit Company</h2>
+                  <button onClick={() => setEditingCompany(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#0B2F6B' }}>×</button>
                 </div>
                 <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
                   {editError && <ErrorBanner msg={editError} />}
@@ -414,7 +414,7 @@ export default function CompaniesPage() {
                     </div>
                   </div>
                 </div>
-                <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(11, 47, 107, 0.16)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
                   <button onClick={() => setEditingCompany(null)} disabled={saving} style={{ ...wsBtnSecondary, padding: '0.75rem 1.5rem', fontSize: '0.95rem', cursor: saving ? 'not-allowed' : 'pointer' }}>Cancel</button>
                   <button onClick={handleUpdate} disabled={saving} style={{ ...wsBtnPrimary, flex: '0 0 auto', padding: '0.75rem 1.5rem', fontSize: '0.95rem', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
                 </div>

@@ -34,7 +34,7 @@ export default function Page() {
           key: 'rating',
           label: 'Rating',
           render: (row) => (
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: Number(row.rating) <= 2 ? '#ef4444' : Number(row.rating) <= 3 ? '#f59e0b' : '#22c55e' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: Number(row.rating) <= 2 ? '#F5A300' : Number(row.rating) <= 3 ? '#F5A300' : '#1D57D8' }}>
               {row.rating != null ? `${row.rating}/5 ${'★'.repeat(Math.min(Number(row.rating), 5))}` : '—'}
             </span>
           ),
@@ -43,7 +43,7 @@ export default function Page() {
           key: 'comment',
           label: 'Comment',
           render: (row) => (
-            <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{row.comment ?? '—'}</span>
+            <span style={{ fontSize: '0.75rem', color: '#0B2F6B' }}>{row.comment ?? '—'}</span>
           ),
         },
         {

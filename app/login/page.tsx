@@ -232,7 +232,7 @@ export default function LoginPage() {
           height: 100vh;
           margin: 0;
           padding: 0;
-          background: #ffffff;
+          background: #FFFFFF;
           overflow: hidden;
         }
 
@@ -260,7 +260,7 @@ export default function LoginPage() {
         }
 
         .login-form-panel {
-          background: #ffffff;
+          background: #FFFFFF;
           padding: 2rem 2.2rem;
           display: flex;
           flex-direction: column;
@@ -282,7 +282,7 @@ export default function LoginPage() {
 
         .login-form-header h2 {
           margin: 0 0 0.6rem;
-          color: #111827;
+          color: #1A1F2B;
           font-size: clamp(1.9rem, 2vw, 2.4rem);
           line-height: 1.05;
           letter-spacing: -0.02em;
@@ -290,7 +290,7 @@ export default function LoginPage() {
 
         .login-form-header p {
           margin: 0 0 1.7rem;
-          color: #4b5563;
+          color: #0B2F6B;
           font-size: 1rem;
           line-height: 1.4;
         }
@@ -309,17 +309,17 @@ export default function LoginPage() {
 
         .field-group label {
           margin: 0;
-          color: #111827;
+          color: #1A1F2B;
           font-size: 0.96rem;
           font-weight: 600;
         }
 
         .field-group :global(input) {
           width: 100%;
-          border: 1px solid #d6dbe3;
+          border: 1px solid #F4F6F8;
           border-radius: 0.65rem;
-          background: #ffffff;
-          color: #111827;
+          background: #FFFFFF;
+          color: #1A1F2B;
           font-size: 1rem;
           line-height: 1.2;
           padding: 0.95rem 1rem;
@@ -328,8 +328,8 @@ export default function LoginPage() {
 
         .field-group :global(input:focus) {
           outline: none;
-          border-color: #2563eb;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+          border-color: #1D57D8;
+          box-shadow: 0 0 0 3px rgba(29, 87, 216, 0.14);
         }
 
         .forgot-row {
@@ -340,7 +340,7 @@ export default function LoginPage() {
         .link-button {
           border: none;
           background: none;
-          color: #2563eb;
+          color: #1D57D8;
           font-size: 0.96rem;
           font-weight: 500;
           padding: 0;
@@ -352,8 +352,8 @@ export default function LoginPage() {
           border: none;
           border-radius: 0.7rem;
           padding: 0.92rem 1rem;
-          background: #1d64d8;
-          color: #ffffff;
+          background: #1D57D8;
+          color: #FFFFFF;
           font-size: 1.15rem;
           font-weight: 600;
           cursor: pointer;
@@ -366,17 +366,17 @@ export default function LoginPage() {
         }
 
         .signin-button:not(:disabled):hover {
-          background: #1553c0;
+          background: #1D57D8;
         }
 
         .register-row {
           margin: 0.1rem 0 0;
           text-align: center;
-          color: #4b5563;
+          color: #0B2F6B;
         }
 
         .register-row :global(a) {
-          color: #2563eb;
+          color: #1D57D8;
           font-weight: 600;
         }
 
@@ -388,15 +388,15 @@ export default function LoginPage() {
         }
 
         .login-message.error {
-          background: #fee2e2;
-          color: #dc2626;
-          border-color: #fecaca;
+          background: #F4F6F8;
+          color: #1A1F2B;
+          border-color: #F4F6F8;
         }
 
         .login-message.success {
-          background: #dcfce7;
-          color: #166534;
-          border-color: #bbf7d0;
+          background: #F4F6F8;
+          color: #1D57D8;
+          border-color: #F4F6F8;
         }
 
         @media (max-width: 1400px) and (min-width: 961px) {

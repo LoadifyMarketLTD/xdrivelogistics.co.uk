@@ -42,8 +42,8 @@ const actionButton = (tone: 'neutral' | 'success' | 'danger'): React.CSSProperti
   padding: '0.42rem 0.65rem',
   borderRadius: '7px',
   border: tone === 'neutral' ? `1px solid ${SUPER_ADMIN_THEME.cardBorder}` : '1px solid transparent',
-  backgroundColor: tone === 'success' ? SUPER_ADMIN_THEME.success : tone === 'danger' ? SUPER_ADMIN_THEME.danger : '#fff',
-  color: tone === 'neutral' ? SUPER_ADMIN_THEME.text : '#fff',
+  backgroundColor: tone === 'success' ? SUPER_ADMIN_THEME.success : tone === 'danger' ? SUPER_ADMIN_THEME.danger : '#FFFFFF',
+  color: tone === 'neutral' ? SUPER_ADMIN_THEME.text : '#FFFFFF',
   fontSize: '0.74rem',
   fontWeight: 700,
   cursor: 'pointer',
@@ -169,8 +169,8 @@ export default function Page() {
           </button>
         </div>
 
-        {error && <div role="alert" style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '0.7rem 0.9rem', color: SUPER_ADMIN_THEME.danger, fontSize: '0.82rem', marginBottom: '1rem' }}>{error}</div>}
-        {notice && <div role="status" style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '0.7rem 0.9rem', color: SUPER_ADMIN_THEME.success, fontSize: '0.82rem', marginBottom: '1rem' }}>{notice}</div>}
+        {error && <div role="alert" style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: 8, padding: '0.7rem 0.9rem', color: SUPER_ADMIN_THEME.danger, fontSize: '0.82rem', marginBottom: '1rem' }}>{error}</div>}
+        {notice && <div role="status" style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: 8, padding: '0.7rem 0.9rem', color: SUPER_ADMIN_THEME.success, fontSize: '0.82rem', marginBottom: '1rem' }}>{notice}</div>}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem', marginBottom: '1rem' }}>
           {Object.entries(summary).map(([key, value]) => (
@@ -192,7 +192,7 @@ export default function Page() {
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1120, fontSize: '0.82rem' }}>
                 <thead>
-                  <tr style={{ borderBottom: `1px solid ${SUPER_ADMIN_THEME.cardBorder}`, backgroundColor: '#f8fafc' }}>
+                  <tr style={{ borderBottom: `1px solid ${SUPER_ADMIN_THEME.cardBorder}`, backgroundColor: '#F4F6F8' }}>
                     {['Owner', 'Company', 'Document Type', 'Status', 'Expiry', 'Uploaded', 'Review Actions'].map((label) => (
                       <th key={label} style={{ padding: '0.75rem 0.9rem', textAlign: 'left', color: SUPER_ADMIN_THEME.muted, fontWeight: 650, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</th>
                     ))}
@@ -244,8 +244,8 @@ export default function Page() {
         </div>
 
         {rejectTarget && (
-          <div role="dialog" aria-modal="true" aria-labelledby="reject-title" style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'grid', placeItems: 'center', padding: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.58)' }}>
-            <div style={{ ...superAdminCardStyle, width: 'min(100%, 520px)', padding: '1.1rem', boxShadow: '0 24px 70px rgba(15,23,42,0.3)' }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="reject-title" style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'grid', placeItems: 'center', padding: '1rem', backgroundColor: 'rgba(26, 31, 43, 0.58)' }}>
+            <div style={{ ...superAdminCardStyle, width: 'min(100%, 520px)', padding: '1.1rem', boxShadow: '0 24px 70px rgba(26, 31, 43, 0.3)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
                 <div>
                   <h2 id="reject-title" style={{ margin: 0, color: SUPER_ADMIN_THEME.text, fontSize: '1.05rem' }}>Reject document</h2>
@@ -254,7 +254,7 @@ export default function Page() {
                 <button type="button" onClick={() => setRejectTarget(null)} aria-label="Close rejection dialog" style={{ border: 0, background: 'transparent', color: SUPER_ADMIN_THEME.muted, cursor: 'pointer', padding: 4 }}><X size={18} aria-hidden="true" /></button>
               </div>
               <label htmlFor="rejection-reason" style={{ display: 'block', marginTop: '1rem', marginBottom: '0.35rem', color: SUPER_ADMIN_THEME.text, fontSize: '0.78rem', fontWeight: 700 }}>Rejection reason</label>
-              <textarea id="rejection-reason" autoFocus rows={5} maxLength={2000} value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} placeholder="Explain what must be corrected or uploaded again." style={{ width: '100%', resize: 'vertical', boxSizing: 'border-box', border: `1px solid ${SUPER_ADMIN_THEME.cardBorder}`, borderRadius: 8, padding: '0.7rem', color: SUPER_ADMIN_THEME.text, backgroundColor: '#fff', font: 'inherit', fontSize: '0.82rem', outlineColor: SUPER_ADMIN_THEME.primary }} />
+              <textarea id="rejection-reason" autoFocus rows={5} maxLength={2000} value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} placeholder="Explain what must be corrected or uploaded again." style={{ width: '100%', resize: 'vertical', boxSizing: 'border-box', border: `1px solid ${SUPER_ADMIN_THEME.cardBorder}`, borderRadius: 8, padding: '0.7rem', color: SUPER_ADMIN_THEME.text, backgroundColor: '#FFFFFF', font: 'inherit', fontSize: '0.82rem', outlineColor: SUPER_ADMIN_THEME.primary }} />
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
                 <button type="button" onClick={() => setRejectTarget(null)} style={actionButton('neutral')}>Cancel</button>
                 <button type="button" onClick={submitRejection} disabled={!rejectionReason.trim() || activeDocumentId === rejectTarget.id} style={{ ...actionButton('danger'), opacity: !rejectionReason.trim() || activeDocumentId === rejectTarget.id ? 0.5 : 1 }}>

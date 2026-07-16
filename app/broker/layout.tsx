@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
+import { WorkspacePlatformShell } from '../components/workspace';
 
 export const metadata: Metadata = {
   title: 'Broker Workspace | XDrive Logistics',
@@ -9,14 +10,8 @@ export const metadata: Metadata = {
 
 export default function BrokerLayout({ children }: { children: ReactNode }) {
   return (
-    <div
-      className="authenticated-workspace"
-      style={{
-        minHeight: '100dvh',
-        backgroundColor: '#f5f7fa',
-      }}
-    >
-      {children}
+    <div className="authenticated-workspace">
+      <WorkspacePlatformShell area="broker">{children}</WorkspacePlatformShell>
     </div>
   );
 }

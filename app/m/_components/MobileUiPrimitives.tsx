@@ -3,20 +3,20 @@
 import type { CSSProperties, ReactNode } from 'react';
 
 const baseCardStyle: CSSProperties = {
-  background: '#181a20',
-  border: '1px solid rgba(255,255,255,0.08)',
+  background: '#1A1F2B',
+  border: '1px solid rgba(255, 255, 255, 0.08)',
   borderRadius: '16px',
   padding: '1rem',
-  boxShadow: '0 10px 28px rgba(0,0,0,0.28)',
+  boxShadow: '0 10px 28px rgba(26, 31, 43, 0.28)',
 };
 
 export const mobileMutedTextStyle: CSSProperties = {
-  color: '#9ca3af',
+  color: '#F4F6F8',
   fontSize: '0.78rem',
 };
 
 export const mobileSectionTitleStyle: CSSProperties = {
-  color: '#f8fafc',
+  color: '#F4F6F8',
   fontSize: '0.82rem',
   fontWeight: 900,
   marginBottom: '0.65rem',
@@ -38,7 +38,7 @@ export function MobileCard({
       style={{
         ...baseCardStyle,
         ...(highlighted
-          ? { borderColor: '#facc15', background: 'linear-gradient(180deg, #22231c 0%, #181a20 100%)' }
+          ? { borderColor: '#F5A300', background: 'linear-gradient(180deg, #1A1F2B 0%, #1A1F2B 100%)' }
           : null),
         ...style,
       }}
@@ -58,9 +58,9 @@ export function MobileKpiGrid({ children }: { children: ReactNode }) {
 
 export function MobileKpiItem({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '0.7rem' }}>
-      <div style={{ color: '#9ca3af', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ color: '#fff', fontSize: '0.88rem', fontWeight: 750, marginTop: '0.25rem', lineHeight: 1.25 }}>{value}</div>
+    <div style={{ background: 'rgba(255, 255, 255, 0.055)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: 12, padding: '0.7rem' }}>
+      <div style={{ color: '#F4F6F8', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ color: '#FFFFFF', fontSize: '0.88rem', fontWeight: 750, marginTop: '0.25rem', lineHeight: 1.25 }}>{value}</div>
     </div>
   );
 }

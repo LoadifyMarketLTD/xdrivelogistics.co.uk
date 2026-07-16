@@ -30,10 +30,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
-  delivered:       { bg: '#dcfce7', color: '#15803d' },
-  cancelled:       { bg: '#fee2e2', color: '#dc2626' },
-  disputed:        { bg: '#ede9fe', color: '#7c3aed' },
-  driver_declined: { bg: '#fee2e2', color: '#b91c1c' },
+  delivered:       { bg: '#F4F6F8', color: '#1D57D8' },
+  cancelled:       { bg: '#F4F6F8', color: '#1A1F2B' },
+  disputed:        { bg: '#F4F6F8', color: '#1D57D8' },
+  driver_declined: { bg: '#F4F6F8', color: '#1A1F2B' },
 };
 
 function fmtDate(value: string | null) {
@@ -43,11 +43,11 @@ function fmtDate(value: string | null) {
 }
 
 const card: CSSProperties = {
-  backgroundColor: '#ffffff',
-  border: '1px solid #d7e0ea',
+  backgroundColor: '#FFFFFF',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '10px',
   padding: '1rem',
-  boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+  boxShadow: '0 2px 8px rgba(26, 31, 43, 0.06)',
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -116,18 +116,18 @@ export default function JobHistoryPage() {
       <DriverWorkspaceShell
         subtitle="Full record of all completed, cancelled, and closed jobs."
       >
-        <h2 style={{ margin: '0 0 1rem', fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>Job History</h2>
+        <h2 style={{ margin: '0 0 1rem', fontSize: '1.35rem', fontWeight: 700, color: '#1A1F2B' }}>Job History</h2>
 
         {/* Summary */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem', marginBottom: '1rem' }}>
           {[
-            { label: 'Completed',     value: earnings.delivered, color: '#15803d' },
-            { label: 'Total earned',  value: `£${earnings.total.toFixed(2)}`, color: '#1d4ed8' },
-            { label: 'All history',   value: jobs.length, color: '#374151' },
+            { label: 'Completed',     value: earnings.delivered, color: '#1D57D8' },
+            { label: 'Total earned',  value: `£${earnings.total.toFixed(2)}`, color: '#1D57D8' },
+            { label: 'All history',   value: jobs.length, color: '#1A1F2B' },
           ].map((item) => (
             <div key={item.label} style={{ ...card, borderTop: `3px solid ${item.color}`, padding: '0.8rem', textAlign: 'center' }}>
               <div style={{ fontSize: '1.3rem', fontWeight: 800, color: item.color }}>{loading ? '…' : item.value}</div>
-              <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, marginTop: '0.15rem' }}>{item.label}</div>
+              <div style={{ fontSize: '0.76rem', color: '#0B2F6B', fontWeight: 600, marginTop: '0.15rem' }}>{item.label}</div>
             </div>
           ))}
         </div>
@@ -147,9 +147,9 @@ export default function JobHistoryPage() {
               style={{
                 padding: '0.4rem 0.8rem',
                 borderRadius: '7px',
-                border: statusFilter === f.id ? '1.5px solid #1d4ed8' : '1px solid #e2e8f0',
-                backgroundColor: statusFilter === f.id ? '#eff6ff' : '#ffffff',
-                color: statusFilter === f.id ? '#1d4ed8' : '#374151',
+                border: statusFilter === f.id ? '1.5px solid #1D57D8' : '1px solid #F4F6F8',
+                backgroundColor: statusFilter === f.id ? '#F4F6F8' : '#FFFFFF',
+                color: statusFilter === f.id ? '#1D57D8' : '#1A1F2B',
                 fontWeight: statusFilter === f.id ? 700 : 500,
                 cursor: 'pointer',
                 fontSize: '0.8rem',
@@ -161,23 +161,23 @@ export default function JobHistoryPage() {
         </div>
 
         {error && (
-          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.7rem', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+          <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1A1F2B', borderRadius: '8px', padding: '0.7rem', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
             {error}
           </div>
         )}
 
         {loading ? (
-          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading history…</div>
+          <div style={{ color: '#0B2F6B', padding: '2rem', textAlign: 'center' }}>Loading history…</div>
         ) : visibleJobs.length === 0 ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📚</div>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>No history</div>
-            <div style={{ fontSize: '0.84rem', color: '#64748b' }}>Completed and closed jobs will appear here.</div>
+            <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.3rem' }}>No history</div>
+            <div style={{ fontSize: '0.84rem', color: '#0B2F6B' }}>Completed and closed jobs will appear here.</div>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: '0.65rem' }}>
             {visibleJobs.map((job) => {
-              const statusStyle = STATUS_STYLES[job.status] ?? { bg: '#f3f4f6', color: '#374151' };
+              const statusStyle = STATUS_STYLES[job.status] ?? { bg: '#F4F6F8', color: '#1A1F2B' };
               const hasPOD = Array.isArray(job.delivery_photos) && job.delivery_photos.length > 0;
               const jobDate = job.updated_at ?? job.deadline_at ?? job.delivery_window_start ?? job.created_at;
               return (
@@ -198,21 +198,21 @@ export default function JobHistoryPage() {
                 >
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
-                      <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.9rem' }}>#{job.id.slice(0, 8).toUpperCase()}</span>
+                      <span style={{ fontWeight: 800, color: '#1A1F2B', fontSize: '0.9rem' }}>#{job.id.slice(0, 8).toUpperCase()}</span>
                       <span style={{ fontSize: '0.7rem', fontWeight: 700, backgroundColor: statusStyle.bg, color: statusStyle.color, padding: '0.1rem 0.4rem', borderRadius: '999px' }}>
                         {STATUS_LABELS[job.status] ?? job.status}
                       </span>
-                      {hasPOD && <span style={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 600 }}>📷 POD</span>}
+                      {hasPOD && <span style={{ fontSize: '0.7rem', color: '#1D57D8', fontWeight: 600 }}>📷 POD</span>}
                       {job.budget_amount != null && (
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>£{job.budget_amount.toFixed(2)}</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1D57D8' }}>£{job.budget_amount.toFixed(2)}</span>
                       )}
                     </div>
-                    <div style={{ fontSize: '0.82rem', color: '#374151' }}>
+                    <div style={{ fontSize: '0.82rem', color: '#1A1F2B' }}>
                       {job.pickup_location ?? '—'} → {job.delivery_location ?? '—'}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.15rem' }}>{fmtDate(jobDate)}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#0B2F6B', marginTop: '0.15rem' }}>{fmtDate(jobDate)}</div>
                   </div>
-                  <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>→</span>
+                  <span style={{ fontSize: '0.8rem', color: '#0B2F6B' }}>→</span>
                 </button>
               );
             })}

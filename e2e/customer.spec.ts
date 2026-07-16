@@ -17,6 +17,9 @@ test.describe('Customer portal', () => {
   test('customer workspace loads', async ({ page }) => {
     await page.goto('/customer');
     await expect(page.locator('h1')).toContainText(/load posting workspace/i);
+    await expect(page.getByRole('navigation', { name: /customer workspace/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /post load/i }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /^fleet$/i })).toHaveCount(0);
   });
 
   test('quotes tab visible', async ({ page }) => {

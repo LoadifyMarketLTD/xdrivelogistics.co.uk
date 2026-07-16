@@ -171,7 +171,7 @@ export default function DriverJobDetailPage() {
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = '#0A2239';
+    ctx.strokeStyle = '#1A1F2B';
     ctx.lineTo(clientX - rect.left, clientY - rect.top);
     ctx.stroke();
   };
@@ -352,7 +352,7 @@ export default function DriverJobDetailPage() {
   // ── Render ───────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+      <div style={{ padding: '3rem', textAlign: 'center', color: '#0B2F6B' }}>
         Loading job…
       </div>
     );
@@ -360,7 +360,7 @@ export default function DriverJobDetailPage() {
 
   if (!job) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#dc2626' }}>
+      <div style={{ padding: '2rem', textAlign: 'center', color: '#1A1F2B' }}>
         {error || 'Job not found.'}
       </div>
     );
@@ -380,11 +380,11 @@ export default function DriverJobDetailPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-    <div style={{ minHeight: '100dvh', backgroundColor: '#f3f4f6', paddingBottom: '5rem' }}>
+    <div style={{ minHeight: '100dvh', backgroundColor: '#F4F6F8', paddingBottom: '5rem' }}>
       {/* Header */}
       <header
         style={{
-          backgroundColor: '#0A2239',
+          backgroundColor: '#1A1F2B',
           padding: '1rem 1.25rem',
           display: 'flex',
           alignItems: 'center',
@@ -396,13 +396,13 @@ export default function DriverJobDetailPage() {
       >
         <button
           onClick={() => router.push('/driver/jobs')}
-          style={{ background: 'none', border: 'none', color: '#93c5fd', fontSize: '1.4rem', cursor: 'pointer', padding: 0 }}
+          style={{ background: 'none', border: 'none', color: '#0B2F6B', fontSize: '1.4rem', cursor: 'pointer', padding: 0 }}
         >
           ←
         </button>
         <div>
-          <p style={{ color: '#93c5fd', fontSize: '0.7rem', margin: 0 }}>Job Detail</p>
-          <h1 style={{ color: '#ffffff', fontSize: '1rem', fontWeight: '700', margin: 0 }}>
+          <p style={{ color: '#0B2F6B', fontSize: '0.7rem', margin: 0 }}>Job Detail</p>
+          <h1 style={{ color: '#FFFFFF', fontSize: '1rem', fontWeight: '700', margin: 0 }}>
             #{job.id.slice(0, 8).toUpperCase()}
           </h1>
         </div>
@@ -411,8 +411,8 @@ export default function DriverJobDetailPage() {
             marginLeft: 'auto',
             fontSize: '0.7rem',
             fontWeight: '700',
-            color: '#ffffff',
-            backgroundColor: '#1e4d7b',
+            color: '#FFFFFF',
+            backgroundColor: '#1D57D8',
             padding: '0.25rem 0.65rem',
             borderRadius: '20px',
           }}
@@ -424,12 +424,12 @@ export default function DriverJobDetailPage() {
       <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Alerts */}
         {error && (
-          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem', color: '#dc2626', fontSize: '0.875rem' }}>
+          <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '0.75rem', color: '#1A1F2B', fontSize: '0.875rem' }}>
             {error}
           </div>
         )}
         {successMsg && (
-          <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '0.75rem', color: '#15803d', fontSize: '0.875rem' }}>
+          <div style={{ backgroundColor: '#F4F6F8', border: '1px solid #1D57D8', borderRadius: '8px', padding: '0.75rem', color: '#1D57D8', fontSize: '0.875rem' }}>
             {successMsg}
           </div>
         )}
@@ -444,7 +444,7 @@ export default function DriverJobDetailPage() {
           {job.pickup_location && (
             <NavButtons address={job.pickup_location} postcode={job.pickup_postcode} label="Pickup" />
           )}
-          <div style={{ borderTop: '1px dashed #e5e7eb', margin: '0.5rem 0' }} />
+          <div style={{ borderTop: '1px dashed #F4F6F8', margin: '0.5rem 0' }} />
           <InfoRow icon="📍" label="Delivery" value={job.delivery_location ?? 'TBC'} />
           {job.delivery_datetime && (
             <InfoRow icon="🕐" label="Delivery time" value={new Date(job.delivery_datetime).toLocaleString('en-GB')} />
@@ -455,7 +455,7 @@ export default function DriverJobDetailPage() {
           )}
           {/* Distance / duration */}
           {(job.job_distance_miles != null || job.job_distance_minutes != null) && (
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.82rem', color: '#6b7280' }}>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.82rem', color: '#0B2F6B' }}>
               {job.job_distance_miles != null && <span>📏 {job.job_distance_miles.toFixed(1)} mi</span>}
               {job.job_distance_minutes != null && <span>⏱ {Math.round(job.job_distance_minutes)} min</span>}
             </div>
@@ -465,7 +465,7 @@ export default function DriverJobDetailPage() {
         {/* Milestone buttons for allocated job */}
         {canCollect && (
           <Section title="Journey Milestones">
-            <p style={{ fontSize: '0.82rem', color: '#6b7280', margin: '0 0 0.75rem' }}>
+            <p style={{ fontSize: '0.82rem', color: '#0B2F6B', margin: '0 0 0.75rem' }}>
               Tap each milestone as you progress. These are visible to your dispatcher.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -515,7 +515,7 @@ export default function DriverJobDetailPage() {
             <div style={{ display: 'grid', gap: '0.75rem' }}>
               {loadDetailSections.map((section) => (
                 <div key={section.title}>
-                  <div style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.4rem' }}>{section.title}</div>
+                  <div style={{ color: '#0B2F6B', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.4rem' }}>{section.title}</div>
                   <div style={{ display: 'grid', gap: '0.45rem' }}>
                     {section.items.map((item) => (
                       <InfoRow key={`${section.title}-${item.label}`} icon="" label={item.label} value={item.value} />
@@ -529,7 +529,7 @@ export default function DriverJobDetailPage() {
         {/* Collection photo – shown until the trip starts */}
         {(canLoad || currentStatus === 'loaded') && (
           <Section title="Loading Photos & Message">
-            <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0 0 0.75rem' }}>
+            <p style={{ fontSize: '0.85rem', color: '#0B2F6B', margin: '0 0 0.75rem' }}>
               Add loading images and a message before marking the job as loaded.
             </p>
             <input
@@ -568,7 +568,7 @@ export default function DriverJobDetailPage() {
                 width: '100%',
                 marginTop: '0.75rem',
                 padding: '0.65rem 0.75rem',
-                border: '1px solid #d1d5db',
+                border: '1px solid rgba(11, 47, 107, 0.16)',
                 borderRadius: '8px',
                 fontSize: '0.9rem',
                 resize: 'vertical',
@@ -607,7 +607,7 @@ export default function DriverJobDetailPage() {
                 placeholder="Recipient name"
                 value={sigClientName}
                 onChange={e => setSigClientName(e.target.value)}
-                style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem', marginBottom: '0.75rem', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', fontSize: '0.9rem', marginBottom: '0.75rem', boxSizing: 'border-box' }}
               />
               <canvas
                 ref={canvasRef}
@@ -623,9 +623,9 @@ export default function DriverJobDetailPage() {
                 style={{
                   width: '100%',
                   height: '130px',
-                  border: '1px solid #d1d5db',
+                  border: '1px solid rgba(11, 47, 107, 0.16)',
                   borderRadius: '8px',
-                  backgroundColor: '#fafafa',
+                  backgroundColor: '#FFFFFF',
                   touchAction: 'none',
                   cursor: 'crosshair',
                   display: 'block',
@@ -648,7 +648,7 @@ export default function DriverJobDetailPage() {
             style={{
               width: '100%',
               padding: '0.65rem 0.75rem',
-              border: '1px solid #d1d5db',
+              border: '1px solid rgba(11, 47, 107, 0.16)',
               borderRadius: '8px',
               fontSize: '0.9rem',
               resize: 'vertical',
@@ -660,11 +660,11 @@ export default function DriverJobDetailPage() {
         {/* Status history */}
         {Array.isArray(job.status_history) && job.status_history.length > 0 && (
           <Section title="Status History">
-            <ol style={{ margin: 0, padding: '0 0 0 1.25rem', fontSize: '0.85rem', color: '#374151' }}>
+            <ol style={{ margin: 0, padding: '0 0 0 1.25rem', fontSize: '0.85rem', color: '#1A1F2B' }}>
               {job.status_history.map((entry, i) => (
                 <li key={i} style={{ marginBottom: '0.3rem' }}>
                   <strong>{STATUS_LABEL[entry.status] ?? entry.status}</strong>{' '}
-                  <span style={{ color: '#6b7280' }}>
+                  <span style={{ color: '#0B2F6B' }}>
                     — {new Date(entry.timestamp).toLocaleString('en-GB')}
                   </span>
                 </li>
@@ -685,27 +685,27 @@ export default function DriverJobDetailPage() {
             width: '100%',
             maxWidth: '480px',
             padding: '1rem',
-            backgroundColor: '#ffffff',
-            borderTop: '1px solid #e5e7eb',
-            boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
+            backgroundColor: '#FFFFFF',
+            borderTop: '1px solid rgba(11, 47, 107, 0.16)',
+            boxShadow: '0 -2px 8px rgba(26, 31, 43, 0.1)',
           }}
         >
           {canCollect && (
             <button
               onClick={handleCollect}
               disabled={actionLoading}
-              style={actionBtn('#1d4ed8')}
+              style={actionBtn('#1D57D8')}
             >
               {actionLoading ? 'Updating…' : '🚚 Confirm Collection'}
             </button>
           )}
           {canArrivePickup && (
-            <button onClick={handleArrivePickup} disabled={actionLoading} style={actionBtn('#1d4ed8')}>
+            <button onClick={handleArrivePickup} disabled={actionLoading} style={actionBtn('#1D57D8')}>
               {actionLoading ? 'Updating...' : 'Arrived Pickup'}
             </button>
           )}
           {canLoad && (
-            <button onClick={handleLoad} disabled={actionLoading} style={actionBtn('#0f766e')}>
+            <button onClick={handleLoad} disabled={actionLoading} style={actionBtn('#1D57D8')}>
               {actionLoading ? 'Updating...' : 'Loaded'}
             </button>
           )}
@@ -713,7 +713,7 @@ export default function DriverJobDetailPage() {
             <button
               onClick={handleStartTransit}
               disabled={actionLoading}
-              style={actionBtn('#0f766e')}
+              style={actionBtn('#1D57D8')}
             >
               {actionLoading ? 'Updating…' : '🛣️ Start Transit'}
             </button>
@@ -722,7 +722,7 @@ export default function DriverJobDetailPage() {
             <button
               onClick={handleDeliver}
               disabled={actionLoading}
-              style={actionBtn('#15803d')}
+              style={actionBtn('#1D57D8')}
             >
               {actionLoading ? 'Updating…' : '✅ Confirm Delivery'}
             </button>
@@ -740,14 +740,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div
       style={{
-        backgroundColor: '#ffffff',
+        backgroundColor: '#FFFFFF',
         borderRadius: '12px',
-        border: '1px solid #e5e7eb',
+        border: '1px solid rgba(11, 47, 107, 0.16)',
         overflow: 'hidden',
       }}
     >
-      <div style={{ padding: '0.6rem 1rem', backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <div style={{ padding: '0.6rem 1rem', backgroundColor: '#FFFFFF', borderBottom: '1px solid rgba(11, 47, 107, 0.16)' }}>
+        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {title}
         </span>
       </div>
@@ -760,8 +760,8 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
   return (
     <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem', fontSize: '0.875rem' }}>
       <span>{icon}</span>
-      <span style={{ color: '#6b7280', flexShrink: 0 }}>{label}:</span>
-      <span style={{ color: '#1f2937', fontWeight: '500' }}>{value}</span>
+      <span style={{ color: '#0B2F6B', flexShrink: 0 }}>{label}:</span>
+      <span style={{ color: '#0B2F6B', fontWeight: '500' }}>{value}</span>
     </div>
   );
 }
@@ -773,7 +773,7 @@ function NavButtons({ address, postcode, label }: { address: string; postcode?: 
         href={buildMapsUrl('google', address, postcode)}
         target="_blank"
         rel="noopener noreferrer"
-        style={navLinkStyle('#4285F4')}
+        style={navLinkStyle('#1D57D8')}
       >
         🗺 Google Maps
       </a>
@@ -781,7 +781,7 @@ function NavButtons({ address, postcode, label }: { address: string; postcode?: 
         href={buildMapsUrl('waze', address, postcode)}
         target="_blank"
         rel="noopener noreferrer"
-        style={navLinkStyle('#33ccff')}
+        style={navLinkStyle('#1D57D8')}
       >
         🚦 Waze
       </a>
@@ -789,11 +789,11 @@ function NavButtons({ address, postcode, label }: { address: string; postcode?: 
         href={buildMapsUrl('apple', address, postcode)}
         target="_blank"
         rel="noopener noreferrer"
-        style={navLinkStyle('#555')}
+        style={navLinkStyle('#0B2F6B')}
       >
         🍎 Apple Maps
       </a>
-      <span style={{ fontSize: '0.7rem', color: '#9ca3af', alignSelf: 'center' }}>Navigate to {label}</span>
+      <span style={{ fontSize: '0.7rem', color: '#0B2F6B', alignSelf: 'center' }}>Navigate to {label}</span>
     </div>
   );
 }
@@ -812,9 +812,9 @@ function MilestoneButton({ label, done, disabled, onTap }: {
         width: '100%',
         padding: '0.7rem 1rem',
         borderRadius: '10px',
-        border: done ? '1px solid #86efac' : '1px solid #d1d5db',
-        backgroundColor: done ? '#f0fdf4' : disabled ? '#f3f4f6' : '#eff6ff',
-        color: done ? '#15803d' : disabled ? '#9ca3af' : '#1d4ed8',
+        border: done ? '1px solid #1D57D8' : '1px solid #F4F6F8',
+        backgroundColor: done ? '#F4F6F8' : disabled ? '#F4F6F8' : '#F4F6F8',
+        color: done ? '#1D57D8' : disabled ? '#F4F6F8' : '#1D57D8',
         fontSize: '0.9rem',
         fontWeight: '600',
         cursor: done || disabled ? 'default' : 'pointer',
@@ -825,7 +825,7 @@ function MilestoneButton({ label, done, disabled, onTap }: {
       }}
     >
       {done ? '✅' : '⬜'} {label}
-      {done && <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#6b7280' }}>Recorded</span>}
+      {done && <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#0B2F6B' }}>Recorded</span>}
     </button>
   );
 }
@@ -845,9 +845,9 @@ const navLinkStyle = (color: string): React.CSSProperties => ({
 const photoBtn: React.CSSProperties = {
   width: '100%',
   padding: '0.75rem',
-  backgroundColor: '#eff6ff',
-  color: '#1d4ed8',
-  border: '1px dashed #93c5fd',
+  backgroundColor: '#F4F6F8',
+  color: '#1D57D8',
+  border: '1px dashed #F4F6F8',
   borderRadius: '8px',
   fontSize: '0.9rem',
   fontWeight: '600',
@@ -857,7 +857,7 @@ const photoBtn: React.CSSProperties = {
 const ghostBtn: React.CSSProperties = {
   background: 'none',
   border: 'none',
-  color: '#6b7280',
+  color: '#0B2F6B',
   fontSize: '0.8rem',
   cursor: 'pointer',
   padding: 0,
@@ -868,7 +868,7 @@ const actionBtn = (bg: string): React.CSSProperties => ({
   width: '100%',
   padding: '1rem',
   backgroundColor: bg,
-  color: '#ffffff',
+  color: '#FFFFFF',
   border: 'none',
   borderRadius: '12px',
   fontSize: '1rem',

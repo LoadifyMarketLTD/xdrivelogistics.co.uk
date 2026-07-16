@@ -13,8 +13,8 @@ export default function FeedbackPage() {
         <style jsx>{`
           .page {
             min-height: 100vh;
-            background: #f3f4f6;
-            color: #0f172a;
+            background: #F4F6F8;
+            color: #1A1F2B;
             padding: 24px;
           }
 

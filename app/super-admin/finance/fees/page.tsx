@@ -58,7 +58,7 @@ export default function Page() {
             <span style={{ fontSize: '0.8rem' }}>
               £{Number(row.vat_amount).toFixed(2)}
               {row.vat_rate > 0 && (
-                <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}> ({row.vat_rate}%)</span>
+                <span style={{ color: '#0B2F6B', fontSize: '0.7rem' }}> ({row.vat_rate}%)</span>
               )}
             </span>
           ),

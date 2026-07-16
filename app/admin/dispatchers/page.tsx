@@ -251,8 +251,8 @@ export default function DispatchersPage() {
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div>
-                  <h1 style={{ fontSize: '2rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>Dispatchers</h1>
-                  <p style={{ color: '#6b7280', margin: '0.5rem 0 0' }}>Invite and recover dispatcher access for your company team</p>
+                  <h1 style={{ fontSize: '2rem', fontWeight: 700, color: '#0B2F6B', margin: 0 }}>Dispatchers</h1>
+                  <p style={{ color: '#0B2F6B', margin: '0.5rem 0 0' }}>Invite and recover dispatcher access for your company team</p>
                 </div>
                 <button
                   onClick={() => {
@@ -269,7 +269,7 @@ export default function DispatchersPage() {
                     padding: '0.75rem 1.5rem',
                     fontSize: '0.95rem',
                     borderRadius: '8px',
-                    backgroundColor: !companyResolved || !companyId || !canManageDispatchers ? '#9ca3af' : '#1F7A3D',
+                    backgroundColor: !companyResolved || !companyId || !canManageDispatchers ? '#F4F6F8' : '#1D57D8',
                     cursor: !companyResolved || !companyId || !canManageDispatchers ? 'not-allowed' : 'pointer',
                   }}
                 >
@@ -278,7 +278,7 @@ export default function DispatchersPage() {
               </div>
 
               {companyResolved && companyId && !canManageDispatchers ? (
-                <div style={{ backgroundColor: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '8px', padding: '1rem', color: '#1d4ed8' }}>
+                <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '1rem', color: '#1D57D8' }}>
                   Only company owners and admins can onboard dispatcher accounts.
                 </div>
               ) : null}
@@ -286,7 +286,7 @@ export default function DispatchersPage() {
               {companyError ? <ErrorBanner msg={companyError} /> : null}
 
               {!isSupabaseConfigured ? (
-                <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', color: '#92400e' }}>
+                <div style={{ backgroundColor: '#F4F6F8', border: '1px solid #F5A300', borderRadius: '8px', padding: '1rem', color: '#1A1F2B' }}>
                   ⚠️ Supabase is not configured. Database features are disabled.
                 </div>
               ) : null}
@@ -311,18 +311,18 @@ export default function DispatchersPage() {
                 >
                   {paginatedDispatchers.map((dispatcher, index) => (
                     <WorkspaceTableTr key={dispatcher.id} last={index === paginatedDispatchers.length - 1}>
-                      <WorkspaceTableTd style={{ color: '#1f2937', fontWeight: 600 }}>{dispatcher.invited_email ?? '—'}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#6b7280' }}>Dispatcher</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B', fontWeight: 600 }}>{dispatcher.invited_email ?? '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B' }}>Dispatcher</WorkspaceTableTd>
                       <WorkspaceTableTd>
                         <WorkspaceStatusBadge
-                          bg={dispatcher.status === 'active' ? '#d1fae5' : '#fee2e2'}
-                          color={dispatcher.status === 'active' ? '#166534' : '#991b1b'}
+                          bg={dispatcher.status === 'active' ? '#F4F6F8' : '#F4F6F8'}
+                          color={dispatcher.status === 'active' ? '#1D57D8' : '#F5A300'}
                         >
                           {dispatcher.status}
                         </WorkspaceStatusBadge>
                       </WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#6b7280' }}>{dispatcher.user_id ? 'Linked' : 'Pending link'}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#6b7280' }}>{formatDate(dispatcher.created_at)}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B' }}>{dispatcher.user_id ? 'Linked' : 'Pending link'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B' }}>{formatDate(dispatcher.created_at)}</WorkspaceTableTd>
                     </WorkspaceTableTr>
                   ))}
                 </WorkspaceTable>
@@ -332,17 +332,17 @@ export default function DispatchersPage() {
         </WorkspaceMain>
 
         {showModal ? (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(26, 31, 43, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
             <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '520px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1f2937' }}>Add Dispatcher</h2>
-                <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+              <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#0B2F6B' }}>Add Dispatcher</h2>
+                <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#0B2F6B' }}>×</button>
               </div>
 
               {createdDispatcher ? (
                 <>
                   <div style={{ padding: '1.5rem', display: 'grid', gap: '0.9rem' }}>
-                    <div style={{ backgroundColor: createdDispatcher.onboardingOutcome === 'invite_sent' ? '#ecfdf3' : '#eff6ff', border: `1px solid ${createdDispatcher.onboardingOutcome === 'invite_sent' ? '#86efac' : '#93c5fd'}`, borderRadius: '8px', padding: '0.9rem', color: createdDispatcher.onboardingOutcome === 'invite_sent' ? '#166534' : '#1d4ed8', fontSize: '0.9rem' }}>
+                    <div style={{ backgroundColor: createdDispatcher.onboardingOutcome === 'invite_sent' ? '#F4F6F8' : '#F4F6F8', border: `1px solid ${createdDispatcher.onboardingOutcome === 'invite_sent' ? '#1D57D8' : '#F4F6F8'}`, borderRadius: '8px', padding: '0.9rem', color: createdDispatcher.onboardingOutcome === 'invite_sent' ? '#1D57D8' : '#1D57D8', fontSize: '0.9rem' }}>
                       {createdDispatcher.onboardingOutcome === 'invite_sent'
                         ? 'Dispatcher invited successfully. A password setup email was sent.'
                         : createdDispatcher.onboardingOutcome === 'temporary_password_created'
@@ -350,7 +350,7 @@ export default function DispatchersPage() {
                           : 'Dispatcher account linked without sending a fresh invite.'}
                     </div>
 
-                    <div style={{ fontSize: '0.88rem', color: '#334155', lineHeight: 1.6 }}>
+                    <div style={{ fontSize: '0.88rem', color: '#1D57D8', lineHeight: 1.6 }}>
                       <strong>Dispatcher:</strong> {createdDispatcher.displayName}
                       <br />
                       <strong>Email:</strong> {createdDispatcher.email}
@@ -363,35 +363,35 @@ export default function DispatchersPage() {
                     </div>
 
                     {createdDispatcher.onboardingOutcome === 'temporary_password_created' ? (
-                      <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px', padding: '0.9rem', color: '#9a3412', fontSize: '0.85rem', lineHeight: 1.6 }}>
+                      <div style={{ backgroundColor: '#F4F6F8', border: '1px solid #F5A300', borderRadius: '8px', padding: '0.9rem', color: '#1A1F2B', fontSize: '0.85rem', lineHeight: 1.6 }}>
                         <strong>Next action:</strong> copy the temporary password now, share it securely with the dispatcher, and require an immediate password change on first sign-in.
                       </div>
                     ) : (
-                      <div style={{ backgroundColor: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '8px', padding: '0.9rem', color: '#1d4ed8', fontSize: '0.85rem', lineHeight: 1.6 }}>
+                      <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '0.9rem', color: '#1D57D8', fontSize: '0.85rem', lineHeight: 1.6 }}>
                         <strong>Next action:</strong> ask the dispatcher to open their password setup email. If they need a fresh message, use the password setup action below.
                       </div>
                     )}
 
                     {createdDispatcher.inviteFallbackReason ? (
-                      <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px', padding: '0.9rem', color: '#9a3412', fontSize: '0.85rem' }}>
+                      <div style={{ backgroundColor: '#F4F6F8', border: '1px solid #F5A300', borderRadius: '8px', padding: '0.9rem', color: '#1A1F2B', fontSize: '0.85rem' }}>
                         {createdDispatcher.inviteFallbackReason}
                       </div>
                     ) : null}
 
                     {passwordSetupState.message ? (
-                      <div style={{ backgroundColor: passwordSetupState.status === 'error' ? '#fef2f2' : '#ecfdf3', border: `1px solid ${passwordSetupState.status === 'error' ? '#fca5a5' : '#86efac'}`, borderRadius: '8px', padding: '0.9rem', color: passwordSetupState.status === 'error' ? '#dc2626' : '#166534', fontSize: '0.85rem' }}>
+                      <div style={{ backgroundColor: passwordSetupState.status === 'error' ? '#F4F6F8' : '#F4F6F8', border: `1px solid ${passwordSetupState.status === 'error' ? '#F4F6F8' : '#1D57D8'}`, borderRadius: '8px', padding: '0.9rem', color: passwordSetupState.status === 'error' ? '#F5A300' : '#1D57D8', fontSize: '0.85rem' }}>
                         {passwordSetupState.message}
                       </div>
                     ) : null}
 
                     {copiedTemporaryPassword ? (
-                      <div style={{ backgroundColor: '#ecfdf3', border: '1px solid #86efac', borderRadius: '8px', padding: '0.9rem', color: '#166534', fontSize: '0.85rem' }}>
+                      <div style={{ backgroundColor: '#F4F6F8', border: '1px solid #1D57D8', borderRadius: '8px', padding: '0.9rem', color: '#1D57D8', fontSize: '0.85rem' }}>
                         Temporary password copied.
                       </div>
                     ) : null}
                   </div>
 
-                  <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(11, 47, 107, 0.16)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
                     {createdDispatcher.temporaryPassword ? (
                       <button
                         onClick={handleCopyTemporaryPassword}
@@ -399,8 +399,8 @@ export default function DispatchersPage() {
                           ...wsBtnSecondary,
                           padding: '0.75rem 1rem',
                           border: 'none',
-                          backgroundColor: '#e0f2fe',
-                          color: '#075985',
+                          backgroundColor: '#F4F6F8',
+                          color: '#1D57D8',
                           fontWeight: 600,
                         }}
                       >
@@ -414,7 +414,7 @@ export default function DispatchersPage() {
                         ...wsBtnSecondary,
                         padding: '0.75rem 1rem',
                         border: 'none',
-                        backgroundColor: '#1d4ed8',
+                        backgroundColor: '#1D57D8',
                         color: 'white',
                         fontWeight: 600,
                         cursor: passwordSetupState.status === 'sending' || Date.now() < passwordSetupCooldownUntil ? 'not-allowed' : 'pointer',
@@ -451,7 +451,7 @@ export default function DispatchersPage() {
                     <label style={{ display: 'block' }}>
                       <WorkspaceFieldLabel>Company</WorkspaceFieldLabel>
                       <input
-                        style={{ ...wsInputStyle, marginBottom: 0, padding: '0.75rem', borderRadius: '6px', fontSize: '0.95rem', backgroundColor: '#f9fafb', color: '#6b7280' }}
+                        style={{ ...wsInputStyle, marginBottom: 0, padding: '0.75rem', borderRadius: '6px', fontSize: '0.95rem', backgroundColor: '#FFFFFF', color: '#0B2F6B' }}
                         value={companyName}
                         disabled
                         readOnly
@@ -477,7 +477,7 @@ export default function DispatchersPage() {
                       />
                     </label>
                   </div>
-                  <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                  <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(11, 47, 107, 0.16)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
                     <button
                       onClick={closeModal}
                       disabled={creating}
@@ -485,7 +485,7 @@ export default function DispatchersPage() {
                         ...wsBtnSecondary,
                         padding: '0.75rem 1.5rem',
                         borderRadius: '8px',
-                        color: '#374151',
+                        color: '#1A1F2B',
                         cursor: creating ? 'not-allowed' : 'pointer',
                       }}
                     >

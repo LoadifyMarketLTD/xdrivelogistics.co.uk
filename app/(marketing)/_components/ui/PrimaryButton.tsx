@@ -37,12 +37,12 @@ export function PrimaryButton({
     ? {
         backgroundColor: 'var(--xd-gold)',
         color: 'var(--xd-navy)',
-        boxShadow: '0 2px 12px rgba(245,158,11,0.3)',
+        boxShadow: '0 2px 12px rgba(245, 163, 0, 0.3)',
       }
     : {
         backgroundColor: 'transparent',
-        color: '#fff',
-        border: '2px solid rgba(255,255,255,0.6)',
+        color: '#FFFFFF',
+        border: '2px solid rgba(255, 255, 255, 0.6)',
       };
 
   const combinedStyles = { ...baseStyles, ...variantStyles };

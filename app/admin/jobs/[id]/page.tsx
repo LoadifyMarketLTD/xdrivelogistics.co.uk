@@ -406,22 +406,22 @@ export default function JobDetailPage() {
 
     switch (status) {
       case JOB_STATUS.RECEIVED:
-        return { ...baseStyle, backgroundColor: '#fef3c7', color: '#92400e' };
+        return { ...baseStyle, backgroundColor: '#F4F6F8', color: '#1A1F2B' };
       case JOB_STATUS.POSTED:
-        return { ...baseStyle, backgroundColor: '#dbeafe', color: '#1e3a8a' };
+        return { ...baseStyle, backgroundColor: '#F4F6F8', color: '#1D57D8' };
       case JOB_STATUS.ALLOCATED:
-        return { ...baseStyle, backgroundColor: '#e9d5ff', color: '#581c87' };
+        return { ...baseStyle, backgroundColor: '#F4F6F8', color: '#1D57D8' };
       case JOB_STATUS.DELIVERED:
-        return { ...baseStyle, backgroundColor: '#dcfce7', color: '#14532d' };
+        return { ...baseStyle, backgroundColor: '#F4F6F8', color: '#1D57D8' };
       default:
-        return { ...baseStyle, backgroundColor: '#f3f4f6', color: '#1f2937' };
+        return { ...baseStyle, backgroundColor: '#F4F6F8', color: '#0B2F6B' };
     }
   };
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '0.75rem',
-    border: '2px solid #e5e7eb',
+    border: '2px solid rgba(11, 47, 107, 0.16)',
     borderRadius: '6px',
     fontSize: '0.95rem',
     outline: 'none',
@@ -432,7 +432,7 @@ export default function JobDetailPage() {
     display: 'block',
     fontSize: '0.875rem',
     fontWeight: '600',
-    color: '#374151',
+    color: '#1A1F2B',
     marginBottom: '0.5rem',
   };
 
@@ -441,14 +441,14 @@ export default function JobDetailPage() {
     padding: '1.5rem',
     borderRadius: '12px',
     marginBottom: '1.5rem',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    boxShadow: '0 2px 8px rgba(26, 31, 43, 0.1)',
   };
 
   if (!job || !formData) {
     return (
       <ProtectedRoute>
-        <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ textAlign: 'center', color: '#6b7280' }}>
+        <div style={{ minHeight: '100vh', backgroundColor: '#F4F6F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', color: '#0B2F6B' }}>
             {saveMessage || 'Loading...'}
           </div>
         </div>
@@ -458,14 +458,14 @@ export default function JobDetailPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#F4F6F8' }}>
         {/* Header */}
         <div
           style={{
-            backgroundColor: '#0A2239',
+            backgroundColor: '#1A1F2B',
             color: 'white',
             padding: '1.5rem 2rem',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+            boxShadow: '0 2px 8px rgba(26, 31, 43, 0.1)',
           }}
         >
           <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
@@ -521,7 +521,7 @@ export default function JobDetailPage() {
                       flex: 1,
                       minWidth: '120px',
                       padding: '0.75rem 1.5rem',
-                      backgroundColor: '#1F7A3D',
+                      backgroundColor: '#1D57D8',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
@@ -530,8 +530,8 @@ export default function JobDetailPage() {
                       cursor: 'pointer',
                       transition: 'background-color 0.2s',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#165a2d')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1F7A3D')}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1D57D8')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1D57D8')}
                   >
                     ✏️ Edit Job
                   </button>
@@ -541,7 +541,7 @@ export default function JobDetailPage() {
                       flex: 1,
                       minWidth: '120px',
                       padding: '0.75rem 1.5rem',
-                      backgroundColor: '#3b82f6',
+                      backgroundColor: '#1D57D8',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
@@ -550,8 +550,8 @@ export default function JobDetailPage() {
                       cursor: 'pointer',
                       transition: 'background-color 0.2s',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2563eb')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#3b82f6')}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1D57D8')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1D57D8')}
                   >
                     📄 Generate Invoice
                   </button>
@@ -559,8 +559,8 @@ export default function JobDetailPage() {
                     onClick={() => setShowDeleteConfirm(true)}
                     style={{
                       padding: '0.75rem 1.25rem',
-                      backgroundColor: '#dc2626',
-                      color: 'white',
+                      backgroundColor: '#F5A300',
+                      color: '#1A1F2B',
                       border: 'none',
                       borderRadius: '8px',
                       fontSize: '0.95rem',
@@ -568,8 +568,8 @@ export default function JobDetailPage() {
                       cursor: 'pointer',
                       transition: 'background-color 0.2s',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#b91c1c')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F5A300')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#F5A300')}
                   >
                     🗑️ Delete
                   </button>
@@ -578,7 +578,7 @@ export default function JobDetailPage() {
                    disabled={publishingExchange}
                    style={{
                      padding: '0.75rem 1.25rem',
-                     backgroundColor: exchangeVisibility === 'exchange' ? '#d97706' : '#7c3aed',
+                     backgroundColor: exchangeVisibility === 'exchange' ? '#F5A300' : '#1D57D8',
                      color: 'white',
                      border: 'none',
                      borderRadius: '8px',
@@ -589,10 +589,10 @@ export default function JobDetailPage() {
                      transition: 'background-color 0.2s',
                    }}
                    onMouseEnter={(e) => {
-                     if (!publishingExchange) e.currentTarget.style.backgroundColor = exchangeVisibility === 'exchange' ? '#b45309' : '#6d28d9';
+                     if (!publishingExchange) e.currentTarget.style.backgroundColor = exchangeVisibility === 'exchange' ? '#F5A300' : '#1D57D8';
                    }}
                    onMouseLeave={(e) => {
-                     if (!publishingExchange) e.currentTarget.style.backgroundColor = exchangeVisibility === 'exchange' ? '#d97706' : '#7c3aed';
+                     if (!publishingExchange) e.currentTarget.style.backgroundColor = exchangeVisibility === 'exchange' ? '#F5A300' : '#1D57D8';
                    }}
                    title={exchangeVisibility === 'exchange' ? 'Remove from Exchange Marketplace' : 'Publish to Exchange Marketplace'}
                   >
@@ -607,7 +607,7 @@ export default function JobDetailPage() {
                       flex: 1,
                       minWidth: '120px',
                       padding: '0.75rem 1.5rem',
-                      backgroundColor: '#1F7A3D',
+                      backgroundColor: '#1D57D8',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
@@ -616,8 +616,8 @@ export default function JobDetailPage() {
                       cursor: 'pointer',
                       transition: 'background-color 0.2s',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#165a2d')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1F7A3D')}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1D57D8')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1D57D8')}
                   >
                     💾 Save Changes
                   </button>
@@ -625,7 +625,7 @@ export default function JobDetailPage() {
                     onClick={handleCancel}
                     style={{
                       padding: '0.75rem 1.25rem',
-                      backgroundColor: '#6b7280',
+                      backgroundColor: '#0B2F6B',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
@@ -634,8 +634,8 @@ export default function JobDetailPage() {
                       cursor: 'pointer',
                       transition: 'background-color 0.2s',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#4b5563')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#6b7280')}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0B2F6B')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0B2F6B')}
                   >
                     âœ–ï¸ Cancel
                   </button>
@@ -647,8 +647,8 @@ export default function JobDetailPage() {
                 style={{
                   marginTop: '1rem',
                   padding: '0.75rem',
-                  backgroundColor: saveMessage.includes('Error') || saveMessage.includes('not found') ? '#fee2e2' : '#d1fae5',
-                  color: saveMessage.includes('Error') || saveMessage.includes('not found') ? '#991b1b' : '#065f46',
+                  backgroundColor: saveMessage.includes('Error') || saveMessage.includes('not found') ? '#F4F6F8' : '#F4F6F8',
+                  color: saveMessage.includes('Error') || saveMessage.includes('not found') ? '#F5A300' : '#0B2F6B',
                   borderRadius: '6px',
                   fontSize: '0.875rem',
                   fontWeight: '500',
@@ -669,7 +669,7 @@ export default function JobDetailPage() {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                backgroundColor: 'rgba(26, 31, 43, 0.5)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -687,10 +687,10 @@ export default function JobDetailPage() {
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <h3 style={{ margin: '0 0 1rem 0', color: '#dc2626', fontSize: '1.25rem', fontWeight: '700' }}>
+                <h3 style={{ margin: '0 0 1rem 0', color: '#1A1F2B', fontSize: '1.25rem', fontWeight: '700' }}>
                   Confirm Delete
                 </h3>
-                <p style={{ margin: '0 0 1.5rem 0', color: '#374151' }}>
+                <p style={{ margin: '0 0 1.5rem 0', color: '#1A1F2B' }}>
                   Are you sure you want to delete job {job.jobRef}? This action cannot be undone.
                 </p>
                 <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
@@ -698,8 +698,8 @@ export default function JobDetailPage() {
                     onClick={() => setShowDeleteConfirm(false)}
                     style={{
                       padding: '0.625rem 1.25rem',
-                      backgroundColor: '#e5e7eb',
-                      color: '#374151',
+                      backgroundColor: '#F4F6F8',
+                      color: '#1A1F2B',
                       border: 'none',
                       borderRadius: '6px',
                       fontSize: '0.95rem',
@@ -713,8 +713,8 @@ export default function JobDetailPage() {
                     onClick={handleDelete}
                     style={{
                       padding: '0.625rem 1.25rem',
-                      backgroundColor: '#dc2626',
-                      color: 'white',
+                      backgroundColor: '#F5A300',
+                      color: '#1A1F2B',
                       border: 'none',
                       borderRadius: '6px',
                       fontSize: '0.95rem',
@@ -733,13 +733,13 @@ export default function JobDetailPage() {
           <div style={sectionStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
               <div>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#0B2F6B', margin: '0 0 0.5rem 0' }}>
                   {formData.jobRef}
                 </h2>
-                <p style={{ margin: '0 0 0.25rem 0', color: '#6b7280', fontSize: '0.875rem' }}>
+                <p style={{ margin: '0 0 0.25rem 0', color: '#0B2F6B', fontSize: '0.875rem' }}>
                   Created: {new Date(formData.createdAt).toLocaleString('en-GB')}
                 </p>
-                <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
+                <p style={{ margin: 0, color: '#0B2F6B', fontSize: '0.875rem' }}>
                   Last Updated: {new Date(formData.updatedAt).toLocaleString('en-GB')}
                 </p>
               </div>
@@ -768,7 +768,7 @@ export default function JobDetailPage() {
             </div>
 
             {/* Driver Assignment */}
-            <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #e5e7eb' }}>
+            <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(11, 47, 107, 0.16)' }}>
               <label style={labelStyle}>🚗 Assigned Driver</label>
               {editMode ? (
                 <select
@@ -789,7 +789,7 @@ export default function JobDetailPage() {
                   ))}
                 </select>
               ) : (
-                <div style={{ fontSize: '0.95rem', color: formData.assignedDriverId ? '#1f2937' : '#9ca3af' }}>
+                <div style={{ fontSize: '0.95rem', color: formData.assignedDriverId ? '#0B2F6B' : '#F4F6F8' }}>
                   {formData.assignedDriverId
                     ? (() => {
                         const assignedDriver = drivers.find((d) => d.id === formData.assignedDriverId);
@@ -803,20 +803,20 @@ export default function JobDetailPage() {
 
           {formData.loadDetailSections.length > 0 && (
             <div style={sectionStyle}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0B2F6B', marginBottom: '1.5rem' }}>
                 Operational Load Details
               </h2>
               <div style={{ display: 'grid', gap: '1rem' }}>
                 {formData.loadDetailSections.map((section) => (
                   <div key={section.title}>
-                    <h3 style={{ margin: '0 0 0.6rem', color: '#374151', fontSize: '0.95rem', fontWeight: 700 }}>
+                    <h3 style={{ margin: '0 0 0.6rem', color: '#1A1F2B', fontSize: '0.95rem', fontWeight: 700 }}>
                       {section.title}
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.65rem' }}>
                       {section.items.map((item) => (
-                        <div key={`${section.title}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.65rem 0.75rem' }}>
-                          <div style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.2rem' }}>{item.label}</div>
-                          <div style={{ color: '#0f172a', fontSize: '0.9rem', fontWeight: 600 }}>{item.value}</div>
+                        <div key={`${section.title}-${item.label}`} style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '0.65rem 0.75rem' }}>
+                          <div style={{ color: '#0B2F6B', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.2rem' }}>{item.label}</div>
+                          <div style={{ color: '#1A1F2B', fontSize: '0.9rem', fontWeight: 600 }}>{item.value}</div>
                         </div>
                       ))}
                     </div>
@@ -828,7 +828,7 @@ export default function JobDetailPage() {
 
           {/* Client Information */}
           <div style={sectionStyle}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0B2F6B', marginBottom: '1.5rem' }}>
               Client Information
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
@@ -840,11 +840,11 @@ export default function JobDetailPage() {
                     value={formData.client.name}
                     onChange={(e) => setFormData({ ...formData, client: { ...formData.client, name: e.target.value } })}
                     style={inputStyle}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                   />
                 ) : (
-                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                     {formData.client.name}
                   </div>
                 )}
@@ -857,11 +857,11 @@ export default function JobDetailPage() {
                     value={formData.client.email}
                     onChange={(e) => setFormData({ ...formData, client: { ...formData.client, email: e.target.value } })}
                     style={inputStyle}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                   />
                 ) : (
-                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                     {formData.client.email}
                   </div>
                 )}
@@ -874,11 +874,11 @@ export default function JobDetailPage() {
                     value={formData.client.phone}
                     onChange={(e) => setFormData({ ...formData, client: { ...formData.client, phone: e.target.value } })}
                     style={inputStyle}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                   />
                 ) : (
-                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                     {formData.client.phone}
                   </div>
                 )}
@@ -888,7 +888,7 @@ export default function JobDetailPage() {
 
           {/* Pickup Details */}
           <div style={sectionStyle}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0B2F6B', marginBottom: '1.5rem' }}>
               📍 Pickup Details
             </h2>
             <div style={{ display: 'grid', gap: '1rem' }}>
@@ -900,11 +900,11 @@ export default function JobDetailPage() {
                     value={formData.pickup.location}
                     onChange={(e) => setFormData({ ...formData, pickup: { ...formData.pickup, location: e.target.value } })}
                     style={inputStyle}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                   />
                 ) : (
-                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                     {formData.pickup.location}
                   </div>
                 )}
@@ -918,11 +918,11 @@ export default function JobDetailPage() {
                       value={formData.pickup.date}
                       onChange={(e) => setFormData({ ...formData, pickup: { ...formData.pickup, date: e.target.value } })}
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   ) : (
-                    <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                    <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                       {new Date(formData.pickup.date).toLocaleDateString('en-GB')}
                     </div>
                   )}
@@ -935,11 +935,11 @@ export default function JobDetailPage() {
                       value={formData.pickup.time}
                       onChange={(e) => setFormData({ ...formData, pickup: { ...formData.pickup, time: e.target.value } })}
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   ) : (
-                    <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                    <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                       {formData.pickup.time}
                     </div>
                   )}
@@ -950,7 +950,7 @@ export default function JobDetailPage() {
 
           {/* Delivery Details */}
           <div style={sectionStyle}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0B2F6B', marginBottom: '1.5rem' }}>
               🎯 Delivery Details
             </h2>
             <div style={{ display: 'grid', gap: '1rem' }}>
@@ -962,11 +962,11 @@ export default function JobDetailPage() {
                     value={formData.delivery.location}
                     onChange={(e) => setFormData({ ...formData, delivery: { ...formData.delivery, location: e.target.value } })}
                     style={inputStyle}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                   />
                 ) : (
-                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                     {formData.delivery.location}
                   </div>
                 )}
@@ -980,11 +980,11 @@ export default function JobDetailPage() {
                       value={formData.delivery.date}
                       onChange={(e) => setFormData({ ...formData, delivery: { ...formData.delivery, date: e.target.value } })}
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   ) : (
-                    <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                    <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                       {new Date(formData.delivery.date).toLocaleDateString('en-GB')}
                     </div>
                   )}
@@ -997,11 +997,11 @@ export default function JobDetailPage() {
                       value={formData.delivery.time}
                       onChange={(e) => setFormData({ ...formData, delivery: { ...formData.delivery, time: e.target.value } })}
                       style={inputStyle}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                      onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     />
                   ) : (
-                    <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                    <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                       {formData.delivery.time}
                     </div>
                   )}
@@ -1012,7 +1012,7 @@ export default function JobDetailPage() {
 
           {/* Cargo Details */}
           <div style={sectionStyle}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0B2F6B', marginBottom: '1.5rem' }}>
               📦 Cargo Details
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
@@ -1031,7 +1031,7 @@ export default function JobDetailPage() {
                     ))}
                   </select>
                 ) : (
-                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                     {formData.cargo.type}
                   </div>
                 )}
@@ -1045,11 +1045,11 @@ export default function JobDetailPage() {
                     value={formData.cargo.quantity}
                     onChange={(e) => setFormData({ ...formData, cargo: { ...formData.cargo, quantity: parseInt(e.target.value) || 1 } })}
                     style={inputStyle}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                   />
                 ) : (
-                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                     {formData.cargo.quantity}
                   </div>
                 )}
@@ -1069,12 +1069,12 @@ export default function JobDetailPage() {
                       })
                     }
                     style={inputStyle}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                     placeholder="Distance in miles"
                   />
                 ) : (
-                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                  <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                     {formData.distanceMiles !== null && formData.distanceMiles !== undefined
                       ? `${formData.distanceMiles} miles`
                       : 'Not provided'}
@@ -1090,12 +1090,12 @@ export default function JobDetailPage() {
                   onChange={(e) => setFormData({ ...formData, cargo: { ...formData.cargo, notes: e.target.value } })}
                   rows={3}
                   style={inputStyle}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = '#1D57D8')}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = '#F4F6F8')}
                   placeholder="Additional notes about the cargo"
                 />
               ) : (
-                <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937', whiteSpace: 'pre-wrap' }}>
+                <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B', whiteSpace: 'pre-wrap' }}>
                   {formData.cargo.notes || 'No additional notes'}
                 </div>
               )}
@@ -1105,7 +1105,7 @@ export default function JobDetailPage() {
           {/* Status History */}
           {formData.statusHistory && formData.statusHistory.length > 0 && (
             <div style={sectionStyle}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0B2F6B', marginBottom: '1.5rem' }}>
                 📋 Status History
               </h2>
               <div style={{ position: 'relative', paddingLeft: '2rem' }}>
@@ -1117,7 +1117,7 @@ export default function JobDetailPage() {
                     top: '0.5rem',
                     bottom: '0.5rem',
                     width: '2px',
-                    backgroundColor: '#e5e7eb',
+                    backgroundColor: '#F4F6F8',
                   }}
                 />
                 {formData.statusHistory.map((item, index) => (
@@ -1137,16 +1137,16 @@ export default function JobDetailPage() {
                         width: '1rem',
                         height: '1rem',
                         borderRadius: '50%',
-                        backgroundColor: index === formData.statusHistory!.length - 1 ? '#1F7A3D' : '#3b82f6',
+                        backgroundColor: index === formData.statusHistory!.length - 1 ? '#1D57D8' : '#1D57D8',
                         border: '3px solid white',
-                        boxShadow: '0 0 0 2px #e5e7eb',
+                        boxShadow: '0 0 0 2px #F4F6F8',
                       }}
                     />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
                       <div style={getStatusBadgeStyle(item.status)}>
                         {item.status}
                       </div>
-                      <div style={{ fontSize: '0.875rem', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: '0.875rem', color: '#0B2F6B', whiteSpace: 'nowrap' }}>
                         {new Date(item.timestamp).toLocaleString('en-GB')}
                       </div>
                     </div>
@@ -1159,14 +1159,14 @@ export default function JobDetailPage() {
           {/* Proof of Delivery (POD) */}
           {formData.pod && (
             <div style={sectionStyle}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0B2F6B', marginBottom: '1.5rem' }}>
                 ✅ Proof of Delivery
               </h2>
 
               {/* Pickup Photos */}
               {formData.pod.pickupPhotos && formData.pod.pickupPhotos.length > 0 && (
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', marginBottom: '0.75rem' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#1A1F2B', marginBottom: '0.75rem' }}>
                     Pickup Photos
                   </h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' }}>
@@ -1176,10 +1176,10 @@ export default function JobDetailPage() {
                         style={{
                           position: 'relative',
                           paddingBottom: '100%',
-                          backgroundColor: '#f3f4f6',
+                          backgroundColor: '#F4F6F8',
                           borderRadius: '8px',
                           overflow: 'hidden',
-                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                          boxShadow: '0 1px 3px rgba(26, 31, 43, 0.1)',
                         }}
                       >
                         <img
@@ -1203,7 +1203,7 @@ export default function JobDetailPage() {
               {/* Delivery Photos */}
               {formData.pod.deliveryPhotos && formData.pod.deliveryPhotos.length > 0 && (
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', marginBottom: '0.75rem' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#1A1F2B', marginBottom: '0.75rem' }}>
                     Delivery Photos
                   </h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' }}>
@@ -1213,10 +1213,10 @@ export default function JobDetailPage() {
                         style={{
                           position: 'relative',
                           paddingBottom: '100%',
-                          backgroundColor: '#f3f4f6',
+                          backgroundColor: '#F4F6F8',
                           borderRadius: '8px',
                           overflow: 'hidden',
-                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                          boxShadow: '0 1px 3px rgba(26, 31, 43, 0.1)',
                         }}
                       >
                         <img
@@ -1240,13 +1240,13 @@ export default function JobDetailPage() {
               {/* Signature */}
               {formData.pod.signature && (
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', marginBottom: '0.75rem' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#1A1F2B', marginBottom: '0.75rem' }}>
                     Signature
                   </h3>
                   <div
                     style={{
-                      backgroundColor: '#f9fafb',
-                      border: '2px solid #e5e7eb',
+                      backgroundColor: '#FFFFFF',
+                      border: '2px solid rgba(11, 47, 107, 0.16)',
                       borderRadius: '8px',
                       padding: '1rem',
                       maxWidth: '400px',
@@ -1271,7 +1271,7 @@ export default function JobDetailPage() {
                   {formData.pod.recipientName && (
                     <div>
                       <label style={labelStyle}>Recipient Name</label>
-                      <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                      <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                         {formData.pod.recipientName}
                       </div>
                     </div>
@@ -1279,7 +1279,7 @@ export default function JobDetailPage() {
                   {formData.pod.timestamp && (
                     <div>
                       <label style={labelStyle}>POD Timestamp</label>
-                      <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#1f2937' }}>
+                      <div style={{ padding: '0.75rem 0', fontSize: '0.95rem', color: '#0B2F6B' }}>
                         {new Date(formData.pod.timestamp).toLocaleString('en-GB')}
                       </div>
                     </div>

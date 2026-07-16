@@ -121,20 +121,20 @@ function normalizeCompany(company: ExchangeLoad['companies']) {
 }
 
 const card: CSSProperties = {
-  backgroundColor: '#ffffff',
-  border: '1px solid #d7e0ea',
+  backgroundColor: '#FFFFFF',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '10px',
   padding: '1rem',
-  boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+  boxShadow: '0 2px 8px rgba(26, 31, 43, 0.06)',
 };
 
 const inputStyle: CSSProperties = {
   padding: '0.6rem 0.75rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '7px',
   fontSize: '0.85rem',
-  color: '#0f172a',
-  backgroundColor: '#ffffff',
+  color: '#1A1F2B',
+  backgroundColor: '#FFFFFF',
   width: '100%',
 };
 
@@ -212,23 +212,23 @@ export default function SearchLoadsPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell subtitle="Submit a targeted load search when you are ready. Typing no longer triggers repeat searches.">
-        <h2 style={{ margin: '0 0 1rem', fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>Search Loads</h2>
+        <h2 style={{ margin: '0 0 1rem', fontSize: '1.35rem', fontWeight: 700, color: '#1A1F2B' }}>Search Loads</h2>
 
         <form onSubmit={handleSubmit} style={{ ...card, marginBottom: '1rem' }}>
-          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.8rem' }}>
+          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.8rem' }}>
             Search filters
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.7rem' }}>
             <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Pickup location</label>
+              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#1A1F2B', display: 'block', marginBottom: '0.3rem' }}>Pickup location</label>
               <input style={inputStyle} value={filters.pickupSearch} onChange={(e) => setFilters((current) => ({ ...current, pickupSearch: e.target.value }))} placeholder="City, postcode…" />
             </div>
             <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Delivery location</label>
+              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#1A1F2B', display: 'block', marginBottom: '0.3rem' }}>Delivery location</label>
               <input style={inputStyle} value={filters.deliverySearch} onChange={(e) => setFilters((current) => ({ ...current, deliverySearch: e.target.value }))} placeholder="City, postcode…" />
             </div>
             <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Vehicle type</label>
+              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#1A1F2B', display: 'block', marginBottom: '0.3rem' }}>Vehicle type</label>
               <select style={inputStyle} value={filters.vehicleType} onChange={(e) => setFilters((current) => ({ ...current, vehicleType: e.target.value }))}>
                 <option value="">Any vehicle</option>
                 {VEHICLE_TYPES.map((vehicleType) => (
@@ -239,7 +239,7 @@ export default function SearchLoadsPage() {
               </select>
             </div>
             <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Freight type</label>
+              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#1A1F2B', display: 'block', marginBottom: '0.3rem' }}>Freight type</label>
               <select style={inputStyle} value={filters.cargoType} onChange={(e) => setFilters((current) => ({ ...current, cargoType: e.target.value }))}>
                 <option value="">Any freight</option>
                 {CARGO_TYPES.map((cargoType) => (
@@ -250,12 +250,12 @@ export default function SearchLoadsPage() {
               </select>
             </div>
             <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Radius (km)</label>
+              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#1A1F2B', display: 'block', marginBottom: '0.3rem' }}>Radius (km)</label>
               <input style={inputStyle} type="number" min="0" value={filters.radiusKm} onChange={(e) => setFilters((current) => ({ ...current, radiusKm: e.target.value }))} placeholder="e.g. 50" />
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.2rem' }}>Postcode-based radius filtering is still coming soon.</div>
+              <div style={{ fontSize: '0.7rem', color: '#0B2F6B', marginTop: '0.2rem' }}>Postcode-based radius filtering is still coming soon.</div>
             </div>
             <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Budget range (£)</label>
+              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#1A1F2B', display: 'block', marginBottom: '0.3rem' }}>Budget range (£)</label>
               <div style={{ display: 'flex', gap: '0.4rem' }}>
                 <input style={{ ...inputStyle, width: '50%' }} type="number" min="0" value={filters.minBudget} onChange={(e) => setFilters((current) => ({ ...current, minBudget: e.target.value }))} placeholder="Min" />
                 <input style={{ ...inputStyle, width: '50%' }} type="number" min="0" value={filters.maxBudget} onChange={(e) => setFilters((current) => ({ ...current, maxBudget: e.target.value }))} placeholder="Max" />
@@ -267,21 +267,21 @@ export default function SearchLoadsPage() {
             <button
               type="submit"
               disabled={loading}
-              style={{ padding: '0.6rem 1.2rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
+              style={{ padding: '0.6rem 1.2rem', backgroundColor: '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
             >
               {loading ? 'Searching…' : hasSearched ? 'Update search' : 'Search loads'}
             </button>
             <button
               type="button"
               onClick={resetSearch}
-              style={{ padding: '0.6rem 1rem', backgroundColor: '#f1f5f9', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '7px', fontWeight: 600, cursor: 'pointer' }}
+              style={{ padding: '0.6rem 1rem', backgroundColor: '#F4F6F8', color: '#1A1F2B', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '7px', fontWeight: 600, cursor: 'pointer' }}
             >
               Clear search
             </button>
             <button
               type="button"
               onClick={() => router.push('/driver/loads')}
-              style={{ padding: '0.6rem 1rem', backgroundColor: '#f1f5f9', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '7px', fontWeight: 600, cursor: 'pointer' }}
+              style={{ padding: '0.6rem 1rem', backgroundColor: '#F4F6F8', color: '#1A1F2B', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '7px', fontWeight: 600, cursor: 'pointer' }}
             >
               Open load board
             </button>
@@ -289,86 +289,86 @@ export default function SearchLoadsPage() {
         </form>
 
         {error && (
-          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.7rem', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+          <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1A1F2B', borderRadius: '8px', padding: '0.7rem', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
             {error}
           </div>
         )}
 
         {loading ? (
-          <div style={{ ...card, color: '#64748b', padding: '2rem', textAlign: 'center' }}>Searching available loads…</div>
+          <div style={{ ...card, color: '#0B2F6B', padding: '2rem', textAlign: 'center' }}>Searching available loads…</div>
         ) : !hasSearched ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.25rem' }}>
             <div style={{ fontSize: '1.9rem', marginBottom: '0.45rem' }}>🔎</div>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>Search is now explicit</div>
-            <div style={{ fontSize: '0.84rem', color: '#64748b' }}>
+            <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.3rem' }}>Search is now explicit</div>
+            <div style={{ fontSize: '0.84rem', color: '#0B2F6B' }}>
               Enter the route or load details you care about, then submit the search when you are ready.
             </div>
           </div>
         ) : loads.length === 0 ? (
           <div style={{ ...card, textAlign: 'center', padding: '2rem' }}>
             <div style={{ fontSize: '1.8rem', marginBottom: '0.4rem' }}>📭</div>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>No loads match this search</div>
-            <div style={{ fontSize: '0.84rem', color: '#64748b', marginBottom: '0.85rem' }}>
+            <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.3rem' }}>No loads match this search</div>
+            <div style={{ fontSize: '0.84rem', color: '#0B2F6B', marginBottom: '0.85rem' }}>
               Try broadening the route, vehicle, or budget filters and submit again.
             </div>
             <button
               type="button"
               onClick={resetSearch}
-              style={{ padding: '0.6rem 1rem', backgroundColor: '#f8fafc', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '7px', fontWeight: 600, cursor: 'pointer' }}
+              style={{ padding: '0.6rem 1rem', backgroundColor: '#F4F6F8', color: '#1A1F2B', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '7px', fontWeight: 600, cursor: 'pointer' }}
             >
               Start a new search
             </button>
           </div>
         ) : (
           <>
-            <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '0.6rem', fontWeight: 600 }}>
+            <div style={{ fontSize: '0.82rem', color: '#0B2F6B', marginBottom: '0.6rem', fontWeight: 600 }}>
               Showing {visibleLoads.length} of {loads.length} search result{loads.length !== 1 ? 's' : ''}
             </div>
             <div style={{ display: 'grid', gap: '0.7rem' }}>
               {visibleLoads.map((load) => (
-                <div key={load.id} style={{ ...card, borderLeft: '3px solid #1d4ed8' }}>
+                <div key={load.id} style={{ ...card, borderLeft: '3px solid #1D57D8' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' }}>
                     <div>
-                      <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>{normalizeCompany(load.companies)?.name ?? 'Unknown shipper'}</span>
+                      <span style={{ fontSize: '0.72rem', color: '#0B2F6B', fontWeight: 600 }}>{normalizeCompany(load.companies)?.name ?? 'Unknown shipper'}</span>
                       {load.vehicle_type && (
-                        <span style={{ marginLeft: '0.45rem', fontSize: '0.7rem', backgroundColor: '#e0f2fe', color: '#075985', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
+                        <span style={{ marginLeft: '0.45rem', fontSize: '0.7rem', backgroundColor: '#F4F6F8', color: '#1D57D8', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
                           {load.requested_vehicle_label ?? VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type}
                         </span>
                       )}
                       {load.cargo_type && (
-                        <span style={{ marginLeft: '0.35rem', fontSize: '0.7rem', backgroundColor: '#f3e8ff', color: '#6d28d9', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
+                        <span style={{ marginLeft: '0.35rem', fontSize: '0.7rem', backgroundColor: '#F4F6F8', color: '#1D57D8', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 600 }}>
                           {load.requested_cargo_label ?? load.cargo_type}
                         </span>
                       )}
                     </div>
                     {load.budget_amount != null && (
-                      <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#15803d' }}>
+                      <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1D57D8' }}>
                         £{load.budget_amount.toFixed(2)}
-                        {!load.is_fixed_price && <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#64748b' }}> budget</span>}
+                        {!load.is_fixed_price && <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#0B2F6B' }}> budget</span>}
                       </span>
                     )}
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.55rem', marginBottom: '0.65rem' }}>
                     <div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Pickup</div>
-                      <div style={{ fontSize: '0.84rem', color: '#0f172a', fontWeight: 600 }}>{load.pickup_location ?? '—'}</div>
-                      {load.pickup_postcode && <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{load.pickup_postcode}</div>}
+                      <div style={{ fontSize: '0.7rem', color: '#0B2F6B', fontWeight: 600, marginBottom: '0.1rem' }}>Pickup</div>
+                      <div style={{ fontSize: '0.84rem', color: '#1A1F2B', fontWeight: 600 }}>{load.pickup_location ?? '—'}</div>
+                      {load.pickup_postcode && <div style={{ fontSize: '0.74rem', color: '#0B2F6B' }}>{load.pickup_postcode}</div>}
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Delivery</div>
-                      <div style={{ fontSize: '0.84rem', color: '#0f172a', fontWeight: 600 }}>{load.delivery_location ?? '—'}</div>
-                      {load.delivery_postcode && <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{load.delivery_postcode}</div>}
+                      <div style={{ fontSize: '0.7rem', color: '#0B2F6B', fontWeight: 600, marginBottom: '0.1rem' }}>Delivery</div>
+                      <div style={{ fontSize: '0.84rem', color: '#1A1F2B', fontWeight: 600 }}>{load.delivery_location ?? '—'}</div>
+                      {load.delivery_postcode && <div style={{ fontSize: '0.74rem', color: '#0B2F6B' }}>{load.delivery_postcode}</div>}
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Date</div>
-                      <div style={{ fontSize: '0.82rem', color: '#0f172a' }}>{fmtDate(load.pickup_datetime)}</div>
+                      <div style={{ fontSize: '0.7rem', color: '#0B2F6B', fontWeight: 600, marginBottom: '0.1rem' }}>Date</div>
+                      <div style={{ fontSize: '0.82rem', color: '#1A1F2B' }}>{fmtDate(load.pickup_datetime)}</div>
                     </div>
                   </div>
 
                   <button
                     onClick={() => router.push('/driver/loads')}
-                    style={{ padding: '0.48rem 0.9rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}
+                    style={{ padding: '0.48rem 0.9rem', backgroundColor: '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}
                   >
                     View on load board
                   </button>
@@ -376,15 +376,15 @@ export default function SearchLoadsPage() {
                   {getLoadDetailSummary(load, 5).length > 0 && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '0.4rem', marginTop: '0.65rem' }}>
                       {getLoadDetailSummary(load, 5).map((item) => (
-                        <div key={`${load.id}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '7px', padding: '0.4rem 0.5rem' }}>
-                          <div style={{ fontSize: '0.64rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
-                          <div style={{ fontSize: '0.76rem', color: '#0f172a', fontWeight: 650 }}>{item.value}</div>
+                        <div key={`${load.id}-${item.label}`} style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '7px', padding: '0.4rem 0.5rem' }}>
+                          <div style={{ fontSize: '0.64rem', color: '#0B2F6B', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
+                          <div style={{ fontSize: '0.76rem', color: '#1A1F2B', fontWeight: 650 }}>{item.value}</div>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  <div style={{ marginTop: '0.45rem', fontSize: '0.7rem', color: '#94a3b8' }}>Posted: {fmtDate(load.exchange_posted_at)}</div>
+                  <div style={{ marginTop: '0.45rem', fontSize: '0.7rem', color: '#0B2F6B' }}>Posted: {fmtDate(load.exchange_posted_at)}</div>
                 </div>
               ))}
             </div>
@@ -394,7 +394,7 @@ export default function SearchLoadsPage() {
                 <button
                   type="button"
                   onClick={() => setVisibleCount((current) => current + RESULT_PAGE_SIZE)}
-                  style={{ padding: '0.7rem 1rem', backgroundColor: '#f8fafc', color: '#0f172a', border: '1px solid #d7e0ea', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                  style={{ padding: '0.7rem 1rem', backgroundColor: '#F4F6F8', color: '#1A1F2B', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
                 >
                   Load more results
                 </button>

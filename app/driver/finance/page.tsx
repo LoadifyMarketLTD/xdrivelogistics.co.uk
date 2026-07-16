@@ -65,12 +65,12 @@ const STATUS_TABS: Array<{ id: InvoiceStatus | 'All'; label: string }> = [
 ];
 
 const STATUS_COLORS: Record<InvoiceStatus, { bg: string; text: string }> = {
-  Draft:     { bg: '#fef3c7', text: '#92400e' },
-  Sent:      { bg: '#e0e7ff', text: '#3730a3' },
-  Overdue:   { bg: '#fee2e2', text: '#991b1b' },
-  Paid:      { bg: '#d1fae5', text: '#065f46' },
-  Disputed:  { bg: '#fce7f3', text: '#9d174d' },
-  Cancelled: { bg: '#e2e8f0', text: '#475569' },
+  Draft:     { bg: '#F4F6F8', text: '#F5A300' },
+  Sent:      { bg: '#F4F6F8', text: '#1D57D8' },
+  Overdue:   { bg: '#F4F6F8', text: '#F5A300' },
+  Paid:      { bg: '#F4F6F8', text: '#0B2F6B' },
+  Disputed:  { bg: '#F4F6F8', text: '#F5A300' },
+  Cancelled: { bg: '#F4F6F8', text: '#0B2F6B' },
 };
 
 const fmtCurrency = (amount: number, currency = 'GBP') =>
@@ -220,18 +220,18 @@ export default function DriverFinancePage() {
   // ── Styles ──────────────────────────────────────────────────────────────────
 
   const cardStyle: CSSProperties = {
-    background: '#fff',
+    background: '#FFFFFF',
     borderRadius: '10px',
-    border: '1px solid #d7e0ea',
-    boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+    border: '1px solid rgba(11, 47, 107, 0.16)',
+    boxShadow: '0 2px 8px rgba(26, 31, 43, 0.06)',
   };
 
   const tabBtnStyle = (active: boolean): CSSProperties => ({
     padding: '0.45rem 1rem',
     borderRadius: '8px',
     border: 'none',
-    background: active ? '#1d4ed8' : '#f1f5f9',
-    color: active ? '#fff' : '#475569',
+    background: active ? '#1D57D8' : '#F4F6F8',
+    color: active ? '#FFFFFF' : '#0B2F6B',
     fontWeight: active ? 700 : 500,
     fontSize: '0.82rem',
     cursor: 'pointer',
@@ -242,7 +242,7 @@ export default function DriverFinancePage() {
 
   const summaryCards = summary
     ? [
-        { label: 'Total', value: summary.total, color: '#64748b' },
+        { label: 'Total', value: summary.total, color: '#0B2F6B' },
         { label: 'Draft', value: summary.draft, color: STATUS_COLORS.Draft.text },
         { label: 'Sent', value: summary.sent, color: STATUS_COLORS.Sent.text },
         { label: 'Overdue', value: summary.overdue, color: STATUS_COLORS.Overdue.text },
@@ -263,8 +263,8 @@ export default function DriverFinancePage() {
             onClick={handleOpenJobPicker}
             style={{
               padding: '0.5rem 1rem',
-              background: '#1d4ed8',
-              color: '#fff',
+              background: '#1D57D8',
+              color: '#FFFFFF',
               border: 'none',
               borderRadius: '8px',
               fontSize: '0.83rem',
@@ -277,7 +277,7 @@ export default function DriverFinancePage() {
         }
       >
         {/* Page title */}
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b', margin: '0 0 1.25rem' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B2F6B', margin: '0 0 1.25rem' }}>
           💷 Finance Workspace
         </h2>
 
@@ -294,7 +294,7 @@ export default function DriverFinancePage() {
             {summaryCards.map((s) => (
               <div key={s.label} style={{ ...cardStyle, padding: '0.75rem', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.5rem', fontWeight: 800, color: s.color }}>{s.value}</div>
-                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.2rem', fontWeight: 600 }}>
+                <div style={{ fontSize: '0.72rem', color: '#0B2F6B', marginTop: '0.2rem', fontWeight: 600 }}>
                   {s.label}
                 </div>
               </div>
@@ -323,11 +323,11 @@ export default function DriverFinancePage() {
         {/* Invoice list */}
         <div style={cardStyle}>
           {loading ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>Loading invoices…</div>
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#0B2F6B' }}>Loading invoices…</div>
           ) : error ? (
-            <div style={{ padding: '1.5rem', color: '#dc2626', fontSize: '0.875rem' }}>{error}</div>
+            <div style={{ padding: '1.5rem', color: '#1A1F2B', fontSize: '0.875rem' }}>{error}</div>
           ) : invoices.length === 0 ? (
-            <div style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+            <div style={{ padding: '2.5rem', textAlign: 'center', color: '#0B2F6B' }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📄</div>
               <p style={{ margin: 0 }}>No invoices found{activeTab !== 'All' ? ` with status "${activeTab}"` : ''}.</p>
               <p style={{ margin: '0.4rem 0 0', fontSize: '0.82rem' }}>
@@ -343,10 +343,10 @@ export default function DriverFinancePage() {
                   gridTemplateColumns: '1fr 1fr 1fr 1fr auto',
                   gap: '0.5rem',
                   padding: '0.65rem 1rem',
-                  borderBottom: '1px solid #e2e8f0',
+                  borderBottom: '1px solid rgba(11, 47, 107, 0.16)',
                   fontSize: '0.72rem',
                   fontWeight: 700,
-                  color: '#64748b',
+                  color: '#0B2F6B',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
                 }}
@@ -358,7 +358,7 @@ export default function DriverFinancePage() {
                 <span>Status</span>
               </div>
               {invoices.map((inv, i) => {
-                const sc = STATUS_COLORS[inv.status] ?? { bg: '#f1f5f9', text: '#475569' };
+                const sc = STATUS_COLORS[inv.status] ?? { bg: '#F4F6F8', text: '#0B2F6B' };
                 return (
                   <button
                     key={inv.id}
@@ -368,7 +368,7 @@ export default function DriverFinancePage() {
                       gridTemplateColumns: '1fr 1fr 1fr 1fr auto',
                       gap: '0.5rem',
                       padding: '0.8rem 1rem',
-                      borderBottom: i < invoices.length - 1 ? '1px solid #f1f5f9' : 'none',
+                      borderBottom: i < invoices.length - 1 ? '1px solid #F4F6F8' : 'none',
                       background: 'transparent',
                       border: 'none',
                       borderTopWidth: 0,
@@ -379,22 +379,22 @@ export default function DriverFinancePage() {
                       cursor: 'pointer',
                       alignItems: 'center',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#F4F6F8')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
                     <div>
-                      <div style={{ fontSize: '0.83rem', fontWeight: 700, color: '#1e293b' }}>
+                      <div style={{ fontSize: '0.83rem', fontWeight: 700, color: '#0B2F6B' }}>
                         {inv.invoice_number}
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{inv.job_ref}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#0B2F6B' }}>{inv.job_ref}</div>
                     </div>
-                    <div style={{ fontSize: '0.83rem', color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: '0.83rem', color: '#1D57D8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {inv.client_name}
                     </div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1A1F2B' }}>
                       {fmtCurrency(Number(inv.amount), inv.currency)}
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#0B2F6B' }}>
                       {fmtDate(inv.invoice_date)}
                     </div>
                     <span
@@ -423,7 +423,7 @@ export default function DriverFinancePage() {
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0,0,0,0.5)',
+              background: 'rgba(26, 31, 43, 0.5)',
               zIndex: 50,
               display: 'flex',
               alignItems: 'center',
@@ -436,27 +436,27 @@ export default function DriverFinancePage() {
               style={{ ...cardStyle, width: '100%', maxWidth: '580px', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#1e293b' }}>
+              <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0B2F6B' }}>
                   Generate Invoice from Completed Job
                 </h3>
                 <button
                   onClick={() => setShowJobPicker(false)}
-                  style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#64748b' }}
+                  style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#0B2F6B' }}
                 >
                   ×
                 </button>
               </div>
               <div style={{ overflowY: 'auto', flex: 1, padding: '1rem 1.25rem' }}>
                 {generateError && (
-                  <div style={{ marginBottom: '0.75rem', padding: '0.75rem', background: '#fee2e2', color: '#991b1b', borderRadius: '8px', fontSize: '0.83rem' }}>
+                  <div style={{ marginBottom: '0.75rem', padding: '0.75rem', background: '#F4F6F8', color: '#1A1F2B', borderRadius: '8px', fontSize: '0.83rem' }}>
                     {generateError}
                   </div>
                 )}
                 {jobsLoading ? (
-                  <div style={{ textAlign: 'center', color: '#94a3b8', padding: '1.5rem' }}>Loading jobs…</div>
+                  <div style={{ textAlign: 'center', color: '#0B2F6B', padding: '1.5rem' }}>Loading jobs…</div>
                 ) : completedJobs.length === 0 ? (
-                  <div style={{ textAlign: 'center', color: '#94a3b8', padding: '1.5rem', fontSize: '0.875rem' }}>
+                  <div style={{ textAlign: 'center', color: '#0B2F6B', padding: '1.5rem', fontSize: '0.875rem' }}>
                     No completed jobs available for invoicing.
                   </div>
                 ) : (
@@ -474,10 +474,10 @@ export default function DriverFinancePage() {
                       }}
                     >
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '0.83rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.2rem' }}>
+                        <div style={{ fontSize: '0.83rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.2rem' }}>
                           {job.pickup_location ?? '—'} → {job.delivery_location ?? '—'}
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#0B2F6B' }}>
                           {job.pickup_datetime ? fmtDate(job.pickup_datetime) : ''}
                           {job.client_name ? ` · ${job.client_name}` : ''}
                           {job.budget_amount ? ` · ${fmtCurrency(job.budget_amount)}` : ''}
@@ -488,8 +488,8 @@ export default function DriverFinancePage() {
                         disabled={generatingJobId === job.id}
                         style={{
                           padding: '0.4rem 0.9rem',
-                          background: generatingJobId === job.id ? '#93c5fd' : '#1d4ed8',
-                          color: '#fff',
+                          background: generatingJobId === job.id ? '#F4F6F8' : '#1D57D8',
+                          color: '#FFFFFF',
                           border: 'none',
                           borderRadius: '6px',
                           fontSize: '0.78rem',

@@ -280,7 +280,7 @@ export default function AuthCallbackPage() {
     <main>
       <section style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <h1 style={{ marginBottom: '1rem' }}>{isLinkIssue ? 'Link issue detected' : 'Completing sign-in…'}</h1>
-        {error && <p style={{ color: '#dc2626' }}>{error}</p>}
+        {error && <p style={{ color: '#F5A300' }}>{error}</p>}
         {isLinkIssue && (
           <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             {recoveryType === 'recovery' ? (
@@ -289,8 +289,8 @@ export default function AuthCallbackPage() {
                 onClick={() => router.replace('/login')}
                 style={{
                   padding: '0.75rem 1.25rem',
-                  backgroundColor: '#1F7A3D',
-                  color: '#fff',
+                  backgroundColor: '#1D57D8',
+                  color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
@@ -305,8 +305,8 @@ export default function AuthCallbackPage() {
                   onClick={() => router.replace('/login')}
                   style={{
                     padding: '0.75rem 1.25rem',
-                    backgroundColor: '#1F7A3D',
-                    color: '#fff',
+                    backgroundColor: '#1D57D8',
+                    color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '6px',
                     cursor: 'pointer',
@@ -319,8 +319,8 @@ export default function AuthCallbackPage() {
                   onClick={() => router.replace('/register')}
                   style={{
                     padding: '0.75rem 1.25rem',
-                    backgroundColor: '#1d4ed8',
-                    color: '#fff',
+                    backgroundColor: '#1D57D8',
+                    color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '6px',
                     cursor: 'pointer',

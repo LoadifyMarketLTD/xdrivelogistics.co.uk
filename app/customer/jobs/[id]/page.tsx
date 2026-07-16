@@ -295,17 +295,17 @@ export default function CustomerJobDetailPage() {
         )}
 
         <style jsx>{`
-          .page { min-height: 100vh; background: #f3f4f6; color: #0f172a; padding: 16px; }
+          .page { min-height: 100vh; background: #F4F6F8; color: #1A1F2B; padding: 16px; }
           .stack { display: grid; gap: 16px; max-width: 1100px; margin: 16px auto; }
-          .card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+          .card { background: white; border: 1px solid #F4F6F8; border-radius: 8px; padding: 16px; }
           .split { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-          .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; color: #64748b; }
-          button { border: 1px solid #cbd5e1; background: white; border-radius: 8px; padding: 10px 14px; font-weight: 800; cursor: pointer; color: #0f172a; }
-          .notice { max-width: 1100px; margin: 12px auto; border: 1px solid #f59e0b; background: #fef3c7; color: #92400e; border-radius: 8px; padding: 12px; font-weight: 800; }
+          .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; color: #0B2F6B; }
+          button { border: 1px solid #F4F6F8; background: white; border-radius: 8px; padding: 10px 14px; font-weight: 800; cursor: pointer; color: #1A1F2B; }
+          .notice { max-width: 1100px; margin: 12px auto; border: 1px solid #F5A300; background: #F4F6F8; color: #1A1F2B; border-radius: 8px; padding: 12px; font-weight: 800; }
           .timeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
-          .timeline div { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; color: #64748b; font-weight: 800; }
-          .timeline .done { background: #dcfce7; border-color: #22c55e; color: #14532d; }
-          .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #e2e8f0; }
+          .timeline div { border: 1px solid #F4F6F8; border-radius: 8px; padding: 10px; color: #0B2F6B; font-weight: 800; }
+          .timeline .done { background: #F4F6F8; border-color: #1D57D8; color: #1D57D8; }
+          .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #F4F6F8; }
         `}</style>
       </main>
     </ProtectedRoute>

@@ -12,11 +12,11 @@ interface XdBadgeProps {
 
 const BADGE_STYLES: Record<XdBadgeVariant, CSSProperties> = {
   default:  { background: 'var(--xd-surface-2)', color: 'var(--xd-text)',        border: '1px solid var(--xd-border)' },
-  primary:  { background: 'var(--xd-gold-subtle)', color: 'var(--xd-gold)',      border: '1px solid rgba(245,158,11,0.3)' },
-  success:  { background: 'rgba(34,197,94,0.12)', color: '#22c55e',              border: '1px solid rgba(34,197,94,0.25)' },
-  warning:  { background: 'rgba(251,191,36,0.12)', color: '#fbbf24',             border: '1px solid rgba(251,191,36,0.25)' },
-  danger:   { background: 'rgba(239,68,68,0.12)', color: '#ef4444',              border: '1px solid rgba(239,68,68,0.25)' },
-  info:     { background: 'rgba(59,130,246,0.12)', color: '#60a5fa',             border: '1px solid rgba(59,130,246,0.25)' },
+  primary:  { background: 'var(--xd-gold-subtle)', color: '#0B2F6B', border: '1px solid rgba(245, 163, 0, 0.34)' },
+  success:  { background: 'rgba(29, 87, 216, 0.12)', color: '#0B2F6B', border: '1px solid rgba(29, 87, 216, 0.28)' },
+  warning:  { background: 'rgba(245, 163, 0, 0.14)', color: '#1A1F2B', border: '1px solid rgba(245, 163, 0, 0.34)' },
+  danger:   { background: 'rgba(245, 163, 0, 0.14)', color: '#1A1F2B', border: '1px solid #F5A300' },
+  info:     { background: 'rgba(29, 87, 216, 0.12)', color: '#0B2F6B', border: '1px solid rgba(29, 87, 216, 0.28)' },
   muted:    { background: 'transparent',           color: 'var(--xd-text-muted)', border: '1px solid var(--xd-border)' },
 };
 

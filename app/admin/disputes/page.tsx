@@ -50,10 +50,10 @@ type DisputeRow = {
 };
 
 const STATUS_STYLE: Record<DisputeStatus, { bg: string; color: string }> = {
-  open: { bg: '#fee2e2', color: '#991b1b' },
-  investigating: { bg: '#fef3c7', color: '#92400e' },
-  resolved: { bg: '#dcfce7', color: '#166534' },
-  closed: { bg: '#e2e8f0', color: '#334155' },
+  open: { bg: '#F4F6F8', color: '#1A1F2B' },
+  investigating: { bg: '#F4F6F8', color: '#1A1F2B' },
+  resolved: { bg: '#F4F6F8', color: '#1D57D8' },
+  closed: { bg: '#F4F6F8', color: '#1D57D8' },
 };
 
 export default function AdminDisputesPage() {
@@ -224,7 +224,7 @@ export default function AdminDisputesPage() {
                 Clear
               </button>
             </div>
-            <div style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: 1.6 }}>
+            <div style={{ fontSize: '0.76rem', color: '#0B2F6B', lineHeight: 1.6 }}>
               <div><strong>{filtered.length}</strong> disputes match the current filter.</div>
               <div><strong>{disputes.length}</strong> total disputes loaded.</div>
             </div>
@@ -236,8 +236,8 @@ export default function AdminDisputesPage() {
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                 <div>
-                  <h1 style={{ margin: 0, fontSize: '1.55rem', color: '#0f172a' }}>Dispute Management</h1>
-                  <p style={{ margin: '0.3rem 0 0', color: '#64748b', fontSize: '0.88rem' }}>
+                  <h1 style={{ margin: 0, fontSize: '1.55rem', color: '#1A1F2B' }}>Dispute Management</h1>
+                  <p style={{ margin: '0.3rem 0 0', color: '#0B2F6B', fontSize: '0.88rem' }}>
                     Review and resolve disputes from the job_disputes queue.
                   </p>
                 </div>
@@ -268,14 +268,14 @@ export default function AdminDisputesPage() {
                     {paginatedDisputes.map((dispute, index) => {
                       const statusStyle = STATUS_STYLE[dispute.status];
                       const active = selectedDispute?.id === dispute.id;
-                      const cellStyle = active ? { background: '#eff6ff' } : undefined;
+                      const cellStyle = active ? { background: '#F4F6F8' } : undefined;
                       return (
                         <WorkspaceTableTr key={dispute.id} last={index === paginatedDisputes.length - 1}>
                           <WorkspaceTableTd style={cellStyle}>
-                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.86rem' }}>
+                            <div style={{ fontWeight: 700, color: '#1A1F2B', fontSize: '0.86rem' }}>
                               {dispute.jobs?.pickup_location ?? '—'} → {dispute.jobs?.delivery_location ?? '—'}
                             </div>
-                            <div style={{ marginTop: '0.15rem', color: '#94a3b8', fontSize: '0.74rem' }}>
+                            <div style={{ marginTop: '0.15rem', color: '#0B2F6B', fontSize: '0.74rem' }}>
                               Job #{dispute.job_id.slice(0, 8)}
                             </div>
                           </WorkspaceTableTd>
@@ -284,7 +284,7 @@ export default function AdminDisputesPage() {
                               {dispute.status}
                             </WorkspaceStatusBadge>
                           </WorkspaceTableTd>
-                          <WorkspaceTableTd style={{ ...cellStyle, color: '#475569', fontSize: '0.82rem' }}>
+                          <WorkspaceTableTd style={{ ...cellStyle, color: '#0B2F6B', fontSize: '0.82rem' }}>
                             {new Date(dispute.created_at).toLocaleString('en-GB')}
                           </WorkspaceTableTd>
                           <WorkspaceTableTd style={cellStyle}>
@@ -292,9 +292,9 @@ export default function AdminDisputesPage() {
                               onClick={() => setSelectedDisputeId(dispute.id)}
                               style={{
                                 ...wsBtnAction,
-                                border: '1px solid #bfdbfe',
-                                background: '#eff6ff',
-                                color: '#1d4ed8',
+                                border: '1px solid rgba(11, 47, 107, 0.16)',
+                                background: '#F4F6F8',
+                                color: '#1D57D8',
                                 fontWeight: 600,
                               }}
                             >
@@ -307,56 +307,56 @@ export default function AdminDisputesPage() {
                   </WorkspaceTable>
 
                   {selectedDispute ? (
-                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem', display: 'grid', gap: '0.8rem', alignContent: 'start' }}>
+                    <div style={{ background: '#FFFFFF', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '10px', padding: '1rem', display: 'grid', gap: '0.8rem', alignContent: 'start' }}>
                       <div>
                         <WorkspaceFieldLabel>Dispute ID</WorkspaceFieldLabel>
-                        <div style={{ color: '#0f172a', fontSize: '0.86rem', fontWeight: 700 }}>{selectedDispute.id}</div>
+                        <div style={{ color: '#1A1F2B', fontSize: '0.86rem', fontWeight: 700 }}>{selectedDispute.id}</div>
                       </div>
                       <div>
                         <WorkspaceFieldLabel>Company</WorkspaceFieldLabel>
-                        <div style={{ color: '#0f172a', fontSize: '0.86rem', fontWeight: 600 }}>
+                        <div style={{ color: '#1A1F2B', fontSize: '0.86rem', fontWeight: 600 }}>
                           {selectedDispute.companies?.name ?? 'Unknown company'}
                         </div>
                       </div>
                       <div>
                         <WorkspaceFieldLabel>Job status</WorkspaceFieldLabel>
-                        <div style={{ color: '#334155', fontSize: '0.84rem' }}>{selectedDispute.jobs?.status ?? '—'}</div>
+                        <div style={{ color: '#1D57D8', fontSize: '0.84rem' }}>{selectedDispute.jobs?.status ?? '—'}</div>
                       </div>
                       <div>
                         <WorkspaceFieldLabel>Pickup / Delivery</WorkspaceFieldLabel>
-                        <div style={{ color: '#334155', fontSize: '0.84rem' }}>
+                        <div style={{ color: '#1D57D8', fontSize: '0.84rem' }}>
                           {selectedDispute.jobs?.pickup_location ?? '—'} → {selectedDispute.jobs?.delivery_location ?? '—'}
                         </div>
-                        <div style={{ marginTop: '0.2rem', color: '#64748b', fontSize: '0.8rem' }}>
+                        <div style={{ marginTop: '0.2rem', color: '#0B2F6B', fontSize: '0.8rem' }}>
                           {selectedDispute.jobs?.pickup_datetime ? `Pickup: ${new Date(selectedDispute.jobs.pickup_datetime).toLocaleString('en-GB')}` : 'Pickup: —'}
                         </div>
-                        <div style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                        <div style={{ color: '#0B2F6B', fontSize: '0.8rem' }}>
                           {selectedDispute.jobs?.delivery_datetime ? `Delivery: ${new Date(selectedDispute.jobs.delivery_datetime).toLocaleString('en-GB')}` : 'Delivery: —'}
                         </div>
                       </div>
                       <div>
                         <WorkspaceFieldLabel>Description</WorkspaceFieldLabel>
-                        <div style={{ marginTop: '0.25rem', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#334155', fontSize: '0.84rem', whiteSpace: 'pre-wrap' }}>
+                        <div style={{ marginTop: '0.25rem', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(11, 47, 107, 0.16)', background: '#F4F6F8', color: '#1D57D8', fontSize: '0.84rem', whiteSpace: 'pre-wrap' }}>
                           {selectedDispute.description}
                         </div>
                       </div>
                       {selectedDispute.resolved_at ? (
-                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                        <div style={{ fontSize: '0.78rem', color: '#0B2F6B' }}>
                           Resolved at {new Date(selectedDispute.resolved_at).toLocaleString('en-GB')}
                         </div>
                       ) : null}
-                      <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                      <div style={{ fontSize: '0.78rem', color: '#0B2F6B' }}>
                         Raised at {new Date(selectedDispute.created_at).toLocaleString('en-GB')}
                       </div>
 
-                      <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '0.9rem' }}>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#374151', marginBottom: '0.65rem' }}>
+                      <div style={{ borderTop: '1px solid rgba(11, 47, 107, 0.16)', paddingTop: '0.9rem' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1A1F2B', marginBottom: '0.65rem' }}>
                           ⚖️ Update / Resolve Dispute
                         </div>
 
                         {saveError ? <ErrorBanner msg={saveError} /> : null}
                         {saveSuccess ? (
-                          <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: '7px', padding: '0.55rem 0.75rem', marginBottom: '0.65rem', color: '#14532d', fontWeight: 600, fontSize: '0.82rem' }}>
+                          <div style={{ background: '#F4F6F8', border: '1px solid #1D57D8', borderRadius: '7px', padding: '0.55rem 0.75rem', marginBottom: '0.65rem', color: '#1D57D8', fontWeight: 600, fontSize: '0.82rem' }}>
                             ✅ {saveSuccess}
                           </div>
                         ) : null}
@@ -392,7 +392,7 @@ export default function AdminDisputesPage() {
                             disabled={saving}
                             style={{
                               ...wsBtnPrimary,
-                              background: saving ? '#93c5fd' : wsBtnPrimary.background,
+                              background: saving ? '#F4F6F8' : wsBtnPrimary.background,
                               cursor: saving ? 'not-allowed' : 'pointer',
                             }}
                           >

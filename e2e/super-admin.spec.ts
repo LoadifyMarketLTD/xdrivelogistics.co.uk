@@ -19,6 +19,13 @@ test.describe('Super Admin finance/notifications runtime validation', () => {
     await loginAs(page, OWNER_EMAIL, OWNER_PASSWORD);
   });
 
+  test('platform navigation exposes owner controls', async ({ page }) => {
+    await page.goto('/super-admin');
+    await expect(page.getByRole('navigation', { name: /platform control workspace/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^companies$/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^platform$/i })).toBeVisible();
+  });
+
   test('notifications view loads canonical notification_events data', async ({ page }) => {
     const responsePromise = page.waitForResponse(
       (res) => res.url().includes('/api/super-admin/platform?section=notifications') && res.request().method() === 'GET',

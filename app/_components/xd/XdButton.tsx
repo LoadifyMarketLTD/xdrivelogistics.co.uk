@@ -39,7 +39,7 @@ const VARIANTS: Record<XdButtonVariant, CSSProperties> = {
   primary: {
     background: 'var(--xd-gold)',
     color:      'var(--xd-navy)',
-    boxShadow:  '0 1px 4px rgba(245,158,11,0.3)',
+    boxShadow:  '0 1px 4px rgba(245, 163, 0, 0.3)',
   },
   secondary: {
     background: 'var(--xd-surface-2)',
@@ -58,21 +58,21 @@ const VARIANTS: Record<XdButtonVariant, CSSProperties> = {
   },
   danger: {
     background: 'var(--xd-red)',
-    color:      '#fff',
+    color:      '#1A1F2B',
   },
   success: {
     background: 'var(--xd-green)',
-    color:      '#fff',
+    color:      '#FFFFFF',
   },
 };
 
 const HOVER: Record<XdButtonVariant, CSSProperties> = {
   primary:   { background: 'var(--xd-gold-dark)', transform: 'translateY(-1px)' },
   secondary: { background: 'var(--xd-border)', transform: 'translateY(-1px)' },
-  ghost:     { background: 'rgba(255,255,255,0.06)' },
-  outline:   { background: 'rgba(245,158,11,0.1)' },
-  danger:    { background: '#dc2626', transform: 'translateY(-1px)' },
-  success:   { background: '#16a34a', transform: 'translateY(-1px)' },
+  ghost:     { background: 'rgba(255, 255, 255, 0.08)' },
+  outline:   { background: 'rgba(245, 163, 0, 0.14)' },
+  danger:    { background: '#0B2F6B', transform: 'translateY(-1px)' },
+  success:   { background: '#0B2F6B', transform: 'translateY(-1px)' },
 };
 
 /**

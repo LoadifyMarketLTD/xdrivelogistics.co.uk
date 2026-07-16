@@ -245,14 +245,14 @@ export function WorkflowStageStrip({ activeStage, counts, marginBottom = '1rem' 
   return (
     <section
       style={{
-        background: '#ffffff',
-        border: '1px solid #e2e8f0',
+        background: '#FFFFFF',
+        border: '1px solid rgba(11, 47, 107, 0.16)',
         borderRadius: '12px',
         padding: '0.75rem',
         marginBottom,
       }}
     >
-      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: '0.5rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.5rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
         Business flow
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '0.5rem' }}>
@@ -264,8 +264,8 @@ export function WorkflowStageStrip({ activeStage, counts, marginBottom = '1rem' 
               key={stage.id}
               onClick={() => router.push(stage.href)}
               style={{
-                border: isActive ? '1px solid #2563eb' : '1px solid #dbe4ef',
-                background: isActive ? '#eff6ff' : '#f8fafc',
+                border: isActive ? '1px solid #1D57D8' : '1px solid #F4F6F8',
+                background: isActive ? '#F4F6F8' : '#F4F6F8',
                 borderRadius: '10px',
                 padding: '0.55rem 0.6rem',
                 textAlign: 'left',
@@ -273,10 +273,10 @@ export function WorkflowStageStrip({ activeStage, counts, marginBottom = '1rem' 
                 minHeight: '64px',
               }}
             >
-              <div style={{ fontSize: '0.73rem', color: isActive ? '#1d4ed8' : '#64748b', fontWeight: 700, marginBottom: '0.2rem' }}>
+              <div style={{ fontSize: '0.73rem', color: isActive ? '#1D57D8' : '#0B2F6B', fontWeight: 700, marginBottom: '0.2rem' }}>
                 {stage.label}
               </div>
-              <div style={{ fontSize: '0.78rem', color: '#0f172a', fontWeight: 700 }}>{typeof count === 'number' ? count : 'Open'}</div>
+              <div style={{ fontSize: '0.78rem', color: '#1A1F2B', fontWeight: 700 }}>{typeof count === 'number' ? count : 'Open'}</div>
             </button>
           );
         })}

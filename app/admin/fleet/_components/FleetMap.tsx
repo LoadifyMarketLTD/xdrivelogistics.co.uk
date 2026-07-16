@@ -20,9 +20,9 @@ interface FleetMapProps {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  available: '#16a34a',
-  busy:      '#d97706',
-  offline:   '#dc2626',
+  available: '#1D57D8',
+  busy:      '#F5A300',
+  offline:   '#F5A300',
 };
 
 // Leaflet is loaded dynamically to avoid SSR issues
@@ -65,7 +65,7 @@ export default function FleetMap({ pins, style }: FleetMapProps) {
       }).addTo(map);
 
       pins.forEach((pin) => {
-        const color = STATUS_COLOR[pin.availabilityStatus ?? 'offline'] ?? '#64748b';
+        const color = STATUS_COLOR[pin.availabilityStatus ?? 'offline'] ?? '#0B2F6B';
         const svg = `
           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
             <path d="M14 0C6.27 0 0 6.27 0 14c0 9.63 14 22 14 22s14-12.37 14-22C28 6.27 21.73 0 14 0z" fill="${color}"/>
@@ -83,11 +83,11 @@ export default function FleetMap({ pins, style }: FleetMapProps) {
         const popup = `
           <div style="font-family:sans-serif;min-width:160px">
             <div style="font-weight:700;font-size:0.95rem;margin-bottom:4px">${pin.vehicleReg || 'Unknown'}</div>
-            <div style="font-size:0.8rem;color:#374151">${pin.vehicleType.replace(/_/g, ' ')}</div>
-            <div style="font-size:0.8rem;color:#374151;margin-top:4px">
+            <div style="font-size:0.8rem;color:#1A1F2B">${pin.vehicleType.replace(/_/g, ' ')}</div>
+            <div style="font-size:0.8rem;color:#1A1F2B;margin-top:4px">
               <strong>Driver:</strong> ${pin.driverName}
             </div>
-            <div style="font-size:0.75rem;color:#6b7280;margin-top:2px">
+            <div style="font-size:0.75rem;color:#0B2F6B;margin-top:2px">
               Last seen: ${new Date(pin.trackedAt).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
             </div>
           </div>
@@ -124,10 +124,10 @@ export default function FleetMap({ pins, style }: FleetMapProps) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#f1f5f9',
+          background: '#F4F6F8',
           borderRadius: '12px',
-          border: '1px solid #e2e8f0',
-          color: '#94a3b8',
+          border: '1px solid rgba(11, 47, 107, 0.16)',
+          color: '#0B2F6B',
           fontSize: '0.9rem',
           fontWeight: 600,
         }}
@@ -144,7 +144,7 @@ export default function FleetMap({ pins, style }: FleetMapProps) {
         ...style,
         borderRadius: '12px',
         overflow: 'hidden',
-        border: '1px solid #e2e8f0',
+        border: '1px solid rgba(11, 47, 107, 0.16)',
       }}
     />
   );

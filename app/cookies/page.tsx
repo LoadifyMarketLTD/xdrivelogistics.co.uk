@@ -44,11 +44,11 @@ export default function CookiesPage() {
         >
           Cookie Policy
         </h1>
-        <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '2.5rem', fontSize: '0.9rem' }}>
+        <p style={{ color: 'rgba(255, 255, 255, 0.5)', marginBottom: '2.5rem', fontSize: '0.9rem' }}>
           Last updated: {LAST_UPDATED}
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: '1.7', color: 'rgba(255,255,255,0.82)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: '1.7', color: 'rgba(255, 255, 255, 0.82)' }}>
           <Section title="1. What Are Cookies?">
             Cookies are small text files placed on your device when you visit a website. They help
             the website remember your preferences, understand how you use the site, and provide
@@ -73,9 +73,9 @@ export default function CookiesPage() {
                       style={{
                         textAlign: 'left',
                         padding: '0.75rem',
-                        backgroundColor: 'rgba(212,175,55,0.15)',
+                        backgroundColor: 'rgba(245, 163, 0, 0.15)',
                         color: 'var(--color-gold-primary)',
-                        borderBottom: '1px solid rgba(212,175,55,0.3)',
+                        borderBottom: '1px solid rgba(245, 163, 0, 0.3)',
                       }}
                     >
                       {h}
@@ -94,7 +94,7 @@ export default function CookiesPage() {
                         key={j}
                         style={{
                           padding: '0.75rem',
-                          borderBottom: '1px solid rgba(255,255,255,0.08)',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                           verticalAlign: 'top',
                         }}
                       >

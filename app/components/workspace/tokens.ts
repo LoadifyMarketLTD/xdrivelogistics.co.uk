@@ -6,31 +6,31 @@ import type { CSSProperties } from 'react';
 
 // ── Colours ──────────────────────────────────────────────────────────────────
 
-export const WS_PAGE_BG       = '#f5f7fa';   // page canvas
-export const WS_SURFACE       = '#ffffff';   // card / panel background
-export const WS_SURFACE_ALT   = '#fafbfc';   // card footers
-export const WS_SURFACE_HEAD  = '#f8fafc';   // table <thead> background
+export const WS_PAGE_BG       = '#F4F6F8';
+export const WS_SURFACE       = '#FFFFFF';
+export const WS_SURFACE_ALT   = '#F4F6F8';
+export const WS_SURFACE_HEAD  = '#F4F6F8';
 
-export const WS_BORDER        = '#e2e8f0';   // standard border
-export const WS_BORDER_LIGHT  = '#f1f5f9';   // light row dividers
-export const WS_BORDER_INPUT  = '#d1d5db';   // input / modal-button border
+export const WS_BORDER        = 'rgba(11, 47, 107, 0.16)';
+export const WS_BORDER_LIGHT  = 'rgba(11, 47, 107, 0.1)';
+export const WS_BORDER_INPUT  = 'rgba(11, 47, 107, 0.2)';
 
-export const WS_TEXT_PRIMARY  = '#0f172a';   // headings, key values
-export const WS_TEXT_BODY     = '#374151';   // body copy, cell text
-export const WS_TEXT_MUTED    = '#64748b';   // muted / meta text
-export const WS_TEXT_SUBTLE   = '#94a3b8';   // labels, placeholders
+export const WS_TEXT_PRIMARY  = '#1A1F2B';
+export const WS_TEXT_BODY     = '#1A1F2B';
+export const WS_TEXT_MUTED    = '#0B2F6B';
+export const WS_TEXT_SUBTLE   = 'rgba(26, 31, 43, 0.68)';
 
-export const WS_BLUE          = '#1d4ed8';   // active tab, primary action tint
-export const WS_BLUE_BG       = '#dbeafe';   // active tab count chip background
+export const WS_BLUE          = '#1D57D8';
+export const WS_BLUE_BG       = 'rgba(29, 87, 216, 0.12)';
 
-export const WS_GREEN         = '#16a34a';   // primary CTA buttons
-export const WS_GREEN_LIGHT   = '#dcfce7';   // awarded / success badge bg
-export const WS_GREEN_TEXT    = '#15803d';   // awarded / success badge text
+export const WS_GREEN         = '#1D57D8';
+export const WS_GREEN_LIGHT   = 'rgba(29, 87, 216, 0.12)';
+export const WS_GREEN_TEXT    = '#0B2F6B';
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 export const WS_ASIDE_WIDTH   = '210px';
-export const WS_HEADER_H      = '89px';      // AdminPlatformShell nav bar height
+export const WS_HEADER_H      = '89px';      // Shared WorkspacePlatformShell desktop height
 export const WS_CONTENT_PAD   = '0.85rem';
 
 // ── Reusable style objects ────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ export const wsInputStyle: CSSProperties = {
 export const wsBtnPrimary: CSSProperties = {
   flex: 1,
   background: WS_GREEN,
-  color: '#fff',
+  color: '#FFFFFF',
   border: 'none',
   borderRadius: '5px',
   padding: '0.5rem',

@@ -5,7 +5,7 @@ import { WS_SURFACE, WS_BORDER, WS_SURFACE_ALT, WS_BORDER_LIGHT } from './tokens
 
 interface Props {
   children: ReactNode;
-  /** Optional top-border accent colour (e.g. #3b82f6 for "has bid") */
+  /** Optional top-border accent colour (e.g. #1D57D8 for "has bid") */
   accent?: string;
   /** Optional footer slot — rendered with the standard card footer bar */
   footer?: ReactNode;

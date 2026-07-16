@@ -9,18 +9,18 @@ import { supabase } from '../../../lib/supabaseClient';
 const cardStyle = {
   width: '100%',
   maxWidth: '560px',
-  backgroundColor: '#ffffff',
+  backgroundColor: '#FFFFFF',
   borderRadius: '12px',
   padding: '1.5rem',
-  border: '1px solid #d7e0ea',
-  boxShadow: '0 6px 16px rgba(15, 23, 42, 0.08)',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
+  boxShadow: '0 6px 16px rgba(26, 31, 43, 0.08)',
 } as const;
 
 const inputStyle = {
   width: '100%',
   padding: '0.75rem',
   borderRadius: '8px',
-  border: '1px solid #cbd5e1',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   fontSize: '0.95rem',
 } as const;
 
@@ -105,21 +105,21 @@ export default function DriverChangePasswordPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <div style={{ minHeight: '100vh', background: '#f5f7fa', display: 'grid', placeItems: 'center', padding: '1rem' }}>
+      <div style={{ minHeight: '100vh', background: '#F4F6F8', display: 'grid', placeItems: 'center', padding: '1rem' }}>
         <div style={{ display: 'grid', gap: '1rem', width: '100%', maxWidth: '560px' }}>
           <div style={cardStyle}>
-            <h1 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#0f172a', fontSize: '1.35rem' }}>
+            <h1 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#1A1F2B', fontSize: '1.35rem' }}>
               Password &amp; Security
             </h1>
-            <p style={{ marginTop: 0, color: '#475569', fontSize: '0.92rem', lineHeight: 1.5 }}>
+            <p style={{ marginTop: 0, color: '#0B2F6B', fontSize: '0.92rem', lineHeight: 1.5 }}>
               {guidance}
             </p>
 
-            <div style={{ backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '0.9rem', marginTop: '1rem' }}>
-              <div style={{ fontSize: '0.76rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '0.35rem' }}>
+            <div style={{ backgroundColor: '#F4F6F8', borderRadius: '10px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '0.9rem', marginTop: '1rem' }}>
+              <div style={{ fontSize: '0.76rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#0B2F6B', marginBottom: '0.35rem' }}>
                 Security guidance
               </div>
-              <ul style={{ margin: 0, paddingLeft: '1rem', color: '#475569', fontSize: '0.84rem', lineHeight: 1.6 }}>
+              <ul style={{ margin: 0, paddingLeft: '1rem', color: '#0B2F6B', fontSize: '0.84rem', lineHeight: 1.6 }}>
                 <li>Use at least 8 characters.</li>
                 <li>Avoid reusing a dispatcher-issued temporary password.</li>
                 <li>Choose a password that is unique to your XDrive account.</li>
@@ -149,9 +149,9 @@ export default function DriverChangePasswordPage() {
                 <div
                   style={{
                     padding: '0.7rem',
-                    backgroundColor: '#fef2f2',
-                    border: '1px solid #fecaca',
-                    color: '#b91c1c',
+                    backgroundColor: '#F4F6F8',
+                    border: '1px solid rgba(11, 47, 107, 0.16)',
+                    color: '#1A1F2B',
                     borderRadius: '8px',
                     fontSize: '0.86rem',
                   }}
@@ -163,9 +163,9 @@ export default function DriverChangePasswordPage() {
                 <div
                   style={{
                     padding: '0.7rem',
-                    backgroundColor: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    color: '#15803d',
+                    backgroundColor: '#F4F6F8',
+                    border: '1px solid rgba(11, 47, 107, 0.16)',
+                    color: '#1D57D8',
                     borderRadius: '8px',
                     fontSize: '0.86rem',
                   }}
@@ -179,7 +179,7 @@ export default function DriverChangePasswordPage() {
                 style={{
                   width: '100%',
                   padding: '0.8rem',
-                  backgroundColor: loading ? '#93c5fd' : '#1d4ed8',
+                  backgroundColor: loading ? '#F4F6F8' : '#1D57D8',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
@@ -201,9 +201,9 @@ export default function DriverChangePasswordPage() {
                     minWidth: '180px',
                     padding: '0.7rem',
                     borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    backgroundColor: '#f8fafc',
-                    color: '#334155',
+                    border: '1px solid rgba(11, 47, 107, 0.16)',
+                    backgroundColor: '#F4F6F8',
+                    color: '#1D57D8',
                     cursor: 'pointer',
                   }}
                 >
@@ -217,9 +217,9 @@ export default function DriverChangePasswordPage() {
                   minWidth: '180px',
                   padding: '0.7rem',
                   borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#f8fafc',
-                  color: '#334155',
+                  border: '1px solid rgba(11, 47, 107, 0.16)',
+                  backgroundColor: '#F4F6F8',
+                  color: '#1D57D8',
                   cursor: 'pointer',
                 }}
               >

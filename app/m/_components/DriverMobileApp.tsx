@@ -117,8 +117,8 @@ const isLiveJob = (job: MobileJob) => !['delivered', 'completed', 'cancelled'].i
 
 const pageStyle: CSSProperties = {
   minHeight: '100vh',
-  background: '#101114',
-  color: '#f8fafc',
+  background: '#1A1F2B',
+  color: '#F4F6F8',
   padding: '0.75rem 0.75rem 5.25rem',
   fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
 };
@@ -284,7 +284,7 @@ export default function DriverMobileApp() {
   const Header = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-        <div style={{ width: 34, height: 34, borderRadius: 10, background: '#facc15', color: '#111827', display: 'grid', placeItems: 'center', fontWeight: 900 }}>XD</div>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F5A300', color: '#1A1F2B', display: 'grid', placeItems: 'center', fontWeight: 900 }}>XD</div>
         <div>
           <div style={{ fontSize: '0.88rem', fontWeight: 800 }}>Driver</div>
           <div style={{ ...mobileMutedTextStyle, fontSize: '0.72rem' }}>{vehicle?.reg_plate || vehicle?.type || 'Vehicle TBC'}</div>
@@ -299,7 +299,7 @@ export default function DriverMobileApp() {
       <MobileCard highlighted>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ color: '#facc15', fontSize: '0.72rem', fontWeight: 900, letterSpacing: '0.06em' }}>ACTIVE JOB</div>
+            <div style={{ color: '#F5A300', fontSize: '0.72rem', fontWeight: 900, letterSpacing: '0.06em' }}>ACTIVE JOB</div>
             <h1 style={{ margin: '0.35rem 0 0', fontSize: '1.25rem', lineHeight: 1.15 }}>
               {activeJob ? `${activeJob.pickup_location || 'Pickup TBC'} to ${activeJob.delivery_location || 'Delivery TBC'}` : 'No active job'}
             </h1>
@@ -347,7 +347,7 @@ export default function DriverMobileApp() {
         ) : (
           <div style={{ display: 'grid', gap: '0.5rem' }}>
             {activeJobNotes.map((note) => (
-              <div key={note.id} style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '0.7rem' }}>
+              <div key={note.id} style={{ background: 'rgba(255, 255, 255, 0.045)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: 12, padding: '0.7rem' }}>
                 <div style={{ fontWeight: 780, lineHeight: 1.35 }}>{note.note}</div>
                 <div style={{ ...mobileMutedTextStyle, marginTop: '0.25rem' }}>{fmtDateTime(note.created_at)}</div>
               </div>
@@ -414,7 +414,7 @@ export default function DriverMobileApp() {
         {documents.length === 0 ? (
           <div style={mobileMutedTextStyle}>No compliance documents uploaded yet.</div>
         ) : documents.slice(0, 4).map((doc) => (
-          <div key={doc.id} style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '0.7rem', marginBottom: '0.5rem' }}>
+          <div key={doc.id} style={{ background: 'rgba(255, 255, 255, 0.045)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: 12, padding: '0.7rem', marginBottom: '0.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 850 }}>{doc.doc_type || 'Document'}</div>
@@ -439,10 +439,10 @@ export default function DriverMobileApp() {
           else router.push(href);
         }} style={moreButton}>
           {label}
-          <span style={{ color: '#facc15' }}>›</span>
+          <span style={{ color: '#F5A300' }}>›</span>
         </button>
       ))}
-      <button onClick={() => void logout()} style={{ ...moreButton, color: '#fecaca' }}>Sign out<span>›</span></button>
+      <button onClick={() => void logout()} style={{ ...moreButton, color: '#F4F6F8' }}>Sign out<span>›</span></button>
     </MobileCard>
   );
 
@@ -451,7 +451,7 @@ export default function DriverMobileApp() {
       <main style={pageStyle}>
         <Header />
         <MobileWebDeprecationNotice />
-        {message && <div style={{ background: '#27210f', border: '1px solid rgba(250,204,21,0.35)', color: '#fde68a', borderRadius: 12, padding: '0.65rem 0.75rem', marginBottom: '0.75rem', fontSize: '0.82rem' }}>{message}</div>}
+        {message && <div style={{ background: '#1A1F2B', border: '1px solid rgba(245, 163, 0, 0.35)', color: '#F5A300', borderRadius: 12, padding: '0.65rem 0.75rem', marginBottom: '0.75rem', fontSize: '0.82rem' }}>{message}</div>}
         {!driverId && <MobileCard>No driver profile is linked to this account.</MobileCard>}
         {loading ? <MobileCard>Loading work...</MobileCard> : (
           <>
@@ -494,7 +494,7 @@ function StatusActions({
 
 function StatusPill({ status }: { status: string }) {
   return (
-    <span style={{ flexShrink: 0, background: '#facc15', color: '#111827', borderRadius: 999, padding: '0.24rem 0.55rem', fontSize: '0.68rem', fontWeight: 900 }}>
+    <span style={{ flexShrink: 0, background: '#F5A300', color: '#1A1F2B', borderRadius: 999, padding: '0.24rem 0.55rem', fontSize: '0.68rem', fontWeight: 900 }}>
       {statusLabels[status] ?? status}
     </span>
   );
@@ -505,7 +505,7 @@ function JobMiniList({ jobs }: { jobs: MobileJob[] }) {
   return (
     <div style={{ display: 'grid', gap: '0.55rem' }}>
       {jobs.map((job) => (
-        <div key={job.id} style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '0.72rem' }}>
+        <div key={job.id} style={{ background: 'rgba(255, 255, 255, 0.045)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: 12, padding: '0.72rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.55rem' }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: '0.9rem', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -534,8 +534,8 @@ function Timeline({ job }: { job: MobileJob }) {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.25rem', marginTop: '0.7rem' }}>
       {steps.map(([label, value]) => (
         <div key={label} style={{ textAlign: 'center' }}>
-          <div style={{ height: 5, borderRadius: 999, background: value ? '#facc15' : 'rgba(255,255,255,0.16)' }} />
-          <div style={{ marginTop: '0.25rem', color: value ? '#fef3c7' : '#9ca3af', fontSize: '0.58rem', fontWeight: 800 }}>{label}</div>
+          <div style={{ height: 5, borderRadius: 999, background: value ? '#F5A300' : 'rgba(255, 255, 255, 0.16)' }} />
+          <div style={{ marginTop: '0.25rem', color: value ? '#F4F6F8' : '#F4F6F8', fontSize: '0.58rem', fontWeight: 800 }}>{label}</div>
         </div>
       ))}
     </div>
@@ -549,7 +549,7 @@ function QuoteGroup({ title, bids }: { title: string; bids: DriverBid[] }) {
       {bids.length === 0 ? <div style={mobileMutedTextStyle}>No quotes in this section.</div> : (
         <div style={{ display: 'grid', gap: '0.55rem' }}>
           {bids.map((bid) => (
-            <div key={bid.id} style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '0.72rem' }}>
+            <div key={bid.id} style={{ background: 'rgba(255, 255, 255, 0.045)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: 12, padding: '0.72rem' }}>
               <div style={{ fontWeight: 850 }}>{bid.jobs?.pickup_location || 'Pickup TBC'} to {bid.jobs?.delivery_location || 'Delivery TBC'}</div>
               <div style={mobileMutedTextStyle}>{fmtDateTime(bid.jobs?.pickup_datetime)} · £{Number(bid.bid_price_gbp ?? bid.amount ?? 0).toFixed(2)}</div>
             </div>
@@ -569,11 +569,11 @@ function BottomNav({ active, onChange }: { active: MobileTab; onChange: (tab: Mo
     ['more', 'More'],
   ];
   return (
-    <nav style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#0b0c0f', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', padding: '0.35rem 0.45rem 0.55rem', zIndex: 30 }}>
+    <nav style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#1A1F2B', borderTop: '1px solid rgba(255, 255, 255, 0.1)', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', padding: '0.35rem 0.45rem 0.55rem', zIndex: 30 }}>
       {items.map(([id, label]) => {
         const selected = active === id;
         return (
-          <button key={id} onClick={() => onChange(id)} style={{ minHeight: 48, border: 'none', borderRadius: 12, background: selected ? '#facc15' : 'transparent', color: selected ? '#111827' : '#cbd5e1', fontSize: '0.7rem', fontWeight: 900, cursor: 'pointer' }}>
+          <button key={id} onClick={() => onChange(id)} style={{ minHeight: 48, border: 'none', borderRadius: 12, background: selected ? '#F5A300' : 'transparent', color: selected ? '#1A1F2B' : '#F4F6F8', fontSize: '0.7rem', fontWeight: 900, cursor: 'pointer' }}>
             {label}
           </button>
         );
@@ -598,10 +598,10 @@ function nextStopAddress(job: MobileJob) {
 const ghostButton: CSSProperties = {
   minHeight: 38,
   padding: '0 0.8rem',
-  border: '1px solid rgba(255,255,255,0.12)',
+  border: '1px solid rgba(255, 255, 255, 0.12)',
   borderRadius: 999,
-  background: '#181a20',
-  color: '#f8fafc',
+  background: '#1A1F2B',
+  color: '#F4F6F8',
   fontSize: '0.74rem',
   fontWeight: 800,
   cursor: 'pointer',
@@ -609,10 +609,10 @@ const ghostButton: CSSProperties = {
 
 const statusButton: CSSProperties = {
   minHeight: 54,
-  border: '1px solid rgba(250,204,21,0.34)',
+  border: '1px solid rgba(245, 163, 0, 0.34)',
   borderRadius: 14,
-  background: '#111827',
-  color: '#fef3c7',
+  background: '#1A1F2B',
+  color: '#F4F6F8',
   fontSize: '0.86rem',
   fontWeight: 900,
   cursor: 'pointer',
@@ -624,8 +624,8 @@ const primaryActionButton: CSSProperties = {
   marginTop: '0.6rem',
   border: 'none',
   borderRadius: 14,
-  background: '#facc15',
-  color: '#111827',
+  background: '#F5A300',
+  color: '#1A1F2B',
   fontSize: '0.95rem',
   fontWeight: 950,
   cursor: 'pointer',
@@ -634,10 +634,10 @@ const primaryActionButton: CSSProperties = {
 const listButton: CSSProperties = {
   width: '100%',
   textAlign: 'left',
-  border: '1px solid rgba(255,255,255,0.08)',
+  border: '1px solid rgba(255, 255, 255, 0.08)',
   borderRadius: 13,
-  background: 'rgba(255,255,255,0.045)',
-  color: '#fff',
+  background: 'rgba(255, 255, 255, 0.045)',
+  color: '#FFFFFF',
   padding: '0.8rem',
   cursor: 'pointer',
 };
@@ -649,9 +649,9 @@ const moreButton: CSSProperties = {
   justifyContent: 'space-between',
   alignItems: 'center',
   border: 'none',
-  borderBottom: '1px solid rgba(255,255,255,0.08)',
+  borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
   background: 'transparent',
-  color: '#f8fafc',
+  color: '#F4F6F8',
   fontSize: '0.92rem',
   fontWeight: 800,
   cursor: 'pointer',

@@ -23,13 +23,13 @@ type AwardedJob = {
 };
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  awarded:    { bg: '#f3e8ff', text: '#6d28d9' },
-  allocated:  { bg: '#e0f2fe', text: '#0c4a6e' },
-  collected:  { bg: '#fef3c7', text: '#92400e' },
-  in_transit: { bg: '#ede9fe', text: '#5b21b6' },
-  delivered:  { bg: '#dcfce7', text: '#166534' },
-  invoiced:   { bg: '#cffafe', text: '#155e75' },
-  paid:       { bg: '#dcfce7', text: '#14532d' },
+  awarded:    { bg: '#F4F6F8', text: '#1D57D8' },
+  allocated:  { bg: '#F4F6F8', text: '#1D57D8' },
+  collected:  { bg: '#F4F6F8', text: '#F5A300' },
+  in_transit: { bg: '#F4F6F8', text: '#1D57D8' },
+  delivered:  { bg: '#F4F6F8', text: '#1D57D8' },
+  invoiced:   { bg: '#F4F6F8', text: '#1D57D8' },
+  paid:       { bg: '#F4F6F8', text: '#1D57D8' },
 };
 
 export default function BrokerAwardsPage() {
@@ -73,45 +73,45 @@ export default function BrokerAwardsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['broker', 'owner']}>
-      <div style={{ minHeight: '100vh', background: '#f5f7fa' }}>
+      <div style={{ minHeight: '100vh', background: '#F4F6F8' }}>
         <BrokerWorkspaceTabs />
 
         <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '1.25rem' }}>
-          <h1 style={{ margin: '0 0 0.25rem', fontWeight: 700, fontSize: '1.5rem', color: '#0f172a' }}>Awarded Contracts</h1>
-          <p style={{ margin: '0 0 1.25rem', color: '#64748b', fontSize: '0.85rem' }}>Jobs where your company has been selected as the carrier.</p>
+          <h1 style={{ margin: '0 0 0.25rem', fontWeight: 700, fontSize: '1.5rem', color: '#1A1F2B' }}>Awarded Contracts</h1>
+          <p style={{ margin: '0 0 1.25rem', color: '#0B2F6B', fontSize: '0.85rem' }}>Jobs where your company has been selected as the carrier.</p>
 
-          {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', color: '#dc2626' }}>{error}</div>}
+          {error && <div style={{ background: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', color: '#1A1F2B' }}>{error}</div>}
 
           {loading ? (
-            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>Loading awards…</div>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '2rem', textAlign: 'center', color: '#0B2F6B' }}>Loading awards…</div>
           ) : jobs.length === 0 ? (
-            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
-              No awarded contracts yet. <button onClick={() => router.push('/broker/loads')} style={{ color: '#1d4ed8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, textDecoration: 'underline' }}>Browse the Load Board</button>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '2rem', textAlign: 'center', color: '#0B2F6B' }}>
+              No awarded contracts yet. <button onClick={() => router.push('/broker/loads')} style={{ color: '#1D57D8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, textDecoration: 'underline' }}>Browse the Load Board</button>
             </div>
           ) : (
             <>
               {active.length > 0 && (
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>🚚 In Progress ({active.length})</h2>
+                  <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1D57D8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>🚚 In Progress ({active.length})</h2>
                   <div style={{ display: 'grid', gap: '0.65rem' }}>
                     {active.map(job => {
-                      const color = STATUS_COLORS[job.status] ?? { bg: '#f3f4f6', text: '#6b7280' };
+                      const color = STATUS_COLORS[job.status] ?? { bg: '#F4F6F8', text: '#0B2F6B' };
                       return (
-                        <div key={job.id} style={{ background: '#fff', borderRadius: '12px', border: `1px solid #e5e7eb`, padding: '1rem' }}>
+                        <div key={job.id} style={{ background: '#FFFFFF', borderRadius: '12px', border: `1px solid #F4F6F8`, padding: '1rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
                             <div>
-                              <div style={{ fontWeight: 700, color: '#0f172a' }}>{job.pickup_location || '—'} → {job.delivery_location || '—'}</div>
-                              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
+                              <div style={{ fontWeight: 700, color: '#1A1F2B' }}>{job.pickup_location || '—'} → {job.delivery_location || '—'}</div>
+                              <div style={{ fontSize: '0.8rem', color: '#0B2F6B', marginTop: '0.2rem' }}>
                                 Shipper: <strong>{(job.companies as { name: string } | null)?.name ?? 'Unknown'}</strong>
                               </div>
                             </div>
                             <span style={{ background: color.bg, color: color.text, padding: '0.25rem 0.65rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700 }}>{job.status.replace(/_/g,' ')}</span>
                           </div>
                           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
-                            {job.vehicle_type && <span style={{ background: '#f1f5f9', color: '#475569', padding: '0.2rem 0.55rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600 }}>{job.vehicle_type.replace(/_/g,' ')}</span>}
-                            {job.cargo_type   && <span style={{ background: '#fef9c3', color: '#92400e', padding: '0.2rem 0.55rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600 }}>{job.cargo_type}</span>}
+                            {job.vehicle_type && <span style={{ background: '#F4F6F8', color: '#0B2F6B', padding: '0.2rem 0.55rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600 }}>{job.vehicle_type.replace(/_/g,' ')}</span>}
+                            {job.cargo_type   && <span style={{ background: '#F4F6F8', color: '#1A1F2B', padding: '0.2rem 0.55rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600 }}>{job.cargo_type}</span>}
                           </div>
-                          {job.pickup_datetime && <div style={{ fontSize: '0.77rem', color: '#94a3b8', marginTop: '0.4rem' }}>Pickup: {new Date(job.pickup_datetime).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</div>}
+                          {job.pickup_datetime && <div style={{ fontSize: '0.77rem', color: '#0B2F6B', marginTop: '0.4rem' }}>Pickup: {new Date(job.pickup_datetime).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</div>}
                         </div>
                       );
                     })}
@@ -120,14 +120,14 @@ export default function BrokerAwardsPage() {
               )}
               {complete.length > 0 && (
                 <div>
-                  <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>✅ Completed ({complete.length})</h2>
+                  <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1D57D8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 0.75rem' }}>✅ Completed ({complete.length})</h2>
                   <div style={{ display: 'grid', gap: '0.65rem' }}>
                     {complete.map(job => {
-                      const color = STATUS_COLORS[job.status] ?? { bg: '#f3f4f6', text: '#6b7280' };
+                      const color = STATUS_COLORS[job.status] ?? { bg: '#F4F6F8', text: '#0B2F6B' };
                       return (
-                        <div key={job.id} style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '0.9rem', opacity: 0.85 }}>
+                        <div key={job.id} style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '0.9rem', opacity: 0.85 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
-                            <div style={{ fontWeight: 600, color: '#374151', fontSize: '0.92rem' }}>{job.pickup_location || '—'} → {job.delivery_location || '—'}</div>
+                            <div style={{ fontWeight: 600, color: '#1A1F2B', fontSize: '0.92rem' }}>{job.pickup_location || '—'} → {job.delivery_location || '—'}</div>
                             <span style={{ background: color.bg, color: color.text, padding: '0.2rem 0.55rem', borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700 }}>{job.status}</span>
                           </div>
                         </div>

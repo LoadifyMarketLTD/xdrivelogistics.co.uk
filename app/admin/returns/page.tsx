@@ -28,8 +28,8 @@ type ReturnJourneyRow = {
 };
 
 const card: CSSProperties = {
-  backgroundColor: '#ffffff',
-  border: '1px solid #dbe3ef',
+  backgroundColor: '#FFFFFF',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '8px',
   padding: '1rem',
 };
@@ -37,18 +37,18 @@ const card: CSSProperties = {
 const inputStyle: CSSProperties = {
   width: '100%',
   padding: '0.65rem 0.75rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '6px',
   fontSize: '0.9rem',
-  color: '#0f172a',
-  backgroundColor: '#ffffff',
+  color: '#1A1F2B',
+  backgroundColor: '#FFFFFF',
   boxSizing: 'border-box',
 };
 
 const labelStyle: CSSProperties = {
   fontSize: '0.78rem',
   fontWeight: 700,
-  color: '#334155',
+  color: '#1D57D8',
   display: 'block',
   marginBottom: '0.35rem',
 };
@@ -197,21 +197,21 @@ export default function AdminReturnJourneysPage() {
         <WorkspaceMain>
           <WorkspaceContent>
         <div style={{ marginBottom: '1rem' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>Return Journeys</h1>
-          <p style={{ color: '#64748b', margin: '0.35rem 0 0' }}>Advertise where you will be available after delivery.</p>
+          <h1 style={{ fontSize: '2rem', fontWeight: 700, color: '#0B2F6B', margin: 0 }}>Return Journeys</h1>
+          <p style={{ color: '#0B2F6B', margin: '0.35rem 0 0' }}>Advertise where you will be available after delivery.</p>
         </div>
 
         {!driverId && (
-          <div style={{ ...card, color: '#92400e', backgroundColor: '#fefce8', borderColor: '#fde68a' }}>
+          <div style={{ ...card, color: '#1A1F2B', backgroundColor: '#F4F6F8', borderColor: '#F5A300' }}>
             No driver profile is linked to this account yet.
           </div>
         )}
-        {successMsg && <div style={{ ...card, color: '#166534', backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', marginBottom: '0.75rem', fontWeight: 700 }}>{successMsg}</div>}
+        {successMsg && <div style={{ ...card, color: '#1D57D8', backgroundColor: '#F4F6F8', borderColor: 'rgba(11, 47, 107, 0.16)', marginBottom: '0.75rem', fontWeight: 700 }}>{successMsg}</div>}
         {error && <ErrorBanner msg={error} />}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
           <section style={card}>
-            <h2 style={{ margin: '0 0 0.8rem', fontSize: '1rem', color: '#0f172a' }}>Return Journey</h2>
+            <h2 style={{ margin: '0 0 0.8rem', fontSize: '1rem', color: '#1A1F2B' }}>Return Journey</h2>
             {loading ? <LoadingCard text="Loading…" /> : (
               <form onSubmit={(e) => void handleSaveReturn(e)} style={{ display: 'grid', gap: '0.75rem' }}>
                 <div>
@@ -226,20 +226,20 @@ export default function AdminReturnJourneysPage() {
                   <label style={labelStyle}>Available from</label>
                   <input style={inputStyle} type="datetime-local" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
                 </div>
-                <button type="submit" disabled={saving || !driverId} style={{ padding: '0.65rem', backgroundColor: saving || !driverId ? '#94a3b8' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: saving || !driverId ? 'not-allowed' : 'pointer' }}>
+                <button type="submit" disabled={saving || !driverId} style={{ padding: '0.65rem', backgroundColor: saving || !driverId ? '#F4F6F8' : '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: saving || !driverId ? 'not-allowed' : 'pointer' }}>
                   {saving ? 'Saving...' : 'Save Return Journey'}
                 </button>
               </form>
             )}
             {currentReturnJourney?.from_postcode && (
-              <div style={{ marginTop: '0.9rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.75rem', fontSize: '0.86rem', color: '#334155' }}>
+              <div style={{ marginTop: '0.9rem', backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', padding: '0.75rem', fontSize: '0.86rem', color: '#1D57D8' }}>
                 Current: {currentReturnJourney.from_postcode}{currentReturnJourney.to_postcode ? ` to ${currentReturnJourney.to_postcode}` : ''}
               </div>
             )}
           </section>
 
           <section style={card}>
-            <h2 style={{ margin: '0 0 0.8rem', fontSize: '1rem', color: '#0f172a' }}>Future Position</h2>
+            <h2 style={{ margin: '0 0 0.8rem', fontSize: '1rem', color: '#1A1F2B' }}>Future Position</h2>
             {loading ? <LoadingCard text="Loading…" /> : (
               <form onSubmit={(e) => void handleSaveFuturePosition(e)} style={{ display: 'grid', gap: '0.75rem' }}>
                 <div>
@@ -250,13 +250,13 @@ export default function AdminReturnJourneysPage() {
                   <label style={labelStyle}>Available from</label>
                   <input style={inputStyle} type="datetime-local" value={futureDate} onChange={(e) => setFutureDate(e.target.value)} />
                 </div>
-                <button type="submit" disabled={saving || !driverId} style={{ padding: '0.65rem', backgroundColor: saving || !driverId ? '#94a3b8' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: saving || !driverId ? 'not-allowed' : 'pointer' }}>
+                <button type="submit" disabled={saving || !driverId} style={{ padding: '0.65rem', backgroundColor: saving || !driverId ? '#F4F6F8' : '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: saving || !driverId ? 'not-allowed' : 'pointer' }}>
                   {saving ? 'Saving...' : 'Save Future Position'}
                 </button>
               </form>
             )}
             {driver?.future_position && (
-              <div style={{ marginTop: '0.9rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.75rem', fontSize: '0.86rem', color: '#334155' }}>
+              <div style={{ marginTop: '0.9rem', backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', padding: '0.75rem', fontSize: '0.86rem', color: '#1D57D8' }}>
                 Current: {driver.future_position}
               </div>
             )}

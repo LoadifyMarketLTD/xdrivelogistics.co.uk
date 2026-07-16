@@ -41,10 +41,10 @@ const DOCUMENT_TABS: WorkspaceTab[] = [
 type AnyDoc = (DriverDocument & { kind: 'driver'; subject_name?: string }) | (VehicleDocument & { kind: 'vehicle'; subject_name?: string });
 
 const STATUS_COLORS: Record<DocStatus, { bg: string; text: string }> = {
-  pending: { bg: '#fef3c7', text: '#92400e' },
-  approved: { bg: '#d1fae5', text: '#065f46' },
-  rejected: { bg: '#fee2e2', text: '#991b1b' },
-  expired: { bg: '#f3f4f6', text: '#6b7280' },
+  pending: { bg: '#F4F6F8', text: '#F5A300' },
+  approved: { bg: '#F4F6F8', text: '#0B2F6B' },
+  rejected: { bg: '#F4F6F8', text: '#F5A300' },
+  expired: { bg: '#F4F6F8', text: '#0B2F6B' },
 };
 const ALLOWED_DOC_STATUS = new Set<DocStatus>(['pending', 'approved', 'rejected', 'expired']);
 
@@ -356,16 +356,16 @@ export default function DocumentsPage() {
           />
           <WorkspaceContent>
             <div style={{ marginBottom: '1rem' }}>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>
+              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#0B2F6B', margin: 0 }}>
                 {isDriverWorkspace ? 'POD / Documents' : 'Documents'}
               </h1>
-              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>
+              <p style={{ color: '#0B2F6B', margin: '0.5rem 0 0 0' }}>
                 {isDriverWorkspace ? 'Upload and view your driver and vehicle documents.' : 'Review and verify driver & vehicle documents'}
               </p>
             </div>
 
             {!isSupabaseConfigured && (
-              <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1rem', color: '#92400e' }}>
+              <div style={{ backgroundColor: '#F4F6F8', border: '1px solid #F5A300', borderRadius: '8px', padding: '1rem', marginBottom: '1rem', color: '#1A1F2B' }}>
                 ⚠️ Supabase is not configured. Database features are disabled.
               </div>
             )}
@@ -373,9 +373,9 @@ export default function DocumentsPage() {
             {error && <ErrorBanner msg={error} />}
 
             {showUpload && (
-              <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-                <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: '520px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflow: 'auto' }}>
-                  <h2 style={{ margin: '0 0 1.5rem', fontSize: '1.4rem', fontWeight: '700', color: '#1f2937' }}>Upload Document</h2>
+              <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(26, 31, 43, 0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: '520px', boxShadow: '0 20px 60px rgba(26, 31, 43, 0.3)', maxHeight: '90vh', overflow: 'auto' }}>
+                  <h2 style={{ margin: '0 0 1.5rem', fontSize: '1.4rem', fontWeight: '700', color: '#0B2F6B' }}>Upload Document</h2>
                   {uploadError && <ErrorBanner msg={uploadError} />}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div>
@@ -483,10 +483,10 @@ export default function DocumentsPage() {
                   const sc = STATUS_COLORS[d.status] ?? STATUS_COLORS.pending;
                   return (
                     <WorkspaceTableTr key={d.id} last={i === paginatedDocs.length - 1}>
-                      <WorkspaceTableTd style={{ fontWeight: '600', color: '#1f2937' }}>{d.subject_name || '—'}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#6b7280' }}>{d.doc_type}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#6b7280' }}>{d.issued_date || '—'}</WorkspaceTableTd>
-                      <WorkspaceTableTd style={{ color: '#6b7280' }}>{d.expiry_date || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ fontWeight: '600', color: '#0B2F6B' }}>{d.subject_name || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B' }}>{d.doc_type}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B' }}>{d.issued_date || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#0B2F6B' }}>{d.expiry_date || '—'}</WorkspaceTableTd>
                       <WorkspaceTableTd>
                         <WorkspaceStatusBadge bg={sc.bg} color={sc.text}>{d.status}</WorkspaceStatusBadge>
                       </WorkspaceTableTd>
@@ -497,7 +497,7 @@ export default function DocumentsPage() {
                               href={d.file_path}
                               target="_blank"
                               rel="noopener noreferrer"
-                              style={{ ...wsBtnAction, backgroundColor: '#eff6ff', color: '#1d4ed8', textDecoration: 'none', display: 'inline-block' }}
+                              style={{ ...wsBtnAction, backgroundColor: '#F4F6F8', color: '#1D57D8', textDecoration: 'none', display: 'inline-block' }}
                             >
                               View
                             </a>
@@ -506,7 +506,7 @@ export default function DocumentsPage() {
                             <button
                               type="button"
                               onClick={() => downloadDocument(d.file_path as string, d.id)}
-                              style={{ ...wsBtnAction, backgroundColor: '#ecfdf5', color: '#065f46', border: 'none' }}
+                              style={{ ...wsBtnAction, backgroundColor: '#F4F6F8', color: '#0B2F6B', border: 'none' }}
                             >
                               Download
                             </button>
@@ -514,7 +514,7 @@ export default function DocumentsPage() {
                           {canVerifyDocuments && d.status !== 'approved' && (
                             <button
                               onClick={() => updateStatus(d.id, 'approved')}
-                              style={{ ...wsBtnAction, backgroundColor: '#d1fae5', color: '#065f46', border: 'none' }}
+                              style={{ ...wsBtnAction, backgroundColor: '#F4F6F8', color: '#0B2F6B', border: 'none' }}
                             >
                               Approve
                             </button>
@@ -522,7 +522,7 @@ export default function DocumentsPage() {
                           {canVerifyDocuments && d.status !== 'rejected' && (
                             <button
                               onClick={() => updateStatus(d.id, 'rejected')}
-                              style={{ ...wsBtnAction, backgroundColor: '#fee2e2', color: '#991b1b', border: 'none' }}
+                              style={{ ...wsBtnAction, backgroundColor: '#F4F6F8', color: '#1A1F2B', border: 'none' }}
                             >
                               Reject
                             </button>

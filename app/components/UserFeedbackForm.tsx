@@ -157,10 +157,10 @@ export default function UserFeedbackForm() {
 
       <style jsx>{`
         .feedback-card {
-          background: #ffffff;
-          border: 1px solid #dbe3ec;
+          background: #FFFFFF;
+          border: 1px solid #F4F6F8;
           border-radius: 8px;
-          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+          box-shadow: 0 10px 30px rgba(26, 31, 43, 0.08);
           padding: 24px;
         }
 
@@ -174,7 +174,7 @@ export default function UserFeedbackForm() {
 
         .eyebrow {
           margin: 0 0 6px;
-          color: #64748b;
+          color: #0B2F6B;
           font-size: 12px;
           font-weight: 800;
           text-transform: uppercase;
@@ -182,16 +182,16 @@ export default function UserFeedbackForm() {
 
         h1 {
           margin: 0;
-          color: #0f172a;
+          color: #1A1F2B;
           font-size: 28px;
           line-height: 1.2;
         }
 
         .status-pill {
-          border: 1px solid #bbf7d0;
+          border: 1px solid #F4F6F8;
           border-radius: 999px;
-          background: #f0fdf4;
-          color: #166534;
+          background: #F4F6F8;
+          color: #1D57D8;
           padding: 7px 10px;
           font-size: 12px;
           font-weight: 800;
@@ -206,15 +206,15 @@ export default function UserFeedbackForm() {
         }
 
         .success {
-          background: #f0fdf4;
-          border: 1px solid #bbf7d0;
-          color: #166534;
+          background: #F4F6F8;
+          border: 1px solid #F4F6F8;
+          color: #1D57D8;
         }
 
         .error {
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          color: #991b1b;
+          background: #F4F6F8;
+          border: 1px solid #F4F6F8;
+          color: #1A1F2B;
         }
 
         .form-grid {
@@ -233,7 +233,7 @@ export default function UserFeedbackForm() {
         }
 
         .field span {
-          color: #334155;
+          color: #1D57D8;
           font-size: 13px;
           font-weight: 800;
         }
@@ -242,10 +242,10 @@ export default function UserFeedbackForm() {
         select,
         textarea {
           width: 100%;
-          border: 1px solid #cbd5e1;
+          border: 1px solid #F4F6F8;
           border-radius: 8px;
-          color: #0f172a;
-          background: #ffffff;
+          color: #1A1F2B;
+          background: #FFFFFF;
           padding: 11px 12px;
           font: inherit;
           box-sizing: border-box;
@@ -265,8 +265,8 @@ export default function UserFeedbackForm() {
         button {
           border: none;
           border-radius: 8px;
-          background: #1f7a3d;
-          color: #ffffff;
+          background: #1D57D8;
+          color: #FFFFFF;
           padding: 11px 18px;
           font-weight: 800;
           cursor: pointer;

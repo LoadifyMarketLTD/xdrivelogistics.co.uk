@@ -242,29 +242,29 @@ export default function NewInvoicePage() {
   const inputStyle: CSSProperties = {
     width: '100%',
     padding: '0.72rem',
-    border: '1px solid #cbd5e1',
+    border: '1px solid rgba(11, 47, 107, 0.16)',
     borderRadius: '8px',
     fontSize: '0.92rem',
   };
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', background: '#f1f5f9' }}>
-        <div style={{ background: '#1e293b', color: '#fff', padding: '1.5rem 2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+      <div style={{ minHeight: '100vh', background: '#F4F6F8' }}>
+        <div style={{ background: '#0B2F6B', color: '#FFFFFF', padding: '1.5rem 2rem', boxShadow: '0 2px 8px rgba(26, 31, 43, 0.08)' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <div>
               <h1 style={{ margin: '0 0 0.25rem 0', fontSize: '1.75rem' }}>Create New Invoice</h1>
               <p style={{ margin: 0, opacity: 0.85 }}>New invoice route is active and ready for context-based creation.</p>
             </div>
             <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-              <Link href="/admin/invoices" style={{ color: '#fff', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.35)', padding: '0.55rem 0.9rem', borderRadius: '8px' }}>
+              <Link href="/admin/invoices" style={{ color: '#FFFFFF', textDecoration: 'none', border: '1px solid rgba(255, 255, 255, 0.35)', padding: '0.55rem 0.9rem', borderRadius: '8px' }}>
                 ← Invoices
               </Link>
-              <Link href="/admin/jobs" style={{ color: '#fff', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.35)', padding: '0.55rem 0.9rem', borderRadius: '8px' }}>
+              <Link href="/admin/jobs" style={{ color: '#FFFFFF', textDecoration: 'none', border: '1px solid rgba(255, 255, 255, 0.35)', padding: '0.55rem 0.9rem', borderRadius: '8px' }}>
                 Jobs
               </Link>
               {jobId && (
-                <Link href={`/admin/jobs/${encodeURIComponent(jobId.trim())}`} style={{ color: '#fff', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.35)', padding: '0.55rem 0.9rem', borderRadius: '8px' }}>
+                <Link href={`/admin/jobs/${encodeURIComponent(jobId.trim())}`} style={{ color: '#FFFFFF', textDecoration: 'none', border: '1px solid rgba(255, 255, 255, 0.35)', padding: '0.55rem 0.9rem', borderRadius: '8px' }}>
                   Job Detail
                 </Link>
               )}
@@ -276,51 +276,51 @@ export default function NewInvoicePage() {
           <WorkflowStageStrip activeStage="invoice" marginBottom="1rem" />
 
           {(jobLoadError || saveError) && (
-            <div style={{ marginBottom: '1rem', background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.75rem 0.9rem' }}>
+            <div style={{ marginBottom: '1rem', background: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1A1F2B', borderRadius: '8px', padding: '0.75rem 0.9rem' }}>
               {jobLoadError || saveError}
             </div>
           )}
 
-          <div style={{ marginBottom: '1rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem' }}>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.45rem' }}>Creation Context</div>
-            <div style={{ color: '#334155', fontSize: '0.9rem', lineHeight: 1.5 }}>
+          <div style={{ marginBottom: '1rem', background: '#FFFFFF', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '10px', padding: '1rem' }}>
+            <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.45rem' }}>Creation Context</div>
+            <div style={{ color: '#1D57D8', fontSize: '0.9rem', lineHeight: 1.5 }}>
               {loadingJob ? 'Loading job prefill...' : 'Query params and optional job context have been applied to this draft.'}
             </div>
-            <div style={{ marginTop: '0.65rem', color: missingRequiredData.length ? '#b45309' : '#166534', fontSize: '0.9rem' }}>
+            <div style={{ marginTop: '0.65rem', color: missingRequiredData.length ? '#F5A300' : '#1D57D8', fontSize: '0.9rem' }}>
               {missingRequiredData.length
                 ? `Missing required data: ${missingRequiredData.join(', ')}. Complete the fields below before saving.`
                 : 'All required data is present. You can create the invoice now.'}
             </div>
           </div>
 
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem' }}>
+          <div style={{ background: '#FFFFFF', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '10px', padding: '1rem' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '0.85rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Invoice Number</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Invoice Number</label>
                 <input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Reference / Job Ref</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Reference / Job Ref</label>
                 <input value={jobRef} onChange={(e) => setJobRef(e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Job ID</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Job ID</label>
                 <input value={jobId} onChange={(e) => setJobId(e.target.value)} style={inputStyle} placeholder="optional" />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Client Name</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Client Name</label>
                 <input value={clientName} onChange={(e) => setClientName(e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Client Email</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Client Email</label>
                 <input value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Amount</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Amount</label>
                 <input type="number" min="0" step="0.01" value={amount || ''} onChange={(e) => setAmount(Math.max(0, Number(e.target.value) || 0))} style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>VAT Rate</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>VAT Rate</label>
                 <select value={vatRate} onChange={(e) => setVatRate(Number(e.target.value) as 0 | 5 | 20)} style={inputStyle}>
                   <option value={0}>0%</option>
                   <option value={5}>5%</option>
@@ -328,7 +328,7 @@ export default function NewInvoicePage() {
                 </select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Payment Terms</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Payment Terms</label>
                 <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value as Invoice['payment_terms'])} style={inputStyle}>
                   <option value="Pay now">Pay now</option>
                   <option value="14 days">14 days</option>
@@ -336,33 +336,33 @@ export default function NewInvoicePage() {
                 </select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Currency</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Currency</label>
                 <input value={currency} onChange={(e) => setCurrency(e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Pickup Location</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Pickup Location</label>
                 <input value={pickupLocation} onChange={(e) => setPickupLocation(e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Pickup Date/Time</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Pickup Date/Time</label>
                 <input value={pickupDateTime} onChange={(e) => setPickupDateTime(e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Delivery Location</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Delivery Location</label>
                 <input value={deliveryLocation} onChange={(e) => setDeliveryLocation(e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Delivery Date/Time</label>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Delivery Date/Time</label>
                 <input value={deliveryDateTime} onChange={(e) => setDeliveryDateTime(e.target.value)} style={inputStyle} />
               </div>
             </div>
 
             <div style={{ marginTop: '0.85rem' }}>
-              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Service Description</label>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#0B2F6B', marginBottom: '0.3rem' }}>Service Description</label>
               <textarea value={serviceDescription} onChange={(e) => setServiceDescription(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
 
-            <div style={{ marginTop: '1rem', padding: '0.75rem', borderRadius: '8px', background: '#f8fafc', color: '#334155', fontSize: '0.88rem' }}>
+            <div style={{ marginTop: '1rem', padding: '0.75rem', borderRadius: '8px', background: '#F4F6F8', color: '#1D57D8', fontSize: '0.88rem' }}>
               Invoice date: <strong>{invoiceDate}</strong> · Due date: <strong>{dueDate}</strong> · Net: <strong>£{netAmount.toFixed(2)}</strong> · VAT: <strong>£{vatAmount.toFixed(2)}</strong> · Total: <strong>£{amount.toFixed(2)}</strong>
             </div>
 
@@ -374,8 +374,8 @@ export default function NewInvoicePage() {
                   padding: '0.7rem 1.1rem',
                   borderRadius: '8px',
                   border: 'none',
-                  background: '#0f766e',
-                  color: '#fff',
+                  background: '#1D57D8',
+                  color: '#FFFFFF',
                   cursor: saving ? 'not-allowed' : 'pointer',
                   opacity: saving ? 0.7 : 1,
                   fontWeight: 700,
@@ -383,7 +383,7 @@ export default function NewInvoicePage() {
               >
                 {saving ? 'Creating...' : 'Create Invoice'}
               </button>
-              <Link href="/admin/invoices" style={{ textDecoration: 'none', border: '1px solid #cbd5e1', color: '#0f172a', borderRadius: '8px', padding: '0.68rem 1.05rem', fontWeight: 600 }}>
+              <Link href="/admin/invoices" style={{ textDecoration: 'none', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1A1F2B', borderRadius: '8px', padding: '0.68rem 1.05rem', fontWeight: 600 }}>
                 Cancel
               </Link>
             </div>

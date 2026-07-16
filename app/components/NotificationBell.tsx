@@ -90,10 +90,10 @@ const getNotificationHref = (event: NotificationEventRow) => {
 };
 
 const getStatusColor = (status: string) => {
-  if (status === 'failed') return '#dc2626';
-  if (status === 'pending') return '#d97706';
-  if (status === 'skipped') return '#6b7280';
-  return '#16a34a';
+  if (status === 'failed') return '#F5A300';
+  if (status === 'pending') return '#F5A300';
+  if (status === 'skipped') return '#0B2F6B';
+  return '#1D57D8';
 };
 
 export default function NotificationBell() {
@@ -250,9 +250,9 @@ export default function NotificationBell() {
           width: '3rem',
           height: '3rem',
           borderRadius: '999px',
-          border: '1px solid rgba(15, 23, 42, 0.12)',
+          border: '1px solid rgba(26, 31, 43, 0.12)',
           background: 'rgba(255, 255, 255, 0.95)',
-          boxShadow: '0 10px 30px rgba(15, 23, 42, 0.15)',
+          boxShadow: '0 10px 30px rgba(26, 31, 43, 0.15)',
           cursor: 'pointer',
           fontSize: '1.2rem',
         }}
@@ -268,8 +268,8 @@ export default function NotificationBell() {
               height: '1.2rem',
               padding: '0 0.25rem',
               borderRadius: '999px',
-              background: '#dc2626',
-              color: '#fff',
+              background: '#F5A300',
+              color: '#1A1F2B',
               fontSize: '0.72rem',
               fontWeight: 700,
               display: 'grid',
@@ -288,34 +288,34 @@ export default function NotificationBell() {
             width: 'min(92vw, 360px)',
             maxHeight: '70vh',
             overflowY: 'auto',
-            background: '#fff',
+            background: '#FFFFFF',
             borderRadius: '14px',
-            border: '1px solid #e5e7eb',
-            boxShadow: '0 18px 40px rgba(15, 23, 42, 0.18)',
+            border: '1px solid #F4F6F8',
+            boxShadow: '0 18px 40px rgba(26, 31, 43, 0.18)',
           }}
         >
           <div
             style={{
               padding: '1rem',
-              borderBottom: '1px solid #e5e7eb',
+              borderBottom: '1px solid #F4F6F8',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
             }}
           >
             <div>
-              <div style={{ fontWeight: 700, color: '#0f172a' }}>Notifications</div>
-              <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>job_assigned, bid_accepted, pod_uploaded</div>
+              <div style={{ fontWeight: 700, color: '#1A1F2B' }}>Notifications</div>
+              <div style={{ fontSize: '0.8rem', color: '#0B2F6B' }}>job_assigned, bid_accepted, pod_uploaded</div>
             </div>
-            <span style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.78rem', color: '#0B2F6B', fontWeight: 600 }}>
               {unreadCount} unread
             </span>
           </div>
 
           {isLoading ? (
-            <div style={{ padding: '1rem', color: '#6b7280' }}>Loading notifications…</div>
+            <div style={{ padding: '1rem', color: '#0B2F6B' }}>Loading notifications…</div>
           ) : events.length === 0 ? (
-            <div style={{ padding: '1rem', color: '#6b7280' }}>No notification events yet.</div>
+            <div style={{ padding: '1rem', color: '#0B2F6B' }}>No notification events yet.</div>
           ) : (
             <div style={{ display: 'grid' }}>
               {events.map((event) => (
@@ -330,20 +330,20 @@ export default function NotificationBell() {
                     textAlign: 'left',
                     padding: '0.9rem 1rem',
                     border: 'none',
-                    borderBottom: '1px solid #f1f5f9',
+                    borderBottom: '1px solid #F4F6F8',
                     background: 'transparent',
                     cursor: 'pointer',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, color: '#0f172a' }}>{getNotificationTitle(event)}</span>
-                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>{formatRelativeTime(event.created_at)}</span>
+                    <span style={{ fontWeight: 700, color: '#1A1F2B' }}>{getNotificationTitle(event)}</span>
+                    <span style={{ fontSize: '0.72rem', color: '#0B2F6B' }}>{formatRelativeTime(event.created_at)}</span>
                   </div>
-                  <div style={{ marginTop: '0.25rem', color: '#475569', fontSize: '0.84rem', lineHeight: 1.45 }}>
+                  <div style={{ marginTop: '0.25rem', color: '#0B2F6B', fontSize: '0.84rem', lineHeight: 1.45 }}>
                     {getNotificationSummary(event)}
                   </div>
                   <div style={{ marginTop: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#0B2F6B' }}>
                       {new Date(event.created_at).toLocaleString('en-GB')}
                     </span>
                     <span style={{ fontSize: '0.72rem', fontWeight: 700, color: getStatusColor(event.status) }}>

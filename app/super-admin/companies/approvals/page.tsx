@@ -96,7 +96,7 @@ function ApprovalsContent() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Approvals Queue</h1>
-            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245, 163, 0, 0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
               Companies
             </span>
           </div>
@@ -107,13 +107,13 @@ function ApprovalsContent() {
       </div>
 
       {actionMessage && (
-        <div style={{ backgroundColor: 'rgba(245,158,11,0.1)', border: `1px solid ${THEME.accent}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.accent, fontSize: '0.82rem', marginBottom: '1rem' }}>
+        <div style={{ backgroundColor: 'rgba(245, 163, 0, 0.1)', border: `1px solid ${THEME.accent}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.accent, fontSize: '0.82rem', marginBottom: '1rem' }}>
           {actionMessage}
         </div>
       )}
 
       {error && (
-        <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
+        <div style={{ backgroundColor: 'rgba(245, 163, 0, 0.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
           ⚠️ {error}
         </div>
       )}
@@ -126,7 +126,7 @@ function ApprovalsContent() {
             No companies pending approval.
             <br />
             <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>
-            Companies with status <code style={{ backgroundColor: '#0b1220', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>pending</code> (legacy: <code style={{ backgroundColor: '#0b1220', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>pending_approval</code>) will appear here.
+            Companies with status <code style={{ backgroundColor: '#1A1F2B', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>pending</code> (legacy: <code style={{ backgroundColor: '#1A1F2B', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>pending_approval</code>) will appear here.
             </span>
           </div>
         ) : (
@@ -155,7 +155,7 @@ function ApprovalsContent() {
                         <button
                           onClick={() => handleAction(co.id, 'approve')}
                           disabled={isActing}
-                          style={{ padding: '0.3rem 0.65rem', borderRadius: '6px', border: 'none', backgroundColor: THEME.green, color: '#fff', fontWeight: 700, fontSize: '0.72rem', cursor: isActing ? 'not-allowed' : 'pointer', opacity: isActing && actionState?.action === 'approve' ? 0.6 : 1 }}
+                          style={{ padding: '0.3rem 0.65rem', borderRadius: '6px', border: 'none', backgroundColor: THEME.green, color: '#FFFFFF', fontWeight: 700, fontSize: '0.72rem', cursor: isActing ? 'not-allowed' : 'pointer', opacity: isActing && actionState?.action === 'approve' ? 0.6 : 1 }}
                         >
                           {isActing && actionState?.action === 'approve' ? '…' : 'Approve'}
                         </button>

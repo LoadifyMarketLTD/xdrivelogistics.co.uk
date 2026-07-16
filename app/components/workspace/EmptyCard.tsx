@@ -1,15 +1,15 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { WS_SURFACE } from './tokens';
+import { WS_BORDER, WS_SURFACE, WS_TEXT_MUTED } from './tokens';
 
 const wrapStyle: CSSProperties = {
   backgroundColor: WS_SURFACE,
   borderRadius: '10px',
-  border: '1px solid #e5e7eb',
+  border: `1px solid ${WS_BORDER}`,
   padding: '3rem',
   textAlign: 'center',
-  color: '#6b7280',
+  color: WS_TEXT_MUTED,
 };
 
 /** Full-width empty state — shown when a list has no items. */

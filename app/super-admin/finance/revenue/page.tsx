@@ -61,14 +61,14 @@ export default function Page() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Financial Reporting</h1>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Finance</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245, 163, 0, 0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Finance</span>
             </div>
             <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>Invoice tracking, payment-status reporting and operational finance analysis.</p>
           </div>
         </div>
 
         {error && (
-          <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: '8px', padding: '0.65rem 0.9rem', color: '#ef4444', fontSize: '0.82rem', marginBottom: '1rem' }}>
+          <div style={{ backgroundColor: 'rgba(245, 163, 0, 0.1)', border: '1px solid #F5A300', borderRadius: '8px', padding: '0.65rem 0.9rem', color: '#1A1F2B', fontSize: '0.82rem', marginBottom: '1rem' }}>
             ⚠️ {error}
           </div>
         )}
@@ -85,7 +85,7 @@ export default function Page() {
                 { label: 'Payment Status Rate', value: `${summary?.paymentStatusRate ?? 0}%`, highlight: (summary?.paymentStatusRate ?? 0) >= 80 },
                 { label: 'Paid Invoices', value: `${summary?.paidInvoices ?? 0} / ${summary?.totalInvoices ?? 0}` },
               ].map((item) => (
-                <div key={item.label} style={{ backgroundColor: '#0b1220', border: `1px solid ${item.highlight ? THEME.green : THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem' }}>
+                <div key={item.label} style={{ backgroundColor: '#1A1F2B', border: `1px solid ${item.highlight ? THEME.green : THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem' }}>
                   <div style={{ color: item.highlight ? THEME.green : THEME.text, fontSize: '1.05rem', fontWeight: 700 }}>{item.value}</div>
                   <div style={{ color: THEME.muted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</div>
                 </div>

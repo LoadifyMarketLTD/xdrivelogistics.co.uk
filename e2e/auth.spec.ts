@@ -23,6 +23,8 @@ test.describe('Admin portal', () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin');
     await expect(page.locator('h1')).toContainText(/dashboard|control/i);
+    await expect(page.getByRole('navigation', { name: /operations workspace/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /load board/i })).toBeVisible();
   });
 
   test('admin fleet page shows map placeholder', async ({ page }) => {
@@ -58,6 +60,9 @@ test.describe('Driver portal', () => {
     await loginAs(page, DRIVER_EMAIL, DRIVER_PASSWORD);
     await page.goto('/driver/jobs');
     await expect(page.locator('h1')).toContainText(/job|driver/i);
+    await expect(page.getByRole('navigation', { name: /driver workspace/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /load board/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^fleet$/i })).toHaveCount(0);
   });
 
   test('driver availability page loads', async ({ page }) => {

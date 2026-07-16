@@ -32,7 +32,7 @@ export default function Page() {
           render: (row) => (
             <div>
               <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>{row.entity_name}</div>
-              <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{row.entity_type}</div>
+              <div style={{ fontSize: '0.68rem', color: '#0B2F6B' }}>{row.entity_type}</div>
             </div>
           ),
         },
@@ -60,7 +60,7 @@ export default function Page() {
           key: 'expiry_date',
           label: 'Expires',
           render: (row) => (
-            <span style={{ fontSize: '0.75rem', color: row.is_expired ? '#ef4444' : '#f1f5f9' }}>
+            <span style={{ fontSize: '0.75rem', color: row.is_expired ? '#F5A300' : '#F4F6F8' }}>
               {row.expiry_date ?? '—'}{row.is_expired ? ' ⚠️ EXPIRED' : ''}
             </span>
           ),

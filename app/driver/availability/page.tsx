@@ -35,33 +35,33 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const SLOTS: Array<'AM' | 'PM' | 'EVENING'> = ['AM', 'PM', 'EVENING'];
 
 const AVAILABILITY_OPTIONS: Array<{ value: AvailabilityStatus; label: string; description: string; color: string; bg: string }> = [
-  { value: 'available', label: 'Available', description: 'Ready to accept new jobs.', color: '#15803d', bg: '#f0fdf4' },
-  { value: 'busy', label: 'On a Job', description: 'Currently on an active delivery.', color: '#b45309', bg: '#fffbeb' },
-  { value: 'offline', label: 'Offline', description: 'Not available for new work.', color: '#dc2626', bg: '#fef2f2' },
+  { value: 'available', label: 'Available', description: 'Ready to accept new jobs.', color: '#1D57D8', bg: '#F4F6F8' },
+  { value: 'busy', label: 'On a Job', description: 'Currently on an active delivery.', color: '#1A1F2B', bg: '#F4F6F8' },
+  { value: 'offline', label: 'Offline', description: 'Not available for new work.', color: '#1A1F2B', bg: '#F4F6F8' },
 ];
 
 const card: CSSProperties = {
-  backgroundColor: '#ffffff',
-  border: '1px solid #d7e0ea',
+  backgroundColor: '#FFFFFF',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '10px',
   padding: '1.1rem',
-  boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+  boxShadow: '0 2px 8px rgba(26, 31, 43, 0.06)',
 };
 
 const inputStyle: CSSProperties = {
   padding: '0.6rem 0.75rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '7px',
   fontSize: '0.85rem',
-  color: '#0f172a',
-  backgroundColor: '#ffffff',
+  color: '#1A1F2B',
+  backgroundColor: '#FFFFFF',
   width: '100%',
 };
 
 const labelStyle: CSSProperties = {
   fontSize: '0.78rem',
   fontWeight: 600,
-  color: '#374151',
+  color: '#1A1F2B',
   display: 'block',
   marginBottom: '0.3rem',
 };
@@ -264,30 +264,30 @@ export default function AvailabilityPage() {
         headerActions={
           <button
             onClick={() => void loadAllData()}
-            style={{ padding: '0.55rem 0.95rem', backgroundColor: '#f8fafc', color: '#0f172a', border: '1px solid #d7e0ea', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+            style={{ padding: '0.55rem 0.95rem', backgroundColor: '#F4F6F8', color: '#1A1F2B', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
           >
             Refresh data
           </button>
         }
       >
-        <h2 style={{ margin: '0 0 1rem', fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>Driver Availability</h2>
+        <h2 style={{ margin: '0 0 1rem', fontSize: '1.35rem', fontWeight: 700, color: '#1A1F2B' }}>Driver Availability</h2>
 
         {successMsg && (
-          <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', borderRadius: '8px', padding: '0.7rem', fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+          <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1D57D8', borderRadius: '8px', padding: '0.7rem', fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.75rem' }}>
             {successMsg}
           </div>
         )}
         {error && (
-          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.7rem', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+          <div style={{ backgroundColor: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)', color: '#1A1F2B', borderRadius: '8px', padding: '0.7rem', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
             {error}
           </div>
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
           <div style={card}>
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '0.85rem' }}>Current status</div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#0B2F6B', marginBottom: '0.85rem' }}>Current status</div>
             {loading ? (
-              <div style={{ color: '#64748b' }}>Loading status…</div>
+              <div style={{ color: '#0B2F6B' }}>Loading status…</div>
             ) : (
               <>
                 <div style={{ display: 'grid', gap: '0.55rem', marginBottom: '0.9rem' }}>
@@ -302,8 +302,8 @@ export default function AvailabilityPage() {
                         gap: '0.7rem',
                         padding: '0.75rem',
                         borderRadius: '8px',
-                        border: availability === option.value ? `2px solid ${option.color}` : '1px solid #e2e8f0',
-                        backgroundColor: availability === option.value ? option.bg : '#f8fafc',
+                        border: availability === option.value ? `2px solid ${option.color}` : '1px solid #F4F6F8',
+                        backgroundColor: availability === option.value ? option.bg : '#F4F6F8',
                         cursor: availabilitySaving ? 'not-allowed' : 'pointer',
                         textAlign: 'left',
                         width: '100%',
@@ -316,13 +316,13 @@ export default function AvailabilityPage() {
                           height: '14px',
                           borderRadius: '50%',
                           marginTop: '2px',
-                          backgroundColor: availability === option.value ? option.color : '#cbd5e1',
+                          backgroundColor: availability === option.value ? option.color : '#F4F6F8',
                           flexShrink: 0,
                         }}
                       />
                       <div>
-                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: availability === option.value ? option.color : '#374151' }}>{option.label}</div>
-                        <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '0.1rem' }}>{option.description}</div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: availability === option.value ? option.color : '#1A1F2B' }}>{option.label}</div>
+                        <div style={{ fontSize: '0.76rem', color: '#0B2F6B', marginTop: '0.1rem' }}>{option.description}</div>
                       </div>
                     </button>
                   ))}
@@ -335,9 +335,9 @@ export default function AvailabilityPage() {
           </div>
 
           <div style={card}>
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '0.85rem' }}>Availability profile</div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#0B2F6B', marginBottom: '0.85rem' }}>Availability profile</div>
             {loading ? (
-              <div style={{ color: '#64748b' }}>Loading profile…</div>
+              <div style={{ color: '#0B2F6B' }}>Loading profile…</div>
             ) : (
               <form onSubmit={(event) => void handleSaveProfile(event)} style={{ display: 'grid', gap: '0.75rem' }}>
                 <div>
@@ -359,14 +359,14 @@ export default function AvailabilityPage() {
                   <label style={labelStyle}>Max radius (km)</label>
                   <input style={inputStyle} type="number" min="0" max="1000" value={maxRadiusKm} onChange={(e) => setMaxRadiusKm(e.target.value)} placeholder="e.g. 100" />
                 </div>
-                <div style={{ backgroundColor: '#f8fafc', borderRadius: '7px', padding: '0.75rem' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '0.2rem' }}>Driver name</div>
-                  <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>{driverRow?.display_name ?? user?.email ?? '—'}</div>
+                <div style={{ backgroundColor: '#F4F6F8', borderRadius: '7px', padding: '0.75rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#0B2F6B', marginBottom: '0.2rem' }}>Driver name</div>
+                  <div style={{ fontWeight: 700, color: '#1A1F2B', fontSize: '0.9rem' }}>{driverRow?.display_name ?? user?.email ?? '—'}</div>
                 </div>
                 <button
                   type="submit"
                   disabled={profileSaving}
-                  style={{ padding: '0.6rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: profileSaving ? 'not-allowed' : 'pointer', opacity: profileSaving ? 0.7 : 1 }}
+                  style={{ padding: '0.6rem', backgroundColor: '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: profileSaving ? 'not-allowed' : 'pointer', opacity: profileSaving ? 0.7 : 1 }}
                 >
                   {profileSaving ? 'Saving…' : 'Save profile'}
                 </button>
@@ -375,9 +375,9 @@ export default function AvailabilityPage() {
           </div>
 
           <div style={card}>
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '0.85rem' }}>Assigned vehicle</div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#0B2F6B', marginBottom: '0.85rem' }}>Assigned vehicle</div>
             {loading ? (
-              <div style={{ color: '#64748b' }}>Loading vehicle…</div>
+              <div style={{ color: '#0B2F6B' }}>Loading vehicle…</div>
             ) : vehicle ? (
               <div style={{ display: 'grid', gap: '0.6rem' }}>
                 {[
@@ -386,39 +386,39 @@ export default function AvailabilityPage() {
                   { label: 'Payload capacity', value: vehicle.payload_kg ? `${vehicle.payload_kg} kg` : 'Not set' },
                   { label: 'Tail lift equipped', value: vehicle.has_tail_lift ? 'Yes' : 'No' },
                 ].map((row) => (
-                  <div key={row.label} style={{ backgroundColor: '#f8fafc', borderRadius: '7px', padding: '0.7rem' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '0.15rem' }}>{row.label}</div>
-                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>{row.value}</div>
+                  <div key={row.label} style={{ backgroundColor: '#F4F6F8', borderRadius: '7px', padding: '0.7rem' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#0B2F6B', marginBottom: '0.15rem' }}>{row.label}</div>
+                    <div style={{ fontWeight: 700, color: '#1A1F2B', fontSize: '0.88rem' }}>{row.value}</div>
                   </div>
                 ))}
-                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.2rem' }}>Vehicle assignment is still managed by your company dispatcher.</div>
+                <div style={{ fontSize: '0.78rem', color: '#0B2F6B', marginTop: '0.2rem' }}>Vehicle assignment is still managed by your company dispatcher.</div>
               </div>
             ) : (
-              <div style={{ backgroundColor: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '8px', padding: '1rem', textAlign: 'center' }}>
-                <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.25rem' }}>No vehicle assigned</div>
-                <div style={{ fontSize: '0.82rem', color: '#64748b' }}>You can still manage your status and weekly schedule while waiting for a dispatcher assignment.</div>
+              <div style={{ backgroundColor: '#F4F6F8', border: '1px dashed #F4F6F8', borderRadius: '8px', padding: '1rem', textAlign: 'center' }}>
+                <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.25rem' }}>No vehicle assigned</div>
+                <div style={{ fontSize: '0.82rem', color: '#0B2F6B' }}>You can still manage your status and weekly schedule while waiting for a dispatcher assignment.</div>
               </div>
             )}
           </div>
         </div>
 
         <div style={card}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '0.4rem' }}>Weekly schedule</div>
-          <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '1rem' }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#0B2F6B', marginBottom: '0.4rem' }}>Weekly schedule</div>
+          <div style={{ fontSize: '0.78rem', color: '#0B2F6B', marginBottom: '1rem' }}>
             Tap a slot to toggle availability. Changes apply immediately and stay visible on mobile without horizontal scrolling.
           </div>
           {!hasSavedSchedule && !loading && (
-            <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', padding: '0.85rem', marginBottom: '1rem', color: '#475569', fontSize: '0.83rem' }}>
+            <div style={{ backgroundColor: '#F4F6F8', borderRadius: '8px', border: '1px dashed #F4F6F8', padding: '0.85rem', marginBottom: '1rem', color: '#0B2F6B', fontSize: '0.83rem' }}>
               No saved schedule yet. All slots currently default to available until you customise them.
             </div>
           )}
           {loading ? (
-            <div style={{ color: '#64748b' }}>Loading weekly schedule…</div>
+            <div style={{ color: '#0B2F6B' }}>Loading weekly schedule…</div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
               {DAYS.map((day, dayIdx) => (
-                <div key={day} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem', backgroundColor: '#f8fafc' }}>
-                  <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.6rem' }}>{day}</div>
+                <div key={day} style={{ border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '10px', padding: '0.75rem', backgroundColor: '#F4F6F8' }}>
+                  <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.6rem' }}>{day}</div>
                   <div style={{ display: 'grid', gap: '0.45rem' }}>
                     {SLOTS.map((slot) => {
                       const key: SlotKey = `${dayIdx}_${slot}`;
@@ -434,9 +434,9 @@ export default function AvailabilityPage() {
                             width: '100%',
                             borderRadius: '8px',
                             border: '1px solid',
-                            borderColor: isAvailable ? '#86efac' : '#e2e8f0',
-                            backgroundColor: isAvailable ? '#dcfce7' : '#ffffff',
-                            color: isAvailable ? '#15803d' : '#64748b',
+                            borderColor: isAvailable ? '#1D57D8' : '#F4F6F8',
+                            backgroundColor: isAvailable ? '#F4F6F8' : '#FFFFFF',
+                            color: isAvailable ? '#1D57D8' : '#0B2F6B',
                             cursor: isSaving ? 'wait' : 'pointer',
                             fontSize: '0.76rem',
                             fontWeight: 700,

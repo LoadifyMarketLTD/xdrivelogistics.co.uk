@@ -32,7 +32,7 @@ export default function SignatureCanvas({
     canvas.height = 200;
 
     // Set drawing style
-    ctx.strokeStyle = '#000';
+    ctx.strokeStyle = '#1A1F2B';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -130,12 +130,12 @@ export default function SignatureCanvas({
       backgroundColor: 'white',
       padding: '1rem',
       borderRadius: '8px',
-      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+      boxShadow: '0 1px 3px rgba(26, 31, 43, 0.1)'
     }}>
       <h3 style={{
         fontSize: '1rem',
         fontWeight: '600',
-        color: '#1f2937',
+        color: '#0B2F6B',
         marginBottom: '0.75rem'
       }}>
         Delivery Signature
@@ -147,7 +147,7 @@ export default function SignatureCanvas({
           display: 'block',
           fontSize: '0.875rem',
           fontWeight: '500',
-          color: '#374151',
+          color: '#1A1F2B',
           marginBottom: '0.5rem'
         }}>
           Recipient Name
@@ -160,7 +160,7 @@ export default function SignatureCanvas({
           style={{
             width: '100%',
             padding: '0.75rem',
-            border: '1px solid #d1d5db',
+            border: '1px solid #F4F6F8',
             borderRadius: '6px',
             fontSize: '1rem',
             minHeight: '48px'
@@ -170,10 +170,10 @@ export default function SignatureCanvas({
 
       {/* Canvas */}
       <div style={{
-        border: '2px dashed #d1d5db',
+        border: '2px dashed #F4F6F8',
         borderRadius: '8px',
         marginBottom: '1rem',
-        backgroundColor: '#f9fafb'
+        backgroundColor: '#FFFFFF'
       }}>
         <canvas
           ref={canvasRef}
@@ -195,7 +195,7 @@ export default function SignatureCanvas({
 
       <p style={{
         fontSize: '0.75rem',
-        color: '#6b7280',
+        color: '#0B2F6B',
         textAlign: 'center',
         marginBottom: '1rem'
       }}>
@@ -211,8 +211,8 @@ export default function SignatureCanvas({
         <button
           onClick={clearSignature}
           style={{
-            backgroundColor: '#f3f4f6',
-            color: '#374151',
+            backgroundColor: '#F4F6F8',
+            color: '#1A1F2B',
             border: 'none',
             borderRadius: '8px',
             padding: '0.75rem',
@@ -227,7 +227,7 @@ export default function SignatureCanvas({
         <button
           onClick={handleSave}
           style={{
-            backgroundColor: '#10b981',
+            backgroundColor: '#1D57D8',
             color: 'white',
             border: 'none',
             borderRadius: '8px',
@@ -248,7 +248,7 @@ export default function SignatureCanvas({
           style={{
             width: '100%',
             backgroundColor: 'transparent',
-            color: '#6b7280',
+            color: '#0B2F6B',
             border: 'none',
             padding: '0.75rem',
             fontSize: '0.9rem',

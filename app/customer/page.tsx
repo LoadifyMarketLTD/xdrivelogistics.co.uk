@@ -679,14 +679,14 @@ export default function CustomerPage() {
 
   return (
     <ProtectedRoute allowedRoles={['customer']}>
-      <div style={{ display: 'flex', height: 'calc(100vh - 89px)', overflow: 'hidden', background: '#f5f7fa' }}>
+      <div style={{ display: 'flex', height: 'calc(100vh - 89px)', overflow: 'hidden', background: '#F4F6F8' }}>
 
         {/* ── Left summary panel ──────────────────────────────────────────────── */}
-        <aside style={{ width: '210px', flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', padding: '0.9rem', overflowY: 'auto', fontSize: '0.78rem' }}>
-          <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.75rem', fontSize: '0.8rem' }}>📋 My Workspace</div>
+        <aside style={{ width: '210px', flexShrink: 0, background: '#FFFFFF', borderRight: '1px solid rgba(11, 47, 107, 0.16)', padding: '0.9rem', overflowY: 'auto', fontSize: '0.78rem' }}>
+          <div style={{ fontWeight: 700, color: '#1A1F2B', marginBottom: '0.75rem', fontSize: '0.8rem' }}>📋 My Workspace</div>
 
           {!isSupabaseConfigured && (
-            <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '6px', padding: '0.5rem', marginBottom: '0.75rem', color: '#92400e', fontSize: '0.72rem' }}>
+            <div style={{ background: '#F4F6F8', border: '1px solid #F5A300', borderRadius: '6px', padding: '0.5rem', marginBottom: '0.75rem', color: '#1A1F2B', fontSize: '0.72rem' }}>
               Supabase not configured
             </div>
           )}
@@ -701,21 +701,21 @@ export default function CustomerPage() {
             ['Unpaid Invoices',  metrics.unpaidInvoices],
           ] as [string, number][]).map(([label, value]) => (
             <div key={label} style={{ marginBottom: '0.55rem' }}>
-              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.05rem' }}>{label}</div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>{value}</div>
+              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.05rem' }}>{label}</div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1A1F2B' }}>{value}</div>
             </div>
           ))}
 
-          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.4rem' }}>
+          <div style={{ borderTop: '1px solid rgba(11, 47, 107, 0.16)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.4rem' }}>
             <button
               onClick={() => setTab('post')}
-              style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '5px', padding: '0.5rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', textAlign: 'center' as const }}
+              style={{ background: '#1D57D8', color: '#FFFFFF', border: 'none', borderRadius: '5px', padding: '0.5rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', textAlign: 'center' as const }}
             >
               + Post Load
             </button>
             <button
               onClick={() => { window.location.href = '/customer/settings'; }}
-              style={{ padding: '0.4rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.78rem', color: '#64748b', textAlign: 'center' as const }}
+              style={{ padding: '0.4rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '5px', background: '#FFFFFF', cursor: 'pointer', fontSize: '0.78rem', color: '#0B2F6B', textAlign: 'center' as const }}
             >
               Settings
             </button>
@@ -723,7 +723,7 @@ export default function CustomerPage() {
               type="button"
               onClick={() => void handleLogout()}
               disabled={loggingOut}
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', padding: '0.45rem', border: '1px solid #fecaca', borderRadius: '5px', background: '#fef2f2', cursor: loggingOut ? 'wait' : 'pointer', fontSize: '0.78rem', fontWeight: 700, color: '#b91c1c', opacity: loggingOut ? 0.65 : 1, textAlign: 'center' as const }}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', padding: '0.45rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '5px', background: '#F4F6F8', cursor: loggingOut ? 'wait' : 'pointer', fontSize: '0.78rem', fontWeight: 700, color: '#1A1F2B', opacity: loggingOut ? 0.65 : 1, textAlign: 'center' as const }}
             >
               <LogOut size={14} aria-hidden="true" />
               {loggingOut ? 'Signing out…' : 'Sign out'}
@@ -731,7 +731,7 @@ export default function CustomerPage() {
           </div>
 
           {message && (
-            <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '6px', padding: '0.5rem', marginTop: '0.75rem', color: '#92400e', fontSize: '0.72rem' }}>
+            <div style={{ background: '#F4F6F8', border: '1px solid #F5A300', borderRadius: '6px', padding: '0.5rem', marginTop: '0.75rem', color: '#1A1F2B', fontSize: '0.72rem' }}>
               {message}
             </div>
           )}
@@ -741,7 +741,7 @@ export default function CustomerPage() {
         <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
 
           {/* Top bar: tabs + refresh */}
-          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ background: '#FFFFFF', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div style={{ display: 'flex', gap: 0 }}>
               {customerTabs.map((t) => (
                 <button
@@ -750,19 +750,19 @@ export default function CustomerPage() {
                   style={{
                     padding: '0.65rem 0.9rem',
                     border: 'none',
-                    borderBottom: tab === t.id ? '2px solid #1d4ed8' : '2px solid transparent',
+                    borderBottom: tab === t.id ? '2px solid #1D57D8' : '2px solid transparent',
                     background: 'none',
                     cursor: 'pointer',
                     fontSize: '0.78rem',
                     fontWeight: 700,
                     letterSpacing: '0.03em',
-                    color: tab === t.id ? '#1d4ed8' : '#64748b',
+                    color: tab === t.id ? '#1D57D8' : '#0B2F6B',
                     marginBottom: '-1px',
                   }}
                 >
                   {t.label}
                   {t.count !== undefined && t.count > 0 && (
-                    <span style={{ marginLeft: '0.35rem', background: tab === t.id ? '#dbeafe' : '#f1f5f9', color: tab === t.id ? '#1d4ed8' : '#64748b', borderRadius: '8px', padding: '0.05rem 0.4rem', fontSize: '0.72rem' }}>
+                    <span style={{ marginLeft: '0.35rem', background: tab === t.id ? '#F4F6F8' : '#F4F6F8', color: tab === t.id ? '#1D57D8' : '#0B2F6B', borderRadius: '8px', padding: '0.05rem 0.4rem', fontSize: '0.72rem' }}>
                       {t.count}
                     </span>
                   )}
@@ -771,7 +771,7 @@ export default function CustomerPage() {
             </div>
             <button
               onClick={() => void loadData()}
-              style={{ padding: '0.3rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.75rem', color: '#64748b' }}
+              style={{ padding: '0.3rem 0.65rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '5px', background: '#FFFFFF', cursor: 'pointer', fontSize: '0.75rem', color: '#0B2F6B' }}
             >
               ↻ Refresh
             </button>
@@ -786,17 +786,17 @@ export default function CustomerPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem' }}>
                   {([
-                    ['Open Loads',        metrics.openLoads,        '#3b82f6'],
-                    ['Quotes Waiting',    metrics.quotesWaiting,    '#f59e0b'],
-                    ['Quotes Received',   metrics.quotesReceived,   '#6366f1'],
-                    ['Awarded Jobs',      metrics.awardedJobs,      '#16a34a'],
-                    ['Active Deliveries', metrics.activeDeliveries, '#0ea5e9'],
-                    ['POD Ready',         metrics.podReady,         '#8b5cf6'],
-                    ['Unpaid Invoices',   metrics.unpaidInvoices,   '#ef4444'],
+                    ['Open Loads',        metrics.openLoads,        '#1D57D8'],
+                    ['Quotes Waiting',    metrics.quotesWaiting,    '#F5A300'],
+                    ['Quotes Received',   metrics.quotesReceived,   '#1D57D8'],
+                    ['Awarded Jobs',      metrics.awardedJobs,      '#1D57D8'],
+                    ['Active Deliveries', metrics.activeDeliveries, '#1D57D8'],
+                    ['POD Ready',         metrics.podReady,         '#1D57D8'],
+                    ['Unpaid Invoices',   metrics.unpaidInvoices,   '#F5A300'],
                   ] as [string, number, string][]).map(([label, value, color]) => (
-                    <div key={label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderTop: `3px solid ${color}`, borderRadius: '8px', padding: '0.75rem 1rem' }}>
-                      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>{label}</div>
-                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a' }}>{value}</div>
+                    <div key={label} style={{ background: '#FFFFFF', border: '1px solid rgba(11, 47, 107, 0.16)', borderTop: `3px solid ${color}`, borderRadius: '8px', padding: '0.75rem 1rem' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>{label}</div>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1A1F2B' }}>{value}</div>
                     </div>
                   ))}
                 </div>
@@ -925,14 +925,14 @@ export default function CustomerPage() {
                   <button
                     disabled={saving}
                     onClick={() => void saveLoad(false)}
-                    style={{ padding: '0.55rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600, color: '#374151', fontSize: '0.85rem', opacity: saving ? 0.6 : 1 }}
+                    style={{ padding: '0.55rem 1rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', background: '#FFFFFF', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600, color: '#1A1F2B', fontSize: '0.85rem', opacity: saving ? 0.6 : 1 }}
                   >
                     Save Draft
                   </button>
                   <button
                     disabled={saving}
                     onClick={() => void saveLoad(true)}
-                    style={{ padding: '0.55rem 1.25rem', border: 'none', borderRadius: '6px', background: saving ? '#9ca3af' : '#16a34a', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.85rem' }}
+                    style={{ padding: '0.55rem 1.25rem', border: 'none', borderRadius: '6px', background: saving ? '#F4F6F8' : '#1D57D8', color: '#FFFFFF', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.85rem' }}
                   >
                     {saving ? 'Saving...' : 'Publish Load'}
                   </button>
@@ -950,11 +950,11 @@ export default function CustomerPage() {
                 ) : (
                   <>
                     {bidGroups.map((group) => (
-                      <div key={group.jobId} style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', borderLeft: '3px solid #1d4ed8', overflow: 'hidden' }}>
-                        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div key={group.jobId} style={{ background: '#FFFFFF', borderRadius: '8px', border: '1px solid rgba(11, 47, 107, 0.16)', borderLeft: '3px solid #1D57D8', overflow: 'hidden' }}>
+                        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div>
-                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>{group.job?.pickup_location ?? '–'} → {group.job?.delivery_location ?? '–'}</div>
-                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.1rem' }}>
+                            <div style={{ fontWeight: 700, color: '#1A1F2B', fontSize: '0.9rem' }}>{group.job?.pickup_location ?? '–'} → {group.job?.delivery_location ?? '–'}</div>
+                            <div style={{ fontSize: '0.75rem', color: '#0B2F6B', marginTop: '0.1rem' }}>
                               Pickup: {dateDisplay(group.job?.pickup_datetime ?? null)} · Vehicle: {group.job?.vehicle_type?.replace(/_/g, ' ') ?? '–'}
                             </div>
                           </div>
@@ -963,9 +963,9 @@ export default function CustomerPage() {
                         <div style={{ overflowX: 'auto' }}>
                           <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse' }}>
                             <thead>
-                              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                              <tr style={{ background: '#F4F6F8', borderBottom: '1px solid rgba(11, 47, 107, 0.16)' }}>
                                 {['Carrier', 'Amount', 'Message', 'Status', 'Action'].map((h) => (
-                                  <th key={h} style={{ padding: '0.6rem 0.85rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                                  <th key={h} style={{ padding: '0.6rem 0.85rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                                 ))}
                               </tr>
                             </thead>
@@ -974,19 +974,19 @@ export default function CustomerPage() {
                                 const isAwarded = bid.status === 'accepted';
                                 const canAward = bid.status === 'submitted' && !group.job?.awarded_carrier_company_id;
                                 return (
-                                  <tr key={bid.id} style={{ borderBottom: i < group.bids.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                                    <td style={{ padding: '0.7rem 0.85rem', color: '#374151', fontSize: '0.85rem' }}>{bid.companies?.name ?? 'Carrier'}</td>
-                                    <td style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>{gbp(bid.bid_price_gbp ?? bid.amount)}</td>
-                                    <td style={{ padding: '0.7rem 0.85rem', color: '#64748b', fontSize: '0.82rem' }}>{bid.message || '—'}</td>
+                                  <tr key={bid.id} style={{ borderBottom: i < group.bids.length - 1 ? '1px solid #F4F6F8' : 'none' }}>
+                                    <td style={{ padding: '0.7rem 0.85rem', color: '#1A1F2B', fontSize: '0.85rem' }}>{bid.companies?.name ?? 'Carrier'}</td>
+                                    <td style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: '#1A1F2B', fontSize: '0.88rem' }}>{gbp(bid.bid_price_gbp ?? bid.amount)}</td>
+                                    <td style={{ padding: '0.7rem 0.85rem', color: '#0B2F6B', fontSize: '0.82rem' }}>{bid.message || '—'}</td>
                                     <td style={{ padding: '0.7rem 0.85rem' }}><WSStatusBadge status={bid.status} /></td>
                                     <td style={{ padding: '0.7rem 0.85rem' }}>
                                       {isAwarded ? (
-                                        <span style={{ color: '#16a34a', fontWeight: 700, fontSize: '0.82rem' }}>✓ Awarded</span>
+                                        <span style={{ color: '#1D57D8', fontWeight: 700, fontSize: '0.82rem' }}>✓ Awarded</span>
                                       ) : (
                                         <button
                                           disabled={!canAward || awardingBidId === bid.id}
                                           onClick={() => void awardBid(bid.id)}
-                                          style={{ padding: '0.25rem 0.6rem', border: 'none', borderRadius: '5px', background: (!canAward || awardingBidId === bid.id) ? '#9ca3af' : '#16a34a', color: '#fff', cursor: (!canAward || awardingBidId === bid.id) ? 'not-allowed' : 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                                          style={{ padding: '0.25rem 0.6rem', border: 'none', borderRadius: '5px', background: (!canAward || awardingBidId === bid.id) ? '#F4F6F8' : '#1D57D8', color: '#FFFFFF', cursor: (!canAward || awardingBidId === bid.id) ? 'not-allowed' : 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
                                         >
                                           {awardingBidId === bid.id ? 'Awarding...' : 'Award Quote'}
                                         </button>
@@ -1002,25 +1002,25 @@ export default function CustomerPage() {
                     ))}
 
                     {quotes.length > 0 && (
-                      <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>Direct Quotes</div>
+                      <div style={{ background: '#FFFFFF', borderRadius: '8px', border: '1px solid rgba(11, 47, 107, 0.16)', overflow: 'hidden' }}>
+                        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', fontWeight: 700, color: '#1A1F2B', fontSize: '0.88rem' }}>Direct Quotes</div>
                         <div style={{ overflowX: 'auto' }}>
                           <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse' }}>
                             <thead>
-                              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                              <tr style={{ background: '#F4F6F8', borderBottom: '1px solid rgba(11, 47, 107, 0.16)' }}>
                                 {['Pickup', 'Delivery', 'Vehicle', 'Cargo', 'Amount', 'Status'].map((h) => (
-                                  <th key={h} style={{ padding: '0.6rem 0.85rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                                  <th key={h} style={{ padding: '0.6rem 0.85rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                                 ))}
                               </tr>
                             </thead>
                             <tbody>
                               {quotes.map((quote, i) => (
-                                <tr key={quote.id} style={{ borderBottom: i < quotes.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                                  <td style={{ padding: '0.7rem 0.85rem', color: '#374151', fontSize: '0.85rem' }}>{quote.pickup_location ?? '—'}</td>
-                                  <td style={{ padding: '0.7rem 0.85rem', color: '#374151', fontSize: '0.85rem' }}>{quote.delivery_location ?? '—'}</td>
-                                  <td style={{ padding: '0.7rem 0.85rem', color: '#64748b', fontSize: '0.82rem' }}>{quote.vehicle_type?.replace(/_/g, ' ') ?? '—'}</td>
-                                  <td style={{ padding: '0.7rem 0.85rem', color: '#64748b', fontSize: '0.82rem' }}>{quote.cargo_type ?? '—'}</td>
-                                  <td style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: '#0f172a', fontSize: '0.85rem' }}>{quote.amount ? gbp(quote.amount) : '—'}</td>
+                                <tr key={quote.id} style={{ borderBottom: i < quotes.length - 1 ? '1px solid #F4F6F8' : 'none' }}>
+                                  <td style={{ padding: '0.7rem 0.85rem', color: '#1A1F2B', fontSize: '0.85rem' }}>{quote.pickup_location ?? '—'}</td>
+                                  <td style={{ padding: '0.7rem 0.85rem', color: '#1A1F2B', fontSize: '0.85rem' }}>{quote.delivery_location ?? '—'}</td>
+                                  <td style={{ padding: '0.7rem 0.85rem', color: '#0B2F6B', fontSize: '0.82rem' }}>{quote.vehicle_type?.replace(/_/g, ' ') ?? '—'}</td>
+                                  <td style={{ padding: '0.7rem 0.85rem', color: '#0B2F6B', fontSize: '0.82rem' }}>{quote.cargo_type ?? '—'}</td>
+                                  <td style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: '#1A1F2B', fontSize: '0.85rem' }}>{quote.amount ? gbp(quote.amount) : '—'}</td>
                                   <td style={{ padding: '0.7rem 0.85rem' }}><WSStatusBadge status={quote.status} /></td>
                                 </tr>
                               ))}
@@ -1043,31 +1043,31 @@ export default function CustomerPage() {
                   <EmptyCard icon="🚛" text="No deliveries found. Post a load to get started." />
                 ) : (
                   jobs.map((job) => (
-                    <div key={job.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: `3px solid ${JOB_STATUS_COLOR[job.status] ?? '#e2e8f0'}`, borderRadius: '6px', overflow: 'hidden' }}>
+                    <div key={job.id} style={{ background: '#FFFFFF', border: '1px solid rgba(11, 47, 107, 0.16)', borderLeft: `3px solid ${JOB_STATUS_COLOR[job.status] ?? '#F4F6F8'}`, borderRadius: '6px', overflow: 'hidden' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', padding: '0.75rem 1rem', alignItems: 'start' }}>
                         <div>
                           <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'baseline' }}>
-                            <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '38px' }}>From:</span>
-                            <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>{job.pickup_postcode ?? job.pickup_location ?? '—'}</span>
+                            <span style={{ fontSize: '0.68rem', color: '#0B2F6B', fontWeight: 700, minWidth: '38px' }}>From:</span>
+                            <span style={{ fontWeight: 700, color: '#1A1F2B', fontSize: '0.88rem' }}>{job.pickup_postcode ?? job.pickup_location ?? '—'}</span>
                           </div>
                           <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'baseline', marginTop: '0.2rem' }}>
-                            <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '38px' }}>To:</span>
-                            <span style={{ fontWeight: 600, color: '#374151', fontSize: '0.85rem' }}>{job.delivery_postcode ?? job.delivery_location ?? '—'}</span>
+                            <span style={{ fontSize: '0.68rem', color: '#0B2F6B', fontWeight: 700, minWidth: '38px' }}>To:</span>
+                            <span style={{ fontWeight: 600, color: '#1A1F2B', fontSize: '0.85rem' }}>{job.delivery_postcode ?? job.delivery_location ?? '—'}</span>
                           </div>
-                          <div style={{ marginTop: '0.35rem', fontSize: '0.75rem', color: '#64748b' }}>
+                          <div style={{ marginTop: '0.35rem', fontSize: '0.75rem', color: '#0B2F6B' }}>
                             POD: {podFilesForJob(job).length > 0 ? '✓ Ready' : 'Pending'}
                           </div>
                         </div>
                         <div>
                           <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'baseline' }}>
-                            <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '44px' }}>Pickup:</span>
-                            <span style={{ fontSize: '0.82rem', color: '#374151' }}>{dateDisplay(job.pickup_datetime)}</span>
+                            <span style={{ fontSize: '0.68rem', color: '#0B2F6B', fontWeight: 700, minWidth: '44px' }}>Pickup:</span>
+                            <span style={{ fontSize: '0.82rem', color: '#1A1F2B' }}>{dateDisplay(job.pickup_datetime)}</span>
                           </div>
                           <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'baseline', marginTop: '0.2rem' }}>
-                            <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '44px' }}>Delivery:</span>
-                            <span style={{ fontSize: '0.82rem', color: '#374151' }}>{dateDisplay(job.delivery_datetime)}</span>
+                            <span style={{ fontSize: '0.68rem', color: '#0B2F6B', fontWeight: 700, minWidth: '44px' }}>Delivery:</span>
+                            <span style={{ fontSize: '0.82rem', color: '#1A1F2B' }}>{dateDisplay(job.delivery_datetime)}</span>
                           </div>
-                          <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: '#94a3b8' }}>
+                          <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: '#0B2F6B' }}>
                             {job.vehicle_type?.replace(/_/g, ' ') ?? 'Vehicle TBC'}
                           </div>
                         </div>
@@ -1076,7 +1076,7 @@ export default function CustomerPage() {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.5rem', alignItems: 'flex-end' }}>
                             <button
                               onClick={() => { window.location.href = `/customer/jobs/${job.id}`; }}
-                              style={{ padding: '0.25rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '5px', cursor: 'pointer', fontSize: '0.73rem', background: '#fff', color: '#374151' }}
+                              style={{ padding: '0.25rem 0.6rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '5px', cursor: 'pointer', fontSize: '0.73rem', background: '#FFFFFF', color: '#1A1F2B' }}
                             >
                               View Job
                             </button>
@@ -1084,13 +1084,13 @@ export default function CustomerPage() {
                               <>
                                 <button
                                   onClick={() => setPodJobId(podJobId === job.id ? null : job.id)}
-                                  style={{ padding: '0.25rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '5px', cursor: 'pointer', fontSize: '0.73rem', background: '#fff', color: '#374151' }}
+                                  style={{ padding: '0.25rem 0.6rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '5px', cursor: 'pointer', fontSize: '0.73rem', background: '#FFFFFF', color: '#1A1F2B' }}
                                 >
                                   View POD
                                 </button>
                                 <button
                                   onClick={() => void downloadPod(podFilesForJob(job)[0].path)}
-                                  style={{ padding: '0.25rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '5px', cursor: 'pointer', fontSize: '0.73rem', background: '#fff', color: '#374151' }}
+                                  style={{ padding: '0.25rem 0.6rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '5px', cursor: 'pointer', fontSize: '0.73rem', background: '#FFFFFF', color: '#1A1F2B' }}
                                 >
                                   Download POD
                                 </button>
@@ -1100,13 +1100,13 @@ export default function CustomerPage() {
                         </div>
                       </div>
                       {podJobId === job.id && (
-                        <div style={{ borderTop: '1px solid #f1f5f9', background: '#fafbfc', padding: '0.5rem 1rem' }}>
+                        <div style={{ borderTop: '1px solid rgba(11, 47, 107, 0.16)', background: '#FFFFFF', padding: '0.5rem 1rem' }}>
                           {podFilesForJob(job).map((file) => (
-                            <div key={file.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f1f5f9' }}>
-                              <span style={{ fontSize: '0.82rem', color: '#374151' }}>{file.label}</span>
+                            <div key={file.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid rgba(11, 47, 107, 0.16)' }}>
+                              <span style={{ fontSize: '0.82rem', color: '#1A1F2B' }}>{file.label}</span>
                               <div style={{ display: 'flex', gap: '0.35rem' }}>
-                                <button onClick={() => void openPod(file.path)} style={{ padding: '0.2rem 0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px', cursor: 'pointer', fontSize: '0.72rem', background: '#fff', color: '#374151' }}>Open</button>
-                                <button onClick={() => void downloadPod(file.path)} style={{ padding: '0.2rem 0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px', cursor: 'pointer', fontSize: '0.72rem', background: '#fff', color: '#374151' }}>Download</button>
+                                <button onClick={() => void openPod(file.path)} style={{ padding: '0.2rem 0.5rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '4px', cursor: 'pointer', fontSize: '0.72rem', background: '#FFFFFF', color: '#1A1F2B' }}>Open</button>
+                                <button onClick={() => void downloadPod(file.path)} style={{ padding: '0.2rem 0.5rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '4px', cursor: 'pointer', fontSize: '0.72rem', background: '#FFFFFF', color: '#1A1F2B' }}>Download</button>
                               </div>
                             </div>
                           ))}
@@ -1127,31 +1127,31 @@ export default function CustomerPage() {
                   <EmptyCard icon="🧾" text="No invoices available yet." />
                 ) : (
                   <>
-                    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                      <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>Customer Invoices</div>
+                    <div style={{ background: '#FFFFFF', borderRadius: '8px', border: '1px solid rgba(11, 47, 107, 0.16)', overflow: 'hidden' }}>
+                      <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', fontWeight: 700, color: '#1A1F2B', fontSize: '0.88rem' }}>Customer Invoices</div>
                       <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse' }}>
                           <thead>
-                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                            <tr style={{ background: '#F4F6F8', borderBottom: '1px solid rgba(11, 47, 107, 0.16)' }}>
                               {['Invoice #', 'Job Ref', 'Issue Date', 'Due Date', 'Amount', 'Status', 'Actions'].map((h) => (
-                                <th key={h} style={{ padding: '0.6rem 0.85rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                                <th key={h} style={{ padding: '0.6rem 0.85rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                               ))}
                             </tr>
                           </thead>
                           <tbody>
                             {invoices.map((invoice, i) => (
-                              <tr key={invoice.id} style={{ borderBottom: i < invoices.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                                <td style={{ padding: '0.7rem 0.85rem', fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{invoice.invoice_number}</td>
-                                <td style={{ padding: '0.7rem 0.85rem', color: '#64748b', fontSize: '0.82rem' }}>{invoice.job_ref || '—'}</td>
-                                <td style={{ padding: '0.7rem 0.85rem', color: '#374151', fontSize: '0.82rem' }}>{new Date(invoice.invoice_date).toLocaleDateString('en-GB')}</td>
-                                <td style={{ padding: '0.7rem 0.85rem', color: '#374151', fontSize: '0.82rem' }}>{new Date(invoice.due_date).toLocaleDateString('en-GB')}</td>
-                                <td style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>{gbp(invoice.amount)}</td>
+                              <tr key={invoice.id} style={{ borderBottom: i < invoices.length - 1 ? '1px solid #F4F6F8' : 'none' }}>
+                                <td style={{ padding: '0.7rem 0.85rem', fontWeight: 600, color: '#1A1F2B', fontSize: '0.85rem' }}>{invoice.invoice_number}</td>
+                                <td style={{ padding: '0.7rem 0.85rem', color: '#0B2F6B', fontSize: '0.82rem' }}>{invoice.job_ref || '—'}</td>
+                                <td style={{ padding: '0.7rem 0.85rem', color: '#1A1F2B', fontSize: '0.82rem' }}>{new Date(invoice.invoice_date).toLocaleDateString('en-GB')}</td>
+                                <td style={{ padding: '0.7rem 0.85rem', color: '#1A1F2B', fontSize: '0.82rem' }}>{new Date(invoice.due_date).toLocaleDateString('en-GB')}</td>
+                                <td style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: '#1A1F2B', fontSize: '0.88rem' }}>{gbp(invoice.amount)}</td>
                                 <td style={{ padding: '0.7rem 0.85rem' }}><WSStatusBadge status={invoice.status} /></td>
                                 <td style={{ padding: '0.7rem 0.85rem' }}>
                                   <button
                                     disabled={downloadingInvoiceId === invoice.id}
                                     onClick={() => void downloadInvoice(invoice)}
-                                    style={{ padding: '0.25rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '5px', cursor: downloadingInvoiceId === invoice.id ? 'not-allowed' : 'pointer', fontSize: '0.73rem', background: '#fff', color: '#374151', opacity: downloadingInvoiceId === invoice.id ? 0.6 : 1 }}
+                                    style={{ padding: '0.25rem 0.6rem', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '5px', cursor: downloadingInvoiceId === invoice.id ? 'not-allowed' : 'pointer', fontSize: '0.73rem', background: '#FFFFFF', color: '#1A1F2B', opacity: downloadingInvoiceId === invoice.id ? 0.6 : 1 }}
                                   >
                                     {downloadingInvoiceId === invoice.id ? 'Preparing...' : 'Download PDF'}
                                   </button>
@@ -1168,11 +1168,11 @@ export default function CustomerPage() {
                       const paymentRows = invoicePaymentsById.get(invoice.id) ?? [];
                       if (statusRows.length === 0 && paymentRows.length === 0) return null;
                       return (
-                        <div key={`${invoice.id}-history`} style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div key={`${invoice.id}-history`} style={{ background: '#FFFFFF', borderRadius: '8px', border: '1px solid rgba(11, 47, 107, 0.16)', overflow: 'hidden' }}>
+                          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
-                              <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>{invoice.invoice_number}</div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.1rem' }}>
+                              <div style={{ fontWeight: 700, color: '#1A1F2B', fontSize: '0.88rem' }}>{invoice.invoice_number}</div>
+                              <div style={{ fontSize: '0.72rem', color: '#0B2F6B', marginTop: '0.1rem' }}>
                                 {gbp(invoice.amount)} · Due {new Date(invoice.due_date).toLocaleDateString('en-GB')}
                               </div>
                             </div>
@@ -1180,21 +1180,21 @@ export default function CustomerPage() {
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', padding: '0.75rem 1rem' }}>
                             <div>
-                              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.4rem' }}>Status History</div>
+                              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.4rem' }}>Status History</div>
                               {statusRows.length === 0 ? (
-                                <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8' }}>No status history recorded.</p>
+                                <p style={{ margin: 0, fontSize: '0.82rem', color: '#0B2F6B' }}>No status history recorded.</p>
                               ) : statusRows.map((row) => (
-                                <p key={row.id} style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', color: '#374151' }}>
+                                <p key={row.id} style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', color: '#1A1F2B' }}>
                                   {row.from_status ?? 'Created'} → {row.to_status} · {dateDisplay(row.changed_at)}{row.note ? ` · ${row.note}` : ''}
                                 </p>
                               ))}
                             </div>
                             <div>
-                              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.4rem' }}>Payment History</div>
+                              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.4rem' }}>Payment History</div>
                               {paymentRows.length === 0 ? (
-                                <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8' }}>No payments recorded.</p>
+                                <p style={{ margin: 0, fontSize: '0.82rem', color: '#0B2F6B' }}>No payments recorded.</p>
                               ) : paymentRows.map((row) => (
-                                <p key={row.id} style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', color: '#374151' }}>
+                                <p key={row.id} style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', color: '#1A1F2B' }}>
                                   {gbp(row.amount)} · {dateDisplay(row.paid_at)} · {row.settlement_method ?? 'Method not recorded'}{row.external_reference ? ` · Ref ${row.external_reference}` : ''}
                                 </p>
                               ))}
@@ -1216,15 +1216,15 @@ export default function CustomerPage() {
                 ) : updates.length === 0 ? (
                   <EmptyCard icon="🔔" text="No carrier updates or notifications yet." />
                 ) : (
-                  <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                    <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>Carrier Updates & Notifications</div>
+                  <div style={{ background: '#FFFFFF', borderRadius: '8px', border: '1px solid rgba(11, 47, 107, 0.16)', overflow: 'hidden' }}>
+                    <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(11, 47, 107, 0.16)', fontWeight: 700, color: '#1A1F2B', fontSize: '0.88rem' }}>Carrier Updates & Notifications</div>
                     {updates.map((update, i) => {
                       const payload = update.payload ?? {};
                       const route = ([payload.pickup_location, payload.delivery_location] as (string | undefined)[]).filter(Boolean).join(' → ');
                       return (
-                        <div key={update.id} style={{ padding: '0.75rem 1rem', borderBottom: i < updates.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{update.event_type.replace(/_/g, ' ')}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
+                        <div key={update.id} style={{ padding: '0.75rem 1rem', borderBottom: i < updates.length - 1 ? '1px solid #F4F6F8' : 'none' }}>
+                          <div style={{ fontWeight: 600, color: '#1A1F2B', fontSize: '0.85rem' }}>{update.event_type.replace(/_/g, ' ')}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#0B2F6B', marginTop: '0.15rem' }}>
                             {route || update.entity_type} · {dateDisplay(update.created_at)} · {update.status}
                           </div>
                         </div>
@@ -1247,58 +1247,58 @@ export default function CustomerPage() {
 const wsInputStyle: React.CSSProperties = {
   width: '100%',
   padding: '0.5rem 0.65rem',
-  border: '1px solid #d1d5db',
+  border: '1px solid rgba(11, 47, 107, 0.16)',
   borderRadius: '6px',
   fontSize: '0.85rem',
-  color: '#0f172a',
-  background: '#fff',
+  color: '#1A1F2B',
+  background: '#FFFFFF',
   boxSizing: 'border-box',
   font: 'inherit',
 };
 
 const JOB_STATUS_COLOR: Record<string, string> = {
-  draft:      '#94a3b8',
-  posted:     '#1d4ed8',
-  quoted:     '#3b82f6',
-  awarded:    '#16a34a',
-  allocated:  '#0ea5e9',
-  collected:  '#0ea5e9',
-  in_transit: '#0ea5e9',
-  delivered:  '#16a34a',
-  invoiced:   '#6366f1',
-  paid:       '#15803d',
-  cancelled:  '#ef4444',
-  disputed:   '#f59e0b',
+  draft:      '#F4F6F8',
+  posted:     '#1D57D8',
+  quoted:     '#1D57D8',
+  awarded:    '#1D57D8',
+  allocated:  '#1D57D8',
+  collected:  '#1D57D8',
+  in_transit: '#1D57D8',
+  delivered:  '#1D57D8',
+  invoiced:   '#1D57D8',
+  paid:       '#1D57D8',
+  cancelled:  '#F5A300',
+  disputed:   '#F5A300',
 };
 
 const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
-  draft:      { bg: '#f1f5f9', color: '#64748b' },
-  posted:     { bg: '#dbeafe', color: '#1d4ed8' },
-  quoted:     { bg: '#e0f2fe', color: '#075985' },
-  awarded:    { bg: '#d1fae5', color: '#065f46' },
-  allocated:  { bg: '#d1fae5', color: '#065f46' },
-  collected:  { bg: '#d1fae5', color: '#065f46' },
-  in_transit: { bg: '#d1fae5', color: '#065f46' },
-  delivered:  { bg: '#dcfce7', color: '#15803d' },
-  invoiced:   { bg: '#e0e7ff', color: '#3730a3' },
-  paid:       { bg: '#dcfce7', color: '#15803d' },
-  cancelled:  { bg: '#fee2e2', color: '#991b1b' },
-  disputed:   { bg: '#fef3c7', color: '#92400e' },
-  submitted:  { bg: '#e0f2fe', color: '#075985' },
-  accepted:   { bg: '#d1fae5', color: '#065f46' },
-  rejected:   { bg: '#fee2e2', color: '#991b1b' },
-  withdrawn:  { bg: '#f3f4f6', color: '#6b7280' },
-  sent:       { bg: '#e0f2fe', color: '#075985' },
-  overdue:    { bg: '#fee2e2', color: '#991b1b' },
+  draft:      { bg: '#F4F6F8', color: '#0B2F6B' },
+  posted:     { bg: '#F4F6F8', color: '#1D57D8' },
+  quoted:     { bg: '#F4F6F8', color: '#1D57D8' },
+  awarded:    { bg: '#F4F6F8', color: '#0B2F6B' },
+  allocated:  { bg: '#F4F6F8', color: '#0B2F6B' },
+  collected:  { bg: '#F4F6F8', color: '#0B2F6B' },
+  in_transit: { bg: '#F4F6F8', color: '#0B2F6B' },
+  delivered:  { bg: '#F4F6F8', color: '#1D57D8' },
+  invoiced:   { bg: '#F4F6F8', color: '#1D57D8' },
+  paid:       { bg: '#F4F6F8', color: '#1D57D8' },
+  cancelled:  { bg: '#F4F6F8', color: '#1A1F2B' },
+  disputed:   { bg: '#F4F6F8', color: '#1A1F2B' },
+  submitted:  { bg: '#F4F6F8', color: '#1D57D8' },
+  accepted:   { bg: '#F4F6F8', color: '#0B2F6B' },
+  rejected:   { bg: '#F4F6F8', color: '#1A1F2B' },
+  withdrawn:  { bg: '#F4F6F8', color: '#0B2F6B' },
+  sent:       { bg: '#F4F6F8', color: '#1D57D8' },
+  overdue:    { bg: '#F4F6F8', color: '#1A1F2B' },
 };
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function WSBanner({ type, msg }: { type: 'ok' | 'warn' | 'error'; msg: string }) {
   const styles = {
-    ok:    { background: '#dcfce7', border: '1px solid #22c55e',  color: '#14532d' },
-    warn:  { background: '#fef3c7', border: '1px solid #f59e0b',  color: '#92400e' },
-    error: { background: '#fef2f2', border: '1px solid #fca5a5',  color: '#991b1b' },
+    ok:    { background: '#F4F6F8', border: '1px solid #1D57D8',  color: '#1D57D8' },
+    warn:  { background: '#F4F6F8', border: '1px solid #F5A300',  color: '#1A1F2B' },
+    error: { background: '#F4F6F8', border: '1px solid rgba(11, 47, 107, 0.16)',  color: '#1A1F2B' },
   };
   return (
     <div style={{ ...styles[type], borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '0.85rem', fontWeight: 600, fontSize: '0.88rem' }}>
@@ -1309,8 +1309,8 @@ function WSBanner({ type, msg }: { type: 'ok' | 'warn' | 'error'; msg: string })
 
 function WSCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.9rem 1rem' }}>
-      <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem', marginBottom: '0.75rem' }}>{title}</div>
+    <div style={{ background: '#FFFFFF', border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '8px', padding: '0.9rem 1rem' }}>
+      <div style={{ fontWeight: 700, color: '#1A1F2B', fontSize: '0.88rem', marginBottom: '0.75rem' }}>{title}</div>
       {children}
     </div>
   );
@@ -1318,21 +1318,21 @@ function WSCard({ title, children }: { title: string; children: React.ReactNode 
 
 function WSRow({ title, meta }: { title: string; meta: string }) {
   return (
-    <div style={{ borderTop: '1px solid #f1f5f9', padding: '0.45rem 0' }}>
-      <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.82rem' }}>{title}</div>
-      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.1rem' }}>{meta}</div>
+    <div style={{ borderTop: '1px solid rgba(11, 47, 107, 0.16)', padding: '0.45rem 0' }}>
+      <div style={{ fontWeight: 600, color: '#1A1F2B', fontSize: '0.82rem' }}>{title}</div>
+      <div style={{ fontSize: '0.75rem', color: '#0B2F6B', marginTop: '0.1rem' }}>{meta}</div>
     </div>
   );
 }
 
 function WSEmpty({ text }: { text: string }) {
-  return <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.82rem' }}>{text}</p>;
+  return <p style={{ margin: 0, color: '#0B2F6B', fontSize: '0.82rem' }}>{text}</p>;
 }
 
 function WSField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'grid', gap: '4px', marginBottom: '0.6rem' }}>
-      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
       {children}
     </div>
   );
@@ -1340,7 +1340,7 @@ function WSField({ label, children }: { label: string; children: React.ReactNode
 
 function WSToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.45rem 0.65rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', fontWeight: 600, marginBottom: '0.4rem', cursor: 'pointer', fontSize: '0.82rem', color: '#374151' }}>
+    <label style={{ border: '1px solid rgba(11, 47, 107, 0.16)', borderRadius: '6px', padding: '0.45rem 0.65rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', fontWeight: 600, marginBottom: '0.4rem', cursor: 'pointer', fontSize: '0.82rem', color: '#1A1F2B' }}>
       {label}
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ flexShrink: 0 }} />
     </label>
@@ -1351,7 +1351,7 @@ function WSChecks({ items, selected, onChange }: { items: string[]; selected: st
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.35rem', marginBottom: '0.5rem' }}>
       {items.map((item) => (
-        <label key={item} style={{ border: `1px solid ${selected.includes(item) ? '#1d4ed8' : '#e2e8f0'}`, background: selected.includes(item) ? '#eff6ff' : '#fff', borderRadius: '6px', padding: '0.4rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem', color: '#374151' }}>
+        <label key={item} style={{ border: `1px solid ${selected.includes(item) ? '#1D57D8' : '#F4F6F8'}`, background: selected.includes(item) ? '#F4F6F8' : '#FFFFFF', borderRadius: '6px', padding: '0.4rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem', color: '#1A1F2B' }}>
           <input type="checkbox" checked={selected.includes(item)} onChange={() => onChange(item)} style={{ flexShrink: 0 }} />
           {item}
         </label>
@@ -1361,11 +1361,11 @@ function WSChecks({ items, selected, onChange }: { items: string[]; selected: st
 }
 
 function WSOptLabel({ children }: { children: React.ReactNode }) {
-  return <div style={{ margin: '0.75rem 0 0.4rem', fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{children}</div>;
+  return <div style={{ margin: '0.75rem 0 0.4rem', fontSize: '0.68rem', fontWeight: 700, color: '#0B2F6B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{children}</div>;
 }
 
 function WSStatusBadge({ status }: { status: string }) {
-  const s = STATUS_BADGE[status] ?? { bg: '#f1f5f9', color: '#64748b' };
+  const s = STATUS_BADGE[status] ?? { bg: '#F4F6F8', color: '#0B2F6B' };
   const label = status.replace(/_/g, ' ');
   return (
     <span style={{ background: s.bg, color: s.color, padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap' as const }}>
@@ -1376,7 +1376,7 @@ function WSStatusBadge({ status }: { status: string }) {
 
 function LoadingCard({ text }: { text: string }) {
   return (
-    <div style={{ backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+    <div style={{ backgroundColor: '#FFFFFF', borderRadius: '10px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '3rem', textAlign: 'center', color: '#0B2F6B' }}>
       {text}
     </div>
   );
@@ -1384,7 +1384,7 @@ function LoadingCard({ text }: { text: string }) {
 
 function EmptyCard({ icon, text }: { icon: string; text: string }) {
   return (
-    <div style={{ backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+    <div style={{ backgroundColor: '#FFFFFF', borderRadius: '10px', border: '1px solid rgba(11, 47, 107, 0.16)', padding: '3rem', textAlign: 'center', color: '#0B2F6B' }}>
       <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>{icon}</div>
       <p style={{ margin: 0, fontSize: '0.9rem' }}>{text}</p>
     </div>

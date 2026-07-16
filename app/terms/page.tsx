@@ -44,11 +44,11 @@ export default function TermsPage() {
         >
           Terms &amp; Conditions
         </h1>
-        <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '2.5rem', fontSize: '0.9rem' }}>
+        <p style={{ color: 'rgba(255, 255, 255, 0.5)', marginBottom: '2.5rem', fontSize: '0.9rem' }}>
           Last updated: {LAST_UPDATED}
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: '1.7', color: 'rgba(255,255,255,0.82)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: '1.7', color: 'rgba(255, 255, 255, 0.82)' }}>
           <Section title="1. Introduction">
             These Terms and Conditions (&quot;Terms&quot;) govern your use of the XDrive Logistics platform and services
             operated by {COMPANY_CONFIG.legalName}, a company registered in England and Wales (Company Number {COMPANY_CONFIG.companyNumber}),

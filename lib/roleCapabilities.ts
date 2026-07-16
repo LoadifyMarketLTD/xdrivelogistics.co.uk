@@ -245,7 +245,14 @@ export const isCapabilityAllowedForPath = (
   if (pathname.startsWith('/customer')) return role === 'customer';
 
   if (pathname.startsWith('/driver')) {
-    return pathname === '/driver/change-password' && (role === 'driver' || context.canAccessDriverMode === true);
+    const hasDriverWorkspace = role === 'driver' || context.canAccessDriverMode === true;
+    if (!hasDriverWorkspace) return false;
+    if (pathname === '/driver/change-password') return true;
+    const driverCapabilities = role === 'driver'
+      ? getCapabilitiesForRole('driver', context)
+      : getCapabilitiesForRole('driver', { ...context, ownerDriverWorkspace: true });
+    const requiredCapability = requiredCapabilityForPath(pathname);
+    return !requiredCapability || driverCapabilities[requiredCapability];
   }
 
   if (pathname.startsWith('/admin')) {

@@ -112,7 +112,7 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
         </div>
 
         {error && (
-          <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
+          <div style={{ backgroundColor: 'rgba(245, 163, 0, 0.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
             ⚠️ {error}
           </div>
         )}
@@ -153,7 +153,7 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '880px', fontSize: '0.82rem' }}>
                 <thead>
-                  <tr style={{ borderBottom: `1px solid ${THEME.cardBorder}`, backgroundColor: '#f8fafc' }}>
+                  <tr style={{ borderBottom: `1px solid ${THEME.cardBorder}`, backgroundColor: '#F4F6F8' }}>
                     {stableColumns.map((column) => (
                       <th
                         key={column.key}

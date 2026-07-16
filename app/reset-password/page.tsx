@@ -175,14 +175,14 @@ export default function ResetPasswordPage() {
       <main>
         <section style={{ textAlign: 'center', padding: '4rem 2rem' }}>
           <h1 style={{ marginBottom: '1rem' }}>Password setup link issue</h1>
-          {error && <p style={{ color: '#dc2626', marginBottom: '1rem' }}>{error}</p>}
+          {error && <p style={{ color: '#F5A300', marginBottom: '1rem' }}>{error}</p>}
           <button
             type="button"
             onClick={() => router.replace('/login')}
             style={{
               padding: '0.75rem 1.25rem',
-              backgroundColor: '#1F7A3D',
-              color: '#fff',
+              backgroundColor: '#1D57D8',
+              color: '#FFFFFF',
               border: 'none',
               borderRadius: '6px',
               cursor: 'pointer',
@@ -202,7 +202,7 @@ export default function ResetPasswordPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0A2239 0%, #1E4E8C 100%)',
+        background: 'linear-gradient(135deg, #1A1F2B 0%, #1D57D8 100%)',
         padding: '1rem',
       }}
     >
@@ -211,21 +211,21 @@ export default function ResetPasswordPage() {
           background: 'white',
           padding: '2.5rem',
           borderRadius: '12px',
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+          boxShadow: '0 10px 25px rgba(26, 31, 43, 0.15)',
           width: '100%',
           maxWidth: '420px',
         }}
       >
-        <h1 style={{ marginTop: 0, marginBottom: '0.75rem', color: '#0A2239' }}>
+        <h1 style={{ marginTop: 0, marginBottom: '0.75rem', color: '#1A1F2B' }}>
           Set a new password
         </h1>
-        <p style={{ marginTop: 0, marginBottom: '1.5rem', color: '#5B6B85' }}>
+        <p style={{ marginTop: 0, marginBottom: '1.5rem', color: '#0B2F6B' }}>
           Enter your new password to complete password setup.
         </p>
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1rem' }}>
-            <label htmlFor="new-password" style={{ display: 'block', marginBottom: '0.5rem', color: '#0B1B33' }}>
+            <label htmlFor="new-password" style={{ display: 'block', marginBottom: '0.5rem', color: '#1A1F2B' }}>
               New password
             </label>
             <input
@@ -240,7 +240,7 @@ export default function ResetPasswordPage() {
               style={{
                 width: '100%',
                 padding: '0.75rem',
-                border: '1px solid rgba(14, 36, 72, 0.12)',
+                border: '1px solid rgba(11, 47, 107, 0.12)',
                 borderRadius: '6px',
                 fontSize: '1rem',
               }}
@@ -248,7 +248,7 @@ export default function ResetPasswordPage() {
           </div>
 
           <div style={{ marginBottom: '1rem' }}>
-            <label htmlFor="confirm-password" style={{ display: 'block', marginBottom: '0.5rem', color: '#0B1B33' }}>
+            <label htmlFor="confirm-password" style={{ display: 'block', marginBottom: '0.5rem', color: '#1A1F2B' }}>
               Confirm new password
             </label>
             <input
@@ -263,7 +263,7 @@ export default function ResetPasswordPage() {
               style={{
                 width: '100%',
                 padding: '0.75rem',
-                border: '1px solid rgba(14, 36, 72, 0.12)',
+                border: '1px solid rgba(11, 47, 107, 0.12)',
                 borderRadius: '6px',
                 fontSize: '1rem',
               }}
@@ -275,11 +275,11 @@ export default function ResetPasswordPage() {
               style={{
                 padding: '0.75rem',
                 marginBottom: '1rem',
-                backgroundColor: '#fee2e2',
-                color: '#dc2626',
+                backgroundColor: '#F4F6F8',
+                color: '#F5A300',
                 borderRadius: '6px',
                 fontSize: '0.9rem',
-                border: '1px solid #fecaca',
+                border: '1px solid #F4F6F8',
               }}
             >
               {error}
@@ -291,11 +291,11 @@ export default function ResetPasswordPage() {
               style={{
                 padding: '0.75rem',
                 marginBottom: '1rem',
-                backgroundColor: '#dcfce7',
-                color: '#166534',
+                backgroundColor: '#F4F6F8',
+                color: '#1D57D8',
                 borderRadius: '6px',
                 fontSize: '0.9rem',
-                border: '1px solid #bbf7d0',
+                border: '1px solid #F4F6F8',
               }}
             >
               {success}
@@ -308,7 +308,7 @@ export default function ResetPasswordPage() {
             style={{
               width: '100%',
               padding: '0.875rem',
-              backgroundColor: isLoading ? '#86efac' : '#1F7A3D',
+              backgroundColor: isLoading ? '#1D57D8' : '#1D57D8',
               color: 'white',
               border: 'none',
               borderRadius: '6px',

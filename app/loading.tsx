@@ -5,13 +5,13 @@ export default function Loading() {
     <main>
       <section style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <div className="spinner" />
-        <p style={{ marginTop: '1rem', color: '#6b7280' }}>Loading...</p>
+        <p style={{ marginTop: '1rem', color: '#0B2F6B' }}>Loading...</p>
         <style jsx>{`
           .spinner {
             width: 50px;
             height: 50px;
-            border: 4px solid #e5e7eb;
-            border-top: 4px solid #2563eb;
+            border: 4px solid #F4F6F8;
+            border-top: 4px solid #1D57D8;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: 0 auto;

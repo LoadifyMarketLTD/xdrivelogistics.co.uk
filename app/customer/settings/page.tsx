@@ -136,17 +136,17 @@ export default function CustomerSettingsPage() {
           <button className="primary" disabled={saving} onClick={() => void save()}>{saving ? 'Saving...' : 'Save Settings'}</button>
         </section>
         <style jsx>{`
-          .page { min-height: 100vh; background: #f3f4f6; color: #0f172a; padding: 16px; }
-          .card { max-width: 980px; margin: 16px auto; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+          .page { min-height: 100vh; background: #F4F6F8; color: #1A1F2B; padding: 16px; }
+          .card { max-width: 980px; margin: 16px auto; background: white; border: 1px solid #F4F6F8; border-radius: 8px; padding: 16px; }
           .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
           .field { display: grid; gap: 6px; margin-bottom: 12px; }
-          .field span { color: #64748b; font-size: 12px; font-weight: 900; text-transform: uppercase; }
-          input { border: 1px solid #d1d5db; border-radius: 8px; padding: 11px; font: inherit; }
-          button { border: 1px solid #cbd5e1; background: white; border-radius: 8px; padding: 10px 14px; font-weight: 800; cursor: pointer; color: #0f172a; }
-          .primary { margin-top: 16px; background: #f5c84c; border-color: #f5c84c; }
+          .field span { color: #0B2F6B; font-size: 12px; font-weight: 900; text-transform: uppercase; }
+          input { border: 1px solid #F4F6F8; border-radius: 8px; padding: 11px; font: inherit; }
+          button { border: 1px solid #F4F6F8; background: white; border-radius: 8px; padding: 10px 14px; font-weight: 800; cursor: pointer; color: #1A1F2B; }
+          .primary { margin-top: 16px; background: #F5A300; border-color: #1A1F2B; }
           .checks { display: grid; gap: 8px; }
-          .checks label { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; display: flex; gap: 8px; align-items: center; font-weight: 700; }
-          .notice { border: 1px solid #f59e0b; background: #fef3c7; color: #92400e; border-radius: 8px; padding: 12px; font-weight: 800; }
+          .checks label { border: 1px solid #F4F6F8; border-radius: 8px; padding: 10px; display: flex; gap: 8px; align-items: center; font-weight: 700; }
+          .notice { border: 1px solid #F5A300; background: #F4F6F8; color: #1A1F2B; border-radius: 8px; padding: 12px; font-weight: 800; }
         `}</style>
       </main>
     </ProtectedRoute>

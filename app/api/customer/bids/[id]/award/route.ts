@@ -5,6 +5,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
+import { hasBidDecisionRole } from '../../../../admin/bids/_lib/ownerRoles';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -55,13 +56,13 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!isCreator) {
     const { data: membership } = await supabaseAdmin
       .from('company_memberships')
-      .select('id')
+      .select('id, role_in_company')
       .eq('user_id', user.id)
       .eq('company_id', job.company_id as string)
       .eq('status', 'active')
       .maybeSingle();
 
-    if (!membership) {
+    if (!membership || !hasBidDecisionRole(membership.role_in_company as string | null)) {
       return json(403, { error: 'Forbidden - only the job owner can award bids.' });
     }
   }
