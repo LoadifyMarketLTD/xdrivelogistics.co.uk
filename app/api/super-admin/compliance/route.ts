@@ -1,7 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+
+const documentTargetSchema = z.object({
+  documentId: z.string().uuid(),
+  entityType: z.enum(['driver', 'vehicle']),
+});
+
+const viewDocumentSchema = documentTargetSchema.extend({
+  action: z.literal('view'),
+});
+
+const reviewDocumentSchema = documentTargetSchema.extend({
+  action: z.enum(['approve', 'reject']),
+  reason: z.string().trim().max(2000).optional(),
+}).superRefine((value, context) => {
+  if (value.action === 'reject' && !value.reason) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['reason'],
+      message: 'A rejection reason is required.',
+    });
+  }
+});
+
+const resolveStorageObjectPath = (filePath: string, bucket: string): string | null => {
+  const plainPrefix = `${bucket}/`;
+  if (!/^https?:\/\//i.test(filePath)) {
+    return filePath.startsWith(plainPrefix) ? filePath.slice(plainPrefix.length) : filePath;
+  }
+
+  try {
+    const pathname = new URL(filePath).pathname;
+    const markers = [
+      `/storage/v1/object/sign/${bucket}/`,
+      `/storage/v1/object/public/${bucket}/`,
+      `/storage/v1/object/authenticated/${bucket}/`,
+      `/storage/v1/object/${bucket}/`,
+    ];
+    const marker = markers.find((candidate) => pathname.includes(candidate));
+    if (!marker) return null;
+    return decodeURIComponent(pathname.slice(pathname.indexOf(marker) + marker.length));
+  } catch {
+    return null;
+  }
+};
 
 const verifyOwner = async (request: NextRequest) => {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
@@ -50,14 +95,14 @@ export async function GET(request: NextRequest) {
 
     const { data: driverDocs, error: ddErr } = await supabaseAdmin
       .from('driver_documents')
-      .select('id, driver_id, doc_type, status, expiry_date, issued_date, created_at')
+      .select('id, driver_id, doc_type, status, expiry_date, issued_date, rejection_reason, verified_at, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
     if (ddErr) return respond(500, { error: ddErr.message });
 
     const { data: vehicleDocs, error: vdErr } = await supabaseAdmin
       .from('vehicle_documents')
-      .select('id, vehicle_id, doc_type, status, expiry_date, issued_date, created_at')
+      .select('id, vehicle_id, doc_type, status, expiry_date, issued_date, rejection_reason, verified_at, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
     if (vdErr) return respond(500, { error: vdErr.message });
@@ -111,6 +156,8 @@ export async function GET(request: NextRequest) {
           status: d.status,
           expiry_date: d.expiry_date,
           issued_date: d.issued_date,
+          rejection_reason: d.rejection_reason,
+          verified_at: d.verified_at,
           created_at: d.created_at,
           is_expired: d.expiry_date ? d.expiry_date < today : false,
         };
@@ -133,6 +180,8 @@ export async function GET(request: NextRequest) {
           status: d.status,
           expiry_date: d.expiry_date,
           issued_date: d.issued_date,
+          rejection_reason: d.rejection_reason,
+          verified_at: d.verified_at,
           created_at: d.created_at,
           is_expired: d.expiry_date ? d.expiry_date < today : false,
         };
@@ -249,4 +298,74 @@ export async function GET(request: NextRequest) {
   }
 
   return respond(400, { error: 'Invalid section. Use documents, expiries, insurance, or operator-licences.' });
+}
+
+export async function POST(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
+
+  const owner = await verifyOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+
+  const parsed = viewDocumentSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return respond(400, { error: 'Invalid document request.' });
+
+  const table = parsed.data.entityType === 'driver' ? 'driver_documents' : 'vehicle_documents';
+  const bucket = parsed.data.entityType === 'driver' ? 'driver-docs' : 'vehicle-docs';
+  const { data: document, error: documentError } = await supabaseAdmin
+    .from(table)
+    .select('id, file_path')
+    .eq('id', parsed.data.documentId)
+    .maybeSingle();
+
+  if (documentError) return respond(500, { error: documentError.message });
+  if (!document) return respond(404, { error: 'Document not found.' });
+  if (!document.file_path) return respond(409, { error: 'This document has no uploaded file.' });
+
+  const objectPath = resolveStorageObjectPath(document.file_path, bucket);
+  if (!objectPath) return respond(409, { error: 'The stored document reference is invalid.' });
+
+  const { data: signedFile, error: signedUrlError } = await supabaseAdmin.storage
+    .from(bucket)
+    .createSignedUrl(objectPath, 60 * 5);
+
+  if (signedUrlError || !signedFile?.signedUrl) {
+    return respond(500, { error: signedUrlError?.message ?? 'Unable to open the document.' });
+  }
+
+  return respond(200, { signedUrl: signedFile.signedUrl, expiresIn: 300 });
+}
+
+export async function PATCH(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
+
+  const owner = await verifyOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+
+  const parsed = reviewDocumentSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return respond(400, { error: parsed.error.issues[0]?.message ?? 'Invalid review action.' });
+  }
+
+  const table = parsed.data.entityType === 'driver' ? 'driver_documents' : 'vehicle_documents';
+  const status = parsed.data.action === 'approve' ? 'approved' : 'rejected';
+  const { data: document, error: updateError } = await supabaseAdmin
+    .from(table)
+    .update({
+      status,
+      rejection_reason: parsed.data.action === 'reject' ? parsed.data.reason : null,
+      verified_by: owner.id,
+      verified_at: new Date().toISOString(),
+    })
+    .eq('id', parsed.data.documentId)
+    .select('id, status, rejection_reason, verified_at')
+    .maybeSingle();
+
+  if (updateError) return respond(500, { error: updateError.message });
+  if (!document) return respond(404, { error: 'Document not found.' });
+
+  return respond(200, { success: true, document });
 }
