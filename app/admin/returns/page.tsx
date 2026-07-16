@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
+import {
+  WorkspaceShell,
+  WorkspaceMain,
+  WorkspaceContent,
+  LoadingCard,
+  ErrorBanner,
+} from '../../components/workspace';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 
@@ -186,7 +193,9 @@ export default function AdminReturnJourneysPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'company_staff', 'owner']}>
-      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
+      <WorkspaceShell>
+        <WorkspaceMain>
+          <WorkspaceContent>
         <div style={{ marginBottom: '1rem' }}>
           <h1 style={{ fontSize: '2rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>Return Journeys</h1>
           <p style={{ color: '#64748b', margin: '0.35rem 0 0' }}>Advertise where you will be available after delivery.</p>
@@ -198,12 +207,12 @@ export default function AdminReturnJourneysPage() {
           </div>
         )}
         {successMsg && <div style={{ ...card, color: '#166534', backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', marginBottom: '0.75rem', fontWeight: 700 }}>{successMsg}</div>}
-        {error && <div style={{ ...card, color: '#991b1b', backgroundColor: '#fef2f2', borderColor: '#fecaca', marginBottom: '0.75rem' }}>{error}</div>}
+        {error && <ErrorBanner msg={error} />}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
           <section style={card}>
             <h2 style={{ margin: '0 0 0.8rem', fontSize: '1rem', color: '#0f172a' }}>Return Journey</h2>
-            {loading ? <div style={{ color: '#64748b' }}>Loading...</div> : (
+            {loading ? <LoadingCard text="Loading…" /> : (
               <form onSubmit={(e) => void handleSaveReturn(e)} style={{ display: 'grid', gap: '0.75rem' }}>
                 <div>
                   <label style={labelStyle}>Returning from</label>
@@ -231,7 +240,7 @@ export default function AdminReturnJourneysPage() {
 
           <section style={card}>
             <h2 style={{ margin: '0 0 0.8rem', fontSize: '1rem', color: '#0f172a' }}>Future Position</h2>
-            {loading ? <div style={{ color: '#64748b' }}>Loading...</div> : (
+            {loading ? <LoadingCard text="Loading…" /> : (
               <form onSubmit={(e) => void handleSaveFuturePosition(e)} style={{ display: 'grid', gap: '0.75rem' }}>
                 <div>
                   <label style={labelStyle}>Future location</label>
@@ -253,7 +262,9 @@ export default function AdminReturnJourneysPage() {
             )}
           </section>
         </div>
-      </div>
+          </WorkspaceContent>
+        </WorkspaceMain>
+      </WorkspaceShell>
     </ProtectedRoute>
   );
 }

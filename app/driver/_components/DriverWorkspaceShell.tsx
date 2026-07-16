@@ -41,17 +41,17 @@ interface DriverWorkspaceShellProps {
 
 const pageStyle: CSSProperties = {
   minHeight: '100dvh',
-  background: '#07111f',
-  color: '#f8fafc',
+  background: 'var(--background)',
+  color: 'var(--xd-text)',
 };
 
 const appFrameStyle: CSSProperties = {
   minHeight: '100dvh',
   maxWidth: '560px',
   margin: '0 auto',
-  background: '#0b1524',
+  background: 'var(--xd-surface)',
   position: 'relative',
-  boxShadow: '0 0 0 1px rgba(255,255,255,0.06)',
+  boxShadow: '0 0 0 1px var(--xd-border)',
 };
 
 export default function DriverWorkspaceShell({ children, headerActions, driverName, availabilityLabel, personaLabel }: DriverWorkspaceShellProps) {
@@ -98,22 +98,22 @@ export default function DriverWorkspaceShell({ children, headerActions, driverNa
   return (
     <div style={pageStyle}>
       <div style={appFrameStyle}>
-        <header style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(11,21,36,0.96)', backdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <header style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(11,21,36,0.96)', backdropFilter: 'blur(14px)', borderBottom: '1px solid var(--xd-border)' }}>
           <div style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.15rem' }}>
-                <span style={{ color: '#facc15', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>XDrive</span>
-                <span style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700 }}>{DRIVER_WORKSPACE_MODE_LABELS[workspaceMode]}</span>
-                {unreadCount > 0 && <span style={{ background: '#ef4444', color: '#fff', minWidth: '18px', height: '18px', borderRadius: '999px', display: 'inline-grid', placeItems: 'center', fontSize: '0.65rem', fontWeight: 800 }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+                <span style={{ color: 'var(--xd-gold)', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>XDrive</span>
+                <span style={{ color: 'var(--xd-text-muted)', fontSize: '0.72rem', fontWeight: 700 }}>{DRIVER_WORKSPACE_MODE_LABELS[workspaceMode]}</span>
+                {unreadCount > 0 && <span style={{ background: 'var(--xd-red)', color: '#fff', minWidth: '18px', height: '18px', borderRadius: '999px', display: 'inline-grid', placeItems: 'center', fontSize: '0.65rem', fontWeight: 800 }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
               </div>
-              <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ color: 'var(--xd-text)', fontWeight: 800, fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {driverName ?? user?.email ?? 'Driver'}
               </div>
             </div>
             {(availabilityLabel || personaLabel || headerActions) && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                {availabilityLabel && <span style={{ color: '#86efac', background: 'rgba(22,163,74,0.16)', border: '1px solid rgba(134,239,172,0.25)', borderRadius: '999px', padding: '0.25rem 0.55rem', fontSize: '0.72rem', fontWeight: 800 }}>{availabilityLabel}</span>}
-                {personaLabel && <span style={{ color: '#fde68a', background: 'rgba(250,204,21,0.12)', borderRadius: '999px', padding: '0.25rem 0.55rem', fontSize: '0.72rem', fontWeight: 800 }}>{personaLabel}</span>}
+                {availabilityLabel && <span style={{ color: 'var(--xd-green)', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '999px', padding: '0.25rem 0.55rem', fontSize: '0.72rem', fontWeight: 800 }}>{availabilityLabel}</span>}
+                {personaLabel && <span style={{ color: 'var(--xd-gold)', background: 'var(--xd-gold-subtle)', borderRadius: '999px', padding: '0.25rem 0.55rem', fontSize: '0.72rem', fontWeight: 800 }}>{personaLabel}</span>}
                 {headerActions}
               </div>
             )}
@@ -122,7 +122,7 @@ export default function DriverWorkspaceShell({ children, headerActions, driverNa
 
         <main style={{ padding: '0.9rem 0.9rem 5.75rem' }}>{children}</main>
 
-        <nav style={{ position: 'fixed', left: '50%', bottom: 0, transform: 'translateX(-50%)', width: '100%', maxWidth: '560px', background: 'rgba(7,17,31,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', padding: '0.45rem 0.45rem calc(0.45rem + env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: `repeat(${visibleNavItems.length}, minmax(0, 1fr))`, gap: '0.25rem', zIndex: 30 }}>
+        <nav style={{ position: 'fixed', left: '50%', bottom: 0, transform: 'translateX(-50%)', width: '100%', maxWidth: '560px', background: 'var(--background)', borderTop: '1px solid var(--xd-border)', padding: '0.45rem 0.45rem calc(0.45rem + env(safe-area-inset-bottom))', display: 'grid', gridTemplateColumns: `repeat(${visibleNavItems.length}, minmax(0, 1fr))`, gap: '0.25rem', zIndex: 30 }}>
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const active = activeItem(item);
@@ -131,7 +131,7 @@ export default function DriverWorkspaceShell({ children, headerActions, driverNa
                 key={item.id}
                 onClick={() => router.push(item.href)}
                 aria-current={active ? 'page' : undefined}
-                style={{ minHeight: '52px', border: 'none', borderRadius: '14px', background: active ? 'rgba(250,204,21,0.16)' : 'transparent', color: active ? '#facc15' : '#94a3b8', display: 'grid', placeItems: 'center', gap: '0.15rem', fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer' }}
+                style={{ minHeight: '52px', border: 'none', borderRadius: 'var(--radius-lg)', background: active ? 'var(--xd-gold-subtle)' : 'transparent', color: active ? 'var(--xd-gold)' : 'var(--xd-text-muted)', display: 'grid', placeItems: 'center', gap: '0.15rem', fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer' }}
               >
                 <Icon size={20} strokeWidth={2.5} />
                 <span>{item.label}</span>

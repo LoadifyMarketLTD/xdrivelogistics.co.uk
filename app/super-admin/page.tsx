@@ -3,19 +3,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../components/ProtectedRoute';
+import { XdBadge, XdButton, XdCard } from '@/app/_components/xd';
 import { supabase } from '../../lib/supabaseClient';
 
 const THEME = {
-  pageBg: '#eef2f6',
+  pageBg: 'var(--background)',
   cardBg: '#ffffff',
-  cardBorder: '#d7e0ea',
-  text: '#0f172a',
-  muted: '#475569',
-  softMuted: '#64748b',
-  blue: '#1d4ed8',
-  green: '#15803d',
+  cardBorder: 'var(--xd-border)',
+  text: 'var(--background)',
+  muted: 'var(--xd-text-subtle)',
+  softMuted: 'var(--xd-text-subtle)',
+  blue: 'var(--xd-gold)',
+  green: 'var(--xd-green)',
   amber: '#d97706',
-  red: '#dc2626',
+  red: 'var(--xd-red)',
   ink: '#111827',
 };
 
@@ -43,23 +44,12 @@ type ModuleCard = {
   secondary: string;
 };
 
-const compactButton = (accent = THEME.blue) => ({
-  border: 'none',
-  borderRadius: '7px',
-  backgroundColor: accent,
-  color: '#ffffff',
-  padding: '0.46rem 0.72rem',
-  fontSize: '0.74rem',
-  fontWeight: 800,
-  cursor: 'pointer',
-});
-
 function KpiCard({ label, value, tone, loading }: { label: string; value: string | number; tone: string; loading: boolean }) {
   return (
-    <section style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '9px', padding: '0.7rem 0.75rem', minHeight: '86px' }}>
+    <XdCard style={{ minHeight: '86px', padding: '0.7rem 0.75rem' }}>
       <div style={{ color: '#64748b', fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 850, marginBottom: '0.28rem' }}>{label}</div>
       <div style={{ color: tone, fontSize: '1.38rem', fontWeight: 900, lineHeight: 1.05 }}>{loading ? '...' : value}</div>
-    </section>
+    </XdCard>
   );
 }
 
@@ -131,26 +121,33 @@ function DashboardContent() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1rem 1.15rem 1.4rem' }}>
-      <section style={{ background: '#ffffff', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '1rem 1.1rem', marginBottom: '0.9rem' }}>
+      <XdCard style={{ background: '#ffffff', padding: '1rem 1.1rem', marginBottom: '0.9rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
           <div>
             <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 850, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>Global Platform View</div>
-            <h1 style={{ fontSize: '1.45rem', fontWeight: 850, color: THEME.text, margin: 0 }}>XDrive Owner Console</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '1.45rem', fontWeight: 850, color: THEME.text, margin: 0 }}>XDrive Owner Console</h1>
+              <XdBadge variant="primary" size="md">Owner</XdBadge>
+            </div>
             <p style={{ color: THEME.muted, margin: '0.28rem 0 0', fontSize: '0.86rem', maxWidth: '760px', lineHeight: 1.45 }}>
               One operating view across marketplace, companies, jobs, finance, compliance and platform health.
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button onClick={() => router.push('/super-admin/companies/approvals')} style={compactButton(THEME.amber)}>Approvals</button>
-            <button onClick={() => router.push('/super-admin/health')} style={{ ...compactButton(THEME.ink), backgroundColor: '#ffffff', color: THEME.ink, border: `1px solid ${THEME.cardBorder}` }}>Platform Health</button>
+            <XdButton onClick={() => router.push('/super-admin/companies/approvals')} variant="primary" style={{ background: THEME.amber, color: '#ffffff' }}>
+              Approvals
+            </XdButton>
+            <XdButton onClick={() => router.push('/super-admin/health')} variant="secondary" style={{ background: '#ffffff', color: THEME.ink }}>
+              Platform Health
+            </XdButton>
           </div>
         </div>
-      </section>
+      </XdCard>
 
       {error && (
-        <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '9px', padding: '0.65rem 0.85rem', color: '#991b1b', fontSize: '0.82rem', marginBottom: '0.85rem' }}>
+        <XdCard style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '0.65rem 0.85rem', color: '#991b1b', fontSize: '0.82rem', marginBottom: '0.85rem' }}>
           Stats unavailable: {error}
-        </div>
+        </XdCard>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))', gap: '0.62rem', marginBottom: '0.9rem' }}>
@@ -160,46 +157,65 @@ function DashboardContent() {
       <section style={{ marginBottom: '0.9rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.72rem' }}>
           {modules.map((module) => (
-            <button key={module.title} onClick={() => router.push(module.href)} style={{ textAlign: 'left', backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderTop: `3px solid ${module.accent}`, borderRadius: '10px', padding: '0.9rem', cursor: 'pointer', minHeight: '184px' }}>
+            <XdCard key={module.title} style={{ backgroundColor: THEME.cardBg, borderTop: `3px solid ${module.accent}`, padding: '0.9rem', minHeight: '184px' }}>
               <div style={{ color: '#64748b', fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 850 }}>{module.eyebrow}</div>
               <h2 style={{ margin: '0.22rem 0 0.45rem', color: THEME.text, fontSize: '1rem', fontWeight: 850 }}>{module.title}</h2>
               <div style={{ color: module.accent, fontSize: '1.42rem', fontWeight: 900, lineHeight: 1 }}>{loading ? '...' : module.metric}</div>
               <div style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.1rem' }}>{module.metricLabel}</div>
               <p style={{ margin: '0.55rem 0 0.7rem', color: THEME.muted, fontSize: '0.78rem', lineHeight: 1.45 }}>{module.detail}</p>
-              <span style={{ display: 'inline-block', color: module.accent, fontSize: '0.74rem', fontWeight: 850 }}>{module.secondary}</span>
-            </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <XdBadge variant="info">{module.metricLabel}</XdBadge>
+                <XdButton
+                  onClick={() => router.push(module.href)}
+                  variant="ghost"
+                  size="sm"
+                  style={{ color: module.accent, paddingInline: 0 }}
+                >
+                  {module.secondary}
+                </XdButton>
+              </div>
+            </XdCard>
           ))}
         </div>
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.72rem' }}>
-        <section style={{ background: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.95rem' }}>
+        <XdCard style={{ background: THEME.cardBg, padding: '0.95rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.7rem', alignItems: 'center', marginBottom: '0.75rem' }}>
             <div>
               <h2 style={{ margin: 0, fontSize: '1rem', color: THEME.text }}>Live activity</h2>
               <p style={{ margin: '0.22rem 0 0', fontSize: '0.78rem', color: THEME.muted }}>Recent jobs, registrations, invoices and dispute movement.</p>
             </div>
-            <button onClick={() => router.push('/super-admin/settings/audit-logs')} style={{ background: 'none', border: 'none', color: THEME.blue, fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}>Audit log</button>
+            <XdButton onClick={() => router.push('/super-admin/settings/audit-logs')} variant="ghost" size="sm">
+              Audit log
+            </XdButton>
           </div>
           <EmptyList>No live activity feed is wired into this compact view yet.</EmptyList>
-        </section>
+        </XdCard>
 
-        <section style={{ background: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.95rem' }}>
+        <XdCard style={{ background: THEME.cardBg, padding: '0.95rem' }}>
           <div style={{ marginBottom: '0.75rem' }}>
             <h2 style={{ margin: 0, fontSize: '1rem', color: THEME.text }}>Platform health</h2>
             <p style={{ margin: '0.22rem 0 0', fontSize: '0.78rem', color: THEME.muted }}>Queue, webhook, email and audit checks in one compact block.</p>
           </div>
           <div style={{ display: 'grid', gap: '0.48rem' }}>
             {healthRows.map((row) => (
-              <button key={row.label} onClick={() => router.push(row.href)} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.55rem 0.65rem', cursor: 'pointer', textAlign: 'left' }}>
-                <span style={{ color: THEME.text, fontSize: '0.8rem', fontWeight: 800 }}>{row.label}</span>
-                <span style={{ color: row.tone, fontSize: '0.74rem', fontWeight: 850 }}>{row.value}</span>
-              </button>
+              <XdCard key={row.label} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.55rem 0.65rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
+                  <span style={{ color: THEME.text, fontSize: '0.8rem', fontWeight: 800 }}>{row.label}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <XdBadge variant="info" style={{ color: row.tone, borderColor: row.tone }}>{row.value}</XdBadge>
+                    <XdButton onClick={() => router.push(row.href)} variant="ghost" size="sm">
+                      Open
+                    </XdButton>
+                  </div>
+                </div>
+              </XdCard>
             ))}
           </div>
-        </section>
+        </XdCard>
 
-        <section style={{ background: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.95rem' }}>
+        <XdCard style={{ background: THEME.cardBg, padding: '0.95rem' }}>
           <div style={{ marginBottom: '0.75rem' }}>
             <h2 style={{ margin: 0, fontSize: '1rem', color: THEME.text }}>Governance actions</h2>
             <p style={{ margin: '0.22rem 0 0', fontSize: '0.78rem', color: THEME.muted }}>Fast access to the highest-risk owner controls.</p>
@@ -211,10 +227,12 @@ function DashboardContent() {
               ['Review dispute', '/super-admin/operations/disputes'],
               ['Audit change', '/super-admin/settings/audit-logs'],
             ].map(([label, href]) => (
-              <button key={label} onClick={() => router.push(href)} style={{ border: '1px solid #dbe4ef', background: '#ffffff', borderRadius: '8px', padding: '0.55rem', color: THEME.text, fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer' }}>{label}</button>
+              <XdButton key={label} onClick={() => router.push(href)} variant="secondary" size="sm" style={{ background: '#ffffff', color: THEME.text }}>
+                {label}
+              </XdButton>
             ))}
           </div>
-        </section>
+        </XdCard>
       </div>
     </div>
   );

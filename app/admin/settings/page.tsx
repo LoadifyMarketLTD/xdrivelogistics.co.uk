@@ -4,6 +4,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
+import {
+  WorkspaceShell,
+  WorkspaceMain,
+  WorkspaceContent,
+  LoadingCard,
+  ErrorBanner,
+} from '../../components/workspace';
 import { COMPANY_CONFIG } from '../../config/company';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import {
@@ -302,7 +309,9 @@ export default function SettingsPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
+      <WorkspaceShell>
+        <WorkspaceMain>
+          <WorkspaceContent>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
             <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>
@@ -355,19 +364,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {saveError && (
-          <div style={{
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fca5a5',
-            borderRadius: '8px',
-            padding: '1rem 1.5rem',
-            marginBottom: '1.5rem',
-            color: '#991b1b',
-            fontWeight: '600',
-          }}>
-            {saveError}
-          </div>
-        )}
+        {saveError && <ErrorBanner msg={saveError} />}
 
         {!isSupabaseConfigured && (
           <div style={{
@@ -384,9 +381,7 @@ export default function SettingsPage() {
         )}
 
         {loading ? (
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '2rem', color: '#6b7280' }}>
-            Loading settings…
-          </div>
+          <LoadingCard text="Loading settings…" />
         ) : (
           <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
             <div style={{
@@ -791,7 +786,9 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
-      </div>
+          </WorkspaceContent>
+        </WorkspaceMain>
+      </WorkspaceShell>
     </ProtectedRoute>
   );
 }

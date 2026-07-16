@@ -1,8 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import type { CSSProperties } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import {
+  WorkspaceShell, WorkspaceAside, WorkspaceMain,
+  WorkspaceHeader, WorkspaceContent,
+  WorkspaceTable, WorkspaceTableTr, WorkspaceTableTd,
+  WorkspaceStatusBadge, WorkspaceFieldLabel,
+  LoadingCard, EmptyCard, ErrorBanner,
+  wsInputStyle, wsBtnPrimary, wsBtnSecondary, wsBtnAction,
+  type WorkspaceTab,
+} from '../../components/workspace';
 import { JOB_STATUS } from '../../config/company';
 import { generateTimeOptions } from '../../utils/timeUtils';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
@@ -74,6 +84,13 @@ const SPECIAL_OPTIONS = ['ADR Required', 'Temperature Controlled', 'Two Man Crew
 const DOCUMENT_OPTIONS = ['Commercial Invoice', 'Packing List', 'Delivery Notes', 'Customs Documents', 'Other Attachments'];
 const PALLET_TYPES = ['Standard Pallet', 'Euro Pallet', 'Oversized Pallet'];
 const JOB_FORM_STEPS = ['Customer', 'Collection & Delivery', 'References', 'Vehicle & Cargo', 'Requirements & Documents', 'Pricing'];
+const JOB_TABS = [
+ ['All', 'All Jobs'],
+ [JOB_STATUS.RECEIVED, 'Received'],
+ [JOB_STATUS.POSTED, 'Posted'],
+ [JOB_STATUS.ALLOCATED, 'Allocated'],
+ [JOB_STATUS.DELIVERED, 'Delivered'],
+] as const;
 
 const vehicleLabelFor = (value: string) =>
  VEHICLE_GROUPS.flatMap(([, options]) => options).find(([, optionValue]) => optionValue === value)?.[0] ?? value.replace(/_/g, ' ');
@@ -103,6 +120,7 @@ export default function JobsPage() {
  const [isSubmitting, setIsSubmitting] = useState(false);
  const [jobs, setJobs] = useState<Job[]>([]);
  const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
+ const [jobsLoading, setJobsLoading] = useState(true);
  const [jobsPage, setJobsPage] = useState(0);
  const JOBS_PER_PAGE = 20;
  const [searchTerm, setSearchTerm] = useState('');
@@ -201,11 +219,13 @@ export default function JobsPage() {
  }, [jobs, searchTerm, statusFilter, pickupFilter, deliveryFilter, dateFilter, customerFilter, driverFilter]);
 
  const loadJobs = async () => {
+ setJobsLoading(true);
  setDbError(null);
  if (hasSupabaseSession) {
  if (!companyId) {
  setJobs([]);
  setFilteredJobs([]);
+ setJobsLoading(false);
  return;
  }
 
@@ -220,6 +240,7 @@ export default function JobsPage() {
  setJobs([]);
  setFilteredJobs([]);
  setDbError(`Failed to load jobs: ${error.message}`);
+ setJobsLoading(false);
  return;
  }
  if (data) {
@@ -272,11 +293,13 @@ export default function JobsPage() {
  };
  });
  setJobs(mapped);
+ setJobsLoading(false);
  return;
  }
  }
  setJobs([]);
  setFilteredJobs([]);
+ setJobsLoading(false);
  };
 
  const filterJobs = () => {
@@ -671,11 +694,6 @@ export default function JobsPage() {
  }
  };
 
- const getStatusCount = (status: string) => {
- if (status === 'All') return jobs.length;
- return jobs.filter(job => job.status === status).length;
- };
-
  const formatDate = (dateStr: string) => {
  const date = new Date(dateStr);
  return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -691,6 +709,33 @@ export default function JobsPage() {
  : [...selected, value],
  };
  });
+ };
+
+ const paginatedJobs = useMemo(
+ () => filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE),
+ [filteredJobs, jobsPage, JOBS_PER_PAGE]
+ );
+
+ const wsTabs: WorkspaceTab[] = useMemo(() => JOB_TABS.map(([id, label]) => ({
+ id,
+ label,
+ count: id === 'All' ? jobs.length : jobs.filter((job) => job.status === id).length,
+ })), [jobs]);
+
+ const hasActiveFilters = Boolean(
+ searchTerm ||
+ pickupFilter.trim() ||
+ deliveryFilter.trim() ||
+ dateFilter ||
+ customerFilter.trim() ||
+ driverFilter.trim()
+ );
+
+ const tableActionBase: CSSProperties = {
+ ...wsBtnAction,
+ marginBottom: 0,
+ fontWeight: 700,
+ whiteSpace: 'nowrap',
  };
 
  const newJobDisabled = (hasSupabaseSession && companyLoading) || isSubmitting;
