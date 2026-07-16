@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import BrokerWorkspaceTabs from '../_components/BrokerWorkspaceTabs';
 
 type AwardedJob = {
   id: string;
@@ -30,12 +31,6 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   invoiced:   { bg: '#cffafe', text: '#155e75' },
   paid:       { bg: '#dcfce7', text: '#14532d' },
 };
-
-const NAV_ITEMS = [
-  { label: 'Load Board', href: '/broker/loads' },
-  { label: 'My Bids',    href: '/broker/bids' },
-  { label: 'Awards',     href: '/broker/awards' },
-];
 
 export default function BrokerAwardsPage() {
   const { user } = useAuth();
@@ -78,15 +73,8 @@ export default function BrokerAwardsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['broker', 'owner']}>
-      <div style={{ minHeight: '100vh', background: '#f3f4f6' }}>
-        <nav style={{ background: '#0f172a', padding: '0.75rem 1.25rem', display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ color: '#94a3b8', fontWeight: 700, marginRight: '0.75rem', fontSize: '0.9rem' }}>🤝 Broker</span>
-          {NAV_ITEMS.map(n => (
-            <button key={n.href} onClick={() => router.push(n.href)} style={{ background: n.href === '/broker/awards' ? '#1d4ed8' : 'transparent', color: '#f1f5f9', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', padding: '0.4rem 0.9rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
-              {n.label}
-            </button>
-          ))}
-        </nav>
+      <div style={{ minHeight: '100vh', background: '#f5f7fa' }}>
+        <BrokerWorkspaceTabs />
 
         <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '1.25rem' }}>
           <h1 style={{ margin: '0 0 0.25rem', fontWeight: 700, fontSize: '1.5rem', color: '#0f172a' }}>Awarded Contracts</h1>
