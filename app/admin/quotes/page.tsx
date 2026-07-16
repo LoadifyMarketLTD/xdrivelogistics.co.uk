@@ -7,15 +7,6 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Quote, VehicleType, CargoType, Company } from '../../../lib/types/database';
 import { VEHICLE_GROUPS, VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { useAuth } from '../../components/AuthContext';
-import {
-  WorkspaceShell, WorkspaceAside, WorkspaceMain,
-  WorkspaceHeader, WorkspaceContent,
-  WorkspaceTable, WorkspaceTableTr, WorkspaceTableTd,
-  WorkspaceStatusBadge, WorkspaceFieldLabel,
-  LoadingCard, EmptyCard, ErrorBanner,
-  wsInputStyle, wsBtnPrimary, wsBtnSecondary, wsBtnAction,
-  type WorkspaceTab,
-} from '../../components/workspace';
 
 const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'machinery', 'retail_goods', 'mixed_freight', 'adr_goods', 'temperature_controlled_freight', 'equipment', 'other'];
 
