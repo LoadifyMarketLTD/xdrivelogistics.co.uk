@@ -148,85 +148,6 @@ main {
   min-height: 100vh;
 }
 
-/* ── Canonical authenticated workspace ────────────────────────────────── */
-
-.authenticated-workspace {
-  --background: 216 33% 97%;
-  --surface: 0 0% 100%;
-  --surface-raised: 210 40% 98%;
-  --surface-hover: 214 32% 96%;
-  --foreground: 222 47% 11%;
-  --muted-fg: 215 16% 47%;
-  --subtle-fg: 215 20% 65%;
-  --primary: 224 76% 48%;
-  --primary-fg: 0 0% 100%;
-  --primary-hover: 224 76% 42%;
-  --primary-muted: 214 95% 93%;
-  --border: 214 32% 91%;
-  --border-strong: 215 20% 80%;
-  --input: 214 32% 91%;
-  --ring: 224 76% 48%;
-  --xd-navy: #0f172a;
-  --xd-navy-mid: #334155;
-  --xd-gold: #1d4ed8;
-  --xd-gold-dark: #1e40af;
-  --xd-gold-subtle: #dbeafe;
-  --xd-green: #16a34a;
-  --xd-blue: #1d4ed8;
-  --xd-red: #dc2626;
-  --xd-amber: #d97706;
-  --xd-surface: #ffffff;
-  --xd-surface-2: #f8fafc;
-  --xd-border: #e2e8f0;
-  --xd-text: #0f172a;
-  --xd-text-muted: #64748b;
-  --xd-text-subtle: #94a3b8;
-  --shadow-xs: 0 1px 2px rgb(15 23 42 / 0.04);
-  --shadow-sm: 0 1px 3px rgb(15 23 42 / 0.08);
-  --shadow-md: 0 8px 24px rgb(15 23 42 / 0.08);
-  --shadow-lg: 0 16px 40px rgb(15 23 42 / 0.12);
-  --shadow-nav: 0 1px 0 rgb(226 232 240 / 1);
-  min-height: 100dvh;
-  background: #f5f7fa;
-  color: #0f172a;
-  font-family: var(--font-family);
-}
-
-.authenticated-workspace :is(button, input, select, textarea) {
-  font: inherit;
-}
-
-.authenticated-workspace :is(button, a, input, select, textarea):focus-visible {
-  outline: 2px solid #1d4ed8;
-  outline-offset: 2px;
-}
-
-.authenticated-workspace :is(input, select, textarea) {
-  border-color: #d1d5db;
-}
-
-.authenticated-workspace table {
-  border-color: #e2e8f0;
-}
-
-.authenticated-workspace thead {
-  background: #f8fafc;
-}
-
-.authenticated-workspace tbody tr:hover {
-  background: #fafbfc;
-}
-
-@media (max-width: 760px) {
-  .authenticated-workspace {
-    min-width: 0;
-  }
-
-  .authenticated-workspace main {
-    min-width: 0;
-  }
-}
-
 /* ── Utility classes ──────────────────────────────────────────────────── */
 
 @layer utilities {
@@ -318,3 +239,4 @@ input[type="radio"] {
     padding: 0;
   }
 }
+
