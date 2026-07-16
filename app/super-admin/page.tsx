@@ -5,19 +5,20 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { XdBadge, XdButton, XdCard } from '@/app/_components/xd';
 import { supabase } from '../../lib/supabaseClient';
+import { SUPER_ADMIN_THEME, superAdminCardStyle } from './_components/superAdminTheme';
 
 const THEME = {
-  pageBg: 'var(--background)',
-  cardBg: '#ffffff',
-  cardBorder: 'var(--xd-border)',
-  text: 'var(--background)',
-  muted: 'var(--xd-text-subtle)',
-  softMuted: 'var(--xd-text-subtle)',
-  blue: 'var(--xd-gold)',
-  green: 'var(--xd-green)',
-  amber: '#d97706',
-  red: 'var(--xd-red)',
-  ink: '#111827',
+  pageBg: SUPER_ADMIN_THEME.pageBg,
+  cardBg: SUPER_ADMIN_THEME.cardBg,
+  cardBorder: SUPER_ADMIN_THEME.cardBorder,
+  text: SUPER_ADMIN_THEME.text,
+  muted: SUPER_ADMIN_THEME.muted,
+  softMuted: SUPER_ADMIN_THEME.subtle,
+  blue: SUPER_ADMIN_THEME.primary,
+  green: SUPER_ADMIN_THEME.success,
+  amber: SUPER_ADMIN_THEME.warning,
+  red: SUPER_ADMIN_THEME.danger,
+  ink: SUPER_ADMIN_THEME.text,
 };
 
 type PlatformStats = {
@@ -46,7 +47,7 @@ type ModuleCard = {
 
 function KpiCard({ label, value, tone, loading }: { label: string; value: string | number; tone: string; loading: boolean }) {
   return (
-    <XdCard style={{ minHeight: '86px', padding: '0.7rem 0.75rem' }}>
+    <XdCard style={{ ...superAdminCardStyle, minHeight: '86px', padding: '0.7rem 0.75rem' }}>
       <div style={{ color: '#64748b', fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 850, marginBottom: '0.28rem' }}>{label}</div>
       <div style={{ color: tone, fontSize: '1.38rem', fontWeight: 900, lineHeight: 1.05 }}>{loading ? '...' : value}</div>
     </XdCard>
@@ -121,7 +122,7 @@ function DashboardContent() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1rem 1.15rem 1.4rem' }}>
-      <XdCard style={{ background: '#ffffff', padding: '1rem 1.1rem', marginBottom: '0.9rem' }}>
+      <XdCard style={{ ...superAdminCardStyle, padding: '1rem 1.1rem', marginBottom: '0.9rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
           <div>
             <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 850, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>Global Platform View</div>
@@ -134,10 +135,10 @@ function DashboardContent() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <XdButton onClick={() => router.push('/super-admin/companies/approvals')} variant="primary" style={{ background: THEME.amber, color: '#ffffff' }}>
+            <XdButton onClick={() => router.push('/super-admin/companies/approvals')} variant="primary" style={{ background: THEME.blue, color: '#ffffff' }}>
               Approvals
             </XdButton>
-            <XdButton onClick={() => router.push('/super-admin/health')} variant="secondary" style={{ background: '#ffffff', color: THEME.ink }}>
+            <XdButton onClick={() => router.push('/super-admin/health')} variant="secondary" style={{ background: '#ffffff', color: THEME.ink, borderColor: THEME.cardBorder }}>
               Platform Health
             </XdButton>
           </div>
@@ -157,19 +158,19 @@ function DashboardContent() {
       <section style={{ marginBottom: '0.9rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.72rem' }}>
           {modules.map((module) => (
-            <XdCard key={module.title} style={{ backgroundColor: THEME.cardBg, borderTop: `3px solid ${module.accent}`, padding: '0.9rem', minHeight: '184px' }}>
+            <XdCard key={module.title} style={{ ...superAdminCardStyle, borderTop: `3px solid ${module.accent}`, padding: '0.9rem', minHeight: '184px' }}>
               <div style={{ color: '#64748b', fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 850 }}>{module.eyebrow}</div>
               <h2 style={{ margin: '0.22rem 0 0.45rem', color: THEME.text, fontSize: '1rem', fontWeight: 850 }}>{module.title}</h2>
               <div style={{ color: module.accent, fontSize: '1.42rem', fontWeight: 900, lineHeight: 1 }}>{loading ? '...' : module.metric}</div>
               <div style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.1rem' }}>{module.metricLabel}</div>
               <p style={{ margin: '0.55rem 0 0.7rem', color: THEME.muted, fontSize: '0.78rem', lineHeight: 1.45 }}>{module.detail}</p>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <XdBadge variant="info">{module.metricLabel}</XdBadge>
+                <XdBadge variant="info" style={{ color: module.accent, borderColor: module.accent, background: '#ffffff' }}>{module.metricLabel}</XdBadge>
                 <XdButton
                   onClick={() => router.push(module.href)}
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
-                  style={{ color: module.accent, paddingInline: 0 }}
+                  style={{ color: module.accent, background: '#ffffff', borderColor: THEME.cardBorder }}
                 >
                   {module.secondary}
                 </XdButton>
@@ -180,32 +181,32 @@ function DashboardContent() {
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.72rem' }}>
-        <XdCard style={{ background: THEME.cardBg, padding: '0.95rem' }}>
+        <XdCard style={{ ...superAdminCardStyle, padding: '0.95rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.7rem', alignItems: 'center', marginBottom: '0.75rem' }}>
             <div>
               <h2 style={{ margin: 0, fontSize: '1rem', color: THEME.text }}>Live activity</h2>
               <p style={{ margin: '0.22rem 0 0', fontSize: '0.78rem', color: THEME.muted }}>Recent jobs, registrations, invoices and dispute movement.</p>
             </div>
-            <XdButton onClick={() => router.push('/super-admin/settings/audit-logs')} variant="ghost" size="sm">
+            <XdButton onClick={() => router.push('/super-admin/settings/audit-logs')} variant="secondary" size="sm" style={{ background: '#ffffff', color: THEME.text, borderColor: THEME.cardBorder }}>
               Audit log
             </XdButton>
           </div>
           <EmptyList>No live activity feed is wired into this compact view yet.</EmptyList>
         </XdCard>
 
-        <XdCard style={{ background: THEME.cardBg, padding: '0.95rem' }}>
+        <XdCard style={{ ...superAdminCardStyle, padding: '0.95rem' }}>
           <div style={{ marginBottom: '0.75rem' }}>
             <h2 style={{ margin: 0, fontSize: '1rem', color: THEME.text }}>Platform health</h2>
             <p style={{ margin: '0.22rem 0 0', fontSize: '0.78rem', color: THEME.muted }}>Queue, webhook, email and audit checks in one compact block.</p>
           </div>
           <div style={{ display: 'grid', gap: '0.48rem' }}>
             {healthRows.map((row) => (
-              <XdCard key={row.label} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.55rem 0.65rem' }}>
+              <XdCard key={row.label} style={{ background: '#f8fafc', border: `1px solid ${THEME.cardBorder}`, boxShadow: 'none', padding: '0.55rem 0.65rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
                   <span style={{ color: THEME.text, fontSize: '0.8rem', fontWeight: 800 }}>{row.label}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <XdBadge variant="info" style={{ color: row.tone, borderColor: row.tone }}>{row.value}</XdBadge>
-                    <XdButton onClick={() => router.push(row.href)} variant="ghost" size="sm">
+                    <XdBadge variant="info" style={{ color: row.tone, borderColor: row.tone, background: '#ffffff' }}>{row.value}</XdBadge>
+                    <XdButton onClick={() => router.push(row.href)} variant="secondary" size="sm" style={{ background: '#ffffff', color: THEME.text, borderColor: THEME.cardBorder }}>
                       Open
                     </XdButton>
                   </div>
@@ -215,7 +216,7 @@ function DashboardContent() {
           </div>
         </XdCard>
 
-        <XdCard style={{ background: THEME.cardBg, padding: '0.95rem' }}>
+        <XdCard style={{ ...superAdminCardStyle, padding: '0.95rem' }}>
           <div style={{ marginBottom: '0.75rem' }}>
             <h2 style={{ margin: 0, fontSize: '1rem', color: THEME.text }}>Governance actions</h2>
             <p style={{ margin: '0.22rem 0 0', fontSize: '0.78rem', color: THEME.muted }}>Fast access to the highest-risk owner controls.</p>
@@ -227,7 +228,7 @@ function DashboardContent() {
               ['Review dispute', '/super-admin/operations/disputes'],
               ['Audit change', '/super-admin/settings/audit-logs'],
             ].map(([label, href]) => (
-              <XdButton key={label} onClick={() => router.push(href)} variant="secondary" size="sm" style={{ background: '#ffffff', color: THEME.text }}>
+              <XdButton key={label} onClick={() => router.push(href)} variant="secondary" size="sm" style={{ background: '#ffffff', color: THEME.text, borderColor: THEME.cardBorder }}>
                 {label}
               </XdButton>
             ))}

@@ -6,14 +6,15 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { formatDateTime, routeSummary } from './superAdminFormatters';
+import { SUPER_ADMIN_THEME, superAdminCardStyle } from './superAdminTheme';
 
 const THEME = {
-  pageBg:     'var(--background)',
-  cardBg:     'var(--xd-surface)',
-  cardBorder: 'var(--xd-border)',
-  text:       'var(--xd-text)',
-  muted:      'var(--xd-text-muted)',
-  accent:     'var(--xd-gold)',
+  pageBg:     SUPER_ADMIN_THEME.pageBg,
+  cardBg:     SUPER_ADMIN_THEME.cardBg,
+  cardBorder: SUPER_ADMIN_THEME.cardBorder,
+  text:       SUPER_ADMIN_THEME.text,
+  muted:      SUPER_ADMIN_THEME.muted,
+  accent:     SUPER_ADMIN_THEME.primary,
 };
 
 interface SuperAdminModulePageProps {
@@ -129,13 +130,13 @@ export default function SuperAdminModulePage({
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.25rem' }}>
+        <div style={{ ...superAdminCardStyle, display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', padding: '1rem 1.1rem' }}>
           <span style={{ fontSize: '1.5rem' }}>{icon}</span>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>{title}</h1>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: THEME.accent, backgroundColor: SUPER_ADMIN_THEME.primarySoft, padding: '0.18rem 0.5rem', borderRadius: '999px' }}>
                 {section}
               </span>
             </div>
@@ -144,7 +145,7 @@ export default function SuperAdminModulePage({
         </div>
 
         {children ?? (
-          <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', padding: '1rem' }}>
+          <div style={{ ...superAdminCardStyle, padding: '1rem' }}>
             {dataError && (
               <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: '8px', padding: '0.65rem 0.9rem', color: '#ef4444', fontSize: '0.82rem', marginBottom: '1rem' }}>
                 ⚠️ {dataError}
@@ -160,7 +161,7 @@ export default function SuperAdminModulePage({
                 { label: 'Drivers', value: stats?.driversTotal ?? '—' },
                 { label: 'Unpaid invoices', value: stats?.invoicesUnpaid ?? '—' },
               ].map((item) => (
-                <div key={item.label} style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem' }}>
+                <div key={item.label} style={{ backgroundColor: '#f8fafc', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem' }}>
                   <div style={{ color: THEME.text, fontSize: '1rem', fontWeight: 700 }}>{loading ? '…' : item.value}</div>
                   <div style={{ color: THEME.muted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</div>
                 </div>
@@ -168,7 +169,7 @@ export default function SuperAdminModulePage({
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.75rem' }}>
-              <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
+              <div style={{ backgroundColor: '#f8fafc', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
                 <h3 style={{ margin: '0 0 0.5rem', color: THEME.text, fontSize: '0.84rem' }}>Recent platform jobs</h3>
                 {loading ? (
                   <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>Loading…</div>
@@ -191,7 +192,7 @@ export default function SuperAdminModulePage({
                 )}
               </div>
 
-              <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
+              <div style={{ backgroundColor: '#f8fafc', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
                 <h3 style={{ margin: '0 0 0.5rem', color: THEME.text, fontSize: '0.84rem' }}>Recent quote requests</h3>
                 {loading ? (
                   <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>Loading…</div>
@@ -228,7 +229,7 @@ export function BackToSuperAdminButton() {
   return (
     <button
       onClick={() => router.push('/super-admin')}
-      style={{ padding: '0.5rem 1rem', backgroundColor: THEME.accent, color: '#0f172a', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
+      style={{ padding: '0.5rem 1rem', backgroundColor: THEME.accent, color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
     >
       ← Back to Dashboard
     </button>
