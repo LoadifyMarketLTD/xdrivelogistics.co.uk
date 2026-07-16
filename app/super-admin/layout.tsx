@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function SuperAdminLayout({ children }: { children: ReactNode }) {
-  return <SuperAdminWorkspaceShell>{children}</SuperAdminWorkspaceShell>;
+  return <div className="authenticated-workspace"><SuperAdminWorkspaceShell>{children}</SuperAdminWorkspaceShell></div>;
 }
