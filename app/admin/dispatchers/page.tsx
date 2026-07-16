@@ -9,6 +9,22 @@ import { getMissingColumnFromError, selectWithMissingColumnFallback } from '../.
 import { useAdminCompanyContext } from '../_hooks/useAdminCompanyContext';
 import { usePasswordSetup } from '../_hooks/usePasswordSetup';
 import { getAccessToken } from '../_lib/getAccessToken';
+import {
+  WorkspaceShell,
+  WorkspaceMain,
+  WorkspaceContent,
+  WorkspaceTable,
+  WorkspaceTableTr,
+  WorkspaceTableTd,
+  WorkspaceStatusBadge,
+  WorkspaceFieldLabel,
+  LoadingCard,
+  EmptyCard,
+  ErrorBanner,
+  wsInputStyle,
+  wsBtnPrimary,
+  wsBtnSecondary,
+} from '../../components/workspace';
 
 type DispatcherMembership = Pick<
   CompanyMembership,
@@ -106,7 +122,7 @@ export default function DispatchersPage() {
           .limit(1);
 
         return {
-          data: ((result.data ?? []) as unknown) as Record<string, unknown>[],
+          data: (result.data ?? []) as unknown as Record<string, unknown>[],
           error: result.error,
         };
       },
@@ -216,24 +232,10 @@ export default function DispatchersPage() {
     return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleDateString();
   };
 
-  const inputStyle = {
-    width: '100%',
-    padding: '0.75rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '0.95rem',
-    boxSizing: 'border-box' as const,
-  };
-  const labelStyle = {
-    display: 'block',
-    fontSize: '0.9rem',
-    fontWeight: '500' as const,
-    color: '#374151',
-    marginBottom: '0.5rem',
-  };
   useEffect(() => {
     setDispatcherPage(0);
   }, [dispatchers.length]);
+
   const totalDispatcherPages = Math.max(1, Math.ceil(dispatchers.length / DISPATCHERS_PER_PAGE));
   const safeDispatcherPage = Math.min(dispatcherPage, totalDispatcherPages - 1);
   const paginatedDispatchers = dispatchers.slice(
@@ -243,119 +245,97 @@ export default function DispatchersPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1rem' }}>
-        <div style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Dispatchers</h1>
-              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Invite and recover dispatcher access for your company team</p>
-            </div>
-            <button
-              onClick={() => {
-                setCreatedDispatcher(null);
-                setCopiedTemporaryPassword(false);
-                setPasswordSetupState({ status: 'idle', message: '' });
-                setError('');
-                setShowModal(true);
-              }}
-              disabled={!companyResolved || !companyId || !canManageDispatchers}
-              style={{ padding: '0.75rem 1.5rem', backgroundColor: !companyResolved || !companyId || !canManageDispatchers ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: !companyResolved || !companyId || !canManageDispatchers ? 'not-allowed' : 'pointer' }}
-            >
-              + Add Dispatcher
-            </button>
-          </div>
-
-          {companyResolved && companyId && !canManageDispatchers ? (
-            <div style={{ backgroundColor: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#1d4ed8' }}>
-              Only company owners and admins can onboard dispatcher accounts.
-            </div>
-          ) : null}
-
-          {companyError && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
-              {companyError}
-            </div>
-          )}
-
-          {!isSupabaseConfigured && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
-              ⚠️ Supabase is not configured. Database features are disabled.
-            </div>
-          )}
-
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            {!companyResolved || loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
-            ) : !companyId ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-                <p>Company profile not available. Dispatcher onboarding is hidden until company access resolves.</p>
-              </div>
-            ) : dispatchers.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎛️</div>
-                <p>No dispatchers onboarded yet. Add your first dispatcher.</p>
-              </div>
-            ) : (
-              <>
-              <div style={{ overflowX: 'auto', width: '100%' }}>
-                <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                      {['Email', 'Role', 'Status', 'Linked User', 'Created'].map((heading) => (
-                        <th key={heading} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{heading}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedDispatchers.map((dispatcher, index) => (
-                      <tr key={dispatcher.id} style={{ borderBottom: index < paginatedDispatchers.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                        <td style={{ padding: '1rem', color: '#1f2937', fontWeight: 600 }}>{dispatcher.invited_email ?? '—'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>Dispatcher</td>
-                        <td style={{ padding: '1rem' }}>
-                          <span style={{ backgroundColor: dispatcher.status === 'active' ? '#d1fae5' : '#fee2e2', color: dispatcher.status === 'active' ? '#166534' : '#991b1b', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
-                            {dispatcher.status}
-                          </span>
-                        </td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{dispatcher.user_id ? 'Linked' : 'Pending link'}</td>
-                        <td style={{ padding: '1rem', color: '#6b7280' }}>{formatDate(dispatcher.created_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {dispatchers.length > DISPATCHERS_PER_PAGE && (
-                <div style={{ borderTop: '1px solid #e5e7eb', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#6b7280' }}>
-                  <span>
-                    Showing {safeDispatcherPage * DISPATCHERS_PER_PAGE + 1}–{Math.min((safeDispatcherPage + 1) * DISPATCHERS_PER_PAGE, dispatchers.length)} of {dispatchers.length}
-                  </span>
-                  <div style={{ display: 'flex', gap: '0.45rem' }}>
-                    <button
-                      onClick={() => setDispatcherPage((prev) => Math.max(prev - 1, 0))}
-                      disabled={safeDispatcherPage === 0}
-                      style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeDispatcherPage === 0 ? '#f9fafb' : '#fff', cursor: safeDispatcherPage === 0 ? 'not-allowed' : 'pointer' }}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => setDispatcherPage((prev) => Math.min(prev + 1, totalDispatcherPages - 1))}
-                      disabled={safeDispatcherPage >= totalDispatcherPages - 1}
-                      style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeDispatcherPage >= totalDispatcherPages - 1 ? '#f9fafb' : '#fff', cursor: safeDispatcherPage >= totalDispatcherPages - 1 ? 'not-allowed' : 'pointer' }}
-                    >
-                      Next
-                    </button>
-                  </div>
+      <WorkspaceShell>
+        <WorkspaceMain>
+          <WorkspaceContent>
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div>
+                  <h1 style={{ fontSize: '2rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>Dispatchers</h1>
+                  <p style={{ color: '#6b7280', margin: '0.5rem 0 0' }}>Invite and recover dispatcher access for your company team</p>
                 </div>
-              )}
-              </>
-            )}
-          </div>
-        </div>
+                <button
+                  onClick={() => {
+                    setCreatedDispatcher(null);
+                    setCopiedTemporaryPassword(false);
+                    setPasswordSetupState({ status: 'idle', message: '' });
+                    setError('');
+                    setShowModal(true);
+                  }}
+                  disabled={!companyResolved || !companyId || !canManageDispatchers}
+                  style={{
+                    ...wsBtnPrimary,
+                    flex: '0 0 auto',
+                    padding: '0.75rem 1.5rem',
+                    fontSize: '0.95rem',
+                    borderRadius: '8px',
+                    backgroundColor: !companyResolved || !companyId || !canManageDispatchers ? '#9ca3af' : '#1F7A3D',
+                    cursor: !companyResolved || !companyId || !canManageDispatchers ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  + Add Dispatcher
+                </button>
+              </div>
 
-        {showModal && (
+              {companyResolved && companyId && !canManageDispatchers ? (
+                <div style={{ backgroundColor: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '8px', padding: '1rem', color: '#1d4ed8' }}>
+                  Only company owners and admins can onboard dispatcher accounts.
+                </div>
+              ) : null}
+
+              {companyError ? <ErrorBanner msg={companyError} /> : null}
+
+              {!isSupabaseConfigured ? (
+                <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', color: '#92400e' }}>
+                  ⚠️ Supabase is not configured. Database features are disabled.
+                </div>
+              ) : null}
+
+              {!companyResolved || loading ? (
+                <LoadingCard text="Loading dispatchers…" />
+              ) : !companyId ? (
+                <EmptyCard icon="🏢" text="Company profile not available. Dispatcher onboarding is hidden until company access resolves." />
+              ) : dispatchers.length === 0 ? (
+                <EmptyCard icon="🎛️" text="No dispatchers onboarded yet. Add your first dispatcher." />
+              ) : (
+                <WorkspaceTable
+                  columns={['Email', 'Role', 'Status', 'Linked User', 'Created']}
+                  minWidth="760px"
+                  pagination={{
+                    page: safeDispatcherPage,
+                    total: dispatchers.length,
+                    perPage: DISPATCHERS_PER_PAGE,
+                    onPrev: () => setDispatcherPage((prev) => Math.max(prev - 1, 0)),
+                    onNext: () => setDispatcherPage((prev) => Math.min(prev + 1, totalDispatcherPages - 1)),
+                  }}
+                >
+                  {paginatedDispatchers.map((dispatcher, index) => (
+                    <WorkspaceTableTr key={dispatcher.id} last={index === paginatedDispatchers.length - 1}>
+                      <WorkspaceTableTd style={{ color: '#1f2937', fontWeight: 600 }}>{dispatcher.invited_email ?? '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#6b7280' }}>Dispatcher</WorkspaceTableTd>
+                      <WorkspaceTableTd>
+                        <WorkspaceStatusBadge
+                          bg={dispatcher.status === 'active' ? '#d1fae5' : '#fee2e2'}
+                          color={dispatcher.status === 'active' ? '#166534' : '#991b1b'}
+                        >
+                          {dispatcher.status}
+                        </WorkspaceStatusBadge>
+                      </WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#6b7280' }}>{dispatcher.user_id ? 'Linked' : 'Pending link'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#6b7280' }}>{formatDate(dispatcher.created_at)}</WorkspaceTableTd>
+                    </WorkspaceTableTr>
+                  ))}
+                </WorkspaceTable>
+              )}
+            </div>
+          </WorkspaceContent>
+        </WorkspaceMain>
+
+        {showModal ? (
           <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
             <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '520px', maxHeight: '90vh', overflow: 'auto' }}>
               <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Add Dispatcher</h2>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1f2937' }}>Add Dispatcher</h2>
                 <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
               </div>
 
@@ -366,8 +346,8 @@ export default function DispatchersPage() {
                       {createdDispatcher.onboardingOutcome === 'invite_sent'
                         ? 'Dispatcher invited successfully. A password setup email was sent.'
                         : createdDispatcher.onboardingOutcome === 'temporary_password_created'
-                        ? 'Dispatcher created with a temporary password because invite delivery failed.'
-                        : 'Dispatcher account linked without sending a fresh invite.'}
+                          ? 'Dispatcher created with a temporary password because invite delivery failed.'
+                          : 'Dispatcher account linked without sending a fresh invite.'}
                     </div>
 
                     <div style={{ fontSize: '0.88rem', color: '#334155', lineHeight: 1.6 }}>
@@ -413,14 +393,33 @@ export default function DispatchersPage() {
 
                   <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
                     {createdDispatcher.temporaryPassword ? (
-                      <button onClick={handleCopyTemporaryPassword} style={{ padding: '0.75rem 1rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
+                      <button
+                        onClick={handleCopyTemporaryPassword}
+                        style={{
+                          ...wsBtnSecondary,
+                          padding: '0.75rem 1rem',
+                          border: 'none',
+                          backgroundColor: '#e0f2fe',
+                          color: '#075985',
+                          fontWeight: 600,
+                        }}
+                      >
                         Copy temporary password
                       </button>
                     ) : null}
                     <button
                       onClick={handleSendPasswordSetup}
                       disabled={passwordSetupState.status === 'sending' || Date.now() < passwordSetupCooldownUntil}
-                      style={{ padding: '0.75rem 1rem', backgroundColor: '#1d4ed8', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: passwordSetupState.status === 'sending' || Date.now() < passwordSetupCooldownUntil ? 'not-allowed' : 'pointer' }}
+                      style={{
+                        ...wsBtnSecondary,
+                        padding: '0.75rem 1rem',
+                        border: 'none',
+                        backgroundColor: '#1d4ed8',
+                        color: 'white',
+                        fontWeight: 600,
+                        cursor: passwordSetupState.status === 'sending' || Date.now() < passwordSetupCooldownUntil ? 'not-allowed' : 'pointer',
+                        opacity: passwordSetupState.status === 'sending' || Date.now() < passwordSetupCooldownUntil ? 0.7 : 1,
+                      }}
                     >
                       {passwordSetupState.status === 'sending'
                         ? 'Sending...'
@@ -428,7 +427,10 @@ export default function DispatchersPage() {
                           ? `Retry in ${Math.ceil((passwordSetupCooldownUntil - Date.now()) / 1000)}s`
                           : 'Send password setup email'}
                     </button>
-                    <button onClick={closeModal} style={{ padding: '0.75rem 1rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
+                    <button
+                      onClick={closeModal}
+                      style={{ ...wsBtnPrimary, flex: '0 0 auto', padding: '0.75rem 1rem', borderRadius: '8px' }}
+                    >
                       Done
                     </button>
                   </div>
@@ -436,34 +438,80 @@ export default function DispatchersPage() {
               ) : (
                 <>
                   <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                    {error ? <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div> : null}
-                    <div>
-                      <label style={labelStyle}>Full Name *</label>
-                      <input style={inputStyle} value={formData.display_name} onChange={(event) => setFormData({ ...formData, display_name: event.target.value })} placeholder="Alex Dispatcher" />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Company</label>
-                      <input style={{ ...inputStyle, backgroundColor: '#f9fafb', color: '#6b7280' }} value={companyName} disabled readOnly />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Email *</label>
-                      <input style={inputStyle} type="email" value={formData.email} onChange={(event) => setFormData({ ...formData, email: event.target.value })} placeholder="dispatcher@email.com" />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Phone</label>
-                      <input style={inputStyle} value={formData.phone} onChange={(event) => setFormData({ ...formData, phone: event.target.value })} placeholder="07123456789" />
-                    </div>
+                    {error ? <ErrorBanner msg={error} /> : null}
+                    <label style={{ display: 'block' }}>
+                      <WorkspaceFieldLabel>Full Name *</WorkspaceFieldLabel>
+                      <input
+                        style={{ ...wsInputStyle, marginBottom: 0, padding: '0.75rem', borderRadius: '6px', fontSize: '0.95rem' }}
+                        value={formData.display_name}
+                        onChange={(event) => setFormData({ ...formData, display_name: event.target.value })}
+                        placeholder="Alex Dispatcher"
+                      />
+                    </label>
+                    <label style={{ display: 'block' }}>
+                      <WorkspaceFieldLabel>Company</WorkspaceFieldLabel>
+                      <input
+                        style={{ ...wsInputStyle, marginBottom: 0, padding: '0.75rem', borderRadius: '6px', fontSize: '0.95rem', backgroundColor: '#f9fafb', color: '#6b7280' }}
+                        value={companyName}
+                        disabled
+                        readOnly
+                      />
+                    </label>
+                    <label style={{ display: 'block' }}>
+                      <WorkspaceFieldLabel>Email *</WorkspaceFieldLabel>
+                      <input
+                        style={{ ...wsInputStyle, marginBottom: 0, padding: '0.75rem', borderRadius: '6px', fontSize: '0.95rem' }}
+                        type="email"
+                        value={formData.email}
+                        onChange={(event) => setFormData({ ...formData, email: event.target.value })}
+                        placeholder="dispatcher@email.com"
+                      />
+                    </label>
+                    <label style={{ display: 'block' }}>
+                      <WorkspaceFieldLabel>Phone</WorkspaceFieldLabel>
+                      <input
+                        style={{ ...wsInputStyle, marginBottom: 0, padding: '0.75rem', borderRadius: '6px', fontSize: '0.95rem' }}
+                        value={formData.phone}
+                        onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
+                        placeholder="07123456789"
+                      />
+                    </label>
                   </div>
                   <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                    <button onClick={closeModal} disabled={creating} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: creating ? 'not-allowed' : 'pointer' }}>Cancel</button>
-                    <button onClick={handleCreate} disabled={creating} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: creating ? 'not-allowed' : 'pointer' }}>{creating ? 'Creating...' : 'Add Dispatcher'}</button>
+                    <button
+                      onClick={closeModal}
+                      disabled={creating}
+                      style={{
+                        ...wsBtnSecondary,
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '8px',
+                        color: '#374151',
+                        cursor: creating ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreate}
+                      disabled={creating}
+                      style={{
+                        ...wsBtnPrimary,
+                        flex: '0 0 auto',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '8px',
+                        cursor: creating ? 'not-allowed' : 'pointer',
+                        opacity: creating ? 0.7 : 1,
+                      }}
+                    >
+                      {creating ? 'Creating...' : 'Add Dispatcher'}
+                    </button>
                   </div>
                 </>
               )}
             </div>
           </div>
-        )}
-      </div>
+        ) : null}
+      </WorkspaceShell>
     </ProtectedRoute>
   );
 }
