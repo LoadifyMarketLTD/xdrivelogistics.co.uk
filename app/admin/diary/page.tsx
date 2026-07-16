@@ -4,6 +4,23 @@ import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
+import {
+  WorkspaceShell,
+  WorkspaceAside,
+  WorkspaceMain,
+  WorkspaceHeader,
+  WorkspaceContent,
+  WorkspaceStatusBadge,
+  WorkspaceFieldLabel,
+  LoadingCard,
+  EmptyCard,
+  ErrorBanner,
+  wsInputStyle,
+  wsBtnPrimary,
+  wsBtnSecondary,
+  wsBtnAction,
+  type WorkspaceTab,
+} from '../../components/workspace';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
@@ -346,28 +363,32 @@ export default function DiaryPage() {
     return jobs.filter((job) => lane.statuses.includes(normalizeStatus(job.status)));
   }, [jobs, activeTab]);
 
+  const wsTabs = useMemo<WorkspaceTab[]>(() => [
+    { id: 'all', label: 'All', count: jobs.length },
+    ...LANE_CONFIG.map((lane) => ({ id: lane.key, label: lane.label, count: (grouped.get(lane.key) ?? []).length })),
+  ], [grouped, jobs.length]);
+
   return (
     <ProtectedRoute>
-      <div style={{ display: 'flex', height: 'calc(100vh - 89px)', overflow: 'hidden', background: '#f5f7fa' }}>
-        <aside style={{ width: '200px', flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', padding: '0.85rem', overflowY: 'auto', fontSize: '0.78rem' }}>
-          <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.6rem', fontSize: '0.8rem' }}>Search Panel</div>
-          <div style={{ marginBottom: '0.55rem' }}><div style={labelStyle}>View</div><select style={panelInput}><option>All</option><option>Jobs Sub-contracted</option><option>Our Bookings</option></select></div>
-          <div style={{ marginBottom: '0.55rem' }}><div style={labelStyle}>Date</div><select style={panelInput}><option>Anytime</option><option>Today</option><option>This Week</option><option>Last 30 Days</option></select></div>
-          <div style={{ marginBottom: '0.55rem' }}><div style={labelStyle}>Pickup Time Within</div><select style={panelInput}><option>Any</option><option>1 hour</option><option>2 hours</option><option>4 hours</option></select></div>
-          <div style={{ marginBottom: '0.55rem' }}><div style={labelStyle}>Load ID / Ref</div><input placeholder="Search..." style={panelInput} /></div>
-          <div style={{ marginBottom: '0.55rem' }}><div style={labelStyle}>Driver</div><select style={panelInput}><option value="">Any driver</option>{drivers.map((driver) => (<option key={driver.id} value={driver.id}>{driver.display_name}</option>))}</select></div>
-          <div style={{ marginBottom: '0.85rem' }}><div style={labelStyle}>Customer Name</div><input placeholder="Search..." style={panelInput} /></div>
-          <div style={{ display: 'flex', gap: '0.4rem' }}><button onClick={() => void loadJobs()} style={greenButton}>Search</button><button style={smallGhostButton}>Clear</button></div>
-        </aside>
+      <WorkspaceShell>
+        <WorkspaceAside title="🔍 Search Diary">
+          <div style={{ marginBottom: '0.55rem' }}><WorkspaceFieldLabel>View</WorkspaceFieldLabel><select style={wsInputStyle}><option>All</option><option>Jobs Sub-contracted</option><option>Our Bookings</option></select></div>
+          <div style={{ marginBottom: '0.55rem' }}><WorkspaceFieldLabel>Date</WorkspaceFieldLabel><select style={wsInputStyle}><option>Anytime</option><option>Today</option><option>This Week</option><option>Last 30 Days</option></select></div>
+          <div style={{ marginBottom: '0.55rem' }}><WorkspaceFieldLabel>Pickup Time Within</WorkspaceFieldLabel><select style={wsInputStyle}><option>Any</option><option>1 hour</option><option>2 hours</option><option>4 hours</option></select></div>
+          <div style={{ marginBottom: '0.55rem' }}><WorkspaceFieldLabel>Load ID / Ref</WorkspaceFieldLabel><input placeholder="Search..." style={wsInputStyle} /></div>
+          <div style={{ marginBottom: '0.55rem' }}><WorkspaceFieldLabel>Driver</WorkspaceFieldLabel><select style={wsInputStyle}><option value="">Any driver</option>{drivers.map((driver) => (<option key={driver.id} value={driver.id}>{driver.display_name}</option>))}</select></div>
+          <div style={{ marginBottom: '0.85rem' }}><WorkspaceFieldLabel>Customer Name</WorkspaceFieldLabel><input placeholder="Search..." style={wsInputStyle} /></div>
+          <div style={{ display: 'flex', gap: '0.4rem' }}><button onClick={() => void loadJobs()} style={wsBtnPrimary}>Search</button><button style={wsBtnSecondary}>Clear</button></div>
+        </WorkspaceAside>
 
-        <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0.45rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: '1rem' }}><div style={{ fontSize: '0.82rem', color: '#374151', fontWeight: 600 }}>Diary - {jobs.length} bookings</div><button onClick={() => void loadJobs()} style={smallGhostButton}>Refresh</button></div>
-          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 0.85rem', display: 'flex', alignItems: 'center', flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
-            {[{ key: 'all', label: 'All', count: jobs.length }, ...LANE_CONFIG.map((lane) => ({ key: lane.key, label: lane.label, count: (grouped.get(lane.key) ?? []).length }))].map((tab) => (<button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ padding: '0.6rem 0.8rem', border: 'none', borderBottom: activeTab === tab.key ? '2px solid #1d4ed8' : '2px solid transparent', background: 'none', cursor: 'pointer', fontSize: '0.73rem', fontWeight: 700, color: activeTab === tab.key ? '#1d4ed8' : '#64748b', whiteSpace: 'nowrap', flexShrink: 0, marginBottom: '-1px' }}>{tab.label}{tab.count > 0 && (<span style={{ marginLeft: '0.3rem', background: activeTab === tab.key ? '#dbeafe' : '#f1f5f9', color: activeTab === tab.key ? '#1d4ed8' : '#64748b', borderRadius: '8px', padding: '0.05rem 0.4rem', fontSize: '0.68rem' }}>{tab.count}</span>)}</button>))}
-          </div>
-          {message && (<div style={{ margin: '0.5rem 0.85rem', padding: '0.5rem 0.85rem', borderRadius: '6px', background: message.startsWith('Failed') ? '#fee2e2' : '#dcfce7', color: message.startsWith('Failed') ? '#991b1b' : '#166534', fontSize: '0.82rem', fontWeight: 600 }}>{message}</div>)}
-          <div style={{ padding: '0.75rem', flex: 1, overflowY: 'auto' }}>
-            {loading ? (<div style={emptyCard}>Loading diary...</div>) : filteredJobs.length === 0 ? (<div style={emptyCard}><div style={{ fontSize: '0.88rem' }}>No bookings in this category.</div></div>) : (
+        <WorkspaceMain>
+          <WorkspaceHeader tabs={wsTabs} activeTab={activeTab} onTabChange={setActiveTab} action={<button onClick={() => void loadJobs()} style={wsBtnAction}>↻ Refresh</button>} />
+          <WorkspaceContent>
+            <div style={{ fontSize: '0.82rem', color: '#374151', fontWeight: 600, marginBottom: '0.75rem' }}>Diary - {jobs.length} bookings</div>
+            {message && (message.startsWith('Failed')
+              ? <ErrorBanner msg={message} />
+              : <div style={{ marginBottom: '0.75rem', padding: '0.5rem 0.85rem', borderRadius: '6px', background: '#dcfce7', color: '#166534', fontSize: '0.82rem', fontWeight: 600 }}>{message}</div>)}
+            {loading ? <LoadingCard text="Loading diary…" /> : filteredJobs.length === 0 ? <EmptyCard icon="📋" text="No bookings in this category." /> : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {filteredJobs.map((job) => {
                   const normalizedStatus = normalizeStatus(job.status);
@@ -382,7 +403,7 @@ export default function DiaryPage() {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.75rem', padding: '0.75rem 1rem', alignItems: 'start' }}>
                         <div><div style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline' }}><span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, minWidth: '28px' }}>From:</span><span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.85rem' }}>{job.client_name || job.booked_by_company_name || 'Contact N/A'}</span></div><div style={{ fontSize: '0.8rem', color: '#374151', marginLeft: '36px', marginTop: '0.1rem' }}>{job.pickup_location || '-'}</div><div style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline', marginTop: '0.4rem' }}><span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, minWidth: '28px' }}>To:</span><span style={{ fontWeight: 600, color: '#374151', fontSize: '0.82rem' }}>{job.delivery_location || '-'}</span></div></div>
                         <div><div style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline' }}><span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, minWidth: '58px' }}>Pickup:</span><span style={{ fontSize: '0.8rem', color: '#374151' }}>{formatDate(job.pickup_datetime ?? job.updated_at)}</span></div><div style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline', marginTop: '0.2rem' }}><span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, minWidth: '58px' }}>Vehicle:</span><span style={{ fontSize: '0.78rem', color: '#64748b' }}>{job.vehicle_type ? job.vehicle_type.replace(/_/g, ' ') : '-'}</span></div><div style={{ marginTop: '0.35rem', fontSize: '0.68rem', color: '#64748b', lineHeight: 1.35 }}>{job.on_my_way_at && <div>On way: {formatDateTime(job.on_my_way_at)}</div>}{job.on_site_pickup_at && <div>Pickup site: {formatDateTime(job.on_site_pickup_at)}</div>}{job.loaded_at && <div>Loaded: {formatDateTime(job.loaded_at)}</div>}{job.on_site_delivery_at && <div>Delivery site: {formatDateTime(job.on_site_delivery_at)}</div>}{job.delivered_at && <div>Delivered: {formatDateTime(job.delivered_at)}</div>}</div></div>
-                        <div style={{ minWidth: '140px', textAlign: 'right' }}><span style={{ display: 'inline-block', background: badge.bg, color: badge.color, padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.73rem', fontWeight: 700 }}>{badge.label}</span><div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '0.4rem' }}>Load ID: {(job.load_id || job.id).slice(0, 8).toUpperCase()}</div></div>
+                        <div style={{ minWidth: '140px', textAlign: 'right' }}><WorkspaceStatusBadge bg={badge.bg} color={badge.color}>{badge.label}</WorkspaceStatusBadge><div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '0.4rem' }}>Load ID: {(job.load_id || job.id).slice(0, 8).toUpperCase()}</div></div>
                       </div>
                       <div style={{ borderTop: '1px solid #f1f5f9', padding: '0.4rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#fafbfc', flexWrap: 'wrap' }}>
                         {isUnallocated && (<><select value={assignmentDrafts[job.id] ?? ''} onChange={(event) => setAssignmentDrafts((prev) => ({ ...prev, [job.id]: event.target.value }))} style={{ padding: '0.28rem 0.5rem', border: '1px solid #e2e8f0', borderRadius: '5px', fontSize: '0.75rem', background: '#fff', color: '#374151', maxWidth: '180px' }}><option value="">Assign driver...</option>{drivers.map((driver) => (<option key={driver.id} value={driver.id}>{driver.display_name}</option>))}</select><button onClick={() => void handleAssignDriver(job)} disabled={!assignmentDrafts[job.id] || assigningJobId === job.id} style={{ padding: '0.28rem 0.65rem', border: 'none', borderRadius: '5px', background: !assignmentDrafts[job.id] ? '#e2e8f0' : '#0f766e', color: !assignmentDrafts[job.id] ? '#94a3b8' : '#fff', cursor: !assignmentDrafts[job.id] ? 'not-allowed' : 'pointer', fontSize: '0.73rem', fontWeight: 700 }}>{assigningJobId === job.id ? 'Assigning...' : 'Assign'}</button><div style={separator} /></>)}
@@ -396,9 +417,9 @@ export default function DiaryPage() {
                 })}
               </div>
             )}
-          </div>
-        </main>
-      </div>
+          </WorkspaceContent>
+        </WorkspaceMain>
+      </WorkspaceShell>
 
       {activeModal && selectedJob && (<div style={modalBackdrop}><div style={modalBox}><div style={modalHeader}><strong>{activeModal === 'order' && `Order - ${(selectedJob.load_id || selectedJob.id).slice(0, 8).toUpperCase()}`}{activeModal === 'notes' && 'Internal Notes'}{activeModal === 'history' && `History - ${(selectedJob.load_id || selectedJob.id).slice(0, 8).toUpperCase()}`}{activeModal === 'documents' && 'Load Documents'}{activeModal === 'pod' && 'Upload POD'}</strong><button onClick={closeModal} style={closeButton}>-</button></div><div style={modalBody}>
         {activeModal === 'order' && (<div style={grid2}><Info label="Load ID" value={selectedJob.load_id || selectedJob.id} /><Info label="Status" value={STATUS_BADGE[normalizeStatus(selectedJob.status)]?.label || selectedJob.status} /><Info label="From" value={selectedJob.pickup_location} /><Info label="To" value={selectedJob.delivery_location} /><Info label="Pickup" value={formatDateTime(selectedJob.pickup_datetime)} /><Info label="Delivery" value={formatDateTime(selectedJob.delivery_datetime)} /><Info label="Customer" value={selectedJob.client_name || selectedJob.booked_by_company_name} /><Info label="Phone" value={selectedJob.client_phone || selectedJob.booked_by_phone} /><Info label="Vehicle" value={selectedJob.vehicle_type || selectedJob.requested_vehicle_type} /><Info label="Agreed Rate" value={money(selectedJob.agreed_rate_gbp ?? selectedJob.agreed_rate)} /><Info label="Customer Ref" value={selectedJob.customer_ref || selectedJob.cust_ref} /><Info label="Your Ref" value={selectedJob.your_ref || selectedJob.load_ref} /><div style={{ gridColumn: '1 / -1' }}><Info label="Load Notes" value={selectedJob.load_notes || '-'} /></div></div>)}
@@ -416,13 +437,11 @@ function Info({ label, value }: { label: string; value: string | number | null |
 function TimelineRow({ label, value }: { label: string; value: string }) { return (<div style={listItem}><div style={{ fontWeight: 800, color: '#0f172a' }}>{label}</div><div style={{ color: value === '-' ? '#94a3b8' : '#334155', marginTop: '0.15rem' }}>{value}</div></div>); }
 
 const labelStyle: CSSProperties = { fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' };
-const panelInput: CSSProperties = { width: '100%', padding: '0.35rem 0.45rem', border: '1px solid #e2e8f0', borderRadius: '4px', fontSize: '0.76rem', color: '#374151', background: '#fff', marginBottom: '0', boxSizing: 'border-box' };
 const greenButton: CSSProperties = { background: '#16a34a', color: '#fff', border: 'none', borderRadius: '5px', padding: '0.5rem 0.75rem', fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer' };
 const greenOutlineButton: CSSProperties = { padding: '0.28rem 0.7rem', border: '1px solid #16a34a', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.73rem', color: '#166534', fontWeight: 800 };
 const smallGhostButton: CSSProperties = { padding: '0.28rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.73rem', color: '#374151', fontWeight: 600 };
 const dangerButton: CSSProperties = { padding: '0.28rem 0.6rem', border: '1px solid #fecaca', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.73rem', color: '#991b1b', fontWeight: 700 };
 const separator: CSSProperties = { width: '1px', height: '20px', background: '#e2e8f0' };
-const emptyCard: CSSProperties = { background: '#fff', borderRadius: '8px', padding: '2rem', textAlign: 'center', color: '#64748b', border: '1px solid #e2e8f0' };
 const modalBackdrop: CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' };
 const modalBox: CSSProperties = { width: 'min(900px, 96vw)', maxHeight: '88vh', overflow: 'auto', background: '#fff', borderRadius: '10px', boxShadow: '0 20px 60px rgba(15, 23, 42, 0.35)', border: '1px solid #e2e8f0' };
 const modalHeader: CSSProperties = { padding: '0.8rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#0f172a' };

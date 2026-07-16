@@ -3,6 +3,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import {
+  WorkspaceShell, WorkspaceAside, WorkspaceMain,
+  WorkspaceHeader, WorkspaceContent,
+  WorkspaceTable, WorkspaceTableTr, WorkspaceTableTd,
+  WorkspaceStatusBadge, WorkspaceFieldLabel,
+  LoadingCard, EmptyCard, ErrorBanner,
+  wsInputStyle, wsBtnPrimary, wsBtnSecondary,
+  type WorkspaceTab,
+} from '../../components/workspace';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Quote, VehicleType, CargoType, Company } from '../../../lib/types/database';
 import { VEHICLE_GROUPS, VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
@@ -210,32 +219,34 @@ export default function QuotesPage() {
   const totalQuotePages = Math.max(1, Math.ceil(filteredQuotes.length / QUOTES_PER_PAGE));
   const safeQuotePage = Math.min(quotePage, totalQuotePages - 1);
   const paginatedQuotes = filteredQuotes.slice(safeQuotePage * QUOTES_PER_PAGE, (safeQuotePage + 1) * QUOTES_PER_PAGE);
+  const wsTabs: WorkspaceTab[] = QUOTE_TABS.map((t) => ({
+    id: t.id,
+    label: t.label,
+    count: quotes.filter((q) => t.statuses.includes((q.status || '').toLowerCase())).length,
+  }));
 
   return (
     <ProtectedRoute>
-      <div style={{ display: 'flex', height: 'calc(100vh - 89px)', overflow: 'hidden', background: '#f5f7fa' }}>
-
-        {/* ── Left search panel ───────────────────────────────────────────── */}
-        <aside style={{ width: '200px', flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', padding: '0.85rem', overflowY: 'auto', fontSize: '0.78rem' }}>
-          <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.7rem', fontSize: '0.8rem' }}>🔍 Search Quotes</div>
+      <WorkspaceShell>
+        <WorkspaceAside title="🔍 Search Quotes">
 
           {!isSupabaseConfigured && (
             <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '5px', padding: '0.45rem', marginBottom: '0.6rem', color: '#92400e', fontSize: '0.7rem' }}>⚠️ Supabase not configured</div>
           )}
 
           <div style={{ marginBottom: '0.5rem' }}>
-            <div style={qlabelStyle}>CUSTOMER / LOCATION</div>
+            <WorkspaceFieldLabel>CUSTOMER / LOCATION</WorkspaceFieldLabel>
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search…"
-              style={qInputStyle}
+              style={wsInputStyle}
             />
           </div>
 
           <div style={{ marginBottom: '0.5rem' }}>
-            <div style={qlabelStyle}>VEHICLE SIZE</div>
-            <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={qInputStyle}>
+            <WorkspaceFieldLabel>VEHICLE SIZE</WorkspaceFieldLabel>
+            <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={wsInputStyle}>
               <option value="all">Any</option>
               {VEHICLE_GROUPS.map(([group, options]) => (
                 <optgroup key={group} label={group}>
@@ -248,8 +259,8 @@ export default function QuotesPage() {
           </div>
 
           <div style={{ marginBottom: '0.9rem' }}>
-            <div style={qlabelStyle}>DATE</div>
-            <select style={qInputStyle}>
+            <WorkspaceFieldLabel>DATE</WorkspaceFieldLabel>
+            <select style={wsInputStyle}>
               <option>Anytime</option>
               <option>Today</option>
               <option>This Week</option>
@@ -258,150 +269,89 @@ export default function QuotesPage() {
           </div>
 
           <div style={{ display: 'flex', gap: '0.4rem' }}>
-            <button style={{ flex: 1, background: '#16a34a', color: '#fff', border: 'none', borderRadius: '5px', padding: '0.5rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}>
+            <button style={wsBtnPrimary}>
               Search
             </button>
-            <button onClick={() => { setSearchTerm(''); setVehicleFilter('all'); }} style={{ padding: '0.5rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.78rem', color: '#64748b' }}>
+            <button onClick={() => { setSearchTerm(''); setVehicleFilter('all'); }} style={wsBtnSecondary}>
               Clear
             </button>
           </div>
-        </aside>
+        </WorkspaceAside>
 
-        {/* ── Main content ─────────────────────────────────────────────────── */}
-        <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-
-          {/* Tab bar + New Quote button */}
-          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            <div style={{ display: 'flex', gap: 0 }}>
-              {QUOTE_TABS.map((tab) => {
-                const count = quotes.filter((q) => tab.statuses.includes((q.status || '').toLowerCase())).length;
-                const active = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    style={{
-                      padding: '0.65rem 0.85rem',
-                      border: 'none',
-                      borderBottom: active ? '2px solid #1d4ed8' : '2px solid transparent',
-                      background: 'none',
-                      cursor: 'pointer',
-                      fontSize: '0.73rem',
-                      fontWeight: 700,
-                      letterSpacing: '0.03em',
-                      color: active ? '#1d4ed8' : '#64748b',
-                      marginBottom: '-1px',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {tab.label}
-                    {count > 0 && (
-                      <span style={{ marginLeft: '0.3rem', background: active ? '#dbeafe' : '#f1f5f9', color: active ? '#1d4ed8' : '#64748b', borderRadius: '8px', padding: '0.05rem 0.38rem', fontSize: '0.68rem' }}>
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              onClick={() => setShowModal(true)}
-              style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.38rem 0.85rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              + New Quote
-            </button>
-          </div>
+        <WorkspaceMain>
+          <WorkspaceHeader
+            tabs={wsTabs}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            action={(
+              <button
+                onClick={() => setShowModal(true)}
+                style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.38rem 0.85rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                + New Quote
+              </button>
+            )}
+          />
+          <WorkspaceContent>
           {flowMessage && (
             <div style={{ margin: '0.85rem 0.85rem 0', background: '#ecfdf5', border: '1px solid #86efac', borderRadius: '8px', padding: '0.65rem 0.8rem', color: '#166534', fontSize: '0.82rem', fontWeight: 600 }}>
               {flowMessage}
             </div>
           )}
 
-          {/* Table */}
-          <div style={{ padding: '0.85rem', flex: 1, overflow: 'auto' }}>
-            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-              {loading ? (
-                <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>Loading…</div>
-              ) : filteredQuotes.length === 0 ? (
-                <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💬</div>
-                  <div style={{ fontSize: '0.88rem' }}>No quotes in this category.</div>
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                        {['Customer', 'Pickup', 'Delivery', 'Vehicle', 'Amount', 'Status', 'Created', 'Actions'].map((h) => (
-                          <th key={h} style={{ padding: '0.6rem 0.85rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedQuotes.map((q, i) => {
-                        const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
-                        return (
-                          <tr key={q.id} style={{ borderBottom: i < paginatedQuotes.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                            <td style={{ padding: '0.65rem 0.85rem', fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{q.customer_name || '—'}</td>
-                            <td style={{ padding: '0.65rem 0.85rem', color: '#374151', fontSize: '0.82rem' }}>{q.pickup_location || '—'}</td>
-                            <td style={{ padding: '0.65rem 0.85rem', color: '#374151', fontSize: '0.82rem' }}>{q.delivery_location || '—'}</td>
-                            <td style={{ padding: '0.65rem 0.85rem', color: '#64748b', fontSize: '0.8rem' }}>{(q.vehicle_type && VEHICLE_TYPE_LABELS[q.vehicle_type]) || q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
-                            <td style={{ padding: '0.65rem 0.85rem', fontWeight: 700, color: '#0f172a', fontSize: '0.85rem' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
-                            <td style={{ padding: '0.65rem 0.85rem' }}>
-                              <span style={{ background: sc.bg, color: sc.text, padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>{q.status}</span>
-                            </td>
-                            <td style={{ padding: '0.65rem 0.85rem', color: '#94a3b8', fontSize: '0.78rem' }}>{new Date(q.created_at).toLocaleDateString('en-GB')}</td>
-                            <td style={{ padding: '0.65rem 0.85rem' }}>
-                              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                                {q.status === 'draft' && (
-                                  <button onClick={() => handleUpdateStatus(q.id, 'sent')} style={actionBtn('#e0f2fe', '#075985')}>Send</button>
-                                )}
-                                {(q.status === 'draft' || q.status === 'sent') && (
-                                  <>
-                                    <button onClick={() => handleUpdateStatus(q.id, 'accepted')} style={actionBtn('#dcfce7', '#15803d')}>Accept</button>
-                                    <button onClick={() => handleUpdateStatus(q.id, 'declined')} style={actionBtn('#fee2e2', '#991b1b')}>Decline</button>
-                                  </>
-                                )}
-                                {q.status === 'accepted' && (
-                                  <button onClick={() => handleConvertToJob(q)} disabled={convertingId === q.id} style={{ padding: '0.25rem 0.6rem', border: 'none', borderRadius: '5px', background: '#16a34a', color: '#fff', cursor: convertingId === q.id ? 'not-allowed' : 'pointer', fontSize: '0.73rem', fontWeight: 700 }}>
-                                    {convertingId === q.id ? 'Converting…' : '→ Job'}
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-            {!loading && filteredQuotes.length > QUOTES_PER_PAGE && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem', fontSize: '0.75rem', color: '#64748b' }}>
-                <span>
-                  Showing {safeQuotePage * QUOTES_PER_PAGE + 1}–{Math.min((safeQuotePage + 1) * QUOTES_PER_PAGE, filteredQuotes.length)} of {filteredQuotes.length}
-                </span>
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  <button
-                    onClick={() => setQuotePage((prev) => Math.max(prev - 1, 0))}
-                    disabled={safeQuotePage === 0}
-                    style={{ padding: '0.3rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '6px', background: safeQuotePage === 0 ? '#f8fafc' : '#fff', color: '#334155', cursor: safeQuotePage === 0 ? 'not-allowed' : 'pointer' }}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => setQuotePage((prev) => Math.min(prev + 1, totalQuotePages - 1))}
-                    disabled={safeQuotePage >= totalQuotePages - 1}
-                    style={{ padding: '0.3rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '6px', background: safeQuotePage >= totalQuotePages - 1 ? '#f8fafc' : '#fff', color: '#334155', cursor: safeQuotePage >= totalQuotePages - 1 ? 'not-allowed' : 'pointer' }}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
+            {loading ? (
+              <LoadingCard text="Loading…" />
+            ) : filteredQuotes.length === 0 ? (
+              <EmptyCard icon="💬" text="No quotes in this category." />
+            ) : (
+              <WorkspaceTable
+                columns={['Customer', 'Pickup', 'Delivery', 'Vehicle', 'Amount', 'Status', 'Created', 'Actions']}
+                pagination={{
+                  page: safeQuotePage,
+                  total: filteredQuotes.length,
+                  perPage: QUOTES_PER_PAGE,
+                  onPrev: () => setQuotePage((p) => Math.max(p - 1, 0)),
+                  onNext: () => setQuotePage((p) => Math.min(p + 1, totalQuotePages - 1)),
+                }}
+              >
+                {paginatedQuotes.map((q, i) => {
+                  const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
+                  return (
+                    <WorkspaceTableTr key={q.id} last={i === paginatedQuotes.length - 1}>
+                      <WorkspaceTableTd style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{q.customer_name || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#374151', fontSize: '0.82rem' }}>{q.pickup_location || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#374151', fontSize: '0.82rem' }}>{q.delivery_location || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#64748b', fontSize: '0.8rem' }}>{(q.vehicle_type && VEHICLE_TYPE_LABELS[q.vehicle_type]) || q.vehicle_type?.replace(/_/g, ' ') || '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.85rem' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</WorkspaceTableTd>
+                      <WorkspaceTableTd>
+                        <WorkspaceStatusBadge bg={sc.bg} color={sc.text}>{q.status}</WorkspaceStatusBadge>
+                      </WorkspaceTableTd>
+                      <WorkspaceTableTd style={{ color: '#94a3b8', fontSize: '0.78rem' }}>{new Date(q.created_at).toLocaleDateString('en-GB')}</WorkspaceTableTd>
+                      <WorkspaceTableTd>
+                        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                          {q.status === 'draft' && (
+                            <button onClick={() => handleUpdateStatus(q.id, 'sent')} style={{ padding: '0.22rem 0.55rem', border: 'none', borderRadius: '5px', background: '#e0f2fe', color: '#075985', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>Send</button>
+                          )}
+                          {(q.status === 'draft' || q.status === 'sent') && (
+                            <>
+                              <button onClick={() => handleUpdateStatus(q.id, 'accepted')} style={{ padding: '0.22rem 0.55rem', border: 'none', borderRadius: '5px', background: '#dcfce7', color: '#15803d', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>Accept</button>
+                              <button onClick={() => handleUpdateStatus(q.id, 'declined')} style={{ padding: '0.22rem 0.55rem', border: 'none', borderRadius: '5px', background: '#fee2e2', color: '#991b1b', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}>Decline</button>
+                            </>
+                          )}
+                          {q.status === 'accepted' && (
+                            <button onClick={() => handleConvertToJob(q)} disabled={convertingId === q.id} style={{ padding: '0.25rem 0.6rem', border: 'none', borderRadius: '5px', background: '#16a34a', color: '#fff', cursor: convertingId === q.id ? 'not-allowed' : 'pointer', fontSize: '0.73rem', fontWeight: 700 }}>
+                              {convertingId === q.id ? 'Converting…' : '→ Job'}
+                            </button>
+                          )}
+                        </div>
+                      </WorkspaceTableTd>
+                    </WorkspaceTableTr>
+                  );
+                })}
+              </WorkspaceTable>
             )}
-          </div>
-        </main>
+          </WorkspaceContent>
+        </WorkspaceMain>
 
         {showModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
@@ -411,7 +361,7 @@ export default function QuotesPage() {
                 <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#64748b' }}>×</button>
               </div>
               <div style={{ padding: '1.25rem 1.5rem', display: 'grid', gap: '0.85rem' }}>
-                {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.65rem', color: '#dc2626', fontSize: '0.85rem' }}>{error}</div>}
+                {error && <ErrorBanner msg={error} />}
                 <div>
                   <label style={labelStyle}>Company *</label>
                   <select style={inputStyle} value={formData.company_id} onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}>
@@ -455,34 +405,7 @@ export default function QuotesPage() {
             </div>
           </div>
         )}
-      </div>
+      </WorkspaceShell>
     </ProtectedRoute>
   );
-}
-
-// ── Style helpers ──────────────────────────────────────────────────────────────
-
-const qlabelStyle: React.CSSProperties = {
-  fontSize: '0.65rem',
-  fontWeight: 700,
-  color: '#94a3b8',
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  marginBottom: '0.2rem',
-};
-
-const qInputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '0.35rem 0.45rem',
-  border: '1px solid #e2e8f0',
-  borderRadius: '4px',
-  fontSize: '0.76rem',
-  color: '#374151',
-  background: '#fff',
-  marginBottom: '0',
-  boxSizing: 'border-box',
-};
-
-function actionBtn(bg: string, color: string): React.CSSProperties {
-  return { padding: '0.22rem 0.55rem', border: 'none', borderRadius: '5px', background: bg, color, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 };
 }
