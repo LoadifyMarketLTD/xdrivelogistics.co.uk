@@ -1,0 +1,15 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "XDrive Logistics",
+  "legalName": "XDrive Logistics Ltd",
+  "url": "https://www.xdrivelogistics.co.uk",
+  "logo": "https://www.xdrivelogistics.co.uk/xdrive-logo.jpeg",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "101 Cornelian Street",
+    "addressLocality": "Blackburn",
+    "postalCode": "BB1 9QL",
+    "addressCountry": "GB"
+  }
+}

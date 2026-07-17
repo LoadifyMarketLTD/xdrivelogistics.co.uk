@@ -1,0 +1,2 @@
+# Netlify automatically handles www to apex domain redirects based on primary domain configuration.
+# No custom redirect rules are currently required.

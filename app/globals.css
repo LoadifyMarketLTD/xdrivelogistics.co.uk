@@ -1,0 +1,458 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 25% 8%;
+    --foreground: 0 0% 98%;
+    --card: 220 20% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 220 20% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 24 95% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 15% 18%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 220 15% 22%;
+    --muted-foreground: 220 10% 60%;
+    --accent: 24 95% 53%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 15% 20%;
+    --input: 220 15% 20%;
+    --ring: 24 95% 53%;
+    --radius: 0.625rem;
+    --sidebar-background: 220 25% 8%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 24 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 18%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 220 15% 20%;
+    --sidebar-ring: 24 95% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-orange-600;
+  }
+  .glass {
+    @apply bg-white/5 backdrop-blur-lg border border-white/10;
+  }
+  .glow-orange {
+    box-shadow: 0 0 40px rgba(249, 115, 22, 0.3);
+  }
+}
+
+/* Legacy CSS variables kept for inline-styled admin/driver pages */
+:root {
+  /* Inter font loaded via @fontsource/inter */
+  --font-inter: 'Inter', system-ui, -apple-system, sans-serif;
+  /* Brand Colors */
+  --color-primary-navy-dark: #0A2239;
+  --color-primary-navy: #1F3A5F;
+  --color-secondary-blue: #2F6FB3;
+  --color-gold-primary: #D4AF37;
+  --color-gold-dark: #B8941F;
+  --color-green-primary: #1F7A3D;
+  --color-green-whatsapp: #25D366;
+  --color-bg-light: #F4F7FA;
+  --color-text-white: #FFFFFF;
+  --color-text-white-transparent: rgba(255,255,255,0.85);
+  --color-text-dark: #0A2239;
+  
+  /* Typography (Inter font) */
+  --font-family: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
+  --font-size-hero: clamp(2rem, 5vw, 3rem);
+  --font-size-h1: clamp(2rem, 5vw, 3rem);
+  --font-size-h2: 14px;
+  --font-size-body: 16px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  
+  /* Spacing */
+  --section-padding-desktop: 64px;
+  --section-padding-mobile: 40px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+  --spacing-48: 48px;
+  --spacing-64: 64px;
+  
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  
+  /* Effects */
+  --glass-bg: rgba(255,255,255,0.08);
+  --glass-border: rgba(255,255,255,0.12);
+  --transition-speed: 0.3s;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  font-size: var(--font-size-body);
+  /* background-color and color are managed by Tailwind @layer base above */
+}
+
+main {
+  min-height: 100vh;
+}
+
+/* Container */
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Typography — scoped to legacy pages only to avoid breaking Tailwind components */
+.legacy-content h1, .legacy-content h2, .legacy-content h3,
+.legacy-content h4, .legacy-content h5, .legacy-content h6 {
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+  color: var(--color-text);
+}
+
+.legacy-content h1 {
+  font-size: var(--font-size-h1);
+  margin-bottom: 1rem;
+}
+
+.legacy-content h2 {
+  font-size: var(--font-size-h2);
+  margin-bottom: 1rem;
+}
+
+.legacy-content h3 {
+  font-size: var(--font-size-h3);
+  margin-bottom: 0.75rem;
+}
+
+.legacy-content p {
+  margin-bottom: 1rem;
+  line-height: 1.7;
+}
+
+/* Buttons - Premium Clean Style */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  font-size: var(--font-size-button);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--button-radius);
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  height: 48px;
+  font-family: var(--font-family);
+}
+
+.btn-primary {
+  background-color: var(--color-cta-green);
+  color: white;
+  box-shadow: 0 2px 8px rgba(31, 122, 61, 0.2);
+}
+
+.btn-primary:hover {
+  background-color: #1a6633;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(31, 122, 61, 0.3);
+  text-decoration: none;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-primary-navy);
+  border: 2px solid var(--color-primary-navy);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-primary-navy);
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Cards - Premium Clean Style */
+.card {
+  background: var(--color-card-bg);
+  padding: var(--card-padding);
+  border-radius: var(--card-radius);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--card-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--card-shadow-hover);
+}
+
+/* Grid Layouts */
+.grid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr;
+}
+
+.grid-2 {
+  grid-template-columns: 1fr;
+}
+
+.grid-3 {
+  grid-template-columns: 1fr;
+}
+
+/* Form Elements - Premium Clean Style */
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--input-radius);
+  font-size: 15px;
+  font-family: var(--font-family);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  background: white;
+  color: var(--color-text-dark);
+}
+
+/* Checkboxes and radios must not inherit the full-width/padding block styling */
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  padding: 0;
+  border: revert;
+  border-radius: revert;
+  background: revert;
+  box-shadow: none;
+  transition: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--color-secondary-blue);
+  box-shadow: 0 0 0 3px rgba(30, 78, 140, 0.1);
+}
+
+label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+/* Links — scoped to legacy pages only */
+.legacy-content a {
+  color: var(--color-secondary-blue);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.legacy-content a:hover {
+  color: var(--color-light-blue);
+  text-decoration: none;
+}
+
+/* Lists — scoped to legacy pages only to avoid breaking navigation menus */
+.legacy-content ul {
+  list-style: none;
+  padding: 0;
+}
+
+.legacy-content ul li {
+  padding: 0.75rem 0;
+  padding-left: 1.5rem;
+  position: relative;
+}
+
+.legacy-content ul li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--color-cta);
+  font-weight: bold;
+}
+
+/* Responsive Grid */
+@media (min-width: 768px) {
+  .grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .container {
+    padding: 0 32px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  :root {
+    --font-size-h1: 3rem;
+    --font-size-h2: 2.25rem;
+    --font-size-h3: 1.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --font-size-h1: 2rem;
+    --font-size-h2: 1.75rem;
+    --font-size-h3: 1.25rem;
+    --section-padding: 48px;
+    --card-padding: 24px;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Premium Clean Theme Utilities */
+.premium-card {
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  padding: var(--card-padding);
+}
+
+.premium-card:hover {
+  box-shadow: var(--card-shadow-hover);
+}
+
+.navy-text {
+  color: var(--color-primary-navy);
+}
+
+.green-text {
+  color: var(--color-cta-green);
+}
+
+.soft-glow {
+  box-shadow: var(--soft-glow);
+}
+
+/* WhatsApp Button Styles */
+.whatsapp-btn {
+  background: #25D366;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.whatsapp-btn:hover {
+  background: #20ba5a;
+  box-shadow: 0 4px 16px rgba(37, 211, 102, 0.3);
+  transform: translateY(-2px);
+}
+
+/* Floating Animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.float-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* FAZA 2: Premium card refinements */
+:root {
+  --radius-2xl: 20px;
+  --shadow-card-premium: 0 4px 24px rgba(31, 58, 95, 0.12);
+  --shadow-card-hover: 0 12px 36px rgba(31, 58, 95, 0.2);
+  --color-cta-green: #2E7D32;
+  --color-bg-soft: #F4F6F8;
+}
+
+/* FAZA 8: Scroll fade-in animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.6s ease forwards;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Print styles — hide admin chrome, show only invoice */
+@media print {
+  body * { visibility: hidden; }
+  #invoice-print-area,
+  #invoice-print-area * { visibility: visible; }
+  #invoice-print-area {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+  }
+}
+
