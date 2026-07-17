@@ -1,0 +1,381 @@
+/**
+ * notify-operational-event
+ *
+ * Supabase Edge Function that processes the notification_events queue.
+ * Called via:
+ *   - Supabase Database Webhook (recommended: set up in Supabase Dashboard
+ *     under Database → Webhooks → on INSERT to notification_events)
+ *   - Or periodic pg_cron invocation: SELECT net.http_post(...)
+ *
+ * Handles:
+ *   - job_assigned:  Email driver when a job is assigned
+ *   - bid_accepted:  Email carrier when their bid wins
+ *   - pod_uploaded:  Email company admin when driver marks delivered
+ *   - onboarding_invite: Email verified user with onboarding activation link
+ *
+ * Environment variables required (set in Supabase Dashboard → Edge Functions → Secrets):
+ *   SUPABASE_URL             (auto-injected)
+ *   SUPABASE_SERVICE_ROLE_KEY (auto-injected)
+ *   SITE_URL                 (recommended: https://www.xdrivelogistics.co.uk)
+ *   RESEND_API_KEY           (required for real transactional email delivery)
+ *   FROM_EMAIL               (optional: sender address, defaults to no-reply@xdrivelogistics.co.uk)
+ *
+ * Deploy with:
+ *   supabase functions deploy notify-operational-event --no-verify-jwt
+ */
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://www.xdrivelogistics.co.uk').trim().replace(/\/$/, '');
+const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? '';
+const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'no-reply@xdrivelogistics.co.uk';
+
+const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+interface NotificationEvent {
+  id: string;
+  event_type: string;
+  entity_type: string;
+  entity_id: string;
+  company_id: string | null;
+  recipient_user_id: string | null;
+  payload: Record<string, unknown>;
+  status: string;
+}
+
+interface UserRecord {
+  email: string | null;
+  raw_user_meta_data: { full_name?: string; name?: string } | null;
+}
+
+async function getUserEmail(userId: string): Promise<{ email: string; name: string } | null> {
+  const { data, error } = await supabase.auth.admin.getUserById(userId);
+  if (error || !data?.user) return null;
+  const user = data.user as unknown as UserRecord;
+  const email = user.email ?? data.user.email ?? null;
+  if (!email) return null;
+  const meta = (data.user.user_metadata ?? {}) as { full_name?: string; name?: string };
+  const name = meta.full_name ?? meta.name ?? email.split('@')[0];
+  return { email, name };
+}
+
+async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+  if (!resendApiKey) {
+    console.error(`[notify] RESEND_API_KEY is not configured; email not sent to ${to}: ${subject}`);
+    return false;
+  }
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + resendApiKey,
+    },
+    body: JSON.stringify({ from: fromEmail, to, subject, html }),
+  });
+  if (!res.ok) {
+    const responseText = await res.text().catch(() => '');
+    console.error(`[notify] Resend rejected email to ${to}: ${res.status} ${responseText}`);
+    return false;
+  }
+  return true;
+}
+const buildAppUrl = (path: string) => new URL(path, `${siteUrl}/`).toString();
+
+async function handleJobAssigned(event: NotificationEvent): Promise<boolean> {
+  const { driver_user_id, pickup_location, delivery_location, job_id } = event.payload;
+  if (!driver_user_id) return true; // no driver user — skip silently
+
+  const user = await getUserEmail(driver_user_id as string);
+  if (!user) return true; // driver has no email — skip
+
+  const jobUrl = buildAppUrl(`/driver/jobs/${job_id}`);
+  const html = `
+    <h2>You have a new job assigned</h2>
+    <p>Hi ${user.name},</p>
+    <p>A new job has been assigned to you:</p>
+    <ul>
+      <li><strong>Pickup:</strong> ${pickup_location ?? 'TBC'}</li>
+      <li><strong>Delivery:</strong> ${delivery_location ?? 'TBC'}</li>
+    </ul>
+    <p><a href="${jobUrl}">View job details →</a></p>
+    <p>XDrive Logistics</p>
+  `;
+  return sendEmail(user.email, '🚚 New Job Assigned — XDrive Logistics', html);
+}
+
+async function handleBidAccepted(event: NotificationEvent): Promise<boolean> {
+  const { bidder_user_id, job_id, bid_price_gbp, amount, bid_amount } = event.payload;
+  if (!bidder_user_id) return true;
+
+  const user = await getUserEmail(bidder_user_id as string);
+  if (!user) return true;
+
+  const normalizedBidAmount = bid_price_gbp ?? amount ?? bid_amount ?? 'N/A';
+
+  const html = `
+    <h2>Your bid has been accepted!</h2>
+    <p>Hi ${user.name},</p>
+    <p>Great news — your bid of <strong>£${normalizedBidAmount}</strong> on job <strong>${job_id}</strong> has been accepted.</p>
+    <p><a href="${buildAppUrl('/admin/bids')}">Open the bids workspace →</a></p>
+    <p>XDrive Logistics</p>
+  `;
+  return sendEmail(user.email, '✅ Bid Accepted — XDrive Logistics', html);
+}
+
+async function handlePodUploaded(event: NotificationEvent): Promise<boolean> {
+  const { job_id, company_id, pickup_location, delivery_location } = event.payload;
+  if (!company_id) return true;
+
+  // Notify all active company admins/owners
+  const { data: members } = await supabase
+    .from('company_memberships')
+    .select('user_id, role_in_company')
+    .eq('company_id', company_id)
+    .in('role_in_company', ['owner', 'admin', 'dispatcher'])
+    .eq('status', 'active');
+
+  if (!members?.length) return true;
+
+  const emailJobs = members.map(async (m: { user_id: string }) => {
+    const user = await getUserEmail(m.user_id);
+    if (!user) return;
+    const html = `
+      <h2>Job Delivered — POD Available</h2>
+      <p>Hi ${user.name},</p>
+      <p>Job <strong>${job_id}</strong> has been marked as delivered by the driver.</p>
+      <ul>
+        <li><strong>Pickup:</strong> ${pickup_location ?? 'N/A'}</li>
+        <li><strong>Delivery:</strong> ${delivery_location ?? 'N/A'}</li>
+      </ul>
+      <p>Please log in to review the proof of delivery and process the invoice.</p>
+      <p>XDrive Logistics</p>
+    `;
+    await sendEmail(user.email, '📦 Job Delivered — POD Ready', html);
+  });
+
+  await Promise.allSettled(emailJobs);
+  return true;
+}
+
+async function handleOnboardingInvite(event: NotificationEvent): Promise<boolean> {
+  const recipientUserId =
+    (event.payload?.recipient_user_id as string | undefined) ??
+    event.recipient_user_id ??
+    null;
+
+  if (!recipientUserId) return true;
+  const user = await getUserEmail(recipientUserId);
+  if (!user) return true;
+
+  const onboardingUrlRaw = event.payload?.onboarding_url;
+  const onboardingUrl =
+    typeof onboardingUrlRaw === 'string' && onboardingUrlRaw.trim().length > 0
+      ? onboardingUrlRaw.trim()
+      : buildAppUrl('/onboarding/resume');
+  const accountType = String(event.payload?.account_type ?? 'account').replace(/_/g, ' ');
+
+  const html = `
+    <h2>Your XDrive onboarding is ready</h2>
+    <p>Hi ${user.name},</p>
+    <p>Your account has been verified. Continue onboarding to unlock your workspace.</p>
+    <p><strong>Account type:</strong> ${accountType}</p>
+    <p><a href="${onboardingUrl}">Start / Resume onboarding →</a></p>
+    <p>This activation link is single-use for first activation. After activation, sign in to resume from your last completed step.</p>
+    <p>XDrive Logistics</p>
+  `;
+
+  return sendEmail(user.email, '🚀 Complete onboarding — XDrive Logistics', html);
+}
+
+async function emailCompanyOperators(companyId: string, subject: string, htmlFor: (name: string) => string): Promise<boolean> {
+  const { data: members } = await supabase
+    .from('company_memberships')
+    .select('user_id, role_in_company')
+    .eq('company_id', companyId)
+    .in('role_in_company', ['owner', 'admin', 'dispatcher'])
+    .eq('status', 'active');
+
+  if (!members?.length) return true;
+
+  const results = await Promise.allSettled(
+    members.map(async (m: { user_id: string }) => {
+      const user = await getUserEmail(m.user_id);
+      if (!user) return true;
+      return sendEmail(user.email, subject, htmlFor(user.name));
+    }),
+  );
+
+  return results.every((result) => result.status === 'fulfilled' && result.value !== false);
+}
+
+async function handleOnboardingSubmitted(event: NotificationEvent): Promise<boolean> {
+  const recipientUserId = event.recipient_user_id ?? (event.payload?.recipient_user_id as string | undefined);
+  if (!recipientUserId) return true;
+
+  const user = await getUserEmail(recipientUserId);
+  if (!user) return true;
+
+  const accountType = String(event.payload?.account_type ?? 'account').replace(/_/g, ' ');
+  const onboardingApplicationId = String(event.payload?.onboarding_application_id ?? event.entity_id);
+  const html = `
+    <h2>Onboarding submitted</h2>
+    <p>Hi ${user.name},</p>
+    <p>Your ${accountType} onboarding has been submitted for review.</p>
+    <p>Reference: <strong>${onboardingApplicationId}</strong></p>
+    <p>XDrive Logistics</p>
+  `;
+  return sendEmail(user.email, 'Onboarding submitted - XDrive Logistics', html);
+}
+
+async function handleOnboardingApproved(event: NotificationEvent): Promise<boolean> {
+  const recipientUserId = event.recipient_user_id ?? (event.payload?.recipient_user_id as string | undefined);
+  if (!recipientUserId) return true;
+
+  const user = await getUserEmail(recipientUserId);
+  if (!user) return true;
+
+  const html = `
+    <h2>Your XDrive workspace is approved</h2>
+    <p>Hi ${user.name},</p>
+    <p>Your onboarding has been approved. You can now sign in and use your workspace.</p>
+    <p><a href="${buildAppUrl('/login')}">Open XDrive</a></p>
+    <p>XDrive Logistics</p>
+  `;
+  return sendEmail(user.email, 'Onboarding approved - XDrive Logistics', html);
+}
+
+async function handleInvoiceDisputed(event: NotificationEvent): Promise<boolean> {
+  const invoiceId = String(event.payload?.invoice_id ?? event.entity_id);
+  const companyId = event.company_id ?? (event.payload?.company_id as string | undefined);
+
+  if (event.recipient_user_id) {
+    const user = await getUserEmail(event.recipient_user_id);
+    if (!user) return true;
+    return sendEmail(
+      user.email,
+      'Invoice disputed - XDrive Logistics',
+      `<h2>Invoice disputed</h2><p>Hi ${user.name},</p><p>Invoice <strong>${invoiceId}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+    );
+  }
+
+  if (!companyId) return true;
+  return emailCompanyOperators(
+    companyId,
+    'Invoice disputed - XDrive Logistics',
+    (name) => `<h2>Invoice disputed</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceId}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+  );
+}
+
+async function handleInvoiceCreated(event: NotificationEvent): Promise<boolean> {
+  const invoiceId = String(event.payload?.invoice_id ?? event.entity_id);
+  const invoiceNumber = String(event.payload?.invoice_number ?? invoiceId);
+  const companyId = event.company_id ?? (event.payload?.company_id as string | undefined);
+
+  if (event.recipient_user_id) {
+    const user = await getUserEmail(event.recipient_user_id);
+    if (!user) return true;
+    return sendEmail(
+      user.email,
+      'Invoice created - XDrive Logistics',
+      `<h2>Invoice created</h2><p>Hi ${user.name},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+    );
+  }
+
+  if (!companyId) return true;
+  return emailCompanyOperators(
+    companyId,
+    'Invoice created - XDrive Logistics',
+    (name) => `<h2>Invoice created</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+  );
+}
+
+async function processEvent(event: NotificationEvent): Promise<void> {
+  let success = false;
+  try {
+    switch (event.event_type) {
+      case 'job_assigned':
+        success = await handleJobAssigned(event);
+        break;
+      case 'bid_accepted':
+        success = await handleBidAccepted(event);
+        break;
+      case 'pod_uploaded':
+        success = await handlePodUploaded(event);
+        break;
+      case 'onboarding_invite':
+        success = await handleOnboardingInvite(event);
+        break;
+      case 'onboarding_submitted':
+        success = await handleOnboardingSubmitted(event);
+        break;
+      case 'onboarding_approved':
+        success = await handleOnboardingApproved(event);
+        break;
+      case 'invoice_disputed':
+        success = await handleInvoiceDisputed(event);
+        break;
+      case 'invoice_created':
+        success = await handleInvoiceCreated(event);
+        break;
+      default:
+        console.log(`[notify] Unknown event type: ${event.event_type} — skipping`);
+        success = true;
+    }
+  } catch (err) {
+    console.error(`[notify] Error processing event ${event.id}:`, err);
+    success = false;
+  }
+
+  await supabase
+    .from('notification_events')
+    .update({
+      status: success ? 'sent' : 'failed',
+      processed_at: new Date().toISOString(),
+    })
+    .eq('id', event.id);
+}
+
+Deno.serve(async (req) => {
+  try {
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(
+        JSON.stringify({ error: 'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Accept a single event from a DB webhook payload, or process pending queue
+    const body = await req.json().catch(() => null);
+
+    let events: NotificationEvent[] = [];
+
+    if (body?.record) {
+      // Called from a Supabase Database Webhook — process the single inserted event
+      events = [body.record as NotificationEvent];
+    } else {
+      // Called manually or from a cron — process all pending events (batch 50)
+      const { data } = await supabase
+        .from('notification_events')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(50);
+      events = (data ?? []) as NotificationEvent[];
+    }
+
+    await Promise.allSettled(events.map(processEvent));
+
+    return new Response(
+      JSON.stringify({ processed: events.length }),
+      { headers: { 'Content-Type': 'application/json' } },
+    );
+  } catch (err) {
+    console.error('[notify] Fatal error:', err);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error.' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+});

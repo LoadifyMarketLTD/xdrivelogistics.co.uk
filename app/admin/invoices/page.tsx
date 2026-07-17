@@ -1,0 +1,463 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
+import type { InvoiceData } from '../../components/InvoiceTemplate';
+import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import {
+  loadInvoicesWithSchemaCompat,
+  resolveInvoiceClientName,
+} from '../../../lib/supabaseSchemaCompat';
+import {
+  toCanonicalInvoiceDisplayStatus,
+  toCanonicalInvoiceStatusWithDueDate,
+  toCanonicalPaymentStatus,
+  type CanonicalInvoiceStatus,
+} from '../../../lib/invoiceStatus';
+
+type InvoiceListItem = InvoiceData & { jobId: string | null; paymentStatus: string | null };
+
+function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): InvoiceListItem {
+  const invoiceDate =
+    typeof row.invoice_date === 'string'
+      ? row.invoice_date
+      : typeof row.created_at === 'string'
+        ? row.created_at
+        : new Date().toISOString();
+  const dueDate = typeof row.due_date === 'string' ? row.due_date : invoiceDate;
+  const paymentTerms = row.payment_terms === 'Pay now' || row.payment_terms === '30 days' ? row.payment_terms : '14 days';
+  const status =
+    toCanonicalInvoiceDisplayStatus(
+      typeof row.status === 'string' ? row.status : null,
+      dueDate,
+      typeof row.payment_status === 'string' ? row.payment_status : null
+    );
+  return {
+    id: typeof row.id === 'string' ? row.id : fallbackId,
+    invoiceNumber: typeof row.invoice_number === 'string' ? row.invoice_number : `Invoice-${fallbackId.slice(0, 8)}`,
+    jobRef: typeof row.job_ref === 'string' ? row.job_ref : '',
+    date: invoiceDate,
+    dueDate,
+    status,
+    clientName: resolveInvoiceClientName(row) ?? 'Client pending',
+    clientAddress: typeof row.client_address === 'string' ? row.client_address : '',
+    clientEmail: typeof row.client_email === 'string' ? row.client_email : '',
+    pickupLocation: typeof row.pickup_location === 'string' ? row.pickup_location : '',
+    pickupDateTime: typeof row.pickup_datetime === 'string' ? row.pickup_datetime : '',
+    deliveryLocation: typeof row.delivery_location === 'string' ? row.delivery_location : '',
+    deliveryDateTime: typeof row.delivery_datetime === 'string' ? row.delivery_datetime : '',
+    deliveryRecipient: typeof row.delivery_recipient === 'string' ? row.delivery_recipient : '',
+    serviceDescription: typeof row.service_description === 'string' ? row.service_description : '',
+    amount: Number(row.amount ?? 0),
+    netAmount: Number(row.net_amount ?? row.amount ?? 0),
+    vatAmount: Number(row.vat_amount ?? 0),
+    vatRate: row.vat_rate === 5 || row.vat_rate === 20 ? row.vat_rate : 0,
+    paymentTerms,
+    lateFee: typeof row.late_fee === 'string' ? row.late_fee : '',
+    podPhotos: Array.isArray(row.pod_photos) ? row.pod_photos as string[] : undefined,
+    signature: typeof row.signature === 'string' ? row.signature : undefined,
+    recipientName: typeof row.recipient_name === 'string' ? row.recipient_name : undefined,
+    jobId: typeof row.job_id === 'string' ? row.job_id : null,
+    paymentStatus: typeof row.payment_status === 'string' ? row.payment_status : null,
+  };
+}
+
+export default function InvoicesPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const companyId = user?.companyId ?? null;
+  const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'All' | CanonicalInvoiceStatus>('All');
+  const INVOICES_PER_PAGE = 12;
+  const [invoicePage, setInvoicePage] = useState(0);
+  const loadRequestRef = useRef(0);
+
+  const calculateStatus = (dueDate: string, currentStatus: string): CanonicalInvoiceStatus =>
+    toCanonicalInvoiceStatusWithDueDate(currentStatus, dueDate);
+
+  const loadInvoices = async () => {
+    const requestId = ++loadRequestRef.current;
+    setLoading(true);
+    setLoadError('');
+
+    if (!isSupabaseConfigured || !companyId) {
+      if (requestId === loadRequestRef.current) {
+        setInvoices([]);
+        setLoading(false);
+      }
+      return;
+    }
+    const activeColumns = [
+      'id', 'company_id', 'created_by', 'invoice_number', 'job_ref', 'job_id', 'invoice_date', 'due_date', 'status', 'payment_status',
+      'client_name', 'client_address', 'client_email', 'pickup_location', 'pickup_datetime', 'delivery_location',
+      'delivery_datetime', 'delivery_recipient', 'service_description', 'amount', 'net_amount', 'vat_amount',
+      'vat_rate', 'currency', 'payment_terms', 'late_fee', 'pod_photos', 'signature', 'recipient_name', 'created_at',
+      'updated_at',
+    ];
+    const { rows, error: queryError } = await loadInvoicesWithSchemaCompat(supabase, companyId, activeColumns);
+
+    if (requestId !== loadRequestRef.current) return;
+
+    if (!queryError) {
+      const mapped = rows.map((row, index) => {
+        const inv = dbToInvoiceData(row, `invoice-${index}`);
+        return { ...inv, status: calculateStatus(inv.dueDate, inv.status) };
+      });
+      setInvoices(mapped);
+      setLoadError('');
+    } else {
+      console.error('Failed to load invoices from Supabase:', queryError.message);
+      setLoadError(queryError.message ?? 'Failed to load invoices.');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadInvoices();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
+  const filteredInvoices = invoices.filter((invoice) => {
+    const matchesSearch =
+      invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.jobRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus = statusFilter === 'All' || invoice.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  useEffect(() => {
+    setInvoicePage(0);
+  }, [searchTerm, statusFilter, invoices.length]);
+
+  const totalInvoicePages = Math.max(1, Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE));
+  const safeInvoicePage = Math.min(invoicePage, totalInvoicePages - 1);
+  const paginatedInvoices = filteredInvoices.slice(
+    safeInvoicePage * INVOICES_PER_PAGE,
+    (safeInvoicePage + 1) * INVOICES_PER_PAGE,
+  );
+
+  const getStatusStyle = (status: string) => {
+    const baseStyle: React.CSSProperties = {
+      padding: '0.375rem 0.75rem',
+      borderRadius: '9999px',
+      fontSize: '0.875rem',
+      fontWeight: '600',
+      display: 'inline-block',
+    };
+
+    switch (status) {
+      case 'Paid':
+        return { ...baseStyle, backgroundColor: '#d1fae5', color: '#065f46' };
+      case 'Draft':
+        return { ...baseStyle, backgroundColor: '#fef3c7', color: '#92400e' };
+      case 'Sent':
+        return { ...baseStyle, backgroundColor: '#e0e7ff', color: '#3730a3' };
+      case 'Overdue':
+        return { ...baseStyle, backgroundColor: '#fee2e2', color: '#991b1b' };
+      case 'Disputed':
+        return { ...baseStyle, backgroundColor: '#fce7f3', color: '#9d174d' };
+      case 'Cancelled':
+        return { ...baseStyle, backgroundColor: '#e2e8f0', color: '#475569' };
+      default:
+        return { ...baseStyle, backgroundColor: '#f3f4f6', color: '#374151' };
+    }
+  };
+
+  return (
+    <ProtectedRoute>
+      <div style={{ background: '#f5f7fa', minHeight: 'calc(100vh - 89px)' }}>
+
+        {/* SmartPay-style tab bar + create button */}
+        <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: 0 }}>
+            {(['All', 'Draft', 'Sent', 'Overdue', 'Paid', 'Disputed', 'Cancelled'] as const).map((s) => {
+              const active = statusFilter === s;
+              const count = s === 'All' ? invoices.length : invoices.filter(i => i.status === s).length;
+              return (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  style={{
+                    padding: '0.65rem 0.85rem',
+                    border: 'none',
+                    borderBottom: active ? '2px solid #1d4ed8' : '2px solid transparent',
+                    background: 'none',
+                    cursor: 'pointer',
+                    fontSize: '0.73rem',
+                    fontWeight: 700,
+                    color: active ? '#1d4ed8' : '#64748b',
+                    marginBottom: '-1px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {s}
+                  {count > 0 && (
+                    <span style={{ marginLeft: '0.3rem', background: active ? '#dbeafe' : '#f1f5f9', color: active ? '#1d4ed8' : '#64748b', borderRadius: '8px', padding: '0.05rem 0.38rem', fontSize: '0.68rem' }}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => router.push('/admin/invoices/new')}
+            style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.38rem 0.85rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            + Create Invoice
+          </button>
+        </div>
+
+        {/* Main Content */}
+        <div style={{ padding: '0.85rem', maxWidth: '1400px', margin: '0 auto' }}>
+          {loadError && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.65rem 1rem', marginBottom: '0.85rem', color: '#b91c1c', fontSize: '0.85rem' }}>
+              {loadError}
+            </div>
+          )}
+
+          {/* Search bar */}
+          <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '0.75rem', marginBottom: '0.85rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="Search invoices..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ flex: 1, minWidth: '200px', padding: '0.45rem 0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+            />
+            <button onClick={() => void loadInvoices()} style={{ padding: '0.45rem 0.75rem', background: '#fff', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>Refresh</button>
+          </div>
+
+          {/* Invoices Table */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            border: '1px solid #e5e7eb',
+            overflow: 'hidden'
+          }}>
+            {loading ? (
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2.5rem', textAlign: 'center', color: '#6b7280', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}>
+                Loading invoices...
+              </div>
+            ) : filteredInvoices.length === 0 ? (
+              <div style={{
+                padding: '3rem 2rem',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}></div>
+                <h3 style={{ fontSize: '1.25rem', color: '#1f2937', marginBottom: '0.5rem' }}>
+                  No invoices found
+                </h3>
+                <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
+                  {searchTerm || statusFilter !== 'All'
+                    ? 'Try adjusting your search or filters'
+                    : 'Get started by creating your first invoice'}
+                </p>
+                {!searchTerm && statusFilter === 'All' && (
+                  <button
+                    onClick={() => router.push('/admin/invoices/new')}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: '#3b82f6',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '0.95rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                  >
+                    Create First Invoice
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Invoice #
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Job Ref
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Client
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Date
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Due Date
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'right', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Amount
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'center', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Status
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'center', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedInvoices.map((invoice) => (
+                      <tr
+                        key={invoice.id}
+                        style={{
+                          borderBottom: '1px solid #e5e7eb',
+                          transition: 'background-color 0.2s',
+                          cursor: 'pointer'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                        onClick={() => router.push(`/admin/invoices/${invoice.id}`)}
+                      >
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937', fontWeight: '500' }}>
+                          {invoice.invoiceNumber}
+                        </td>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937' }}>
+                          {invoice.jobRef}
+                        </td>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937' }}>
+                          {invoice.clientName}
+                        </td>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#6b7280' }}>
+                          {new Date(invoice.date).toLocaleDateString('en-GB')}
+                        </td>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#6b7280' }}>
+                          {new Date(invoice.dueDate).toLocaleDateString('en-GB')}
+                        </td>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937', fontWeight: '600', textAlign: 'right' }}>
+                          GBP {invoice.amount.toFixed(2)}
+                        </td>
+                        <td style={{ padding: '0.8rem', textAlign: 'center' }}>
+                          <span style={getStatusStyle(invoice.status)}>
+                            {invoice.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.8rem', textAlign: 'center' }}>
+                          <div style={{ display: 'inline-flex', gap: '0.45rem' }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/admin/invoices/${invoice.id}`);
+                              }}
+                              style={{
+                                padding: '0.4rem 0.8rem',
+                                backgroundColor: '#eff6ff',
+                                color: '#2563eb',
+                                border: '1px solid #bfdbfe',
+                                borderRadius: '6px',
+                                fontSize: '0.8rem',
+                                fontWeight: '500',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              View
+                            </button>
+                            {toCanonicalPaymentStatus(invoice.paymentStatus) !== 'paid' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/admin/invoices/${invoice.id}`);
+                                }}
+                                style={{
+                                  padding: '0.4rem 0.8rem',
+                                  backgroundColor: '#dcfce7',
+                                  color: '#166534',
+                                  border: '1px solid #bbf7d0',
+                                  borderRadius: '6px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Record Payment
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          {!loading && filteredInvoices.length > INVOICES_PER_PAGE && (
+            <div style={{ marginTop: '0.65rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b' }}>
+              <span>
+                Showing {safeInvoicePage * INVOICES_PER_PAGE + 1}-{Math.min((safeInvoicePage + 1) * INVOICES_PER_PAGE, filteredInvoices.length)} of {filteredInvoices.length} invoices
+              </span>
+              <div style={{ display: 'flex', gap: '0.45rem' }}>
+                <button
+                  onClick={() => setInvoicePage((prev) => Math.max(prev - 1, 0))}
+                  disabled={safeInvoicePage === 0}
+                  style={{ padding: '0.32rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeInvoicePage === 0 ? '#f9fafb' : '#fff', cursor: safeInvoicePage === 0 ? 'not-allowed' : 'pointer' }}
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setInvoicePage((prev) => Math.min(prev + 1, totalInvoicePages - 1))}
+                  disabled={safeInvoicePage >= totalInvoicePages - 1}
+                  style={{ padding: '0.32rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeInvoicePage >= totalInvoicePages - 1 ? '#f9fafb' : '#fff', cursor: safeInvoicePage >= totalInvoicePages - 1 ? 'not-allowed' : 'pointer' }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Summary Stats */}
+          {filteredInvoices.length > 0 && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '1rem',
+              marginTop: '1.5rem'
+            }}>
+              <div style={{
+                backgroundColor: 'white',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                borderLeft: '4px solid #3b82f6'
+              }}>
+                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>Total Invoices</div>
+                <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937' }}>
+                  {filteredInvoices.length}
+                </div>
+              </div>
+              <div style={{
+                backgroundColor: 'white',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                borderLeft: '4px solid #10b981'
+              }}>
+                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>Total Amount</div>
+                <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937' }}>
+                  GBP {filteredInvoices.reduce((sum, inv) => sum + inv.amount, 0).toFixed(2)}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </ProtectedRoute>
+  );
+}
