@@ -1,1 +1,7 @@
-'use client'; import { FutureAvailabilityPage } from '../../AdminWorkspaceModules'; export default function Page(){return <FutureAvailabilityPage/>}
+'use client';
+
+import { FutureAvailabilityPage } from '../../AdminWorkspaceModules';
+
+export default function Page() {
+  return <FutureAvailabilityPage />;
+}

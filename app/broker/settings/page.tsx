@@ -1,1 +1,7 @@
-'use client'; import { BrokerSettingsPage } from '../BrokerWorkspaceModules'; export default function Page(){ return <BrokerSettingsPage/>; }
+'use client';
+
+import { BrokerCompanySettingsPage } from '../../components/workspace/Post233CompanyAdminPages';
+
+export default function Page() {
+  return <BrokerCompanySettingsPage />;
+}
