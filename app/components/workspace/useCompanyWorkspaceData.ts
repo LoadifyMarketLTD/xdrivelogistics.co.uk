@@ -83,7 +83,6 @@ export type WorkspaceDocument = {
 export type WorkspaceLocation = {
   id: string;
   driver_id: string;
-  job_id?: string | null;
   lat: number;
   lng: number;
   recorded_at?: string | null;
@@ -202,7 +201,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
         .limit(500),
       supabase
         .from('driver_locations')
-        .select('id, driver_id, job_id, lat, lng, recorded_at, updated_at')
+        .select('id, driver_id, lat, lng, recorded_at, updated_at')
         .eq('company_id', companyId)
         .order('recorded_at', { ascending: false })
         .limit(500),
