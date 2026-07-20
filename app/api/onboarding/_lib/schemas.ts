@@ -105,7 +105,7 @@ const ownerDriverPayloadBaseSchema = z
     registration: z.string().trim().min(1),
     make: z.string().trim().min(1),
     model: z.string().trim().min(1),
-    payload: z.string().trim().min(1),
+    payload: z.string().trim().optional().default(''),
     dimensions: z.string().trim().optional().default(''),
     tail_lift: z.string().trim().optional().default(''),
     insurance_details: z.string().trim().optional().default(''),
