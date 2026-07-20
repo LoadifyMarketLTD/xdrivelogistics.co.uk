@@ -6,7 +6,6 @@ test.describe('Public pages', () => {
   test('homepage loads and shows CTA', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle(/XDrive/i);
-    // At least one visible CTA button
     const cta = page.getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first();
     await expect(cta).toBeVisible();
   });
@@ -25,33 +24,36 @@ test.describe('Public pages', () => {
     await page.goto('/login');
     await expect(page.locator('input[type="email"], [data-testid="email"]')).toBeVisible();
   });
+
+  test('registration exposes the canonical account types', async ({ page }) => {
+    await page.goto('/register');
+    const accountType = page.locator('#register-role');
+    await expect(accountType).toBeVisible();
+    await expect(accountType.locator('option')).toHaveText([
+      'Customer / Shipper',
+      'Transport Broker',
+      'Fleet Operator',
+      'Owner Operator',
+    ]);
+  });
 });
 
 // ── Auth redirect ─────────────────────────────────────────────────────────────
 
 test.describe('Auth redirects', () => {
-  test('unauthenticated /admin redirects to login', async ({ page }) => {
-    await page.goto('/admin');
-    // Should end up at a login/auth page
-    await page.waitForURL(url => /login|auth|\/$/i.test(url.pathname), { timeout: 8_000 });
-    await expect(page.locator('input[type="email"], [data-testid="email"]')).toBeVisible();
-  });
+  const protectedRoutes = ['/admin', '/driver/jobs', '/super-admin', '/customer'];
 
-  test('unauthenticated /driver/jobs redirects to login', async ({ page }) => {
-    await page.goto('/driver/jobs');
-    await page.waitForURL(url => /login|auth|\/$/i.test(url.pathname), { timeout: 8_000 });
-    await expect(page.locator('input[type="email"], [data-testid="email"]')).toBeVisible();
-  });
+  for (const route of protectedRoutes) {
+    test(`unauthenticated ${route} redirects to login`, async ({ page }) => {
+      await page.goto(route);
+      await page.waitForURL((url) => /login|auth|\/$/i.test(url.pathname), { timeout: 8_000 });
+      await expect(page.locator('input[type="email"], [data-testid="email"]')).toBeVisible();
+    });
+  }
 
-  test('unauthenticated /super-admin redirects to login', async ({ page }) => {
-    await page.goto('/super-admin');
-    await page.waitForURL(url => /login|auth|\/$/i.test(url.pathname), { timeout: 8_000 });
-    await expect(page.locator('input[type="email"], [data-testid="email"]')).toBeVisible();
-  });
-
-  test('unauthenticated /customer redirects to login', async ({ page }) => {
-    await page.goto('/customer');
-    await page.waitForURL(url => /login|auth|\/$/i.test(url.pathname), { timeout: 8_000 });
+  test('unauthenticated onboarding resume redirects to login instead of a missing route', async ({ page }) => {
+    await page.goto('/onboarding/resume');
+    await page.waitForURL((url) => url.pathname === '/login', { timeout: 8_000 });
     await expect(page.locator('input[type="email"], [data-testid="email"]')).toBeVisible();
   });
 });
