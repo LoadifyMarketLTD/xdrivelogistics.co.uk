@@ -1,7 +1,7 @@
 'use client';
 
-import { HardenedFutureAvailabilityPage } from '../../AdminWorkspaceHardening';
+import { FutureAvailabilityPage } from '../../AdminWorkspaceModules';
 
 export default function Page() {
-  return <HardenedFutureAvailabilityPage />;
+  return <FutureAvailabilityPage />;
 }
