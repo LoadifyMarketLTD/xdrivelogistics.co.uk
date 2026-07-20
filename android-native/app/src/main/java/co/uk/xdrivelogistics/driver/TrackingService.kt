@@ -52,27 +52,31 @@ class TrackingService : Service() {
             return START_NOT_STICKY
         }
 
-        if (!hasLocationPermission()) {
-            startForeground(NOTIFICATION_ID, notification(
-                title = "XDrive tracking not started",
-                text = "Location permission is required. Open the app and enable tracking again.",
-                ongoing = false,
-            ))
-            stopSelfResult(startId)
-            return START_NOT_STICKY
-        }
-
         startForeground(
             NOTIFICATION_ID,
             notification(
-                title = "XDrive tracking starting",
-                text = "Checking your session and preparing the first location update.",
+                title = if (hasLocationPermission()) "XDrive tracking starting" else "XDrive tracking waiting for permission",
+                text = if (hasLocationPermission())
+                    "Checking your session and preparing the first location update."
+                else
+                    "Approve location access in the open XDrive app to begin sharing.",
                 ongoing = true,
             )
         )
 
         if (trackingJob?.isActive != true) {
-            trackingJob = scope.launch { runTrackingLoop() }
+            trackingJob = scope.launch {
+                if (hasLocationPermission() || waitForLocationPermission()) {
+                    runTrackingLoop()
+                } else {
+                    updateNotification(
+                        "XDrive tracking not started",
+                        "Location permission was not granted. Open the app and try again.",
+                        ongoing = false,
+                    )
+                    stopSelfResult(startId)
+                }
+            }
         }
 
         return START_STICKY
@@ -84,6 +88,14 @@ class TrackingService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private suspend fun waitForLocationPermission(): Boolean {
+        repeat(PERMISSION_WAIT_ATTEMPTS) {
+            if (hasLocationPermission()) return true
+            delay(PERMISSION_WAIT_INTERVAL_MS)
+        }
+        return hasLocationPermission()
+    }
 
     private suspend fun runTrackingLoop() {
         while (scope.coroutineContext.isActive) {
@@ -223,6 +235,8 @@ class TrackingService : Service() {
         private const val NOTIFICATION_ID = 4601
         private const val TRACKING_INTERVAL_MS = 60_000L
         private const val RETRY_INTERVAL_MS = 15_000L
+        private const val PERMISSION_WAIT_ATTEMPTS = 60
+        private const val PERMISSION_WAIT_INTERVAL_MS = 500L
         private const val PENDING_STORE = "xdrive_tracking_pending"
         private const val KEY_PENDING_LAT = "pending_lat"
         private const val KEY_PENDING_LNG = "pending_lng"
