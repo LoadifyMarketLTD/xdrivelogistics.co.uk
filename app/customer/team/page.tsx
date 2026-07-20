@@ -1,1 +1,7 @@
-'use client'; import { CustomerTeamPage } from '../CustomerWorkspaceModules'; export default function Page(){return <CustomerTeamPage/>}
+'use client';
+
+import { CustomerCompanyTeamPage } from '../../components/workspace/Post233CompanyAdminPages';
+
+export default function Page() {
+  return <CustomerCompanyTeamPage />;
+}
