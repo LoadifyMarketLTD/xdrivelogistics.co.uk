@@ -1,1 +1,7 @@
-'use client'; import { CustomerDocumentsPage } from '../CustomerWorkspaceModules'; export default function Page(){return <CustomerDocumentsPage/>}
+'use client';
+
+import PodDocumentsPage from '../../components/workspace/PodDocumentsPage';
+
+export default function Page() {
+  return <PodDocumentsPage mode="customer" />;
+}
