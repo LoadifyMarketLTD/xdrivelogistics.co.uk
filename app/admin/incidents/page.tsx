@@ -1,7 +1,7 @@
 'use client';
 
-import { HardenedIncidentsPage } from '../AdminWorkspaceHardening';
+import { IncidentsPage } from '../AdminWorkspaceModules';
 
 export default function Page() {
-  return <HardenedIncidentsPage />;
+  return <IncidentsPage />;
 }
