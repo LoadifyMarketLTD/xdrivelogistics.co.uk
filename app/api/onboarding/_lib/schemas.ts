@@ -86,11 +86,52 @@ const normalizeDateOnly = (rawValue: string): string | null => {
   return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 };
 
-// Owner-driver applications are reviewed by compliance after submission.
-// The API preserves free-form fields and uploaded-document markers while the
-// authenticated, company-scoped submission flow remains responsible for access.
-const ownerDriverRecordSchema = z.record(z.string(), z.unknown());
-export const ownerDriverPayloadSchema = ownerDriverRecordSchema;
+const optionalText = z.string().trim().optional().default('');
+const optionalEmail = z
+  .union([z.literal(''), z.string().trim().email()])
+  .optional()
+  .default('');
+const optionalBooleanValue = z
+  .union([z.boolean(), z.enum(['true', 'false', '1', '0', 'yes', 'no'])])
+  .optional();
+
+const ownerDriverPayloadBaseSchema = z
+  .object({
+    full_name: z.string().trim().min(1),
+    dob: optionalText,
+    nationality: optionalText,
+    address: optionalText,
+    phone: optionalText,
+    email: optionalEmail,
+    right_to_work_status: optionalText,
+    visa_type: optionalText,
+    visa_expiry: optionalText,
+    share_code: optionalText,
+    settled_status: optionalBooleanValue,
+    pre_settled_status: optionalBooleanValue,
+    registration: optionalText,
+    make: optionalText,
+    model: optionalText,
+    payload: optionalText,
+    dimensions: optionalText,
+  })
+  .passthrough();
+
+// These keys mirror owner_driver_compliance_profiles exactly. Extra form and
+// document fields (for example tail_lift, insurance_details and doc_* markers)
+// remain in onboarding_applications.payload through passthrough persistence.
+export const ownerDriverPayloadSchema = ownerDriverPayloadBaseSchema.superRefine((value, ctx) => {
+  for (const key of ['dob', 'visa_expiry'] as const) {
+    const rawValue = value[key];
+    if (rawValue && normalizeDateOnly(rawValue) === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `${key === 'dob' ? 'Date of birth' : 'Visa expiry'} must use YYYY-MM-DD or DD/MM/YYYY.`,
+      });
+    }
+  }
+});
 
 export const customerPatchSchema = onboardingPatchBaseSchema.extend({
   payload: customerPayloadSchema.partial().optional(),
@@ -105,7 +146,7 @@ export const fleetPatchSchema = onboardingPatchBaseSchema.extend({
 });
 
 export const ownerDriverPatchSchema = onboardingPatchBaseSchema.extend({
-  payload: ownerDriverRecordSchema.optional(),
+  payload: ownerDriverPayloadBaseSchema.partial().optional(),
 });
 
 export type CustomerPayload = z.infer<typeof customerPayloadSchema>;
