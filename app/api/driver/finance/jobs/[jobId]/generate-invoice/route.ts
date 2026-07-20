@@ -48,7 +48,6 @@ export async function POST(
     return respond(400, { error: 'Invalid JSON body.' });
   }
 
-  // Idempotency key is mandatory at the API level.
   const idempotencyKey =
     typeof body.idempotency_key === 'string' ? body.idempotency_key.trim() : '';
   if (!idempotencyKey) {
@@ -57,7 +56,6 @@ export async function POST(
     });
   }
 
-  // Fetch the job — carrier company must be the awarded carrier.
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
     .select(
@@ -70,17 +68,17 @@ export async function POST(
   if (jobError) return respond(500, { error: jobError.message });
   if (!job) return respond(404, { error: 'Job not found.' });
 
-  // Canonical job lifecycle: delivered → invoiced → paid.
-  if (!['delivered', 'invoiced'].includes(job.status as string)) {
+  // Operational workflows may close a delivered job as `completed` before the
+  // carrier raises the invoice. Both states are valid invoice origins.
+  if (!['delivered', 'completed', 'invoiced'].includes(job.status as string)) {
     return respond(409, {
-      error: `Invoice can only be generated for a delivered or invoiced job. Current status: "${job.status as string}".`,
+      error: `Invoice can only be generated for a delivered, completed or invoiced job. Current status: "${job.status as string}".`,
     });
   }
 
   const isMarketplaceJob =
     job.exchange_visibility === 'exchange' || job.exchange_visibility === 'direct';
 
-  // ── Marketplace path: amount MUST come from the commercial agreement ────────
   let commercialAgreementId: string | null = null;
   let buyerCompanyId: string | null = null;
   let supplierCompanyId: string | null = null;
@@ -136,7 +134,6 @@ export async function POST(
       });
     }
   } else {
-    // Non-marketplace route guard remains job-scoped.
     const { data: existing } = await supabaseAdmin
       .from('invoices')
       .select('id, invoice_number, status')
@@ -168,9 +165,6 @@ export async function POST(
     typeof bodyClientEmail === 'string' ? bodyClientEmail :
     typeof job.client_email === 'string' ? job.client_email : null;
 
-  // Amount: for marketplace jobs use the commercial agreement exclusively.
-  // For non-marketplace jobs prefer caller-supplied amount; fall back to the
-  // job's budget_amount so the UI does not need to pass it explicitly.
   const rawAmount: number = isMarketplaceJob
     ? (agreedAmount ?? 0)
     : (typeof body.amount === 'number' && body.amount > 0
@@ -187,9 +181,6 @@ export async function POST(
     });
   }
 
-  // For marketplace invoices, VAT data is sourced exclusively from the commercial
-  // agreement snapshot — the caller cannot override it.
-  // For non-marketplace invoices, fall back to caller-supplied rate or 20%.
   const vatRate: 0 | 5 | 20 = isMarketplaceJob
     ? (agreementVatRate ?? 0)
     : (bodyVatRate === 5 || bodyVatRate === 20 ? (bodyVatRate as 0 | 5 | 20) : 20);
@@ -212,7 +203,6 @@ export async function POST(
         ? job.load_details
         : 'Logistics / delivery service';
 
-  // Generate invoice number
   const fallbackNum = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${String(Date.now()).slice(-3)}`;
   const { data: numData } = await supabaseAdmin.rpc('next_invoice_number', {
     p_company_id: driver.companyId,
@@ -251,7 +241,6 @@ export async function POST(
       currency: agreementCurrency ?? (typeof job.currency === 'string' ? job.currency : 'GBP'),
       payment_terms: paymentTerms,
       payment_status: 'unpaid',
-      // Linkage columns (populated for marketplace jobs only).
       commercial_agreement_id: commercialAgreementId,
       buyer_company_id: buyerCompanyId,
       supplier_company_id: supplierCompanyId,
@@ -295,7 +284,6 @@ export async function POST(
       }
     }
 
-    // Unique constraint on (company_id, invoice_number) — extremely rare race condition.
     if (insertError.code === '23505') {
       return respond(409, { error: 'Invoice number conflict — please retry.' });
     }
