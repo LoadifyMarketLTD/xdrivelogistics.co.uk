@@ -15,79 +15,56 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   const router = useRouter();
   const pathname = usePathname() || '/';
 
+  const hasRouteAccess = () => {
+    if (!user) return false;
+
+    const role = mapAppRole(user.role);
+    const listedRoleAllowed = allowedRoles?.length
+      ? allowedRoles.includes(user.role) ||
+        (allowedRoles.includes('driver') && user.canAccessDriverMode === true)
+      : true;
+
+    if (!listedRoleAllowed) return false;
+
+    return isRoleAllowedForPath(pathname, role, {
+      canAccessDriverMode: user.canAccessDriverMode === true,
+      membershipRole: user.membershipRole ?? null,
+      financeAccess: user.financeAccess ?? null,
+      ownerDriverWorkspace: user.ownerDriverWorkspace === true,
+      rawRole: user.rawRole ?? null,
+      workspaceRole: user.workspaceRole ?? null,
+    });
+  };
+
   useEffect(() => {
     if (!isLoading && !user) {
       const loginPath = pathname ? `/login?next=${encodeURIComponent(pathname)}` : '/login';
-      if (pathname !== '/login') {
-        router.replace(loginPath);
-      }
+      if (pathname !== '/login') router.replace(loginPath);
       return;
     }
 
-    if (!isLoading && user) {
-      const role = mapAppRole(user.role);
-      const roleAllowedByList = allowedRoles?.length
-        ? (
-            allowedRoles.includes(user.role) ||
-            (allowedRoles.includes('driver') && user.canAccessDriverMode === true)
-          )
-        : null;
-      const routeContext = {
-        canAccessDriverMode: user.canAccessDriverMode === true,
-        membershipRole: user.membershipRole ?? null,
-        financeAccess: user.financeAccess ?? null,
-        ownerDriverWorkspace: user.ownerDriverWorkspace === true,
-      };
-      const routeAllowed = isRoleAllowedForPath(pathname, role, routeContext);
-      const hasAccess = allowedRoles?.length
-        ? roleAllowedByList === true && routeAllowed
-        : routeAllowed;
-      if (!hasAccess && pathname !== '/forbidden') {
-        router.replace('/forbidden');
-      }
+    if (!isLoading && user && !hasRouteAccess() && pathname !== '/forbidden') {
+      router.replace('/forbidden');
     }
   }, [user, isLoading, router, allowedRoles, pathname]);
 
   if (isLoading) {
     return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '100vh',
-        fontSize: '1.25rem',
-        color: '#2563eb'
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          fontSize: '1.25rem',
+          color: '#2563eb',
+        }}
+      >
         Loading...
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
-  const role = mapAppRole(user.role);
-  const roleAllowedByList = allowedRoles?.length
-    ? (
-        allowedRoles.includes(user.role) ||
-        (allowedRoles.includes('driver') && user.canAccessDriverMode === true)
-      )
-    : null;
-  const routeContext = {
-    canAccessDriverMode: user.canAccessDriverMode === true,
-    membershipRole: user.membershipRole ?? null,
-    financeAccess: user.financeAccess ?? null,
-    ownerDriverWorkspace: user.ownerDriverWorkspace === true,
-  };
-  const routeAllowed = isRoleAllowedForPath(pathname, role, routeContext);
-  const hasAccess = allowedRoles?.length
-    ? roleAllowedByList === true && routeAllowed
-    : routeAllowed;
-
-  if (!hasAccess) {
-    return null;
-  }
-
+  if (!user || !hasRouteAccess()) return null;
   return <>{children}</>;
 }
