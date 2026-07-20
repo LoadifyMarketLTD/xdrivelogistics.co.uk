@@ -8,7 +8,10 @@ export const onboardingPatchBaseSchema = z
   })
   .strict();
 
-
+// Onboarding payloads legitimately contain uploaded-document markers such as
+// doc_driving_licence and legacy aliases retained while an applicant resumes.
+// Known business fields are still validated, while those persisted metadata
+// keys are preserved instead of causing the entire PATCH/submit to fail.
 export const customerPayloadSchema = z
   .object({
     full_name: z.string().trim().min(1),
@@ -17,7 +20,8 @@ export const customerPayloadSchema = z
     company_name: z.string().trim().optional().default(''),
     billing_address: z.string().trim().optional().default(''),
   })
-  .strict();
+  .passthrough();
+
 export const brokerPayloadSchema = z
   .object({
     company_name: z.string().trim().min(1),
@@ -31,7 +35,7 @@ export const brokerPayloadSchema = z
     contact_email: z.string().trim().email(),
     contact_phone: z.string().trim().min(1),
   })
-  .strict();
+  .passthrough();
 
 export const fleetPayloadSchema = z
   .object({
@@ -45,9 +49,44 @@ export const fleetPayloadSchema = z
     compliance_contact: z.string().trim().min(1),
     transport_contact: z.string().trim().min(1),
   })
-  .strict();
+  .passthrough();
 
 const shareCodeRegex = /^[A-Za-z0-9]{9}$/;
+
+const normalizeDateOnly = (rawValue: string): string | null => {
+  const value = rawValue.trim();
+  if (!value) return '';
+
+  let year: number;
+  let month: number;
+  let day: number;
+
+  const yearFirst = value.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  const dayFirst = value.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+
+  if (yearFirst) {
+    year = Number(yearFirst[1]);
+    month = Number(yearFirst[2]);
+    day = Number(yearFirst[3]);
+  } else if (dayFirst) {
+    day = Number(dayFirst[1]);
+    month = Number(dayFirst[2]);
+    year = Number(dayFirst[3]);
+  } else {
+    return null;
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
 
 const ownerDriverPayloadBaseSchema = z
   .object({
@@ -68,54 +107,57 @@ const ownerDriverPayloadBaseSchema = z
     model: z.string().trim().min(1),
     payload: z.string().trim().min(1),
     dimensions: z.string().trim().min(1),
+    tail_lift: z.string().trim().optional().default(''),
+    insurance_details: z.string().trim().optional().default(''),
   })
-  .strict();
+  .passthrough();
 
 export const ownerDriverPayloadSchema = ownerDriverPayloadBaseSchema.superRefine((value, ctx) => {
-    const visaRequired = value.right_to_work_status === 'visa_required' || value.right_to_work_status === 'share_code_required';
+  const visaRequired = value.right_to_work_status === 'visa_required' || value.right_to_work_status === 'share_code_required';
 
-    if (visaRequired && !value.visa_type) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['visa_type'],
-        message: 'Visa type is required when visa checks apply.',
-      });
-    }
+  if (visaRequired && !value.visa_type) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['visa_type'],
+      message: 'Visa type is required when visa checks apply.',
+    });
+  }
 
-    if (visaRequired && !value.visa_expiry) {
+  if (visaRequired && !value.visa_expiry) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['visa_expiry'],
+      message: 'Visa expiry is required when visa checks apply.',
+    });
+  }
+
+  if (value.visa_expiry) {
+    const normalizedExpiry = normalizeDateOnly(value.visa_expiry);
+    const expiryTime = normalizedExpiry ? new Date(`${normalizedExpiry}T00:00:00.000Z`).getTime() : Number.NaN;
+    if (!normalizedExpiry || Number.isNaN(expiryTime) || expiryTime <= Date.now()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['visa_expiry'],
-        message: 'Visa expiry is required when visa checks apply.',
+        message: 'Visa expiry must be a valid future date (YYYY-MM-DD or DD/MM/YYYY).',
       });
     }
+  }
 
-    if (value.visa_expiry) {
-      const expiryDate = new Date(`${value.visa_expiry}T00:00:00.000Z`);
-      if (Number.isNaN(expiryDate.getTime()) || expiryDate.getTime() <= Date.now()) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['visa_expiry'],
-          message: 'Visa expiry must be a future date.',
-        });
-      }
-    }
+  if (visaRequired && !value.share_code) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['share_code'],
+      message: 'Share code is required when visa checks apply.',
+    });
+  }
 
-    if (visaRequired && !value.share_code) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['share_code'],
-        message: 'Share code is required when visa checks apply.',
-      });
-    }
-
-    if (value.share_code && !shareCodeRegex.test(value.share_code)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['share_code'],
-        message: 'Share code must be 9 alphanumeric characters.',
-      });
-    }
+  if (value.share_code && !shareCodeRegex.test(value.share_code)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['share_code'],
+      message: 'Share code must be 9 alphanumeric characters.',
+    });
+  }
 });
 
 export const customerPatchSchema = onboardingPatchBaseSchema.extend({
@@ -139,4 +181,8 @@ export type BrokerPayload = z.infer<typeof brokerPayloadSchema>;
 export type FleetPayload = z.infer<typeof fleetPayloadSchema>;
 export type OwnerDriverPayload = z.infer<typeof ownerDriverPayloadSchema>;
 
-export const parseOwnerDriverDate = (value: string) => new Date(`${value}T00:00:00.000Z`).toISOString().slice(0, 10);
+export const parseOwnerDriverDate = (value: string) => {
+  const normalized = normalizeDateOnly(value);
+  if (!normalized) throw new Error('Invalid owner-driver date.');
+  return normalized;
+};
