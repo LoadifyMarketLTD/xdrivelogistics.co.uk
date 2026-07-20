@@ -1,1 +1,7 @@
-'use client'; import { BrokerPodPage } from '../BrokerWorkspaceModules'; export default function Page(){ return <BrokerPodPage/>; }
+'use client';
+
+import PodDocumentsPage from '../../components/workspace/PodDocumentsPage';
+
+export default function Page() {
+  return <PodDocumentsPage mode="broker" />;
+}

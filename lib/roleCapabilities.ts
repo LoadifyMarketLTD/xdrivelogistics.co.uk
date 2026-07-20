@@ -202,7 +202,9 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/customer/jobs', anyOf: ['jobs.view'] },
   { prefix: '/customer/documents', anyOf: ['jobs.review_pod'] },
   { prefix: '/customer/invoices', anyOf: ['invoices.customer.manage'] },
-  { prefix: '/customer/team', anyOf: ['company.members.manage'] },
+  // Team is currently a read-only company roster. Reuse settings access rather
+  // than granting the customer role the broader company.members.manage ability.
+  { prefix: '/customer/team', anyOf: ['settings.manage'] },
   { prefix: '/customer/settings', anyOf: ['settings.manage'] },
 
   { prefix: '/driver/change-password', roles: ['driver', 'owner_driver'] },
