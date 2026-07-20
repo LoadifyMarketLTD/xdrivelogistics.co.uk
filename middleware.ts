@@ -388,11 +388,12 @@ export async function middleware(request: NextRequest) {
     return buildRedirect(request, DRIVER_CHANGE_PASSWORD_PATH);
   }
 
-
   if (!isRoleAllowedForPath(url.pathname, auth.role, {
     canAccessDriverMode: auth.canAccessDriverMode,
     membershipRole: auth.membershipRole,
     ownerDriverWorkspace: auth.ownerDriverWorkspace,
+    rawRole: auth.rawRole,
+    workspaceRole: auth.workspaceRole,
   })) {
     const canonicalPath = getPostLoginRoute({
       role: auth.role,
