@@ -1,7 +1,7 @@
 'use client';
 
-import { CustomerCompanyTeamPage } from '../../components/workspace/Post233CompanyAdminPages';
+import CustomerTeamPage from '../../components/workspace/CustomerTeamPage';
 
 export default function Page() {
-  return <CustomerCompanyTeamPage />;
+  return <CustomerTeamPage />;
 }
