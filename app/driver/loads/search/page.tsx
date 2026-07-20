@@ -141,11 +141,15 @@ export default function SearchLoadsPage() {
     setLoading(false);
   };
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
+  const applySearch = async () => {
     const next = { ...filters };
     setAppliedFilters(next);
     await runSearch(next);
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    await applySearch();
   };
 
   const reset = () => {
@@ -186,7 +190,7 @@ export default function SearchLoadsPage() {
                 <label style={labelStyle}>Maximum budget (£)<input style={inputStyle} type="number" min="0" value={filters.maxBudget} onChange={(event) => setFilters((current) => ({ ...current, maxBudget: event.target.value }))} /></label>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <ActionButton tone="primary" disabled={loading} onClick={() => undefined}>{loading ? 'Searching…' : appliedFilters ? 'Update search' : 'Search loads'}</ActionButton>
+                <ActionButton tone="primary" disabled={loading} onClick={() => void applySearch()}>{loading ? 'Searching…' : appliedFilters ? 'Update search' : 'Search loads'}</ActionButton>
                 <ActionButton tone="secondary" onClick={reset}>Clear</ActionButton>
               </div>
             </form>
