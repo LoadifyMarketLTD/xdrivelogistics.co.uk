@@ -83,6 +83,7 @@ export type WorkspaceDocument = {
 export type WorkspaceLocation = {
   id: string;
   driver_id: string;
+  job_id?: string | null;
   lat: number;
   lng: number;
   recorded_at?: string | null;
