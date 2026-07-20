@@ -1,6 +1,14 @@
 name: Apply role workspace follow-up
 
 on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+    paths:
+      - '.github/workflows/apply-role-followup.yml'
+      - '.role-followup/**'
   push:
     branches:
       - feature/role-workspaces-rebuild-2026-07-20
@@ -9,6 +17,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 concurrency:
   group: apply-role-workspace-followup
