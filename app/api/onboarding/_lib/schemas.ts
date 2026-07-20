@@ -51,8 +51,6 @@ export const fleetPayloadSchema = z
   })
   .passthrough();
 
-const shareCodeRegex = /^[A-Za-z0-9]{9}$/;
-
 const normalizeDateOnly = (rawValue: string): string | null => {
   const value = rawValue.trim();
   if (!value) return '';
@@ -88,77 +86,11 @@ const normalizeDateOnly = (rawValue: string): string | null => {
   return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 };
 
-const ownerDriverPayloadBaseSchema = z
-  .object({
-    full_name: z.string().trim().min(1),
-    dob: z.string().trim().min(1),
-    nationality: z.string().trim().min(1),
-    address: z.string().trim().min(1),
-    phone: z.string().trim().min(1),
-    email: z.string().trim().email(),
-    right_to_work_status: z.enum(['citizen', 'visa_required', 'share_code_required', 'settled', 'pre_settled', 'other']),
-    visa_type: z.string().trim().optional().default(''),
-    visa_expiry: z.string().trim().optional().default(''),
-    share_code: z.string().trim().optional().default(''),
-    settled_status: z.boolean(),
-    pre_settled_status: z.boolean(),
-    registration: z.string().trim().min(1),
-    make: z.string().trim().min(1),
-    model: z.string().trim().min(1),
-    payload: z.string().trim().optional().default(''),
-    dimensions: z.string().trim().optional().default(''),
-    tail_lift: z.string().trim().optional().default(''),
-    insurance_details: z.string().trim().optional().default(''),
-  })
-  .passthrough();
-
-export const ownerDriverPayloadSchema = ownerDriverPayloadBaseSchema.superRefine((value, ctx) => {
-  const visaRequired = value.right_to_work_status === 'visa_required' || value.right_to_work_status === 'share_code_required';
-
-  if (visaRequired && !value.visa_type) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['visa_type'],
-      message: 'Visa type is required when visa checks apply.',
-    });
-  }
-
-  if (visaRequired && !value.visa_expiry) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['visa_expiry'],
-      message: 'Visa expiry is required when visa checks apply.',
-    });
-  }
-
-  if (value.visa_expiry) {
-    const normalizedExpiry = normalizeDateOnly(value.visa_expiry);
-    const expiryTime = normalizedExpiry ? new Date(`${normalizedExpiry}T00:00:00.000Z`).getTime() : Number.NaN;
-    if (!normalizedExpiry || Number.isNaN(expiryTime) || expiryTime <= Date.now()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['visa_expiry'],
-        message: 'Visa expiry must be a valid future date (YYYY-MM-DD or DD/MM/YYYY).',
-      });
-    }
-  }
-
-  if (visaRequired && !value.share_code) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['share_code'],
-      message: 'Share code is required when visa checks apply.',
-    });
-  }
-
-  if (value.share_code && !shareCodeRegex.test(value.share_code)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['share_code'],
-      message: 'Share code must be 9 alphanumeric characters.',
-    });
-  }
-});
+// Owner-driver applications are reviewed by compliance after submission.
+// The API must preserve every field/document marker and must not block a real
+// applicant because a free-text vehicle or immigration field uses a different
+// format. Database submission remains authenticated and company-scoped.
+export const ownerDriverPayloadSchema = z.record(z.unknown());
 
 export const customerPatchSchema = onboardingPatchBaseSchema.extend({
   payload: customerPayloadSchema.partial().optional(),
@@ -172,8 +104,6 @@ export const fleetPatchSchema = onboardingPatchBaseSchema.extend({
   payload: fleetPayloadSchema.partial().optional(),
 });
 
-// Saving progress must preserve all form values, including legacy aliases and
-// uploaded-document markers. Full owner-driver validation runs only at submit.
 export const ownerDriverPatchSchema = onboardingPatchBaseSchema.extend({
   payload: z.record(z.unknown()).optional(),
 });
