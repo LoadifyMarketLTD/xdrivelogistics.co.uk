@@ -217,15 +217,6 @@ export async function POST(
     return respond(409, { error: 'Invoice changed after delivery. Refresh to verify the current status.' });
   }
 
-  await supabaseAdmin.from('invoice_status_history').insert({
-    invoice_id: invoice.id,
-    company_id: driver.companyId,
-    from_status: invoice.status,
-    to_status: toLegacyInvoiceStatusForDb('Sent'),
-    changed_by: driver.userId,
-    note: `Delivered to ${recipientEmail} via Resend (${emailPayload.id}).`,
-  });
-
   return respond(200, {
     invoice: {
       ...updated,
