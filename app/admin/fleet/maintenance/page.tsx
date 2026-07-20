@@ -1,7 +1,7 @@
 'use client';
 
-import { HardenedFleetMaintenancePage } from '../../AdminWorkspaceHardening';
+import { FleetMaintenancePage } from '../../AdminWorkspaceModules';
 
 export default function Page() {
-  return <HardenedFleetMaintenancePage />;
+  return <FleetMaintenancePage />;
 }
