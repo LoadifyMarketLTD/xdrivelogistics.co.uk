@@ -1,1 +1,7 @@
-'use client'; import { CustomerInvoicesPage } from '../CustomerWorkspaceModules'; export default function Page(){return <CustomerInvoicesPage/>}
+'use client';
+
+import InvoiceRegisterPage from '../../components/workspace/InvoiceRegisterPage';
+
+export default function Page() {
+  return <InvoiceRegisterPage mode="customer" />;
+}
