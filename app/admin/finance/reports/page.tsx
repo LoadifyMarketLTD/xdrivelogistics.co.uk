@@ -1,7 +1,7 @@
 'use client';
 
-import { HardenedFinanceReportsPage } from '../../AdminWorkspaceHardening';
+import { FinanceReportsPage } from '../../AdminWorkspaceModules';
 
 export default function Page() {
-  return <HardenedFinanceReportsPage />;
+  return <FinanceReportsPage />;
 }
