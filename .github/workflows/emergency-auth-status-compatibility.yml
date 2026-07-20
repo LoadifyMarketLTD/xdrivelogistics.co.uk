@@ -1,3 +1,4 @@
+# One-time emergency workflow; deletes itself after applying the patch.
 name: Emergency auth status compatibility
 
 on:
