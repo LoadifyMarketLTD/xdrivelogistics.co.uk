@@ -134,6 +134,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }
 
+const persistentPodPath = (jobId: string, value: unknown): value is string => {
+  if (typeof value !== 'string') return false;
+  const path = value.trim();
+  return path.length > 0 && !path.includes('://') && path.startsWith(`${jobId}/`);
+};
+
 async function savePod(request: NextRequest, jobId: string, userId: string, driverId: string) {
   let body: Record<string, unknown>;
   try {
@@ -153,22 +159,38 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   if (!existing) return respond(404, { error: 'Job not found.' });
 
   const job = existing as unknown as MobileJobRow;
+  const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() : '';
+  const rawSignature = typeof body.signatureData === 'string' ? body.signatureData.trim() : '';
+  const photoPaths = safeArray(body.photoUris).filter((value) => persistentPodPath(jobId, value));
+  const documentPaths = safeArray(body.documentUris).filter((value) => persistentPodPath(jobId, value));
+
+  const suppliedEvidenceCount = safeArray(body.photoUris).length + safeArray(body.documentUris).length;
+  if (photoPaths.length + documentPaths.length !== suppliedEvidenceCount) {
+    return respond(400, { error: 'POD files must be uploaded to XDrive storage before submission.' });
+  }
+  if (!recipientName) return respond(400, { error: 'Recipient name is required for POD.' });
+  if (!rawSignature) return respond(400, { error: 'Recipient signature is required for POD.' });
+  if (photoPaths.length + documentPaths.length === 0) {
+    return respond(400, { error: 'At least one POD photo or document is required.' });
+  }
+
   const now = new Date().toISOString();
-  const photos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
-  const podPhotos = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
-  const photoUris = safeArray(body.photoUris).filter((item): item is string => typeof item === 'string' && item.length > 0);
-  const documentUris = safeArray(body.documentUris).filter((item): item is string => typeof item === 'string' && item.length > 0);
-  const signatureData = typeof body.signatureData === 'string' && body.signatureData.trim()
-    ? { type: 'driver_mobile_signature', value: body.signatureData.trim(), captured_at: now, captured_by: userId }
-    : job.delivery_signature_data ?? null;
+  const existingPhotos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
+  const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
+  const signatureData = {
+    type: 'driver_mobile_signature',
+    value: rawSignature,
+    captured_at: now,
+    captured_by: userId,
+  };
 
   const { data: updated, error: updateError } = await supabaseAdmin!
     .from('jobs')
     .update({
-      delivery_photos: [...photos, ...photoUris],
-      pod_photos: [...podPhotos, ...documentUris],
+      delivery_photos: [...existingPhotos, ...photoPaths],
+      pod_photos: [...existingDocuments, ...documentPaths],
       delivery_signature_data: signatureData,
-      client_signature_name: typeof body.recipientName === 'string' && body.recipientName.trim() ? body.recipientName.trim() : null,
+      client_signature_name: recipientName,
       delivery_notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null,
       pod_generated: true,
       pod_generated_at: now,
@@ -180,7 +202,7 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     .single();
 
   if (updateError) return respond(500, { error: updateError.message });
-  await insertTrackingEvent(jobId, userId, 'delivered', 'POD metadata uploaded');
+  await insertTrackingEvent(jobId, userId, 'note', 'POD evidence uploaded');
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }
