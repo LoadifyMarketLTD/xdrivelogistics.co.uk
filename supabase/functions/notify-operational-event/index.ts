@@ -26,6 +26,8 @@ interface NotificationEvent {
   recipient_user_id: string | null;
   payload: Record<string, unknown>;
   status: string;
+  attempt_count?: number;
+  next_attempt_at?: string | null;
 }
 
 const escapeHtml = (value: unknown) =>
@@ -112,13 +114,13 @@ async function handleJobAssigned(event: NotificationEvent) {
   if (!userId) return true;
   const user = await getUserEmail(userId);
   if (!user) return true;
-  const jobId = escapeHtml(event.payload.job_id ?? event.entity_id);
+  const jobIdRaw = String(event.payload.job_id ?? event.entity_id);
   const pickup = escapeHtml(event.payload.pickup_location ?? 'TBC');
   const delivery = escapeHtml(event.payload.delivery_location ?? 'TBC');
   return sendEmail(
     user.email,
     'New Job Assigned - XDrive Logistics',
-    `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl(`/driver/jobs/${jobId}`))}">View job details</a></p><p>XDrive Logistics</p>`,
+    `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl(`/driver/jobs/${encodeURIComponent(jobIdRaw)}`))}">View job details</a></p><p>XDrive Logistics</p>`,
   );
 }
 
@@ -243,13 +245,17 @@ async function processEvent(event: NotificationEvent): Promise<void> {
       status: success ? 'sent' : 'failed',
       processed_at: new Date().toISOString(),
       last_attempt_at: new Date().toISOString(),
-      attempt_count: (event as NotificationEvent & { attempt_count?: number }).attempt_count
-        ? (event as NotificationEvent & { attempt_count?: number }).attempt_count! + 1
-        : 1,
+      attempt_count: (event.attempt_count ?? 0) + 1,
       last_error: success ? null : 'Notification provider or event handler failed.',
     })
     .eq('id', event.id);
 }
+
+const isDueForRetry = (event: NotificationEvent, nowMs: number) => {
+  if (!event.next_attempt_at) return true;
+  const retryAt = Date.parse(event.next_attempt_at);
+  return Number.isFinite(retryAt) && retryAt <= nowMs;
+};
 
 Deno.serve(async (request) => {
   try {
@@ -273,14 +279,17 @@ Deno.serve(async (request) => {
     if (body?.record) {
       events = [body.record as NotificationEvent];
     } else {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('notification_events')
         .select('*')
         .in('status', ['pending', 'failed'])
-        .or('next_attempt_at.is.null,next_attempt_at.lte.now()')
         .order('created_at', { ascending: true })
-        .limit(50);
-      events = (data ?? []) as NotificationEvent[];
+        .limit(100);
+      if (error) throw error;
+      const nowMs = Date.now();
+      events = ((data ?? []) as NotificationEvent[])
+        .filter((event) => isDueForRetry(event, nowMs))
+        .slice(0, 50);
     }
 
     await Promise.allSettled(events.map(processEvent));
