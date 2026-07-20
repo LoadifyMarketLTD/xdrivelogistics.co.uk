@@ -87,10 +87,10 @@ const normalizeDateOnly = (rawValue: string): string | null => {
 };
 
 // Owner-driver applications are reviewed by compliance after submission.
-// The API must preserve every field/document marker and must not block a real
-// applicant because a free-text vehicle or immigration field uses a different
-// format. Database submission remains authenticated and company-scoped.
-export const ownerDriverPayloadSchema = z.record(z.unknown());
+// The API preserves free-form fields and uploaded-document markers while the
+// authenticated, company-scoped submission flow remains responsible for access.
+const ownerDriverRecordSchema = z.record(z.string(), z.unknown());
+export const ownerDriverPayloadSchema = ownerDriverRecordSchema;
 
 export const customerPatchSchema = onboardingPatchBaseSchema.extend({
   payload: customerPayloadSchema.partial().optional(),
@@ -105,7 +105,7 @@ export const fleetPatchSchema = onboardingPatchBaseSchema.extend({
 });
 
 export const ownerDriverPatchSchema = onboardingPatchBaseSchema.extend({
-  payload: z.record(z.unknown()).optional(),
+  payload: ownerDriverRecordSchema.optional(),
 });
 
 export type CustomerPayload = z.infer<typeof customerPayloadSchema>;
