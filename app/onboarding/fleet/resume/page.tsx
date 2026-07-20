@@ -1,5 +1,7 @@
-import { FleetOnboarding } from '../../_components/FleetOnboarding';
+'use client';
+
+import OnboardingTokenPage from '../../[token]/page';
 
 export default function FleetOnboardingResumePage() {
-  return <FleetOnboarding token="resume" />;
+  return <OnboardingTokenPage />;
 }
