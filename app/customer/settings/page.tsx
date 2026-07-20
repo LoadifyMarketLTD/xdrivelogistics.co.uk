@@ -1,3 +1,7 @@
 'use client';
-import { PageFrame, PageHeader, Panel } from '../../components/workspace/WorkspaceUI';
-export default function Page(){return <PageFrame><PageHeader eyebrow="Customer administration" title="Settings" description="Company profile, contacts, billing details, payment terms and notification preferences."/><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(250px,1fr))',gap:'0.9rem'}}>{['Company profile','Collection contacts','Delivery contacts','Billing and payment terms','Notifications','Security'].map(title=><Panel key={title} title={title}><p style={{margin:0,color:'#64748b',fontSize:'0.78rem',lineHeight:1.5}}>Settings are scoped to the current customer company.</p></Panel>)}</div></PageFrame>}
+
+import CustomerCompanySettingsPage from '../../components/workspace/CustomerCompanySettingsPage';
+
+export default function Page() {
+  return <CustomerCompanySettingsPage />;
+}
