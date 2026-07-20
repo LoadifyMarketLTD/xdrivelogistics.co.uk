@@ -6,6 +6,7 @@ import { getPostLoginRoute } from './lib/authSession';
 import { isRoleAllowedForPath, mapAppRole, resolveAuthoritativeRole, type AppUserRole } from './lib/authRole';
 import { ROUTE_AUTH_COOKIE_NAME } from './lib/routeAuthCookie';
 import { getCanonicalSiteUrl } from './lib/siteUrl';
+import { resolveWorkspaceRole, type WorkspaceRole } from './lib/workspaceRole';
 
 const DRIVER_PATH = '/driver';
 const DRIVER_JOBS_PATH = '/driver/jobs';
@@ -21,6 +22,8 @@ type RouteAuthResult =
   | {
       kind: 'authenticated';
       role: AppUserRole;
+      rawRole: string | null;
+      workspaceRole: WorkspaceRole;
       mustChangePassword: boolean;
       appAccess: boolean | null;
       ownerDriverWorkspace: boolean;
@@ -224,6 +227,8 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
       ? {
           kind: 'authenticated',
           role,
+          rawRole: fallbackRole,
+          workspaceRole: resolveWorkspaceRole({ role, rawRole: fallbackRole, ownerDriverWorkspace }),
           mustChangePassword: false,
           appAccess: null,
           ownerDriverWorkspace,
@@ -311,9 +316,19 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
       mapAppRole(fallbackRole) === 'driver'
     );
 
+  const rawRole = profile?.role ?? fallbackRole ?? null;
+  const workspaceRole = resolveWorkspaceRole({
+    role,
+    rawRole,
+    membershipRole: membership?.role_in_company ?? null,
+    ownerDriverWorkspace,
+  });
+
   return {
     kind: 'authenticated',
     role,
+    rawRole,
+    workspaceRole,
     mustChangePassword: (role === 'driver' || canAccessDriverMode) && driver?.must_change_password === true,
     appAccess: (role === 'driver' || canAccessDriverMode) ? (driver?.app_access ?? null) : null,
     ownerDriverWorkspace,
@@ -355,19 +370,6 @@ export async function middleware(request: NextRequest) {
   const driverRouteRequested = url.pathname === DRIVER_PATH || url.pathname.startsWith('/driver/');
   const driverModeActive = auth.role === 'driver' || (auth.canAccessDriverMode && driverRouteRequested);
 
-  if (driverRouteRequested && url.pathname !== DRIVER_CHANGE_PASSWORD_PATH) {
-    return buildRedirect(
-      request,
-      getPostLoginRoute({
-        role: auth.role,
-        mustChangePassword: auth.mustChangePassword,
-        ownerDriverWorkspace: auth.ownerDriverWorkspace,
-        canAccessDriverMode: auth.canAccessDriverMode,
-        ownerDriverExecutionMode: auth.ownerDriverExecutionMode,
-      })
-    );
-  }
-
   if (driverModeActive) {
     if (auth.appAccess === false) {
       return buildRedirect(request, FORBIDDEN_PATH);
@@ -378,42 +380,26 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (url.pathname === '/admin' && (auth.role === 'driver' || auth.ownerDriverWorkspace)) {
-    return buildRedirect(request, '/admin/marketplace');
+  if (url.pathname === '/admin' && (auth.workspaceRole === 'driver' || auth.workspaceRole === 'owner_driver')) {
+    return buildRedirect(request, '/driver');
   }
 
-  if (url.pathname === DRIVER_PATH) {
-    if (auth.canAccessDriverMode) {
-      return buildRedirect(
-        request,
-        getPostLoginRoute({
-          role: auth.role,
-          mustChangePassword: auth.mustChangePassword,
-          ownerDriverWorkspace: auth.ownerDriverWorkspace,
-          canAccessDriverMode: true,
-          ownerDriverExecutionMode: true,
-        })
-      );
-    }
-    return buildRedirect(
-      request,
-      getPostLoginRoute({
-        role: auth.role,
-        mustChangePassword: auth.mustChangePassword,
-        ownerDriverWorkspace: auth.ownerDriverWorkspace,
-        canAccessDriverMode: auth.canAccessDriverMode,
-        ownerDriverExecutionMode: auth.ownerDriverExecutionMode,
-      })
-    );
+  if (url.pathname === DRIVER_PATH && auth.mustChangePassword) {
+    return buildRedirect(request, DRIVER_CHANGE_PASSWORD_PATH);
   }
 
   if (!isRoleAllowedForPath(url.pathname, auth.role, {
     canAccessDriverMode: auth.canAccessDriverMode,
     membershipRole: auth.membershipRole,
     ownerDriverWorkspace: auth.ownerDriverWorkspace,
+    rawRole: auth.rawRole,
+    workspaceRole: auth.workspaceRole,
   })) {
     const canonicalPath = getPostLoginRoute({
       role: auth.role,
+      rawRole: auth.rawRole,
+      workspaceRole: auth.workspaceRole,
+      membershipRole: auth.membershipRole,
       mustChangePassword: auth.mustChangePassword,
       ownerDriverWorkspace: auth.ownerDriverWorkspace,
       canAccessDriverMode: auth.canAccessDriverMode,
