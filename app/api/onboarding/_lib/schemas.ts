@@ -105,7 +105,7 @@ const ownerDriverPayloadBaseSchema = z
     registration: z.string().trim().min(1),
     make: z.string().trim().min(1),
     model: z.string().trim().min(1),
-    payload: z.string().trim().min(1),
+    payload: z.string().trim().optional().default(''),
     dimensions: z.string().trim().optional().default(''),
     tail_lift: z.string().trim().optional().default(''),
     insurance_details: z.string().trim().optional().default(''),
@@ -172,8 +172,10 @@ export const fleetPatchSchema = onboardingPatchBaseSchema.extend({
   payload: fleetPayloadSchema.partial().optional(),
 });
 
+// Saving progress must preserve all form values, including legacy aliases and
+// uploaded-document markers. Full owner-driver validation runs only at submit.
 export const ownerDriverPatchSchema = onboardingPatchBaseSchema.extend({
-  payload: ownerDriverPayloadBaseSchema.partial().optional(),
+  payload: z.record(z.unknown()).optional(),
 });
 
 export type CustomerPayload = z.infer<typeof customerPayloadSchema>;
