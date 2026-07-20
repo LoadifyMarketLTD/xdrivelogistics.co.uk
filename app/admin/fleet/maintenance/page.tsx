@@ -1,1 +1,7 @@
-'use client'; import { FleetMaintenancePage } from '../../AdminWorkspaceModules'; export default function Page(){return <FleetMaintenancePage/>}
+'use client';
+
+import { HardenedFleetMaintenancePage } from '../../AdminWorkspaceHardening';
+
+export default function Page() {
+  return <HardenedFleetMaintenancePage />;
+}
