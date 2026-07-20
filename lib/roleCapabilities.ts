@@ -53,7 +53,7 @@ export const getCapabilitiesForRole = (
       ...NO_CAPABILITIES,
       canViewExchangeLoads: true,
       canQuoteLoads: true,
-      canReceiveQuotes: true,
+      canReceiveQuotes: false,
       canExecuteJobs: true,
       canManageOwnVehicle: true,
       canUploadPod: true,
@@ -149,14 +149,8 @@ export const getCapabilitiesForRole = (
   if (role === 'driver') {
     return {
       ...NO_CAPABILITIES,
-      canViewExchangeLoads: true,
-      canQuoteLoads: true,
-      canReceiveQuotes: true,
       canExecuteJobs: true,
-      canManageOwnVehicle: true,
       canUploadPod: true,
-      canViewInvoices: true,
-      canUseReturnJourneys: true,
     };
   }
 
@@ -201,9 +195,12 @@ const ADMIN_ROUTE_CAPABILITIES: Array<{ prefix: string; capability: keyof RoleCa
   { prefix: '/admin/jobs', capability: 'canExecuteJobs' },
   { prefix: '/admin/disputes', capability: 'canExecuteJobs' },
   { prefix: '/admin/fleet', capability: 'canManageFleet' },
+  { prefix: '/admin/driver-availability', capability: 'canManageFleet' },
   { prefix: '/admin/drivers', capability: 'canManageFleet' },
   { prefix: '/admin/vehicles', capability: 'canManageOwnVehicle' },
   { prefix: '/admin/documents', capability: 'canUploadPod' },
+  { prefix: '/admin/incidents', capability: 'canManageFleet' },
+  { prefix: '/admin/finance', capability: 'canViewInvoices' },
   { prefix: '/admin/returns', capability: 'canUseReturnJourneys' },
   { prefix: '/admin/invoices', capability: 'canViewInvoices' },
   { prefix: '/admin/dispatchers', capability: 'canManageCompanyUsers' },
@@ -245,7 +242,11 @@ export const isCapabilityAllowedForPath = (
   if (pathname.startsWith('/customer')) return role === 'customer';
 
   if (pathname.startsWith('/driver')) {
-    return pathname === '/driver/change-password' && (role === 'driver' || context.canAccessDriverMode === true);
+    if (pathname === '/driver/change-password') return role === 'driver' || context.canAccessDriverMode === true;
+    if (role !== 'driver' && context.canAccessDriverMode !== true) return false;
+    const capabilities = getCapabilitiesForRole(role, context);
+    const requiredCapability = requiredCapabilityForPath(pathname);
+    return !requiredCapability || capabilities[requiredCapability];
   }
 
   if (pathname.startsWith('/admin')) {
