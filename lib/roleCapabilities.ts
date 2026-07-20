@@ -1,5 +1,12 @@
 import type { AppUserRole } from './authRole';
 import type { DriverWorkspaceMode } from './driverWorkspaceMode';
+import {
+  getWorkspaceCapabilities,
+  isWorkspacePathAllowed,
+  resolveWorkspaceRole,
+  type WorkspaceRole,
+  type WorkspaceUserLike,
+} from './workspaceRole';
 
 export type RoleCapabilities = {
   canPostLoads: boolean;
@@ -16,6 +23,15 @@ export type RoleCapabilities = {
   canViewInvoices: boolean;
   canRepostToExchange: boolean;
   canUseReturnJourneys: boolean;
+};
+
+export type RouteAccessContext = {
+  canAccessDriverMode?: boolean;
+  membershipRole?: string | null;
+  financeAccess?: 'full' | 'limited' | 'hidden' | null;
+  ownerDriverWorkspace?: boolean | null;
+  rawRole?: string | null;
+  workspaceRole?: WorkspaceRole | null;
 };
 
 const NO_CAPABILITIES: RoleCapabilities = {
@@ -35,230 +51,77 @@ const NO_CAPABILITIES: RoleCapabilities = {
   canUseReturnJourneys: false,
 };
 
+const workspaceUser = (
+  role: AppUserRole | null,
+  context: RouteAccessContext = {}
+): WorkspaceUserLike | null => {
+  if (!role && !context.workspaceRole) return null;
+  return {
+    role,
+    rawRole: context.rawRole ?? null,
+    membershipRole: context.membershipRole ?? null,
+    ownerDriverWorkspace: context.ownerDriverWorkspace === true,
+    canAccessDriverMode: context.canAccessDriverMode === true,
+    financeAccess: context.financeAccess ?? null,
+    workspaceRole: context.workspaceRole ?? null,
+  };
+};
+
 export const getCapabilitiesForRole = (
   role: AppUserRole | null,
-  context: {
-    membershipRole?: string | null;
-    financeAccess?: 'full' | 'limited' | 'hidden' | null;
-    ownerDriverWorkspace?: boolean | null;
-  } = {}
+  context: RouteAccessContext = {}
 ): RoleCapabilities => {
-  if (!role) return NO_CAPABILITIES;
+  const user = workspaceUser(role, context);
+  if (!user) return NO_CAPABILITIES;
 
-  if (
-    context.ownerDriverWorkspace === true &&
-    (role === 'driver' || role === 'company_admin' || role === 'company_staff')
-  ) {
-    return {
-      ...NO_CAPABILITIES,
-      canViewExchangeLoads: true,
-      canQuoteLoads: true,
-      canReceiveQuotes: false,
-      canExecuteJobs: true,
-      canManageOwnVehicle: true,
-      canUploadPod: true,
-      canViewInvoices: true,
-      canUseReturnJourneys: true,
-    };
-  }
+  const workspaceRole = resolveWorkspaceRole(user);
+  const capabilities = getWorkspaceCapabilities(workspaceRole);
+  const has = (...keys: Parameters<typeof capabilities.has>[0][]) => keys.some((key) => capabilities.has(key));
 
-  if (role === 'owner') {
-    return {
-      canPostLoads: true,
-      canViewExchangeLoads: true,
-      canQuoteLoads: true,
-      canReceiveQuotes: true,
-      canAwardJobs: true,
-      canExecuteJobs: true,
-      canAllocateDrivers: true,
-      canManageFleet: true,
-      canManageCompanyUsers: true,
-      canManageOwnVehicle: true,
-      canUploadPod: true,
-      canViewInvoices: true,
-      canRepostToExchange: true,
-      canUseReturnJourneys: true,
-    };
-  }
-
-  if (role === 'customer') {
-    return {
-      ...NO_CAPABILITIES,
-      canPostLoads: true,
-      canReceiveQuotes: true,
-      canAwardJobs: true,
-      canViewInvoices: true,
-    };
-  }
-
-  if (role === 'broker') {
-    return {
-      ...NO_CAPABILITIES,
-      canPostLoads: true,
-      canViewExchangeLoads: true,
-      canReceiveQuotes: true,
-      canAwardJobs: true,
-      canRepostToExchange: true,
-      canViewInvoices: true,
-    };
-  }
-
-  if (role === 'company_admin') {
-    return {
-      canPostLoads: true,
-      canViewExchangeLoads: true,
-      canQuoteLoads: true,
-      canReceiveQuotes: true,
-      canAwardJobs: true,
-      canExecuteJobs: true,
-      canAllocateDrivers: true,
-      canManageFleet: true,
-      canManageCompanyUsers: true,
-      canManageOwnVehicle: true,
-      canUploadPod: true,
-      canViewInvoices: true,
-      canRepostToExchange: true,
-      canUseReturnJourneys: true,
-    };
-  }
-
-  if (role === 'company_staff') {
-    const canViewFinance =
-      context.financeAccess === 'full' ||
-      context.financeAccess === 'limited' ||
-      context.membershipRole === 'dispatcher';
-
-    return {
-      ...NO_CAPABILITIES,
-      canPostLoads: true,
-      canViewExchangeLoads: true,
-      canQuoteLoads: true,
-      canReceiveQuotes: true,
-      canAwardJobs: true,
-      canExecuteJobs: true,
-      canAllocateDrivers: true,
-      canManageFleet: true,
-      canManageOwnVehicle: true,
-      canUploadPod: true,
-      canViewInvoices: canViewFinance,
-      canRepostToExchange: true,
-      canUseReturnJourneys: true,
-    };
-  }
-
-  if (role === 'driver') {
-    return {
-      ...NO_CAPABILITIES,
-      canExecuteJobs: true,
-      canUploadPod: true,
-    };
-  }
-
-  return NO_CAPABILITIES;
+  return {
+    canPostLoads: has('loads.create', 'loads.publish'),
+    canViewExchangeLoads: has('loads.view.marketplace'),
+    canQuoteLoads: has('quotes.submit'),
+    canReceiveQuotes: has('quotes.receive'),
+    canAwardJobs: has('quotes.award'),
+    canExecuteJobs: has('jobs.execute'),
+    canAllocateDrivers: has('jobs.allocate'),
+    canManageFleet: has('drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage', 'fleet.future.manage'),
+    canManageCompanyUsers: has('company.members.manage'),
+    canManageOwnVehicle: workspaceRole === 'owner_driver' || has('vehicles.manage'),
+    canUploadPod: has('jobs.review_pod', 'jobs.execute'),
+    canViewInvoices: has('invoices.customer.manage', 'invoices.carrier.manage'),
+    canRepostToExchange: has('loads.publish'),
+    canUseReturnJourneys: workspaceRole === 'owner_driver' || has('fleet.future.manage'),
+  };
 };
 
 export const getDriverWorkspaceCapabilities = (
   mode: DriverWorkspaceMode,
-  context: {
-    role?: AppUserRole | string | null;
-    membershipRole?: string | null;
-    financeAccess?: 'full' | 'limited' | 'hidden' | null;
-    ownerDriverWorkspace?: boolean | null;
-  } = {}
+  context: RouteAccessContext & { role?: AppUserRole | string | null } = {}
 ): RoleCapabilities => {
   if (mode === 'provider_driver') {
-    return {
-      ...getCapabilitiesForRole('driver'),
-      canViewInvoices: true,
-      canUseReturnJourneys: true,
-    };
+    return getCapabilitiesForRole('driver', {
+      ...context,
+      workspaceRole: 'driver',
+    });
   }
 
   if (mode === 'admin_business') {
-    return getCapabilitiesForRole('company_admin', context);
+    return getCapabilitiesForRole('company_admin', {
+      ...context,
+      workspaceRole: context.workspaceRole ?? 'company_admin',
+    });
   }
 
-  return getCapabilitiesForRole('driver', context);
-};
-export type RouteAccessContext = {
-  canAccessDriverMode?: boolean;
-  membershipRole?: string | null;
-  financeAccess?: 'full' | 'limited' | 'hidden' | null;
-  ownerDriverWorkspace?: boolean | null;
-};
-
-const ADMIN_ROUTE_CAPABILITIES: Array<{ prefix: string; capability: keyof RoleCapabilities }> = [
-  { prefix: '/admin/marketplace', capability: 'canViewExchangeLoads' },
-  { prefix: '/admin/quotes', capability: 'canReceiveQuotes' },
-  { prefix: '/admin/bids', capability: 'canReceiveQuotes' },
-  { prefix: '/admin/diary', capability: 'canExecuteJobs' },
-  { prefix: '/admin/jobs', capability: 'canExecuteJobs' },
-  { prefix: '/admin/disputes', capability: 'canExecuteJobs' },
-  { prefix: '/admin/fleet', capability: 'canManageFleet' },
-  { prefix: '/admin/driver-availability', capability: 'canManageFleet' },
-  { prefix: '/admin/drivers', capability: 'canManageFleet' },
-  { prefix: '/admin/vehicles', capability: 'canManageOwnVehicle' },
-  { prefix: '/admin/documents', capability: 'canUploadPod' },
-  { prefix: '/admin/incidents', capability: 'canManageFleet' },
-  { prefix: '/admin/finance', capability: 'canViewInvoices' },
-  { prefix: '/admin/returns', capability: 'canUseReturnJourneys' },
-  { prefix: '/admin/invoices', capability: 'canViewInvoices' },
-  { prefix: '/admin/dispatchers', capability: 'canManageCompanyUsers' },
-  { prefix: '/admin/settings', capability: 'canManageCompanyUsers' },
-];
-
-const DRIVER_ROUTE_CAPABILITIES: Array<{ prefix: string; capability: keyof RoleCapabilities }> = [
-  { prefix: '/driver/loads', capability: 'canViewExchangeLoads' },
-  { prefix: '/driver/quotes', capability: 'canQuoteLoads' },
-  { prefix: '/driver/won-work', capability: 'canExecuteJobs' },
-  { prefix: '/driver/jobs', capability: 'canExecuteJobs' },
-  { prefix: '/driver/finance', capability: 'canViewInvoices' },
-  { prefix: '/driver/vehicles', capability: 'canManageOwnVehicle' },
-  { prefix: '/driver/returns', capability: 'canUseReturnJourneys' },
-  { prefix: '/driver/documents', capability: 'canUploadPod' },
-];
-
-const pathMatches = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
-
-const requiredCapabilityForPath = (pathname: string): keyof RoleCapabilities | null => {
-  const adminMatch = ADMIN_ROUTE_CAPABILITIES.find((entry) => pathMatches(pathname, entry.prefix));
-  if (adminMatch) return adminMatch.capability;
-
-  const driverMatch = DRIVER_ROUTE_CAPABILITIES.find((entry) => pathMatches(pathname, entry.prefix));
-  if (driverMatch) return driverMatch.capability;
-
-  return null;
+  return getCapabilitiesForRole('driver', {
+    ...context,
+    workspaceRole: context.ownerDriverWorkspace ? 'owner_driver' : 'driver',
+  });
 };
 
 export const isCapabilityAllowedForPath = (
   pathname: string,
   role: AppUserRole | null,
   context: RouteAccessContext = {}
-): boolean => {
-  if (!role) return false;
-
-  if (pathname.startsWith('/super-admin')) return role === 'owner';
-  if (pathname.startsWith('/broker')) return role === 'broker' || role === 'owner';
-  if (pathname.startsWith('/customer')) return role === 'customer';
-
-  if (pathname.startsWith('/driver')) {
-    if (pathname === '/driver/change-password') return role === 'driver' || context.canAccessDriverMode === true;
-    if (role !== 'driver' && context.canAccessDriverMode !== true) return false;
-    const capabilities = getCapabilitiesForRole(role, context);
-    const requiredCapability = requiredCapabilityForPath(pathname);
-    return !requiredCapability || capabilities[requiredCapability];
-  }
-
-  if (pathname.startsWith('/admin')) {
-    if (role !== 'owner' && role !== 'broker' && role !== 'company_admin' && role !== 'company_staff' && role !== 'driver') return false;
-    const capabilities = getCapabilitiesForRole(role, context);
-    const requiredCapability = requiredCapabilityForPath(pathname);
-    return !requiredCapability || capabilities[requiredCapability];
-  }
-
-  if (pathname.startsWith('/m')) {
-    return role === 'owner' || role === 'broker' || role === 'company_admin' || role === 'company_staff' || role === 'driver' || context.canAccessDriverMode === true;
-  }
-
-  return true;
-};
+): boolean => isWorkspacePathAllowed(pathname, workspaceUser(role, context));
