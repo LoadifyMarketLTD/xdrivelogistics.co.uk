@@ -55,16 +55,22 @@ const eventType: Record<string, string> = {
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
-const hasPod = (job: Record<string, unknown>) => {
-  const photos = Array.isArray(job.delivery_photos) ? job.delivery_photos : [];
-  const pod = Array.isArray(job.pod_photos) ? job.pod_photos : [];
-  return Boolean(
-    job.pod_generated ||
-    photos.length > 0 ||
-    pod.length > 0 ||
-    job.delivery_signature_data ||
-    job.client_signature_name
-  );
+const hasCompletePod = (job: Record<string, unknown>) => {
+  const deliveryPhotos = Array.isArray(job.delivery_photos)
+    ? job.delivery_photos.filter((value) => typeof value === 'string' && value.trim().length > 0)
+    : [];
+  const podDocuments = Array.isArray(job.pod_photos)
+    ? job.pod_photos.filter((value) => typeof value === 'string' && value.trim().length > 0)
+    : [];
+  const signature = job.delivery_signature_data;
+  const hasSignature = typeof signature === 'string'
+    ? signature.trim().length > 0
+    : Boolean(signature && typeof signature === 'object');
+  const recipientName = typeof job.client_signature_name === 'string'
+    ? job.client_signature_name.trim()
+    : '';
+
+  return deliveryPhotos.length + podDocuments.length > 0 && hasSignature && recipientName.length > 0;
 };
 
 export async function POST(
@@ -117,8 +123,10 @@ export async function POST(
   if (!job.assigned_driver_id) {
     return respond(409, { error: 'Assign an approved driver before starting job execution.' });
   }
-  if (parsed.data.nextStatus === 'delivered' && job.pod_required !== false && !hasPod(job as Record<string, unknown>)) {
-    return respond(409, { error: 'POD is required before the job can be marked delivered.' });
+  if (parsed.data.nextStatus === 'delivered' && job.pod_required !== false && !hasCompletePod(job as Record<string, unknown>)) {
+    return respond(409, {
+      error: 'Complete POD is required before delivery: provide at least one photo or document, recipient signature and recipient name.',
+    });
   }
 
   const now = new Date().toISOString();
@@ -143,22 +151,30 @@ export async function POST(
   const field = timestampField[parsed.data.nextStatus];
   if (field) update[field] = now;
 
-  const { data: updated, error: updateError } = await supabaseAdmin
+  let updateQuery = supabaseAdmin
     .from('jobs')
     .update(update)
     .eq('id', id)
-    .eq('status', job.status)
+    .eq('status', job.status);
+  updateQuery = job.current_status === null
+    ? updateQuery.is('current_status', null)
+    : updateQuery.eq('current_status', job.current_status);
+
+  const { data: updated, error: updateError } = await updateQuery
     .select('id, status, current_status, assigned_driver_id, updated_at')
     .maybeSingle();
   if (updateError) return respond(500, { error: updateError.message });
   if (!updated) return respond(409, { error: 'Job changed while the transition was being saved. Refresh and retry.' });
 
-  await supabaseAdmin.from('job_tracking_events').insert({
+  const { error: trackingError } = await supabaseAdmin.from('job_tracking_events').insert({
     job_id: id,
     event_type: eventType[parsed.data.nextStatus],
     created_by: authData.user.id,
     message: parsed.data.note || `Operator changed status to ${parsed.data.nextStatus.replaceAll('_', ' ')}.`,
   });
+  if (trackingError) {
+    console.error('Job transition succeeded but tracking event insert failed:', trackingError.message);
+  }
 
   return respond(200, { success: true, job: updated });
 }
