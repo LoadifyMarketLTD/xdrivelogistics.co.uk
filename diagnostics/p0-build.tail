@@ -1,0 +1,300 @@
+  49:6  warning  React Hook useEffect has a missing dependency: 'hasRouteAccess'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 2 problems (0 errors, 2 warnings)
+
+LINT_EXIT=0
+=== TYPECHECK ===
+
+> my-app@0.0.0 typecheck
+> tsc --noEmit
+
+TYPECHECK_EXIT=0
+=== BUILD ===
+
+> my-app@0.0.0 build
+> npm run validate:supabase-env && next build
+
+
+> my-app@0.0.0 validate:supabase-env
+> node ./scripts/validate-supabase-env.mjs
+
+⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+   ▲ Next.js 15.5.19
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (102kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (243kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ⚠ Compiled with warnings in 1761ms
+
+./node_modules/@supabase/supabase-js/dist/index.mjs
+A Node.js API is used (process.version at line: 27) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/@supabase/supabase-js/dist/index.mjs
+./app/api/_lib/supabaseAdmin.ts
+
+ ✓ Compiled successfully in 25.6s
+   Linting and checking validity of types ...
+
+ ⚠ The Next.js plugin was not detected in your ESLint configuration. See https://nextjs.org/docs/app/api-reference/config/eslint#migrating-existing-config
+
+./app/admin/AdminWorkspaceModules.tsx
+150:6  Warning: React Hook useMemo has a missing dependency: 'data'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./app/components/ProtectedRoute.tsx
+49:6  Warning: React Hook useEffect has a missing dependency: 'hasRouteAccess'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+   Collecting page data ...
+[supabaseAdmin] SUPABASE_SERVICE_ROLE_KEY is not set — admin operations are disabled.
+[supabaseAdmin] SUPABASE_SERVICE_ROLE_KEY is not set — admin operations are disabled.
+[supabaseAdmin] SUPABASE_SERVICE_ROLE_KEY is not set — admin operations are disabled.
+   Generating static pages (0/193) ...
+[supabaseAdmin] SUPABASE_SERVICE_ROLE_KEY is not set — admin operations are disabled.
+   Generating static pages (48/193) 
+   Generating static pages (96/193) 
+   Generating static pages (144/193) 
+ ✓ Generating static pages (193/193)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                               Size  First Load JS
+┌ ƒ /                                                  2.35 kB         182 kB
+├ ƒ /_not-found                                          304 B         103 kB
+├ ƒ /admin                                               337 B         181 kB
+├ ƒ /admin/bids                                        5.79 kB         176 kB
+├ ƒ /admin/companies                                   3.53 kB         178 kB
+├ ƒ /admin/diary                                       9.86 kB         181 kB
+├ ƒ /admin/dispatchers                                 8.39 kB         179 kB
+├ ƒ /admin/disputes                                    5.75 kB         176 kB
+├ ƒ /admin/documents                                   4.67 kB         179 kB
+├ ƒ /admin/documents/expiry                              268 B         183 kB
+├ ƒ /admin/driver-availability                           266 B         183 kB
+├ ƒ /admin/drivers                                     6.45 kB         181 kB
+├ ƒ /admin/drivers-vehicles                              536 B         103 kB
+├ ƒ /admin/finance/balances                              264 B         183 kB
+├ ƒ /admin/finance/payments                              269 B         183 kB
+├ ƒ /admin/finance/reports                               265 B         183 kB
+├ ƒ /admin/fleet                                         325 B         181 kB
+├ ƒ /admin/fleet/active-jobs                             266 B         183 kB
+├ ƒ /admin/fleet/assignments                             269 B         183 kB
+├ ƒ /admin/fleet/future-availability                     267 B         183 kB
+├ ƒ /admin/fleet/maintenance                             266 B         183 kB
+├ ƒ /admin/fleet/positions                               269 B         183 kB
+├ ƒ /admin/incidents                                     269 B         183 kB
+├ ƒ /admin/invoices                                    7.46 kB         178 kB
+├ ƒ /admin/invoices/[id]                               14.9 kB         186 kB
+├ ƒ /admin/invoices/new                                7.56 kB         182 kB
+├ ƒ /admin/jobs                                        12.3 kB         187 kB
+├ ƒ /admin/jobs/[id]                                   7.23 kB         182 kB
+├ ƒ /admin/marketplace                                 9.97 kB         181 kB
+├ ƒ /admin/notifications                                 266 B         183 kB
+├ ƒ /admin/operations-centre                           13.4 kB         184 kB
+├ ƒ /admin/quotes                                      7.57 kB         178 kB
+├ ƒ /admin/returns                                     5.75 kB         176 kB
+├ ƒ /admin/settings                                    6.24 kB         181 kB
+├ ƒ /admin/vehicles                                    4.57 kB         179 kB
+├ ƒ /api/admin/bids/[id]/accept                          304 B         103 kB
+├ ƒ /api/admin/bids/[id]/reject                          304 B         103 kB
+├ ƒ /api/admin/bids/identities                           304 B         103 kB
+├ ƒ /api/admin/dispatchers                               304 B         103 kB
+├ ƒ /api/admin/drivers                                   304 B         103 kB
+├ ƒ /api/admin/invoices/[id]/payment-history             304 B         103 kB
+├ ƒ /api/admin/jobs/[id]/assign-driver                   304 B         103 kB
+├ ƒ /api/admin/operations-centre                         304 B         103 kB
+├ ƒ /api/customer/bids/[id]/award                        304 B         103 kB
+├ ƒ /api/customer/team                                   304 B         103 kB
+├ ƒ /api/driver/finance/invoices                         304 B         103 kB
+├ ƒ /api/driver/finance/invoices/[id]                    304 B         103 kB
+├ ƒ /api/driver/finance/invoices/[id]/disputes           304 B         103 kB
+├ ƒ /api/driver/finance/invoices/[id]/documents          304 B         103 kB
+├ ƒ /api/driver/finance/invoices/[id]/payment-history    304 B         103 kB
+├ ƒ /api/driver/finance/invoices/[id]/submit             304 B         103 kB
+├ ƒ /api/driver/finance/jobs/[jobId]/generate-invoice    304 B         103 kB
+├ ƒ /api/driver/jobs/[jobId]/notes                       304 B         103 kB
+├ ƒ /api/driver/location                                 304 B         103 kB
+├ ƒ /api/driver/mobile/bids                              304 B         103 kB
+├ ƒ /api/driver/mobile/config                            304 B         103 kB
+├ ƒ /api/driver/mobile/device-token                      304 B         103 kB
+├ ƒ /api/driver/mobile/jobs                              304 B         103 kB
+├ ƒ /api/driver/mobile/jobs/[id]                         304 B         103 kB
+├ ƒ /api/driver/mobile/jobs/[id]/[action]                304 B         103 kB
+├ ƒ /api/driver/mobile/nearby-jobs                       304 B         103 kB
+├ ƒ /api/driver/mobile/resources                         304 B         103 kB
+├ ƒ /api/driver/password                                 304 B         103 kB
+├ ƒ /api/driver/search-loads                             304 B         103 kB
+├ ƒ /api/onboarding/broker/session                       304 B         103 kB
+├ ƒ /api/onboarding/customer/session                     304 B         103 kB
+├ ƒ /api/onboarding/documents                            304 B         103 kB
+├ ƒ /api/onboarding/fleet/session                        304 B         103 kB
+├ ƒ /api/onboarding/init                                 304 B         103 kB
+├ ƒ /api/onboarding/owner-driver/session                 304 B         103 kB
+├ ƒ /api/onboarding/session                              304 B         103 kB
+├ ƒ /api/onboarding/submit                               304 B         103 kB
+├ ƒ /api/onboarding/submit/broker                        304 B         103 kB
+├ ƒ /api/onboarding/submit/customer                      304 B         103 kB
+├ ƒ /api/onboarding/submit/fleet                         304 B         103 kB
+├ ƒ /api/onboarding/submit/owner-driver                  304 B         103 kB
+├ ƒ /api/pod/signed-url                                  304 B         103 kB
+├ ƒ /api/public/quote-request                            304 B         103 kB
+├ ƒ /api/super-admin/audit                               304 B         103 kB
+├ ƒ /api/super-admin/companies                           304 B         103 kB
+├ ƒ /api/super-admin/companies/[id]                      304 B         103 kB
+├ ƒ /api/super-admin/compliance                          304 B         103 kB
+├ ƒ /api/super-admin/email-readiness                     304 B         103 kB
+├ ƒ /api/super-admin/finance                             304 B         103 kB
+├ ƒ /api/super-admin/marketplace                         304 B         103 kB
+├ ƒ /api/super-admin/marketplace/[id]                    304 B         103 kB
+├ ƒ /api/super-admin/onboarding/[id]                     304 B         103 kB
+├ ƒ /api/super-admin/operations                          304 B         103 kB
+├ ƒ /api/super-admin/platform                            304 B         103 kB
+├ ƒ /api/super-admin/stats                               304 B         103 kB
+├ ƒ /api/super-admin/support                             304 B         103 kB
+├ ƒ /api/support/tickets                                 304 B         103 kB
+├ ƒ /auth/callback                                     2.16 kB         173 kB
+├ ƒ /auth/confirm                                        304 B         103 kB
+├ ƒ /broker                                              269 B         186 kB
+├ ƒ /broker/awards                                       270 B         186 kB
+├ ƒ /broker/bids                                         269 B         186 kB
+├ ƒ /broker/carrier-costs                                280 B         186 kB
+├ ƒ /broker/compare-quotes                               279 B         186 kB
+├ ƒ /broker/customer-invoices                            280 B         186 kB
+├ ƒ /broker/customers                                    269 B         186 kB
+├ ƒ /broker/disputes                                     270 B         186 kB
+├ ƒ /broker/jobs                                         271 B         186 kB
+├ ƒ /broker/loads                                        270 B         186 kB
+├ ƒ /broker/margins                                      270 B         186 kB
+├ ƒ /broker/notifications                                266 B         183 kB
+├ ƒ /broker/pod-review                                  2.9 kB         178 kB
+├ ƒ /broker/post-load                                    270 B         186 kB
+├ ƒ /broker/settings                                    3.5 kB         179 kB
+├ ƒ /contact                                             175 B         106 kB
+├ ƒ /cookies                                             304 B         103 kB
+├ ƒ /customer                                            271 B         185 kB
+├ ƒ /customer/awards                                     269 B         185 kB
+├ ƒ /customer/deliveries                                 270 B         185 kB
+├ ƒ /customer/documents                                 2.9 kB         178 kB
+├ ƒ /customer/invoices                                   270 B         185 kB
+├ ƒ /customer/jobs/[id]                                  303 B         185 kB
+├ ƒ /customer/loads                                      269 B         185 kB
+├ ƒ /customer/notifications                              269 B         185 kB
+├ ƒ /customer/post-load                                  269 B         185 kB
+├ ƒ /customer/quotes                                     269 B         185 kB
+├ ƒ /customer/settings                                 3.44 kB         178 kB
+├ ƒ /customer/team                                     2.86 kB         178 kB
+├ ƒ /customer/updates                                    269 B         185 kB
+├ ƒ /driver                                            2.83 kB         178 kB
+├ ƒ /driver/availability                               6.51 kB         182 kB
+├ ƒ /driver/change-password                            4.17 kB         175 kB
+├ ƒ /driver/documents                                  3.73 kB         179 kB
+├ ƒ /driver/finance                                    3.59 kB         179 kB
+├ ƒ /driver/finance/invoices/[id]                      5.42 kB         180 kB
+├ ƒ /driver/history                                    2.89 kB         178 kB
+├ ƒ /driver/jobs                                       6.26 kB         181 kB
+├ ƒ /driver/jobs/[id]                                  5.66 kB         180 kB
+├ ƒ /driver/loads                                       6.5 kB         182 kB
+├ ƒ /driver/loads/search                               5.32 kB         180 kB
+├ ƒ /driver/messages                                   2.18 kB         177 kB
+├ ƒ /driver/more                                       2.83 kB         178 kB
+├ ƒ /driver/notifications                                268 B         183 kB
+├ ƒ /driver/profile                                    4.16 kB         179 kB
+├ ƒ /driver/quotes                                     2.88 kB         178 kB
+├ ƒ /driver/returns                                     4.7 kB         180 kB
+├ ƒ /driver/vehicles                                   2.99 kB         178 kB
+├ ƒ /driver/won-work                                   2.98 kB         178 kB
+├ ƒ /forbidden                                           175 B         106 kB
+├ ƒ /login                                             7.55 kB         187 kB
+├ ƒ /m                                                   304 B         103 kB
+├ ƒ /m/driver                                          7.44 kB         178 kB
+├ ƒ /m/driver/active                                     138 B         187 kB
+├ ƒ /m/driver/documents                                  137 B         187 kB
+├ ƒ /m/driver/jobs                                       138 B         187 kB
+├ ƒ /m/driver/messages                                   137 B         187 kB
+├ ƒ /m/driver/quotes                                     138 B         187 kB
+├ ƒ /m/driver/settings                                   138 B         187 kB
+├ ƒ /m/jobs                                              304 B         103 kB
+├ ƒ /m/jobs/[id]                                         304 B         103 kB
+├ ○ /manifest.webmanifest                                304 B         103 kB
+├ ƒ /onboarding                                          304 B         103 kB
+├ ƒ /onboarding/[token]                                  171 B         166 kB
+├ ƒ /onboarding/broker/[token]                         2.46 kB         165 kB
+├ ƒ /onboarding/broker/resume                          2.46 kB         165 kB
+├ ƒ /onboarding/customer/[token]                       2.33 kB         165 kB
+├ ƒ /onboarding/customer/resume                        2.33 kB         165 kB
+├ ƒ /onboarding/fleet/[token]                            304 B         103 kB
+├ ƒ /onboarding/fleet/resume                             256 B         166 kB
+├ ƒ /onboarding/owner-driver/[token]                     304 B         103 kB
+├ ƒ /onboarding/owner-driver/resume                      257 B         166 kB
+├ ƒ /onboarding/resume                                 1.43 kB         164 kB
+├ ƒ /pending-approval                                    175 B         106 kB
+├ ƒ /privacy                                             304 B         103 kB
+├ ƒ /register                                          2.64 kB         179 kB
+├ ƒ /request-quote                                     6.71 kB         114 kB
+├ ƒ /reset-password                                    2.71 kB         165 kB
+├ ○ /robots.txt                                          304 B         103 kB
+├ ○ /sitemap.xml                                         304 B         103 kB
+├ ƒ /super-admin                                       5.27 kB         176 kB
+├ ƒ /super-admin/analytics                             4.18 kB         175 kB
+├ ƒ /super-admin/companies                             2.68 kB         177 kB
+├ ƒ /super-admin/companies/active                        354 B         176 kB
+├ ƒ /super-admin/companies/approvals                   4.32 kB         175 kB
+├ ƒ /super-admin/companies/compliance                    358 B         176 kB
+├ ƒ /super-admin/companies/suspended                   4.18 kB         175 kB
+├ ƒ /super-admin/companies/verification                  345 B         176 kB
+├ ƒ /super-admin/compliance/documents                  2.19 kB         176 kB
+├ ƒ /super-admin/compliance/expiries                   2.23 kB         176 kB
+├ ƒ /super-admin/compliance/insurance                  2.18 kB         176 kB
+├ ƒ /super-admin/compliance/operator-licences          2.19 kB         176 kB
+├ ƒ /super-admin/finance/fees                          2.19 kB         176 kB
+├ ƒ /super-admin/finance/invoices                      2.19 kB         176 kB
+├ ƒ /super-admin/finance/payments                       2.2 kB         176 kB
+├ ƒ /super-admin/finance/revenue                       4.16 kB         175 kB
+├ ƒ /super-admin/health                                4.46 kB         175 kB
+├ ƒ /super-admin/marketplace                           3.04 kB         177 kB
+├ ƒ /super-admin/notifications                         2.13 kB         176 kB
+├ ƒ /super-admin/operations/active-jobs                2.13 kB         176 kB
+├ ƒ /super-admin/operations/allocations                2.11 kB         176 kB
+├ ƒ /super-admin/operations/completed-jobs             2.12 kB         176 kB
+├ ƒ /super-admin/operations/deliveries                 2.23 kB         176 kB
+├ ƒ /super-admin/operations/disputes                   2.08 kB         176 kB
+├ ƒ /super-admin/operations/driver-availability        2.11 kB         176 kB
+├ ƒ /super-admin/operations/fleet-positions            2.23 kB         176 kB
+├ ƒ /super-admin/operations/jobs                       2.13 kB         176 kB
+├ ƒ /super-admin/operations/pending-jobs               2.12 kB         176 kB
+├ ƒ /super-admin/operations/pods                       2.18 kB         176 kB
+├ ƒ /super-admin/operations/quotes                     2.13 kB         176 kB
+├ ƒ /super-admin/settings/audit-logs                    2.3 kB         176 kB
+├ ƒ /super-admin/settings/feature-flags                 4.2 kB         175 kB
+├ ƒ /super-admin/settings/global                       3.99 kB         175 kB
+├ ƒ /super-admin/settings/roles-permissions            3.95 kB         175 kB
+├ ƒ /super-admin/support/complaints                    2.15 kB         176 kB
+├ ƒ /super-admin/support/disputes                      2.13 kB         176 kB
+├ ƒ /super-admin/support/tickets                       2.13 kB         176 kB
+├ ƒ /super-admin/users                                   350 B         176 kB
+├ ƒ /super-admin/users/company-owners                    369 B         176 kB
+├ ƒ /super-admin/users/customers                         353 B         176 kB
+├ ƒ /super-admin/users/dispatchers                       339 B         176 kB
+├ ƒ /super-admin/users/drivers                           350 B         176 kB
+├ ƒ /super-admin/users/platform-admins                   364 B         176 kB
+├ ƒ /support/feedback                                   7.1 kB         178 kB
+└ ƒ /terms                                               304 B         103 kB
++ First Load JS shared by all                           102 kB
+  ├ chunks/1255-06bb1baef2ebb9f7.js                      46 kB
+  ├ chunks/4bd1b696-100b9d70ed4e49c1.js                54.2 kB
+  └ other shared chunks (total)                        2.06 kB
+
+
+ƒ Middleware                                           92.3 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+BUILD_EXIT=0
