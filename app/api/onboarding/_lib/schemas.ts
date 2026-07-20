@@ -172,8 +172,10 @@ export const fleetPatchSchema = onboardingPatchBaseSchema.extend({
   payload: fleetPayloadSchema.partial().optional(),
 });
 
+// Saving progress must preserve all form values, including legacy aliases and
+// uploaded-document markers. Full owner-driver validation runs only at submit.
 export const ownerDriverPatchSchema = onboardingPatchBaseSchema.extend({
-  payload: ownerDriverPayloadBaseSchema.partial().optional(),
+  payload: z.record(z.unknown()).optional(),
 });
 
 export type CustomerPayload = z.infer<typeof customerPayloadSchema>;
