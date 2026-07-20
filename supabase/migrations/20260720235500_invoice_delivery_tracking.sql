@@ -8,7 +8,23 @@ ALTER TABLE public.invoices
   ADD COLUMN IF NOT EXISTS delivery_message_id text,
   ADD COLUMN IF NOT EXISTS delivery_recipient_email text,
   ADD COLUMN IF NOT EXISTS delivery_error text,
-  ADD COLUMN IF NOT EXISTS delivery_attempted_at timestamptz;
+  ADD COLUMN IF NOT EXISTS delivery_attempted_at timestamptz,
+  ADD COLUMN IF NOT EXISTS delivery_state text NOT NULL DEFAULT 'idle';
+
+UPDATE public.invoices
+SET delivery_state = CASE
+  WHEN delivery_message_id IS NOT NULL THEN 'sent'
+  WHEN delivery_error IS NOT NULL THEN 'failed'
+  ELSE 'idle'
+END
+WHERE delivery_state IS NULL OR delivery_state NOT IN ('idle', 'sending', 'sent', 'failed');
+
+ALTER TABLE public.invoices
+  DROP CONSTRAINT IF EXISTS invoices_delivery_state_check;
+ALTER TABLE public.invoices
+  ADD CONSTRAINT invoices_delivery_state_check
+  CHECK (delivery_state IN ('idle', 'sending', 'sent', 'failed')) NOT VALID;
+ALTER TABLE public.invoices VALIDATE CONSTRAINT invoices_delivery_state_check;
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('invoice-docs', 'invoice-docs', false, 10485760, ARRAY['application/pdf'])
@@ -35,6 +51,10 @@ USING (
 CREATE INDEX IF NOT EXISTS invoices_delivery_message_id_idx
   ON public.invoices (delivery_message_id)
   WHERE delivery_message_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS invoices_delivery_state_idx
+  ON public.invoices (delivery_state, delivery_attempted_at)
+  WHERE delivery_state IN ('sending', 'failed');
 
 -- Service-role API updates do not populate auth.uid(). Preserve the real
 -- application actor from the invoice workflow columns instead.
