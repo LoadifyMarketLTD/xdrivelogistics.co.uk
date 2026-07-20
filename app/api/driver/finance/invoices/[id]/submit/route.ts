@@ -9,6 +9,14 @@ export const runtime = 'nodejs';
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
+const escapeHtml = (value: unknown) =>
+  String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+
 async function resolveDriver(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
   const token = getBearerToken(request);
@@ -65,6 +73,9 @@ export async function POST(
       replayed: true,
     });
   }
+  if (invoice.delivery_state === 'sending') {
+    return respond(409, { error: 'This invoice is already being delivered. Refresh before retrying.' });
+  }
   if (currentStatus !== 'Draft') {
     return respond(409, {
       error: `Invoice cannot be sent from status "${currentStatus}". Only Draft invoices can be sent.`,
@@ -76,13 +87,48 @@ export async function POST(
     return respond(422, { error: 'A valid client email address is required before sending the invoice.' });
   }
 
+  const claimTime = new Date().toISOString();
+  const { data: claimedInvoice, error: claimError } = await supabaseAdmin
+    .from('invoices')
+    .update({
+      delivery_state: 'sending',
+      delivery_attempted_at: claimTime,
+      delivery_recipient_email: recipientEmail,
+      delivery_error: null,
+      updated_at: claimTime,
+    })
+    .eq('id', invoice.id)
+    .eq('status', invoice.status)
+    .in('delivery_state', ['idle', 'failed'])
+    .select('*')
+    .maybeSingle();
+
+  if (claimError) return respond(500, { error: claimError.message });
+  if (!claimedInvoice) {
+    return respond(409, { error: 'Invoice delivery was claimed by another request. Refresh before retrying.' });
+  }
+
+  const failDelivery = async (status: number, message: string) => {
+    await supabaseAdmin!
+      .from('invoices')
+      .update({
+        delivery_state: 'failed',
+        delivery_error: message,
+        delivery_attempted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', claimedInvoice.id)
+      .eq('delivery_state', 'sending');
+    return respond(status, { error: message });
+  };
+
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
     .select('name, address_line1, address_line2, city, postcode, company_number, vat_number')
     .eq('id', driver.companyId)
     .maybeSingle();
-  if (companyError) return respond(500, { error: companyError.message });
-  if (!company) return respond(422, { error: 'Invoice issuer company details are missing.' });
+  if (companyError) return failDelivery(500, companyError.message);
+  if (!company) return failDelivery(422, 'Invoice issuer company details are missing.');
 
   const issuerAddress = [company.address_line1, company.address_line2, company.city, company.postcode]
     .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
@@ -91,43 +137,44 @@ export async function POST(
   let pdfBytes: Uint8Array;
   try {
     pdfBytes = await buildInvoicePdf({
-      invoiceNumber: String(invoice.invoice_number ?? invoice.id),
-      invoiceDate: String(invoice.invoice_date ?? new Date().toISOString().slice(0, 10)),
-      dueDate: String(invoice.due_date ?? new Date().toISOString().slice(0, 10)),
+      invoiceNumber: String(claimedInvoice.invoice_number ?? claimedInvoice.id),
+      invoiceDate: String(claimedInvoice.invoice_date ?? new Date().toISOString().slice(0, 10)),
+      dueDate: String(claimedInvoice.due_date ?? new Date().toISOString().slice(0, 10)),
       issuerName: String(company.name ?? 'XDrive Logistics'),
       issuerAddress,
       issuerCompanyNumber: company.company_number as string | null,
       issuerVatNumber: company.vat_number as string | null,
-      clientName: String(invoice.client_name ?? 'Customer'),
-      clientAddress: invoice.client_address as string | null,
+      clientName: String(claimedInvoice.client_name ?? 'Customer'),
+      clientAddress: claimedInvoice.client_address as string | null,
       clientEmail: recipientEmail,
-      pickupLocation: invoice.pickup_location as string | null,
-      deliveryLocation: invoice.delivery_location as string | null,
-      serviceDescription: invoice.service_description as string | null,
-      netAmount: Number(invoice.net_amount ?? invoice.amount ?? 0),
-      vatAmount: Number(invoice.vat_amount ?? 0),
-      vatRate: Number(invoice.vat_rate ?? 0),
-      totalAmount: Number(invoice.amount ?? 0),
-      currency: String(invoice.currency ?? 'GBP'),
-      paymentTerms: invoice.payment_terms as string | null,
+      pickupLocation: claimedInvoice.pickup_location as string | null,
+      deliveryLocation: claimedInvoice.delivery_location as string | null,
+      serviceDescription: claimedInvoice.service_description as string | null,
+      netAmount: Number(claimedInvoice.net_amount ?? claimedInvoice.amount ?? 0),
+      vatAmount: Number(claimedInvoice.vat_amount ?? 0),
+      vatRate: Number(claimedInvoice.vat_rate ?? 0),
+      totalAmount: Number(claimedInvoice.amount ?? 0),
+      currency: String(claimedInvoice.currency ?? 'GBP'),
+      paymentTerms: claimedInvoice.payment_terms as string | null,
     });
   } catch (reason) {
-    return respond(500, { error: reason instanceof Error ? reason.message : 'Invoice PDF generation failed.' });
+    return failDelivery(500, reason instanceof Error ? reason.message : 'Invoice PDF generation failed.');
   }
 
-  const fileName = `${cleanFileName(String(invoice.invoice_number ?? invoice.id))}.pdf`;
-  const storagePath = `${driver.companyId}/${invoice.id}/${fileName}`;
+  const fileName = `${cleanFileName(String(claimedInvoice.invoice_number ?? claimedInvoice.id))}.pdf`;
+  const storagePath = `${driver.companyId}/${claimedInvoice.id}/${fileName}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from('invoice-docs')
     .upload(storagePath, pdfBytes, { contentType: 'application/pdf', upsert: true, cacheControl: '3600' });
-  if (uploadError) return respond(500, { error: `Invoice PDF storage failed: ${uploadError.message}` });
+  if (uploadError) return failDelivery(500, `Invoice PDF storage failed: ${uploadError.message}`);
 
-  const { data: existingDocument } = await supabaseAdmin
+  const { data: existingDocument, error: existingDocumentError } = await supabaseAdmin
     .from('invoice_documents')
     .select('id')
-    .eq('invoice_id', invoice.id)
+    .eq('invoice_id', claimedInvoice.id)
     .eq('doc_type', 'invoice_pdf')
     .maybeSingle();
+  if (existingDocumentError) return failDelivery(500, existingDocumentError.message);
 
   if (existingDocument) {
     const { error: documentUpdateError } = await supabaseAdmin
@@ -139,12 +186,12 @@ export async function POST(
         uploaded_by: driver.userId,
       })
       .eq('id', existingDocument.id);
-    if (documentUpdateError) return respond(500, { error: documentUpdateError.message });
+    if (documentUpdateError) return failDelivery(500, documentUpdateError.message);
   } else {
     const { error: documentInsertError } = await supabaseAdmin
       .from('invoice_documents')
       .insert({
-        invoice_id: invoice.id,
+        invoice_id: claimedInvoice.id,
         company_id: driver.companyId,
         uploaded_by: driver.userId,
         doc_type: 'invoice_pdf',
@@ -152,10 +199,18 @@ export async function POST(
         file_name: fileName,
         file_size_bytes: pdfBytes.byteLength,
       });
-    if (documentInsertError) return respond(500, { error: documentInsertError.message });
+    if (documentInsertError) return failDelivery(500, documentInsertError.message);
   }
 
   const attemptedAt = new Date().toISOString();
+  const invoiceNumber = String(claimedInvoice.invoice_number ?? claimedInvoice.id);
+  const clientName = String(claimedInvoice.client_name ?? 'Customer');
+  const pickup = String(claimedInvoice.pickup_location ?? 'collection');
+  const delivery = String(claimedInvoice.delivery_location ?? 'delivery');
+  const companyName = String(company.name ?? 'XDrive Logistics');
+  const currencyCode = String(claimedInvoice.currency ?? 'GBP');
+  const dueDate = String(claimedInvoice.due_date ?? 'See attached invoice');
+
   const emailResponse = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -165,14 +220,14 @@ export async function POST(
     body: JSON.stringify({
       from: fromEmail,
       to: [recipientEmail],
-      subject: `Invoice ${invoice.invoice_number ?? invoice.id} from ${company.name ?? 'XDrive Logistics'}`,
+      subject: `Invoice ${invoiceNumber} from ${companyName}`,
       html: `
-        <h2>Invoice ${String(invoice.invoice_number ?? invoice.id)}</h2>
-        <p>Hello ${String(invoice.client_name ?? 'Customer')},</p>
-        <p>Please find attached your invoice for the transport service from <strong>${String(invoice.pickup_location ?? 'collection')}</strong> to <strong>${String(invoice.delivery_location ?? 'delivery')}</strong>.</p>
-        <p><strong>Total:</strong> ${Number(invoice.amount ?? 0).toFixed(2)} ${String(invoice.currency ?? 'GBP')}<br />
-        <strong>Due date:</strong> ${String(invoice.due_date ?? 'See attached invoice')}</p>
-        <p>Kind regards,<br />${String(company.name ?? 'XDrive Logistics')}</p>
+        <h2>Invoice ${escapeHtml(invoiceNumber)}</h2>
+        <p>Hello ${escapeHtml(clientName)},</p>
+        <p>Please find attached your invoice for the transport service from <strong>${escapeHtml(pickup)}</strong> to <strong>${escapeHtml(delivery)}</strong>.</p>
+        <p><strong>Total:</strong> ${Number(claimedInvoice.amount ?? 0).toFixed(2)} ${escapeHtml(currencyCode)}<br />
+        <strong>Due date:</strong> ${escapeHtml(dueDate)}</p>
+        <p>Kind regards,<br />${escapeHtml(companyName)}</p>
       `,
       attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }],
     }),
@@ -181,17 +236,7 @@ export async function POST(
   const emailPayload = (await emailResponse.json().catch(() => null)) as { id?: string; message?: string; error?: { message?: string } } | null;
   if (!emailResponse.ok || !emailPayload?.id) {
     const deliveryError = emailPayload?.error?.message ?? emailPayload?.message ?? `Email provider returned ${emailResponse.status}.`;
-    await supabaseAdmin
-      .from('invoices')
-      .update({
-        delivery_provider: 'resend',
-        delivery_recipient_email: recipientEmail,
-        delivery_attempted_at: attemptedAt,
-        delivery_error: deliveryError,
-        updated_at: attemptedAt,
-      })
-      .eq('id', invoice.id);
-    return respond(502, { error: `Invoice was not sent: ${deliveryError}` });
+    return failDelivery(502, `Invoice was not sent: ${deliveryError}`);
   }
 
   const { data: updated, error: updateError } = await supabaseAdmin
@@ -200,6 +245,7 @@ export async function POST(
       status: toLegacyInvoiceStatusForDb('Sent'),
       submitted_at: attemptedAt,
       submitted_by: driver.userId,
+      delivery_state: 'sent',
       delivery_provider: 'resend',
       delivery_message_id: emailPayload.id,
       delivery_recipient_email: recipientEmail,
@@ -207,14 +253,17 @@ export async function POST(
       delivery_error: null,
       updated_at: attemptedAt,
     })
-    .eq('id', invoice.id)
-    .eq('status', invoice.status)
-    .select('id, status, submitted_at, delivery_message_id, delivery_recipient_email')
+    .eq('id', claimedInvoice.id)
+    .eq('delivery_state', 'sending')
+    .select('id, status, submitted_at, delivery_state, delivery_message_id, delivery_recipient_email')
     .maybeSingle();
 
   if (updateError) return respond(500, { error: updateError.message });
   if (!updated) {
-    return respond(409, { error: 'Invoice changed after delivery. Refresh to verify the current status.' });
+    return respond(500, {
+      error: 'The email provider accepted the invoice, but the delivery record could not be finalised. Do not resend until support verifies the provider message.',
+      deliveryMessageId: emailPayload.id,
+    });
   }
 
   return respond(200, {
