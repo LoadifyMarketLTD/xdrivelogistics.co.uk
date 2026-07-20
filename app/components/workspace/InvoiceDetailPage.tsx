@@ -66,6 +66,7 @@ export default function InvoiceDetailPage({
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -104,6 +105,38 @@ export default function InvoiceDetailPage({
   }, [invoiceId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const openDocument = async (document: Document) => {
+    const popup = window.open('', '_blank');
+    setOpeningDocumentId(document.id);
+    setError('');
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('Your session has expired. Please sign in again.');
+
+      const query = new URLSearchParams({ invoiceId, documentId: document.id });
+      const response = await fetch(`/api/finance/invoice-document-url?${query.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = (await response.json().catch(() => null)) as { signedUrl?: string; error?: string } | null;
+      if (!response.ok || !payload?.signedUrl) {
+        throw new Error(payload?.error ?? 'A secure document link could not be created.');
+      }
+
+      if (popup) {
+        popup.opener = null;
+        popup.location.href = payload.signedUrl;
+      } else {
+        window.location.assign(payload.signedUrl);
+      }
+    } catch (reason) {
+      popup?.close();
+      setError(reason instanceof Error ? reason.message : 'Invoice document could not be opened.');
+    } finally {
+      setOpeningDocumentId(null);
+    }
+  };
 
   const paid = useMemo(() => payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0), [payments]);
   const code = invoice?.currency ?? 'GBP';
@@ -157,14 +190,14 @@ export default function InvoiceDetailPage({
                 />
               </Panel>
 
-              <Panel title="Documents" description="Files attached to this invoice by the authorised trading party.">
+              <Panel title="Documents" description="Files are opened through short-lived, authorised links.">
                 <DataTable
                   columns={['Document', 'Type', 'Added', 'Action']}
                   rows={documents.map((document) => [
                     document.file_name ?? 'Document',
                     document.doc_type.replace(/_/g, ' '),
                     dateTime(document.created_at),
-                    <ActionButton key="open" tone="secondary" onClick={() => window.open(document.file_url, '_blank', 'noopener,noreferrer')}>Open</ActionButton>,
+                    <ActionButton key="open" tone="secondary" disabled={openingDocumentId === document.id} onClick={() => void openDocument(document)}>{openingDocumentId === document.id ? 'Opening…' : 'Open'}</ActionButton>,
                   ])}
                   empty={<EmptyState title="No invoice documents attached" />}
                 />
