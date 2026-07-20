@@ -1,22 +1,14 @@
-import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
+import ProtectedRoute from '../components/ProtectedRoute';
+import WorkspaceShell from '../components/workspace/WorkspaceShell';
 
 export const metadata: Metadata = {
   title: 'Broker Workspace | XDrive Logistics',
-  description: 'Broker load publishing, bid management and award decisions.',
+  description: 'Customer load management, carrier sourcing, awards, POD and broker finance.',
   robots: { index: false, follow: false },
 };
 
 export default function BrokerLayout({ children }: { children: ReactNode }) {
-  return (
-    <div
-      style={{
-        minHeight: '100dvh',
-        backgroundColor: '#f3f4f6',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      }}
-    >
-      {children}
-    </div>
-  );
+  return <ProtectedRoute allowedRoles={['broker', 'owner']}><WorkspaceShell forcedRole="broker">{children}</WorkspaceShell></ProtectedRoute>;
 }

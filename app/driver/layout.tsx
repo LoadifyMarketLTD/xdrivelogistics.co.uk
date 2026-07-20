@@ -1,34 +1,8 @@
 import type { Metadata, Viewport } from 'next';
+import type { ReactNode } from 'react';
+import ProtectedRoute from '../components/ProtectedRoute';
+import WorkspaceShell from '../components/workspace/WorkspaceShell';
 
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  themeColor: '#0A2239',
-};
-
-export const metadata: Metadata = {
-  title: 'Legacy Driver App | XDrive Logistics',
-  description: 'Deprecated driver workspace retained as a legacy fallback. Active driver work now uses the admin-style workspace.',
-  robots: { index: false, follow: false },
-};
-
-export default function DriverAppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        minHeight: '100dvh',
-        backgroundColor: '#f3f4f6',
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#0B2F6B' };
+export const metadata: Metadata = { title: 'Driver Workspace | XDrive Logistics', description: 'Assigned work, availability, vehicle, documents and POD.', robots: { index: false, follow: false } };
+export default function DriverLayout({children}:{children:ReactNode}){return <ProtectedRoute allowedRoles={['driver','company_admin','company_staff']}><WorkspaceShell>{children}</WorkspaceShell></ProtectedRoute>}
