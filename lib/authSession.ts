@@ -9,6 +9,7 @@ import { resolveAuthContext } from './authContextResolver';
 import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './driverWorkspaceMode';
 import { supabase } from './supabaseClient';
 import type { CompanyMembership, Driver, Profile } from './types/database';
+import { getWorkspaceHomeRoute, resolveWorkspaceRole, type WorkspaceRole } from './workspaceRole';
 
 export type UserRole =
   | 'guest'
@@ -55,6 +56,8 @@ export type ResolvedAuthUser = {
   id: string;
   email: string;
   role: UserRole;
+  rawRole: string | null;
+  workspaceRole: WorkspaceRole;
   companyId: string | null;
   membershipId: string | null;
   membershipRole: CompanyMembership['role_in_company'] | null;
@@ -438,6 +441,7 @@ export const resolveAuthenticatedUser = async (
       driverId,
       resolvedRole === 'driver' ? mustChangePassword : false,
       {
+        rawRole: profile?.role ?? fallbackRole ?? null,
         ownerDriverWorkspace: ownerDriverWorkspaceRequested,
         canAccessDriverMode:
           ownerDriverWorkspaceRequested &&
@@ -480,16 +484,26 @@ const ok = (
   driverId: string | null,
   mustChangePassword: boolean,
   options: {
+    rawRole: string | null;
     ownerDriverWorkspace: boolean;
     canAccessDriverMode: boolean;
     ownerDriverExecutionMode: boolean;
     financeAccess: 'full' | 'limited' | 'hidden';
   }
 ): AuthResolutionResult => {
+  const workspaceRole = resolveWorkspaceRole({
+    role,
+    rawRole: options.rawRole,
+    membershipRole,
+    ownerDriverWorkspace: options.ownerDriverWorkspace,
+    financeAccess: options.financeAccess,
+  });
   const resolved: ResolvedAuthUser = {
     id: sessionUser.id,
     email: sessionUser.email ?? '',
     role,
+    rawRole: options.rawRole,
+    workspaceRole,
     companyId,
     membershipId,
     membershipRole,
@@ -500,7 +514,7 @@ const ok = (
     ownerDriverExecutionMode: options.ownerDriverExecutionMode,
     financeAccess: options.financeAccess,
   };
-  console.debug('[XDrive Auth] resolved user', { role, companyId, userId: sessionUser.id });
+  console.debug('[XDrive Auth] resolved user', { role, workspaceRole, companyId, userId: sessionUser.id });
   return { user: resolved, reason: null };
 };
 
@@ -508,17 +522,34 @@ export const getPostLoginRoute = (
   currentUser: Pick<
     ResolvedAuthUser,
     'role' | 'mustChangePassword' | 'ownerDriverWorkspace' | 'canAccessDriverMode' | 'ownerDriverExecutionMode'
-  >
-) => {
-  if (currentUser.ownerDriverWorkspace && currentUser.canAccessDriverMode) {
-    return currentUser.mustChangePassword ? '/driver/change-password' : '/admin/marketplace';
+  > & {
+    rawRole?: string | null;
+    workspaceRole?: WorkspaceRole;
+    membershipRole?: string | null;
+    financeAccess?: 'full' | 'limited' | 'hidden' | null;
   }
-  if (currentUser.role === 'driver') return currentUser.mustChangePassword ? '/driver/change-password' : '/admin/marketplace';
-  if (currentUser.role === 'owner') return '/super-admin';
-  if (currentUser.role === 'broker') return '/broker';
-  if (currentUser.role === 'customer') return '/customer';
-  if (currentUser.role === 'company_staff') return '/admin/marketplace';
-  return '/admin';
+) => {
+  if (currentUser.mustChangePassword && (currentUser.role === 'driver' || currentUser.canAccessDriverMode)) {
+    return '/driver/change-password';
+  }
+
+  if (currentUser.workspaceRole) {
+    return getWorkspaceHomeRoute({
+      role: currentUser.role,
+      rawRole: currentUser.rawRole ?? null,
+      membershipRole: currentUser.membershipRole ?? null,
+      ownerDriverWorkspace: currentUser.ownerDriverWorkspace,
+      financeAccess: currentUser.financeAccess ?? null,
+    });
+  }
+
+  return getWorkspaceHomeRoute({
+    role: currentUser.role,
+    rawRole: currentUser.rawRole ?? null,
+    membershipRole: currentUser.membershipRole ?? null,
+    ownerDriverWorkspace: currentUser.ownerDriverWorkspace,
+    financeAccess: currentUser.financeAccess ?? null,
+  });
 };
 
 export const roleCanAccessPath = (
