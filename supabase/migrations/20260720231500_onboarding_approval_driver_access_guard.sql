@@ -90,8 +90,12 @@ DECLARE
   v_driver public.drivers%ROWTYPE;
   v_onboarding_status text;
 BEGIN
-  IF NEW.assigned_driver_id IS NULL
-     OR NEW.assigned_driver_id IS NOT DISTINCT FROM OLD.assigned_driver_id THEN
+  IF NEW.assigned_driver_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE'
+     AND NEW.assigned_driver_id IS NOT DISTINCT FROM OLD.assigned_driver_id THEN
     RETURN NEW;
   END IF;
 
