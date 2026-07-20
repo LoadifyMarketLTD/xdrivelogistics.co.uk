@@ -14,10 +14,11 @@ export async function GET(request: NextRequest) {
     return json(503, { error: 'Team service is not configured.' });
   }
 
+  const admin = supabaseAdmin;
   const token = getBearerToken(request);
   if (!token) return json(401, { error: 'Unauthorized - missing bearer token.' });
 
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
+  const validatorClient = supabaseValidator ?? admin;
   const {
     data: { user },
     error: authError,
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
   const companyId = request.nextUrl.searchParams.get('companyId')?.trim();
   if (!companyId) return json(400, { error: 'companyId is required.' });
 
-  const { data: callerMembership, error: callerMembershipError } = await supabaseAdmin
+  const { data: callerMembership, error: callerMembershipError } = await admin
     .from('company_memberships')
     .select('id')
     .eq('company_id', companyId)
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     return json(403, { error: 'Forbidden - company membership is required.' });
   }
 
-  const { data: memberships, error: membershipsError } = await supabaseAdmin
+  const { data: memberships, error: membershipsError } = await admin
     .from('company_memberships')
     .select('id, user_id, invited_email, role_in_company, status, created_at')
     .eq('company_id', companyId)
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
   >();
 
   if (userIds.length > 0) {
-    const { data: profiles, error: profilesError } = await supabaseAdmin
+    const { data: profiles, error: profilesError } = await admin
       .from('profiles')
       .select('user_id, full_name, phone, status')
       .in('user_id', userIds);
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
 
   const emailEntries = await Promise.all(
     userIds.map(async (userId) => {
-      const { data, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const { data, error } = await admin.auth.admin.getUserById(userId);
       return [userId, error ? null : data.user?.email ?? null] as const;
     })
   );
