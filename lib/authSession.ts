@@ -27,7 +27,7 @@ export type UserRole =
 export type AuthFailureReason =
   | 'profile_missing'         // No profile row found; account was never fully provisioned
   | 'account_pending'         // profile.status = 'pending' — awaiting manual approval
-  | 'account_blocked'         // profile.status = 'blocked' | 'suspended' | 'inactive'
+  | 'account_blocked'         // profile.status = 'blocked'
   | 'role_unsupported'        // profile.role exists but does not map to any app role
   | 'company_context_missing' // Role requires a company but none could be resolved
   | 'db_error';               // Database query failed (transient or config issue)
@@ -238,16 +238,12 @@ export const resolveAuthenticatedUser = async (
     fallbackRole,
   });
 
-  // ── Profile status check ──────────────────────────────────────────────────
-  // Only applied when a profile row exists. If there is no profile but the
-  // user has a membership or driver record they can still authenticate.
+  // Supabase Auth, active company membership and RLS remain authoritative.
+  // Legacy onboarding lifecycle labels must not create a false suspension.
+  // Preserve only the explicit manual `blocked` profile state.
   if (profile) {
-    const status = (profile.status ?? 'active').toLowerCase();
-    if (status === 'pending') {
-      console.debug('[XDrive Auth] auth resolution failed', { reason: 'account_pending', userId: sessionUser.id });
-      return { user: null, reason: 'account_pending' };
-    }
-    if (status === 'blocked' || status === 'suspended' || status === 'inactive') {
+    const status = String(profile.status ?? '').trim().toLowerCase();
+    if (status === 'blocked') {
       console.debug('[XDrive Auth] auth resolution failed', { reason: 'account_blocked', userId: sessionUser.id });
       return { user: null, reason: 'account_blocked' };
     }
@@ -398,39 +394,9 @@ export const resolveAuthenticatedUser = async (
       return { user: null, reason: 'company_context_missing' };
     }
 
-    if (roleRequiresCompanyContext(resolvedRole) && companyId) {
-      const companyStatusRes = await supabase
-        .from('companies')
-        .select('status')
-        .eq('id', companyId)
-        .limit(1)
-        .maybeSingle();
-
-      if (companyStatusRes.error) {
-        return {
-          user: null,
-          reason: 'db_error',
-          dbError: {
-            query: `companies.select(status).eq(id,${companyId}).maybeSingle()`,
-            message: companyStatusRes.error.message,
-            code: companyStatusRes.error.code ?? null,
-            details: companyStatusRes.error.details ?? null,
-            hint: companyStatusRes.error.hint ?? null,
-          },
-        };
-      }
-
-      const companyStatus = String(companyStatusRes.data?.status ?? '').trim().toLowerCase();
-      if (companyStatus !== 'active') {
-        console.debug('[XDrive Auth] auth resolution failed', {
-          reason: 'account_blocked',
-          userId: sessionUser.id,
-          companyId,
-          companyStatus: companyStatus || null,
-        });
-        return { user: null, reason: 'account_blocked' };
-      }
-    }
+    // Do not convert a missing, legacy or non-active company lifecycle label into
+    // `account_blocked`. Company scoping still requires a resolved companyId,
+    // an active membership where applicable, and all existing RLS policies.
 
     return ok(
       sessionUser,
