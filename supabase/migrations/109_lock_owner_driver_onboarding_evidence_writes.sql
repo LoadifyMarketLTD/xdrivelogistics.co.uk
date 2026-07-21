@@ -70,8 +70,19 @@ EXECUTE FUNCTION public.touch_updated_at_generic();
 ALTER TABLE public.owner_driver_vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.driver_identity_documents ENABLE ROW LEVEL SECURITY;
 
+-- Replace both legacy broad policies and every canonical split policy so this
+-- migration can be replayed after the equivalent 104 migration in clean builds.
 DROP POLICY IF EXISTS owner_driver_vehicles_owner_access ON public.owner_driver_vehicles;
+DROP POLICY IF EXISTS owner_driver_vehicles_owner_select ON public.owner_driver_vehicles;
+DROP POLICY IF EXISTS owner_driver_vehicles_owner_insert ON public.owner_driver_vehicles;
+DROP POLICY IF EXISTS owner_driver_vehicles_owner_update ON public.owner_driver_vehicles;
+DROP POLICY IF EXISTS owner_driver_vehicles_owner_delete ON public.owner_driver_vehicles;
+
 DROP POLICY IF EXISTS driver_identity_documents_owner_access ON public.driver_identity_documents;
+DROP POLICY IF EXISTS driver_identity_documents_owner_select ON public.driver_identity_documents;
+DROP POLICY IF EXISTS driver_identity_documents_owner_insert ON public.driver_identity_documents;
+DROP POLICY IF EXISTS driver_identity_documents_owner_update ON public.driver_identity_documents;
+DROP POLICY IF EXISTS driver_identity_documents_owner_delete ON public.driver_identity_documents;
 
 CREATE POLICY owner_driver_vehicles_owner_select
   ON public.owner_driver_vehicles
