@@ -1,6 +1,0 @@
-
-> my-app@0.0.0 typecheck
-> tsc --noEmit
-
-app/driver/loads/search/page.tsx(208,27): error TS2339: Property 'primary' does not exist on type 'LoadDetailItem[]'.
-TYPECHECK_EXIT=2
