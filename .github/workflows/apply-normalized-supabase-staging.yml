@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   deploy-staging-schema:
-    name: Apply 158 validated migrations to disposable staging
+    name: Apply 159 validated migrations to disposable staging
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: staging
@@ -91,11 +91,11 @@ jobs:
           manifest = json.loads(
               Path('.remote-staging-deploy/deployment-manifest.json').read_text(encoding='utf-8')
           )
-          assert manifest['included_count'] == 158, manifest['included_count']
+          assert manifest['included_count'] == 159, manifest['included_count']
           assert manifest['excluded_count'] == 1, manifest['excluded_count']
           assert manifest['excluded'][0]['source'] == '068_targeted_data_repair_current_accounts.sql'
-          assert manifest['migrations'][-1]['source'] == '20260721004500_fix_onboarding_review_company_id_ambiguity.sql'
-          print('Validated remote deployment manifest: 158 included, 1 production-data repair excluded.')
+          assert manifest['migrations'][-1]['source'] == '20260721005500_fix_onboarding_review_conflict_target_ambiguity.sql'
+          print('Validated remote deployment manifest: 159 included, 1 production-data repair excluded.')
           PY
 
       - name: Link only the approved disposable staging project
@@ -199,7 +199,7 @@ jobs:
           Commit: \`${GITHUB_SHA}\`
           Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
 
-          The approved normalized migration manifest was applied to the guarded staging project and the remote history matched **158 / 158**. Production was not targeted."
+          The approved normalized migration manifest was applied to the guarded staging project and the remote history matched **159 / 159**. Production was not targeted."
 
       - name: Publish concise staging deployment failure to PR 248
         if: failure()
