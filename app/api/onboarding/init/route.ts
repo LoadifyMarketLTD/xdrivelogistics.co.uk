@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   }
 
   const authUser = auth.user;
-  const accountType = normalizeOnboardingAccountType(
+  const metadataAccountType = normalizeOnboardingAccountType(
     resolveOnboardingAccountTypeFromMetadata(
       (authUser.user_metadata ?? null) as Record<string, unknown> | null,
       (authUser.app_metadata ?? null) as Record<string, unknown> | null
@@ -65,6 +65,11 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (existingError) return json(500, { error: existingError.message });
+
+  // Existing onboarding data is authoritative. Legacy accounts may not have
+  // complete signup metadata, so metadata must never silently reclassify a
+  // previously selected driver, fleet, broker or customer workspace.
+  const accountType = normalizeOnboardingAccountType(existing?.account_type ?? metadataAccountType);
 
   const now = new Date();
   const normalizedExistingStatus = normalizeOnboardingStatus(existing?.status);
