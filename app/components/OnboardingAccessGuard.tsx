@@ -2,11 +2,10 @@
 
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { classifyOnboardingLifecycleStatus, getOnboardingLifecycleRoute } from '../../lib/accessLifecycle';
 import { supabase } from '../../lib/supabaseClient';
 
 const workspacePrefixes = ['/admin', '/broker', '/customer', '/driver', '/dashboard'];
-const editableStatuses = new Set(['invited', 'draft', 'in_progress', 'request_changes']);
-const reviewStatuses = new Set(['submitted', 'under_review', 'compliance_review', 'admin_approval']);
 
 export default function OnboardingAccessGuard() {
   const pathname = usePathname();
@@ -22,28 +21,47 @@ export default function OnboardingAccessGuard() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session?.user?.id || cancelled) return;
-
-      const { data: application, error } = await supabase
-        .from('onboarding_applications')
-        .select('status')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-      if (cancelled || error || !application) return;
-
-      const status = String(application.status ?? '').trim().toLowerCase();
-      if (status === 'approved') return;
-      if (editableStatuses.has(status)) {
-        router.replace('/onboarding/resume');
+      if (cancelled) return;
+      if (!session?.access_token) {
+        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
         return;
       }
-      if (reviewStatuses.has(status)) {
-        router.replace('/pending-approval');
+
+      const response = await fetch('/api/onboarding/init', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: 'no-store',
+      }).catch(() => null);
+
+      if (cancelled) return;
+      if (!response) {
+        router.replace('/forbidden?reason=onboarding-check-unavailable');
         return;
       }
-      if (status === 'rejected') {
-        router.replace('/forbidden?reason=onboarding-rejected');
+
+      // Legacy/internal accounts without a public onboarding application retain
+      // their existing workspace access. Public signups always create one.
+      if (response.status === 404) return;
+      if (response.status === 401) {
+        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+        return;
       }
+      if (!response.ok) {
+        router.replace('/forbidden?reason=onboarding-check-failed');
+        return;
+      }
+
+      const payload = await response.json().catch(() => null) as { status?: string } | null;
+      const state = classifyOnboardingLifecycleStatus(payload?.status);
+      if (state === 'approved') return;
+
+      const route = getOnboardingLifecycleRoute(payload?.status);
+      if (route) {
+        router.replace(route);
+        return;
+      }
+
+      router.replace('/forbidden?reason=onboarding-status-invalid');
     };
 
     void verifyAccess();
