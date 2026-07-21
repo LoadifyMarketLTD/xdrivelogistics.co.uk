@@ -1,0 +1,241 @@
+name: Validate Remote Staging Operational Journey V2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/staging-integration
+    paths:
+      - "scripts/run_remote_staging_operational_journey.mjs"
+      - "scripts/validate_remote_staging_operational_journey.mjs"
+      - "app/api/jobs/**"
+      - "app/api/customer/bids/**"
+      - "app/api/driver/mobile/**"
+      - "app/api/admin/jobs/**"
+      - "app/api/driver/finance/**"
+      - ".github/workflows/validate-remote-staging-operational-journey-v2.yml"
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: validate-remote-staging-operational-journey-v2
+  cancel-in-progress: false
+
+jobs:
+  operational-journey:
+    name: Canonical-role customer to POD and invoice
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: staging
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      EXPECTED_STAGING_PROJECT_REF: svfjlhljuizckzabtewx
+      STAGING_APP_ORIGIN: http://127.0.0.1:3000
+
+    steps:
+      - name: Checkout exact staging head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Guard disposable staging identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "agent/staging-integration"
+          test -n "${SUPABASE_ACCESS_TOKEN:-}"
+          test "$SUPABASE_PROJECT_REF" = "$EXPECTED_STAGING_PROJECT_REF"
+
+      - name: Resolve disposable project API keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/api-keys?reveal=true" \
+            --header "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            --output /tmp/supabase-api-keys.json
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          keys = json.loads(Path('/tmp/supabase-api-keys.json').read_text(encoding='utf-8'))
+
+          def find_key(*, names=(), types=()):
+              for item in keys:
+                  if item.get('name') in names and item.get('api_key'):
+                      return item['api_key']
+              for item in keys:
+                  if item.get('type') in types and item.get('api_key'):
+                      return item['api_key']
+              return None
+
+          public_key = find_key(names=('anon',), types=('publishable',))
+          secret_key = find_key(names=('service_role',), types=('secret',))
+          if not public_key or not secret_key:
+              raise SystemExit('Disposable staging API keys were unavailable.')
+
+          print(f'::add-mask::{public_key}')
+          print(f'::add-mask::{secret_key}')
+          url = f'https://{os.environ["SUPABASE_PROJECT_REF"]}.supabase.co'
+          with Path(os.environ['GITHUB_ENV']).open('a', encoding='utf-8') as handle:
+              handle.write(f'STAGING_SUPABASE_URL={url}\n')
+              handle.write(f'STAGING_SUPABASE_PUBLIC_KEY={public_key}\n')
+              handle.write(f'STAGING_SUPABASE_SECRET_KEY={secret_key}\n')
+              handle.write(f'NEXT_PUBLIC_SUPABASE_URL={url}\n')
+              handle.write(f'EXPECTED_NEXT_PUBLIC_SUPABASE_URL={url}\n')
+              handle.write(f'NEXT_PUBLIC_SUPABASE_ANON_KEY={public_key}\n')
+              handle.write(f'SUPABASE_SERVICE_ROLE_KEY={secret_key}\n')
+          PY
+          rm -f /tmp/supabase-api-keys.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify exact scripts
+        run: |
+          node --check scripts/run_remote_staging_operational_journey.mjs
+          node --check scripts/validate_remote_staging_operational_journey.mjs
+
+      - name: Wait for current successful P0 schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            status=$(curl --silent --show-error \
+              --output /tmp/p0-evidence.json \
+              --write-out '%{http_code}' \
+              "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/agent/staging-integration/staging-validation/p0-latest.json" || true)
+            if [ "$status" = "200" ]; then
+              read -r result project count < <(python - <<'PY'
+          import json
+          data=json.load(open('/tmp/p0-evidence.json'))
+          print(data.get('result',''), data.get('project_ref',''), data.get('verified_migration_count',0))
+          PY
+              )
+              if [ "$result" = "success" ] && [ "$project" = "$EXPECTED_STAGING_PROJECT_REF" ] && [ "$count" -ge 199 ]; then
+                echo "P0 schema accepted: ${count} migrations."
+                exit 0
+              fi
+            fi
+            if [ "$attempt" -eq 120 ]; then
+              echo "Current successful P0 schema evidence was unavailable."
+              cat /tmp/p0-evidence.json || true
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Build staging-bound application
+        env:
+          SUPABASE_ENV_STRICT: "true"
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+          XDRIVE_FORCE_CANONICAL_HOST: "false"
+        run: npm run build
+
+      - name: Start staging-bound application
+        shell: bash
+        env:
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+          XDRIVE_FORCE_CANONICAL_HOST: "false"
+        run: |
+          set -euo pipefail
+          npm run start > /tmp/staging-operational-v2-app.log 2>&1 &
+          echo $! > /tmp/staging-operational-v2-app.pid
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:3000/login >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/staging-operational-v2-app.log
+          exit 1
+
+      - name: Run canonical-role operational journey
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run_remote_staging_operational_journey.mjs \
+            2>&1 | tee /tmp/staging-operational-v2.log
+
+      - name: Record machine-readable result
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          python - <<PY
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          payload = {
+              'result': '${JOB_STATUS}',
+              'source_sha': '${GITHUB_SHA}',
+              'run_id': '${GITHUB_RUN_ID}',
+              'run_url': '${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}',
+              'branch': '${GITHUB_REF_NAME}',
+              'project_ref': '${SUPABASE_PROJECT_REF}',
+              'buyer_profile_role': 'customer_shipper',
+              'carrier_profile_role': 'owner_driver',
+              'journey': 'customer post -> carrier quote -> customer API award -> driver lifecycle -> POD -> completion -> invoice',
+              'production_targeted': False,
+              'recorded_at': datetime.now(timezone.utc).isoformat(),
+          }
+          Path('/tmp/operational-v2-result.json').write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
+          PY
+          encoded=$(base64 -w 0 /tmp/operational-v2-result.json)
+          endpoint="repos/${GITHUB_REPOSITORY}/contents/staging-validation/operational-journey-v2-latest.json"
+          existing_sha=$(gh api "$endpoint?ref=agent/staging-integration" --jq .sha 2>/dev/null || true)
+          if [ -n "$existing_sha" ]; then
+            gh api --method PUT "$endpoint" -f message="ci(staging): record operational v2 ${JOB_STATUS}" -f content="$encoded" -f sha="$existing_sha" -f branch="agent/staging-integration"
+          else
+            gh api --method PUT "$endpoint" -f message="ci(staging): record operational v2 ${JOB_STATUS}" -f content="$encoded" -f branch="agent/staging-integration"
+          fi
+
+      - name: Publish result to PR 248
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -f body="### Canonical-role operational journey: ${{ job.status }}
+
+          Commit: \`${GITHUB_SHA}\`
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          This lane uses company-scoped profile roles, real user APIs and disposable staging only. Production was not targeted."
+
+      - name: Upload non-secret evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-staging-operational-journey-v2
+          path: |
+            /tmp/staging-operational-v2-app.log
+            /tmp/staging-operational-v2.log
+            /tmp/p0-evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop application
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/staging-operational-v2-app.pid ]; then
+            kill "$(cat /tmp/staging-operational-v2-app.pid)" || true
+          fi
