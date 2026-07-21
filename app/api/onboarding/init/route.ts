@@ -36,6 +36,42 @@ const authenticate = async (request: NextRequest) => {
   return { error: null, user: data.user };
 };
 
+const selectExistingApplication = async (userId: string) => supabaseAdmin!
+  .from('onboarding_applications')
+  .select('id, status, account_type, token_hash, token_expires_at, token_activated_at, token_last_sent_at, token_revoked_at')
+  .eq('user_id', userId)
+  .maybeSingle();
+
+export async function GET(request: NextRequest) {
+  const auth = await authenticate(request);
+  if (auth.error || !auth.user) return auth.error;
+
+  const { data: existing, error } = await selectExistingApplication(auth.user.id);
+  if (error) return json(500, { error: error.message });
+  if (!existing) return json(404, { error: 'Onboarding application not found.' });
+
+  const accountType = normalizeOnboardingAccountType(existing.account_type);
+  if (!accountType) {
+    return json(409, {
+      error: 'This account has an unsupported onboarding role. Please contact XDrive support before continuing.',
+      code: 'unsupported_onboarding_role',
+    });
+  }
+
+  const status = normalizeOnboardingStatus(existing.status);
+  const invitationRevoked = Boolean(existing.token_revoked_at);
+
+  return json(200, {
+    onboardingApplicationId: existing.id,
+    status,
+    accountType,
+    onboardingUrl: '/onboarding/resume',
+    tokenExpiresAt: existing.token_expires_at,
+    invitationRevoked,
+    resumeAllowed: status === 'approved' || !invitationRevoked,
+  });
+}
+
 export async function POST(request: NextRequest) {
   const auth = await authenticate(request);
   if (auth.error || !auth.user) return auth.error;
@@ -51,25 +87,27 @@ export async function POST(request: NextRequest) {
   }
 
   const authUser = auth.user;
-  const metadataAccountType = normalizeOnboardingAccountType(
-    resolveOnboardingAccountTypeFromMetadata(
-      (authUser.user_metadata ?? null) as Record<string, unknown> | null,
-      (authUser.app_metadata ?? null) as Record<string, unknown> | null
-    )
+  const metadataAccountType = resolveOnboardingAccountTypeFromMetadata(
+    (authUser.user_metadata ?? null) as Record<string, unknown> | null,
+    (authUser.app_metadata ?? null) as Record<string, unknown> | null
   );
 
-  const { data: existing, error: existingError } = await supabaseAdmin!
-    .from('onboarding_applications')
-    .select('id, status, account_type, token_hash, token_expires_at, token_activated_at, token_last_sent_at, token_revoked_at')
-    .eq('user_id', authUser.id)
-    .maybeSingle();
-
+  const { data: existing, error: existingError } = await selectExistingApplication(authUser.id);
   if (existingError) return json(500, { error: existingError.message });
 
-  // Existing onboarding data is authoritative. Legacy accounts may not have
-  // complete signup metadata, so metadata must never silently reclassify a
-  // previously selected driver, fleet, broker or customer workspace.
-  const accountType = normalizeOnboardingAccountType(existing?.account_type ?? metadataAccountType);
+  const existingAccountType = existing
+    ? normalizeOnboardingAccountType(existing.account_type)
+    : null;
+  if (existing && !existingAccountType) {
+    return json(409, {
+      error: 'This account has an unsupported onboarding role. Please contact XDrive support before continuing.',
+      code: 'unsupported_onboarding_role',
+    });
+  }
+
+  // Existing onboarding data is authoritative. Metadata must never silently
+  // reclassify a previously selected driver, fleet, broker or customer account.
+  const accountType = existingAccountType ?? metadataAccountType;
 
   const now = new Date();
   const normalizedExistingStatus = normalizeOnboardingStatus(existing?.status);
@@ -155,7 +193,7 @@ export async function POST(request: NextRequest) {
 
   return json(200, {
     onboardingApplicationId: upserted.id,
-    status: upserted.status,
+    status: normalizeOnboardingStatus(upserted.status),
     accountType: upserted.account_type,
     onboardingUrl: '/onboarding/resume',
     tokenExpiresAt: upserted.token_expires_at,
