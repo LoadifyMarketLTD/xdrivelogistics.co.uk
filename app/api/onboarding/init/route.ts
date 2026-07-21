@@ -10,6 +10,8 @@ import {
   normalizeOnboardingStatus,
   resolveOnboardingAccountTypeFromMetadata,
   resolveOnboardingTokenTtlHours,
+  type OnboardingAccountType,
+  type OnboardingStatus,
 } from '../../_lib/onboarding';
 
 const requestSchema = z.object({
@@ -18,6 +20,13 @@ const requestSchema = z.object({
 
 const RESEND_COOLDOWN_MS = 60_000;
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
+
+const PROFILE_ROLE_BY_ACCOUNT_TYPE: Record<OnboardingAccountType, 'customer' | 'broker' | 'company_admin' | 'driver'> = {
+  customer_shipper: 'customer',
+  broker_shipper: 'broker',
+  fleet_courier: 'company_admin',
+  owner_driver: 'driver',
+};
 
 const authenticate = async (request: NextRequest) => {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -41,6 +50,48 @@ const selectExistingApplication = async (userId: string) => supabaseAdmin!
   .select('id, status, account_type, token_hash, token_expires_at, token_activated_at, token_last_sent_at, token_revoked_at')
   .eq('user_id', userId)
   .maybeSingle();
+
+const syncProfileFromOnboarding = async ({
+  userId,
+  accountType,
+  status,
+}: {
+  userId: string;
+  accountType: OnboardingAccountType;
+  status: OnboardingStatus;
+}) => {
+  const { data: existingProfile, error: profileReadError } = await supabaseAdmin!
+    .from('profiles')
+    .select('status')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (profileReadError) return profileReadError;
+
+  const lifecycleStatus = status === 'approved'
+    ? 'active'
+    : status === 'rejected'
+      ? 'blocked'
+      : 'pending';
+  const profileStatus = String(existingProfile?.status ?? '').toLowerCase() === 'suspended'
+    ? 'suspended'
+    : lifecycleStatus;
+
+  const { error } = await supabaseAdmin!
+    .from('profiles')
+    .upsert(
+      {
+        user_id: userId,
+        role: PROFILE_ROLE_BY_ACCOUNT_TYPE[accountType],
+        status: profileStatus,
+        is_driver: accountType === 'owner_driver',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+
+  return error;
+};
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
@@ -167,6 +218,14 @@ export async function POST(request: NextRequest) {
 
   if (upsertError) return json(500, { error: upsertError.message });
 
+  const normalizedUpsertedStatus = normalizeOnboardingStatus(upserted.status);
+  const profileSyncError = await syncProfileFromOnboarding({
+    userId: authUser.id,
+    accountType,
+    status: normalizedUpsertedStatus,
+  });
+  if (profileSyncError) return json(500, { error: profileSyncError.message });
+
   if (shouldRegenerateToken && invitationUrl) {
     const { error: notificationError } = await supabaseAdmin!
       .from('notification_events')
@@ -189,11 +248,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const resumeAllowed = normalizedExistingStatus === 'approved' || !upserted.token_revoked_at;
+  const resumeAllowed = normalizedUpsertedStatus === 'approved' || !upserted.token_revoked_at;
 
   return json(200, {
     onboardingApplicationId: upserted.id,
-    status: normalizeOnboardingStatus(upserted.status),
+    status: normalizedUpsertedStatus,
     accountType: upserted.account_type,
     onboardingUrl: '/onboarding/resume',
     tokenExpiresAt: upserted.token_expires_at,
