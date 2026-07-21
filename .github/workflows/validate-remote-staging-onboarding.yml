@@ -1,3 +1,4 @@
+# Rerun the complete remote journey after migration 158 repaired onboarding approval.
 name: Validate Remote Staging Onboarding
 
 on:
