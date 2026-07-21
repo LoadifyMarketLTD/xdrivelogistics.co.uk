@@ -100,7 +100,7 @@ jobs:
         run: |
           set -euo pipefail
           expected=$(python -c "import json; print(json.load(open('bootstrap-manifest.json'))['included_count'])")
-          actual=$(supabase migration list --local | awk '/^[[:space:]]*[0-9]{14}[[:space:]]*\\|/ {count++} END {print count+0}')
+          actual=$(supabase migration list --local | awk '/^[[:space:]]*[0-9]{14}[[:space:]]*\|/ {count++} END {print count+0}')
           echo "Expected migration count: $expected"
           echo "Recorded migration count: $actual"
           test "$actual" -eq "$expected"
@@ -119,3 +119,5 @@ jobs:
         working-directory: .staging-bootstrap
         shell: bash
         run: supabase stop --no-backup || true
+
+# Retriggered after the previous run was accidentally deleted from the Actions history.
