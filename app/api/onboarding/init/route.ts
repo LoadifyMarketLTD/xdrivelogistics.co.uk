@@ -8,6 +8,7 @@ import {
   type AccountType,
   type StoredOnboardingAccountType,
 } from '../../../../lib/accountTypes';
+import { mapAppRole } from '../../../../lib/authRole';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import {
   buildOnboardingUrl,
@@ -29,6 +30,11 @@ type ApplicationSummary = {
   status: string | null;
   account_type: string;
   token_expires_at?: string | null;
+};
+
+type EstablishedAccessResult = {
+  active: boolean;
+  error: string | null;
 };
 
 const APPLICATION_SELECT = 'id, status, account_type, token_expires_at';
@@ -57,6 +63,14 @@ const responseForApplication = (application: ApplicationSummary, onboardingUrl?:
     resumeAllowed: true,
   };
 };
+
+const approvedEstablishedAccountResponse = (accountType: AccountType) => ({
+  status: 'approved',
+  accountType,
+  onboardingPath: ACCOUNT_TYPE_CONFIG[accountType].onboardingPath,
+  resumeAllowed: false,
+  establishedActiveAccount: true,
+});
 
 const validateExistingType = (
   application: ApplicationSummary,
@@ -110,6 +124,111 @@ const getApplicationForUser = async (userId: string) => {
     .select(APPLICATION_SELECT)
     .eq('user_id', userId)
     .maybeSingle();
+};
+
+const resolveEstablishedActiveAccess = async (
+  userId: string,
+  requestedType: AccountType
+): Promise<EstablishedAccessResult> => {
+  if (!supabaseAdmin) return { active: false, error: 'Server auth is not configured.' };
+
+  const [profileResult, membershipResult, driverResult] = await Promise.all([
+    supabaseAdmin
+      .from('profiles')
+      .select('role, status, company_id, is_driver')
+      .eq('user_id', userId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('company_memberships')
+      .select('company_id, role_in_company, status')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('drivers')
+      .select('company_id, app_access')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const firstError = profileResult.error ?? membershipResult.error ?? driverResult.error;
+  if (firstError) return { active: false, error: firstError.message };
+
+  const profile = profileResult.data as {
+    role?: string | null;
+    status?: string | null;
+    company_id?: string | null;
+    is_driver?: boolean | null;
+  } | null;
+  const membership = membershipResult.data as {
+    company_id?: string | null;
+    role_in_company?: string | null;
+    status?: string | null;
+  } | null;
+  const driver = driverResult.data as {
+    company_id?: string | null;
+    app_access?: boolean | null;
+  } | null;
+
+  if (!profile || profile.status !== 'active' || !membership?.company_id) {
+    return { active: false, error: null };
+  }
+
+  const companyId = profile.company_id ?? membership.company_id ?? driver?.company_id ?? null;
+  if (!companyId || companyId !== membership.company_id) {
+    return { active: false, error: null };
+  }
+
+  const { data: company, error: companyError } = await supabaseAdmin
+    .from('companies')
+    .select('status, company_type')
+    .eq('id', companyId)
+    .maybeSingle();
+  if (companyError) return { active: false, error: companyError.message };
+  if (!company || company.status !== 'active') return { active: false, error: null };
+
+  const profileRole = mapAppRole(profile.role ?? null);
+  const companyType = String(company.company_type ?? '').trim().toLowerCase();
+  const membershipRole = String(membership.role_in_company ?? '').trim().toLowerCase();
+
+  if (requestedType === 'customer') {
+    return {
+      active: profileRole === 'customer'
+        || ['customer', 'customer_shipper', 'shipper'].includes(companyType),
+      error: null,
+    };
+  }
+
+  if (requestedType === 'broker') {
+    return {
+      active: profileRole === 'broker'
+        || ['broker', 'broker_shipper', 'transport_broker'].includes(companyType),
+      error: null,
+    };
+  }
+
+  if (requestedType === 'fleet_operator') {
+    return {
+      active: (
+        profileRole === 'company_admin'
+        || profileRole === 'company_staff'
+        || ['carrier', 'fleet', 'fleet_courier', 'courier', 'haulier'].includes(companyType)
+      ) && ['owner', 'admin'].includes(membershipRole),
+      error: null,
+    };
+  }
+
+  return {
+    active: profileRole === 'driver'
+      && profile.is_driver === true
+      && driver?.company_id === companyId
+      && driver.app_access === true,
+    error: null,
+  };
 };
 
 export async function GET(request: NextRequest) {
@@ -175,6 +294,15 @@ export async function POST(request: NextRequest) {
       const payload = responseForApplication(existing);
       if (!payload) return json(409, { error: 'The saved onboarding account type is unsupported.' });
       return json(200, { ...payload, idempotent: true });
+    }
+  } else {
+    // A pre-existing active account may legitimately predate onboarding rows.
+    // Do not send it backwards into a new draft merely because its metadata is
+    // canonical; active profile + company + membership evidence is required.
+    const established = await resolveEstablishedActiveAccess(authUser.id, requestedType);
+    if (established.error) return json(500, { error: established.error });
+    if (established.active) {
+      return json(200, approvedEstablishedAccountResponse(requestedType));
     }
   }
 
