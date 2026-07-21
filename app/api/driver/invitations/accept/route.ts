@@ -13,7 +13,7 @@ import {
 } from '../../../../../lib/server/fleetDriverInvitations';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
-const schema = z.object({ token: z.string().trim().min(32).max(256) });
+const schema = z.object({ token: z.string().trim().min(32).max(256).optional() });
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -27,22 +27,31 @@ export async function POST(request: NextRequest) {
   const { data: authData, error: authError } = await validator.auth.getUser(bearer);
   if (authError || !authData.user?.email) return json(401, { error: 'Unauthorized.' });
 
-  const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return json(400, { error: 'A valid invitation token is required.' });
+  const parsed = schema.safeParse(await request.json().catch(() => ({})));
+  if (!parsed.success) return json(400, { error: 'Invalid invitation token.' });
 
-  const tokenHash = await hashFleetDriverInvitationToken(parsed.data.token);
-  const { data: invitation, error: invitationError } = await supabaseAdmin
+  const email = authData.user.email.trim().toLowerCase();
+  let invitationQuery = supabaseAdmin
     .from('fleet_driver_invitations')
     .select('id, company_id, driver_id, user_id, invited_email, status, expires_at, accepted_at')
-    .eq('token_hash', tokenHash)
     .eq('user_id', authData.user.id)
-    .eq('invited_email', authData.user.email.trim().toLowerCase())
-    .maybeSingle();
+    .eq('invited_email', email)
+    .in('status', ['invited', 'accepted', 'approved'])
+    .order('updated_at', { ascending: false })
+    .limit(1);
+
+  if (parsed.data.token) {
+    invitationQuery = invitationQuery.eq(
+      'token_hash',
+      await hashFleetDriverInvitationToken(parsed.data.token),
+    );
+  }
+
+  const { data: invitations, error: invitationError } = await invitationQuery;
+  const invitation = invitations?.[0] ?? null;
 
   if (invitationError) return json(500, { error: invitationError.message });
   if (!invitation) return json(404, { error: 'Invitation not found.' });
-  if (invitation.status === 'revoked') return json(410, { error: 'Invitation has been revoked.' });
-  if (invitation.status === 'expired') return json(410, { error: 'Invitation has expired.' });
 
   if (
     invitation.status === 'invited' &&
@@ -50,7 +59,7 @@ export async function POST(request: NextRequest) {
   ) {
     await supabaseAdmin
       .from('fleet_driver_invitations')
-      .update({ status: 'expired', updated_at: new Date().toISOString() })
+      .update({ status: 'expired', token_hash: null, updated_at: new Date().toISOString() })
       .eq('id', invitation.id)
       .eq('status', 'invited');
     return json(410, { error: 'Invitation has expired.' });
@@ -60,7 +69,7 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const { error: acceptError } = await supabaseAdmin
       .from('fleet_driver_invitations')
-      .update({ status: 'accepted', accepted_at: now, updated_at: now })
+      .update({ status: 'accepted', accepted_at: now, token_hash: null, updated_at: now })
       .eq('id', invitation.id)
       .eq('status', 'invited');
     if (acceptError) return json(500, { error: acceptError.message });
@@ -89,8 +98,8 @@ export async function POST(request: NextRequest) {
     invitationId: invitation.id,
     companyId: invitation.company_id,
     driverId: invitation.driver_id,
-    appAccess: false,
-    membershipStatus: 'invited',
+    appAccess: invitation.status === 'approved',
+    membershipStatus: invitation.status === 'approved' ? 'active' : 'invited',
     readiness,
   });
 }
