@@ -1,7 +1,7 @@
--- Reconcile only the current accounts whose intended XDrive role is confirmed.
+-- Reconcile only current accounts whose intended XDrive role is confirmed.
 -- No identity, company, membership, job, document or onboarding payload is deleted.
 -- Dola and Roy are deliberately excluded because their intended account type is
--- not confirmed. The duplicate HSZ membership is also left untouched pending
+-- not confirmed. The duplicate HSZ membership is left untouched pending a
 -- company-level inspection.
 
 BEGIN;
@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS profiles_external_accounts_idx
   ON public.profiles (created_at DESC)
   WHERE is_internal_account = false;
 
-CREATE TABLE IF NOT EXISTS public.account_reconciliation_20260721_snapshot (
+CREATE TABLE IF NOT EXISTS public.account_reconciliation_confirmed_20260721_snapshot (
   user_id uuid PRIMARY KEY,
   email text NOT NULL,
   captured_at timestamptz NOT NULL DEFAULT now(),
@@ -28,8 +28,8 @@ CREATE TABLE IF NOT EXISTS public.account_reconciliation_20260721_snapshot (
   driver_rows jsonb NOT NULL DEFAULT '[]'::jsonb
 );
 
-ALTER TABLE public.account_reconciliation_20260721_snapshot ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.account_reconciliation_20260721_snapshot FROM anon, authenticated;
+ALTER TABLE public.account_reconciliation_confirmed_20260721_snapshot ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.account_reconciliation_confirmed_20260721_snapshot FROM anon, authenticated;
 
 CREATE TEMP TABLE confirmed_account_plan (
   email text PRIMARY KEY,
@@ -45,45 +45,30 @@ CREATE TEMP TABLE confirmed_account_plan (
 ) ON COMMIT DROP;
 
 INSERT INTO confirmed_account_plan (
-  email,
-  metadata_role,
-  requested_role,
-  profile_role,
-  is_driver,
-  account_type,
-  workspace_mode,
-  owner_driver_workspace,
-  auto_approve,
-  force_incomplete
+  email, metadata_role, requested_role, profile_role, is_driver,
+  account_type, workspace_mode, owner_driver_workspace,
+  auto_approve, force_incomplete
 )
 VALUES
-  ('thesbsourier@yahoo.com',           'driver',        'owner_operator',  'driver',        true,  'owner_driver',     'owner_driver', true,  false, false),
-  ('ajhcouriersltd@outlook.com',       'driver',        'owner_operator',  'driver',        true,  'owner_driver',     'owner_driver', true,  false, false),
-  ('arif52@hotmail.co.uk',             'driver',        'owner_operator',  'driver',        true,  'owner_driver',     'owner_driver', true,  false, false),
-  ('earlyriselogistics.erl@gmail.com', 'driver',        'owner_operator',  'driver',        true,  'owner_driver',     'owner_driver', true,  false, false),
-  ('maria.amariutei15@gmail.com',      'driver',        'owner_operator',  'driver',        true,  'owner_driver',     'owner_driver', true,  false, false),
-  ('usamaali5454@gmail.com',           'driver',        'owner_operator',  'driver',        true,  'owner_driver',     'owner_driver', true,  false, false),
-  ('kennykagande2@gmail.com',          'driver',        'owner_operator',  'driver',        true,  'owner_driver',     'owner_driver', true,  false, false),
-  ('arvinraj1515@gmail.com',           'driver',        'owner_operator',  'driver',        true,  'owner_driver',     'owner_driver', true,  false, true),
-  ('danielapostoae@yahoo.com',         'driver',        'owner_operator',  'driver',        true,  'owner_driver',     'owner_driver', true,  false, false),
-  ('mtlogisticsgroup555@gmail.com',    'company_admin', 'fleet_operator',  'company_admin', false, 'fleet_courier',    'company',      false, false, false),
-  ('ryolimitedlogistics@outlook.com',  'company_admin', 'fleet_operator',  'company_admin', false, 'fleet_courier',    'company',      false, false, false),
-  ('info@hszlogistics.co.uk',          'company_admin', 'fleet_operator',  'company_admin', false, 'fleet_courier',    'company',      false, false, false),
-  ('alexa.dorobantu86@gmail.com',      'company_admin', 'fleet_operator',  'company_admin', false, 'fleet_courier',    'company',      false, false, false),
-  ('tomm25cowper@gmail.com',           'customer',      'customer_shipper','customer',      false, 'customer_shipper', 'customer',     false, true,  false),
-  ('logistics@navson.com',             'customer',      'customer_shipper','customer',      false, 'customer_shipper', 'customer',     false, true,  false);
+  ('thesbsourier@yahoo.com',           'driver',        'owner_operator',   'driver',        true,  'owner_driver',      'owner_driver', true,  false, false),
+  ('ajhcouriersltd@outlook.com',       'driver',        'owner_operator',   'driver',        true,  'owner_driver',      'owner_driver', true,  false, false),
+  ('arif52@hotmail.co.uk',             'driver',        'owner_operator',   'driver',        true,  'owner_driver',      'owner_driver', true,  false, false),
+  ('earlyriselogistics.erl@gmail.com', 'driver',        'owner_operator',   'driver',        true,  'owner_driver',      'owner_driver', true,  false, false),
+  ('maria.amariutei15@gmail.com',      'driver',        'owner_operator',   'driver',        true,  'owner_driver',      'owner_driver', true,  false, false),
+  ('usamaali5454@gmail.com',           'driver',        'owner_operator',   'driver',        true,  'owner_driver',      'owner_driver', true,  false, false),
+  ('kennykagande2@gmail.com',          'driver',        'owner_operator',   'driver',        true,  'owner_driver',      'owner_driver', true,  false, false),
+  ('arvinraj1515@gmail.com',           'driver',        'owner_operator',   'driver',        true,  'owner_driver',      'owner_driver', true,  false, true),
+  ('danielapostoae@yahoo.com',         'driver',        'owner_operator',   'driver',        true,  'owner_driver',      'owner_driver', true,  false, false),
+  ('mtlogisticsgroup555@gmail.com',    'company_admin', 'fleet_operator',   'company_admin', false, 'fleet_courier',     'company',      false, false, false),
+  ('ryolimitedlogistics@outlook.com',  'company_admin', 'fleet_operator',   'company_admin', false, 'fleet_courier',     'company',      false, false, false),
+  ('info@hszlogistics.co.uk',          'company_admin', 'fleet_operator',   'company_admin', false, 'fleet_courier',     'company',      false, false, false),
+  ('alexa.dorobantu86@gmail.com',      'company_admin', 'fleet_operator',   'company_admin', false, 'fleet_courier',     'company',      false, false, false),
+  ('tomm25cowper@gmail.com',           'customer',      'customer_shipper', 'customer',      false, 'customer_shipper', 'customer',     false, true,  false),
+  ('logistics@navson.com',             'customer',      'customer_shipper', 'customer',      false, 'customer_shipper', 'customer',     false, true,  false);
 
--- Snapshot every account touched by this migration, including the seven
--- owner-controlled internal/test/legacy accounts.
-INSERT INTO public.account_reconciliation_20260721_snapshot (
-  user_id,
-  email,
-  raw_user_meta_data,
-  raw_app_meta_data,
-  profile_row,
-  onboarding_row,
-  membership_rows,
-  driver_rows
+INSERT INTO public.account_reconciliation_confirmed_20260721_snapshot (
+  user_id, email, raw_user_meta_data, raw_app_meta_data,
+  profile_row, onboarding_row, membership_rows, driver_rows
 )
 SELECT
   u.id,
@@ -117,8 +102,7 @@ WHERE lower(u.email) IN (
 )
 ON CONFLICT (user_id) DO NOTHING;
 
--- Internal/test/legacy identities are excluded from external-user statistics,
--- but their permissions and memberships are otherwise left unchanged.
+-- Mark owner-controlled personal/test/legacy identities for analytics exclusion.
 UPDATE public.profiles p
 SET is_internal_account = true,
     updated_at = now()
@@ -134,9 +118,7 @@ WHERE u.id = p.user_id
     'xdrivelogisticsltd@gmail.com'
   );
 
--- Repair only the signup/workspace metadata used to initialise or resume the
--- correct onboarding journey. Passwords and authentication settings are not
--- touched.
+-- Repair metadata used by registration, login and onboarding resume.
 UPDATE auth.users u
 SET raw_user_meta_data = coalesce(u.raw_user_meta_data, '{}'::jsonb) || jsonb_build_object(
       'role', plan.metadata_role,
@@ -150,24 +132,12 @@ SET raw_user_meta_data = coalesce(u.raw_user_meta_data, '{}'::jsonb) || jsonb_bu
 FROM confirmed_account_plan plan
 WHERE lower(u.email) = plan.email;
 
--- Ensure a canonical profile exists for each confirmed external identity.
+-- Ensure one canonical profile for every confirmed external identity.
 INSERT INTO public.profiles (
-  user_id,
-  role,
-  status,
-  is_driver,
-  is_internal_account,
-  created_at,
-  updated_at
+  user_id, role, status, is_driver, is_internal_account, created_at, updated_at
 )
 SELECT
-  u.id,
-  plan.profile_role,
-  'active',
-  plan.is_driver,
-  false,
-  now(),
-  now()
+  u.id, plan.profile_role, 'active', plan.is_driver, false, now(), now()
 FROM confirmed_account_plan plan
 JOIN auth.users u ON lower(u.email) = plan.email
 ON CONFLICT (user_id)
@@ -178,22 +148,12 @@ DO UPDATE SET
   is_internal_account = false,
   updated_at = now();
 
--- Create missing onboarding records and correct the account/workspace identity
--- of existing records without replacing payloads, documents, review notes,
--- tokens or linked companies.
+-- Create missing onboarding rows and reconcile existing rows without replacing
+-- payloads, documents, review notes, tokens or linked companies.
 INSERT INTO public.onboarding_applications (
-  user_id,
-  email,
-  account_type,
-  workspace_mode,
-  owner_driver_workspace,
-  status,
-  current_step,
-  completion_percentage,
-  last_activity_at,
-  payload,
-  created_at,
-  updated_at
+  user_id, email, account_type, workspace_mode, owner_driver_workspace,
+  status, current_step, completion_percentage, last_activity_at,
+  payload, created_at, updated_at
 )
 SELECT
   u.id,
@@ -220,23 +180,25 @@ DO UPDATE SET
   workspace_mode = EXCLUDED.workspace_mode,
   owner_driver_workspace = EXCLUDED.owner_driver_workspace,
   status = CASE
-    WHEN plan.auto_approve THEN 'approved'
-    WHEN plan.force_incomplete THEN 'in_progress'
+    WHEN EXCLUDED.status = 'approved' THEN 'approved'
+    WHEN EXCLUDED.email = 'arvinraj1515@gmail.com' THEN 'in_progress'
     WHEN public.onboarding_applications.status IN (
-      'draft', 'in_progress', 'submitted', 'under_review', 'request_changes', 'rejected', 'approved'
+      'draft', 'in_progress', 'submitted', 'under_review',
+      'request_changes', 'rejected', 'approved'
     ) THEN public.onboarding_applications.status
     ELSE 'draft'
   END,
   current_step = CASE
-    WHEN plan.auto_approve THEN 'workspace_ready'
-    WHEN plan.force_incomplete THEN 'identity_documents'
+    WHEN EXCLUDED.status = 'approved' THEN 'workspace_ready'
+    WHEN EXCLUDED.email = 'arvinraj1515@gmail.com' THEN 'identity_documents'
     WHEN nullif(public.onboarding_applications.current_step, '') IS NOT NULL
       THEN public.onboarding_applications.current_step
     ELSE 'account_type_wizard'
   END,
   completion_percentage = CASE
-    WHEN plan.auto_approve THEN 100
-    WHEN plan.force_incomplete THEN least(greatest(coalesce(public.onboarding_applications.completion_percentage, 40), 40), 99)
+    WHEN EXCLUDED.status = 'approved' THEN 100
+    WHEN EXCLUDED.email = 'arvinraj1515@gmail.com'
+      THEN least(greatest(coalesce(public.onboarding_applications.completion_percentage, 40), 40), 99)
     ELSE greatest(coalesce(public.onboarding_applications.completion_percentage, 0), 5)
   END,
   last_activity_at = now(),
@@ -246,7 +208,7 @@ DO UPDATE SET
   ),
   updated_at = now();
 
--- Driver-app access is granted only to a fully completed, approved owner-driver.
+-- Grant driver-app access only to a fully completed, approved owner-driver.
 -- Misclassified fleet/customer accounts cannot retain driver-app access.
 UPDATE public.drivers d
 SET app_access = (
@@ -260,8 +222,6 @@ JOIN confirmed_account_plan plan ON plan.email = lower(u.email)
 JOIN public.onboarding_applications oa ON oa.user_id = u.id
 WHERE d.user_id = u.id;
 
--- Fail the complete transaction if a confirmed identity was not found or the
--- intended postconditions were not reached.
 DO $$
 BEGIN
   IF EXISTS (
