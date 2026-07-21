@@ -16,21 +16,29 @@ const requestSchema = z.object({
   forceRegenerateToken: z.boolean().optional(),
 });
 
+const RESEND_COOLDOWN_MS = 60_000;
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
-export async function POST(request: NextRequest) {
+const authenticate = async (request: NextRequest) => {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return json(503, { error: 'Server auth is not configured.' });
+    return { error: json(503, { error: 'Server auth is not configured.' }), user: null };
   }
 
   const token = getBearerToken(request);
-  if (!token) return json(401, { error: 'Unauthorized.' });
+  if (!token) return { error: json(401, { error: 'Unauthorized.' }), user: null };
 
   const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) {
-    return json(401, { error: 'Unauthorized: invalid token.' });
+  const { data, error } = await validatorClient.auth.getUser(token);
+  if (error || !data.user) {
+    return { error: json(401, { error: 'Unauthorized: invalid token.' }), user: null };
   }
+
+  return { error: null, user: data.user };
+};
+
+export async function POST(request: NextRequest) {
+  const auth = await authenticate(request);
+  if (auth.error || !auth.user) return auth.error;
 
   let payload: z.infer<typeof requestSchema> = {};
   try {
@@ -42,7 +50,7 @@ export async function POST(request: NextRequest) {
     return json(400, { error: 'Invalid JSON body.' });
   }
 
-  const authUser = authData.user;
+  const authUser = auth.user;
   const accountType = normalizeOnboardingAccountType(
     resolveOnboardingAccountTypeFromMetadata(
       (authUser.user_metadata ?? null) as Record<string, unknown> | null,
@@ -50,7 +58,7 @@ export async function POST(request: NextRequest) {
     )
   );
 
-  const { data: existing, error: existingError } = await supabaseAdmin
+  const { data: existing, error: existingError } = await supabaseAdmin!
     .from('onboarding_applications')
     .select('id, status, account_type, token_hash, token_expires_at, token_activated_at, token_last_sent_at')
     .eq('user_id', authUser.id)
@@ -63,8 +71,20 @@ export async function POST(request: NextRequest) {
   const tokenExpired = Boolean(
     existing?.token_expires_at && new Date(existing.token_expires_at).getTime() <= now.getTime()
   );
+  const explicitResend = payload.forceRegenerateToken === true;
+
+  if (explicitResend && existing?.token_last_sent_at) {
+    const elapsed = now.getTime() - new Date(existing.token_last_sent_at).getTime();
+    if (elapsed >= 0 && elapsed < RESEND_COOLDOWN_MS) {
+      return json(429, {
+        error: `Please wait ${Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000)} seconds before resending the invitation.`,
+        retryAfterSeconds: Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000),
+      });
+    }
+  }
+
   const shouldRegenerateToken =
-    payload.forceRegenerateToken === true ||
+    explicitResend ||
     !existing ||
     !existing.token_hash ||
     tokenExpired;
@@ -95,7 +115,7 @@ export async function POST(request: NextRequest) {
     if (row[key] === undefined) delete row[key];
   });
 
-  const { data: upserted, error: upsertError } = await supabaseAdmin
+  const { data: upserted, error: upsertError } = await supabaseAdmin!
     .from('onboarding_applications')
     .upsert(row, { onConflict: 'user_id' })
     .select('id, status, account_type, token_expires_at')
@@ -104,10 +124,10 @@ export async function POST(request: NextRequest) {
   if (upsertError) return json(500, { error: upsertError.message });
 
   if (shouldRegenerateToken && invitationUrl) {
-    const { error: notificationError } = await supabaseAdmin
+    const { error: notificationError } = await supabaseAdmin!
       .from('notification_events')
       .insert({
-        event_type: 'onboarding_invite',
+        event_type: explicitResend ? 'onboarding_invite_resent' : 'onboarding_invite',
         entity_type: 'onboarding_application',
         entity_id: upserted.id,
         recipient_user_id: authUser.id,
@@ -132,6 +152,64 @@ export async function POST(request: NextRequest) {
     onboardingUrl: '/onboarding/resume',
     tokenExpiresAt: upserted.token_expires_at,
     invitationRegenerated: shouldRegenerateToken,
+    invitationResent: explicitResend && shouldRegenerateToken,
     resumeAllowed: true,
+  });
+}
+
+export async function DELETE(request: NextRequest) {
+  const auth = await authenticate(request);
+  if (auth.error || !auth.user) return auth.error;
+
+  const { data: existing, error: existingError } = await supabaseAdmin!
+    .from('onboarding_applications')
+    .select('id, status')
+    .eq('user_id', auth.user.id)
+    .maybeSingle();
+
+  if (existingError) return json(500, { error: existingError.message });
+  if (!existing) return json(404, { error: 'Onboarding application not found.' });
+  if (normalizeOnboardingStatus(existing.status) === 'approved') {
+    return json(409, { error: 'An approved onboarding application cannot be revoked.' });
+  }
+
+  const revokedAt = new Date().toISOString();
+  const { error: updateError } = await supabaseAdmin!
+    .from('onboarding_applications')
+    .update({
+      token_hash: null,
+      token_expires_at: revokedAt,
+      token_activated_at: null,
+      last_activity_at: revokedAt,
+      updated_at: revokedAt,
+    })
+    .eq('id', existing.id)
+    .eq('user_id', auth.user.id);
+
+  if (updateError) return json(500, { error: updateError.message });
+
+  const { error: notificationError } = await supabaseAdmin!
+    .from('notification_events')
+    .insert({
+      event_type: 'onboarding_invite_revoked',
+      entity_type: 'onboarding_application',
+      entity_id: existing.id,
+      recipient_user_id: auth.user.id,
+      idempotency_key: `onboarding-invite-revoked:${existing.id}:${revokedAt}`,
+      payload: {
+        onboarding_application_id: existing.id,
+        revoked_at: revokedAt,
+      },
+    });
+
+  if (notificationError && notificationError.code !== '23505') {
+    return json(500, { error: notificationError.message });
+  }
+
+  return json(200, {
+    success: true,
+    onboardingApplicationId: existing.id,
+    invitationRevoked: true,
+    resumeAllowed: false,
   });
 }
