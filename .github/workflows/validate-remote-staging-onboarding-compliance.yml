@@ -1,0 +1,212 @@
+name: Validate Remote Staging Onboarding Compliance
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/staging-integration
+    paths:
+      - "scripts/validate_remote_staging_onboarding_compliance.mjs"
+      - ".github/workflows/validate-remote-staging-onboarding-compliance.yml"
+      - "app/api/onboarding/**"
+      - "app/api/super-admin/onboarding/**"
+      - "lib/server/onboardingCompliance.ts"
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: validate-remote-staging-onboarding-compliance
+  cancel-in-progress: false
+
+jobs:
+  onboarding-compliance:
+    name: Authenticated onboarding, invitations and compliance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      EXPECTED_STAGING_PROJECT_REF: svfjlhljuizckzabtewx
+      STAGING_APP_ORIGIN: http://127.0.0.1:3000
+
+    steps:
+      - name: Checkout exact staging head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Guard disposable staging identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "agent/staging-integration"
+          test -n "${SUPABASE_ACCESS_TOKEN:-}"
+          test -n "${SUPABASE_PROJECT_REF:-}"
+          test "$SUPABASE_PROJECT_REF" = "$EXPECTED_STAGING_PROJECT_REF"
+          echo "Authenticated journey validation is restricted to disposable staging."
+
+      - name: Resolve disposable project API keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/api-keys?reveal=true" \
+            --header "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            --output /tmp/supabase-api-keys.json
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          keys = json.loads(Path('/tmp/supabase-api-keys.json').read_text(encoding='utf-8'))
+
+          def find_key(*, names=(), types=()):
+              for item in keys:
+                  if item.get('name') in names and item.get('api_key'):
+                      return item['api_key']
+              for item in keys:
+                  if item.get('type') in types and item.get('api_key'):
+                      return item['api_key']
+              return None
+
+          public_key = find_key(names=('anon',), types=('publishable',))
+          secret_key = find_key(names=('service_role',), types=('secret',))
+          if not public_key or not secret_key:
+              descriptors = [f"{item.get('type')}:{item.get('name')}" for item in keys]
+              raise SystemExit(f'Required staging API keys were unavailable: {descriptors}')
+
+          print(f'::add-mask::{public_key}')
+          print(f'::add-mask::{secret_key}')
+          env_file = Path(os.environ['GITHUB_ENV'])
+          with env_file.open('a', encoding='utf-8') as handle:
+              handle.write(f'STAGING_SUPABASE_URL=https://{os.environ["SUPABASE_PROJECT_REF"]}.supabase.co\n')
+              handle.write(f'STAGING_SUPABASE_PUBLIC_KEY={public_key}\n')
+              handle.write(f'STAGING_SUPABASE_SECRET_KEY={secret_key}\n')
+              handle.write(f'NEXT_PUBLIC_SUPABASE_URL=https://{os.environ["SUPABASE_PROJECT_REF"]}.supabase.co\n')
+              handle.write(f'EXPECTED_NEXT_PUBLIC_SUPABASE_URL=https://{os.environ["SUPABASE_PROJECT_REF"]}.supabase.co\n')
+              handle.write(f'NEXT_PUBLIC_SUPABASE_ANON_KEY={public_key}\n')
+              handle.write(f'SUPABASE_SERVICE_ROLE_KEY={secret_key}\n')
+          PY
+
+          rm -f /tmp/supabase-api-keys.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate test script syntax
+        run: node --check scripts/validate_remote_staging_onboarding_compliance.mjs
+
+      - name: Build application against disposable staging
+        env:
+          SUPABASE_ENV_STRICT: "true"
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+          XDRIVE_FORCE_CANONICAL_HOST: "false"
+        run: npm run build
+
+      - name: Start staging-bound application
+        shell: bash
+        env:
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+          XDRIVE_FORCE_CANONICAL_HOST: "false"
+        run: |
+          set -euo pipefail
+          npm run start > /tmp/staging-onboarding-app.log 2>&1 &
+          echo $! > /tmp/staging-onboarding-app.pid
+
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:3000/login > /dev/null; then
+              echo "Staging-bound application is ready."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          cat /tmp/staging-onboarding-app.log
+          exit 1
+
+      - name: Run authenticated onboarding and compliance journeys
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/validate_remote_staging_onboarding_compliance.mjs \
+            2>&1 | tee /tmp/staging-onboarding-compliance.log
+
+      - name: Publish onboarding compliance success
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -f body="<!-- remote-staging-onboarding-compliance-success -->
+          ### Authenticated onboarding and compliance journeys passed
+
+          Commit: \`${GITHUB_SHA}\`
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          Verified on disposable staging only: Customer, Broker, Fleet and Owner Driver onboarding; 48-hour invitation expiry; persistent revoke; resend cooldown and token rotation; mandatory document upload; replacement without duplicates; private preview; per-document approval; approval readiness; approved-evidence lock; account-type isolation; owner-only review access; and cross-application document mutation denial. Production was not targeted."
+
+      - name: Publish concise onboarding compliance failure
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          {
+            echo '<!-- remote-staging-onboarding-compliance-failure -->'
+            echo '### Authenticated onboarding and compliance validation failed'
+            echo
+            echo "Commit: \`${GITHUB_SHA}\`"
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo '```text'
+            if [ -f /tmp/staging-onboarding-compliance.log ]; then
+              grep -E 'STAGING_ONBOARDING_COMPLIANCE_VALIDATION_FAILED|returned [0-9]+|Failed to|must|unexpected|not active|not enabled|missing|expired' \
+                /tmp/staging-onboarding-compliance.log | tail -n 35 \
+                || tail -n 45 /tmp/staging-onboarding-compliance.log
+            elif [ -f /tmp/staging-onboarding-app.log ]; then
+              tail -n 45 /tmp/staging-onboarding-app.log
+            else
+              echo 'The workflow failed before a staging journey log was created.'
+            fi
+            echo '```'
+          } > /tmp/onboarding-compliance-diagnostic.md
+
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -F body=@/tmp/onboarding-compliance-diagnostic.md
+
+      - name: Upload non-secret journey evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-staging-onboarding-compliance
+          path: |
+            /tmp/staging-onboarding-app.log
+            /tmp/staging-onboarding-compliance.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop staging-bound application
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/staging-onboarding-app.pid ]; then
+            kill "$(cat /tmp/staging-onboarding-app.pid)" || true
+          fi
