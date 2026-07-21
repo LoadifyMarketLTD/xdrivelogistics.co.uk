@@ -201,11 +201,14 @@ export default function SearchLoadsPage() {
               columns={['Route', 'Pickup', 'Vehicle / freight', 'Load detail', 'Price', 'Status', 'Action']}
               rows={displayedLoads.map((load) => {
                 const summary = getLoadDetailSummary(load);
+                const summaryText = summary.length > 0
+                  ? summary.slice(0, 3).map((item) => `${item.label}: ${item.value}`).join(' · ')
+                  : `${load.pallets ?? 0} pallet(s) · ${load.weight_kg ?? 0} kg`;
                 return [
                   <div key="route"><strong style={{ display: 'block' }}>{load.pickup_location ?? 'Collection'} → {load.delivery_location ?? 'Delivery'}</strong><span style={{ color: '#64748b' }}>{normalizeCompany(load.companies)?.name ?? 'Marketplace customer'} · {load.id.slice(0, 8).toUpperCase()}</span></div>,
                   formatDateTime(load.pickup_datetime),
                   <div key="vehicle"><span style={{ display: 'block' }}>{load.requested_vehicle_label ?? VEHICLE_LABELS[load.vehicle_type ?? ''] ?? load.vehicle_type ?? 'Not specified'}</span><span style={{ color: '#64748b' }}>{load.requested_cargo_label ?? load.cargo_type?.replaceAll('_', ' ') ?? 'Freight not specified'}</span></div>,
-                  summary.primary || `${load.pallets ?? 0} pallet(s) · ${load.weight_kg ?? 0} kg`,
+                  summaryText,
                   money(load.budget_amount, load.currency || 'GBP'),
                   <StatusBadge key="status" value={load.is_fixed_price ? 'fixed price' : 'quote required'} tone={load.is_fixed_price ? 'green' : 'orange'} />,
                   <ActionButton key="open" tone="primary" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open / quote</ActionButton>,
