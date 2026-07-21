@@ -21,7 +21,6 @@ export type MobileJobRow = {
   pickup_datetime: string | null;
   delivery_datetime: string | null;
   vehicle_type: string | null;
-  requested_vehicle_type: string | null;
   requested_vehicle_label: string | null;
   cargo_type: string | null;
   requested_cargo_label: string | null;
@@ -92,7 +91,6 @@ export const jobSelect = [
   'pickup_datetime',
   'delivery_datetime',
   'vehicle_type',
-  'requested_vehicle_type',
   'requested_vehicle_label',
   'cargo_type',
   'requested_cargo_label',
@@ -160,7 +158,7 @@ export function mapJob(row: MobileJobRow) {
     pickupTime: row.pickup_datetime || 'Pickup time TBC',
     deliveryTime: row.delivery_datetime || 'Delivery time TBC',
     cargoType: row.requested_cargo_label || row.cargo_type || 'Cargo TBC',
-    vehicleRequirement: row.requested_vehicle_label || row.requested_vehicle_type || row.vehicle_type || 'Vehicle TBC',
+    vehicleRequirement: row.requested_vehicle_label || row.vehicle_type || 'Vehicle TBC',
     price: toMoney(row.agreed_rate_gbp ?? row.agreed_rate ?? row.budget_amount),
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
     podRequired: row.pod_required !== false,
