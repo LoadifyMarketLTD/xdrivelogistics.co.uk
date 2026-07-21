@@ -1,4 +1,4 @@
-﻿-- P0 hardening: applicants may edit their draft payload, but may not directly
+-- P0 hardening: applicants may edit their draft payload, but may not directly
 -- manipulate onboarding review/state fields from the client Supabase session.
 --
 -- Canonical state transitions remain server-side through:
@@ -64,4 +64,3 @@ CREATE POLICY onboarding_applications_owner_update
     auth.uid() = user_id
     AND status IN ('draft', 'in_progress', 'request_changes')
   );
-
