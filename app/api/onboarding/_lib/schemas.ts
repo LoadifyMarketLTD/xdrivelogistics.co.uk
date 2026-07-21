@@ -8,17 +8,52 @@ export const onboardingPatchBaseSchema = z
   })
   .strict();
 
-// Onboarding payloads legitimately contain uploaded-document markers such as
-// doc_driving_licence and legacy aliases retained while an applicant resumes.
-// Known business fields are still validated, while those persisted metadata
-// keys are preserved instead of causing the entire PATCH/submit to fail.
+const normalizeDateOnly = (rawValue: string): string | null => {
+  const value = rawValue.trim();
+  if (!value) return '';
+
+  let year: number;
+  let month: number;
+  let day: number;
+  const yearFirst = value.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  const dayFirst = value.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+
+  if (yearFirst) {
+    year = Number(yearFirst[1]);
+    month = Number(yearFirst[2]);
+    day = Number(yearFirst[3]);
+  } else if (dayFirst) {
+    day = Number(dayFirst[1]);
+    month = Number(dayFirst[2]);
+    year = Number(dayFirst[3]);
+  } else {
+    return null;
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year
+    || date.getUTCMonth() !== month - 1
+    || date.getUTCDate() !== day
+  ) return null;
+
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
+const requiredDateOnly = z.string().trim().min(1).refine(
+  (value) => Boolean(normalizeDateOnly(value)),
+  'Enter a valid date.'
+);
+
+const optionalText = z.string().trim().optional().default('');
+
 export const customerPayloadSchema = z
   .object({
     full_name: z.string().trim().min(1),
     contact_email: z.string().trim().email(),
-    contact_phone: z.string().trim().min(1).optional().default(''),
-    company_name: z.string().trim().optional().default(''),
-    billing_address: z.string().trim().optional().default(''),
+    contact_phone: optionalText,
+    company_name: optionalText,
+    billing_address: optionalText,
   })
   .passthrough();
 
@@ -51,62 +86,104 @@ export const fleetPayloadSchema = z
   })
   .passthrough();
 
-const normalizeDateOnly = (rawValue: string): string | null => {
-  const value = rawValue.trim();
-  if (!value) return '';
+export const ownerDriverPayloadSchema = z
+  .object({
+    full_name: z.string().trim().min(1),
+    date_of_birth: requiredDateOnly,
+    address: z.string().trim().min(1),
+    contact_phone: z.string().trim().min(1),
+    contact_email: z.string().trim().email(),
+    national_insurance_number: z.string().trim().min(1),
+    right_to_work_status: z.string().trim().min(1),
+    licence_number: z.string().trim().min(1),
+    licence_expiry: requiredDateOnly,
+    registration: z.string().trim().min(1),
+    make: z.string().trim().min(1),
+    model: z.string().trim().min(1),
+    payload: z.string().trim().min(1),
+    dimensions: z.string().trim().min(1),
+    nationality: optionalText,
+    visa_expiry: optionalText,
+    visa_type: optionalText,
+    share_code: optionalText,
+    settled_status: z.boolean().optional().default(false),
+    pre_settled_status: z.boolean().optional().default(false),
+    tail_lift: optionalText,
+    insurance_details: optionalText,
+  })
+  .passthrough();
 
-  let year: number;
-  let month: number;
-  let day: number;
+const draftText = z.string().max(5000);
 
-  const yearFirst = value.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-  const dayFirst = value.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+const customerDraftPayloadSchema = z.object({
+  full_name: draftText.optional(),
+  contact_email: draftText.optional(),
+  contact_phone: draftText.optional(),
+  company_name: draftText.optional(),
+  billing_address: draftText.optional(),
+}).passthrough();
 
-  if (yearFirst) {
-    year = Number(yearFirst[1]);
-    month = Number(yearFirst[2]);
-    day = Number(yearFirst[3]);
-  } else if (dayFirst) {
-    day = Number(dayFirst[1]);
-    month = Number(dayFirst[2]);
-    year = Number(dayFirst[3]);
-  } else {
-    return null;
-  }
+const brokerDraftPayloadSchema = z.object({
+  company_name: draftText.optional(),
+  trading_name: draftText.optional(),
+  company_number: draftText.optional(),
+  vat_number: draftText.optional(),
+  billing_address: draftText.optional(),
+  trading_address: draftText.optional(),
+  contact_person: draftText.optional(),
+  finance_contact: draftText.optional(),
+  contact_email: draftText.optional(),
+  contact_phone: draftText.optional(),
+}).passthrough();
 
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) {
-    return null;
-  }
+const fleetDraftPayloadSchema = z.object({
+  legal_company_name: draftText.optional(),
+  trading_name: draftText.optional(),
+  company_number: draftText.optional(),
+  vat_number: draftText.optional(),
+  registered_address: draftText.optional(),
+  trading_address: draftText.optional(),
+  contact_person: draftText.optional(),
+  compliance_contact: draftText.optional(),
+  transport_contact: draftText.optional(),
+}).passthrough();
 
-  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-};
-
-// Owner-driver applications are reviewed by compliance after submission.
-// The API must preserve every field/document marker and must not block a real
-// applicant because a free-text vehicle or immigration field uses a different
-// format. Database submission remains authenticated and company-scoped.
-const ownerDriverRecordSchema = z.record(z.string(), z.unknown());
-export const ownerDriverPayloadSchema = ownerDriverRecordSchema;
+const ownerDriverDraftPayloadSchema = z.object({
+  full_name: draftText.optional(),
+  date_of_birth: draftText.optional(),
+  address: draftText.optional(),
+  contact_phone: draftText.optional(),
+  contact_email: draftText.optional(),
+  national_insurance_number: draftText.optional(),
+  right_to_work_status: draftText.optional(),
+  licence_number: draftText.optional(),
+  licence_expiry: draftText.optional(),
+  registration: draftText.optional(),
+  make: draftText.optional(),
+  model: draftText.optional(),
+  payload: draftText.optional(),
+  dimensions: draftText.optional(),
+  nationality: draftText.optional(),
+  visa_expiry: draftText.optional(),
+  visa_type: draftText.optional(),
+  share_code: draftText.optional(),
+  settled_status: z.boolean().optional(),
+  pre_settled_status: z.boolean().optional(),
+  tail_lift: draftText.optional(),
+  insurance_details: draftText.optional(),
+}).passthrough();
 
 export const customerPatchSchema = onboardingPatchBaseSchema.extend({
-  payload: customerPayloadSchema.partial().optional(),
+  payload: customerDraftPayloadSchema.optional(),
 });
-
 export const brokerPatchSchema = onboardingPatchBaseSchema.extend({
-  payload: brokerPayloadSchema.partial().optional(),
+  payload: brokerDraftPayloadSchema.optional(),
 });
-
 export const fleetPatchSchema = onboardingPatchBaseSchema.extend({
-  payload: fleetPayloadSchema.partial().optional(),
+  payload: fleetDraftPayloadSchema.optional(),
 });
-
 export const ownerDriverPatchSchema = onboardingPatchBaseSchema.extend({
-  payload: ownerDriverRecordSchema.optional(),
+  payload: ownerDriverDraftPayloadSchema.optional(),
 });
 
 export type CustomerPayload = z.infer<typeof customerPayloadSchema>;
