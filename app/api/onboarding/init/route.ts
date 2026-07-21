@@ -123,43 +123,41 @@ export async function POST(request: NextRequest) {
   const onboardingToken = generateOnboardingToken();
   const tokenExpiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString();
   const now = new Date().toISOString();
+  const tokenHash = hashOnboardingToken(onboardingToken);
 
-  const applicationValues = existing
-    ? {
-        token_hash: hashOnboardingToken(onboardingToken),
-        token_expires_at: tokenExpiresAt,
-        token_last_sent_at: now,
-        last_activity_at: now,
-      }
-    : {
-        user_id: authUser.id,
-        email: authUser.email ?? 'unknown@xdrive.local',
-        account_type: storedType,
-        workspace_mode: ACCOUNT_TYPE_CONFIG[requestedType].workspaceMode,
-        owner_driver_workspace: ACCOUNT_TYPE_CONFIG[requestedType].ownerDriverWorkspace,
-        status: 'draft',
-        token_hash: hashOnboardingToken(onboardingToken),
-        token_expires_at: tokenExpiresAt,
-        token_last_sent_at: now,
-        last_activity_at: now,
-        current_step: 'account_type_confirmed',
-        completion_percentage: 5,
-        payload: {},
-      };
-
-  const query = existing
-    ? supabaseAdmin
+  const saveResult = existing
+    ? await supabaseAdmin
         .from('onboarding_applications')
-        .update(applicationValues)
+        .update({
+          token_hash: tokenHash,
+          token_expires_at: tokenExpiresAt,
+          token_last_sent_at: now,
+          last_activity_at: now,
+        })
         .eq('id', existing.id)
-    : supabaseAdmin
+        .select('id, status, account_type, token_expires_at')
+        .single()
+    : await supabaseAdmin
         .from('onboarding_applications')
-        .insert(applicationValues);
+        .insert({
+          user_id: authUser.id,
+          email: authUser.email ?? 'unknown@xdrive.local',
+          account_type: storedType,
+          workspace_mode: ACCOUNT_TYPE_CONFIG[requestedType].workspaceMode,
+          owner_driver_workspace: ACCOUNT_TYPE_CONFIG[requestedType].ownerDriverWorkspace,
+          status: 'draft',
+          token_hash: tokenHash,
+          token_expires_at: tokenExpiresAt,
+          token_last_sent_at: now,
+          last_activity_at: now,
+          current_step: 'account_type_confirmed',
+          completion_percentage: 5,
+          payload: {},
+        })
+        .select('id, status, account_type, token_expires_at')
+        .single();
 
-  const { data: saved, error: saveError } = await query
-    .select('id, status, account_type, token_expires_at')
-    .single();
-
+  const { data: saved, error: saveError } = saveResult;
   if (saveError) return json(500, { error: saveError.message });
 
   const { data: profile, error: profileReadError } = await supabaseAdmin
