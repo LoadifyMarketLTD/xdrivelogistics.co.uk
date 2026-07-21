@@ -95,7 +95,7 @@ const ensureCompanyId = async (app: OnboardingApplication): Promise<{ companyId:
       company_id: companyId,
       user_id: app.user_id,
       role_in_company: 'owner',
-      status: 'active',
+      status: 'invited',
       updated_at: new Date().toISOString(),
     }, { onConflict: 'company_id,user_id' });
   if (membershipError) return { companyId: null, error: membershipError.message };
