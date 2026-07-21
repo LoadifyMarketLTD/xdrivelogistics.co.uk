@@ -38,7 +38,7 @@ export type MobileJobRow = {
   pod_generated: boolean | null;
   delivery_photos: string[] | null;
   pod_photos: string[] | null;
-  delivery_signature_data: unknown;
+  delivery_signature_data: string | null;
   status_history: unknown;
   updated_at: string | null;
   created_at: string | null;
@@ -122,7 +122,10 @@ export function appendStatusHistory(existingHistory: unknown, entry: Record<stri
 }
 
 export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' | 'delivery_signature_data' | 'pod_generated'>) {
-  return Boolean(job.pod_generated) || safeArray(job.delivery_photos).length > 0 || safeArray(job.pod_photos).length > 0 || Boolean(job.delivery_signature_data);
+  return Boolean(job.pod_generated)
+    || safeArray(job.delivery_photos).length > 0
+    || safeArray(job.pod_photos).length > 0
+    || Boolean(job.delivery_signature_data?.trim());
 }
 
 export function toMoney(value: number | string | null | undefined) {
@@ -167,12 +170,16 @@ export function mapJob(row: MobileJobRow) {
   };
 }
 
-export async function insertTrackingEvent(jobId: string, userId: string, eventType: string, note: string) {
-  if (!supabaseAdmin) return;
-  await supabaseAdmin.from('job_tracking_events').insert({
+export async function insertTrackingEvent(jobId: string, userId: string, eventType: string, message: string) {
+  if (!supabaseAdmin) throw new Error('Server auth is not configured.');
+
+  const { error } = await supabaseAdmin.from('job_tracking_events').insert({
     job_id: jobId,
     created_by: userId,
     event_type: eventType,
-    note,
+    message,
+    meta: { source: 'driver_mobile' },
   });
+
+  if (error) throw new Error(`Failed to record tracking event: ${error.message}`);
 }
