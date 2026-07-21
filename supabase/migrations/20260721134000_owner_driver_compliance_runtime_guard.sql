@@ -128,24 +128,32 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user_id uuid;
+  v_application_id uuid;
 BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_application_id := OLD.onboarding_application_id;
+  ELSE
+    v_application_id := NEW.onboarding_application_id;
+  END IF;
+
   SELECT oa.user_id
   INTO v_user_id
   FROM public.onboarding_applications oa
-  WHERE oa.id = COALESCE(NEW.onboarding_application_id, OLD.onboarding_application_id)
+  WHERE oa.id = v_application_id
     AND oa.account_type = 'owner_driver';
 
-  IF v_user_id IS NULL THEN
-    RETURN COALESCE(NEW, OLD);
+  IF v_user_id IS NOT NULL THEN
+    UPDATE public.drivers d
+    SET app_access = public.owner_driver_compliance_current(v_user_id),
+        updated_at = now()
+    WHERE d.user_id = v_user_id
+      AND d.status = 'active';
   END IF;
 
-  UPDATE public.drivers d
-  SET app_access = public.owner_driver_compliance_current(v_user_id),
-      updated_at = now()
-  WHERE d.user_id = v_user_id
-    AND d.status = 'active';
-
-  RETURN COALESCE(NEW, OLD);
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
 END;
 $$;
 
