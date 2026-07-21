@@ -95,5 +95,6 @@ export async function POST(request: NextRequest, { params }: Params) {
     bidId: result.bid_id,
     jobId: result.job_id,
     awardedCarrierCompanyId: result.awarded_carrier_company_id,
+    commercialAgreementId: result.commercial_agreement_id,
   });
 }
