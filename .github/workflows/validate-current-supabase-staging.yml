@@ -1,0 +1,354 @@
+name: Validate Current Supabase Staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/staging-integration
+    paths:
+      - ".github/workflows/validate-current-supabase-staging.yml"
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+env:
+  EXPECTED_STAGING_PROJECT_REF: svfjlhljuizckzabtewx
+
+concurrency:
+  group: supabase-disposable-staging-deploy
+  cancel-in-progress: false
+
+jobs:
+  validate-staging:
+    name: Apply and verify current normalized schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Checkout exact staging branch head
+        uses: actions/checkout@v4
+        with:
+          ref: agent/staging-integration
+          fetch-depth: 1
+
+      - name: Enforce disposable staging guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "agent/staging-integration"
+          test -n "${SUPABASE_ACCESS_TOKEN:-}"
+          test -n "${SUPABASE_DB_PASSWORD:-}"
+          test -n "${SUPABASE_PROJECT_REF:-}"
+
+          if [ "$SUPABASE_PROJECT_REF" != "$EXPECTED_STAGING_PROJECT_REF" ]; then
+            echo "Refusing deployment: configured project ref is not the approved disposable staging project."
+            exit 1
+          fi
+
+          echo "Disposable staging guard passed for $SUPABASE_PROJECT_REF."
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@6ffe784b57613e98e0c04651e5fde0cec28cb1c9
+        with:
+          version: latest
+
+      - name: Build isolated normalized migration project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .current-staging-validation
+          mkdir -p .current-staging-validation
+          cd .current-staging-validation
+          supabase init
+          cd ..
+
+          python scripts/prepare_staging_bootstrap.py \
+            --source supabase/migrations \
+            --destination .current-staging-validation/supabase/migrations \
+            --manifest .current-staging-validation/deployment-manifest.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(
+              Path('.current-staging-validation/deployment-manifest.json').read_text(encoding='utf-8')
+          )
+          sources = {item['source'] for item in manifest['migrations']}
+          required = {
+              '20260721132500_onboarding_invitation_controls.sql',
+              '20260721134000_owner_driver_compliance_runtime_guard.sql',
+          }
+          missing = sorted(required - sources)
+          assert not missing, f'Required compliance migrations missing from manifest: {missing}'
+          assert manifest['excluded_count'] == 1, manifest['excluded_count']
+          assert manifest['excluded'][0]['source'] == '068_targeted_data_repair_current_accounts.sql'
+          print(f"Prepared {manifest['included_count']} normalized migrations; required compliance delta is present.")
+          PY
+
+      - name: Link only approved disposable staging
+        working-directory: .current-staging-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase link \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-link.log
+
+      - name: Inventory and guard remote migration history
+        working-directory: .current-staging-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list \
+            --linked \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-history-before.log
+
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          manifest = json.loads(Path('deployment-manifest.json').read_text(encoding='utf-8'))
+          expected = [item['staged_version'] for item in manifest['migrations']]
+          text = Path('staging-history-before.log').read_text(encoding='utf-8', errors='replace')
+          text = re.sub(r'\x1b\[[0-9;]*m', '', text).replace('`', '')
+
+          local = []
+          remote = []
+          for line in text.splitlines():
+              parts = [part.strip() for part in re.split(r'[|│]', line)]
+              if len(parts) < 2:
+                  continue
+              if re.fullmatch(r'\d{14}', parts[0]):
+                  local.append(parts[0])
+              if re.fullmatch(r'\d{14}', parts[1]):
+                  remote.append(parts[1])
+
+          if local != expected:
+              raise SystemExit(
+                  f'Normalized local history differs from the manifest: {len(local)} local / {len(expected)} expected.'
+              )
+
+          expected_set = set(expected)
+          remote_only = [version for version in remote if version not in expected_set]
+          shared_remote = [version for version in remote if version in expected_set]
+          if shared_remote != expected[:len(shared_remote)]:
+              raise SystemExit('Remote normalized migration history is not an exact manifest prefix.')
+
+          Path('remote-only-versions.txt').write_text(
+              ''.join(f'{version}\n' for version in remote_only),
+              encoding='utf-8',
+          )
+          print(
+              f'History guard passed: {len(shared_remote)} normalized remote entries, '
+              f'{len(remote_only)} disposable remote-only entries, {len(expected)} expected.'
+          )
+          PY
+
+      - name: Repair disposable remote-only history when necessary
+        working-directory: .current-staging-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -s remote-only-versions.txt ]; then
+            echo "No disposable remote-only history requires repair."
+            exit 0
+          fi
+
+          mapfile -t remote_only < <(grep -E '^[0-9]{14}$' remote-only-versions.txt)
+          test "${#remote_only[@]}" -gt 0
+
+          supabase migration repair \
+            "${remote_only[@]}" \
+            --status reverted \
+            --linked \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-history-repair.log
+
+      - name: Recheck exact remote prefix after repair
+        working-directory: .current-staging-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list \
+            --linked \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-history-repaired.log
+
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          manifest = json.loads(Path('deployment-manifest.json').read_text(encoding='utf-8'))
+          expected = [item['staged_version'] for item in manifest['migrations']]
+          expected_set = set(expected)
+          text = Path('staging-history-repaired.log').read_text(encoding='utf-8', errors='replace')
+          text = re.sub(r'\x1b\[[0-9;]*m', '', text).replace('`', '')
+
+          remote = []
+          for line in text.splitlines():
+              parts = [part.strip() for part in re.split(r'[|│]', line)]
+              if len(parts) >= 2 and re.fullmatch(r'\d{14}', parts[1]):
+                  remote.append(parts[1])
+
+          remote_only = [version for version in remote if version not in expected_set]
+          if remote_only:
+              raise SystemExit(f'Remote-only migration history remains: {remote_only}')
+          if remote != expected[:len(remote)]:
+              raise SystemExit('Remote history is not an exact normalized prefix after repair.')
+
+          print(f'Exact-prefix guard passed: {len(remote)} of {len(expected)} migrations present.')
+          PY
+
+      - name: Dry-run current normalized schema
+        working-directory: .current-staging-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db push \
+            --linked \
+            --include-all \
+            --dry-run \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-push-dry-run.log
+
+      - name: Apply current normalized schema to disposable staging
+        working-directory: .current-staging-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db push \
+            --linked \
+            --include-all \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-push.log
+
+      - name: Verify complete staging migration history
+        working-directory: .current-staging-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list \
+            --linked \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-history-after.log
+
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          manifest = json.loads(Path('deployment-manifest.json').read_text(encoding='utf-8'))
+          expected = [item['staged_version'] for item in manifest['migrations']]
+          text = Path('staging-history-after.log').read_text(encoding='utf-8', errors='replace')
+          text = re.sub(r'\x1b\[[0-9;]*m', '', text).replace('`', '')
+
+          remote = []
+          for line in text.splitlines():
+              parts = [part.strip() for part in re.split(r'[|│]', line)]
+              if len(parts) >= 2 and re.fullmatch(r'\d{14}', parts[1]):
+                  remote.append(parts[1])
+
+          if remote != expected:
+              raise SystemExit(
+                  f'Remote staging history mismatch: {len(remote)} recorded / {len(expected)} expected.'
+              )
+
+          Path('verified-migration-count.txt').write_text(str(len(expected)), encoding='utf-8')
+          print(f'Remote staging history verified exactly: {len(remote)} / {len(expected)}.')
+          PY
+
+      - name: Publish machine-readable staging result
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          count="unknown"
+          if [ -f .current-staging-validation/verified-migration-count.txt ]; then
+            count=$(cat .current-staging-validation/verified-migration-count.txt)
+          elif [ -f .current-staging-validation/deployment-manifest.json ]; then
+            count=$(python -c "import json; print(json.load(open('.current-staging-validation/deployment-manifest.json'))['included_count'])")
+          fi
+
+          python - <<PY
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          payload = {
+              'result': '${JOB_STATUS}',
+              'source_sha': '${GITHUB_SHA}',
+              'run_id': '${GITHUB_RUN_ID}',
+              'run_url': '${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}',
+              'branch': '${GITHUB_REF_NAME}',
+              'project_ref': '${SUPABASE_PROJECT_REF}',
+              'verified_migration_count': '${count}',
+              'production_targeted': False,
+              'recorded_at': datetime.now(timezone.utc).isoformat(),
+          }
+          Path('/tmp/staging-validation.json').write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          encoded=$(base64 -w 0 /tmp/staging-validation.json)
+          endpoint="repos/${GITHUB_REPOSITORY}/contents/staging-validation/latest.json"
+          existing_sha=$(gh api "$endpoint?ref=agent/staging-integration" --jq .sha 2>/dev/null || true)
+
+          if [ -n "$existing_sha" ]; then
+            gh api --method PUT "$endpoint" \
+              -f message="ci(db): record disposable staging validation ${JOB_STATUS}" \
+              -f content="$encoded" \
+              -f sha="$existing_sha" \
+              -f branch="agent/staging-integration"
+          else
+            gh api --method PUT "$endpoint" \
+              -f message="ci(db): record disposable staging validation ${JOB_STATUS}" \
+              -f content="$encoded" \
+              -f branch="agent/staging-integration"
+          fi
+
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -f body="### Current disposable staging validation: ${JOB_STATUS}
+
+          Source commit: \`${GITHUB_SHA}\`
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          Normalized migrations: **${count}**
+          Project guard: \`${SUPABASE_PROJECT_REF}\`
+          Production targeted: **no**"
+
+      - name: Upload non-secret staging evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-supabase-staging-validation
+          path: |
+            .current-staging-validation/deployment-manifest.json
+            .current-staging-validation/remote-only-versions.txt
+            .current-staging-validation/staging-history-before.log
+            .current-staging-validation/staging-history-repair.log
+            .current-staging-validation/staging-history-repaired.log
+            .current-staging-validation/staging-push-dry-run.log
+            .current-staging-validation/staging-push.log
+            .current-staging-validation/staging-history-after.log
+            .current-staging-validation/verified-migration-count.txt
+          if-no-files-found: ignore
+          retention-days: 7
