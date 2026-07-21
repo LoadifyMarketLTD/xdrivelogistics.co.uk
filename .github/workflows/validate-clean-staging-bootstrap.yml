@@ -10,7 +10,7 @@ on:
       - ".github/workflows/validate-clean-staging-bootstrap.yml"
 
 permissions:
-  contents: write
+  contents: read
   issues: write
   pull-requests: write
 
@@ -35,83 +35,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Apply pending optional RPC source repair
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path('supabase/migrations/20260720121500_p0_database_security_and_schema_consistency.sql')
-          text = path.read_text(encoding='utf-8')
-
-          old = """REVOKE ALL ON FUNCTION public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text)
-            FROM PUBLIC, anon, authenticated;
-          GRANT EXECUTE ON FUNCTION public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text)
-            TO service_role;
-
-          REVOKE ALL ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid)
-            FROM PUBLIC, anon, authenticated;
-          GRANT EXECUTE ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid)
-            TO service_role;
-
-          REVOKE ALL ON FUNCTION public.request_awarded_job_cancellation_atomic(uuid, uuid, text)
-            FROM PUBLIC, anon, authenticated;
-          GRANT EXECUTE ON FUNCTION public.request_awarded_job_cancellation_atomic(uuid, uuid, text)
-            TO service_role;
-
-          REVOKE ALL ON FUNCTION public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text)
-            FROM PUBLIC, anon, authenticated;
-          GRANT EXECUTE ON FUNCTION public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text)
-            TO service_role;
-          """
-
-          new = """-- Cancellation RPCs may be absent on a clean schema and are restored by later
-          -- lifecycle migrations. Harden only the signatures that already exist here.
-          DO $$
-          DECLARE
-            v_signature text;
-          BEGIN
-            FOREACH v_signature IN ARRAY ARRAY[
-              'public.cancel_unassigned_exchange_job_atomic(uuid,uuid,text)',
-              'public.delete_unbid_exchange_job_atomic(uuid,uuid)',
-              'public.request_awarded_job_cancellation_atomic(uuid,uuid,text)',
-              'public.decide_awarded_job_cancellation_atomic(uuid,uuid,text,text)'
-            ] LOOP
-              IF to_regprocedure(v_signature) IS NOT NULL THEN
-                EXECUTE format(
-                  'REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated',
-                  v_signature
-                );
-                EXECUTE format(
-                  'GRANT EXECUTE ON FUNCTION %s TO service_role',
-                  v_signature
-                );
-              END IF;
-            END LOOP;
-          END
-          $$;
-          """
-
-          if old in text:
-              path.write_text(text.replace(old, new, 1), encoding='utf-8')
-          elif 'Cancellation RPCs may be absent on a clean schema' not in text:
-              raise SystemExit('Expected optional RPC grant block was not found')
-
-          temporary = Path('.github/workflows/patch-p0-optional-rpc-grants.yml')
-          if temporary.exists():
-              temporary.unlink()
-          PY
-
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add supabase/migrations/20260720121500_p0_database_security_and_schema_consistency.sql
-            git add -u .github/workflows/patch-p0-optional-rpc-grants.yml || true
-            git commit -m "fix(db): guard optional cancellation RPC grants"
-            git push origin HEAD:agent/staging-integration
-          fi
 
       - name: Report UTF-8 BOM in source migrations
         shell: bash
@@ -162,10 +85,10 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import json
-          import pathlib
+          from pathlib import Path
 
-          manifest_path = pathlib.Path('.staging-bootstrap/bootstrap-manifest.json')
-          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          root = Path('.staging-bootstrap')
+          manifest = json.loads((root / 'bootstrap-manifest.json').read_text(encoding='utf-8'))
           migrations = manifest['migrations']
           versions = [item['staged_version'] for item in migrations]
 
@@ -174,7 +97,7 @@ jobs:
           assert manifest['excluded_count'] == 1, 'Unexpected number of excluded migrations'
           assert manifest['excluded'][0]['source'] == '068_targeted_data_repair_current_accounts.sql'
           assert all(
-              not pathlib.Path('.staging-bootstrap/supabase/migrations', item['staged'])
+              not (root / 'supabase' / 'migrations' / item['staged'])
               .read_bytes()
               .startswith(b'\xef\xbb\xbf')
               for item in migrations
@@ -193,7 +116,6 @@ jobs:
           PY
 
       - name: Start disposable local Supabase and apply migrations
-        id: start_supabase
         working-directory: .staging-bootstrap
         shell: bash
         run: |
@@ -201,7 +123,6 @@ jobs:
           supabase start 2>&1 | tee bootstrap-start.log
 
       - name: Rebuild disposable database from migration zero
-        id: reset_database
         working-directory: .staging-bootstrap
         shell: bash
         run: |
@@ -209,16 +130,34 @@ jobs:
           supabase db reset --local 2>&1 | tee bootstrap-reset.log
 
       - name: Confirm every prepared migration was recorded
-        id: confirm_migrations
         working-directory: .staging-bootstrap
         shell: bash
         run: |
           set -euo pipefail
-          expected=$(python -c "import json; print(json.load(open('bootstrap-manifest.json'))['included_count'])")
-          actual=$(supabase migration list --local | tee bootstrap-migration-list.log | awk '/^[[:space:]]*[0-9]{14}[[:space:]]*\|/ {count++} END {print count+0}')
-          echo "Expected migration count: $expected" | tee bootstrap-count.log
-          echo "Recorded migration count: $actual" | tee -a bootstrap-count.log
-          test "$actual" -eq "$expected"
+          supabase migration list --local 2>&1 | tee bootstrap-migration-list.log
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          expected = json.loads(Path('bootstrap-manifest.json').read_text(encoding='utf-8'))['included_count']
+          ansi = re.compile(r'\x1b\[[0-9;]*m')
+          rows = ansi.sub('', Path('bootstrap-migration-list.log').read_text(encoding='utf-8'))
+          actual = sum(
+              1
+              for line in rows.splitlines()
+              if re.match(r'^\s*`?\d{14}`?\s*\|', line)
+          )
+
+          Path('bootstrap-count.log').write_text(
+              f'Expected migration count: {expected}\nRecorded migration count: {actual}\n',
+              encoding='utf-8',
+          )
+          print(f'Expected migration count: {expected}')
+          print(f'Recorded migration count: {actual}')
+          if actual != expected:
+              raise SystemExit('Recorded migration count does not match the manifest')
+          PY
 
       - name: Publish failure diagnostics to PR 248
         if: failure()
