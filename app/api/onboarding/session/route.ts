@@ -6,7 +6,10 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
-import { ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE } from '../../_lib/onboarding';
+import {
+  ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE,
+  normalizeOnboardingAccountType,
+} from '../../_lib/onboarding';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -15,8 +18,7 @@ const getAuthUser = async (request: NextRequest) => {
   if (!token || !supabaseAdmin) return null;
   const validatorClient = supabaseValidator ?? supabaseAdmin;
   const { data, error } = await validatorClient.auth.getUser(token);
-  if (error || !data.user) return null;
-  return data.user;
+  return error ? null : data.user;
 };
 
 export async function GET(request: NextRequest) {
@@ -25,25 +27,26 @@ export async function GET(request: NextRequest) {
   }
 
   const authUser = await getAuthUser(request);
-  if (!authUser) {
-    return json(401, { error: 'Unauthorized.' });
-  }
+  if (!authUser) return json(401, { error: 'Unauthorized.' });
 
-  const { data: app, error } = await supabaseAdmin
+  const { data: application, error } = await supabaseAdmin
     .from('onboarding_applications')
     .select('*')
     .eq('user_id', authUser.id)
     .maybeSingle();
 
   if (error) return json(500, { error: error.message });
-  if (!app) return json(404, { error: 'Onboarding application not found.' });
+  if (!application) return json(404, { error: 'Onboarding application not found.' });
 
-  const routeSegment = ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE[app.account_type as keyof typeof ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE];
+  const accountType = normalizeOnboardingAccountType(application.account_type);
+  if (!accountType) {
+    return json(409, { error: 'The onboarding application has an unsupported account type.' });
+  }
 
   return json(200, {
-    application: app,
-    routeSegment,
-    resumePath: `/onboarding/${routeSegment}/resume`,
+    application,
+    routeSegment: ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE[accountType],
+    resumePath: '/onboarding/resume',
   });
 }
 
