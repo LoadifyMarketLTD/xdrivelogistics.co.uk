@@ -1,0 +1,268 @@
+name: Validate Staging P0 Schema Delta
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/staging-integration
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/prepare_staging_bootstrap.py"
+      - ".github/workflows/validate-staging-p0-delta.yml"
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: supabase-disposable-staging-deploy
+  cancel-in-progress: false
+
+env:
+  EXPECTED_STAGING_PROJECT_REF: svfjlhljuizckzabtewx
+
+jobs:
+  validate-p0-delta:
+    name: Apply and verify current P0 migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: staging
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          ref: agent/staging-integration
+          fetch-depth: 1
+
+      - name: Enforce disposable staging guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "agent/staging-integration"
+          test -n "${SUPABASE_ACCESS_TOKEN:-}"
+          test -n "${SUPABASE_DB_PASSWORD:-}"
+          test "$SUPABASE_PROJECT_REF" = "$EXPECTED_STAGING_PROJECT_REF"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up pinned Supabase CLI action
+        uses: supabase/setup-cli@6ffe784b57613e98e0c04651e5fde0cec28cb1c9
+        with:
+          version: latest
+
+      - name: Build isolated normalized migration project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .p0-staging-validation
+          mkdir -p .p0-staging-validation
+          cd .p0-staging-validation
+          supabase init
+          cd ..
+
+          python scripts/prepare_staging_bootstrap.py \
+            --source supabase/migrations \
+            --destination .p0-staging-validation/supabase/migrations \
+            --manifest .p0-staging-validation/deployment-manifest.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path('.p0-staging-validation/deployment-manifest.json').read_text(encoding='utf-8'))
+          sources = {item['source'] for item in manifest['migrations']}
+          required = {
+              '20260721132500_onboarding_invitation_controls.sql',
+              '20260721134000_owner_driver_compliance_runtime_guard.sql',
+              '20260721141000_reconcile_onboarding_invitation_schema.sql',
+              '20260721143000_notification_claim_retry_idempotency.sql',
+              '20260721143500_notification_vault_configuration_rpc.sql',
+              '20260721144500_deduplicate_onboarding_documents.sql',
+              '20260721145000_notification_manual_dispatch_guard.sql',
+              '20260721150000_fleet_driver_invitation_compliance.sql',
+              '20260721150500_unique_company_driver_identity.sql',
+              '20260721151000_fleet_driver_invitation_atomic_review.sql',
+              '20260721151500_legacy_driver_invite_bridge.sql',
+              '20260721152000_driver_company_user_constraint.sql',
+          }
+          missing = sorted(required - sources)
+          assert not missing, f'Required P0 migrations missing: {missing}'
+          assert manifest['excluded_count'] == 1
+          Path('.p0-staging-validation/required-migrations.json').write_text(
+              json.dumps(sorted(required), indent=2) + '\n', encoding='utf-8'
+          )
+          print(f"Prepared {manifest['included_count']} normalized migrations with all current P0 deltas.")
+          PY
+
+      - name: Link only approved disposable staging
+        working-directory: .p0-staging-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase link \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-link.log
+
+      - name: Verify remote history is an exact manifest prefix
+        working-directory: .p0-staging-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list \
+            --linked \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-history-before.log
+
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          manifest = json.loads(Path('deployment-manifest.json').read_text(encoding='utf-8'))
+          expected = [item['staged_version'] for item in manifest['migrations']]
+          text = re.sub(r'\x1b\[[0-9;]*m', '', Path('staging-history-before.log').read_text(encoding='utf-8', errors='replace')).replace('`', '')
+          remote = []
+          for line in text.splitlines():
+              parts = [part.strip() for part in re.split(r'[|│]', line)]
+              if len(parts) >= 2 and re.fullmatch(r'\d{14}', parts[1]):
+                  remote.append(parts[1])
+          if remote != expected[:len(remote)]:
+              raise SystemExit(f'Remote history is not an exact prefix: {len(remote)} remote / {len(expected)} expected.')
+          print(f'Remote exact-prefix guard passed: {len(remote)} / {len(expected)} already present.')
+          PY
+
+      - name: Dry-run current P0 schema
+        working-directory: .p0-staging-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db push \
+            --linked \
+            --include-all \
+            --dry-run \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-push-dry-run.log
+
+      - name: Apply current P0 schema
+        working-directory: .p0-staging-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db push \
+            --linked \
+            --include-all \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-push.log
+
+      - name: Verify exact complete migration history
+        working-directory: .p0-staging-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list \
+            --linked \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-history-after.log
+
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          manifest = json.loads(Path('deployment-manifest.json').read_text(encoding='utf-8'))
+          expected = [item['staged_version'] for item in manifest['migrations']]
+          text = re.sub(r'\x1b\[[0-9;]*m', '', Path('staging-history-after.log').read_text(encoding='utf-8', errors='replace')).replace('`', '')
+          remote = []
+          for line in text.splitlines():
+              parts = [part.strip() for part in re.split(r'[|│]', line)]
+              if len(parts) >= 2 and re.fullmatch(r'\d{14}', parts[1]):
+                  remote.append(parts[1])
+          if remote != expected:
+              raise SystemExit(f'Remote history mismatch: {len(remote)} recorded / {len(expected)} expected.')
+          Path('verified-migration-count.txt').write_text(str(len(expected)), encoding='utf-8')
+          print(f'Current P0 staging schema verified exactly: {len(remote)} / {len(expected)}.')
+          PY
+
+      - name: Publish machine-readable P0 staging result
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          count="unknown"
+          if [ -f .p0-staging-validation/verified-migration-count.txt ]; then
+            count=$(cat .p0-staging-validation/verified-migration-count.txt)
+          elif [ -f .p0-staging-validation/deployment-manifest.json ]; then
+            count=$(python -c "import json; print(json.load(open('.p0-staging-validation/deployment-manifest.json'))['included_count'])")
+          fi
+
+          python - <<PY
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          required = []
+          path = Path('.p0-staging-validation/required-migrations.json')
+          if path.exists():
+              required = json.loads(path.read_text(encoding='utf-8'))
+          payload = {
+              'result': '${JOB_STATUS}',
+              'source_sha': '${GITHUB_SHA}',
+              'run_id': '${GITHUB_RUN_ID}',
+              'run_url': '${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}',
+              'branch': '${GITHUB_REF_NAME}',
+              'project_ref': '${SUPABASE_PROJECT_REF}',
+              'verified_migration_count': '${count}',
+              'required_migrations': required,
+              'production_targeted': False,
+              'recorded_at': datetime.now(timezone.utc).isoformat(),
+          }
+          Path('/tmp/p0-staging-validation.json').write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          encoded=$(base64 -w 0 /tmp/p0-staging-validation.json)
+          endpoint="repos/${GITHUB_REPOSITORY}/contents/staging-validation/p0-latest.json"
+          existing_sha=$(gh api "$endpoint?ref=agent/staging-integration" --jq .sha 2>/dev/null || true)
+          args=(--method PUT "$endpoint" -f message="ci(db): record P0 staging validation ${JOB_STATUS}" -f content="$encoded" -f branch="agent/staging-integration")
+          if [ -n "$existing_sha" ]; then
+            args+=(-f sha="$existing_sha")
+          fi
+          gh api "${args[@]}"
+
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -f body="### Current P0 disposable staging schema: ${JOB_STATUS}
+
+          Source commit: \`${GITHUB_SHA}\`
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          Normalized migrations: **${count}**
+          Project guard: \`${SUPABASE_PROJECT_REF}\`
+          Production targeted: **no**"
+
+      - name: Upload non-secret P0 schema evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-p0-schema-validation
+          path: |
+            .p0-staging-validation/deployment-manifest.json
+            .p0-staging-validation/required-migrations.json
+            .p0-staging-validation/staging-history-before.log
+            .p0-staging-validation/staging-push-dry-run.log
+            .p0-staging-validation/staging-push.log
+            .p0-staging-validation/staging-history-after.log
+            .p0-staging-validation/verified-migration-count.txt
+          if-no-files-found: ignore
+          retention-days: 7
