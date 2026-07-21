@@ -46,7 +46,6 @@ export const mapDriverPersona = (value: string | null | undefined): DriverPerson
 export const mapAppRole = (value: string | null | undefined): AppUserRole | null => {
   const normalized = (value ?? '').toLowerCase().trim();
 
-  // Canonical values
   if (normalized === 'owner') return 'owner';
   if (normalized === 'broker') return 'broker';
   if (normalized === 'company_admin') return 'company_admin';
@@ -54,7 +53,6 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
   if (normalized === 'driver') return 'driver';
   if (normalized === 'customer') return 'customer';
 
-  // Owner aliases
   if (
     normalized === 'superadmin' ||
     normalized === 'super_admin' ||
@@ -63,7 +61,6 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
     normalized === 'platform_administrator'
   ) return 'owner';
 
-  // Company admin aliases
   if (
     normalized === 'admin' ||
     normalized === 'admin_staff' ||
@@ -71,7 +68,6 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
     normalized === 'fleet_operator'
   ) return 'company_admin';
 
-  // Company staff aliases
   if (
     normalized === 'company' ||
     normalized === 'dispatcher' ||
@@ -79,14 +75,12 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
     normalized === 'admin_operator'
   ) return 'company_staff';
 
-  // Broker aliases
   if (
     normalized === 'freight_broker' ||
     normalized === 'shipper_broker' ||
     normalized === 'transport_broker'
   ) return 'broker';
 
-  // Driver aliases
   if (
     normalized === 'owner_driver' ||
     normalized === 'owner-driver' ||
@@ -97,7 +91,6 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
     normalized === 'self_employed_driver'
   ) return 'driver';
 
-  // Customer aliases
   if (
     normalized === 'shipper' ||
     normalized === 'customer_shipper' ||
@@ -165,13 +158,10 @@ export const resolveAuthoritativeRole = ({
     ownerDriverWorkspaceRequested &&
     (resolvedProfileRole === 'driver' || resolvedFallbackRole === 'driver' || isDriver);
 
-  if (ownerDriverWorkspace && (membershipRole === 'owner' || membershipRole === 'admin')) {
-    return 'company_admin';
-  }
-
-  if (ownerDriverWorkspace && hasCreatedCompany) {
-    return creatorCompanyType === 'admin' ? 'company_admin' : 'company_staff';
-  }
+  // An Owner Driver owns a workspace company for tenancy, but remains a Driver
+  // identity. Company ownership must not silently convert the public account
+  // into a Fleet Operator/company_admin role.
+  if (ownerDriverWorkspace) return 'driver';
 
   if (
     resolvedFallbackRole &&
