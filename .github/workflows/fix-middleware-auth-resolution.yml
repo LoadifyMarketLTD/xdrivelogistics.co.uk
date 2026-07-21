@@ -1,0 +1,70 @@
+name: Fix middleware auth resolution
+
+on:
+  push:
+    branches:
+      - agent/platform-p0-stabilization
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[middleware-auth-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/platform-p0-stabilization
+      - name: Apply exact middleware corrections
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('middleware.ts')
+          text = path.read_text()
+          replacements = [
+              (".select('role, status, is_driver')", ".select('role, status, is_driver, company_id')"),
+              (""".select('role_in_company')
+              .eq('user_id', authData.user.id)
+              .eq('status', 'active')
+              .limit(1)
+              .maybeSingle(),""", """.select('company_id, role_in_company')
+              .eq('user_id', authData.user.id)
+              .eq('status', 'active')
+              .order('company_id', { ascending: true }),"""),
+              ("""  const profile = profileRes.error
+              ? null
+              : (profileRes.data as { role?: string | null; status?: string | null; is_driver?: boolean | null } | null);
+            const membership = membershipRes.error
+              ? null
+              : (membershipRes.data as { role_in_company?: string | null } | null);""", """  const profile = profileRes.error
+              ? null
+              : (profileRes.data as { role?: string | null; status?: string | null; is_driver?: boolean | null; company_id?: string | null } | null);
+            const memberships = membershipRes.error
+              ? []
+              : (membershipRes.data as Array<{ company_id?: string | null; role_in_company?: string | null }> | null) ?? [];
+            const membership = memberships.find((item) => Boolean(profile?.company_id) && item.company_id === profile?.company_id)
+              ?? memberships[0]
+              ?? null;"""),
+              ("""  if (profileStatus === 'pending' || profileStatus === 'blocked' || profileStatus === 'suspended' || profileStatus === 'inactive') {
+              return { kind: 'forbidden' };
+            }""", """  if (profileStatus === 'blocked') {
+              return { kind: 'forbidden' };
+            }"""),
+              ("if (auth.appAccess === false) {", "if (auth.appAccess !== true) {"),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'Expected middleware fragment not found:\n{old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+      - name: Commit correction
+        shell: bash
+        run: |
+          git config user.name 'xdrive-ci-maintenance'
+          git config user.email 'actions@users.noreply.github.com'
+          git add middleware.ts
+          git commit -m 'Align middleware auth and company resolution [middleware-auth-fixed]'
+          git push origin HEAD:agent/platform-p0-stabilization
