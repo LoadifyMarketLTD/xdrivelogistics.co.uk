@@ -153,7 +153,7 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     ?? readMetadataText(appMetadata, 'role')
     ?? readMetadataText(userMetadata, 'role')
     ?? readMetadataText(userMetadata, 'requested_role');
-  const ownerDriverWorkspace = accountType === 'owner_driver'
+  const ownerDriverWorkspaceFromMetadata = accountType === 'owner_driver'
     || readMetadataFlag(userMetadata, 'owner_driver_workspace')
     || readMetadataFlag(appMetadata, 'owner_driver_workspace');
   const ownerDriverExecutionMode = readMetadataFlag(userMetadata, 'owner_driver_execution_mode')
@@ -242,6 +242,14 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     company_type?: string | null;
     status?: string | null;
   } | null;
+  const normalizedCreatorCompanyType = (creatorCompany?.company_type ?? '').toLowerCase().trim();
+  const ownerDriverWorkspace = ownerDriverWorkspaceFromMetadata
+    || ['owner_driver', 'owner_operator'].includes(normalizedCreatorCompanyType)
+    || (
+      mapAppRole(profile.role ?? null) === 'driver'
+      && membership?.role_in_company === 'owner'
+      && driver != null
+    );
 
   const role = resolveAuthoritativeRole({
     membershipRole: membership?.role_in_company ?? null,
@@ -260,8 +268,11 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     ?? creatorCompany?.id
     ?? onboarding?.company_id
     ?? null;
+  const requiresActiveCompany = roleRequiresCompanyContext(role)
+    || role === 'customer'
+    || ownerDriverWorkspace;
 
-  if (roleRequiresCompanyContext(role)) {
+  if (requiresActiveCompany) {
     if (!companyId || !membership?.company_id) return { kind: 'forbidden' };
 
     let companyStatus = creatorCompany?.id === companyId ? creatorCompany.status : null;
@@ -281,7 +292,7 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     if (companyLifecycle !== 'active') return { kind: 'forbidden' };
   }
 
-  if (accountType === 'owner_driver' && driver?.app_access !== true) {
+  if (ownerDriverWorkspace && driver?.app_access !== true) {
     return { kind: 'redirect', pathname: '/pending-approval' };
   }
 
@@ -291,7 +302,12 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     || mapAppRole(profile.role ?? null) === 'driver'
     || mapAppRole(fallbackRole) === 'driver'
   );
-  const rawRole = accountType ?? fallbackRole ?? profile.role ?? null;
+  const rawRole = accountType
+    ?? (ownerDriverWorkspace ? 'owner_driver' : null)
+    ?? (role === 'broker' ? 'broker' : null)
+    ?? fallbackRole
+    ?? profile.role
+    ?? null;
   const resolvedWorkspaceRole = resolveWorkspaceRole({
     role,
     rawRole,
@@ -299,8 +315,8 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     ownerDriverWorkspace,
   });
   const workspaceRole: WorkspaceRole = accountType === 'fleet_operator'
-    ? 'carrier_admin'
-    : accountType === 'owner_driver'
+    ? 'company_owner'
+    : ownerDriverWorkspace
       ? 'owner_driver'
       : resolvedWorkspaceRole;
 
@@ -309,8 +325,8 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     role,
     rawRole,
     workspaceRole,
-    mustChangePassword: (role === 'driver' || canAccessDriverMode) && driver?.must_change_password === true,
-    appAccess: (role === 'driver' || canAccessDriverMode) ? (driver?.app_access ?? null) : null,
+    mustChangePassword: role === 'driver' && driver?.must_change_password === true,
+    appAccess: role === 'driver' ? (driver?.app_access ?? null) : null,
     ownerDriverWorkspace,
     ownerDriverExecutionMode,
     canAccessDriverMode,
