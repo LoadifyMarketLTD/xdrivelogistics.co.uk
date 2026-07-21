@@ -107,7 +107,7 @@ ALTER TABLE public.drivers VALIDATE CONSTRAINT drivers_user_id_fkey;
 
 -- RLS helpers must accept active memberships only. "disabled" and "invited"
 -- must never be treated as active merely because they are not "suspended".
-CREATE OR REPLACE FUNCTION public.is_company_member(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -118,14 +118,14 @@ AS $$
     SELECT 1
     FROM public.company_memberships cm
     JOIN public.companies c ON c.id = cm.company_id
-    WHERE cm.company_id = _company_id
+    WHERE cm.company_id = cid
       AND cm.user_id = auth.uid()
       AND cm.status = 'active'
       AND c.status::text = 'active'
   );
 $$;
 
-CREATE OR REPLACE FUNCTION public.is_company_admin(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_admin(cid uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -136,7 +136,7 @@ AS $$
     SELECT 1
     FROM public.company_memberships cm
     JOIN public.companies c ON c.id = cm.company_id
-    WHERE cm.company_id = _company_id
+    WHERE cm.company_id = cid
       AND cm.user_id = auth.uid()
       AND cm.status = 'active'
       AND cm.role_in_company IN ('owner', 'admin')
