@@ -3,7 +3,6 @@ import { z } from 'zod';
 
 import {
   ACCOUNT_TYPE_CONFIG,
-  normalizeAccountType,
   resolveAccountTypeFromMetadata,
   toStoredOnboardingAccountType,
   type AccountType,
@@ -20,7 +19,7 @@ import {
 } from '../../_lib/onboarding';
 
 const requestSchema = z.object({
-  account_type: z.enum(['customer', 'broker', 'fleet_operator', 'owner_driver']),
+  account_type: z.enum(['customer', 'broker', 'fleet_operator', 'owner_driver']).optional(),
   forceRegenerateToken: z.boolean().optional(),
 }).strict();
 
@@ -88,16 +87,19 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {
-    return json(400, { error: 'A valid account_type is required.', details: parsed.error.flatten() });
+    return json(400, { error: 'Invalid onboarding initialization payload.', details: parsed.error.flatten() });
   }
 
-  const requestedType = parsed.data.account_type as AccountType;
   const metadataType = resolveAccountTypeFromMetadata(
     (authUser.user_metadata ?? null) as Record<string, unknown> | null,
     (authUser.app_metadata ?? null) as Record<string, unknown> | null
   );
+  const requestedType = (parsed.data.account_type ?? metadataType) as AccountType | null;
 
-  if (metadataType && metadataType !== requestedType) {
+  if (!requestedType) {
+    return json(400, { error: 'A valid account_type is required and could not be resolved from signup metadata.' });
+  }
+  if (parsed.data.account_type && metadataType && metadataType !== parsed.data.account_type) {
     return json(409, { error: 'The requested account type does not match the signup account type.' });
   }
 
