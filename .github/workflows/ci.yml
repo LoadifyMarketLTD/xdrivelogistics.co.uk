@@ -105,7 +105,7 @@ jobs:
           fi
 
           TEST_EXIT=0
-          npx playwright test e2e/public.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line > /tmp/playwright-output.txt 2>&1 || TEST_EXIT=$?
+          npx playwright test e2e/public.spec.ts e2e/onboarding-regression.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line > /tmp/playwright-output.txt 2>&1 || TEST_EXIT=$?
           cat /tmp/playwright-output.txt
           exit "$TEST_EXIT"
 
