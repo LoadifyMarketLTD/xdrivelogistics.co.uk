@@ -1,0 +1,191 @@
+name: Validate Invoice Delivery Tracking
+
+on:
+  pull_request:
+    paths:
+      - "app/api/driver/finance/invoices/[id]/submit/route.ts"
+      - "lib/server/invoicePdf.ts"
+      - "supabase/migrations/20260721224500_invoice_delivery_tracking.sql"
+      - ".github/workflows/validate-invoice-delivery-tracking.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  invoice-delivery-schema:
+    name: Apply invoice delivery migration twice
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: xdrive_invoice_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d xdrive_invoice_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: xdrive_invoice_test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create finance and storage fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE EXTENSION IF NOT EXISTS pgcrypto;
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          CREATE ROLE service_role NOLOGIN;
+          CREATE SCHEMA auth;
+          CREATE SCHEMA storage;
+
+          CREATE FUNCTION auth.uid() RETURNS uuid
+          LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
+
+          CREATE TYPE public.invoice_status AS ENUM (
+            'Pending', 'Submitted', 'Approved', 'Paid', 'Overdue', 'Disputed'
+          );
+
+          CREATE TABLE public.companies (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            name text NOT NULL
+          );
+
+          CREATE TABLE public.invoices (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            company_id uuid NOT NULL REFERENCES public.companies(id),
+            created_by uuid,
+            submitted_by uuid,
+            approved_by uuid,
+            status public.invoice_status NOT NULL DEFAULT 'Pending',
+            updated_at timestamptz NOT NULL DEFAULT now()
+          );
+
+          CREATE TABLE public.invoice_status_history (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            invoice_id uuid NOT NULL REFERENCES public.invoices(id),
+            company_id uuid NOT NULL REFERENCES public.companies(id),
+            from_status public.invoice_status,
+            to_status public.invoice_status NOT NULL,
+            changed_by uuid,
+            note text,
+            changed_at timestamptz NOT NULL DEFAULT now()
+          );
+
+          CREATE TABLE public.invoice_documents (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            invoice_id uuid NOT NULL REFERENCES public.invoices(id),
+            company_id uuid NOT NULL REFERENCES public.companies(id),
+            file_url text NOT NULL
+          );
+
+          CREATE TABLE storage.buckets (
+            id text PRIMARY KEY,
+            name text NOT NULL,
+            public boolean NOT NULL DEFAULT false,
+            file_size_limit bigint,
+            allowed_mime_types text[]
+          );
+
+          CREATE TABLE storage.objects (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            bucket_id text NOT NULL,
+            name text NOT NULL
+          );
+          ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+          CREATE FUNCTION public.is_company_member(uuid) RETURNS boolean
+          LANGUAGE sql STABLE AS $$ SELECT true $$;
+
+          CREATE FUNCTION public.fn_log_invoice_status_change()
+          RETURNS trigger LANGUAGE plpgsql AS $$
+          BEGIN
+            RETURN NEW;
+          END;
+          $$;
+
+          CREATE TRIGGER trg_invoice_status_history_insert
+          AFTER INSERT ON public.invoices
+          FOR EACH ROW EXECUTE FUNCTION public.fn_log_invoice_status_change();
+
+          CREATE TRIGGER trg_invoice_status_history_update
+          AFTER UPDATE OF status ON public.invoices
+          FOR EACH ROW EXECUTE FUNCTION public.fn_log_invoice_status_change();
+          SQL
+
+      - name: Apply migration twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260721224500_invoice_delivery_tracking.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260721224500_invoice_delivery_tracking.sql
+
+      - name: Verify private bucket, constraints and audit actor
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE
+            company_id uuid := gen_random_uuid();
+            invoice_id uuid := gen_random_uuid();
+            actor_id uuid := gen_random_uuid();
+          BEGIN
+            INSERT INTO public.companies (id, name) VALUES (company_id, 'Invoice Test Ltd');
+            INSERT INTO public.invoices (id, company_id, created_by, status)
+            VALUES (invoice_id, company_id, actor_id, 'Pending');
+
+            UPDATE public.invoices
+            SET status = 'Submitted',
+                submitted_by = actor_id,
+                delivery_state = 'sent',
+                delivery_provider = 'resend',
+                delivery_message_id = 'provider-message-1',
+                delivery_recipient_email = 'customer@example.com'
+            WHERE id = invoice_id;
+
+            IF NOT EXISTS (
+              SELECT 1 FROM storage.buckets
+              WHERE id = 'invoice-docs'
+                AND public = false
+                AND file_size_limit = 10485760
+                AND allowed_mime_types = ARRAY['application/pdf']
+            ) THEN
+              RAISE EXCEPTION 'Private invoice-docs bucket was not configured.';
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1 FROM public.invoice_status_history
+              WHERE invoice_id = invoice_id
+                AND to_status = 'Submitted'
+                AND changed_by = actor_id
+                AND note LIKE 'Delivered to customer@example.com via resend%'
+            ) THEN
+              RAISE EXCEPTION 'Invoice delivery audit entry is missing or has the wrong actor.';
+            END IF;
+
+            BEGIN
+              UPDATE public.invoices SET delivery_state = 'invalid' WHERE id = invoice_id;
+              RAISE EXCEPTION 'Invalid delivery state was accepted.';
+            EXCEPTION
+              WHEN check_violation THEN NULL;
+            END;
+          END;
+          $$;
+          SQL
