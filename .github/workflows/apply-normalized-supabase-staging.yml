@@ -14,7 +14,7 @@ permissions:
   pull-requests: write
 
 env:
-  EXPECTED_STAGING_PROJECT_REF: svfjlhjuizckzabtewx
+  EXPECTED_STAGING_PROJECT_REF: svfjlhljuizckzabtewx
 
 concurrency:
   group: supabase-disposable-staging-deploy
