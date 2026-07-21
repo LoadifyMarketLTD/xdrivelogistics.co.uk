@@ -60,7 +60,7 @@ jobs:
         with:
           version: latest
 
-      - name: Verify staging schema matches the normalized manifest
+      - name: Wait for staging schema to match the normalized manifest
         shell: bash
         run: |
           set -euo pipefail
@@ -77,29 +77,100 @@ jobs:
 
           cd .operations-schema-check
           supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          supabase migration list --linked --password "$SUPABASE_DB_PASSWORD" 2>&1 | tee migration-history.log
 
           python - <<'PY'
           import json
+          import os
           import re
+          import subprocess
+          import time
           from pathlib import Path
 
           expected = [
               item['staged_version']
               for item in json.loads(Path('manifest.json').read_text(encoding='utf-8'))['migrations']
           ]
-          text = Path('migration-history.log').read_text(encoding='utf-8', errors='replace')
-          text = re.sub(r'\x1b\[[0-9;]*m', '', text).replace('`', '')
-          remote = []
-          for line in text.splitlines():
-              parts = [part.strip() for part in re.split(r'[|│]', line)]
-              if len(parts) >= 2 and re.fullmatch(r'\d{14}', parts[1]):
-                  remote.append(parts[1])
+          expected_set = set(expected)
+          deadline = time.monotonic() + 600
+          attempt = 0
+          status_log = Path('schema-sync.log')
 
-          print(f'Expected normalized migrations: {len(expected)}')
-          print(f'Remote recorded migrations: {len(remote)}')
-          if remote != expected:
-              raise SystemExit('Staging schema history does not exactly match the generated normalized manifest.')
+          def parse_remote(text: str) -> list[str]:
+              clean = re.sub(r'\x1b\[[0-9;]*m', '', text).replace('`', '')
+              remote: list[str] = []
+              for line in clean.splitlines():
+                  parts = [part.strip() for part in re.split(r'[|│]', line)]
+                  if len(parts) >= 2 and re.fullmatch(r'\d{14}', parts[1]):
+                      remote.append(parts[1])
+              return remote
+
+          while True:
+              attempt += 1
+              result = subprocess.run(
+                  [
+                      'supabase',
+                      'migration',
+                      'list',
+                      '--linked',
+                      '--password',
+                      os.environ['SUPABASE_DB_PASSWORD'],
+                  ],
+                  text=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.STDOUT,
+                  check=False,
+              )
+              Path('migration-history.log').write_text(result.stdout, encoding='utf-8')
+              if result.returncode != 0:
+                  print(result.stdout)
+                  raise SystemExit(f'Unable to read staging migration history (exit {result.returncode}).')
+
+              remote = parse_remote(result.stdout)
+              shared_remote = [version for version in remote if version in expected_set]
+              remote_only = [version for version in remote if version not in expected_set]
+              missing = expected[len(shared_remote):]
+              summary = (
+                  f'Attempt {attempt}: expected={len(expected)} remote={len(remote)} '
+                  f'normalized={len(shared_remote)} remote_only={len(remote_only)} '
+                  f'missing={len(missing)}'
+              )
+              print(summary)
+              with status_log.open('a', encoding='utf-8') as handle:
+                  handle.write(summary + '\n')
+
+              if shared_remote != expected[:len(shared_remote)]:
+                  first_difference = next(
+                      (
+                          index
+                          for index, (remote_version, expected_version) in enumerate(
+                              zip(shared_remote, expected), start=1
+                          )
+                          if remote_version != expected_version
+                      ),
+                      min(len(shared_remote), len(expected)) + 1,
+                  )
+                  raise SystemExit(
+                      'Staging normalized migration order is unsafe and is not an exact prefix of the manifest. '
+                      f'First differing normalized index: {first_difference}.'
+                  )
+
+              if shared_remote == expected and not remote_only:
+                  print('Staging schema history exactly matches the normalized manifest.')
+                  break
+
+              if remote_only:
+                  print(f'Remote-only versions still awaiting staging-history repair: {remote_only[:10]}')
+              if missing:
+                  print(f'Normalized versions still awaiting deployment: {missing[:10]}')
+
+              if time.monotonic() >= deadline:
+                  raise SystemExit(
+                      'Staging schema did not converge to the normalized manifest within 10 minutes. '
+                      f'Missing normalized versions: {missing[:10]}; remote-only versions: {remote_only[:10]}.'
+                  )
+
+              print('Staging deployment is still converging; retrying in 15 seconds.')
+              time.sleep(15)
           PY
 
       - name: Resolve project API keys without exposing them
@@ -227,6 +298,11 @@ jobs:
             if [ -f /tmp/staging-operations.log ]; then
               grep -E 'STAGING_OPERATIONS_VALIDATION_FAILED|returned [0-9]+|Failed to|incorrect|not |wrong|Expected at least' /tmp/staging-operations.log \
                 | tail -n 35 || tail -n 50 /tmp/staging-operations.log
+            elif [ -f .operations-schema-check/schema-sync.log ]; then
+              cat .operations-schema-check/schema-sync.log
+              if [ -f .operations-schema-check/migration-history.log ]; then
+                tail -n 50 .operations-schema-check/migration-history.log
+              fi
             elif [ -f .operations-schema-check/migration-history.log ]; then
               tail -n 50 .operations-schema-check/migration-history.log
             elif [ -f /tmp/staging-operations-next.log ]; then
@@ -250,6 +326,7 @@ jobs:
           path: |
             .operations-schema-check/manifest.json
             .operations-schema-check/migration-history.log
+            .operations-schema-check/schema-sync.log
             /tmp/staging-operations-next.log
             /tmp/staging-operations.log
           if-no-files-found: ignore
