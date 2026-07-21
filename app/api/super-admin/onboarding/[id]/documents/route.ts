@@ -136,7 +136,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   if (kind === 'driver') {
     if (application.account_type !== 'owner_driver') {
-      return respond(409, { error: 'Driver evidence is not valid for this onboarding type.' });
+      return respond(404, { error: 'Document not found.' });
     }
 
     const { data: document, error: documentError } = await supabaseAdmin
@@ -165,7 +165,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (updateError) return respond(500, { error: updateError.message });
   } else {
     if (application.account_type === 'owner_driver') {
-      return respond(409, { error: 'Company evidence is not valid for owner-driver onboarding.' });
+      return respond(404, { error: 'Document not found.' });
     }
 
     const { data: document, error: documentError } = await supabaseAdmin
