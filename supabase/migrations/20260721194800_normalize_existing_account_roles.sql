@@ -25,7 +25,7 @@ SET role = CASE
     updated_at = now()
 FROM public.onboarding_applications a
 WHERE a.user_id = p.user_id
-  AND p.role <> 'owner'
+  AND p.role IS DISTINCT FROM 'owner'
   AND a.account_type IN ('customer_shipper', 'broker_shipper', 'fleet_courier', 'owner_driver');
 
 -- Established accounts without public onboarding: use the latest active
@@ -74,7 +74,7 @@ SET role = CASE
     updated_at = now()
 FROM authoritative_company a
 WHERE p.user_id = a.user_id
-  AND p.role <> 'owner'
+  AND p.role IS DISTINCT FROM 'owner'
   AND NOT EXISTS (
     SELECT 1
     FROM public.onboarding_applications oa
@@ -108,7 +108,7 @@ SET role = 'driver',
 FROM ranked_driver d
 WHERE d.position = 1
   AND p.user_id = d.user_id
-  AND p.role <> 'owner'
+  AND p.role IS DISTINCT FROM 'owner'
   AND NOT EXISTS (
     SELECT 1
     FROM public.onboarding_applications oa
