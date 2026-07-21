@@ -6,6 +6,7 @@ import {
   resolveAccountTypeFromMetadata,
   toStoredOnboardingAccountType,
   type AccountType,
+  type StoredOnboardingAccountType,
 } from '../../../../lib/accountTypes';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import {
@@ -23,6 +24,14 @@ const requestSchema = z.object({
   forceRegenerateToken: z.boolean().optional(),
 }).strict();
 
+type ApplicationSummary = {
+  id: string;
+  status: string | null;
+  account_type: string;
+  token_expires_at?: string | null;
+};
+
+const APPLICATION_SELECT = 'id, status, account_type, token_expires_at';
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
 const getAuthenticatedUser = async (request: NextRequest) => {
@@ -34,12 +43,7 @@ const getAuthenticatedUser = async (request: NextRequest) => {
   return error ? null : data.user;
 };
 
-const responseForApplication = (application: {
-  id: string;
-  status: string | null;
-  account_type: string;
-  token_expires_at?: string | null;
-}, onboardingUrl?: string) => {
+const responseForApplication = (application: ApplicationSummary, onboardingUrl?: string) => {
   const storedType = normalizeOnboardingAccountType(application.account_type);
   if (!storedType) return null;
   const accountType = publicAccountTypeFromStored(storedType);
@@ -54,6 +58,60 @@ const responseForApplication = (application: {
   };
 };
 
+const validateExistingType = (
+  application: ApplicationSummary,
+  storedType: StoredOnboardingAccountType
+): string | null => {
+  const existingType = normalizeOnboardingAccountType(application.account_type);
+  if (!existingType) return 'The saved onboarding account type is unsupported.';
+  if (existingType !== storedType) {
+    return 'An onboarding application already exists for a different account type.';
+  }
+  return null;
+};
+
+const ensurePendingProfile = async (
+  userId: string,
+  requestedType: AccountType,
+  now: string
+): Promise<string | null> => {
+  if (!supabaseAdmin) return 'Server auth is not configured.';
+
+  const { data: profile, error: profileReadError } = await supabaseAdmin
+    .from('profiles')
+    .select('user_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (profileReadError) return profileReadError.message;
+  if (profile) return null;
+
+  const config = ACCOUNT_TYPE_CONFIG[requestedType];
+  const { error: profileInsertError } = await supabaseAdmin.from('profiles').insert({
+    user_id: userId,
+    role: config.appRole,
+    status: 'pending',
+    is_driver: config.appRole === 'driver',
+    updated_at: now,
+  });
+
+  // The auth.users trigger or a concurrent init request may have inserted it
+  // after our read. A duplicate is success; all other failures are surfaced.
+  if (profileInsertError && profileInsertError.code !== '23505') {
+    return profileInsertError.message;
+  }
+  return null;
+};
+
+const getApplicationForUser = async (userId: string) => {
+  if (!supabaseAdmin) return { data: null, error: null };
+  return supabaseAdmin
+    .from('onboarding_applications')
+    .select(APPLICATION_SELECT)
+    .eq('user_id', userId)
+    .maybeSingle();
+};
+
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return json(503, { error: 'Server auth is not configured.' });
@@ -62,16 +120,11 @@ export async function GET(request: NextRequest) {
   const authUser = await getAuthenticatedUser(request);
   if (!authUser) return json(401, { error: 'Unauthorized.' });
 
-  const { data: existing, error } = await supabaseAdmin
-    .from('onboarding_applications')
-    .select('id, status, account_type, token_expires_at')
-    .eq('user_id', authUser.id)
-    .maybeSingle();
-
+  const { data: existing, error } = await getApplicationForUser(authUser.id);
   if (error) return json(500, { error: error.message });
   if (!existing) return json(404, { error: 'Onboarding application not found.' });
 
-  const payload = responseForApplication(existing);
+  const payload = responseForApplication(existing as ApplicationSummary);
   if (!payload) return json(409, { error: 'The saved onboarding account type is unsupported.' });
   return json(200, payload);
 }
@@ -104,83 +157,96 @@ export async function POST(request: NextRequest) {
   }
 
   const storedType = toStoredOnboardingAccountType(requestedType);
-  const { data: existing, error: existingError } = await supabaseAdmin
-    .from('onboarding_applications')
-    .select('id, status, account_type, token_hash, token_expires_at, token_activated_at, current_step, completion_percentage')
-    .eq('user_id', authUser.id)
-    .maybeSingle();
-
+  const now = new Date().toISOString();
+  const { data: existingData, error: existingError } = await getApplicationForUser(authUser.id);
   if (existingError) return json(500, { error: existingError.message });
 
+  const existing = existingData as ApplicationSummary | null;
   if (existing) {
-    const existingType = normalizeOnboardingAccountType(existing.account_type);
-    if (!existingType || existingType !== storedType) {
-      return json(409, { error: 'An onboarding application already exists for a different account type.' });
+    const typeError = validateExistingType(existing, storedType);
+    if (typeError) return json(409, { error: typeError });
+
+    const profileError = await ensurePendingProfile(authUser.id, requestedType, now);
+    if (profileError) return json(500, { error: profileError });
+
+    // Ordinary registration/callback/login retries are idempotent and must not
+    // rotate an already issued token. Token rotation is explicit only.
+    if (parsed.data.forceRegenerateToken !== true) {
+      const payload = responseForApplication(existing);
+      if (!payload) return json(409, { error: 'The saved onboarding account type is unsupported.' });
+      return json(200, { ...payload, idempotent: true });
     }
   }
 
   const ttlHours = await resolveOnboardingTokenTtlHours(supabaseAdmin);
   const onboardingToken = generateOnboardingToken();
   const tokenExpiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString();
-  const now = new Date().toISOString();
   const tokenHash = hashOnboardingToken(onboardingToken);
 
-  const saveResult = existing
-    ? await supabaseAdmin
-        .from('onboarding_applications')
-        .update({
-          token_hash: tokenHash,
-          token_expires_at: tokenExpiresAt,
-          token_last_sent_at: now,
-          last_activity_at: now,
-        })
-        .eq('id', existing.id)
-        .select('id, status, account_type, token_expires_at')
-        .single()
-    : await supabaseAdmin
-        .from('onboarding_applications')
-        .insert({
-          user_id: authUser.id,
-          email: authUser.email ?? 'unknown@xdrive.local',
-          account_type: storedType,
-          workspace_mode: ACCOUNT_TYPE_CONFIG[requestedType].workspaceMode,
-          owner_driver_workspace: ACCOUNT_TYPE_CONFIG[requestedType].ownerDriverWorkspace,
-          status: 'draft',
-          token_hash: tokenHash,
-          token_expires_at: tokenExpiresAt,
-          token_last_sent_at: now,
-          last_activity_at: now,
-          current_step: 'account_type_confirmed',
-          completion_percentage: 5,
-          payload: {},
-        })
-        .select('id, status, account_type, token_expires_at')
-        .single();
+  let saved: ApplicationSummary | null = null;
+  let created = false;
+  let tokenWasRotated = false;
 
-  const { data: saved, error: saveError } = saveResult;
-  if (saveError) return json(500, { error: saveError.message });
+  if (existing) {
+    const { data, error } = await supabaseAdmin
+      .from('onboarding_applications')
+      .update({
+        token_hash: tokenHash,
+        token_expires_at: tokenExpiresAt,
+        token_last_sent_at: now,
+        last_activity_at: now,
+      })
+      .eq('id', existing.id)
+      .select(APPLICATION_SELECT)
+      .single();
 
-  const { data: profile, error: profileReadError } = await supabaseAdmin
-    .from('profiles')
-    .select('user_id')
-    .eq('user_id', authUser.id)
-    .maybeSingle();
+    if (error) return json(500, { error: error.message });
+    saved = data as ApplicationSummary;
+    tokenWasRotated = true;
+  } else {
+    const { data, error } = await supabaseAdmin
+      .from('onboarding_applications')
+      .insert({
+        user_id: authUser.id,
+        email: authUser.email ?? 'unknown@xdrive.local',
+        account_type: storedType,
+        workspace_mode: ACCOUNT_TYPE_CONFIG[requestedType].workspaceMode,
+        owner_driver_workspace: ACCOUNT_TYPE_CONFIG[requestedType].ownerDriverWorkspace,
+        status: 'draft',
+        token_hash: tokenHash,
+        token_expires_at: tokenExpiresAt,
+        token_last_sent_at: now,
+        last_activity_at: now,
+        current_step: 'account_type_confirmed',
+        completion_percentage: 5,
+        payload: {},
+      })
+      .select(APPLICATION_SELECT)
+      .single();
 
-  if (profileReadError) return json(500, { error: profileReadError.message });
-  if (!profile) {
-    const config = ACCOUNT_TYPE_CONFIG[requestedType];
-    const { error: profileInsertError } = await supabaseAdmin.from('profiles').insert({
-      user_id: authUser.id,
-      role: config.appRole,
-      status: 'pending',
-      is_driver: config.appRole === 'driver',
-      updated_at: now,
-    });
-    if (profileInsertError) return json(500, { error: profileInsertError.message });
+    if (!error && data) {
+      saved = data as ApplicationSummary;
+      created = true;
+      tokenWasRotated = true;
+    } else if (error?.code === '23505') {
+      // The register page and AuthProvider can legitimately initialize at the
+      // same time. The losing request reads the committed row and succeeds.
+      const raced = await getApplicationForUser(authUser.id);
+      if (raced.error) return json(500, { error: raced.error.message });
+      if (!raced.data) return json(409, { error: 'Concurrent onboarding initialization did not produce an application.' });
+      saved = raced.data as ApplicationSummary;
+      const typeError = validateExistingType(saved, storedType);
+      if (typeError) return json(409, { error: typeError });
+    } else {
+      return json(500, { error: error?.message ?? 'Unable to initialize onboarding.' });
+    }
   }
 
-  const onboardingUrl = buildOnboardingUrl(onboardingToken, storedType);
-  if (!existing || parsed.data.forceRegenerateToken === true) {
+  const profileError = await ensurePendingProfile(authUser.id, requestedType, now);
+  if (profileError) return json(500, { error: profileError });
+
+  const onboardingUrl = tokenWasRotated ? buildOnboardingUrl(onboardingToken, storedType) : undefined;
+  if ((created || parsed.data.forceRegenerateToken === true) && onboardingUrl) {
     const { error: notificationError } = await supabaseAdmin.from('notification_events').insert({
       event_type: 'onboarding_invite',
       entity_type: 'onboarding_application',
@@ -200,5 +266,5 @@ export async function POST(request: NextRequest) {
 
   const payload = responseForApplication(saved, onboardingUrl);
   if (!payload) return json(409, { error: 'The saved onboarding account type is unsupported.' });
-  return json(200, payload);
+  return json(200, { ...payload, idempotent: !created && !tokenWasRotated });
 }
