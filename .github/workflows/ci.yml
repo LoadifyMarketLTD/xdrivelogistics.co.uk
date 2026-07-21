@@ -133,6 +133,53 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+  database-migrations:
+    name: Supabase Migration Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Initialize local Supabase configuration
+        run: |
+          if [ ! -f supabase/config.toml ]; then
+            supabase init
+          fi
+
+      - name: Start isolated local Supabase
+        run: |
+          set -o pipefail
+          supabase start 2>&1 | tee supabase-start.log
+
+      - name: Reset database and apply every migration
+        run: |
+          set -o pipefail
+          supabase db reset --local 2>&1 | tee supabase-migration.log
+
+      - name: Stop isolated local Supabase
+        if: always()
+        run: supabase stop --no-backup || true
+
+      - name: Upload migration diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-migration-diagnostics
+          path: |
+            supabase-start.log
+            supabase-migration.log
+          if-no-files-found: ignore
+          retention-days: 3
+
   codeql:
     name: CodeQL Security Scan
     runs-on: ubuntu-latest
