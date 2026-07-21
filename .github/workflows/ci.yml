@@ -109,7 +109,9 @@ jobs:
           exit 1
 
       - name: Run four-role browser contract
-        run: npx playwright test e2e/registration-onboarding-contract.spec.ts --project=chromium
+        run: |
+          set -o pipefail
+          npx playwright test e2e/registration-onboarding-contract.spec.ts --project=chromium 2>&1 | tee browser-contract.log
 
       - name: Stop application
         if: always()
@@ -125,6 +127,7 @@ jobs:
           name: registration-onboarding-browser-diagnostics
           path: |
             application.log
+            browser-contract.log
             playwright-report
             test-results
           if-no-files-found: ignore
