@@ -21,12 +21,15 @@ const escapeHtml = (value: unknown) =>
 const cleanFileName = (value: string) =>
   value.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_').slice(0, 120) || 'invoice';
 
-const cleanHeader = (value: unknown) => String(value ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 160);
+const cleanHeader = (value: unknown) =>
+  String(value ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 160);
 
 const validEmail = (value: string) =>
   value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-const isMissingDeliverySchema = (error: { code?: string | null; message?: string | null } | null | undefined) => {
+const isMissingDeliverySchema = (
+  error: { code?: string | null; message?: string | null } | null | undefined
+) => {
   if (!error) return false;
   const code = String(error.code ?? '');
   const message = String(error.message ?? '').toLowerCase();
@@ -48,23 +51,27 @@ export async function POST(
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
-  const { data: financeMembership, error: membershipError } = await supabaseAdmin
+  const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
     .select('role_in_company')
     .eq('company_id', driver.companyId)
     .eq('user_id', driver.userId)
     .eq('status', 'active')
-    .in('role_in_company', ['owner', 'admin', 'finance'])
     .maybeSingle();
   if (membershipError) return respond(500, { error: membershipError.message });
-  if (!financeMembership) {
-    return respond(403, { error: 'Finance owner, admin or finance access is required to send invoices.' });
+
+  const membershipRole = String(membership?.role_in_company ?? '').toLowerCase();
+  if (!['owner', 'admin'].includes(membershipRole)) {
+    return respond(403, { error: 'Company owner or admin access is required to send invoices.' });
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim() ?? '';
-  const fromEmail = process.env.FROM_EMAIL?.trim() || 'XDrive Logistics <no-reply@xdrivelogistics.co.uk>';
+  const fromEmail = process.env.FROM_EMAIL?.trim()
+    || 'XDrive Logistics <no-reply@xdrivelogistics.co.uk>';
   if (!resendApiKey) {
-    return respond(503, { error: 'Invoice delivery is not configured. RESEND_API_KEY is missing.' });
+    return respond(503, {
+      error: 'Invoice delivery is not configured. RESEND_API_KEY is missing.',
+    });
   }
 
   const { id } = await params;
@@ -110,7 +117,9 @@ export async function POST(
     ? invoice.client_email.trim().toLowerCase()
     : '';
   if (!validEmail(recipientEmail)) {
-    return respond(422, { error: 'A valid client email address is required before sending the invoice.' });
+    return respond(422, {
+      error: 'A valid client email address is required before sending the invoice.',
+    });
   }
 
   const claimTime = new Date().toISOString();
@@ -139,7 +148,9 @@ export async function POST(
     return respond(500, { error: claimError.message });
   }
   if (!claimedInvoice) {
-    return respond(409, { error: 'Invoice delivery was claimed by another request. Refresh before retrying.' });
+    return respond(409, {
+      error: 'Invoice delivery was claimed by another request. Refresh before retrying.',
+    });
   }
 
   const failDelivery = async (status: number, message: string) => {
@@ -165,7 +176,12 @@ export async function POST(
   if (companyError) return failDelivery(500, companyError.message);
   if (!company) return failDelivery(422, 'Invoice issuer company details are missing.');
 
-  const issuerAddress = [company.address_line1, company.address_line2, company.city, company.postcode]
+  const issuerAddress = [
+    company.address_line1,
+    company.address_line2,
+    company.city,
+    company.postcode,
+  ]
     .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     .join(', ');
 
@@ -193,14 +209,19 @@ export async function POST(
       paymentTerms: claimedInvoice.payment_terms as string | null,
     });
   } catch (reason) {
-    return failDelivery(500, reason instanceof Error ? reason.message : 'Invoice PDF generation failed.');
+    return failDelivery(
+      500,
+      reason instanceof Error ? reason.message : 'Invoice PDF generation failed.'
+    );
   }
 
   if (!pdfBytes.byteLength || pdfBytes.byteLength > 10 * 1024 * 1024) {
     return failDelivery(500, 'Generated invoice PDF is empty or exceeds the 10 MB limit.');
   }
 
-  const fileName = `${cleanFileName(String(claimedInvoice.invoice_number ?? claimedInvoice.id))}.pdf`;
+  const fileName = `${cleanFileName(
+    String(claimedInvoice.invoice_number ?? claimedInvoice.id)
+  )}.pdf`;
   const storagePath = `${driver.companyId}/${claimedInvoice.id}/${fileName}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from('invoice-docs')
@@ -209,7 +230,9 @@ export async function POST(
       upsert: true,
       cacheControl: '3600',
     });
-  if (uploadError) return failDelivery(500, `Invoice PDF storage failed: ${uploadError.message}`);
+  if (uploadError) {
+    return failDelivery(500, `Invoice PDF storage failed: ${uploadError.message}`);
+  }
 
   const { data: existingDocument, error: existingDocumentError } = await supabaseAdmin
     .from('invoice_documents')
@@ -274,16 +297,20 @@ export async function POST(
           <strong>Due date:</strong> ${escapeHtml(dueDate)}</p>
           <p>Kind regards,<br />${escapeHtml(companyName)}</p>
         `,
-        attachments: [{
-          filename: fileName,
-          content: Buffer.from(pdfBytes).toString('base64'),
-        }],
+        attachments: [
+          {
+            filename: fileName,
+            content: Buffer.from(pdfBytes).toString('base64'),
+          },
+        ],
       }),
     });
   } catch (reason) {
     return failDelivery(
       502,
-      reason instanceof Error ? `Invoice was not sent: ${reason.message}` : 'Invoice provider request failed.'
+      reason instanceof Error
+        ? `Invoice was not sent: ${reason.message}`
+        : 'Invoice provider request failed.'
     );
   }
 
@@ -316,18 +343,14 @@ export async function POST(
     .eq('id', claimedInvoice.id)
     .eq('company_id', driver.companyId)
     .eq('delivery_state', 'sending')
-    .select('id, status, submitted_at, delivery_state, delivery_message_id, delivery_recipient_email')
+    .select(
+      'id, status, submitted_at, delivery_state, delivery_message_id, delivery_recipient_email'
+    )
     .maybeSingle();
 
-  if (updateError) {
+  if (updateError || !updated) {
     return respond(500, {
       error: 'The provider accepted the invoice, but XDrive could not finalise the delivery record. Do not resend until support verifies the provider message.',
-      deliveryMessageId: emailPayload.id,
-    });
-  }
-  if (!updated) {
-    return respond(500, {
-      error: 'The provider accepted the invoice, but the delivery record could not be finalised. Do not resend until support verifies the provider message.',
       deliveryMessageId: emailPayload.id,
     });
   }
@@ -335,7 +358,7 @@ export async function POST(
   return respond(200, {
     invoice: {
       ...updated,
-      status: toCanonicalInvoiceStatus((updated as { status?: string }).status),
+      status: toCanonicalInvoiceStatus(updated.status),
     },
     replayed: false,
   });
