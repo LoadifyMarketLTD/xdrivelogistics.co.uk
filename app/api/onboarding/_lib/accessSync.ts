@@ -1,4 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+import { classifyAccessLifecycleStatus, normalizeAccessStatus } from '../../../../lib/accessLifecycle';
+import { normalizeProfileRoleForStorage } from '../../../../lib/authRole';
 import type { OnboardingAccountType, OnboardingStatus } from '../../_lib/onboarding';
 
 const PROFILE_ROLE_BY_ACCOUNT_TYPE: Record<OnboardingAccountType, 'customer' | 'broker' | 'company_admin' | 'driver'> = {
@@ -6,6 +9,27 @@ const PROFILE_ROLE_BY_ACCOUNT_TYPE: Record<OnboardingAccountType, 'customer' | '
   broker_shipper: 'broker',
   fleet_courier: 'company_admin',
   owner_driver: 'driver',
+};
+
+const updateOwnerDriverAccess = async (
+  client: SupabaseClient,
+  userId: string,
+  enabled: boolean,
+  companyId: string | null,
+): Promise<Error | null> => {
+  const driverPatch: Record<string, unknown> = {
+    app_access: enabled,
+    updated_at: new Date().toISOString(),
+  };
+  if (companyId) driverPatch.company_id = companyId;
+  if (enabled) driverPatch.status = 'active';
+
+  const { error } = await client
+    .from('drivers')
+    .update(driverPatch)
+    .eq('user_id', userId);
+
+  return error ? new Error(error.message) : null;
 };
 
 export const syncOnboardingAccess = async (
@@ -24,48 +48,62 @@ export const syncOnboardingAccess = async (
 ): Promise<Error | null> => {
   const { data: existingProfile, error: profileReadError } = await client
     .from('profiles')
-    .select('status')
+    .select('role, status')
     .eq('user_id', userId)
     .maybeSingle();
 
   if (profileReadError) return new Error(profileReadError.message);
+
+  const existingStatus = normalizeAccessStatus(existingProfile?.status);
+  const existingAccessState = classifyAccessLifecycleStatus(existingStatus);
+
+  // A manual security block must never be removed merely because the applicant
+  // opens an onboarding page, signs in again, or an onboarding status is read.
+  if (existingAccessState === 'blocked') {
+    return accountType === 'owner_driver'
+      ? updateOwnerDriverAccess(client, userId, false, companyId)
+      : null;
+  }
 
   const lifecycleStatus = status === 'approved'
     ? 'active'
     : status === 'rejected'
       ? 'blocked'
       : 'pending';
-  const profileStatus = String(existingProfile?.status ?? '').toLowerCase() === 'suspended'
-    ? 'suspended'
-    : lifecycleStatus;
 
+  const canonicalRole = PROFILE_ROLE_BY_ACCOUNT_TYPE[accountType];
+  const legacyCompatibleRole = normalizeProfileRoleForStorage(canonicalRole) ?? canonicalRole;
   const profilePatch: Record<string, unknown> = {
     user_id: userId,
-    role: PROFILE_ROLE_BY_ACCOUNT_TYPE[accountType],
-    status: profileStatus,
+    role: canonicalRole,
+    status: lifecycleStatus,
     is_driver: accountType === 'owner_driver',
     updated_at: new Date().toISOString(),
   };
   if (companyId) profilePatch.company_id = companyId;
 
-  const { error: profileError } = await client
+  let { error: profileError } = await client
     .from('profiles')
     .upsert(profilePatch, { onConflict: 'user_id' });
+
+  // Some live databases still enforce the older profile-role constraint
+  // (admin/company rather than company_admin/broker). Prefer canonical values,
+  // then retry only the role value so onboarding remains compatible during the
+  // controlled schema migration period.
+  if (profileError && legacyCompatibleRole !== canonicalRole) {
+    const retry = await client
+      .from('profiles')
+      .upsert({ ...profilePatch, role: legacyCompatibleRole }, { onConflict: 'user_id' });
+    profileError = retry.error;
+  }
 
   if (profileError) return new Error(profileError.message);
   if (accountType !== 'owner_driver') return null;
 
-  const driverPatch: Record<string, unknown> = {
-    app_access: status === 'approved' && profileStatus !== 'suspended',
-    updated_at: new Date().toISOString(),
-  };
-  if (companyId) driverPatch.company_id = companyId;
-  if (status === 'approved' && profileStatus !== 'suspended') driverPatch.status = 'active';
-
-  const { error: driverError } = await client
-    .from('drivers')
-    .update(driverPatch)
-    .eq('user_id', userId);
-
-  return driverError ? new Error(driverError.message) : null;
+  return updateOwnerDriverAccess(
+    client,
+    userId,
+    status === 'approved' && lifecycleStatus === 'active',
+    companyId,
+  );
 };
