@@ -12,6 +12,7 @@ export type OnboardingRouteSegment = 'customer' | 'broker' | 'fleet' | 'owner-dr
 
 type AccountTypeConfig = {
   label: string;
+  description: string;
   appRole: AccountAppRole;
   workspaceMode: AccountWorkspaceMode;
   ownerDriverWorkspace: boolean;
@@ -23,6 +24,7 @@ type AccountTypeConfig = {
 export const ACCOUNT_TYPE_CONFIG: Record<AccountType, AccountTypeConfig> = {
   customer: {
     label: 'Customer / Shipper',
+    description: 'Choose this when you need to post loads and book transport for your own business.',
     appRole: 'customer',
     workspaceMode: 'customer',
     ownerDriverWorkspace: false,
@@ -32,6 +34,7 @@ export const ACCOUNT_TYPE_CONFIG: Record<AccountType, AccountTypeConfig> = {
   },
   broker: {
     label: 'Transport Broker',
+    description: 'Choose this when you arrange transport for customers and manage loads, quotes and carriers.',
     appRole: 'broker',
     workspaceMode: 'broker',
     ownerDriverWorkspace: false,
@@ -41,6 +44,7 @@ export const ACCOUNT_TYPE_CONFIG: Record<AccountType, AccountTypeConfig> = {
   },
   fleet_operator: {
     label: 'Fleet Operator',
+    description: 'Choose this when you operate a courier or transport company with multiple drivers or vehicles.',
     appRole: 'company_admin',
     workspaceMode: 'company',
     ownerDriverWorkspace: false,
@@ -50,6 +54,7 @@ export const ACCOUNT_TYPE_CONFIG: Record<AccountType, AccountTypeConfig> = {
   },
   owner_driver: {
     label: 'Owner Driver',
+    description: 'Choose this when you are self-employed, drive your own vehicle and complete loads yourself.',
     appRole: 'driver',
     workspaceMode: 'owner_driver',
     ownerDriverWorkspace: true,
@@ -62,6 +67,7 @@ export const ACCOUNT_TYPE_CONFIG: Record<AccountType, AccountTypeConfig> = {
 export const ACCOUNT_TYPE_OPTIONS = ACCOUNT_TYPES.map((value) => ({
   value,
   label: ACCOUNT_TYPE_CONFIG[value].label,
+  description: ACCOUNT_TYPE_CONFIG[value].description,
 }));
 
 const ACCOUNT_TYPE_ALIASES: Record<string, AccountType> = {
