@@ -3,10 +3,14 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+
 import {
-  RESET_PASSWORD_PATH,
-  getResetPasswordEmailRedirectTo,
-} from '../../lib/authFlow';
+  ACCOUNT_TYPE_CONFIG,
+  resolveAccountTypeFromMetadata,
+  type AccountType,
+} from '../../lib/accountTypes';
+import { classifyOnboardingLifecycleStatus } from '../../lib/accessLifecycle';
+import { RESET_PASSWORD_PATH, getResetPasswordEmailRedirectTo } from '../../lib/authFlow';
 import {
   type AuthFailureReason,
   type AuthResolutionResult,
@@ -37,7 +41,6 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutHandle = setTimeout(() => reject(new LoginTimeoutError()), timeoutMs);
   });
-
   try {
     return await Promise.race([promise, timeoutPromise]);
   } finally {
@@ -48,37 +51,89 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<
 const isServiceUnavailableError = (error: unknown): boolean => {
   if (error instanceof LoginTimeoutError) return true;
   if (!(error instanceof Error)) return false;
-
   const message = error.message.toLowerCase();
-  return (
-    message.includes('failed to fetch') ||
-    message.includes('network') ||
-    message.includes('timeout') ||
-    message.includes('timed out') ||
-    message.includes('fetch')
-  );
+  return ['failed to fetch', 'network', 'timeout', 'timed out', 'fetch'].some((value) => message.includes(value));
 };
 
-/** Convert a structured failure reason into a user-facing message. */
+type OnboardingAccessPayload = {
+  error?: string;
+  status?: string;
+  accountType?: AccountType;
+  onboardingPath?: string;
+  resumeAllowed?: boolean;
+};
+
+const routeFromOnboardingPayload = (payload: OnboardingAccessPayload | null): string | null => {
+  const lifecycle = classifyOnboardingLifecycleStatus(payload?.status);
+  if (lifecycle === 'approved') return null;
+  if (lifecycle === 'review') return '/pending-approval';
+  if (lifecycle === 'rejected') return '/forbidden?reason=onboarding-rejected';
+  if (lifecycle === 'editable') {
+    if (payload?.onboardingPath?.startsWith('/onboarding/')) return payload.onboardingPath;
+    if (payload?.accountType) return ACCOUNT_TYPE_CONFIG[payload.accountType].onboardingPath;
+    return '/onboarding/resume';
+  }
+  if (payload?.status) throw new Error(`Unsupported onboarding status: ${payload.status}`);
+  return null;
+};
+
+const resolveOnboardingLoginRoute = async (
+  accessToken: string,
+  sessionUser: SessionUser
+): Promise<string | null> => {
+  let response = await withTimeout(
+    fetch('/api/onboarding/init', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    }),
+    LOGIN_TIMEOUT_MS
+  );
+
+  if (response.status === 404) {
+    const accountType = resolveAccountTypeFromMetadata(sessionUser.user_metadata, sessionUser.app_metadata);
+    if (!accountType) return null;
+
+    response = await withTimeout(
+      fetch('/api/onboarding/init', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          account_type: accountType,
+          forceRegenerateToken: false,
+        }),
+      }),
+      LOGIN_TIMEOUT_MS
+    );
+  }
+
+  const payload = (await response.json().catch(() => null)) as OnboardingAccessPayload | null;
+  if (!response.ok) throw new Error(payload?.error ?? 'Unable to validate onboarding progress.');
+  return routeFromOnboardingPayload(payload);
+};
+
 const authFailureReasonToMessage = (
   reason: AuthFailureReason | null,
   dbError?: { message: string; code: string | null; query: string } | null
 ): string => {
   switch (reason) {
     case 'account_pending':
-      return 'Your account is pending approval. Please contact support.';
+      return 'Your account is pending approval.';
     case 'account_blocked':
-      return 'Your account has been suspended. Please contact support.';
+      return 'Your account is suspended or inactive. Please contact support.';
     case 'role_unsupported':
       return 'Your account role is not supported. Please contact support.';
     case 'profile_missing':
-      return 'Account profile not found. Please contact support.';
+      return 'Your account setup is incomplete. Please contact support.';
     case 'company_context_missing':
-      return 'Your account is not linked to a company. Please contact support.';
+      return 'Your account is not linked to its workspace. Please contact support.';
     case 'db_error':
       if (dbError?.message) {
         const codeSuffix = dbError.code ? ` [${dbError.code}]` : '';
-        return `Account validation query failed${codeSuffix}: ${dbError.message}`;
+        return `Account validation failed${codeSuffix}: ${dbError.message}`;
       }
       return 'Unable to validate account access. Please try again.';
     default:
@@ -106,26 +161,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  // Keep a ref so isPasswordSetupContext does not need pathname in its deps array.
-  // Without this, every SPA navigation changes pathname → new isPasswordSetupContext
-  // reference → useEffect re-runs → bootstrapAuth() fires → 4–6 Supabase queries.
   const pathnameRef = useRef(pathname);
-  useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
-  // Prevents onAuthStateChange from firing a concurrent hydrateUser while
-  // login() is already resolving the same SIGNED_IN event, which would cause
-  // parallel exclusive LockManager lock acquisitions and a 10-second timeout.
   const loginHydrating = useRef(false);
   const userRef = useRef<ResolvedAuthUser | null>(null);
   const hasSupabaseSessionRef = useRef(false);
   const hydrationRef = useRef<{ userId: string; promise: Promise<AuthResolutionResult> } | null>(null);
 
-  useEffect(() => {
-    userRef.current = user;
-  }, [user]);
-
-  useEffect(() => {
-    hasSupabaseSessionRef.current = hasSupabaseSession;
-  }, [hasSupabaseSession]);
+  useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
+  useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { hasSupabaseSessionRef.current = hasSupabaseSession; }, [hasSupabaseSession]);
 
   const syncRouteAuthCookie = useCallback((session: Pick<Session, 'access_token' | 'expires_at'> | null | undefined) => {
     writeRouteAuthCookie(session);
@@ -144,49 +188,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isPasswordSetupContext = useCallback((event?: string) => {
     if (pathnameRef.current === RESET_PASSWORD_PATH) return true;
-    if (event === 'PASSWORD_RECOVERY') return true;
-    return false;
-  }, []); // stable — uses ref, never needs to be recreated
+    return event === 'PASSWORD_RECOVERY';
+  }, []);
 
   const hydrateUser = useCallback(async (sessionUser: SessionUser): Promise<AuthResolutionResult> => {
-    // If the same user is already fully resolved, return immediately without re-running
-    // resolveAuthenticatedUser() (which fires 4–6 Supabase queries). This prevents
-    // re-hydration when the auth subscription re-fires for the same identity.
     const existing = userRef.current;
-    if (existing && existing.id === sessionUser.id) {
-      return { user: existing, reason: null } as AuthResolutionResult;
-    }
+    if (existing?.id === sessionUser.id) return { user: existing, reason: null };
+    if (hydrationRef.current?.userId === sessionUser.id) return hydrationRef.current.promise;
 
-    if (hydrationRef.current?.userId === sessionUser.id) {
-      return hydrationRef.current.promise;
-    }
-
-    const hydrationPromise = (async () => {
+    const promise = (async () => {
       const result = await withTimeout(resolveAuthenticatedUser(sessionUser), LOGIN_TIMEOUT_MS);
-      if (!result.user) {
-        setUser(null);
-        setHasSupabaseSession(true);
-        return result;
-      }
-
       setUser(result.user);
       setHasSupabaseSession(true);
       return result;
     })();
 
-    hydrationRef.current = { userId: sessionUser.id, promise: hydrationPromise };
+    hydrationRef.current = { userId: sessionUser.id, promise };
     try {
-      return await hydrationPromise;
+      return await promise;
     } finally {
-      if (hydrationRef.current?.promise === hydrationPromise) {
-        hydrationRef.current = null;
-      }
+      if (hydrationRef.current?.promise === promise) hydrationRef.current = null;
     }
   }, []);
 
+  const routePendingAccount = useCallback(() => {
+    setUser(null);
+    setHasSupabaseSession(true);
+    if (pathnameRef.current !== '/pending-approval') router.replace('/pending-approval');
+  }, [router]);
+
+  const resolveSession = useCallback(async (session: Session): Promise<AuthResolutionResult | null> => {
+    const onboardingRoute = await resolveOnboardingLoginRoute(session.access_token, session.user);
+    if (onboardingRoute) {
+      setUser(null);
+      setHasSupabaseSession(true);
+      if (pathnameRef.current !== onboardingRoute) router.replace(onboardingRoute);
+      return null;
+    }
+
+    const result = await hydrateUser(session.user);
+    if (!result.user && result.reason === 'account_pending') {
+      routePendingAccount();
+      return null;
+    }
+    return result;
+  }, [hydrateUser, routePendingAccount, router]);
+
   useEffect(() => {
     let isMounted = true;
-
     if (!isSupabaseConfigured) {
       resetAuthState();
       setIsLoading(false);
@@ -195,36 +244,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const bootstrapAuth = async () => {
       try {
-        const getSessionWithRetry = async () => {
-          let lastError: unknown = null;
-
-          for (let attempt = 0; attempt < 2; attempt += 1) {
-            try {
-              const result = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
-              if (result.error) throw result.error;
-              return result;
-            } catch (error) {
-              lastError = error;
-              const canRetry = isServiceUnavailableError(error) && attempt === 0 && !isPasswordSetupContext();
-              if (!canRetry) throw error;
-              await new Promise((resolve) => setTimeout(resolve, LOGIN_BOOTSTRAP_RETRY_DELAY_MS));
-            }
+        let lastError: unknown = null;
+        let session: Session | null = null;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            const result = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
+            if (result.error) throw result.error;
+            session = result.data.session;
+            break;
+          } catch (error) {
+            lastError = error;
+            if (!(isServiceUnavailableError(error) && attempt === 0 && !isPasswordSetupContext())) throw error;
+            await new Promise((resolve) => setTimeout(resolve, LOGIN_BOOTSTRAP_RETRY_DELAY_MS));
           }
-
-          throw lastError;
-        };
-
-        const {
-          data: { session },
-        } = await getSessionWithRetry();
+        }
+        if (!session && lastError) throw lastError;
 
         if (session?.user) {
           syncRouteAuthCookie(session);
-          if (isPasswordSetupContext()) {
-            setPasswordSetupSessionState();
-          } else {
-            await hydrateUser(session.user);
-          }
+          if (isPasswordSetupContext()) setPasswordSetupSessionState();
+          else await resolveSession(session);
         } else {
           resetAuthState();
         }
@@ -244,39 +283,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void bootstrapAuth();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-    syncRouteAuthCookie(session);
-
-    // TOKEN_REFRESHED: the Supabase client silently rotated the JWT.
-    // Profile, role, and company context are unchanged — re-running the full
-    // database hydration would fire 4+ unnecessary Supabase queries and can
-    // cascade into repeated dashboard/driver page reloads.
-    if (event === 'TOKEN_REFRESHED' && userRef.current) {
-        return;
-      }
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      syncRouteAuthCookie(session);
+      if (event === 'TOKEN_REFRESHED' && userRef.current) return;
       try {
         if (session?.user) {
-          if (isPasswordSetupContext(event)) {
-            setPasswordSetupSessionState();
-          } else if (loginHydrating.current) {
-            // login() is already resolving this session — skip to avoid concurrent
-            // LockManager lock acquisition that causes auth-token lock timeout.
-          } else {
-            await hydrateUser(session.user);
-          }
+          if (isPasswordSetupContext(event)) setPasswordSetupSessionState();
+          else if (!loginHydrating.current) await resolveSession(session);
         } else if (!isPasswordSetupContext(event)) {
           resetAuthState();
         }
       } catch (error) {
         console.error('AuthContext auth state handling failed', error);
-        if (session?.user && isServiceUnavailableError(error)) {
-          setHasSupabaseSession(true);
-        } else if (!isPasswordSetupContext(event)) {
-          resetAuthState();
-        }
+        if (session?.user && isServiceUnavailableError(error)) setHasSupabaseSession(true);
+        else if (!isPasswordSetupContext(event)) resetAuthState();
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -286,7 +306,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [hydrateUser, isPasswordSetupContext, resetAuthState, setPasswordSetupSessionState, syncRouteAuthCookie]);
+  }, [isPasswordSetupContext, resetAuthState, resolveSession, setPasswordSetupSessionState, syncRouteAuthCookie]);
 
   const login = async (
     email: string,
@@ -294,29 +314,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<{ success: boolean; error?: string; route?: ReturnType<typeof getPostLoginRoute> }> => {
     loginHydrating.current = true;
     try {
-      if (!isSupabaseConfigured) {
-        return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
-      }
+      if (!isSupabaseConfigured) return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
 
-      const normalizedEmail = email.trim().toLowerCase();
       const { data, error } = await withTimeout(
-        supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
+        supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password }),
         LOGIN_TIMEOUT_MS
       );
-      if (error) { return { success: false, error: error.message }; }
-      if (!data.user) { return { success: false, error: 'Login failed' }; }
+
+      if (error) {
+        const authError = error as typeof error & { code?: string; status?: number };
+        const message = error.message.toLowerCase();
+        if (authError.code === 'invalid_credentials' || message.includes('invalid login credentials')) {
+          return { success: false, error: 'Invalid email or password.' };
+        }
+        if (authError.code === 'user_banned') {
+          return { success: false, error: 'This authentication account is banned. Please contact support.' };
+        }
+        if (authError.status === 429) {
+          return { success: false, error: 'Too many login attempts. Please wait and try again.' };
+        }
+        return { success: false, error: error.message };
+      }
+
+      if (!data.user || !data.session?.access_token) return { success: false, error: 'Login failed.' };
       syncRouteAuthCookie(data.session);
+
+      const onboardingRoute = await resolveOnboardingLoginRoute(data.session.access_token, data.user);
+      if (onboardingRoute) {
+        setUser(null);
+        setHasSupabaseSession(true);
+        router.replace(onboardingRoute);
+        return { success: true, route: onboardingRoute };
+      }
 
       const result = await hydrateUser(data.user);
       if (!result.user) {
+        if (result.reason === 'account_pending') {
+          routePendingAccount();
+          return { success: true, route: '/pending-approval' };
+        }
         if (result.reason === 'db_error') {
-          console.error('[XDrive Auth] account validation db_error', {
-            query: result.dbError.query,
-            code: result.dbError.code,
-            details: result.dbError.details,
-            hint: result.dbError.hint,
-            message: result.dbError.message,
-          });
+          console.error('[XDrive Auth] account validation db_error', result.dbError);
         }
         return {
           success: false,
@@ -324,14 +362,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      const route = getPostLoginRoute(result.user);
-      return { success: true, route };
+      return { success: true, route: getPostLoginRoute(result.user) };
     } catch (error) {
       console.error('Login error:', error);
-      if (isServiceUnavailableError(error)) {
-        return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
-      }
-      return { success: false, error: 'An error occurred during login' };
+      if (isServiceUnavailableError(error)) return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
+      return { success: false, error: error instanceof Error ? error.message : 'An error occurred during login.' };
     } finally {
       loginHydrating.current = false;
     }
@@ -349,10 +384,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const elapsed = Date.now() - lastRequestAt;
         if (Number.isFinite(lastRequestAt) && elapsed >= 0 && elapsed < RESET_PASSWORD_COOLDOWN_MS) {
           const remainingSeconds = Math.ceil((RESET_PASSWORD_COOLDOWN_MS - elapsed) / 1000);
-          return {
-            success: false,
-            error: `Please wait ${remainingSeconds}s before requesting another reset email.`,
-          };
+          return { success: false, error: `Please wait ${remainingSeconds}s before requesting another reset email.` };
         }
       }
 
@@ -360,13 +392,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         redirectTo: getResetPasswordEmailRedirectTo(),
       });
       if (error) return { success: false, error: error.message };
-
       if (typeof window !== 'undefined') {
         window.sessionStorage.setItem(RESET_PASSWORD_COOLDOWN_KEY, String(Date.now()));
       }
       return { success: true };
-    } catch (err) {
-      console.error('Reset password error:', err);
+    } catch (error) {
+      console.error('Reset password error:', error);
       return { success: false, error: 'An error occurred. Please try again.' };
     }
   };
@@ -386,9 +417,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }
 
