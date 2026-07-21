@@ -168,6 +168,7 @@ REVOKE ALL ON FUNCTION public.owner_driver_compliance_current(uuid) FROM PUBLIC,
 REVOKE ALL ON FUNCTION public.guard_job_driver_assignment() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.sync_owner_driver_document_access() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.current_user_driver_access_allowed() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.current_user_driver_access_allowed() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.owner_driver_compliance_current(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.current_user_driver_access_allowed() TO authenticated, service_role;
 
 COMMIT;
