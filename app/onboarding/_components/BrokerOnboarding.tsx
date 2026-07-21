@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { classifyOnboardingLifecycleStatus } from '../../../lib/accessLifecycle';
 import { supabase } from '../../../lib/supabaseClient';
 import { Field, PageLayout } from './BaseUi';
 
@@ -122,8 +123,25 @@ export function BrokerOnboarding({ token }: { token: string }) {
     } = await supabase.auth.getSession();
 
     if (!session?.access_token) return {};
-    return { Authorization: 'Bearer ' + session.access_token };
+    return { Authorization: `Bearer ${session.access_token}` };
   };
+
+  const routeForStatus = useCallback((status: string) => {
+    const lifecycle = classifyOnboardingLifecycleStatus(status);
+    if (lifecycle === 'review') {
+      router.replace('/pending-approval');
+      return true;
+    }
+    if (lifecycle === 'approved') {
+      router.replace('/login');
+      return true;
+    }
+    if (lifecycle === 'rejected') {
+      router.replace('/forbidden?reason=onboarding-rejected');
+      return true;
+    }
+    return false;
+  }, [router]);
 
   const updateField = (field: BrokerField, value: string) => {
     setFormData((previous) => ({ ...previous, [field]: value }));
@@ -142,23 +160,28 @@ export function BrokerOnboarding({ token }: { token: string }) {
 
     try {
       const headers = await authHeaders();
+      if (!headers.Authorization) {
+        router.replace('/login?next=/onboarding/broker/resume');
+        return;
+      }
       const query = token && token !== 'resume' ? `?token=${encodeURIComponent(token)}` : '';
-      const res = await fetch(`/api/onboarding/broker/session${query}`, { method: 'GET', headers });
+      const res = await fetch(`/api/onboarding/broker/session${query}`, { method: 'GET', headers, cache: 'no-store' });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? 'Failed to load onboarding session.');
         return;
       }
 
+      if (routeForStatus(data.application.status)) return;
       setApplication(data.application);
       const payload = (data.application?.payload ?? {}) as Partial<BrokerPayload>;
       setFormData({ ...defaultPayload, ...payload });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load onboarding session.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to load onboarding session.');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [routeForStatus, router, token]);
 
   useEffect(() => {
     void loadSession();
@@ -188,8 +211,8 @@ export function BrokerOnboarding({ token }: { token: string }) {
       }
       if (data.application) setApplication(data.application);
       setMessage('Progress saved. You can continue later from this step.');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save onboarding progress.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to save onboarding progress.');
     } finally {
       setSaving(false);
     }
@@ -237,23 +260,22 @@ export function BrokerOnboarding({ token }: { token: string }) {
         return;
       }
       if (data.application) setApplication(data.application);
-      setMessage('Onboarding submitted successfully. Your account is now pending review.');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to submit onboarding.');
+      setMessage('Onboarding submitted successfully. Opening Pending Approval…');
+      window.setTimeout(() => router.replace('/pending-approval'), 500);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to submit onboarding.');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return <main style={{ padding: '2rem' }}>Loading onboarding...</main>;
-  }
+  if (loading) return <main style={{ padding: '2rem' }}>Loading onboarding…</main>;
 
   if (!application) {
     return (
       <main style={{ padding: '2rem' }}>
         <h1>Onboarding unavailable</h1>
-        <p>{error || 'No onboarding application found.'}</p>
+        <p role="alert">{error || 'No onboarding application found.'}</p>
       </main>
     );
   }
@@ -269,10 +291,10 @@ export function BrokerOnboarding({ token }: { token: string }) {
       error={error}
       message={message}
       saving={saving}
-      onSave={() => void saveProgress(application.current_step || 'document_upload', Math.max(progress, 60))}
+      onSave={() => void saveProgress(application.current_step || 'company_details', Math.max(progress, 60))}
       onSubmit={() => void submitOnboarding()}
       backToLogin={() => router.push('/login')}
-      submitDisabled={application.status === 'approved'}
+      submitDisabled={classifyOnboardingLifecycleStatus(application.status) !== 'editable'}
     >
       <section>
         <h2>Broker / Shipper Details</h2>
