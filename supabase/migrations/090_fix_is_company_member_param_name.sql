@@ -9,9 +9,11 @@
 --
 -- Fix strategy:
 --   1) Snapshot all RLS policies that depend on is_company_member(uuid)
---   2) DROP FUNCTION ... CASCADE
---   3) Recreate function with canonical parameter name cid
---   4) Recreate every captured policy exactly as it existed
+--   2) Deduplicate the snapshot because pg_depend can expose the same policy
+--      more than once when the function appears in multiple policy clauses
+--   3) DROP FUNCTION ... CASCADE
+--   4) Recreate function with canonical parameter name cid
+--   5) Deterministically replace every captured policy
 -- ============================================================
 
 BEGIN;
@@ -39,7 +41,7 @@ INSERT INTO _is_company_member_policy_backup (
   using_expr,
   with_check_expr
 )
-SELECT
+SELECT DISTINCT
   n.nspname,
   c.relname,
   p.polname,
@@ -103,6 +105,16 @@ BEGIN
     FROM _is_company_member_policy_backup
     ORDER BY schema_name, table_name, policy_name
   LOOP
+    -- DROP FUNCTION ... CASCADE should remove dependent policies, but explicit
+    -- replacement also makes this migration safe when catalog dependency data
+    -- differs across legacy environments or a duplicate backup row is present.
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON %I.%I',
+      p.policy_name,
+      p.schema_name,
+      p.table_name
+    );
+
     sql_stmt := format(
       'CREATE POLICY %I ON %I.%I AS %s FOR %s TO %s',
       p.policy_name,
