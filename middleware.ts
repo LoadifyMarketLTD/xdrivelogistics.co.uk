@@ -242,16 +242,15 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
   const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
     supabaseAdmin
       .from('profiles')
-      .select('role, status, is_driver')
+      .select('role, status, is_driver, company_id')
       .eq('user_id', authData.user.id)
       .maybeSingle(),
     supabaseAdmin
       .from('company_memberships')
-      .select('role_in_company')
+      .select('company_id, role_in_company')
       .eq('user_id', authData.user.id)
       .eq('status', 'active')
-      .limit(1)
-      .maybeSingle(),
+      .order('company_id', { ascending: true }),
     supabaseAdmin
       .from('drivers')
       .select('app_access, must_change_password')
@@ -268,10 +267,13 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
 
   const profile = profileRes.error
     ? null
-    : (profileRes.data as { role?: string | null; status?: string | null; is_driver?: boolean | null } | null);
-  const membership = membershipRes.error
-    ? null
-    : (membershipRes.data as { role_in_company?: string | null } | null);
+    : (profileRes.data as { role?: string | null; status?: string | null; is_driver?: boolean | null; company_id?: string | null } | null);
+  const memberships = membershipRes.error
+    ? []
+    : (membershipRes.data as Array<{ company_id?: string | null; role_in_company?: string | null }> | null) ?? [];
+  const membership = memberships.find((item) => Boolean(profile?.company_id) && item.company_id === profile?.company_id)
+    ?? memberships[0]
+    ?? null;
   const driver = driverRes.error
     ? null
     : (driverRes.data as { app_access?: boolean | null; must_change_password?: boolean | null } | null);
@@ -289,7 +291,7 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
   }
 
   const profileStatus = profile?.status?.toLowerCase();
-  if (profileStatus === 'pending' || profileStatus === 'blocked' || profileStatus === 'suspended' || profileStatus === 'inactive') {
+  if (profileStatus === 'blocked') {
     return { kind: 'forbidden' };
   }
 
@@ -371,7 +373,7 @@ export async function middleware(request: NextRequest) {
   const driverModeActive = auth.role === 'driver' || (auth.canAccessDriverMode && driverRouteRequested);
 
   if (driverModeActive) {
-    if (auth.appAccess === false) {
+    if (auth.appAccess !== true) {
       return buildRedirect(request, FORBIDDEN_PATH);
     }
 
