@@ -1,4 +1,5 @@
 import { isCapabilityAllowedForPath, type RouteAccessContext } from './roleCapabilities';
+
 export type AppUserRole =
   | 'owner'
   | 'broker'
@@ -159,6 +160,7 @@ export const resolveAuthoritativeRole = ({
   ownerDriverWorkspaceRequested?: boolean;
 }): AppUserRole | null => {
   const normalizedProfileRole = (profileRole ?? '').toLowerCase().trim();
+  const normalizedCreatorCompanyType = (creatorCompanyType ?? '').toLowerCase().trim();
   const resolvedProfileRole = mapAppRole(profileRole);
   const resolvedFallbackRole = mapAppRole(fallbackRole);
   const ownerDriverWorkspace =
@@ -171,6 +173,16 @@ export const resolveAuthoritativeRole = ({
 
   if (ownerDriverWorkspace && hasCreatedCompany) {
     return creatorCompanyType === 'admin' ? 'company_admin' : 'company_staff';
+  }
+
+  // A Broker may be persisted as the legacy profile role `company`. The
+  // company type created by Broker onboarding is authoritative and prevents
+  // that compatibility value from opening the carrier/admin workspace.
+  if (
+    ['broker', 'broker_shipper', 'shipper_broker', 'transport_broker'].includes(normalizedCreatorCompanyType) &&
+    (resolvedProfileRole === 'company_staff' || resolvedFallbackRole === 'broker')
+  ) {
+    return 'broker';
   }
 
   if (
