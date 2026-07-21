@@ -112,19 +112,37 @@ export async function POST(request: NextRequest) {
     return json(500, { error: driverError?.message ?? 'Failed to create pending driver record.' });
   }
 
-  const { error: profileError } = await supabaseAdmin.from('profiles').upsert(
-    {
-      user_id: authUser.id,
-      full_name: parsed.data.displayName,
-      phone: parsed.data.phone || null,
-      role: 'driver',
-      status: 'pending',
-      company_id: companyId,
-      is_driver: true,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id' },
-  );
+  const { data: existingProfile, error: profileLookupError } = await supabaseAdmin
+    .from('profiles')
+    .select('user_id, role, status, company_id')
+    .eq('user_id', authUser.id)
+    .maybeSingle();
+  if (profileLookupError) return json(500, { error: profileLookupError.message });
+
+  const profileWrite = existingProfile
+    ? supabaseAdmin
+        .from('profiles')
+        .update({
+          full_name: parsed.data.displayName,
+          phone: parsed.data.phone || null,
+          is_driver: true,
+          role: existingProfile.role || 'driver',
+          status: existingProfile.status === 'active' ? 'active' : 'pending',
+          company_id: existingProfile.company_id || companyId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', authUser.id)
+    : supabaseAdmin.from('profiles').insert({
+        user_id: authUser.id,
+        full_name: parsed.data.displayName,
+        phone: parsed.data.phone || null,
+        role: 'driver',
+        status: 'pending',
+        company_id: companyId,
+        is_driver: true,
+        updated_at: new Date().toISOString(),
+      });
+  const { error: profileError } = await profileWrite;
   if (profileError) return json(500, { error: profileError.message });
 
   const { error: driverMembershipError } = await supabaseAdmin.from('company_memberships').upsert(
