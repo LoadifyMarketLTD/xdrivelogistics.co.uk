@@ -1,0 +1,230 @@
+name: Validate Remote Staging Tenant Isolation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/staging-integration
+    paths:
+      - "scripts/validate_remote_staging_tenant_isolation.mjs"
+      - ".github/workflows/validate-remote-staging-tenant-isolation.yml"
+      - "supabase/migrations/**"
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: validate-remote-staging-tenant-isolation
+  cancel-in-progress: false
+
+jobs:
+  tenant-isolation:
+    name: Authenticated cross-tenant read and write denial
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: staging
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      EXPECTED_STAGING_PROJECT_REF: svfjlhljuizckzabtewx
+
+    steps:
+      - name: Checkout exact staging head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Guard disposable staging identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "agent/staging-integration"
+          test -n "${SUPABASE_ACCESS_TOKEN:-}"
+          test -n "${SUPABASE_PROJECT_REF:-}"
+          test "$SUPABASE_PROJECT_REF" = "$EXPECTED_STAGING_PROJECT_REF"
+          echo "Tenant-isolation validation is restricted to disposable staging."
+
+      - name: Resolve disposable project API keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/api-keys?reveal=true" \
+            --header "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            --output /tmp/supabase-api-keys.json
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          keys = json.loads(Path('/tmp/supabase-api-keys.json').read_text(encoding='utf-8'))
+
+          def find_key(*, names=(), types=()):
+              for item in keys:
+                  if item.get('name') in names and item.get('api_key'):
+                      return item['api_key']
+              for item in keys:
+                  if item.get('type') in types and item.get('api_key'):
+                      return item['api_key']
+              return None
+
+          public_key = find_key(names=('anon',), types=('publishable',))
+          secret_key = find_key(names=('service_role',), types=('secret',))
+          if not public_key or not secret_key:
+              raise SystemExit('Required disposable staging API keys were unavailable.')
+
+          print(f'::add-mask::{public_key}')
+          print(f'::add-mask::{secret_key}')
+          url = f'https://{os.environ["SUPABASE_PROJECT_REF"]}.supabase.co'
+          with Path(os.environ['GITHUB_ENV']).open('a', encoding='utf-8') as handle:
+              handle.write(f'STAGING_SUPABASE_URL={url}\n')
+              handle.write(f'STAGING_SUPABASE_PUBLIC_KEY={public_key}\n')
+              handle.write(f'STAGING_SUPABASE_SECRET_KEY={secret_key}\n')
+          PY
+
+          rm -f /tmp/supabase-api-keys.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate isolation script syntax
+        run: node --check scripts/validate_remote_staging_tenant_isolation.mjs
+
+      - name: Verify current P0 schema evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('staging-validation/p0-latest.json')
+          if not path.exists():
+              raise SystemExit('P0 staging evidence is missing from the exact checkout.')
+          evidence = json.loads(path.read_text(encoding='utf-8'))
+          if evidence.get('result') != 'success':
+              raise SystemExit(f"P0 staging evidence is not successful: {evidence.get('result')}")
+          if evidence.get('project_ref') != 'svfjlhljuizckzabtewx':
+              raise SystemExit('P0 staging evidence targets an unexpected project.')
+          if int(evidence.get('verified_migration_count', 0)) < 188:
+              raise SystemExit('P0 staging evidence predates the current isolation schema.')
+          print(f"P0 staging evidence accepted: {evidence['verified_migration_count']} migrations.")
+          PY
+
+      - name: Run authenticated tenant-isolation matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/validate_remote_staging_tenant_isolation.mjs \
+            2>&1 | tee /tmp/staging-tenant-isolation.log
+
+      - name: Record machine-readable tenant isolation result
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          python - <<PY
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          payload = {
+              'result': '${JOB_STATUS}',
+              'source_sha': '${GITHUB_SHA}',
+              'run_id': '${GITHUB_RUN_ID}',
+              'run_url': '${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}',
+              'branch': '${GITHUB_REF_NAME}',
+              'project_ref': '${SUPABASE_PROJECT_REF}',
+              'protected_tables': [
+                  'companies', 'drivers', 'vehicles', 'driver_documents',
+                  'vehicle_documents', 'jobs', 'job_bids', 'job_documents',
+                  'job_tracking_events', 'documents', 'invoices', 'payments', 'messages'
+              ],
+              'production_targeted': False,
+              'recorded_at': datetime.now(timezone.utc).isoformat(),
+          }
+          Path('/tmp/tenant-isolation-result.json').write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          encoded=$(base64 -w 0 /tmp/tenant-isolation-result.json)
+          endpoint="repos/${GITHUB_REPOSITORY}/contents/staging-validation/tenant-isolation-latest.json"
+          existing_sha=$(gh api "$endpoint?ref=agent/staging-integration" --jq .sha 2>/dev/null || true)
+          if [ -n "$existing_sha" ]; then
+            gh api --method PUT "$endpoint" \
+              -f message="ci(staging): record tenant isolation ${JOB_STATUS}" \
+              -f content="$encoded" \
+              -f sha="$existing_sha" \
+              -f branch="agent/staging-integration"
+          else
+            gh api --method PUT "$endpoint" \
+              -f message="ci(staging): record tenant isolation ${JOB_STATUS}" \
+              -f content="$encoded" \
+              -f branch="agent/staging-integration"
+          fi
+
+      - name: Publish tenant-isolation success
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -f body="<!-- remote-staging-tenant-isolation-success -->
+          ### Authenticated tenant-isolation matrix passed
+
+          Commit: \`${GITHUB_SHA}\`
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          Two unrelated authenticated companies were tested for own-row visibility and foreign SELECT, UPDATE, DELETE and INSERT denial across companies, drivers, vehicles, driver/vehicle evidence, jobs, bids, job/POD documents, tracking events, general documents, invoices, payments and messages. The only permitted cross-company message read required the user to be the explicit recipient. Production was not targeted."
+
+      - name: Publish concise tenant-isolation failure
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          {
+            echo '<!-- remote-staging-tenant-isolation-failure -->'
+            echo '### Authenticated tenant-isolation validation failed'
+            echo
+            echo "Commit: \`${GITHUB_SHA}\`"
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo '```text'
+            if [ -f /tmp/staging-tenant-isolation.log ]; then
+              grep -E 'STAGING_TENANT_ISOLATION_FAILED|leaked|foreign|own row|unexpected|succeeded|failed' \
+                /tmp/staging-tenant-isolation.log | tail -n 60 \
+                || tail -n 70 /tmp/staging-tenant-isolation.log
+            else
+              echo 'The workflow failed before an isolation log was created.'
+            fi
+            echo '```'
+          } > /tmp/tenant-isolation-diagnostic.md
+
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -F body=@/tmp/tenant-isolation-diagnostic.md
+
+      - name: Upload non-secret tenant isolation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-staging-tenant-isolation
+          path: /tmp/staging-tenant-isolation.log
+          if-no-files-found: ignore
+          retention-days: 7
