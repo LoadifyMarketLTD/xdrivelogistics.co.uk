@@ -22,6 +22,12 @@ export type AuthLocationSignals = {
 
 const readSearchParams = (value: string) => new URLSearchParams(value);
 const normalizeHash = (hash: string) => hash.replace(/^#/, '');
+const getActiveSiteOrigin = () => {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin.replace(/\/+$/, '');
+  }
+  return PUBLIC_SITE_URL;
+};
 
 export const getBrowserAuthSignals = (
   locationLike?: Pick<Location, 'pathname' | 'search' | 'hash'>
@@ -60,5 +66,5 @@ export const isRecoveryAuthFlow = (signals: Pick<AuthLocationSignals, 'queryType
 export const isInviteAuthFlow = (signals: Pick<AuthLocationSignals, 'queryType' | 'hashType' | 'flow'>) =>
   signals.queryType === 'invite' || signals.hashType === 'invite' || signals.flow === 'invite';
 
-export const getAuthCallbackEmailRedirectTo = () => `${PUBLIC_SITE_URL}${AUTH_CALLBACK_PATH}`;
-export const getResetPasswordEmailRedirectTo = () => `${PUBLIC_SITE_URL}${RESET_PASSWORD_PATH}`;
+export const getAuthCallbackEmailRedirectTo = () => `${getActiveSiteOrigin()}${AUTH_CALLBACK_PATH}`;
+export const getResetPasswordEmailRedirectTo = () => `${getActiveSiteOrigin()}${RESET_PASSWORD_PATH}`;
