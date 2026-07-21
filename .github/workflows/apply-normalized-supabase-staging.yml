@@ -102,6 +102,7 @@ jobs:
               '20260721003000_fix_onboarding_membership_role_enum.sql',
               '20260721004500_fix_onboarding_review_company_id_ambiguity.sql',
               '20260721005500_fix_onboarding_review_conflict_target_ambiguity.sql',
+              '20260721006500_fix_company_documents_doc_type_constraint.sql',
           }
 
           assert manifest['included_count'] == len(migrations), 'Manifest included_count is inconsistent'
@@ -120,14 +121,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          supabase link --project-ref "$SUPABASE_PROJECT_REF" 2>&1 | tee staging-link.log
+          supabase link \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-link.log
 
-      - name: Validate remote migration history is an expected prefix
+      - name: Inventory normalized and remote migration history
         working-directory: .remote-staging-deploy
         shell: bash
         run: |
           set -euo pipefail
-          supabase migration list --linked 2>&1 | tee staging-history-before.log
+          supabase migration list \
+            --linked \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-history-before.log
 
           python - <<'PY'
           import json
@@ -139,21 +146,106 @@ jobs:
           text = Path('staging-history-before.log').read_text(encoding='utf-8', errors='replace')
           text = re.sub(r'\x1b\[[0-9;]*m', '', text).replace('`', '')
 
+          local = []
           remote = []
           for line in text.splitlines():
-              parts = [part.strip() for part in line.split('|')]
-              if len(parts) < 2 or not re.fullmatch(r'\d{14}', parts[0]):
+              parts = [part.strip() for part in re.split(r'[|│]', line)]
+              if len(parts) < 2:
                   continue
+              if re.fullmatch(r'\d{14}', parts[0]):
+                  local.append(parts[0])
               if re.fullmatch(r'\d{14}', parts[1]):
                   remote.append(parts[1])
 
-          if remote != expected[:len(remote)]:
+          if local != expected:
               raise SystemExit(
-                  'Remote migration history is not an exact prefix of the approved staging manifest; '
+                  f'Normalized local history does not match the generated manifest: '
+                  f'{len(local)} local versus {len(expected)} expected.'
+              )
+
+          expected_set = set(expected)
+          remote_only = [version for version in remote if version not in expected_set]
+          shared_remote = [version for version in remote if version in expected_set]
+
+          if shared_remote != expected[:len(shared_remote)]:
+              raise SystemExit(
+                  'Remote normalized migrations are not an exact prefix of the approved manifest; '
                   'deployment refused.'
               )
 
-          print(f'Remote history guard passed: {len(remote)} of {len(expected)} migrations already present.')
+          Path('remote-only-versions.txt').write_text(
+              ''.join(f'{version}\n' for version in remote_only),
+              encoding='utf-8',
+          )
+          print(
+              f'History inventory: {len(shared_remote)} normalized remote entries, '
+              f'{len(remote_only)} remote-only entries, {len(expected)} expected.'
+          )
+          if remote_only:
+              print('Remote-only entries scheduled for staging-history repair:')
+              print('\n'.join(remote_only))
+          PY
+
+      - name: Repair obsolete remote-only history on disposable staging
+        working-directory: .remote-staging-deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -s remote-only-versions.txt ]; then
+            echo "No obsolete remote-only migration history to repair."
+            exit 0
+          fi
+
+          mapfile -t remote_only < <(grep -E '^[0-9]{14}$' remote-only-versions.txt)
+          if [ "${#remote_only[@]}" -eq 0 ]; then
+            echo "Repair file contained no valid migration versions."
+            exit 1
+          fi
+
+          printf 'Repairing disposable staging history entries as reverted:\n%s\n' "${remote_only[*]}" \
+            | tee staging-history-repair.log
+
+          supabase migration repair \
+            "${remote_only[@]}" \
+            --status reverted \
+            --linked \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee -a staging-history-repair.log
+
+      - name: Verify repaired history is an exact normalized prefix
+        working-directory: .remote-staging-deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list \
+            --linked \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-history-repaired.log
+
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          manifest = json.loads(Path('deployment-manifest.json').read_text(encoding='utf-8'))
+          expected = [item['staged_version'] for item in manifest['migrations']]
+          expected_set = set(expected)
+          text = Path('staging-history-repaired.log').read_text(encoding='utf-8', errors='replace')
+          text = re.sub(r'\x1b\[[0-9;]*m', '', text).replace('`', '')
+
+          remote = []
+          for line in text.splitlines():
+              parts = [part.strip() for part in re.split(r'[|│]', line)]
+              if len(parts) >= 2 and re.fullmatch(r'\d{14}', parts[1]):
+                  remote.append(parts[1])
+
+          remote_only = [version for version in remote if version not in expected_set]
+          if remote_only:
+              raise SystemExit(f'Remote-only migration history remains after repair: {remote_only}')
+          if remote != expected[:len(remote)]:
+              raise SystemExit('Repaired remote history is not an exact prefix of the approved manifest.')
+
+          print(f'Repaired history guard passed: {len(remote)} of {len(expected)} migrations present.')
           PY
 
       - name: Dry-run normalized migrations against remote staging
@@ -161,21 +253,33 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          supabase db push --linked --include-all --dry-run 2>&1 | tee staging-push-dry-run.log
+          supabase db push \
+            --linked \
+            --include-all \
+            --dry-run \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-push-dry-run.log
 
       - name: Apply normalized migrations to remote staging
         working-directory: .remote-staging-deploy
         shell: bash
         run: |
           set -euo pipefail
-          supabase db push --linked --include-all 2>&1 | tee staging-push.log
+          supabase db push \
+            --linked \
+            --include-all \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-push.log
 
       - name: Verify complete remote migration history
         working-directory: .remote-staging-deploy
         shell: bash
         run: |
           set -euo pipefail
-          supabase migration list --linked 2>&1 | tee staging-history-after.log
+          supabase migration list \
+            --linked \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-history-after.log
 
           python - <<'PY'
           import json
@@ -189,10 +293,8 @@ jobs:
 
           remote = []
           for line in text.splitlines():
-              parts = [part.strip() for part in line.split('|')]
-              if len(parts) < 2 or not re.fullmatch(r'\d{14}', parts[0]):
-                  continue
-              if re.fullmatch(r'\d{14}', parts[1]):
+              parts = [part.strip() for part in re.split(r'[|│]', line)]
+              if len(parts) >= 2 and re.fullmatch(r'\d{14}', parts[1]):
                   remote.append(parts[1])
 
           print(f'Expected remote migration count: {len(expected)}')
@@ -216,7 +318,7 @@ jobs:
           Commit: \`${GITHUB_SHA}\`
           Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
 
-          The guarded remote migration history exactly matched the generated deployment manifest. Production was not targeted."
+          Remote-only staging history was removed when present, and the guarded remote migration history exactly matched the generated deployment manifest. Production was not targeted."
 
       - name: Publish concise staging deployment failure to PR 248
         if: failure()
@@ -237,17 +339,19 @@ jobs:
             for file in \
               .remote-staging-deploy/staging-link.log \
               .remote-staging-deploy/staging-history-before.log \
+              .remote-staging-deploy/staging-history-repair.log \
+              .remote-staging-deploy/staging-history-repaired.log \
               .remote-staging-deploy/staging-push-dry-run.log \
               .remote-staging-deploy/staging-push.log \
               .remote-staging-deploy/staging-history-after.log; do
               if [ -f "$file" ]; then
                 found=1
                 echo "===== $file ====="
-                matches=$(grep -E 'ERROR:|Error:|SQLSTATE|failed|refused|does not exist|already exists|Expected remote|Recorded remote' "$file" | tail -n 16 || true)
+                matches=$(grep -E 'ERROR:|Error:|SQLSTATE|failed|refused|does not exist|already exists|Remote-only|Expected remote|Recorded remote' "$file" | tail -n 20 || true)
                 if [ -n "$matches" ]; then
                   printf '%s\n' "$matches"
                 else
-                  tail -n 18 "$file"
+                  tail -n 20 "$file"
                 fi
               fi
             done
@@ -269,7 +373,10 @@ jobs:
           name: normalized-supabase-staging-deployment
           path: |
             .remote-staging-deploy/deployment-manifest.json
+            .remote-staging-deploy/remote-only-versions.txt
             .remote-staging-deploy/staging-history-before.log
+            .remote-staging-deploy/staging-history-repair.log
+            .remote-staging-deploy/staging-history-repaired.log
             .remote-staging-deploy/staging-push-dry-run.log
             .remote-staging-deploy/staging-push.log
             .remote-staging-deploy/staging-history-after.log
