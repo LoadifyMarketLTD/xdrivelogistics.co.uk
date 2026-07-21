@@ -23,30 +23,20 @@ jobs:
           from pathlib import Path
           path = Path('app/admin/AdminWorkspaceModules.tsx')
           text = path.read_text()
-          old = """export function FleetPositionsPage() {
-            const data = useCompanyWorkspaceData();
-            const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
-            const latest = useMemo(() => {
-              const map = new Map<string, (typeof data.locations)[number]>();
-              for (const location of data.locations) {
-                if (!map.has(location.driver_id)) map.set(location.driver_id, location);
-              }
-              return map;
-            }, [data.locations]);"""
-          new = """export function FleetPositionsPage() {
-            const data = useCompanyWorkspaceData();
-            const locations = data.locations;
-            const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
-            const latest = useMemo(() => {
-              const map = new Map<string, (typeof locations)[number]>();
-              for (const location of locations) {
-                if (!map.has(location.driver_id)) map.set(location.driver_id, location);
-              }
-              return map;
-            }, [locations]);"""
-          if old not in text:
-              raise SystemExit('Expected FleetPositionsPage snippet not found; refusing broad rewrite.')
-          path.write_text(text.replace(old, new, 1))
+          replacements = [
+              (
+                  "  const data = useCompanyWorkspaceData();\n  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);",
+                  "  const data = useCompanyWorkspaceData();\n  const locations = data.locations;\n  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);",
+              ),
+              ("new Map<string, (typeof data.locations)[number]>()", "new Map<string, (typeof locations)[number]>()"),
+              ("for (const location of data.locations)", "for (const location of locations)"),
+              ("}, [data.locations]);", "}, [locations]);"),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'Expected source fragment not found: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
           PY
       - name: Commit correction
         shell: bash
