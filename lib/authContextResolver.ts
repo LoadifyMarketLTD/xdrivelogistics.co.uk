@@ -66,17 +66,13 @@ export const resolveAuthContext = ({
     };
   }
 
-  const ownerDriverBusinessRole =
-    ownerDriverWorkspaceRequested &&
-    isDriver &&
-    Boolean(companyId) &&
-    resolvedRole === 'driver';
-  const finalRole: AppUserRole = ownerDriverBusinessRole ? 'company_staff' : resolvedRole;
-
+  // A company record provides tenancy for an Owner Driver, but it does not turn
+  // that user into company staff. The role remains driver; workspace selection
+  // separately distinguishes Owner Driver from an invited Fleet Driver.
   return {
-    role: finalRole,
+    role: resolvedRole,
     companyId,
-    mustChangePassword: finalRole === 'driver' ? mustChangePassword : false,
+    mustChangePassword: resolvedRole === 'driver' ? mustChangePassword : false,
     profileRole: typeof profileRole === 'string' ? profileRole : null,
   };
 };
