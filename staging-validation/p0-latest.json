@@ -1,11 +1,11 @@
 {
   "result": "success",
-  "source_sha": "fa64ba95db32767d26a0cf261a45e4a1e7ec40e0",
-  "run_id": "29839380435",
-  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29839380435",
+  "source_sha": "5a62d0e8435fb2a1f994d165027a9e27a97d39ab",
+  "run_id": "29840093447",
+  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29840093447",
   "branch": "agent/staging-integration",
   "project_ref": "svfjlhljuizckzabtewx",
-  "verified_migration_count": "188",
+  "verified_migration_count": "189",
   "required_migrations": [
     "20260721132500_onboarding_invitation_controls.sql",
     "20260721134000_owner_driver_compliance_runtime_guard.sql",
@@ -21,5 +21,5 @@
     "20260721152000_driver_company_user_constraint.sql"
   ],
   "production_targeted": false,
-  "recorded_at": "2026-07-21T14:30:46.600438+00:00"
+  "recorded_at": "2026-07-21T14:39:49.959232+00:00"
 }
