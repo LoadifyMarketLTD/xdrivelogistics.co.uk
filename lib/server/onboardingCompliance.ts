@@ -14,6 +14,8 @@ type ComplianceDocument = {
   docType: string;
   uploaded: boolean;
   verified: boolean;
+  expired: boolean;
+  expiryDate: string | null;
   status: string;
 };
 
@@ -23,6 +25,7 @@ export type OnboardingComplianceReadiness = {
   documents: ComplianceDocument[];
   missingDocuments: string[];
   unverifiedDocuments: string[];
+  expiredDocuments: string[];
   uploadReady: boolean;
   approvalReady: boolean;
 };
@@ -37,6 +40,12 @@ const readBoolean = (payload: Record<string, unknown> | null | undefined, key: s
   if (typeof value === 'boolean') return value;
   if (typeof value !== 'string') return false;
   return ['true', '1', 'yes'].includes(value.trim().toLowerCase());
+};
+
+const isExpired = (expiryDate: string | null | undefined) => {
+  if (!expiryDate) return false;
+  const expiry = new Date(`${expiryDate}T23:59:59.999Z`).getTime();
+  return Number.isFinite(expiry) && expiry < Date.now();
 };
 
 export const requiredOnboardingDocuments = (
@@ -101,6 +110,7 @@ export async function getOnboardingComplianceReadiness(
         documents: [],
         missingDocuments: [],
         unverifiedDocuments: [],
+        expiredDocuments: [],
         uploadReady: true,
         approvalReady: true,
       },
@@ -113,35 +123,41 @@ export async function getOnboardingComplianceReadiness(
   if (application.account_type === 'owner_driver') {
     const { data, error } = await client
       .from('driver_identity_documents')
-      .select('doc_type, file_path, upload_status, verification_status, updated_at')
+      .select('doc_type, file_path, upload_status, verification_status, expiry_date, updated_at')
       .eq('onboarding_application_id', application.id)
       .in('doc_type', requiredDocuments)
       .order('updated_at', { ascending: false });
 
     if (error) return { data: null, error: error.message };
     for (const row of data ?? []) {
+      const expired = isExpired(row.expiry_date);
       documents.push({
         docType: String(row.doc_type),
         uploaded: Boolean(row.file_path) && row.upload_status === 'uploaded',
-        verified: Boolean(row.file_path) && row.upload_status === 'uploaded' && row.verification_status === 'verified',
-        status: String(row.verification_status ?? row.upload_status ?? 'missing'),
+        verified: Boolean(row.file_path) && row.upload_status === 'uploaded' && row.verification_status === 'verified' && !expired,
+        expired,
+        expiryDate: row.expiry_date ?? null,
+        status: expired ? 'expired' : String(row.verification_status ?? row.upload_status ?? 'missing'),
       });
     }
   } else {
     const { data, error } = await client
       .from('company_documents')
-      .select('doc_type, file_path, status, updated_at')
+      .select('doc_type, file_path, status, expiry_date, updated_at')
       .eq('onboarding_application_id', application.id)
       .in('doc_type', requiredDocuments)
       .order('updated_at', { ascending: false });
 
     if (error) return { data: null, error: error.message };
     for (const row of data ?? []) {
+      const expired = isExpired(row.expiry_date) || row.status === 'expired';
       documents.push({
         docType: String(row.doc_type),
         uploaded: Boolean(row.file_path),
-        verified: Boolean(row.file_path) && row.status === 'approved',
-        status: String(row.status ?? 'pending'),
+        verified: Boolean(row.file_path) && row.status === 'approved' && !expired,
+        expired,
+        expiryDate: row.expiry_date ?? null,
+        status: expired ? 'expired' : String(row.status ?? 'pending'),
       });
     }
   }
@@ -157,6 +173,8 @@ export async function getOnboardingComplianceReadiness(
     !(byType.get(docType) ?? []).some((document) => document.uploaded));
   const unverifiedDocuments = requiredDocuments.filter((docType) =>
     !(byType.get(docType) ?? []).some((document) => document.verified));
+  const expiredDocuments = requiredDocuments.filter((docType) =>
+    (byType.get(docType) ?? []).some((document) => document.expired));
 
   return {
     data: {
@@ -165,8 +183,9 @@ export async function getOnboardingComplianceReadiness(
       documents,
       missingDocuments,
       unverifiedDocuments,
+      expiredDocuments,
       uploadReady: missingDocuments.length === 0,
-      approvalReady: missingDocuments.length === 0 && unverifiedDocuments.length === 0,
+      approvalReady: missingDocuments.length === 0 && unverifiedDocuments.length === 0 && expiredDocuments.length === 0,
     },
     error: null,
   };
