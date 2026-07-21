@@ -56,6 +56,17 @@ const bodySchema = z.object({
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
+const isMissingIdempotencyColumn = (error: { code?: string | null; message?: string | null } | null | undefined) => {
+  if (!error) return false;
+  const code = String(error.code ?? '');
+  const message = String(error.message ?? '').toLowerCase();
+  return (
+    code === '42703' ||
+    code === 'PGRST204' ||
+    (message.includes('creation_idempotency_key') && (message.includes('column') || message.includes('schema cache')))
+  );
+};
+
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server database access is not configured.' });
@@ -88,14 +99,24 @@ export async function POST(request: NextRequest) {
   if (membershipError) return respond(500, { error: membershipError.message });
   if (!membership) return respond(403, { error: 'You cannot post loads for this company workspace.' });
 
-  const { data: existing, error: existingError } = await supabaseAdmin
+  let idempotencyAvailable = true;
+  const existingResult = await supabaseAdmin
     .from('jobs')
     .select('id, status, current_status')
     .eq('company_id', input.companyId)
     .eq('creation_idempotency_key', input.idempotencyKey)
     .maybeSingle();
-  if (existingError) return respond(500, { error: existingError.message });
-  if (existing) return respond(200, { job: existing, replayed: true });
+
+  if (existingResult.error) {
+    if (isMissingIdempotencyColumn(existingResult.error)) {
+      idempotencyAvailable = false;
+    } else {
+      return respond(500, { error: existingResult.error.message });
+    }
+  }
+  if (existingResult.data) {
+    return respond(200, { job: existingResult.data, replayed: true, idempotencyProtected: true });
+  }
 
   const specialRequirements = [
     input.tailLift && 'Tail lift required',
@@ -119,10 +140,9 @@ export async function POST(request: NextRequest) {
     notes: input.notes || null,
   });
 
-  const row = {
+  const row: Record<string, unknown> = {
     company_id: input.companyId,
     created_by: authData.user.id,
-    creation_idempotency_key: input.idempotencyKey,
     status,
     current_status: status,
     pickup_location: `${input.pickupAddress}, ${input.pickupPostcode.toUpperCase()}`,
@@ -163,14 +183,27 @@ export async function POST(request: NextRequest) {
     exchange_posted_at: input.publish ? now : null,
     updated_at: now,
   };
+  if (idempotencyAvailable) row.creation_idempotency_key = input.idempotencyKey;
 
-  const { data: inserted, error: insertError } = await supabaseAdmin
+  let insertResult = await supabaseAdmin
     .from('jobs')
     .insert(row)
     .select('id, status, current_status')
     .single();
 
-  if (insertError?.code === '23505') {
+  // Handles a rollout race where the API observed the new column but PostgREST
+  // refreshed to an older schema cache before the insert completed.
+  if (insertResult.error && idempotencyAvailable && isMissingIdempotencyColumn(insertResult.error)) {
+    idempotencyAvailable = false;
+    delete row.creation_idempotency_key;
+    insertResult = await supabaseAdmin
+      .from('jobs')
+      .insert(row)
+      .select('id, status, current_status')
+      .single();
+  }
+
+  if (insertResult.error?.code === '23505' && idempotencyAvailable) {
     const { data: replay, error: replayError } = await supabaseAdmin
       .from('jobs')
       .select('id, status, current_status')
@@ -178,9 +211,13 @@ export async function POST(request: NextRequest) {
       .eq('creation_idempotency_key', input.idempotencyKey)
       .maybeSingle();
     if (replayError) return respond(500, { error: replayError.message });
-    if (replay) return respond(200, { job: replay, replayed: true });
+    if (replay) return respond(200, { job: replay, replayed: true, idempotencyProtected: true });
   }
-  if (insertError) return respond(500, { error: insertError.message });
+  if (insertResult.error) return respond(500, { error: insertResult.error.message });
 
-  return respond(201, { job: inserted, replayed: false });
+  return respond(201, {
+    job: insertResult.data,
+    replayed: false,
+    idempotencyProtected: idempotencyAvailable,
+  });
 }
