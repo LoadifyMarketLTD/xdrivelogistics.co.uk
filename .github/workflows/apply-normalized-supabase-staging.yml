@@ -6,6 +6,8 @@ on:
     branches:
       - agent/staging-integration
     paths:
+      - "supabase/migrations/**"
+      - "scripts/prepare_staging_bootstrap.py"
       - ".github/workflows/apply-normalized-supabase-staging.yml"
 
 permissions:
@@ -22,7 +24,7 @@ concurrency:
 
 jobs:
   deploy-staging-schema:
-    name: Apply 156 validated migrations to disposable staging
+    name: Apply 157 validated migrations to disposable staging
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: staging
@@ -89,11 +91,11 @@ jobs:
           manifest = json.loads(
               Path('.remote-staging-deploy/deployment-manifest.json').read_text(encoding='utf-8')
           )
-          assert manifest['included_count'] == 156, manifest['included_count']
+          assert manifest['included_count'] == 157, manifest['included_count']
           assert manifest['excluded_count'] == 1, manifest['excluded_count']
           assert manifest['excluded'][0]['source'] == '068_targeted_data_repair_current_accounts.sql'
-          assert manifest['migrations'][-1]['source'] == '20260721001500_scrub_notification_secrets.sql'
-          print('Validated remote deployment manifest: 156 included, 1 production-data repair excluded.')
+          assert manifest['migrations'][-1]['source'] == '20260721003000_fix_onboarding_membership_role_enum.sql'
+          print('Validated remote deployment manifest: 157 included, 1 production-data repair excluded.')
           PY
 
       - name: Link only the approved disposable staging project
@@ -197,7 +199,7 @@ jobs:
           Commit: \`${GITHUB_SHA}\`
           Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
 
-          The approved normalized migration manifest was applied to the guarded staging project and the remote history matched **156 / 156**. Production was not targeted."
+          The approved normalized migration manifest was applied to the guarded staging project and the remote history matched **157 / 157**. Production was not targeted."
 
       - name: Publish concise staging deployment failure to PR 248
         if: failure()
