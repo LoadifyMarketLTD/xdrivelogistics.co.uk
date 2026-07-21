@@ -3,6 +3,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { normalizeAccountType, type AccountType } from '../../lib/accountTypes';
 import {
   RESET_PASSWORD_PATH,
   getResetPasswordEmailRedirectTo,
@@ -62,28 +63,30 @@ const isServiceUnavailableError = (error: unknown): boolean => {
 type OnboardingAccessPayload = {
   error?: string;
   status?: string;
-  accountType?: 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver';
+  accountType?: AccountType;
   resumeAllowed?: boolean;
   invitationRevoked?: boolean;
 };
 
-const resolveOnboardingLoginRoute = async (accessToken: string): Promise<string | null> => {
-  const response = await withTimeout(
-    fetch('/api/onboarding/init', {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: 'no-store',
-    }),
-    LOGIN_TIMEOUT_MS
-  );
+const resolveAccountTypeFromSessionUser = (sessionUser: SessionUser): AccountType | null => {
+  const candidates = [
+    sessionUser.user_metadata?.account_type,
+    sessionUser.user_metadata?.requested_role,
+    sessionUser.user_metadata?.signup_type,
+    sessionUser.app_metadata?.account_type,
+    sessionUser.app_metadata?.requested_role,
+    sessionUser.app_metadata?.signup_type,
+  ];
 
-  if (response.status === 404) return null;
-
-  const payload = (await response.json().catch(() => null)) as OnboardingAccessPayload | null;
-  if (!response.ok) {
-    throw new Error(payload?.error ?? 'Unable to validate onboarding progress.');
+  for (const candidate of candidates) {
+    const accountType = normalizeAccountType(candidate);
+    if (accountType) return accountType;
   }
 
+  return null;
+};
+
+const routeFromOnboardingPayload = (payload: OnboardingAccessPayload | null): string | null => {
   const status = String(payload?.status ?? '').trim().toLowerCase();
   if (status === 'approved') return null;
   if (status === 'rejected') return '/forbidden?reason=onboarding-rejected';
@@ -96,7 +99,51 @@ const resolveOnboardingLoginRoute = async (accessToken: string): Promise<string 
     return '/pending-approval';
   }
 
-  return '/onboarding/resume';
+  if (payload?.accountType) return '/onboarding/resume';
+  return null;
+};
+
+const resolveOnboardingLoginRoute = async (
+  accessToken: string,
+  sessionUser: SessionUser
+): Promise<string | null> => {
+  let response = await withTimeout(
+    fetch('/api/onboarding/init', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    }),
+    LOGIN_TIMEOUT_MS
+  );
+
+  // Email-confirmation signups often have no Supabase session at registration,
+  // so their onboarding row must be created on the first confirmed login.
+  if (response.status === 404) {
+    const accountType = resolveAccountTypeFromSessionUser(sessionUser);
+    if (!accountType) return null; // Preserve legacy/internal accounts without public onboarding metadata.
+
+    response = await withTimeout(
+      fetch('/api/onboarding/init', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          account_type: accountType,
+          forceRegenerateToken: false,
+        }),
+      }),
+      LOGIN_TIMEOUT_MS
+    );
+  }
+
+  const payload = (await response.json().catch(() => null)) as OnboardingAccessPayload | null;
+  if (!response.ok) {
+    throw new Error(payload?.error ?? 'Unable to validate onboarding progress.');
+  }
+
+  return routeFromOnboardingPayload(payload);
 };
 
 /** Convert a structured failure reason into a user-facing message. */
@@ -106,9 +153,9 @@ const authFailureReasonToMessage = (
 ): string => {
   switch (reason) {
     case 'account_pending':
-      return 'Your account is pending approval. Please contact support.';
+      return 'Your account is pending approval.';
     case 'account_blocked':
-      return 'Your account has been suspended. Please contact support.';
+      return 'Your account is suspended or inactive. Please contact support.';
     case 'role_unsupported':
       return 'Your account role is not supported. Please contact support.';
     case 'profile_missing':
@@ -224,6 +271,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const routePendingAccount = useCallback(() => {
+    setUser(null);
+    setHasSupabaseSession(true);
+    if (pathnameRef.current !== '/pending-approval') {
+      router.replace('/pending-approval');
+    }
+  }, [router]);
+
+  const resolveSession = useCallback(async (session: Session): Promise<AuthResolutionResult | null> => {
+    const onboardingRoute = await resolveOnboardingLoginRoute(session.access_token, session.user);
+    if (onboardingRoute) {
+      setUser(null);
+      setHasSupabaseSession(true);
+      if (pathnameRef.current !== onboardingRoute) router.replace(onboardingRoute);
+      return null;
+    }
+
+    const result = await hydrateUser(session.user);
+    if (!result.user && result.reason === 'account_pending') {
+      routePendingAccount();
+      return null;
+    }
+    return result;
+  }, [hydrateUser, routePendingAccount, router]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -263,7 +335,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (isPasswordSetupContext()) {
             setPasswordSetupSessionState();
           } else {
-            await hydrateUser(session.user);
+            await resolveSession(session);
           }
         } else {
           resetAuthState();
@@ -305,7 +377,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // login() is already resolving this session — skip to avoid concurrent
             // LockManager lock acquisition that causes auth-token lock timeout.
           } else {
-            await hydrateUser(session.user);
+            await resolveSession(session);
           }
         } else if (!isPasswordSetupContext(event)) {
           resetAuthState();
@@ -326,7 +398,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [hydrateUser, isPasswordSetupContext, resetAuthState, setPasswordSetupSessionState, syncRouteAuthCookie]);
+  }, [isPasswordSetupContext, resetAuthState, resolveSession, setPasswordSetupSessionState, syncRouteAuthCookie]);
 
   const login = async (
     email: string,
@@ -343,11 +415,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
         LOGIN_TIMEOUT_MS
       );
-      if (error) { return { success: false, error: error.message }; }
-      if (!data.user || !data.session?.access_token) { return { success: false, error: 'Login failed' }; }
+      if (error) {
+        const normalizedMessage = error.message.toLowerCase();
+        if (normalizedMessage.includes('invalid login credentials')) {
+          return { success: false, error: 'Invalid email or password.' };
+        }
+        return { success: false, error: error.message };
+      }
+      if (!data.user || !data.session?.access_token) return { success: false, error: 'Login failed' };
       syncRouteAuthCookie(data.session);
 
-      const onboardingRoute = await resolveOnboardingLoginRoute(data.session.access_token);
+      const onboardingRoute = await resolveOnboardingLoginRoute(data.session.access_token, data.user);
       if (onboardingRoute) {
         setUser(null);
         setHasSupabaseSession(true);
@@ -357,6 +435,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const result = await hydrateUser(data.user);
       if (!result.user) {
+        if (result.reason === 'account_pending') {
+          routePendingAccount();
+          return { success: true, route: '/pending-approval' };
+        }
         if (result.reason === 'db_error') {
           console.error('[XDrive Auth] account validation db_error', {
             query: result.dbError.query,
