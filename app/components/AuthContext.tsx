@@ -59,6 +59,46 @@ const isServiceUnavailableError = (error: unknown): boolean => {
   );
 };
 
+type OnboardingAccessPayload = {
+  error?: string;
+  status?: string;
+  accountType?: 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver';
+  resumeAllowed?: boolean;
+  invitationRevoked?: boolean;
+};
+
+const resolveOnboardingLoginRoute = async (accessToken: string): Promise<string | null> => {
+  const response = await withTimeout(
+    fetch('/api/onboarding/init', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    }),
+    LOGIN_TIMEOUT_MS
+  );
+
+  if (response.status === 404) return null;
+
+  const payload = (await response.json().catch(() => null)) as OnboardingAccessPayload | null;
+  if (!response.ok) {
+    throw new Error(payload?.error ?? 'Unable to validate onboarding progress.');
+  }
+
+  const status = String(payload?.status ?? '').trim().toLowerCase();
+  if (status === 'approved') return null;
+  if (status === 'rejected') return '/forbidden?reason=onboarding-rejected';
+  if (
+    status === 'under_review' ||
+    status === 'submitted' ||
+    status === 'compliance_review' ||
+    status === 'admin_approval'
+  ) {
+    return '/pending-approval';
+  }
+
+  return '/onboarding/resume';
+};
+
 /** Convert a structured failure reason into a user-facing message. */
 const authFailureReasonToMessage = (
   reason: AuthFailureReason | null,
@@ -247,13 +287,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-    syncRouteAuthCookie(session);
+      syncRouteAuthCookie(session);
 
-    // TOKEN_REFRESHED: the Supabase client silently rotated the JWT.
-    // Profile, role, and company context are unchanged — re-running the full
-    // database hydration would fire 4+ unnecessary Supabase queries and can
-    // cascade into repeated dashboard/driver page reloads.
-    if (event === 'TOKEN_REFRESHED' && userRef.current) {
+      // TOKEN_REFRESHED: the Supabase client silently rotated the JWT.
+      // Profile, role, and company context are unchanged — re-running the full
+      // database hydration would fire 4+ unnecessary Supabase queries and can
+      // cascade into repeated dashboard/driver page reloads.
+      if (event === 'TOKEN_REFRESHED' && userRef.current) {
         return;
       }
 
@@ -304,8 +344,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         LOGIN_TIMEOUT_MS
       );
       if (error) { return { success: false, error: error.message }; }
-      if (!data.user) { return { success: false, error: 'Login failed' }; }
+      if (!data.user || !data.session?.access_token) { return { success: false, error: 'Login failed' }; }
       syncRouteAuthCookie(data.session);
+
+      const onboardingRoute = await resolveOnboardingLoginRoute(data.session.access_token);
+      if (onboardingRoute) {
+        setUser(null);
+        setHasSupabaseSession(true);
+        return { success: true, route: onboardingRoute };
+      }
 
       const result = await hydrateUser(data.user);
       if (!result.user) {
@@ -331,7 +378,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isServiceUnavailableError(error)) {
         return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
       }
-      return { success: false, error: 'An error occurred during login' };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'An error occurred during login',
+      };
     } finally {
       loginHydrating.current = false;
     }
