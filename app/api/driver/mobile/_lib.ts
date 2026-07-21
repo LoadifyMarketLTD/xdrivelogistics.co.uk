@@ -63,8 +63,20 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
 
   if (driverError) return respond(500, { error: driverError.message });
   if (!driverRow) return respond(403, { error: 'Driver record not found.' });
-  if ((driverRow as { app_access?: boolean }).app_access === false) return respond(403, { error: 'Driver app access is disabled.' });
-  if (String((driverRow as { status?: string | null }).status ?? '').toLowerCase() !== 'active') return respond(403, { error: 'Driver account is not active.' });
+  if ((driverRow as { app_access?: boolean | null }).app_access !== true) {
+    return respond(403, { error: 'Driver application access is not approved.' });
+  }
+  if (String((driverRow as { status?: string | null }).status ?? '').toLowerCase() !== 'active') {
+    return respond(403, { error: 'Driver account is not active.' });
+  }
+
+  const { data: complianceAllowed, error: complianceError } = await supabaseAdmin.rpc('owner_driver_compliance_current', {
+    p_user_id: authData.user.id,
+  });
+  if (complianceError) return respond(500, { error: complianceError.message });
+  if (complianceAllowed !== true) {
+    return respond(403, { error: 'Mandatory driver compliance is missing, unverified or expired.' });
+  }
 
   return {
     userId: authData.user.id,
