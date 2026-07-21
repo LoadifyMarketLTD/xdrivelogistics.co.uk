@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
+import { getOnboardingComplianceReadiness } from '../../../../../lib/server/onboardingCompliance';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -42,11 +43,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const body = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(body);
-  if (!parsed.success) {
-    return respond(400, { error: 'Invalid review action.' });
-  }
+  if (!parsed.success) return respond(400, { error: 'Invalid review action.' });
 
   const { id } = await params;
+
+  if (parsed.data.action === 'approve') {
+    const { data: readiness, error: readinessError } = await getOnboardingComplianceReadiness(supabaseAdmin, {
+      applicationId: id,
+    });
+    if (readinessError) return respond(500, { error: readinessError });
+    if (!readiness) return respond(404, { error: 'Onboarding application not found.' });
+    if (!readiness.approvalReady) {
+      return respond(409, {
+        error: 'Onboarding cannot be approved until all mandatory documents are uploaded and verified.',
+        missingDocuments: readiness.missingDocuments,
+        unverifiedDocuments: readiness.unverifiedDocuments,
+        requiredDocuments: readiness.requiredDocuments,
+      });
+    }
+  }
 
   const { data: reviewResult, error: reviewError } = await supabaseAdmin.rpc('review_onboarding_application_atomic', {
     p_application_id: id,
