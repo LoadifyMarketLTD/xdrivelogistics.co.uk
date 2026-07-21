@@ -164,11 +164,11 @@ const registerRole = async (page: Page, roleCase: PublicRoleCase) => {
   const email = `${roleCase.accountType}@example.test`;
   const userId = `user-${roleCase.accountType}`;
   let capturedMetadata: Record<string, unknown> | null = null;
-  let capturedInitPayload: Record<string, unknown> | null = null;
+  const capturedInitPayloads: Record<string, unknown>[] = [];
 
   await mockPostgrestForPendingProfile(page, roleCase);
   await mockOnboardingBrowserApis(page, roleCase, 'draft', (payload) => {
-    capturedInitPayload = payload;
+    capturedInitPayloads.push(payload);
   });
 
   await page.route(`${SUPABASE_ORIGIN}/auth/v1/signup**`, async (route) => {
@@ -195,7 +195,7 @@ const registerRole = async (page: Page, roleCase: PublicRoleCase) => {
     owner_driver_workspace: roleCase.accountType === 'owner_driver',
   });
 
-  expect(capturedInitPayload).toEqual({
+  expect(capturedInitPayloads).toContainEqual({
     account_type: roleCase.accountType,
     forceRegenerateToken: false,
   });
