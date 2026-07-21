@@ -84,7 +84,11 @@ const readMetadataFlag = (metadata: Record<string, unknown> | null | undefined, 
 };
 
 export const getFallbackRole = (sessionUser: SessionUser) =>
-  readMetadataRole(sessionUser.app_metadata, 'role');
+  readMetadataRole(sessionUser.app_metadata, 'role')
+  ?? readMetadataRole(sessionUser.user_metadata, 'role')
+  ?? readMetadataRole(sessionUser.user_metadata, 'requested_role')
+  ?? readMetadataRole(sessionUser.user_metadata, 'account_type')
+  ?? readMetadataRole(sessionUser.user_metadata, 'signup_type');
 
 const unsupportedStatusError = (query: string, entity: 'profile' | 'company', rawStatus: unknown): AuthResolutionResult => ({
   user: null,
