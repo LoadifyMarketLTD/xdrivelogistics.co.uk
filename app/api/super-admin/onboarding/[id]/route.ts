@@ -2,22 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
+import { normalizeOnboardingStatus } from '../../../_lib/onboarding';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
 const bodySchema = z.object({
   action: z.enum(['approve', 'reject', 'request_changes']),
   notes: z.string().trim().max(2000).optional(),
-});
+}).strict();
 
 const resolveOwnerProfile = async (authUserId: string) => {
   if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
     .from('profiles')
-    .select('role')
+    .select('role, status')
     .eq('user_id', authUserId)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error || !data || data.role !== 'owner' || data.status !== 'active') return null;
   return data;
 };
 
@@ -36,22 +37,57 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const profile = await resolveOwnerProfile(authData.user.id);
-  if (!profile || profile.role !== 'owner') {
-    return respond(403, { error: 'Forbidden: owner role required.' });
+  if (!profile) {
+    return respond(403, { error: 'Forbidden: active owner role required.' });
   }
 
   const body = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
-    return respond(400, { error: 'Invalid review action.' });
+    return respond(400, { error: 'Invalid review action.', details: parsed.error.flatten() });
   }
 
   const { id } = await params;
+  const { data: application, error: applicationError } = await supabaseAdmin
+    .from('onboarding_applications')
+    .select('id, status, account_type, company_id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (applicationError) return respond(500, { error: applicationError.message });
+  if (!application) return respond(404, { error: 'Onboarding application not found.' });
+  if (application.account_type === 'customer_shipper') {
+    return respond(409, { error: 'Customer onboarding is approved at successful submission and is not reviewed here.' });
+  }
+
+  const status = normalizeOnboardingStatus(application.status);
+  const action = parsed.data.action;
+
+  if ((status === 'approved' && action === 'approve') || (status === 'rejected' && action === 'reject')) {
+    return respond(200, {
+      success: true,
+      onboardingApplicationId: application.id,
+      status,
+      idempotent: true,
+    });
+  }
+
+  const allowed = status === 'under_review'
+    ? new Set(['approve', 'reject', 'request_changes'])
+    : status === 'rejected'
+      ? new Set(['request_changes'])
+      : new Set<string>();
+
+  if (!allowed.has(action)) {
+    return respond(409, {
+      error: `Review action ${action} is not allowed while onboarding is ${status}.`,
+    });
+  }
 
   const { data: reviewResult, error: reviewError } = await supabaseAdmin.rpc('review_onboarding_application_atomic', {
     p_application_id: id,
     p_actor_user_id: authData.user.id,
-    p_action: parsed.data.action,
+    p_action: action,
     p_notes: parsed.data.notes ?? null,
   });
 
