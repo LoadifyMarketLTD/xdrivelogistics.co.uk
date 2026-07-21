@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from './app/api/_lib/supabaseAdmin';
+import { classifyAccessLifecycleStatus, getOnboardingLifecycleRoute } from './lib/accessLifecycle';
 import { getPostLoginRoute } from './lib/authSession';
 import { isRoleAllowedForPath, mapAppRole, resolveAuthoritativeRole, type AppUserRole } from './lib/authRole';
 import { ROUTE_AUTH_COOKIE_NAME } from './lib/routeAuthCookie';
@@ -19,6 +20,7 @@ type RouteAuthResult =
   | { kind: 'unauthenticated' }
   | { kind: 'service_unavailable' }
   | { kind: 'forbidden' }
+  | { kind: 'onboarding'; route: string }
   | {
       kind: 'authenticated';
       role: AppUserRole;
@@ -34,8 +36,9 @@ type RouteAuthResult =
 
 const buildRedirect = (request: NextRequest, pathname: string, clearCookie = false) => {
   const url = request.nextUrl.clone();
-  url.pathname = pathname;
-  url.search = '';
+  const [path, query = ''] = pathname.split('?');
+  url.pathname = path || '/';
+  url.search = query ? `?${query}` : '';
 
   const response = NextResponse.redirect(url);
   if (clearCookie) {
@@ -93,6 +96,13 @@ const readMetadataFlag = (metadata: Record<string, unknown> | null | undefined, 
   const normalized = value.toLowerCase().trim();
   return normalized === 'true' || normalized === '1' || normalized === 'yes';
 };
+
+const hasPublicOnboardingMetadata = (
+  userMetadata: Record<string, unknown> | null | undefined,
+  appMetadata: Record<string, unknown> | null | undefined,
+) => ['account_type', 'requested_role', 'signup_type', 'workspace_mode'].some(
+  (key) => Boolean(readMetadataRole(userMetadata, key) ?? readMetadataRole(appMetadata, key)),
+);
 
 const isOwnerDriverWorkspaceRequested = (
   userMetadata: Record<string, unknown> | null | undefined,
@@ -211,15 +221,11 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     return { kind: 'unauthenticated' };
   }
 
+  const userMetadata = authData.user.user_metadata as Record<string, unknown> | null | undefined;
+  const appMetadata = authData.user.app_metadata as Record<string, unknown> | null | undefined;
   const fallbackRole = readFallbackRole(authData.user.app_metadata?.role);
-  const ownerDriverWorkspace = isOwnerDriverWorkspaceRequested(
-    authData.user.user_metadata as Record<string, unknown> | null | undefined,
-    authData.user.app_metadata as Record<string, unknown> | null | undefined
-  );
-  const ownerDriverExecutionMode = isOwnerDriverExecutionModeRequested(
-    authData.user.user_metadata as Record<string, unknown> | null | undefined,
-    authData.user.app_metadata as Record<string, unknown> | null | undefined
-  );
+  const ownerDriverWorkspace = isOwnerDriverWorkspaceRequested(userMetadata, appMetadata);
+  const ownerDriverExecutionMode = isOwnerDriverExecutionModeRequested(userMetadata, appMetadata);
 
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     const role = mapAppRole(fallbackRole);
@@ -239,7 +245,7 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
       : { kind: 'forbidden' };
   }
 
-  const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
+  const [profileRes, membershipRes, driverRes, creatorCompanyRes, onboardingRes] = await Promise.all([
     supabaseAdmin
       .from('profiles')
       .select('role, status, is_driver')
@@ -264,6 +270,11 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
       .eq('created_by', authData.user.id)
       .limit(1)
       .maybeSingle(),
+    supabaseAdmin
+      .from('onboarding_applications')
+      .select('status')
+      .eq('user_id', authData.user.id)
+      .maybeSingle(),
   ]);
 
   const profile = profileRes.error
@@ -278,19 +289,41 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
   const creatorCompany = creatorCompanyRes.error
     ? null
     : (creatorCompanyRes.data as { company_type?: string | null } | null);
+  const onboarding = onboardingRes.error
+    ? null
+    : (onboardingRes.data as { status?: string | null } | null);
 
   if (
     isServiceFailure(profileRes.error?.message) ||
     isServiceFailure(membershipRes.error?.message) ||
     isServiceFailure(driverRes.error?.message) ||
-    isServiceFailure(creatorCompanyRes.error?.message)
+    isServiceFailure(creatorCompanyRes.error?.message) ||
+    isServiceFailure(onboardingRes.error?.message)
   ) {
     return { kind: 'service_unavailable' };
   }
 
-  const profileStatus = profile?.status?.toLowerCase();
-  if (profileStatus === 'pending' || profileStatus === 'blocked' || profileStatus === 'suspended' || profileStatus === 'inactive') {
+  const profileAccess = classifyAccessLifecycleStatus(profile?.status ?? 'active');
+  if (profileAccess === 'blocked') {
     return { kind: 'forbidden' };
+  }
+
+  if (profileAccess === 'pending') {
+    const onboardingRoute = onboarding ? getOnboardingLifecycleRoute(onboarding.status) : null;
+    if (onboardingRoute) return { kind: 'onboarding', route: onboardingRoute };
+
+    // An approved application can temporarily coexist with a stale pending
+    // profile while access synchronisation completes. Continue to the
+    // authoritative role checks instead of sending an approved account back to
+    // Pending Approval.
+    if (String(onboarding?.status ?? '').trim().toLowerCase() !== 'approved') {
+      return {
+        kind: 'onboarding',
+        route: hasPublicOnboardingMetadata(userMetadata, appMetadata)
+          ? '/onboarding/resume'
+          : '/pending-approval',
+      };
+    }
   }
 
   const role = resolveAuthoritativeRole({
@@ -355,6 +388,10 @@ export async function middleware(request: NextRequest) {
 
   if (auth.kind === 'service_unavailable') {
     return buildLoginRedirect(request, 'service_unavailable');
+  }
+
+  if (auth.kind === 'onboarding') {
+    return buildRedirect(request, auth.route);
   }
 
   if (auth.kind === 'forbidden') {
