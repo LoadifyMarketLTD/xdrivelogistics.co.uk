@@ -5,21 +5,46 @@ export function Field({
   value,
   onChange,
   type = 'text',
+  required = false,
+  error = '',
+  autoComplete,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: 'text' | 'email' | 'date';
+  required?: boolean;
+  error?: string;
+  autoComplete?: string;
 }) {
+  const errorId = `${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-error`;
+
   return (
     <label style={{ display: 'block', marginBottom: '0.75rem' }}>
-      <div style={{ marginBottom: '0.35rem', fontWeight: 500 }}>{label}</div>
+      <div style={{ marginBottom: '0.35rem', fontWeight: 500 }}>
+        {label}
+        {required ? <span aria-hidden="true" style={{ color: '#B91C1C' }}> *</span> : null}
+      </div>
       <input
         type={type}
         value={value}
+        required={required}
+        autoComplete={autoComplete}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
         onChange={(e) => onChange(e.target.value)}
-        style={{ width: '100%', border: '1px solid #D1D5DB', borderRadius: 6, padding: '0.6rem 0.75rem' }}
+        style={{
+          width: '100%',
+          border: `1px solid ${error ? '#DC2626' : '#D1D5DB'}`,
+          borderRadius: 6,
+          padding: '0.6rem 0.75rem',
+        }}
       />
+      {error ? (
+        <div id={errorId} role="alert" style={{ color: '#B91C1C', fontSize: '0.9rem', marginTop: '0.3rem' }}>
+          {error}
+        </div>
+      ) : null}
     </label>
   );
 }
@@ -85,11 +110,12 @@ export function PageLayout({
 
       {children}
 
-      {error && <p style={{ color: '#B91C1C' }}>{error}</p>}
+      {error && <p role="alert" style={{ color: '#B91C1C' }}>{error}</p>}
       {message && <p style={{ color: '#166534' }}>{message}</p>}
 
       <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
         <button
+          type="button"
           onClick={onSave}
           disabled={saving}
           style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #D1D5DB', cursor: 'pointer' }}
@@ -97,6 +123,7 @@ export function PageLayout({
           Save and continue later
         </button>
         <button
+          type="button"
           onClick={onSubmit}
           disabled={saving || submitDisabled}
           style={{
@@ -111,6 +138,7 @@ export function PageLayout({
           Submit for review
         </button>
         <button
+          type="button"
           onClick={backToLogin}
           style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #D1D5DB', cursor: 'pointer' }}
         >
