@@ -126,7 +126,7 @@ const unsupportedStatusError = (
 const workspaceRoleForPublicAccount = (accountType: AccountType | null): WorkspaceRole | null => {
   if (accountType === 'customer') return 'customer';
   if (accountType === 'broker') return 'broker';
-  if (accountType === 'fleet_operator') return 'carrier_admin';
+  if (accountType === 'fleet_operator') return 'company_owner';
   if (accountType === 'owner_driver') return 'owner_driver';
   return null;
 };
@@ -135,9 +135,9 @@ const resolveFinanceAccess = (
   role: UserRole,
   membershipRole: CompanyMembership['role_in_company'] | null,
   sessionUser: SessionUser,
-  accountType: AccountType | null
+  ownerDriverWorkspace: boolean
 ): 'full' | 'limited' | 'hidden' => {
-  if (accountType === 'owner_driver') return 'hidden';
+  if (ownerDriverWorkspace) return 'hidden';
   if (role === 'owner' || role === 'company_admin') return 'full';
   if (role !== 'company_staff') return 'hidden';
   if (membershipRole === 'finance') return 'full';
@@ -208,7 +208,7 @@ export const resolveAuthenticatedUser = async (
 
   const accountType = resolveAccountTypeFromMetadata(sessionUser.user_metadata, sessionUser.app_metadata);
   const fallbackRole = getFallbackRole(sessionUser);
-  const ownerDriverWorkspaceRequested = accountType === 'owner_driver' || isDriverProviderWorkspaceRequested(
+  const ownerDriverWorkspaceFromMetadata = accountType === 'owner_driver' || isDriverProviderWorkspaceRequested(
     sessionUser.user_metadata,
     sessionUser.app_metadata
   );
@@ -281,6 +281,14 @@ export const resolveAuthenticatedUser = async (
     company_type: string | null;
     status: string | null;
   } | null;
+  const normalizedCreatorCompanyType = (creatorCompany?.company_type ?? '').toLowerCase().trim();
+  const ownerDriverWorkspace = ownerDriverWorkspaceFromMetadata
+    || ['owner_driver', 'owner_operator'].includes(normalizedCreatorCompanyType)
+    || (
+      mapAppRole(profile.role) === 'driver'
+      && membership?.role_in_company === 'owner'
+      && Boolean(driver)
+    );
 
   const context = resolveAuthContext({
     membershipRole: membership?.role_in_company ?? null,
@@ -293,18 +301,21 @@ export const resolveAuthenticatedUser = async (
     driverCompanyId: driver?.company_id ?? null,
     creatorCompanyId: creatorCompany?.id ?? null,
     mustChangePassword: driver?.must_change_password === true,
-    ownerDriverWorkspaceRequested,
+    ownerDriverWorkspaceRequested: ownerDriverWorkspace,
   });
 
   if (!context.role) return { user: null, reason: 'role_unsupported' };
 
   const resolvedRole = context.role as UserRole;
   const companyId = context.companyId;
-  if (roleRequiresCompanyContext(resolvedRole) && (!companyId || !membership)) {
+  const isCustomerWorkspace = resolvedRole === 'customer';
+  const requiresActiveCompany = roleRequiresCompanyContext(resolvedRole) || isCustomerWorkspace || ownerDriverWorkspace;
+
+  if (requiresActiveCompany && (!companyId || !membership)) {
     return { user: null, reason: 'company_context_missing' };
   }
 
-  if (roleRequiresCompanyContext(resolvedRole) && companyId) {
+  if (requiresActiveCompany && companyId) {
     let companyStatus = creatorCompany?.id === companyId ? creatorCompany.status : null;
     if (creatorCompany?.id !== companyId) {
       const companyStatusQuery = `companies.select(status).eq(id,${companyId}).maybeSingle()`;
@@ -325,14 +336,19 @@ export const resolveAuthenticatedUser = async (
     }
   }
 
-  if (accountType === 'owner_driver' && driver?.app_access !== true) {
+  if (ownerDriverWorkspace && driver?.app_access !== true) {
     return { user: null, reason: 'account_pending' };
   }
 
   const membershipRole = membership?.role_in_company ?? null;
-  const financeAccess = resolveFinanceAccess(resolvedRole, membershipRole, sessionUser, accountType);
-  const rawRole = accountType ?? fallbackRole ?? profile.role ?? null;
-  const canAccessDriverMode = ownerDriverWorkspaceRequested && (
+  const financeAccess = resolveFinanceAccess(resolvedRole, membershipRole, sessionUser, ownerDriverWorkspace);
+  const rawRole = accountType
+    ?? (ownerDriverWorkspace ? 'owner_driver' : null)
+    ?? (resolvedRole === 'broker' ? 'broker' : null)
+    ?? fallbackRole
+    ?? profile.role
+    ?? null;
+  const canAccessDriverMode = ownerDriverWorkspace && (
     Boolean(driver)
     || profile.is_driver === true
     || mapAppRole(profile.role) === 'driver'
@@ -346,11 +362,13 @@ export const resolveAuthenticatedUser = async (
     membership?.id ?? null,
     membershipRole,
     driver?.id ?? null,
-    canAccessDriverMode ? driver?.must_change_password === true : resolvedRole === 'driver' && driver?.must_change_password === true,
+    resolvedRole === 'driver' ? driver?.must_change_password === true : false,
     {
       rawRole,
-      workspaceRoleOverride: workspaceRoleForPublicAccount(accountType),
-      ownerDriverWorkspace: ownerDriverWorkspaceRequested,
+      workspaceRoleOverride: workspaceRoleForPublicAccount(accountType)
+        ?? (ownerDriverWorkspace ? 'owner_driver' : null)
+        ?? (resolvedRole === 'broker' ? 'broker' : null),
+      ownerDriverWorkspace,
       canAccessDriverMode,
       ownerDriverExecutionMode: ownerDriverExecutionModeRequested,
       financeAccess,
