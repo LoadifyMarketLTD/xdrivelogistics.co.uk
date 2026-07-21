@@ -9,6 +9,7 @@ import {
 type Params = { params: Promise<{ id: string }> };
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
+const AWARD_ROLES = new Set(['owner', 'admin', 'dispatcher']);
 
 export async function POST(request: NextRequest, { params }: Params) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -29,11 +30,6 @@ export async function POST(request: NextRequest, { params }: Params) {
   const { id: bidId } = await params;
   if (!bidId) return json(400, { error: 'Bad request - missing bid id.' });
 
-  // Pre-flight: verify the caller is authorised to award this bid.
-  // The canonical accept_job_bid_atomic function authorises actors who are
-  // either (a) the job's created_by user or (b) a company member with an
-  // owner/admin/dispatcher role.  We do a lightweight ownership check here
-  // so we can return a clear 403 before calling the DB function.
   const { data: bid, error: bidError } = await supabaseAdmin
     .from('job_bids')
     .select('id, job_id, status')
@@ -50,23 +46,31 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   if (jobError || !job) return json(404, { error: 'Job not found.' });
 
-  // Caller must be the job creator OR an active member of the owning company.
+  // The original creator may award their own job. Every other company user must
+  // hold an active operational role; finance, viewer, member and driver roles
+  // are intentionally read-only for commercial award decisions.
   const isCreator = job.created_by === user.id;
   if (!isCreator) {
-    const { data: membership } = await supabaseAdmin
+    const { data: membership, error: membershipError } = await supabaseAdmin
       .from('company_memberships')
-      .select('id')
+      .select('role_in_company, status')
       .eq('user_id', user.id)
       .eq('company_id', job.company_id as string)
       .eq('status', 'active')
       .maybeSingle();
 
-    if (!membership) {
-      return json(403, { error: 'Forbidden - only the job owner can award bids.' });
+    if (membershipError) {
+      return json(500, { error: 'Failed to verify company award permission.' });
+    }
+
+    const role = String(membership?.role_in_company ?? '').toLowerCase();
+    if (!AWARD_ROLES.has(role)) {
+      return json(403, {
+        error: 'Forbidden - owner, admin or dispatcher role required to award bids.',
+      });
     }
   }
 
-  // Delegate to the canonical atomic award function.
   const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
     'accept_job_bid_atomic',
     {
