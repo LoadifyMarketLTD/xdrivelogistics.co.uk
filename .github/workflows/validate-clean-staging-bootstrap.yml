@@ -1,0 +1,121 @@
+name: Validate Clean Staging Bootstrap
+
+on:
+  push:
+    branches:
+      - agent/staging-integration
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/prepare_staging_bootstrap.py"
+      - ".github/workflows/validate-clean-staging-bootstrap.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-clean-staging-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  local-bootstrap:
+    name: Apply normalized migrations to disposable local Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout staging integration branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Initialize isolated Supabase project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .staging-bootstrap
+          mkdir -p .staging-bootstrap
+          cd .staging-bootstrap
+          supabase init
+
+      - name: Prepare normalized migration set
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/prepare_staging_bootstrap.py \
+            --source supabase/migrations \
+            --destination .staging-bootstrap/supabase/migrations \
+            --manifest .staging-bootstrap/bootstrap-manifest.json
+
+      - name: Validate prepared migration manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import pathlib
+
+          manifest_path = pathlib.Path('.staging-bootstrap/bootstrap-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          migrations = manifest['migrations']
+          versions = [item['staged_version'] for item in migrations]
+
+          assert migrations, 'No migrations were prepared'
+          assert len(versions) == len(set(versions)), 'Prepared migration versions are not unique'
+          assert manifest['excluded_count'] == 1, 'Unexpected number of excluded migrations'
+          assert manifest['excluded'][0]['source'] == '068_targeted_data_repair_current_accounts.sql'
+          assert migrations[-5]['source'] == '20260720231500_onboarding_approval_driver_access_guard.sql'
+          assert migrations[-4]['source'] == '20260720234500_canonical_driver_job_lifecycle.sql'
+          assert migrations[-3]['source'] == '20260720235500_invoice_delivery_tracking.sql'
+          assert migrations[-2]['source'] == '20260721000500_job_creation_idempotency.sql'
+          assert migrations[-1]['source'] == '20260721001500_scrub_notification_secrets.sql'
+
+          print(f"Manifest validated: {len(migrations)} included, {manifest['excluded_count']} excluded")
+          PY
+
+      - name: Start disposable local Supabase and apply migrations
+        working-directory: .staging-bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+
+      - name: Rebuild disposable database from migration zero
+        working-directory: .staging-bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db reset --local
+
+      - name: Confirm every prepared migration was recorded
+        working-directory: .staging-bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(python -c "import json; print(json.load(open('bootstrap-manifest.json'))['included_count'])")
+          actual=$(supabase migration list --local | awk '/^[[:space:]]*[0-9]{14}[[:space:]]*\\|/ {count++} END {print count+0}')
+          echo "Expected migration count: $expected"
+          echo "Recorded migration count: $actual"
+          test "$actual" -eq "$expected"
+
+      - name: Upload bootstrap manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-staging-bootstrap-manifest
+          path: .staging-bootstrap/bootstrap-manifest.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stop disposable local Supabase
+        if: always()
+        working-directory: .staging-bootstrap
+        shell: bash
+        run: supabase stop --no-backup || true
