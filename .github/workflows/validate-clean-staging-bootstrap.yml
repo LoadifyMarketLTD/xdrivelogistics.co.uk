@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Reject UTF-8 BOM in SQL migrations
+      - name: Report UTF-8 BOM in source migrations
         shell: bash
         run: |
           set -euo pipefail
@@ -45,11 +45,10 @@ jobs:
           ]
 
           if bad:
-              print('UTF-8 BOM detected in SQL migration files:')
+              print('UTF-8 BOM found; temporary bootstrap copies will be normalized:')
               print('\n'.join(bad))
-              raise SystemExit(1)
-
-          print('No UTF-8 BOM found in SQL migration files.')
+          else:
+              print('No UTF-8 BOM found in source migrations.')
           PY
 
       - name: Set up Supabase CLI
@@ -92,13 +91,18 @@ jobs:
           assert len(versions) == len(set(versions)), 'Prepared migration versions are not unique'
           assert manifest['excluded_count'] == 1, 'Unexpected number of excluded migrations'
           assert manifest['excluded'][0]['source'] == '068_targeted_data_repair_current_accounts.sql'
+          assert all(not pathlib.Path('.staging-bootstrap/supabase/migrations', item['staged']).read_bytes().startswith(b'\xef\xbb\xbf') for item in migrations), 'Prepared migration still contains UTF-8 BOM'
           assert migrations[-5]['source'] == '20260720231500_onboarding_approval_driver_access_guard.sql'
           assert migrations[-4]['source'] == '20260720234500_canonical_driver_job_lifecycle.sql'
           assert migrations[-3]['source'] == '20260720235500_invoice_delivery_tracking.sql'
           assert migrations[-2]['source'] == '20260721000500_job_creation_idempotency.sql'
           assert migrations[-1]['source'] == '20260721001500_scrub_notification_secrets.sql'
 
-          print(f"Manifest validated: {len(migrations)} included, {manifest['excluded_count']} excluded")
+          print(
+              f"Manifest validated: {len(migrations)} included, "
+              f"{manifest['excluded_count']} excluded, "
+              f"{manifest.get('bom_normalized_count', 0)} BOM-normalized"
+          )
           PY
 
       - name: Start disposable local Supabase and apply migrations
@@ -127,18 +131,21 @@ jobs:
           test "$actual" -eq "$expected"
 
       - name: Upload bootstrap manifest
-        if: always()
+        if: ${{ always() && hashFiles('.staging-bootstrap/bootstrap-manifest.json') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: clean-staging-bootstrap-manifest
           path: .staging-bootstrap/bootstrap-manifest.json
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Stop disposable local Supabase
         if: always()
-        working-directory: .staging-bootstrap
         shell: bash
-        run: supabase stop --no-backup || true
-
-# Retriggered after the previous run was accidentally deleted from the Actions history.
+        run: |
+          if [ -d ".staging-bootstrap" ]; then
+            cd .staging-bootstrap
+            supabase stop --no-backup || true
+          else
+            echo "Skipping stop: .staging-bootstrap was not created."
+          fi
