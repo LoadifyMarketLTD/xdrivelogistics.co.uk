@@ -10,9 +10,8 @@ import {
   normalizeOnboardingStatus,
   resolveOnboardingAccountTypeFromMetadata,
   resolveOnboardingTokenTtlHours,
-  type OnboardingAccountType,
-  type OnboardingStatus,
 } from '../../_lib/onboarding';
+import { syncOnboardingAccess } from '../_lib/accessSync';
 
 const requestSchema = z.object({
   forceRegenerateToken: z.boolean().optional(),
@@ -20,13 +19,6 @@ const requestSchema = z.object({
 
 const RESEND_COOLDOWN_MS = 60_000;
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
-
-const PROFILE_ROLE_BY_ACCOUNT_TYPE: Record<OnboardingAccountType, 'customer' | 'broker' | 'company_admin' | 'driver'> = {
-  customer_shipper: 'customer',
-  broker_shipper: 'broker',
-  fleet_courier: 'company_admin',
-  owner_driver: 'driver',
-};
 
 const authenticate = async (request: NextRequest) => {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -51,67 +43,6 @@ const selectExistingApplication = async (userId: string) => supabaseAdmin!
   .eq('user_id', userId)
   .maybeSingle();
 
-const syncAccessFromOnboarding = async ({
-  userId,
-  accountType,
-  status,
-  companyId,
-}: {
-  userId: string;
-  accountType: OnboardingAccountType;
-  status: OnboardingStatus;
-  companyId: string | null;
-}) => {
-  const { data: existingProfile, error: profileReadError } = await supabaseAdmin!
-    .from('profiles')
-    .select('status')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (profileReadError) return profileReadError;
-
-  const lifecycleStatus = status === 'approved'
-    ? 'active'
-    : status === 'rejected'
-      ? 'blocked'
-      : 'pending';
-  const profileStatus = String(existingProfile?.status ?? '').toLowerCase() === 'suspended'
-    ? 'suspended'
-    : lifecycleStatus;
-
-  const { error: profileError } = await supabaseAdmin!
-    .from('profiles')
-    .upsert(
-      {
-        user_id: userId,
-        role: PROFILE_ROLE_BY_ACCOUNT_TYPE[accountType],
-        status: profileStatus,
-        company_id: companyId,
-        is_driver: accountType === 'owner_driver',
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    );
-
-  if (profileError) return profileError;
-
-  if (accountType !== 'owner_driver') return null;
-
-  const driverPatch: Record<string, unknown> = {
-    app_access: status === 'approved' && profileStatus !== 'suspended',
-    updated_at: new Date().toISOString(),
-  };
-  if (companyId) driverPatch.company_id = companyId;
-  if (status === 'approved' && profileStatus !== 'suspended') driverPatch.status = 'active';
-
-  const { error: driverError } = await supabaseAdmin!
-    .from('drivers')
-    .update(driverPatch)
-    .eq('user_id', userId);
-
-  return driverError;
-};
-
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
   if (auth.error || !auth.user) return auth.error;
@@ -129,7 +60,7 @@ export async function GET(request: NextRequest) {
   }
 
   const status = normalizeOnboardingStatus(existing.status);
-  const accessSyncError = await syncAccessFromOnboarding({
+  const accessSyncError = await syncOnboardingAccess(supabaseAdmin!, {
     userId: auth.user.id,
     accountType,
     status,
@@ -246,7 +177,7 @@ export async function POST(request: NextRequest) {
   if (upsertError) return json(500, { error: upsertError.message });
 
   const normalizedUpsertedStatus = normalizeOnboardingStatus(upserted.status);
-  const accessSyncError = await syncAccessFromOnboarding({
+  const accessSyncError = await syncOnboardingAccess(supabaseAdmin!, {
     userId: authUser.id,
     accountType,
     status: normalizedUpsertedStatus,
