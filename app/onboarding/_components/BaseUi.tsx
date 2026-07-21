@@ -77,7 +77,7 @@ export function PageLayout({
   onSave,
   onSubmit,
   saving,
-  backToLogin,
+  onSignOut,
   submitDisabled,
 }: {
   title: string;
@@ -90,7 +90,7 @@ export function PageLayout({
   onSave: () => void;
   onSubmit: () => void;
   saving: boolean;
-  backToLogin: () => void;
+  onSignOut: () => void;
   submitDisabled?: boolean;
 }) {
   return (
@@ -118,7 +118,7 @@ export function PageLayout({
           type="button"
           onClick={onSave}
           disabled={saving}
-          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #D1D5DB', cursor: 'pointer' }}
+          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #D1D5DB', cursor: saving ? 'wait' : 'pointer' }}
         >
           Save and continue later
         </button>
@@ -132,17 +132,18 @@ export function PageLayout({
             border: 'none',
             background: '#1D4ED8',
             color: '#fff',
-            cursor: 'pointer',
+            cursor: saving || submitDisabled ? 'not-allowed' : 'pointer',
           }}
         >
           Submit for review
         </button>
         <button
           type="button"
-          onClick={backToLogin}
-          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #D1D5DB', cursor: 'pointer' }}
+          onClick={onSignOut}
+          disabled={saving}
+          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #D1D5DB', cursor: saving ? 'wait' : 'pointer' }}
         >
-          Back to login
+          Sign out
         </button>
       </div>
     </main>
