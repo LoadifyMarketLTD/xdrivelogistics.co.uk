@@ -37,7 +37,78 @@ data class DriverJob(
     val pickupDistanceFromActiveDeliveryMiles: Double? = null,
     val deliveryPhotos: List<String> = emptyList(),
     val podPhotos: List<String> = emptyList(),
-)
+) {
+    fun statusKey(): String = currentStatus.ifBlank { status }.lowercase()
+
+    fun driverStatusKey(): String = when (statusKey()) {
+        "assigned", "accepted" -> "allocated"
+        "arrived_pickup" -> "on_site_pickup"
+        "collected" -> "loaded"
+        "on_route_delivery" -> "in_transit"
+        "arrived_delivery" -> "on_site_delivery"
+        else -> statusKey()
+    }
+
+    fun isInProgress(): Boolean = driverStatusKey() in listOf(
+        "on_my_way",
+        "on_site_pickup",
+        "loaded",
+        "in_transit",
+        "on_site_delivery",
+        "in_progress",
+    )
+
+    fun isActive(): Boolean = driverStatusKey() !in listOf(
+        "delivered",
+        "completed",
+        "cancelled",
+        "canceled",
+        "invoiced",
+        "paid",
+    )
+
+    fun hasPod(): Boolean = podPhotos.isNotEmpty() || deliveryPhotos.isNotEmpty()
+
+    fun isPosted(): Boolean = driverStatusKey() == "posted"
+
+    fun routeLabel(): String = "${pickupLocation.ifBlank { "Pickup" }} -> ${deliveryLocation.ifBlank { "Delivery" }}"
+
+    fun statusLabel(): String = when (driverStatusKey()) {
+        "allocated" -> "Allocated"
+        "on_my_way" -> "On My Way to Collection"
+        "on_site_pickup" -> "Arrived at Collection"
+        "loaded" -> "Loaded"
+        "in_transit" -> "On My Way to Delivery"
+        "on_site_delivery" -> "Arrived at Delivery"
+        "delivered" -> "Delivered (POD)"
+        "completed" -> "Completed"
+        else -> driverStatusKey().split('_').joinToString(" ") { part -> part.replaceFirstChar { it.uppercase() } }
+    }
+
+    fun nextStatus(): String = when (driverStatusKey()) {
+        "allocated", "awarded" -> "on_my_way"
+        "on_my_way" -> "on_site_pickup"
+        "on_site_pickup" -> "loaded"
+        "loaded" -> "in_transit"
+        "in_transit" -> "on_site_delivery"
+        "on_site_delivery" -> "delivered"
+        "delivered" -> "completed"
+        else -> ""
+    }
+
+    fun nextActionLabel(): String = when (nextStatus()) {
+        "on_my_way" -> "On My Way to Collection"
+        "on_site_pickup" -> "Arrived at Collection"
+        "loaded" -> "Loaded / Collected"
+        "in_transit" -> "On My Way to Delivery"
+        "on_site_delivery" -> "Arrived at Delivery"
+        "delivered" -> "Mark as Delivered"
+        "completed" -> "Complete Job"
+        else -> "No further action"
+    }
+
+    fun canMoveNext(): Boolean = nextStatus().isNotBlank() && (nextStatus() != "delivered" || hasPod())
+}
 
 data class DriverDocument(
     val id: String,

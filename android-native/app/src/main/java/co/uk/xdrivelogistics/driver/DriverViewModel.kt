@@ -324,7 +324,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 _uiState.value = _uiState.value.copy(error = "Selected job was not found.")
                 return@launch
             }
-
+            if (selectedJob.status.lowercase() == "posted" || selectedJob.currentStatus.lowercase() == "posted") {
+                _uiState.value = _uiState.value.copy(error = "Submit a quote and wait for the customer to award the job before starting work.")
+                return@launch
+            }
             if (nextStatus == "delivered" && selectedJob.podPhotos.isEmpty() && selectedJob.deliveryPhotos.isEmpty()) {
                 _uiState.value = _uiState.value.copy(error = "Upload POD before marking delivery complete.")
                 return@launch
@@ -339,13 +342,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
 
-            val result = if (nextStatus == "allocated" && selectedJob.status.lowercase() == "posted") {
-                api.acceptPostedJob(session, profile, jobId)
-            } else {
-                api.updateJobStatus(session, profile.driverId, jobId, nextStatus)
-            }
-
-            result
+            api.updateJobStatus(session, profile.driverId, jobId, nextStatus)
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -501,11 +498,11 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 private fun isValidTransition(currentRaw: String, next: String): Boolean {
     val current = normalizeDriverStatus(currentRaw)
     return when (next) {
-        "allocated" -> current == "posted"
-        "on_my_way" -> current == "allocated"
+        "on_my_way" -> current in listOf("allocated", "awarded")
         "on_site_pickup" -> current == "on_my_way"
         "loaded" -> current == "on_site_pickup"
-        "on_site_delivery" -> current == "loaded"
+        "in_transit" -> current == "loaded"
+        "on_site_delivery" -> current == "in_transit"
         "delivered" -> current == "on_site_delivery"
         "completed" -> current == "delivered"
         else -> false
@@ -514,11 +511,11 @@ private fun isValidTransition(currentRaw: String, next: String): Boolean {
 
 private fun normalizeDriverStatus(raw: String): String =
     when (raw.lowercase().ifBlank { "assigned" }) {
-        "assigned" -> "allocated"
-        "accepted" -> "allocated"
+        "assigned", "accepted" -> "allocated"
         "arrived_pickup" -> "on_site_pickup"
         "collected" -> "loaded"
-        "in_transit", "on_route_delivery", "arrived_delivery" -> "on_site_delivery"
+        "on_route_delivery" -> "in_transit"
+        "arrived_delivery" -> "on_site_delivery"
         else -> raw.lowercase().ifBlank { "assigned" }
     }
 
