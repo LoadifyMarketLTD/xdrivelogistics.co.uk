@@ -18,7 +18,7 @@ on:
       - ".github/workflows/validate-remote-staging-fleet-driver-invitation.yml"
 
 permissions:
-  contents: read
+  contents: write
   issues: write
   pull-requests: write
 
@@ -170,6 +170,64 @@ jobs:
           set -euo pipefail
           node scripts/validate_remote_staging_fleet_driver_invitation.mjs \
             2>&1 | tee /tmp/staging-fleet-driver-invitation.log
+
+      - name: Record machine-readable invited fleet driver result
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          python - <<PY
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          payload = {
+              'result': '${JOB_STATUS}',
+              'source_sha': '${GITHUB_SHA}',
+              'run_id': '${GITHUB_RUN_ID}',
+              'run_url': '${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}',
+              'branch': '${GITHUB_REF_NAME}',
+              'project_ref': '${SUPABASE_PROJECT_REF}',
+              'validated': [
+                  'owner-only invitation',
+                  'viewer and unrelated tenant denial',
+                  '48-hour invitation expiry',
+                  'invited membership and no early app access',
+                  'authenticated invitation acceptance',
+                  'mandatory private document upload',
+                  'document replacement without duplicates',
+                  'signed administrator preview',
+                  'atomic final approval',
+                  'safe authenticated resume',
+                  'revocation',
+                  'resend token rotation',
+                  'expired-token denial',
+              ],
+              'production_targeted': False,
+              'recorded_at': datetime.now(timezone.utc).isoformat(),
+          }
+          Path('/tmp/fleet-driver-validation.json').write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          encoded=$(base64 -w 0 /tmp/fleet-driver-validation.json)
+          endpoint="repos/${GITHUB_REPOSITORY}/contents/staging-validation/fleet-driver-latest.json"
+          existing_sha=$(gh api "$endpoint?ref=agent/staging-integration" --jq .sha 2>/dev/null || true)
+
+          if [ -n "$existing_sha" ]; then
+            gh api --method PUT "$endpoint" \
+              -f message="ci(staging): record Fleet Driver validation ${JOB_STATUS}" \
+              -f content="$encoded" \
+              -f sha="$existing_sha" \
+              -f branch="agent/staging-integration"
+          else
+            gh api --method PUT "$endpoint" \
+              -f message="ci(staging): record Fleet Driver validation ${JOB_STATUS}" \
+              -f content="$encoded" \
+              -f branch="agent/staging-integration"
+          fi
 
       - name: Publish invited fleet driver success
         if: success()
