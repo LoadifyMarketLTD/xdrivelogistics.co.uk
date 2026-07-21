@@ -104,7 +104,21 @@ jobs:
             exit 1
           fi
 
-          npx playwright test e2e/public.spec.ts --project=chromium
+          TEST_EXIT=0
+          npx playwright test e2e/public.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line > /tmp/playwright-output.txt 2>&1 || TEST_EXIT=$?
+          cat /tmp/playwright-output.txt
+          exit "$TEST_EXIT"
+
+      - name: Upload onboarding E2E diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: onboarding-e2e-diagnostics
+          path: |
+            /tmp/playwright-output.txt
+            /tmp/xdrive-next.log
+          if-no-files-found: warn
+          retention-days: 3
 
   codeql:
     name: CodeQL Security Scan
