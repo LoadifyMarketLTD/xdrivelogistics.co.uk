@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { classifyOnboardingLifecycleStatus } from '../../../lib/accessLifecycle';
 import { supabase } from '../../../lib/supabaseClient';
 import { Field, PageLayout } from './BaseUi';
 
@@ -22,6 +23,17 @@ type CustomerPayload = {
   billing_address: string;
 };
 
+type CustomerFieldErrors = Partial<Record<keyof CustomerPayload, string>>;
+
+type ApiErrorPayload = {
+  error?: string;
+  details?: {
+    fieldErrors?: Record<string, string[] | undefined>;
+    formErrors?: string[];
+  };
+  application?: Application;
+};
+
 const defaultPayload: CustomerPayload = {
   full_name: '',
   contact_email: '',
@@ -30,10 +42,21 @@ const defaultPayload: CustomerPayload = {
   billing_address: '',
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const apiErrorMessage = (payload: ApiErrorPayload, fallback: string) => {
+  const firstFieldError = Object.entries(payload.details?.fieldErrors ?? {})
+    .find(([, messages]) => messages?.[0]);
+  return firstFieldError
+    ? `${firstFieldError[0].replace(/_/g, ' ')}: ${firstFieldError[1]?.[0]}`
+    : payload.error ?? payload.details?.formErrors?.[0] ?? fallback;
+};
+
 export function CustomerOnboarding({ token }: { token: string }) {
   const router = useRouter();
   const [application, setApplication] = useState<Application | null>(null);
   const [formData, setFormData] = useState<CustomerPayload>(defaultPayload);
+  const [fieldErrors, setFieldErrors] = useState<CustomerFieldErrors>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -45,7 +68,35 @@ export function CustomerOnboarding({ token }: { token: string }) {
     } = await supabase.auth.getSession();
 
     if (!session?.access_token) return {};
-    return { Authorization: 'Bearer ' + session.access_token };
+    return { Authorization: `Bearer ${session.access_token}` };
+  };
+
+  const routeForStatus = useCallback((status: string) => {
+    const lifecycle = classifyOnboardingLifecycleStatus(status);
+    if (lifecycle === 'approved') {
+      router.replace('/customer');
+      return true;
+    }
+    if (lifecycle === 'review') {
+      router.replace('/pending-approval');
+      return true;
+    }
+    if (lifecycle === 'rejected') {
+      router.replace('/forbidden?reason=onboarding-rejected');
+      return true;
+    }
+    return false;
+  }, [router]);
+
+  const updateField = (field: keyof CustomerPayload, value: string) => {
+    setFormData((previous) => ({ ...previous, [field]: value }));
+    setFieldErrors((previous) => {
+      if (!previous[field]) return previous;
+      const next = { ...previous };
+      delete next[field];
+      return next;
+    });
+    setError('');
   };
 
   const loadSession = useCallback(async () => {
@@ -54,23 +105,35 @@ export function CustomerOnboarding({ token }: { token: string }) {
 
     try {
       const headers = await authHeaders();
+      if (!headers.Authorization) {
+        router.replace('/login?next=/onboarding/customer/resume');
+        return;
+      }
       const query = token && token !== 'resume' ? `?token=${encodeURIComponent(token)}` : '';
-      const res = await fetch(`/api/onboarding/customer/session${query}`, { method: 'GET', headers });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Failed to load onboarding session.');
+      const res = await fetch(`/api/onboarding/customer/session${query}`, { method: 'GET', headers, cache: 'no-store' });
+      const data = (await res.json().catch(() => null)) as ApiErrorPayload | null;
+      if (!res.ok || !data?.application) {
+        setError(apiErrorMessage(data ?? {}, 'Failed to load onboarding session.'));
         return;
       }
 
+      if (routeForStatus(data.application.status)) return;
       setApplication(data.application);
-      const payload = (data.application?.payload ?? {}) as Partial<CustomerPayload>;
-      setFormData({ ...defaultPayload, ...payload });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load onboarding session.');
+      const payload = (data.application.payload ?? {}) as Partial<CustomerPayload>;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setFormData({
+        ...defaultPayload,
+        contact_email: user?.email ?? '',
+        ...payload,
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to load onboarding session.');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [routeForStatus, router, token]);
 
   useEffect(() => {
     void loadSession();
@@ -93,21 +156,42 @@ export function CustomerOnboarding({ token }: { token: string }) {
           payload: formData,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Failed to save onboarding progress.');
+      const data = (await res.json().catch(() => null)) as ApiErrorPayload | null;
+      if (!res.ok || !data?.application) {
+        setError(apiErrorMessage(data ?? {}, 'Failed to save onboarding progress.'));
         return;
       }
       setApplication(data.application);
       setMessage('Progress saved.');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save onboarding progress.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to save onboarding progress.');
     } finally {
       setSaving(false);
     }
   };
 
   const submitOnboarding = async () => {
+    const normalizedPayload: CustomerPayload = {
+      full_name: formData.full_name.trim(),
+      contact_email: formData.contact_email.trim().toLowerCase(),
+      contact_phone: formData.contact_phone.trim(),
+      company_name: formData.company_name.trim(),
+      billing_address: formData.billing_address.trim(),
+    };
+    const validationErrors: CustomerFieldErrors = {};
+    if (!normalizedPayload.full_name) validationErrors.full_name = 'Full Name is required.';
+    if (!normalizedPayload.contact_email) validationErrors.contact_email = 'Email is required.';
+    else if (!EMAIL_PATTERN.test(normalizedPayload.contact_email)) validationErrors.contact_email = 'Enter a valid email address.';
+
+    if (Object.keys(validationErrors).length > 0) {
+      setFormData(normalizedPayload);
+      setFieldErrors(validationErrors);
+      setError('Please correct the highlighted fields before submitting.');
+      return;
+    }
+
+    setFormData(normalizedPayload);
+    setFieldErrors({});
     setSaving(true);
     setError('');
     setMessage('');
@@ -120,38 +204,38 @@ export function CustomerOnboarding({ token }: { token: string }) {
         body: JSON.stringify({
           currentStep: 'workspace_ready',
           completionPercentage: 100,
-          payload: formData,
+          payload: normalizedPayload,
         }),
       });
+      const savePayload = (await saveRes.json().catch(() => null)) as ApiErrorPayload | null;
       if (!saveRes.ok) {
-        const payload = await saveRes.json();
-        setError(payload.error ?? 'Failed to save onboarding summary.');
+        setError(apiErrorMessage(savePayload ?? {}, 'Failed to save onboarding summary.'));
         return;
       }
 
       const res = await fetch('/api/onboarding/submit/customer', { method: 'POST', headers });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Failed to complete onboarding.');
+      const data = (await res.json().catch(() => null)) as ApiErrorPayload | null;
+      if (!res.ok || !data?.application) {
+        setError(apiErrorMessage(data ?? {}, 'Failed to complete onboarding.'));
         return;
       }
       setApplication(data.application);
-      setMessage('Customer onboarding complete. Redirecting to your workspace...');
-      window.setTimeout(() => router.push('/customer'), 800);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to complete onboarding.');
+      setMessage('Customer onboarding complete. Redirecting to your workspace…');
+      window.setTimeout(() => router.replace('/customer'), 500);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to complete onboarding.');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <main style={{ padding: '2rem' }}>Loading onboarding...</main>;
+  if (loading) return <main style={{ padding: '2rem' }}>Loading onboarding…</main>;
 
   if (!application) {
     return (
       <main style={{ padding: '2rem' }}>
         <h1>Onboarding unavailable</h1>
-        <p>{error || 'No onboarding application found.'}</p>
+        <p role="alert">{error || 'No onboarding application found.'}</p>
       </main>
     );
   }
@@ -170,15 +254,16 @@ export function CustomerOnboarding({ token }: { token: string }) {
       onSave={() => void saveProgress(application.current_step || 'customer_details', Math.max(progress, 70))}
       onSubmit={() => void submitOnboarding()}
       backToLogin={() => router.push('/login')}
-      submitDisabled={application.status === 'approved'}
+      submitDisabled={classifyOnboardingLifecycleStatus(application.status) !== 'editable'}
     >
       <section>
         <h2>Customer Details</h2>
-        <Field label="Full Name" value={formData.full_name} onChange={(v) => setFormData((prev) => ({ ...prev, full_name: v }))} />
-        <Field label="Email" type="email" value={formData.contact_email} onChange={(v) => setFormData((prev) => ({ ...prev, contact_email: v }))} />
-        <Field label="Phone" value={formData.contact_phone} onChange={(v) => setFormData((prev) => ({ ...prev, contact_phone: v }))} />
-        <Field label="Company Name" value={formData.company_name} onChange={(v) => setFormData((prev) => ({ ...prev, company_name: v }))} />
-        <Field label="Billing Address" value={formData.billing_address} onChange={(v) => setFormData((prev) => ({ ...prev, billing_address: v }))} />
+        <p style={{ color: '#4B5563' }}>Fields marked with * are required before submission.</p>
+        <Field required error={fieldErrors.full_name} label="Full Name" value={formData.full_name} onChange={(value) => updateField('full_name', value)} autoComplete="name" />
+        <Field required error={fieldErrors.contact_email} label="Email" type="email" value={formData.contact_email} onChange={(value) => updateField('contact_email', value)} autoComplete="email" />
+        <Field label="Phone" value={formData.contact_phone} onChange={(value) => updateField('contact_phone', value)} autoComplete="tel" />
+        <Field label="Company Name" value={formData.company_name} onChange={(value) => updateField('company_name', value)} autoComplete="organization" />
+        <Field label="Billing Address" value={formData.billing_address} onChange={(value) => updateField('billing_address', value)} autoComplete="billing street-address" />
       </section>
     </PageLayout>
   );
