@@ -162,9 +162,24 @@ export function CustomerOnboarding({ token }: { token: string }) {
         return;
       }
       setApplication(data.application);
-      setMessage('Progress saved.');
+      setMessage('Progress saved. You can sign out and continue later.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to save onboarding progress.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const signOut = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        setError(signOutError.message);
+        return;
+      }
+      router.replace('/login');
     } finally {
       setSaving(false);
     }
@@ -253,7 +268,7 @@ export function CustomerOnboarding({ token }: { token: string }) {
       saving={saving}
       onSave={() => void saveProgress(application.current_step || 'customer_details', Math.max(progress, 70))}
       onSubmit={() => void submitOnboarding()}
-      backToLogin={() => router.push('/login')}
+      onSignOut={() => void signOut()}
       submitDisabled={classifyOnboardingLifecycleStatus(application.status) !== 'editable'}
     >
       <section>
