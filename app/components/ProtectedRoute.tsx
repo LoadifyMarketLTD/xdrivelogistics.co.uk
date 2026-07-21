@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth, type UserRole } from './AuthContext';
 import { isRoleAllowedForPath, mapAppRole } from '../../lib/authRole';
@@ -15,7 +15,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   const router = useRouter();
   const pathname = usePathname() || '/';
 
-  const hasRouteAccess = () => {
+  const routeAccessAllowed = useMemo(() => {
     if (!user) return false;
 
     const role = mapAppRole(user.role);
@@ -34,7 +34,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       rawRole: user.rawRole ?? null,
       workspaceRole: user.workspaceRole ?? null,
     });
-  };
+  }, [allowedRoles, pathname, user]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -43,10 +43,10 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       return;
     }
 
-    if (!isLoading && user && !hasRouteAccess() && pathname !== '/forbidden') {
+    if (!isLoading && user && !routeAccessAllowed && pathname !== '/forbidden') {
       router.replace('/forbidden');
     }
-  }, [user, isLoading, router, allowedRoles, pathname]);
+  }, [user, isLoading, router, pathname, routeAccessAllowed]);
 
   if (isLoading) {
     return (
@@ -65,6 +65,6 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     );
   }
 
-  if (!user || !hasRouteAccess()) return null;
+  if (!user || !routeAccessAllowed) return null;
   return <>{children}</>;
 }
