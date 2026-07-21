@@ -30,7 +30,7 @@ export default function WorkspaceShell({
   const [unreadCount, setUnreadCount] = useState(0);
   const [hydrated, setHydrated] = useState(false);
 
-  const role = forcedRole ?? resolveWorkspaceRole(user);
+  const role = forcedRole ?? user?.workspaceRole ?? resolveWorkspaceRole(user);
   const definition = getWorkspaceDefinition(role);
   const nav = useMemo(() => getVisibleWorkspaceNav(role), [role]);
 
