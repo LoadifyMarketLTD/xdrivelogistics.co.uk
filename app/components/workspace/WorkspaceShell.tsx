@@ -12,6 +12,7 @@ import {
   resolveWorkspaceRole,
   type WorkspaceRole,
 } from '../../../lib/workspaceRole';
+import WorkspaceCompanySwitcher from './WorkspaceCompanySwitcher';
 import { workspaceTheme } from './WorkspaceUI';
 
 export default function WorkspaceShell({
@@ -139,6 +140,7 @@ export default function WorkspaceShell({
               <span style={{ fontSize: '0.61rem', fontWeight: 800, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.2rem 0.42rem', borderRadius: '999px' }}>Company View</span>
             )}
           </div>
+          <WorkspaceCompanySwitcher />
         </div>
 
         <nav style={{ flex: 1, overflowY: 'auto', padding: '0.52rem' }}>
