@@ -13,7 +13,7 @@ on:
       - "lib/server/onboardingCompliance.ts"
 
 permissions:
-  contents: read
+  contents: write
   issues: write
   pull-requests: write
 
@@ -108,6 +108,24 @@ jobs:
       - name: Validate test script syntax
         run: node --check scripts/validate_remote_staging_onboarding_compliance.mjs
 
+      - name: Verify current P0 schema evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          evidence = json.loads(Path('staging-validation/p0-latest.json').read_text(encoding='utf-8'))
+          if evidence.get('result') != 'success':
+              raise SystemExit('Current P0 schema evidence is not successful.')
+          if evidence.get('project_ref') != 'svfjlhljuizckzabtewx':
+              raise SystemExit('Current P0 schema evidence targets the wrong project.')
+          if int(evidence.get('verified_migration_count', 0)) < 188:
+              raise SystemExit('Current P0 schema evidence predates onboarding fixes.')
+          print(f"P0 schema evidence accepted: {evidence['verified_migration_count']} migrations.")
+          PY
+
       - name: Build application against disposable staging
         env:
           SUPABASE_ENV_STRICT: "true"
@@ -142,6 +160,63 @@ jobs:
           set -euo pipefail
           node scripts/validate_remote_staging_onboarding_compliance.mjs \
             2>&1 | tee /tmp/staging-onboarding-compliance.log
+
+      - name: Record machine-readable onboarding result
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          python - <<PY
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          payload = {
+              'result': '${JOB_STATUS}',
+              'source_sha': '${GITHUB_SHA}',
+              'run_id': '${GITHUB_RUN_ID}',
+              'run_url': '${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}',
+              'branch': '${GITHUB_REF_NAME}',
+              'project_ref': '${SUPABASE_PROJECT_REF}',
+              'journeys': ['Customer', 'Broker', 'Fleet', 'Owner Driver'],
+              'validated': [
+                  '48-hour invitation expiry',
+                  'persistent revoke',
+                  'resend cooldown and token rotation',
+                  'mandatory document upload',
+                  'replacement without duplicates',
+                  'private signed preview',
+                  'per-document approval',
+                  'approval readiness',
+                  'approved evidence lock',
+                  'account-type route isolation',
+                  'owner-only review access',
+                  'cross-application evidence mutation denial',
+              ],
+              'production_targeted': False,
+              'recorded_at': datetime.now(timezone.utc).isoformat(),
+          }
+          Path('/tmp/onboarding-validation-result.json').write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          encoded=$(base64 -w 0 /tmp/onboarding-validation-result.json)
+          endpoint="repos/${GITHUB_REPOSITORY}/contents/staging-validation/onboarding-latest.json"
+          existing_sha=$(gh api "$endpoint?ref=agent/staging-integration" --jq .sha 2>/dev/null || true)
+          if [ -n "$existing_sha" ]; then
+            gh api --method PUT "$endpoint" \
+              -f message="ci(staging): record onboarding validation ${JOB_STATUS}" \
+              -f content="$encoded" \
+              -f sha="$existing_sha" \
+              -f branch="agent/staging-integration"
+          else
+            gh api --method PUT "$endpoint" \
+              -f message="ci(staging): record onboarding validation ${JOB_STATUS}" \
+              -f content="$encoded" \
+              -f branch="agent/staging-integration"
+          fi
 
       - name: Publish onboarding compliance success
         if: success()
