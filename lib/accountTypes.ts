@@ -19,7 +19,7 @@ export type AccountTypeConfig = {
   ownerDriverWorkspace: boolean;
   storedAccountType: StoredOnboardingAccountType;
   onboardingRouteSegment: OnboardingRouteSegment;
-  onboardingPath: string;
+  onboardingPath: '/onboarding/resume';
 };
 
 export const ACCOUNT_TYPE_CONFIG: Record<AccountType, AccountTypeConfig> = {
@@ -31,7 +31,7 @@ export const ACCOUNT_TYPE_CONFIG: Record<AccountType, AccountTypeConfig> = {
     ownerDriverWorkspace: false,
     storedAccountType: 'customer_shipper',
     onboardingRouteSegment: 'customer',
-    onboardingPath: '/onboarding/customer/resume',
+    onboardingPath: '/onboarding/resume',
   },
   broker: {
     label: 'Transport Broker',
@@ -41,7 +41,7 @@ export const ACCOUNT_TYPE_CONFIG: Record<AccountType, AccountTypeConfig> = {
     ownerDriverWorkspace: false,
     storedAccountType: 'broker_shipper',
     onboardingRouteSegment: 'broker',
-    onboardingPath: '/onboarding/broker/resume',
+    onboardingPath: '/onboarding/resume',
   },
   fleet_operator: {
     label: 'Fleet Operator',
@@ -51,7 +51,7 @@ export const ACCOUNT_TYPE_CONFIG: Record<AccountType, AccountTypeConfig> = {
     ownerDriverWorkspace: false,
     storedAccountType: 'fleet_courier',
     onboardingRouteSegment: 'fleet',
-    onboardingPath: '/onboarding/fleet/resume',
+    onboardingPath: '/onboarding/resume',
   },
   owner_driver: {
     label: 'Owner Driver',
@@ -61,7 +61,7 @@ export const ACCOUNT_TYPE_CONFIG: Record<AccountType, AccountTypeConfig> = {
     ownerDriverWorkspace: true,
     storedAccountType: 'owner_driver',
     onboardingRouteSegment: 'owner-driver',
-    onboardingPath: '/onboarding/owner-driver/resume',
+    onboardingPath: '/onboarding/resume',
   },
 };
 
@@ -106,8 +106,8 @@ export const toStoredOnboardingAccountType = (
 export const fromStoredOnboardingAccountType = (raw: unknown): AccountType | null =>
   normalizeAccountType(raw);
 
-export const getOnboardingPathForAccountType = (accountType: AccountType): string =>
-  ACCOUNT_TYPE_CONFIG[accountType].onboardingPath;
+export const getOnboardingPathForAccountType = (_accountType: AccountType): '/onboarding/resume' =>
+  '/onboarding/resume';
 
 export const resolveAccountTypeFromMetadata = (
   userMetadata: Record<string, unknown> | null | undefined,
