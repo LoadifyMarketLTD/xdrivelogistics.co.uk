@@ -1,21 +1,40 @@
 import crypto from 'crypto';
 import { getCanonicalSiteOrigin } from '../../../lib/siteUrl';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  ACCOUNT_TYPE_CONFIG,
+  ACCOUNT_TYPES,
+  fromStoredOnboardingAccountType,
+  normalizeAccountType,
+  toStoredOnboardingAccountType,
+  type AccountType,
+  type OnboardingRouteSegment,
+  type StoredOnboardingAccountType,
+} from '../../../lib/accountTypes';
 
-export const ONBOARDING_ACCOUNT_TYPES = ['customer_shipper', 'broker_shipper', 'fleet_courier', 'owner_driver'] as const;
-export type OnboardingAccountType = (typeof ONBOARDING_ACCOUNT_TYPES)[number];
-export const ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE: Record<OnboardingAccountType, 'customer' | 'broker' | 'fleet' | 'owner-driver'> = {
-  customer_shipper: 'customer',
-  broker_shipper: 'broker',
-  fleet_courier: 'fleet',
-  owner_driver: 'owner-driver',
+export const ONBOARDING_ACCOUNT_TYPES = ACCOUNT_TYPES.map(
+  toStoredOnboardingAccountType
+) as readonly StoredOnboardingAccountType[];
+export type OnboardingAccountType = StoredOnboardingAccountType;
+
+export const ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE: Record<
+  OnboardingAccountType,
+  OnboardingRouteSegment
+> = {
+  customer_shipper: ACCOUNT_TYPE_CONFIG.customer.onboardingRouteSegment,
+  broker_shipper: ACCOUNT_TYPE_CONFIG.broker.onboardingRouteSegment,
+  fleet_courier: ACCOUNT_TYPE_CONFIG.fleet_operator.onboardingRouteSegment,
+  owner_driver: ACCOUNT_TYPE_CONFIG.owner_driver.onboardingRouteSegment,
 };
 
-export const ONBOARDING_ACCOUNT_TYPE_BY_ROUTE_SEGMENT: Record<'customer' | 'broker' | 'fleet' | 'owner-driver', OnboardingAccountType> = {
-  customer: 'customer_shipper',
-  broker: 'broker_shipper',
-  fleet: 'fleet_courier',
-  'owner-driver': 'owner_driver',
+export const ONBOARDING_ACCOUNT_TYPE_BY_ROUTE_SEGMENT: Record<
+  OnboardingRouteSegment,
+  OnboardingAccountType
+> = {
+  customer: ACCOUNT_TYPE_CONFIG.customer.storedAccountType,
+  broker: ACCOUNT_TYPE_CONFIG.broker.storedAccountType,
+  fleet: ACCOUNT_TYPE_CONFIG.fleet_operator.storedAccountType,
+  'owner-driver': ACCOUNT_TYPE_CONFIG.owner_driver.storedAccountType,
 };
 
 export const FLEET_DOCUMENT_TYPES = [
@@ -69,56 +88,41 @@ export const normalizeOnboardingStatus = (raw: string | null | undefined): Onboa
   return LEGACY_ONBOARDING_STATUS_MAPPING[value] ?? 'draft';
 };
 
+/**
+ * Convert any supported public or legacy alias to the database storage value.
+ * New browser/API payloads use AccountType from lib/accountTypes.ts; legacy
+ * aliases are accepted only here at the persistence compatibility boundary.
+ */
 export const normalizeOnboardingAccountType = (
   raw: string | null | undefined
 ): OnboardingAccountType | null => {
-  const value = (raw ?? '').toLowerCase().trim();
-  if (
-    value === 'owner_driver' ||
-    value === 'owner-driver' ||
-    value === 'owner_operator' ||
-    value === 'owner-operator' ||
-    value === 'sole_trader'
-  ) return 'owner_driver';
-  if (
-    value === 'fleet_courier' ||
-    value === 'fleet/courier' ||
-    value === 'fleet_operator' ||
-    value === 'company_admin'
-  ) return 'fleet_courier';
-  if (
-    value === 'customer_shipper' ||
-    value === 'customer' ||
-    value === 'shipper'
-  ) return 'customer_shipper';
-  if (
-    value === 'transport_broker' ||
-    value === 'broker' ||
-    value === 'broker_shipper'
-  ) return 'broker_shipper';
-  return null;
+  const canonical = normalizeAccountType(raw);
+  return canonical ? toStoredOnboardingAccountType(canonical) : null;
 };
+
+export const toPublicAccountType = (
+  raw: string | null | undefined
+): AccountType | null => fromStoredOnboardingAccountType(raw);
 
 export const resolveOnboardingAccountTypeFromMetadata = (
   userMetadata: Record<string, unknown> | null | undefined,
   appMetadata: Record<string, unknown> | null | undefined
-): OnboardingAccountType => {
+): AccountType | null => {
   const candidates = [
-    typeof userMetadata?.account_type === 'string' ? userMetadata.account_type : null,
-    typeof userMetadata?.requested_role === 'string' ? userMetadata.requested_role : null,
-    typeof userMetadata?.signup_type === 'string' ? userMetadata.signup_type : null,
-    typeof appMetadata?.account_type === 'string' ? appMetadata.account_type : null,
-    typeof appMetadata?.requested_role === 'string' ? appMetadata.requested_role : null,
-    typeof appMetadata?.signup_type === 'string' ? appMetadata.signup_type : null,
+    userMetadata?.account_type,
+    userMetadata?.requested_role,
+    userMetadata?.signup_type,
+    appMetadata?.account_type,
+    appMetadata?.requested_role,
+    appMetadata?.signup_type,
   ];
 
   for (const candidate of candidates) {
-    if (!candidate) continue;
-    const normalized = normalizeOnboardingAccountType(candidate);
+    const normalized = normalizeAccountType(candidate);
     if (normalized) return normalized;
   }
 
-  return 'customer_shipper';
+  return null;
 };
 
 export const generateOnboardingToken = () => crypto.randomBytes(32).toString('base64url');
