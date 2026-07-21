@@ -1,0 +1,25 @@
+{
+  "result": "failure",
+  "source_sha": "6af600aae696f34619500b68e855c04710f3478a",
+  "run_id": "29839537442",
+  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29839537442",
+  "branch": "agent/staging-integration",
+  "project_ref": "svfjlhljuizckzabtewx",
+  "validated": [
+    "owner-only invitation",
+    "viewer and unrelated tenant denial",
+    "48-hour invitation expiry",
+    "invited membership and no early app access",
+    "authenticated invitation acceptance",
+    "mandatory private document upload",
+    "document replacement without duplicates",
+    "signed administrator preview",
+    "atomic final approval",
+    "safe authenticated resume",
+    "revocation",
+    "resend token rotation",
+    "expired-token denial"
+  ],
+  "production_targeted": false,
+  "recorded_at": "2026-07-21T14:38:46.754760+00:00"
+}
