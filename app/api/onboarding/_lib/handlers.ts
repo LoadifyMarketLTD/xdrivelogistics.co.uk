@@ -99,7 +99,6 @@ const resolveApplicantPatchStatus = (
   return { nextStatus: existingStatus };
 };
 
-
 export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options: {
   expectedAccountType: OnboardingAccountType;
   patchSchema: TPatchSchema;
@@ -253,12 +252,26 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
       return json(403, { error: 'Forbidden onboarding account type.' });
     }
 
+    const lifecycleStatus = normalizeOnboardingStatus(application.status);
+    if (lifecycleStatus === 'approved' || lifecycleStatus === 'under_review') {
+      return json(200, {
+        application,
+        status: lifecycleStatus,
+        company_id: application.company_id ?? null,
+        idempotent: true,
+      });
+    }
+    if (lifecycleStatus === 'rejected') {
+      return json(409, { error: 'Rejected onboarding cannot be submitted again until an administrator requests changes.' });
+    }
+    if (!['draft', 'in_progress', 'request_changes'].includes(lifecycleStatus)) {
+      return json(409, { error: `Onboarding cannot be submitted from status ${lifecycleStatus}.` });
+    }
+
     const parsedPayload = payloadSchema.safeParse((application.payload ?? {}) as Record<string, unknown>);
     if (!parsedPayload.success) {
       return json(400, { error: 'Onboarding payload is incomplete or invalid.', details: parsedPayload.error.flatten() });
     }
-
-    let companyId: string | null = application.company_id ?? null;
 
     const { data, error: submitError } = await supabaseAdmin.rpc('submit_onboarding_application', {
       p_application_id: application.id,
@@ -271,7 +284,7 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
       });
     }
 
-    companyId = data as string;
+    const companyId = typeof data === 'string' ? data : application.company_id ?? null;
 
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('onboarding_applications')
@@ -281,21 +294,34 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
 
     if (updateError) return json(500, { error: updateError.message });
 
-    const { error: notificationError } = await supabaseAdmin.from('notification_events').insert({
-      event_type: 'onboarding_submitted',
-      entity_type: 'onboarding_application',
-      entity_id: application.id,
-      recipient_user_id: authUser.id,
-      payload: {
-        onboarding_application_id: application.id,
-        account_type: expectedAccountType,
-        status: updated.status,
-        company_id: companyId,
-      },
-    });
+    const { data: existingNotification, error: notificationReadError } = await supabaseAdmin
+      .from('notification_events')
+      .select('id')
+      .eq('event_type', 'onboarding_submitted')
+      .eq('entity_type', 'onboarding_application')
+      .eq('entity_id', application.id)
+      .limit(1)
+      .maybeSingle();
 
-    if (notificationError) {
-      console.error('[onboarding] onboarding_submitted notification failed', notificationError.message);
+    if (notificationReadError) {
+      console.error('[onboarding] onboarding_submitted notification lookup failed', notificationReadError.message);
+    } else if (!existingNotification) {
+      const { error: notificationError } = await supabaseAdmin.from('notification_events').insert({
+        event_type: 'onboarding_submitted',
+        entity_type: 'onboarding_application',
+        entity_id: application.id,
+        recipient_user_id: authUser.id,
+        payload: {
+          onboarding_application_id: application.id,
+          account_type: expectedAccountType,
+          status: updated.status,
+          company_id: companyId,
+        },
+      });
+
+      if (notificationError) {
+        console.error('[onboarding] onboarding_submitted notification failed', notificationError.message);
+      }
     }
 
     return json(200, {
