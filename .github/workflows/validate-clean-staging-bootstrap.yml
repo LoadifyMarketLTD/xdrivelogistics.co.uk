@@ -164,8 +164,12 @@ jobs:
               if [ -f "$file" ]; then
                 found=1
                 echo "===== $file ====="
-                grep -E 'Applying migration|ERROR|Error:|failed|SQLSTATE|invalid input|does not exist|cannot |syntax error|Expected migration count|Recorded migration count' "$file" \
-                  | tail -n 45 || tail -n 45 "$file"
+                matches=$(grep -E 'ERROR:|Error:|SQLSTATE|failed|Expected migration count|Recorded migration count' "$file" | tail -n 12 || true)
+                if [ -n "$matches" ]; then
+                  printf '%s\n' "$matches"
+                else
+                  tail -n 18 "$file"
+                fi
               fi
             done
             if [ "$found" -eq 0 ]; then
@@ -177,6 +181,23 @@ jobs:
             --method POST \
             "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
             -F body=@/tmp/bootstrap-diagnostic.md
+
+      - name: Publish bootstrap success to PR 248
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -f body="<!-- clean-staging-bootstrap-success -->
+          ### Clean staging bootstrap passed
+
+          Commit: \`${GITHUB_SHA}\`
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          All normalized migrations were applied from zero and the recorded migration count matched the manifest."
 
       - name: Upload bootstrap manifest
         if: ${{ always() && hashFiles('.staging-bootstrap/bootstrap-manifest.json') != '' }}
