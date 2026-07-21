@@ -117,6 +117,7 @@ jobs:
           path: |
             /tmp/playwright-output.txt
             /tmp/xdrive-next.log
+            test-results
           if-no-files-found: warn
           retention-days: 3
 
