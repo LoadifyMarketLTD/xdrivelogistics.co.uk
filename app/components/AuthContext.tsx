@@ -351,6 +351,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (onboardingRoute) {
         setUser(null);
         setHasSupabaseSession(true);
+        router.replace(onboardingRoute);
         return { success: true, route: onboardingRoute };
       }
 
