@@ -220,7 +220,7 @@ try {
   const trackingEventA = await insertOne('job_tracking_events', {
     job_id: jobA.id,
     created_by: userA.id,
-    event_type: 'status_change',
+    event_type: 'note',
     message: 'Tenant A private tracking event',
     meta: { staging_fixture: true },
   }, 'id,job_id');
