@@ -123,7 +123,7 @@ export const hashOnboardingToken = (token: string) => crypto.createHash('sha256'
 
 export const resolveOnboardingTokenTtlHours = async (supabaseAdmin: SupabaseClient | null): Promise<number> => {
   const envValue = Number.parseInt(process.env.ONBOARDING_TOKEN_TTL_HOURS ?? '', 10);
-  const fallback = Number.isFinite(envValue) && envValue > 0 ? envValue : 72;
+  const fallback = Number.isFinite(envValue) && envValue > 0 ? envValue : 48;
 
   if (!supabaseAdmin) return fallback;
 
