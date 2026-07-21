@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 import { getAuthCallbackEmailRedirectTo } from '../../lib/authFlow';
 import { normalizeProfileRoleForStorage } from '../../lib/authRole';
@@ -9,12 +10,14 @@ import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
 type RegisterRole = 'owner_operator' | 'fleet_operator' | 'transport_broker' | 'customer_shipper';
 
-const SIGNUP_ROLE_CONFIG: Record<RegisterRole, {
+type SignupConfig = {
   appRole: 'broker' | 'company_admin' | 'driver' | 'customer';
-  accountType: string;
-  workspaceMode: string;
+  accountType: 'owner_driver' | 'fleet_courier' | 'broker_shipper' | 'customer_shipper';
+  workspaceMode: 'owner_driver' | 'company' | 'broker' | 'customer';
   ownerDriverWorkspace: boolean;
-}> = {
+};
+
+const SIGNUP_ROLE_CONFIG: Record<RegisterRole, SignupConfig> = {
   owner_operator: {
     appRole: 'driver',
     accountType: 'owner_driver',
@@ -29,7 +32,7 @@ const SIGNUP_ROLE_CONFIG: Record<RegisterRole, {
   },
   transport_broker: {
     appRole: 'broker',
-    accountType: 'transport_broker',
+    accountType: 'broker_shipper',
     workspaceMode: 'broker',
     ownerDriverWorkspace: false,
   },
@@ -42,6 +45,7 @@ const SIGNUP_ROLE_CONFIG: Record<RegisterRole, {
 };
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -51,8 +55,8 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setError('');
     setMessage('');
     setWarning('');
@@ -76,15 +80,14 @@ export default function RegisterPage() {
 
     try {
       const signupConfig = SIGNUP_ROLE_CONFIG[role];
-      const normalizedRole = signupConfig.appRole;
-      const storedRole = normalizeProfileRoleForStorage(normalizedRole) ?? 'customer';
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
+      const storedRole = normalizeProfileRoleForStorage(signupConfig.appRole) ?? 'customer';
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
         password,
         options: {
           emailRedirectTo: getAuthCallbackEmailRedirectTo(),
           data: {
-            role: normalizedRole,
+            role: signupConfig.appRole,
             requested_role: role,
             signup_type: role,
             account_type: signupConfig.accountType,
@@ -99,20 +102,37 @@ export default function RegisterPage() {
         return;
       }
 
-      if (signUpData.session && signUpData.user) {
+      if (data.session && data.user) {
         const { error: profileUpsertError } = await supabase
           .from('profiles')
           .upsert({
-            user_id: signUpData.user.id,
+            user_id: data.user.id,
             role: storedRole,
             status: 'active',
-            is_driver: normalizedRole === 'driver',
+            is_driver: signupConfig.appRole === 'driver',
             updated_at: new Date().toISOString(),
           }, { onConflict: 'user_id' });
 
         if (profileUpsertError) {
           setWarning(`Account created, but profile sync needs attention: ${profileUpsertError.message}`);
         }
+
+        const initResponse = await fetch('/api/onboarding/init', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ forceRegenerateToken: false }),
+        });
+        const initPayload = (await initResponse.json().catch(() => null)) as { error?: string } | null;
+        if (!initResponse.ok) {
+          setError(initPayload?.error ?? 'Account created, but onboarding could not be started.');
+          return;
+        }
+
+        router.replace('/onboarding/resume');
+        return;
       }
 
       setMessage('Account created. Check your email to verify your account, then sign in.');
@@ -120,9 +140,8 @@ export default function RegisterPage() {
       setPassword('');
       setConfirmPassword('');
       setRole('customer_shipper');
-    } catch (err) {
-      const fallback = err instanceof Error ? err.message : 'Registration failed.';
-      setError(fallback);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Registration failed.');
     } finally {
       setLoading(false);
     }
@@ -164,6 +183,7 @@ export default function RegisterPage() {
           <input
             id="register-email"
             type="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -193,6 +213,7 @@ export default function RegisterPage() {
           <input
             id="register-password"
             type="password"
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -207,6 +228,7 @@ export default function RegisterPage() {
           <input
             id="register-password-confirm"
             type="password"
+            autoComplete="new-password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
@@ -216,7 +238,7 @@ export default function RegisterPage() {
           />
 
           <p style={{ marginTop: 0, marginBottom: '1rem', color: '#5B6B85', fontSize: '0.9rem' }}>
-            Customers use the customer workspace. Brokers, fleet operators, and owner operators use the white operations workspace with permissions matched to their role.
+            Customers use the customer workspace. Brokers, fleet operators, and owner operators use the operations workspace with permissions matched to their role.
           </p>
 
           {error && (
