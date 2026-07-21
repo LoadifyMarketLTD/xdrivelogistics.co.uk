@@ -3,7 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
-import { FLEET_DOCUMENT_TYPES, OWNER_DRIVER_DOCUMENT_TYPES } from '../../_lib/onboarding';
+import {
+  BROKER_DOCUMENT_TYPES,
+  FLEET_DOCUMENT_TYPES,
+  OWNER_DRIVER_DOCUMENT_TYPES,
+  normalizeOnboardingStatus,
+} from '../../_lib/onboarding';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -16,8 +21,10 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 
 const sanitizeFilename = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, '_');
+const brokerDocTypeSchema = z.enum(BROKER_DOCUMENT_TYPES);
 const fleetDocTypeSchema = z.enum(FLEET_DOCUMENT_TYPES);
 const ownerDriverDocTypeSchema = z.enum(OWNER_DRIVER_DOCUMENT_TYPES);
+const EDITABLE_STATUSES = new Set(['invited', 'draft', 'in_progress', 'request_changes']);
 
 type OnboardingApplication = {
   id: string;
@@ -26,6 +33,7 @@ type OnboardingApplication = {
   account_type: string;
   company_id: string | null;
   payload: Record<string, unknown> | null;
+  status: string;
 };
 
 const textPayloadValue = (payload: Record<string, unknown> | null, key: string) => {
@@ -33,7 +41,7 @@ const textPayloadValue = (payload: Record<string, unknown> | null, key: string) 
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 };
 
-const ensureFleetCompanyId = async (app: OnboardingApplication): Promise<{ companyId: string | null; error: string | null }> => {
+const ensureCompanyId = async (app: OnboardingApplication): Promise<{ companyId: string | null; error: string | null }> => {
   if (!supabaseAdmin) return { companyId: null, error: 'Server auth is not configured.' };
   if (app.company_id) return { companyId: app.company_id, error: null };
 
@@ -49,12 +57,13 @@ const ensureFleetCompanyId = async (app: OnboardingApplication): Promise<{ compa
 
   let companyId = existingCompany?.id ?? null;
   if (!companyId) {
+    const isBroker = app.account_type === 'broker_shipper';
     const email = app.email ?? 'unknown@xdrive.local';
     const companyName =
       textPayloadValue(app.payload, 'legal_company_name') ??
       textPayloadValue(app.payload, 'company_name') ??
       textPayloadValue(app.payload, 'trading_name') ??
-      `${email.split('@')[0]} fleet`;
+      `${email.split('@')[0]} ${isBroker ? 'broker' : 'fleet'}`;
 
     const { data: createdCompany, error: createCompanyError } = await supabaseAdmin
       .from('companies')
@@ -65,16 +74,17 @@ const ensureFleetCompanyId = async (app: OnboardingApplication): Promise<{ compa
         vat_number: textPayloadValue(app.payload, 'vat_number'),
         address_line1:
           textPayloadValue(app.payload, 'registered_address') ??
+          textPayloadValue(app.payload, 'billing_address') ??
           textPayloadValue(app.payload, 'trading_address'),
         status: 'pending_approval',
-        company_type: 'carrier',
+        company_type: isBroker ? 'broker' : 'carrier',
         created_by: app.user_id,
       })
       .select('id')
       .single();
 
     if (createCompanyError || !createdCompany?.id) {
-      return { companyId: null, error: createCompanyError?.message ?? 'Unable to create the pending fleet company.' };
+      return { companyId: null, error: createCompanyError?.message ?? 'Unable to create the pending company workspace.' };
     }
     companyId = createdCompany.id;
   }
@@ -136,7 +146,7 @@ export async function POST(request: NextRequest) {
 
   const { data: appData, error: appError } = await supabaseAdmin
     .from('onboarding_applications')
-    .select('id, user_id, email, account_type, company_id, payload')
+    .select('id, user_id, email, account_type, company_id, payload, status')
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
@@ -144,26 +154,35 @@ export async function POST(request: NextRequest) {
   if (!appData) return json(404, { error: 'Onboarding application not found.' });
 
   const app = appData as OnboardingApplication;
+  const normalizedStatus = normalizeOnboardingStatus(app.status);
+  if (!EDITABLE_STATUSES.has(normalizedStatus)) {
+    return json(409, { error: `Documents cannot be changed while onboarding is ${normalizedStatus}.` });
+  }
+
+  const parsedBrokerDocType = app.account_type === 'broker_shipper' ? brokerDocTypeSchema.safeParse(docType) : null;
   const parsedFleetDocType = app.account_type === 'fleet_courier' ? fleetDocTypeSchema.safeParse(docType) : null;
   const parsedOwnerDriverDocType = app.account_type === 'owner_driver' ? ownerDriverDocTypeSchema.safeParse(docType) : null;
 
+  if (app.account_type === 'broker_shipper' && !parsedBrokerDocType?.success) {
+    return json(400, { error: 'Invalid broker document type.' });
+  }
   if (app.account_type === 'fleet_courier' && !parsedFleetDocType?.success) {
     return json(400, { error: 'Invalid fleet document type.' });
   }
   if (app.account_type === 'owner_driver' && !parsedOwnerDriverDocType?.success) {
     return json(400, { error: 'Invalid owner driver document type.' });
   }
-  if (app.account_type !== 'fleet_courier' && app.account_type !== 'owner_driver') {
+  if (!['broker_shipper', 'fleet_courier', 'owner_driver'].includes(app.account_type)) {
     return json(400, { error: 'Document uploads are not supported for this onboarding account type.' });
   }
 
-  let fleetCompanyId: string | null = null;
-  if (app.account_type === 'fleet_courier') {
-    const ensured = await ensureFleetCompanyId(app);
+  let companyId: string | null = app.company_id;
+  if (app.account_type === 'broker_shipper' || app.account_type === 'fleet_courier') {
+    const ensured = await ensureCompanyId(app);
     if (ensured.error || !ensured.companyId) {
-      return json(409, { error: ensured.error ?? 'Unable to prepare the fleet company workspace.' });
+      return json(409, { error: ensured.error ?? 'Unable to prepare the company workspace.' });
     }
-    fleetCompanyId = ensured.companyId;
+    companyId = ensured.companyId;
   }
 
   const ext = path.extname(file.name || '').toLowerCase();
@@ -185,8 +204,8 @@ export async function POST(request: NextRequest) {
 
   if (uploadError) return json(500, { error: uploadError.message });
 
-  if (app.account_type === 'fleet_courier') {
-    const parsedDocType = parsedFleetDocType!;
+  if (app.account_type === 'broker_shipper' || app.account_type === 'fleet_courier') {
+    const parsedDocType = app.account_type === 'broker_shipper' ? parsedBrokerDocType! : parsedFleetDocType!;
     const { data: existingDocument, error: existingDocumentError } = await supabaseAdmin
       .from('company_documents')
       .select('id')
@@ -203,12 +222,13 @@ export async function POST(request: NextRequest) {
 
     const documentMutation = existingDocument?.id
       ? supabaseAdmin.from('company_documents').update({
-          company_id: fleetCompanyId,
+          company_id: companyId,
           file_path: objectPath,
           status: 'pending',
+          updated_at: new Date().toISOString(),
         }).eq('id', existingDocument.id)
       : supabaseAdmin.from('company_documents').insert({
-          company_id: fleetCompanyId,
+          company_id: companyId,
           onboarding_application_id: app.id,
           doc_type: parsedDocType.data,
           file_path: objectPath,
@@ -241,6 +261,7 @@ export async function POST(request: NextRequest) {
           file_path: objectPath,
           upload_status: 'uploaded',
           verification_status: 'unverified',
+          updated_at: new Date().toISOString(),
         }).eq('id', existingDocument.id)
       : supabaseAdmin.from('driver_identity_documents').insert({
           onboarding_application_id: app.id,
@@ -264,7 +285,7 @@ export async function POST(request: NextRequest) {
   const { data: latestApp, error: updateError } = await supabaseAdmin
     .from('onboarding_applications')
     .update({
-      company_id: fleetCompanyId ?? app.company_id,
+      company_id: companyId,
       payload: nextPayload,
       status: 'in_progress',
       last_activity_at: new Date().toISOString(),
