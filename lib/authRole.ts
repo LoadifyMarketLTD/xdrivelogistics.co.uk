@@ -138,7 +138,7 @@ export const shouldAutoProvisionCompany = ({
   );
 };
 
-export const roleRequiresCompanyContext = (role: AppUserRole | null) =>
+export const roleRequiresCompanyContext = (role: AppUserRole | string | null) =>
   role === 'broker' || role === 'company_admin' || role === 'company_staff';
 
 export const resolveAuthoritativeRole = ({
