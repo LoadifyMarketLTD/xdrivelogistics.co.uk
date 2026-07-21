@@ -1,17 +1,38 @@
 import crypto from 'crypto';
-import { getCanonicalSiteOrigin } from '../../../lib/siteUrl';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export const ONBOARDING_ACCOUNT_TYPES = ['customer_shipper', 'broker_shipper', 'fleet_courier', 'owner_driver'] as const;
-export type OnboardingAccountType = (typeof ONBOARDING_ACCOUNT_TYPES)[number];
-export const ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE: Record<OnboardingAccountType, 'customer' | 'broker' | 'fleet' | 'owner-driver'> = {
+import {
+  ACCOUNT_TYPE_CONFIG,
+  fromStoredOnboardingAccountType,
+  resolveAccountTypeFromMetadata,
+  toStoredOnboardingAccountType,
+  type AccountType,
+  type StoredOnboardingAccountType,
+} from '../../../lib/accountTypes';
+import { getCanonicalSiteOrigin } from '../../../lib/siteUrl';
+
+export const ONBOARDING_ACCOUNT_TYPES = [
+  'customer_shipper',
+  'broker_shipper',
+  'fleet_courier',
+  'owner_driver',
+] as const satisfies readonly StoredOnboardingAccountType[];
+export type OnboardingAccountType = StoredOnboardingAccountType;
+
+export const ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE: Record<
+  OnboardingAccountType,
+  'customer' | 'broker' | 'fleet' | 'owner-driver'
+> = {
   customer_shipper: 'customer',
   broker_shipper: 'broker',
   fleet_courier: 'fleet',
   owner_driver: 'owner-driver',
 };
 
-export const ONBOARDING_ACCOUNT_TYPE_BY_ROUTE_SEGMENT: Record<'customer' | 'broker' | 'fleet' | 'owner-driver', OnboardingAccountType> = {
+export const ONBOARDING_ACCOUNT_TYPE_BY_ROUTE_SEGMENT: Record<
+  'customer' | 'broker' | 'fleet' | 'owner-driver',
+  OnboardingAccountType
+> = {
   customer: 'customer_shipper',
   broker: 'broker_shipper',
   fleet: 'fleet_courier',
@@ -59,6 +80,7 @@ const LEGACY_ONBOARDING_STATUS_MAPPING: Record<string, OnboardingStatus> = {
   submitted: 'under_review',
   compliance_review: 'under_review',
   admin_approval: 'under_review',
+  pending_approval: 'under_review',
 };
 
 export const normalizeOnboardingStatus = (raw: string | null | undefined): OnboardingStatus => {
@@ -69,59 +91,37 @@ export const normalizeOnboardingStatus = (raw: string | null | undefined): Onboa
   return LEGACY_ONBOARDING_STATUS_MAPPING[value] ?? 'draft';
 };
 
-export const normalizeOnboardingAccountType = (raw: string | null | undefined): OnboardingAccountType => {
-  const value = (raw ?? '').toLowerCase().trim();
-  if (
-    value === 'owner_driver' ||
-    value === 'owner-driver' ||
-    value === 'owner_operator' ||
-    value === 'owner-operator' ||
-    value === 'sole_trader'
-  ) return 'owner_driver';
-  if (
-    value === 'fleet_courier' ||
-    value === 'fleet/courier' ||
-    value === 'fleet_operator' ||
-    value === 'company_admin'
-  ) return 'fleet_courier';
-  if (
-    value === 'customer_shipper' ||
-    value === 'customer' ||
-    value === 'shipper'
-  ) return 'customer_shipper';
-  if (
-    value === 'transport_broker' ||
-    value === 'broker' ||
-    value === 'broker_shipper'
-  ) return 'broker_shipper';
-  return 'customer_shipper';
+export const normalizeOnboardingAccountType = (
+  raw: unknown
+): OnboardingAccountType | null => {
+  const publicType = fromStoredOnboardingAccountType(raw);
+  return publicType ? toStoredOnboardingAccountType(publicType) : null;
 };
 
 export const resolveOnboardingAccountTypeFromMetadata = (
   userMetadata: Record<string, unknown> | null | undefined,
   appMetadata: Record<string, unknown> | null | undefined
-): OnboardingAccountType => {
-  const candidates = [
-    typeof userMetadata?.account_type === 'string' ? userMetadata.account_type : null,
-    typeof userMetadata?.requested_role === 'string' ? userMetadata.requested_role : null,
-    typeof appMetadata?.account_type === 'string' ? appMetadata.account_type : null,
-    typeof appMetadata?.requested_role === 'string' ? appMetadata.requested_role : null,
-  ];
+): OnboardingAccountType | null => {
+  const publicType = resolveAccountTypeFromMetadata(userMetadata, appMetadata);
+  return publicType ? toStoredOnboardingAccountType(publicType) : null;
+};
 
-  for (const candidate of candidates) {
-    if (!candidate) continue;
-    const normalized = normalizeOnboardingAccountType(candidate);
-    if (normalized) return normalized;
-  }
-
-  return 'customer_shipper';
+export const publicAccountTypeFromStored = (
+  stored: OnboardingAccountType
+): AccountType => {
+  const accountType = fromStoredOnboardingAccountType(stored);
+  if (!accountType) throw new Error(`Unsupported onboarding account type: ${stored}`);
+  return accountType;
 };
 
 export const generateOnboardingToken = () => crypto.randomBytes(32).toString('base64url');
 
-export const hashOnboardingToken = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
+export const hashOnboardingToken = (token: string) =>
+  crypto.createHash('sha256').update(token).digest('hex');
 
-export const resolveOnboardingTokenTtlHours = async (supabaseAdmin: SupabaseClient | null): Promise<number> => {
+export const resolveOnboardingTokenTtlHours = async (
+  supabaseAdmin: SupabaseClient | null
+): Promise<number> => {
   const envValue = Number.parseInt(process.env.ONBOARDING_TOKEN_TTL_HOURS ?? '', 10);
   const fallback = Number.isFinite(envValue) && envValue > 0 ? envValue : 72;
 
@@ -138,8 +138,15 @@ export const resolveOnboardingTokenTtlHours = async (supabaseAdmin: SupabaseClie
   return configured;
 };
 
-export const buildOnboardingUrl = (token: string, accountType: OnboardingAccountType) => {
-  const origin = getCanonicalSiteOrigin().replace('https://www.xdrivelogistics.co.uk', 'https://xdrivelogistics.co.uk');
-  const segment = ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE[accountType];
+export const buildOnboardingUrl = (
+  token: string,
+  accountType: OnboardingAccountType
+) => {
+  const origin = getCanonicalSiteOrigin().replace(
+    'https://www.xdrivelogistics.co.uk',
+    'https://xdrivelogistics.co.uk'
+  );
+  const publicType = publicAccountTypeFromStored(accountType);
+  const segment = ACCOUNT_TYPE_CONFIG[publicType].onboardingRouteSegment;
   return `${origin}/onboarding/${segment}/${token}`;
 };
