@@ -223,7 +223,7 @@ export function ComplianceDashboard() {
 
 export default function RoleDashboard() {
   const { user } = useAuth();
-  const role = resolveWorkspaceRole(user);
+  const role = user?.workspaceRole ?? resolveWorkspaceRole(user);
   if (role === 'fleet_manager') return <FleetDashboard />;
   if (role === 'finance') return <FinanceDashboard />;
   if (role === 'compliance') return <ComplianceDashboard />;
