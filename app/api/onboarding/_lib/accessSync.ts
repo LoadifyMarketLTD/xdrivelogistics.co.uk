@@ -39,19 +39,18 @@ export const syncOnboardingAccess = async (
     ? 'suspended'
     : lifecycleStatus;
 
+  const profilePatch: Record<string, unknown> = {
+    user_id: userId,
+    role: PROFILE_ROLE_BY_ACCOUNT_TYPE[accountType],
+    status: profileStatus,
+    is_driver: accountType === 'owner_driver',
+    updated_at: new Date().toISOString(),
+  };
+  if (companyId) profilePatch.company_id = companyId;
+
   const { error: profileError } = await client
     .from('profiles')
-    .upsert(
-      {
-        user_id: userId,
-        role: PROFILE_ROLE_BY_ACCOUNT_TYPE[accountType],
-        status: profileStatus,
-        company_id: companyId,
-        is_driver: accountType === 'owner_driver',
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    );
+    .upsert(profilePatch, { onConflict: 'user_id' });
 
   if (profileError) return new Error(profileError.message);
   if (accountType !== 'owner_driver') return null;
