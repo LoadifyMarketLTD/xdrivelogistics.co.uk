@@ -1,0 +1,58 @@
+name: Fix admin memo dependency
+
+on:
+  push:
+    branches:
+      - agent/dashboard-consistency-overhaul
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[admin-memo-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/dashboard-consistency-overhaul
+      - name: Apply exact source correction
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('app/admin/AdminWorkspaceModules.tsx')
+          text = path.read_text()
+          old = """export function FleetPositionsPage() {
+            const data = useCompanyWorkspaceData();
+            const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+            const latest = useMemo(() => {
+              const map = new Map<string, (typeof data.locations)[number]>();
+              for (const location of data.locations) {
+                if (!map.has(location.driver_id)) map.set(location.driver_id, location);
+              }
+              return map;
+            }, [data.locations]);"""
+          new = """export function FleetPositionsPage() {
+            const data = useCompanyWorkspaceData();
+            const locations = data.locations;
+            const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+            const latest = useMemo(() => {
+              const map = new Map<string, (typeof locations)[number]>();
+              for (const location of locations) {
+                if (!map.has(location.driver_id)) map.set(location.driver_id, location);
+              }
+              return map;
+            }, [locations]);"""
+          if old not in text:
+              raise SystemExit('Expected FleetPositionsPage snippet not found; refusing broad rewrite.')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Commit correction
+        shell: bash
+        run: |
+          git config user.name 'xdrive-ci-maintenance'
+          git config user.email 'actions@users.noreply.github.com'
+          git add app/admin/AdminWorkspaceModules.tsx
+          git commit -m 'Stabilize fleet position memo dependencies [admin-memo-fixed]'
+          git push origin HEAD:agent/dashboard-consistency-overhaul
