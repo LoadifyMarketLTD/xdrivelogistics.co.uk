@@ -5,6 +5,7 @@ import {
   roleRequiresCompanyContext,
   shouldAutoProvisionCompany,
 } from './authRole';
+import { classifyAccessLifecycleStatus, normalizeAccessStatus } from './accessLifecycle';
 import { resolveAuthContext } from './authContextResolver';
 import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './driverWorkspaceMode';
 import { supabase } from './supabaseClient';
@@ -26,8 +27,8 @@ export type UserRole =
  */
 export type AuthFailureReason =
   | 'profile_missing'         // No profile row found; account was never fully provisioned
-  | 'account_pending'         // profile.status = 'pending' — awaiting manual approval
-  | 'account_blocked'         // profile.status = 'blocked' | 'suspended' | 'inactive'
+  | 'account_pending'         // Profile or company is awaiting onboarding/review approval
+  | 'account_blocked'         // Profile or company is explicitly blocked/suspended/inactive/rejected
   | 'role_unsupported'        // profile.role exists but does not map to any app role
   | 'company_context_missing' // Role requires a company but none could be resolved
   | 'db_error';               // Database query failed (transient or config issue)
@@ -85,6 +86,17 @@ const readMetadataFlag = (metadata: Record<string, unknown> | null | undefined, 
 export const getFallbackRole = (sessionUser: SessionUser) =>
   readMetadataRole(sessionUser.app_metadata, 'role');
 
+const unsupportedStatusError = (query: string, entity: 'profile' | 'company', rawStatus: unknown): AuthResolutionResult => ({
+  user: null,
+  reason: 'db_error',
+  dbError: {
+    query,
+    message: `Unsupported ${entity} access status: ${normalizeAccessStatus(rawStatus) || '(empty)'}.`,
+    code: 'unsupported_access_status',
+    details: null,
+    hint: 'Use the canonical active, pending/review, or blocked lifecycle statuses.',
+  },
+});
 
 const resolveFinanceAccess = (
   role: UserRole,
@@ -238,18 +250,21 @@ export const resolveAuthenticatedUser = async (
     fallbackRole,
   });
 
-  // ── Profile status check ──────────────────────────────────────────────────
-  // Only applied when a profile row exists. If there is no profile but the
-  // user has a membership or driver record they can still authenticate.
+  // Profile lifecycle is independent from password failures. Only explicit
+  // blocked states are suspension; onboarding/review states are pending.
   if (profile) {
-    const status = (profile.status ?? 'active').toLowerCase();
-    if (status === 'pending') {
+    const profileStatus = profile.status ?? 'active';
+    const profileAccessState = classifyAccessLifecycleStatus(profileStatus);
+    if (profileAccessState === 'pending') {
       console.debug('[XDrive Auth] auth resolution failed', { reason: 'account_pending', userId: sessionUser.id });
       return { user: null, reason: 'account_pending' };
     }
-    if (status === 'blocked' || status === 'suspended' || status === 'inactive') {
+    if (profileAccessState === 'blocked') {
       console.debug('[XDrive Auth] auth resolution failed', { reason: 'account_blocked', userId: sessionUser.id });
       return { user: null, reason: 'account_blocked' };
+    }
+    if (profileAccessState === 'unknown') {
+      return unsupportedStatusError(profileLookupQuery, 'profile', profileStatus);
     }
   }
 
@@ -399,6 +414,7 @@ export const resolveAuthenticatedUser = async (
     }
 
     if (roleRequiresCompanyContext(resolvedRole) && companyId) {
+      const companyStatusQuery = `companies.select(status).eq(id,${companyId}).maybeSingle()`;
       const companyStatusRes = await supabase
         .from('companies')
         .select('status')
@@ -411,7 +427,7 @@ export const resolveAuthenticatedUser = async (
           user: null,
           reason: 'db_error',
           dbError: {
-            query: `companies.select(status).eq(id,${companyId}).maybeSingle()`,
+            query: companyStatusQuery,
             message: companyStatusRes.error.message,
             code: companyStatusRes.error.code ?? null,
             details: companyStatusRes.error.details ?? null,
@@ -420,15 +436,28 @@ export const resolveAuthenticatedUser = async (
         };
       }
 
-      const companyStatus = String(companyStatusRes.data?.status ?? '').trim().toLowerCase();
-      if (companyStatus !== 'active') {
+      const companyStatus = companyStatusRes.data?.status ?? '';
+      const companyAccessState = classifyAccessLifecycleStatus(companyStatus);
+      if (companyAccessState === 'pending') {
+        console.debug('[XDrive Auth] auth resolution failed', {
+          reason: 'account_pending',
+          userId: sessionUser.id,
+          companyId,
+          companyStatus: normalizeAccessStatus(companyStatus) || null,
+        });
+        return { user: null, reason: 'account_pending' };
+      }
+      if (companyAccessState === 'blocked') {
         console.debug('[XDrive Auth] auth resolution failed', {
           reason: 'account_blocked',
           userId: sessionUser.id,
           companyId,
-          companyStatus: companyStatus || null,
+          companyStatus: normalizeAccessStatus(companyStatus) || null,
         });
         return { user: null, reason: 'account_blocked' };
+      }
+      if (companyAccessState === 'unknown') {
+        return unsupportedStatusError(companyStatusQuery, 'company', companyStatus);
       }
     }
 
