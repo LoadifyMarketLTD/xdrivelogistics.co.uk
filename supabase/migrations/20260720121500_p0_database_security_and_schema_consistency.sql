@@ -770,25 +770,31 @@ REVOKE ALL ON FUNCTION public.submit_onboarding_application(uuid)
 GRANT EXECUTE ON FUNCTION public.submit_onboarding_application(uuid)
   TO service_role;
 
-REVOKE ALL ON FUNCTION public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text)
-  TO service_role;
-
-REVOKE ALL ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid)
-  TO service_role;
-
-REVOKE ALL ON FUNCTION public.request_awarded_job_cancellation_atomic(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.request_awarded_job_cancellation_atomic(uuid, uuid, text)
-  TO service_role;
-
-REVOKE ALL ON FUNCTION public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text)
-  TO service_role;
+-- Cancellation RPCs may be absent on a clean schema and are restored by later
+-- lifecycle migrations. Harden only the signatures that already exist here.
+DO $$
+DECLARE
+  v_signature text;
+BEGIN
+  FOREACH v_signature IN ARRAY ARRAY[
+    'public.cancel_unassigned_exchange_job_atomic(uuid,uuid,text)',
+    'public.delete_unbid_exchange_job_atomic(uuid,uuid)',
+    'public.request_awarded_job_cancellation_atomic(uuid,uuid,text)',
+    'public.decide_awarded_job_cancellation_atomic(uuid,uuid,text,text)'
+  ] LOOP
+    IF to_regprocedure(v_signature) IS NOT NULL THEN
+      EXECUTE format(
+        'REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated',
+        v_signature
+      );
+      EXECUTE format(
+        'GRANT EXECUTE ON FUNCTION %s TO service_role',
+        v_signature
+      );
+    END IF;
+  END LOOP;
+END
+$$;
 
 REVOKE ALL ON FUNCTION public.safe_dedup_drivers(uuid)
   FROM PUBLIC, anon, authenticated;
