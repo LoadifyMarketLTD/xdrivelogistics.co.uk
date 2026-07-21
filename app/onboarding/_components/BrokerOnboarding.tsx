@@ -37,6 +37,7 @@ type ApiErrorPayload = {
     fieldErrors?: Record<string, string[] | undefined>;
     formErrors?: string[];
   };
+  application?: Application;
 };
 
 const defaultPayload: BrokerPayload = {
@@ -104,7 +105,7 @@ const apiErrorMessage = (payload: ApiErrorPayload, fallback: string): string => 
     }
   }
 
-  return payload.error ?? fallback;
+  return payload.error ?? payload.details?.formErrors?.[0] ?? fallback;
 };
 
 export function BrokerOnboarding({ token }: { token: string }) {
@@ -133,7 +134,7 @@ export function BrokerOnboarding({ token }: { token: string }) {
       return true;
     }
     if (lifecycle === 'approved') {
-      router.replace('/login');
+      router.replace('/broker');
       return true;
     }
     if (lifecycle === 'rejected') {
@@ -166,16 +167,23 @@ export function BrokerOnboarding({ token }: { token: string }) {
       }
       const query = token && token !== 'resume' ? `?token=${encodeURIComponent(token)}` : '';
       const res = await fetch(`/api/onboarding/broker/session${query}`, { method: 'GET', headers, cache: 'no-store' });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Failed to load onboarding session.');
+      const data = (await res.json().catch(() => null)) as ApiErrorPayload | null;
+      if (!res.ok || !data?.application) {
+        setError(apiErrorMessage(data ?? {}, 'Failed to load onboarding session.'));
         return;
       }
 
       if (routeForStatus(data.application.status)) return;
       setApplication(data.application);
-      const payload = (data.application?.payload ?? {}) as Partial<BrokerPayload>;
-      setFormData({ ...defaultPayload, ...payload });
+      const payload = (data.application.payload ?? {}) as Partial<BrokerPayload>;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setFormData({
+        ...defaultPayload,
+        contact_email: user?.email ?? '',
+        ...payload,
+      });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to load onboarding session.');
     } finally {
@@ -204,15 +212,30 @@ export function BrokerOnboarding({ token }: { token: string }) {
           payload: formData,
         }),
       });
-      const data = (await res.json()) as ApiErrorPayload & { application?: Application };
-      if (!res.ok) {
-        setError(apiErrorMessage(data, 'Failed to save onboarding progress.'));
+      const data = (await res.json().catch(() => null)) as ApiErrorPayload | null;
+      if (!res.ok || !data?.application) {
+        setError(apiErrorMessage(data ?? {}, 'Failed to save onboarding progress.'));
         return;
       }
-      if (data.application) setApplication(data.application);
-      setMessage('Progress saved. You can continue later from this step.');
+      setApplication(data.application);
+      setMessage('Progress saved. You can sign out and continue later from this step.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to save onboarding progress.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const signOut = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        setError(signOutError.message);
+        return;
+      }
+      router.replace('/login');
     } finally {
       setSaving(false);
     }
@@ -247,19 +270,19 @@ export function BrokerOnboarding({ token }: { token: string }) {
           payload: normalizedPayload,
         }),
       });
+      const savePayload = (await saveRes.json().catch(() => null)) as ApiErrorPayload | null;
       if (!saveRes.ok) {
-        const payload = (await saveRes.json()) as ApiErrorPayload;
-        setError(apiErrorMessage(payload, 'Failed to save onboarding summary.'));
+        setError(apiErrorMessage(savePayload ?? {}, 'Failed to save onboarding summary.'));
         return;
       }
 
       const res = await fetch('/api/onboarding/submit/broker', { method: 'POST', headers });
-      const data = (await res.json()) as ApiErrorPayload & { application?: Application };
-      if (!res.ok) {
-        setError(apiErrorMessage(data, 'Failed to submit onboarding.'));
+      const data = (await res.json().catch(() => null)) as ApiErrorPayload | null;
+      if (!res.ok || !data?.application) {
+        setError(apiErrorMessage(data ?? {}, 'Failed to submit onboarding.'));
         return;
       }
-      if (data.application) setApplication(data.application);
+      setApplication(data.application);
       setMessage('Onboarding submitted successfully. Opening Pending Approval…');
       window.setTimeout(() => router.replace('/pending-approval'), 500);
     } catch (reason) {
@@ -293,7 +316,7 @@ export function BrokerOnboarding({ token }: { token: string }) {
       saving={saving}
       onSave={() => void saveProgress(application.current_step || 'company_details', Math.max(progress, 60))}
       onSubmit={() => void submitOnboarding()}
-      backToLogin={() => router.push('/login')}
+      onSignOut={() => void signOut()}
       submitDisabled={classifyOnboardingLifecycleStatus(application.status) !== 'editable'}
     >
       <section>
