@@ -1,0 +1,51 @@
+name: Patch P0 helper parameter names
+
+on:
+  push:
+    branches:
+      - agent/staging-integration
+    paths:
+      - ".github/workflows/patch-p0-helper-param-names.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/staging-integration
+          fetch-depth: 0
+
+      - name: Align helper parameter identity and remove this workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('supabase/migrations/20260720121500_p0_database_security_and_schema_consistency.sql')
+          text = path.read_text(encoding='utf-8')
+
+          for function_name in ('is_company_member', 'is_company_admin'):
+              marker = f'CREATE OR REPLACE FUNCTION public.{function_name}('
+              start = text.index(marker)
+              end = text.index('$$;', start) + 3
+              block = text[start:end]
+              if '_company_id' not in block:
+                  raise SystemExit(f'Expected _company_id parameter in {function_name} block')
+              block = block.replace('_company_id', 'cid')
+              text = text[:start] + block + text[end:]
+
+          path.write_text(text, encoding='utf-8')
+          Path('.github/workflows/patch-p0-helper-param-names.yml').unlink()
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/migrations/20260720121500_p0_database_security_and_schema_consistency.sql
+          git add -u .github/workflows/patch-p0-helper-param-names.yml
+          git commit -m "fix(db): preserve company helper parameter identity"
+          git push origin HEAD:agent/staging-integration
