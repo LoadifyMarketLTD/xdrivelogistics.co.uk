@@ -11,6 +11,8 @@ on:
 
 permissions:
   contents: read
+  issues: write
+  pull-requests: write
 
 concurrency:
   group: validate-clean-staging-bootstrap
@@ -91,7 +93,12 @@ jobs:
           assert len(versions) == len(set(versions)), 'Prepared migration versions are not unique'
           assert manifest['excluded_count'] == 1, 'Unexpected number of excluded migrations'
           assert manifest['excluded'][0]['source'] == '068_targeted_data_repair_current_accounts.sql'
-          assert all(not pathlib.Path('.staging-bootstrap/supabase/migrations', item['staged']).read_bytes().startswith(b'\xef\xbb\xbf') for item in migrations), 'Prepared migration still contains UTF-8 BOM'
+          assert all(
+              not pathlib.Path('.staging-bootstrap/supabase/migrations', item['staged'])
+              .read_bytes()
+              .startswith(b'\xef\xbb\xbf')
+              for item in migrations
+          ), 'Prepared migration still contains UTF-8 BOM'
           assert migrations[-5]['source'] == '20260720231500_onboarding_approval_driver_access_guard.sql'
           assert migrations[-4]['source'] == '20260720234500_canonical_driver_job_lifecycle.sql'
           assert migrations[-3]['source'] == '20260720235500_invoice_delivery_tracking.sql'
@@ -106,29 +113,69 @@ jobs:
           PY
 
       - name: Start disposable local Supabase and apply migrations
+        id: start_supabase
         working-directory: .staging-bootstrap
         shell: bash
         run: |
           set -euo pipefail
-          supabase start
+          supabase start 2>&1 | tee bootstrap-start.log
 
       - name: Rebuild disposable database from migration zero
+        id: reset_database
         working-directory: .staging-bootstrap
         shell: bash
         run: |
           set -euo pipefail
-          supabase db reset --local
+          supabase db reset --local 2>&1 | tee bootstrap-reset.log
 
       - name: Confirm every prepared migration was recorded
+        id: confirm_migrations
         working-directory: .staging-bootstrap
         shell: bash
         run: |
           set -euo pipefail
           expected=$(python -c "import json; print(json.load(open('bootstrap-manifest.json'))['included_count'])")
-          actual=$(supabase migration list --local | awk '/^[[:space:]]*[0-9]{14}[[:space:]]*\|/ {count++} END {print count+0}')
-          echo "Expected migration count: $expected"
-          echo "Recorded migration count: $actual"
+          actual=$(supabase migration list --local | tee bootstrap-migration-list.log | awk '/^[[:space:]]*[0-9]{14}[[:space:]]*\|/ {count++} END {print count+0}')
+          echo "Expected migration count: $expected" | tee bootstrap-count.log
+          echo "Recorded migration count: $actual" | tee -a bootstrap-count.log
           test "$actual" -eq "$expected"
+
+      - name: Publish failure diagnostics to PR 248
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          {
+            echo '<!-- clean-staging-bootstrap-diagnostic -->'
+            echo '### Clean staging bootstrap failure'
+            echo
+            echo "Commit: \`${GITHUB_SHA}\`"
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo '```text'
+            found=0
+            for file in \
+              .staging-bootstrap/bootstrap-start.log \
+              .staging-bootstrap/bootstrap-reset.log \
+              .staging-bootstrap/bootstrap-migration-list.log \
+              .staging-bootstrap/bootstrap-count.log; do
+              if [ -f "$file" ]; then
+                found=1
+                echo "===== $file ====="
+                tail -n 180 "$file"
+              fi
+            done
+            if [ "$found" -eq 0 ]; then
+              echo 'The workflow failed before a Supabase diagnostic log was created.'
+            fi
+            echo '```'
+          } > /tmp/bootstrap-diagnostic.md
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -F body=@/tmp/bootstrap-diagnostic.md
 
       - name: Upload bootstrap manifest
         if: ${{ always() && hashFiles('.staging-bootstrap/bootstrap-manifest.json') != '' }}
