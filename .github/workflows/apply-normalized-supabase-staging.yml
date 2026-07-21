@@ -1,0 +1,258 @@
+name: Apply Normalized Supabase Staging Schema
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/staging-integration
+    paths:
+      - ".github/workflows/apply-normalized-supabase-staging.yml"
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+env:
+  EXPECTED_STAGING_PROJECT_REF: svfjlhjuizckzabtewx
+
+concurrency:
+  group: supabase-disposable-staging-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging-schema:
+    name: Apply 156 validated migrations to disposable staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Checkout validated staging branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/staging-integration
+          fetch-depth: 1
+
+      - name: Validate staging-only deployment guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "agent/staging-integration"
+          test -n "${SUPABASE_ACCESS_TOKEN:-}"
+          test -n "${SUPABASE_DB_PASSWORD:-}"
+          test -n "${SUPABASE_PROJECT_REF:-}"
+
+          if [ "$SUPABASE_PROJECT_REF" != "$EXPECTED_STAGING_PROJECT_REF" ]; then
+            echo "Refusing deployment: configured project ref is not the approved disposable staging project."
+            exit 1
+          fi
+
+          echo "Deployment guard passed for the approved disposable staging project."
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Initialize isolated deployment workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .remote-staging-deploy
+          mkdir -p .remote-staging-deploy
+          cd .remote-staging-deploy
+          supabase init
+
+      - name: Prepare the locally validated normalized migration set
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/prepare_staging_bootstrap.py \
+            --source supabase/migrations \
+            --destination .remote-staging-deploy/supabase/migrations \
+            --manifest .remote-staging-deploy/deployment-manifest.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(
+              Path('.remote-staging-deploy/deployment-manifest.json').read_text(encoding='utf-8')
+          )
+          assert manifest['included_count'] == 156, manifest['included_count']
+          assert manifest['excluded_count'] == 1, manifest['excluded_count']
+          assert manifest['excluded'][0]['source'] == '068_targeted_data_repair_current_accounts.sql'
+          assert manifest['migrations'][-1]['source'] == '20260721001500_scrub_notification_secrets.sql'
+          print('Validated remote deployment manifest: 156 included, 1 production-data repair excluded.')
+          PY
+
+      - name: Link only the approved disposable staging project
+        working-directory: .remote-staging-deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$SUPABASE_PROJECT_REF" 2>&1 | tee staging-link.log
+
+      - name: Validate remote migration history is an expected prefix
+        working-directory: .remote-staging-deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list --linked 2>&1 | tee staging-history-before.log
+
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          manifest = json.loads(Path('deployment-manifest.json').read_text(encoding='utf-8'))
+          expected = [item['staged_version'] for item in manifest['migrations']]
+          text = Path('staging-history-before.log').read_text(encoding='utf-8', errors='replace')
+          text = re.sub(r'\x1b\[[0-9;]*m', '', text).replace('`', '')
+
+          remote = []
+          for line in text.splitlines():
+              parts = [part.strip() for part in line.split('|')]
+              if len(parts) < 2 or not re.fullmatch(r'\d{14}', parts[0]):
+                  continue
+              if re.fullmatch(r'\d{14}', parts[1]):
+                  remote.append(parts[1])
+
+          if remote != expected[:len(remote)]:
+              raise SystemExit(
+                  'Remote migration history is not an exact prefix of the approved staging manifest; '
+                  'deployment refused.'
+              )
+
+          print(f'Remote history guard passed: {len(remote)} of {len(expected)} migrations already present.')
+          PY
+
+      - name: Dry-run normalized migrations against remote staging
+        working-directory: .remote-staging-deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db push --linked --include-all --dry-run 2>&1 | tee staging-push-dry-run.log
+
+      - name: Apply normalized migrations to remote staging
+        working-directory: .remote-staging-deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db push --linked --include-all 2>&1 | tee staging-push.log
+
+      - name: Verify complete remote migration history
+        working-directory: .remote-staging-deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list --linked 2>&1 | tee staging-history-after.log
+
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          manifest = json.loads(Path('deployment-manifest.json').read_text(encoding='utf-8'))
+          expected = [item['staged_version'] for item in manifest['migrations']]
+          text = Path('staging-history-after.log').read_text(encoding='utf-8', errors='replace')
+          text = re.sub(r'\x1b\[[0-9;]*m', '', text).replace('`', '')
+
+          remote = []
+          for line in text.splitlines():
+              parts = [part.strip() for part in line.split('|')]
+              if len(parts) < 2 or not re.fullmatch(r'\d{14}', parts[0]):
+                  continue
+              if re.fullmatch(r'\d{14}', parts[1]):
+                  remote.append(parts[1])
+
+          print(f'Expected remote migration count: {len(expected)}')
+          print(f'Recorded remote migration count: {len(remote)}')
+          if remote != expected:
+              raise SystemExit('Remote staging migration history does not exactly match the approved manifest.')
+          PY
+
+      - name: Publish staging deployment success to PR 248
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -f body="<!-- normalized-supabase-staging-success -->
+          ### Disposable Supabase staging schema applied
+
+          Commit: \`${GITHUB_SHA}\`
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          The approved normalized migration manifest was applied to the guarded staging project and the remote history matched **156 / 156**. Production was not targeted."
+
+      - name: Publish concise staging deployment failure to PR 248
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          {
+            echo '<!-- normalized-supabase-staging-failure -->'
+            echo '### Disposable Supabase staging deployment failed'
+            echo
+            echo "Commit: \`${GITHUB_SHA}\`"
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo '```text'
+            found=0
+            for file in \
+              .remote-staging-deploy/staging-link.log \
+              .remote-staging-deploy/staging-history-before.log \
+              .remote-staging-deploy/staging-push-dry-run.log \
+              .remote-staging-deploy/staging-push.log \
+              .remote-staging-deploy/staging-history-after.log; do
+              if [ -f "$file" ]; then
+                found=1
+                echo "===== $file ====="
+                matches=$(grep -E 'ERROR:|Error:|SQLSTATE|failed|refused|does not exist|already exists|Expected remote|Recorded remote' "$file" | tail -n 16 || true)
+                if [ -n "$matches" ]; then
+                  printf '%s\n' "$matches"
+                else
+                  tail -n 18 "$file"
+                fi
+              fi
+            done
+            if [ "$found" -eq 0 ]; then
+              echo 'The workflow failed before a Supabase deployment log was created.'
+            fi
+            echo '```'
+          } > /tmp/staging-deployment-diagnostic.md
+
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -F body=@/tmp/staging-deployment-diagnostic.md
+
+      - name: Upload staging deployment manifest and non-secret logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: normalized-supabase-staging-deployment
+          path: |
+            .remote-staging-deploy/deployment-manifest.json
+            .remote-staging-deploy/staging-history-before.log
+            .remote-staging-deploy/staging-push-dry-run.log
+            .remote-staging-deploy/staging-push.log
+            .remote-staging-deploy/staging-history-after.log
+          if-no-files-found: ignore
+          retention-days: 7
