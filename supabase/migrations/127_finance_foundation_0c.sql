@@ -321,7 +321,7 @@ CREATE POLICY invoice_payment_history_insert ON public.invoice_payment_history
       WHERE cm.user_id = auth.uid()
         AND cm.company_id = invoice_payment_history.company_id
         AND cm.status = 'active'
-        AND cm.role_in_company IN ('owner', 'admin', 'dispatcher', 'finance')
+        AND cm.role_in_company::text IN ('owner', 'admin', 'dispatcher', 'finance')
     )
   );
 
