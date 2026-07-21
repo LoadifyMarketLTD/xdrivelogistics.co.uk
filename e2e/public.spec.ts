@@ -6,8 +6,9 @@ test.describe('Public pages', () => {
   test('homepage loads and shows CTA', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle(/XDrive/i);
-    const cta = page.getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first();
+    const cta = page.getByRole('link', { name: /request (?:early )?access/i }).first();
     await expect(cta).toBeVisible();
+    await expect(cta).toHaveAttribute('href', '/register');
   });
 
   test('homepage has navigation links', async ({ page }) => {
