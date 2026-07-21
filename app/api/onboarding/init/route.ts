@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existing, error: existingError } = await supabaseAdmin!
     .from('onboarding_applications')
-    .select('id, status, account_type, token_hash, token_expires_at, token_activated_at, token_last_sent_at')
+    .select('id, status, account_type, token_hash, token_expires_at, token_activated_at, token_last_sent_at, token_revoked_at')
     .eq('user_id', authUser.id)
     .maybeSingle();
 
@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
     existing?.token_expires_at && new Date(existing.token_expires_at).getTime() <= now.getTime()
   );
   const explicitResend = payload.forceRegenerateToken === true;
+  const invitationRevoked = Boolean(existing?.token_revoked_at);
 
   if (explicitResend && existing?.token_last_sent_at) {
     const elapsed = now.getTime() - new Date(existing.token_last_sent_at).getTime();
@@ -86,8 +87,7 @@ export async function POST(request: NextRequest) {
   const shouldRegenerateToken =
     explicitResend ||
     !existing ||
-    !existing.token_hash ||
-    tokenExpired;
+    (!invitationRevoked && (!existing.token_hash || tokenExpired));
 
   let invitationUrl: string | null = null;
   const row: Record<string, unknown> = {
@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
     row.token_expires_at = expiresAt;
     row.token_activated_at = null;
     row.token_last_sent_at = now.toISOString();
+    row.token_revoked_at = null;
   }
 
   Object.keys(row).forEach((key) => {
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
   const { data: upserted, error: upsertError } = await supabaseAdmin!
     .from('onboarding_applications')
     .upsert(row, { onConflict: 'user_id' })
-    .select('id, status, account_type, token_expires_at')
+    .select('id, status, account_type, token_expires_at, token_revoked_at')
     .single();
 
   if (upsertError) return json(500, { error: upsertError.message });
@@ -145,6 +146,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const resumeAllowed = normalizedExistingStatus === 'approved' || !upserted.token_revoked_at;
+
   return json(200, {
     onboardingApplicationId: upserted.id,
     status: upserted.status,
@@ -153,7 +156,8 @@ export async function POST(request: NextRequest) {
     tokenExpiresAt: upserted.token_expires_at,
     invitationRegenerated: shouldRegenerateToken,
     invitationResent: explicitResend && shouldRegenerateToken,
-    resumeAllowed: true,
+    invitationRevoked: Boolean(upserted.token_revoked_at),
+    resumeAllowed,
   });
 }
 
@@ -180,6 +184,7 @@ export async function DELETE(request: NextRequest) {
       token_hash: null,
       token_expires_at: revokedAt,
       token_activated_at: null,
+      token_revoked_at: revokedAt,
       last_activity_at: revokedAt,
       updated_at: revokedAt,
     })
