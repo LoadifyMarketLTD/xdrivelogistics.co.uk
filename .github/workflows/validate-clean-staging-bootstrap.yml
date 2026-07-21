@@ -102,11 +102,12 @@ jobs:
               .startswith(b'\xef\xbb\xbf')
               for item in migrations
           ), 'Prepared migration still contains UTF-8 BOM'
-          assert migrations[-5]['source'] == '20260720231500_onboarding_approval_driver_access_guard.sql'
-          assert migrations[-4]['source'] == '20260720234500_canonical_driver_job_lifecycle.sql'
-          assert migrations[-3]['source'] == '20260720235500_invoice_delivery_tracking.sql'
-          assert migrations[-2]['source'] == '20260721000500_job_creation_idempotency.sql'
-          assert migrations[-1]['source'] == '20260721001500_scrub_notification_secrets.sql'
+          assert migrations[-6]['source'] == '20260720231500_onboarding_approval_driver_access_guard.sql'
+          assert migrations[-5]['source'] == '20260720234500_canonical_driver_job_lifecycle.sql'
+          assert migrations[-4]['source'] == '20260720235500_invoice_delivery_tracking.sql'
+          assert migrations[-3]['source'] == '20260721000500_job_creation_idempotency.sql'
+          assert migrations[-2]['source'] == '20260721001500_scrub_notification_secrets.sql'
+          assert migrations[-1]['source'] == '20260721003000_fix_onboarding_membership_role_enum.sql'
 
           print(
               f"Manifest validated: {len(migrations)} included, "
