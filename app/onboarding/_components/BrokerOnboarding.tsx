@@ -33,12 +33,16 @@ type BrokerFieldErrors = Partial<Record<BrokerField, string>>;
 
 type ApiErrorPayload = {
   error?: string;
+  path?: string;
+  missingDocuments?: string[];
   details?: {
     fieldErrors?: Record<string, string[] | undefined>;
     formErrors?: string[];
   };
   application?: Application;
 };
+
+const BROKER_DOCUMENTS = ['company_registration', 'public_liability', 'vat_registration'] as const;
 
 const defaultPayload: BrokerPayload = {
   company_name: '',
@@ -105,6 +109,10 @@ const apiErrorMessage = (payload: ApiErrorPayload, fallback: string): string => 
     }
   }
 
+  if (payload.missingDocuments?.length) {
+    return `${payload.error ?? fallback} Missing: ${payload.missingDocuments.map((value) => value.replace(/_/g, ' ')).join(', ')}.`;
+  }
+
   return payload.error ?? payload.details?.formErrors?.[0] ?? fallback;
 };
 
@@ -112,6 +120,7 @@ export function BrokerOnboarding({ token }: { token: string }) {
   const router = useRouter();
   const [application, setApplication] = useState<Application | null>(null);
   const [formData, setFormData] = useState<BrokerPayload>(defaultPayload);
+  const [uploadedDocuments, setUploadedDocuments] = useState<Set<string>>(new Set());
   const [fieldErrors, setFieldErrors] = useState<BrokerFieldErrors>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -175,7 +184,7 @@ export function BrokerOnboarding({ token }: { token: string }) {
 
       if (routeForStatus(data.application.status)) return;
       setApplication(data.application);
-      const payload = (data.application.payload ?? {}) as Partial<BrokerPayload>;
+      const payload = (data.application.payload ?? {}) as Partial<BrokerPayload> & Record<string, unknown>;
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -184,6 +193,9 @@ export function BrokerOnboarding({ token }: { token: string }) {
         contact_email: user?.email ?? '',
         ...payload,
       });
+      setUploadedDocuments(new Set(
+        BROKER_DOCUMENTS.filter((docType) => Boolean(payload[`doc_${docType}`]))
+      ));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to load onboarding session.');
     } finally {
@@ -221,6 +233,36 @@ export function BrokerOnboarding({ token }: { token: string }) {
       setMessage('Progress saved. You can sign out and continue later from this step.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to save onboarding progress.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const uploadDocument = async (docType: string, file: File) => {
+    setSaving(true);
+    setError('');
+    setMessage('');
+    try {
+      const headers = await authHeaders();
+      const form = new FormData();
+      form.set('docType', docType);
+      form.set('file', file);
+
+      const response = await fetch('/api/onboarding/documents', {
+        method: 'POST',
+        headers,
+        body: form,
+      });
+      const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null;
+      if (!response.ok || !payload?.path) {
+        setError(apiErrorMessage(payload ?? {}, 'Document upload failed.'));
+        return;
+      }
+
+      setUploadedDocuments((previous) => new Set(previous).add(docType));
+      setMessage(`Uploaded ${docType.replace(/_/g, ' ')}.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Document upload failed.');
     } finally {
       setSaving(false);
     }
@@ -332,6 +374,25 @@ export function BrokerOnboarding({ token }: { token: string }) {
         <Field required error={fieldErrors.finance_contact} label="Finance Contact" value={formData.finance_contact} onChange={(value) => updateField('finance_contact', value)} />
         <Field required error={fieldErrors.contact_email} label="Email" type="email" value={formData.contact_email} onChange={(value) => updateField('contact_email', value)} autoComplete="email" />
         <Field required error={fieldErrors.contact_phone} label="Phone" value={formData.contact_phone} onChange={(value) => updateField('contact_phone', value)} autoComplete="tel" />
+      </section>
+
+      <section style={{ marginTop: '2rem' }}>
+        <h2>Compliance Documents</h2>
+        <p style={{ color: '#4B5563' }}>Upload company registration, public liability and VAT registration before submitting for review.</p>
+        {BROKER_DOCUMENTS.map((docType) => (
+          <div key={docType} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '0.75rem', alignItems: 'center' }}>
+            <span>{docType.replace(/_/g, ' ')} {uploadedDocuments.has(docType) ? '✓' : ''}</span>
+            <input
+              type="file"
+              accept="application/pdf,image/jpeg,image/png,image/webp"
+              disabled={saving}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadDocument(docType, file);
+              }}
+            />
+          </div>
+        ))}
       </section>
     </PageLayout>
   );
