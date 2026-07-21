@@ -164,7 +164,8 @@ jobs:
               if [ -f "$file" ]; then
                 found=1
                 echo "===== $file ====="
-                tail -n 180 "$file"
+                grep -E 'Applying migration|ERROR|Error:|failed|SQLSTATE|invalid input|does not exist|cannot |syntax error|Expected migration count|Recorded migration count' "$file" \
+                  | tail -n 45 || tail -n 45 "$file"
               fi
             done
             if [ "$found" -eq 0 ]; then
