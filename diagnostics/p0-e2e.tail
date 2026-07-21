@@ -1,0 +1,133 @@
+[1A[2K[WebServer] [supabaseAdmin] SUPABASE_SERVICE_ROLE_KEY is not set — admin operations are disabled.
+
+[1A[2K[WebServer] <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (102kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+
+[1A[2K[WebServer] <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (243kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+
+
+Running 10 tests using 1 worker
+
+[1A[2K[1/10] [chromium] › e2e/public.spec.ts:6:3 › Public pages › homepage loads and shows CTA
+[1A[2K[2/10] (retries) [chromium] › e2e/public.spec.ts:6:3 › Public pages › homepage loads and shows CTA (retry #1)
+[1A[2K[3/10] (retries) [chromium] › e2e/public.spec.ts:6:3 › Public pages › homepage loads and shows CTA (retry #2)
+[1A[2K  1) [chromium] › e2e/public.spec.ts:6:3 › Public pages › homepage loads and shows CTA ─────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first()[22m
+
+
+       8 |     await expect(page).toHaveTitle(/XDrive/i);
+       9 |     const cta = page.getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first();
+    > 10 |     await expect(cta).toBeVisible();
+         |                       ^
+      11 |   });
+      12 |
+      13 |   test('homepage has navigation links', async ({ page }) => {
+        at /home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/e2e/public.spec.ts:10:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/public-Public-pages-homepage-loads-and-shows-CTA-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/public-Public-pages-homepage-loads-and-shows-CTA-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/public-Public-pages-homepage-loads-and-shows-CTA-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first()[22m
+
+
+       8 |     await expect(page).toHaveTitle(/XDrive/i);
+       9 |     const cta = page.getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first();
+    > 10 |     await expect(cta).toBeVisible();
+         |                       ^
+      11 |   });
+      12 |
+      13 |   test('homepage has navigation links', async ({ page }) => {
+        at /home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/e2e/public.spec.ts:10:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/public-Public-pages-homepage-loads-and-shows-CTA-chromium-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/public-Public-pages-homepage-loads-and-shows-CTA-chromium-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/public-Public-pages-homepage-loads-and-shows-CTA-chromium-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/public-Public-pages-homepage-loads-and-shows-CTA-chromium-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/public-Public-pages-homepage-loads-and-shows-CTA-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first()[22m
+
+
+       8 |     await expect(page).toHaveTitle(/XDrive/i);
+       9 |     const cta = page.getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first();
+    > 10 |     await expect(cta).toBeVisible();
+         |                       ^
+      11 |   });
+      12 |
+      13 |   test('homepage has navigation links', async ({ page }) => {
+        at /home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/e2e/public.spec.ts:10:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/public-Public-pages-homepage-loads-and-shows-CTA-chromium-retry2/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/public-Public-pages-homepage-loads-and-shows-CTA-chromium-retry2/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/public-Public-pages-homepage-loads-and-shows-CTA-chromium-retry2/error-context.md
+
+
+[1A[2K[4/10] [chromium] › e2e/public.spec.ts:13:3 › Public pages › homepage has navigation links
+[1A[2K[5/10] [chromium] › e2e/public.spec.ts:18:3 › Public pages › request-quote page loads
+[1A[2K[6/10] [chromium] › e2e/public.spec.ts:23:3 › Public pages › login page loads
+[1A[2K[7/10] [chromium] › e2e/public.spec.ts:28:3 › Public pages › registration exposes the canonical account types
+[1A[2K[8/10] [chromium] › e2e/public.spec.ts:47:5 › Auth redirects › unauthenticated /admin redirects to login
+[1A[2K[9/10] [chromium] › e2e/public.spec.ts:47:5 › Auth redirects › unauthenticated /driver/jobs redirects to login
+[1A[2K[10/10] [chromium] › e2e/public.spec.ts:47:5 › Auth redirects › unauthenticated /super-admin redirects to login
+[1A[2K[11/10] [chromium] › e2e/public.spec.ts:47:5 › Auth redirects › unauthenticated /customer redirects to login
+[1A[2K[12/10] [chromium] › e2e/public.spec.ts:54:3 › Auth redirects › unauthenticated onboarding resume redirects to login instead of a missing route
+[1A[2K  1 failed
+    [chromium] › e2e/public.spec.ts:6:3 › Public pages › homepage loads and shows CTA ──────────────
+  9 passed (49.8s)
+E2E_EXIT=1
