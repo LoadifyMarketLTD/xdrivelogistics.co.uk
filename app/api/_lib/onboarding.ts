@@ -69,33 +69,44 @@ export const normalizeOnboardingStatus = (raw: string | null | undefined): Onboa
   return LEGACY_ONBOARDING_STATUS_MAPPING[value] ?? 'draft';
 };
 
-export const normalizeOnboardingAccountType = (raw: string | null | undefined): OnboardingAccountType => {
+const normalizeOnboardingAccountTypeCandidate = (
+  raw: string | null | undefined,
+): OnboardingAccountType | null => {
   const value = (raw ?? '').toLowerCase().trim();
   if (
     value === 'owner_driver' ||
     value === 'owner-driver' ||
     value === 'owner_operator' ||
     value === 'owner-operator' ||
-    value === 'sole_trader'
+    value === 'sole_trader' ||
+    value === 'driver'
   ) return 'owner_driver';
   if (
     value === 'fleet_courier' ||
     value === 'fleet/courier' ||
     value === 'fleet_operator' ||
-    value === 'company_admin'
+    value === 'company_admin' ||
+    value === 'admin' ||
+    value === 'admin_staff' ||
+    value === 'org_admin'
   ) return 'fleet_courier';
   if (
     value === 'customer_shipper' ||
     value === 'customer' ||
-    value === 'shipper'
+    value === 'shipper' ||
+    value === 'client'
   ) return 'customer_shipper';
   if (
     value === 'transport_broker' ||
     value === 'broker' ||
-    value === 'broker_shipper'
+    value === 'broker_shipper' ||
+    value === 'freight_broker'
   ) return 'broker_shipper';
-  return 'customer_shipper';
+  return null;
 };
+
+export const normalizeOnboardingAccountType = (raw: string | null | undefined): OnboardingAccountType =>
+  normalizeOnboardingAccountTypeCandidate(raw) ?? 'customer_shipper';
 
 export const resolveOnboardingAccountTypeFromMetadata = (
   userMetadata: Record<string, unknown> | null | undefined,
@@ -104,13 +115,14 @@ export const resolveOnboardingAccountTypeFromMetadata = (
   const candidates = [
     typeof userMetadata?.account_type === 'string' ? userMetadata.account_type : null,
     typeof userMetadata?.requested_role === 'string' ? userMetadata.requested_role : null,
+    typeof userMetadata?.role === 'string' ? userMetadata.role : null,
     typeof appMetadata?.account_type === 'string' ? appMetadata.account_type : null,
     typeof appMetadata?.requested_role === 'string' ? appMetadata.requested_role : null,
+    typeof appMetadata?.role === 'string' ? appMetadata.role : null,
   ];
 
   for (const candidate of candidates) {
-    if (!candidate) continue;
-    const normalized = normalizeOnboardingAccountType(candidate);
+    const normalized = normalizeOnboardingAccountTypeCandidate(candidate);
     if (normalized) return normalized;
   }
 
