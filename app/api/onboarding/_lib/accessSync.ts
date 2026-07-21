@@ -43,6 +43,26 @@ const syncCanonicalAuthRole = async (
   return error ? new Error(error.message) : null;
 };
 
+const syncMembershipLifecycle = async (
+  client: SupabaseClient,
+  userId: string,
+  companyId: string | null,
+  membershipStatus: 'invited' | 'active' | 'suspended',
+): Promise<Error | null> => {
+  if (!companyId) return null;
+
+  const { error } = await client
+    .from('company_memberships')
+    .update({
+      status: membershipStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('company_id', companyId)
+    .eq('user_id', userId);
+
+  return error ? new Error(error.message) : null;
+};
+
 export const syncOnboardingAccess = async (
   client: SupabaseClient,
   {
@@ -71,6 +91,8 @@ export const syncOnboardingAccess = async (
   // A manual security block must never be removed merely because the applicant
   // opens an onboarding page, signs in again, or an onboarding status is read.
   if (existingAccessState === 'blocked') {
+    const membershipError = await syncMembershipLifecycle(client, userId, companyId, 'suspended');
+    if (membershipError) return membershipError;
     return accountType === 'owner_driver'
       ? updateOwnerDriverAccess(client, userId, false, companyId)
       : null;
@@ -81,6 +103,18 @@ export const syncOnboardingAccess = async (
     : status === 'rejected'
       ? 'blocked'
       : 'pending';
+  const membershipStatus = status === 'approved'
+    ? 'active'
+    : status === 'rejected'
+      ? 'suspended'
+      : 'invited';
+
+  // The onboarding RPC creates a company membership so documents can be linked,
+  // but that membership must not become an operational workspace credential
+  // before approval. Most RLS policies require status = active, so keeping it
+  // invited closes direct API access as well as browser-page access.
+  const membershipError = await syncMembershipLifecycle(client, userId, companyId, membershipStatus);
+  if (membershipError) return membershipError;
 
   const canonicalRole = PROFILE_ROLE_BY_ACCOUNT_TYPE[accountType];
   const legacyCompatibleRole = normalizeProfileRoleForStorage(canonicalRole) ?? canonicalRole;
