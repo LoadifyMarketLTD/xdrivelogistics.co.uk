@@ -1,0 +1,30 @@
+{
+  "result": "success",
+  "source_sha": "d20a8351a5b84db50af311738e751ab3ae54de4f",
+  "run_id": "29839939124",
+  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29839939124",
+  "branch": "agent/staging-integration",
+  "project_ref": "svfjlhljuizckzabtewx",
+  "journeys": [
+    "Customer",
+    "Broker",
+    "Fleet",
+    "Owner Driver"
+  ],
+  "validated": [
+    "48-hour invitation expiry",
+    "persistent revoke",
+    "resend cooldown and token rotation",
+    "mandatory document upload",
+    "replacement without duplicates",
+    "private signed preview",
+    "per-document approval",
+    "approval readiness",
+    "approved evidence lock",
+    "account-type route isolation",
+    "owner-only review access",
+    "cross-application evidence mutation denial"
+  ],
+  "production_targeted": false,
+  "recorded_at": "2026-07-21T14:39:35.791195+00:00"
+}
