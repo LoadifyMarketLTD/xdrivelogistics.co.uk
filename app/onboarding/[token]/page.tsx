@@ -119,14 +119,14 @@ export default function OnboardingTokenPage() {
     return { Authorization: `Bearer ${session.access_token}` };
   };
 
-  const routeForStatus = useCallback((status: string) => {
+  const routeForStatus = useCallback((status: string, resolvedAccountType: AccountType) => {
     const lifecycle = classifyOnboardingLifecycleStatus(status);
     if (lifecycle === 'review') {
       router.replace('/pending-approval');
       return true;
     }
     if (lifecycle === 'approved') {
-      router.replace('/login');
+      router.replace(resolvedAccountType === 'fleet_courier' ? '/admin' : '/driver');
       return true;
     }
     if (lifecycle === 'rejected') {
@@ -164,7 +164,7 @@ export default function OnboardingTokenPage() {
         return;
       }
 
-      if (routeForStatus(data.application.status)) return;
+      if (routeForStatus(data.application.status, data.application.account_type)) return;
 
       setApplication(data.application);
       const payload = data.application.payload ?? {};
@@ -173,6 +173,12 @@ export default function OnboardingTokenPage() {
         if (typeof value === 'string') nextFormData[key] = value;
         if (typeof value === 'boolean') nextFormData[key] = value ? 'true' : 'false';
       });
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (data.application.account_type === 'owner_driver' && user?.email && !nextFormData.contact_email) {
+        nextFormData.contact_email = user.email;
+      }
       setFormData(nextFormData);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to load onboarding session.');
@@ -278,6 +284,21 @@ export default function OnboardingTokenPage() {
     }
   };
 
+  const signOut = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        setError(signOutError.message);
+        return;
+      }
+      router.replace('/login');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const submitOnboarding = async () => {
     const validationErrors = validateSubmission();
     if (Object.keys(validationErrors).length > 0) {
@@ -373,6 +394,7 @@ export default function OnboardingTokenPage() {
   }
 
   const progress = Number(application.completion_percentage ?? 0);
+  const isEditable = classifyOnboardingLifecycleStatus(application.status) === 'editable';
 
   return (
     <main style={{ maxWidth: 900, margin: '0 auto', padding: '2rem' }}>
@@ -465,17 +487,18 @@ export default function OnboardingTokenPage() {
         <button
           type="button"
           onClick={() => void submitOnboarding()}
-          disabled={saving}
-          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: 'none', background: '#1D4ED8', color: '#fff', cursor: saving ? 'wait' : 'pointer' }}
+          disabled={saving || !isEditable}
+          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: 'none', background: '#1D4ED8', color: '#fff', cursor: saving || !isEditable ? 'not-allowed' : 'pointer' }}
         >
           Submit for review
         </button>
         <button
           type="button"
-          onClick={() => router.push('/login')}
-          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #D1D5DB', cursor: 'pointer' }}
+          onClick={() => void signOut()}
+          disabled={saving}
+          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #D1D5DB', cursor: saving ? 'wait' : 'pointer' }}
         >
-          Back to sign in
+          Sign out
         </button>
       </div>
     </main>
