@@ -67,12 +67,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   let rawDocuments: Array<Record<string, unknown>> = [];
   let kind: 'company' | 'driver' = 'company';
 
+  // Missing placeholder rows are represented by the readiness response. The
+  // review queue contains uploaded evidence only, preventing empty optional
+  // placeholders from appearing as reviewable documents or receiving URLs.
   if (application.account_type === 'owner_driver') {
     kind = 'driver';
     const { data, error } = await supabaseAdmin
       .from('driver_identity_documents')
       .select('id, doc_type, file_path, upload_status, verification_status, reviewed_by, reviewed_at, review_notes, expiry_date, created_at, updated_at')
       .eq('onboarding_application_id', id)
+      .not('file_path', 'is', null)
+      .eq('upload_status', 'uploaded')
       .order('doc_type')
       .order('updated_at', { ascending: false });
     if (error) return respond(500, { error: error.message });
@@ -82,6 +87,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .from('company_documents')
       .select('id, doc_type, file_path, status, reviewed_by, reviewed_at, review_notes, expiry_date, created_at, updated_at')
       .eq('onboarding_application_id', id)
+      .not('file_path', 'is', null)
       .order('doc_type')
       .order('updated_at', { ascending: false });
     if (error) return respond(500, { error: error.message });
