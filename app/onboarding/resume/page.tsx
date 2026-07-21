@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  getOnboardingPathForAccountType,
+  type AccountType,
+} from '../../../lib/accountTypes';
 import { supabase } from '../../../lib/supabaseClient';
-
-type AccountType = 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver';
 
 type InitPayload = {
   error?: string;
@@ -14,13 +16,6 @@ type InitPayload = {
   invitationRevoked?: boolean;
   invitationResent?: boolean;
   tokenExpiresAt?: string | null;
-};
-
-const routeByAccountType: Record<AccountType, string> = {
-  customer_shipper: '/onboarding/customer/resume',
-  broker_shipper: '/onboarding/broker/resume',
-  fleet_courier: '/onboarding/fleet/resume',
-  owner_driver: '/onboarding/owner-driver/resume',
 };
 
 export default function OnboardingResumePage() {
@@ -76,7 +71,7 @@ export default function OnboardingResumePage() {
       return;
     }
 
-    router.replace(routeByAccountType[payload.accountType]);
+    router.replace(getOnboardingPathForAccountType(payload.accountType));
   };
 
   useEffect(() => {
@@ -107,8 +102,9 @@ export default function OnboardingResumePage() {
       setRevoked(false);
       setMessage('A new secure onboarding invitation has been issued. Opening your application…');
       window.setTimeout(() => {
-        if (payload.accountType ?? accountType) {
-          router.replace(routeByAccountType[(payload.accountType ?? accountType)!]);
+        const nextAccountType = payload.accountType ?? accountType;
+        if (nextAccountType) {
+          router.replace(getOnboardingPathForAccountType(nextAccountType));
         }
       }, 700);
     } catch (reason) {
