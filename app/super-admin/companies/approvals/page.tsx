@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+
 import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
@@ -11,6 +13,7 @@ const THEME = {
   text: '#f1f5f9',
   muted: '#94a3b8',
   accent: '#f59e0b',
+  blue: '#3b82f6',
   green: '#22c55e',
   red: '#ef4444',
 };
@@ -25,9 +28,10 @@ type Company = {
   created_at: string;
 };
 
-type ActionState = { companyId: string; action: 'approve' | 'reject' } | null;
+type ActionState = { companyId: string; action: 'reject' } | null;
 
 function ApprovalsContent() {
+  const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,55 +43,77 @@ function ApprovalsContent() {
     setError(null);
     try {
       const auth = await getAuthHeader();
-      if (!auth) { setError('No active session.'); setLoading(false); return; }
-
-      const res = await fetch('/api/super-admin/companies?status=pending', {
-        headers: { Authorization: auth },
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError((body as { error?: string }).error ?? `HTTP ${res.status}`);
+      if (!auth) {
+        setError('No active session.');
         setLoading(false);
         return;
       }
-      const data = await res.json() as { companies: Company[] };
+
+      const response = await fetch('/api/super-admin/companies?status=pending', {
+        headers: { Authorization: auth },
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        setError((body as { error?: string }).error ?? `HTTP ${response.status}`);
+        setLoading(false);
+        return;
+      }
+      const data = await response.json() as { companies: Company[] };
       setCompanies(data.companies);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Fetch failed.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Fetch failed.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchPending(); }, [fetchPending]);
+  useEffect(() => {
+    void fetchPending();
+  }, [fetchPending]);
 
-  const handleAction = async (companyId: string, action: 'approve' | 'reject') => {
-    setActionState({ companyId, action });
+  const rejectCompany = async (companyId: string) => {
+    const reason = window.prompt('Reason for rejecting this company/onboarding application:');
+    if (reason === null) return;
+    if (!reason.trim()) {
+      setActionMessage('A rejection reason is required.');
+      return;
+    }
+
+    setActionState({ companyId, action: 'reject' });
     setActionMessage(null);
     try {
       const auth = await getAuthHeader();
-      if (!auth) { setActionMessage('No active session.'); setActionState(null); return; }
+      if (!auth) {
+        setActionMessage('No active session.');
+        setActionState(null);
+        return;
+      }
 
-      const res = await fetch(`/api/super-admin/companies/${companyId}`, {
+      const response = await fetch(`/api/super-admin/companies/${companyId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: auth },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action: 'reject', reason: reason.trim() }),
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setActionMessage((body as { error?: string }).error ?? `HTTP ${res.status}`);
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setActionMessage((body as { error?: string }).error ?? `HTTP ${response.status}`);
       } else {
-        setActionMessage(`Company ${action === 'approve' ? 'approved ✅' : 'rejected ❌'} successfully.`);
+        setActionMessage('Company and linked onboarding application rejected.');
         await fetchPending();
       }
-    } catch (err) {
-      setActionMessage(err instanceof Error ? err.message : 'Action failed.');
+    } catch (reasonValue) {
+      setActionMessage(reasonValue instanceof Error ? reasonValue.message : 'Action failed.');
     } finally {
       setActionState(null);
     }
   };
 
-  const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
@@ -97,11 +123,11 @@ function ApprovalsContent() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Approvals Queue</h1>
             <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
-              Companies
+              Compliance required
             </span>
           </div>
           <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>
-            Company onboarding applications waiting for platform review.
+            Open each application, verify its private evidence, then approve only when every mandatory document is green.
           </p>
         </div>
       </div>
@@ -118,53 +144,49 @@ function ApprovalsContent() {
         </div>
       )}
 
-      <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', overflow: 'auto' }}>
         {loading ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: THEME.muted, fontSize: '0.88rem' }}>Loading…</div>
         ) : companies.length === 0 ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: THEME.muted, fontSize: '0.88rem' }}>
             No companies pending approval.
-            <br />
-            <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>
-            Companies with status <code style={{ backgroundColor: '#0b1220', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>pending</code> (legacy: <code style={{ backgroundColor: '#0b1220', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>pending_approval</code>) will appear here.
-            </span>
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', minWidth: 760 }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${THEME.cardBorder}` }}>
-                {['Company name', 'Reg. number', 'Email', 'Type', 'Applied', 'Actions'].map((h) => (
-                  <th key={h} style={{ padding: '0.75rem 0.9rem', textAlign: 'left', color: THEME.muted, fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    {h}
+                {['Company name', 'Reg. number', 'Email', 'Type', 'Applied', 'Actions'].map((heading) => (
+                  <th key={heading} style={{ padding: '0.75rem 0.9rem', textAlign: 'left', color: THEME.muted, fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {heading}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {companies.map((co) => {
-                const isActing = actionState?.companyId === co.id;
+              {companies.map((company) => {
+                const isActing = actionState?.companyId === company.id;
                 return (
-                  <tr key={co.id} style={{ borderBottom: `1px solid ${THEME.cardBorder}` }}>
-                    <td style={{ padding: '0.75rem 0.9rem', color: THEME.text, fontWeight: 600 }}>{co.name}</td>
-                    <td style={{ padding: '0.75rem 0.9rem', color: THEME.muted }}>{co.company_number ?? '—'}</td>
-                    <td style={{ padding: '0.75rem 0.9rem', color: THEME.muted }}>{co.email ?? '—'}</td>
-                    <td style={{ padding: '0.75rem 0.9rem', color: THEME.muted }}>{co.company_type ?? 'standard'}</td>
-                    <td style={{ padding: '0.75rem 0.9rem', color: THEME.muted }}>{fmt(co.created_at)}</td>
+                  <tr key={company.id} style={{ borderBottom: `1px solid ${THEME.cardBorder}` }}>
+                    <td style={{ padding: '0.75rem 0.9rem', color: THEME.text, fontWeight: 600 }}>{company.name}</td>
+                    <td style={{ padding: '0.75rem 0.9rem', color: THEME.muted }}>{company.company_number ?? '—'}</td>
+                    <td style={{ padding: '0.75rem 0.9rem', color: THEME.muted }}>{company.email ?? '—'}</td>
+                    <td style={{ padding: '0.75rem 0.9rem', color: THEME.muted }}>{company.company_type ?? 'standard'}</td>
+                    <td style={{ padding: '0.75rem 0.9rem', color: THEME.muted }}>{formatDate(company.created_at)}</td>
                     <td style={{ padding: '0.75rem 0.9rem' }}>
-                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                         <button
-                          onClick={() => handleAction(co.id, 'approve')}
+                          onClick={() => router.push(`/super-admin/companies/approvals/${encodeURIComponent(company.id)}`)}
                           disabled={isActing}
-                          style={{ padding: '0.3rem 0.65rem', borderRadius: '6px', border: 'none', backgroundColor: THEME.green, color: '#fff', fontWeight: 700, fontSize: '0.72rem', cursor: isActing ? 'not-allowed' : 'pointer', opacity: isActing && actionState?.action === 'approve' ? 0.6 : 1 }}
+                          style={{ padding: '0.38rem 0.7rem', borderRadius: '6px', border: 'none', backgroundColor: THEME.blue, color: '#fff', fontWeight: 800, fontSize: '0.72rem', cursor: isActing ? 'not-allowed' : 'pointer' }}
                         >
-                          {isActing && actionState?.action === 'approve' ? '…' : 'Approve'}
+                          Review evidence
                         </button>
                         <button
-                          onClick={() => handleAction(co.id, 'reject')}
+                          onClick={() => void rejectCompany(company.id)}
                           disabled={isActing}
-                          style={{ padding: '0.3rem 0.65rem', borderRadius: '6px', border: `1px solid ${THEME.red}`, backgroundColor: 'transparent', color: THEME.red, fontWeight: 700, fontSize: '0.72rem', cursor: isActing ? 'not-allowed' : 'pointer', opacity: isActing && actionState?.action === 'reject' ? 0.6 : 1 }}
+                          style={{ padding: '0.38rem 0.7rem', borderRadius: '6px', border: `1px solid ${THEME.red}`, backgroundColor: 'transparent', color: THEME.red, fontWeight: 700, fontSize: '0.72rem', cursor: isActing ? 'not-allowed' : 'pointer', opacity: isActing ? 0.6 : 1 }}
                         >
-                          {isActing && actionState?.action === 'reject' ? '…' : 'Reject'}
+                          {isActing ? 'Rejecting…' : 'Reject'}
                         </button>
                       </div>
                     </td>
