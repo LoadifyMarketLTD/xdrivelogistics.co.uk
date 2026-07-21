@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Build an isolated, deterministic migration set for clean staging bootstrap.
 
-The production migration directory is never modified. Files are copied byte-for-byte
-into a temporary Supabase project with unique timestamp versions so the historical
-version collisions can be validated safely on an empty database.
+The production migration directory is never modified. Files are copied into a
+temporary Supabase project with unique timestamp versions. A leading UTF-8 BOM
+is removed only from the temporary copy so historical migrations can be replayed
+safely without changing production history.
 """
 
 from __future__ import annotations
@@ -24,6 +25,11 @@ EXCLUDED_MIGRATIONS = {
 
 VERSION_RE = re.compile(r"^(?P<version>\d+?)_(?P<name>.+\.sql)$")
 BASE_TIMESTAMP = datetime(2000, 1, 1, tzinfo=timezone.utc)
+UTF8_BOM = b"\xef\xbb\xbf"
+
+
+def sha256_bytes(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
 
 
 def sha256(path: Path) -> str:
@@ -70,6 +76,7 @@ def main() -> None:
     entries: list[dict[str, object]] = []
     excluded: list[dict[str, str]] = []
     staged_versions: set[str] = set()
+    bom_normalized: list[str] = []
 
     sequence = 0
     for source_path in migration_files:
@@ -77,12 +84,15 @@ def main() -> None:
         if not match:
             raise SystemExit(f"Unexpected migration filename format: {source_path.name}")
 
+        source_bytes = source_path.read_bytes()
+        source_hash = sha256_bytes(source_bytes)
+
         if source_path.name in EXCLUDED_MIGRATIONS:
             excluded.append(
                 {
                     "source": source_path.name,
                     "reason": EXCLUDED_MIGRATIONS[source_path.name],
-                    "sha256": sha256(source_path),
+                    "sha256": source_hash,
                 }
             )
             continue
@@ -95,12 +105,17 @@ def main() -> None:
 
         destination_name = f"{staged_version}_{source_path.name}"
         destination_path = destination / destination_name
-        shutil.copyfile(source_path, destination_path)
 
-        source_hash = sha256(source_path)
-        destination_hash = sha256(destination_path)
-        if source_hash != destination_hash:
-            raise SystemExit(f"Byte-for-byte copy verification failed for {source_path.name}")
+        had_bom = source_bytes.startswith(UTF8_BOM)
+        staged_bytes = source_bytes[len(UTF8_BOM) :] if had_bom else source_bytes
+        destination_path.write_bytes(staged_bytes)
+
+        if destination_path.read_bytes().startswith(UTF8_BOM):
+            raise SystemExit(f"UTF-8 BOM remains in prepared migration: {source_path.name}")
+
+        staged_hash = sha256(destination_path)
+        if had_bom:
+            bom_normalized.append(source_path.name)
 
         entries.append(
             {
@@ -109,17 +124,21 @@ def main() -> None:
                 "source_version": match.group("version"),
                 "staged": destination_name,
                 "staged_version": staged_version,
-                "sha256": source_hash,
+                "source_sha256": source_hash,
+                "staged_sha256": staged_hash,
+                "bom_stripped": had_bom,
             }
         )
 
     manifest = {
-        "schema": 1,
+        "schema": 2,
         "source_directory": str(source),
         "destination_directory": str(destination),
         "included_count": len(entries),
         "excluded_count": len(excluded),
         "excluded": excluded,
+        "bom_normalized_count": len(bom_normalized),
+        "bom_normalized": bom_normalized,
         "migrations": entries,
     }
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
@@ -127,6 +146,12 @@ def main() -> None:
     print(f"Prepared {len(entries)} migrations for isolated staging bootstrap validation.")
     for item in excluded:
         print(f"Excluded {item['source']}: {item['reason']}")
+    if bom_normalized:
+        print("Normalized UTF-8 BOM in temporary copies:")
+        for name in bom_normalized:
+            print(f"- {name}")
+    else:
+        print("No UTF-8 BOM normalization was required.")
     print(f"Manifest: {manifest_path}")
 
 
