@@ -27,6 +27,17 @@ type BrokerPayload = {
   contact_phone: string;
 };
 
+type BrokerField = keyof BrokerPayload;
+type BrokerFieldErrors = Partial<Record<BrokerField, string>>;
+
+type ApiErrorPayload = {
+  error?: string;
+  details?: {
+    fieldErrors?: Record<string, string[] | undefined>;
+    formErrors?: string[];
+  };
+};
+
 const defaultPayload: BrokerPayload = {
   company_name: '',
   trading_name: '',
@@ -40,10 +51,66 @@ const defaultPayload: BrokerPayload = {
   contact_phone: '',
 };
 
+const FIELD_LABELS: Record<BrokerField, string> = {
+  company_name: 'Company Name',
+  trading_name: 'Trading Name',
+  company_number: 'Company Number',
+  vat_number: 'VAT Number',
+  billing_address: 'Billing Address',
+  trading_address: 'Trading Address',
+  contact_person: 'Contact Person',
+  finance_contact: 'Finance Contact',
+  contact_email: 'Email',
+  contact_phone: 'Phone',
+};
+
+const REQUIRED_FIELDS = Object.keys(FIELD_LABELS) as BrokerField[];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const normalizePayload = (payload: BrokerPayload): BrokerPayload => ({
+  company_name: payload.company_name.trim(),
+  trading_name: payload.trading_name.trim(),
+  company_number: payload.company_number.trim(),
+  vat_number: payload.vat_number.trim(),
+  billing_address: payload.billing_address.trim(),
+  trading_address: payload.trading_address.trim(),
+  contact_person: payload.contact_person.trim(),
+  finance_contact: payload.finance_contact.trim(),
+  contact_email: payload.contact_email.trim().toLowerCase(),
+  contact_phone: payload.contact_phone.trim(),
+});
+
+const validateForSubmission = (payload: BrokerPayload): BrokerFieldErrors => {
+  const errors: BrokerFieldErrors = {};
+
+  for (const field of REQUIRED_FIELDS) {
+    if (!payload[field]) errors[field] = `${FIELD_LABELS[field]} is required.`;
+  }
+
+  if (payload.contact_email && !EMAIL_PATTERN.test(payload.contact_email)) {
+    errors.contact_email = 'Enter a valid email address, for example name@company.co.uk.';
+  }
+
+  return errors;
+};
+
+const apiErrorMessage = (payload: ApiErrorPayload, fallback: string): string => {
+  const fieldErrors = payload.details?.fieldErrors;
+  if (fieldErrors) {
+    for (const field of REQUIRED_FIELDS) {
+      const message = fieldErrors[field]?.[0];
+      if (message) return `${FIELD_LABELS[field]}: ${message}`;
+    }
+  }
+
+  return payload.error ?? fallback;
+};
+
 export function BrokerOnboarding({ token }: { token: string }) {
   const router = useRouter();
   const [application, setApplication] = useState<Application | null>(null);
   const [formData, setFormData] = useState<BrokerPayload>(defaultPayload);
+  const [fieldErrors, setFieldErrors] = useState<BrokerFieldErrors>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -56,6 +123,17 @@ export function BrokerOnboarding({ token }: { token: string }) {
 
     if (!session?.access_token) return {};
     return { Authorization: 'Bearer ' + session.access_token };
+  };
+
+  const updateField = (field: BrokerField, value: string) => {
+    setFormData((previous) => ({ ...previous, [field]: value }));
+    setFieldErrors((previous) => {
+      if (!previous[field]) return previous;
+      const next = { ...previous };
+      delete next[field];
+      return next;
+    });
+    setError('');
   };
 
   const loadSession = useCallback(async () => {
@@ -103,12 +181,12 @@ export function BrokerOnboarding({ token }: { token: string }) {
           payload: formData,
         }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as ApiErrorPayload & { application?: Application };
       if (!res.ok) {
-        setError(data.error ?? 'Failed to save onboarding progress.');
+        setError(apiErrorMessage(data, 'Failed to save onboarding progress.'));
         return;
       }
-      setApplication(data.application);
+      if (data.application) setApplication(data.application);
       setMessage('Progress saved. You can continue later from this step.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save onboarding progress.');
@@ -118,6 +196,19 @@ export function BrokerOnboarding({ token }: { token: string }) {
   };
 
   const submitOnboarding = async () => {
+    const normalizedPayload = normalizePayload(formData);
+    const validationErrors = validateForSubmission(normalizedPayload);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setFormData(normalizedPayload);
+      setFieldErrors(validationErrors);
+      setMessage('');
+      setError('Please correct the highlighted fields before submitting.');
+      return;
+    }
+
+    setFormData(normalizedPayload);
+    setFieldErrors({});
     setSaving(true);
     setError('');
     setMessage('');
@@ -130,22 +221,22 @@ export function BrokerOnboarding({ token }: { token: string }) {
         body: JSON.stringify({
           currentStep: 'review_summary',
           completionPercentage: 100,
-          payload: formData,
+          payload: normalizedPayload,
         }),
       });
       if (!saveRes.ok) {
-        const payload = await saveRes.json();
-        setError(payload.error ?? 'Failed to save onboarding summary.');
+        const payload = (await saveRes.json()) as ApiErrorPayload;
+        setError(apiErrorMessage(payload, 'Failed to save onboarding summary.'));
         return;
       }
 
       const res = await fetch('/api/onboarding/submit/broker', { method: 'POST', headers });
-      const data = await res.json();
+      const data = (await res.json()) as ApiErrorPayload & { application?: Application };
       if (!res.ok) {
-        setError(data.error ?? 'Failed to submit onboarding.');
+        setError(apiErrorMessage(data, 'Failed to submit onboarding.'));
         return;
       }
-      setApplication(data.application);
+      if (data.application) setApplication(data.application);
       setMessage('Onboarding submitted successfully. Your account is now pending review.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to submit onboarding.');
@@ -185,18 +276,18 @@ export function BrokerOnboarding({ token }: { token: string }) {
     >
       <section>
         <h2>Broker / Shipper Details</h2>
-        <Field label="Company Name" value={formData.company_name} onChange={(v) => setFormData((prev) => ({ ...prev, company_name: v }))} />
-        <Field label="Trading Name" value={formData.trading_name} onChange={(v) => setFormData((prev) => ({ ...prev, trading_name: v }))} />
-        <Field label="Company Number" value={formData.company_number} onChange={(v) => setFormData((prev) => ({ ...prev, company_number: v }))} />
-        <Field label="VAT Number" value={formData.vat_number} onChange={(v) => setFormData((prev) => ({ ...prev, vat_number: v }))} />
-        <Field label="Billing Address" value={formData.billing_address} onChange={(v) => setFormData((prev) => ({ ...prev, billing_address: v }))} />
-        <Field label="Trading Address" value={formData.trading_address} onChange={(v) => setFormData((prev) => ({ ...prev, trading_address: v }))} />
-        <Field label="Contact Person" value={formData.contact_person} onChange={(v) => setFormData((prev) => ({ ...prev, contact_person: v }))} />
-        <Field label="Finance Contact" value={formData.finance_contact} onChange={(v) => setFormData((prev) => ({ ...prev, finance_contact: v }))} />
-        <Field label="Email" type="email" value={formData.contact_email} onChange={(v) => setFormData((prev) => ({ ...prev, contact_email: v }))} />
-        <Field label="Phone" value={formData.contact_phone} onChange={(v) => setFormData((prev) => ({ ...prev, contact_phone: v }))} />
+        <p style={{ color: '#4B5563' }}>Fields marked with * are required before submission.</p>
+        <Field required error={fieldErrors.company_name} label="Company Name" value={formData.company_name} onChange={(value) => updateField('company_name', value)} autoComplete="organization" />
+        <Field required error={fieldErrors.trading_name} label="Trading Name" value={formData.trading_name} onChange={(value) => updateField('trading_name', value)} autoComplete="organization" />
+        <Field required error={fieldErrors.company_number} label="Company Number" value={formData.company_number} onChange={(value) => updateField('company_number', value)} />
+        <Field required error={fieldErrors.vat_number} label="VAT Number" value={formData.vat_number} onChange={(value) => updateField('vat_number', value)} />
+        <Field required error={fieldErrors.billing_address} label="Billing Address" value={formData.billing_address} onChange={(value) => updateField('billing_address', value)} autoComplete="billing street-address" />
+        <Field required error={fieldErrors.trading_address} label="Trading Address" value={formData.trading_address} onChange={(value) => updateField('trading_address', value)} autoComplete="street-address" />
+        <Field required error={fieldErrors.contact_person} label="Contact Person" value={formData.contact_person} onChange={(value) => updateField('contact_person', value)} autoComplete="name" />
+        <Field required error={fieldErrors.finance_contact} label="Finance Contact" value={formData.finance_contact} onChange={(value) => updateField('finance_contact', value)} />
+        <Field required error={fieldErrors.contact_email} label="Email" type="email" value={formData.contact_email} onChange={(value) => updateField('contact_email', value)} autoComplete="email" />
+        <Field required error={fieldErrors.contact_phone} label="Phone" value={formData.contact_phone} onChange={(value) => updateField('contact_phone', value)} autoComplete="tel" />
       </section>
-
     </PageLayout>
   );
 }
