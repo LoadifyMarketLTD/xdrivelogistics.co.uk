@@ -49,7 +49,12 @@ create policy "driver_availability_slots_update_own"
     )
   );
 
--- Admins (company members with admin role) can read driver availability in their company
+-- Admins (company members with an administrative/dispatch membership) can read
+-- driver availability in their company.
+--
+-- role_in_company is a company_role enum on clean installs. Cast it to text
+-- before comparing aliases so PostgreSQL does not try to coerce legacy profile
+-- aliases such as admin_staff/company_admin into enum values during migration.
 create policy "driver_availability_slots_select_admin"
   on public.driver_availability_slots for select
   using (
@@ -60,7 +65,13 @@ create policy "driver_availability_slots_select_admin"
         on cm.company_id = d.company_id
       where d.id = driver_availability_slots.driver_id
         and cm.user_id = auth.uid()
-        and cm.role_in_company in ('owner', 'admin', 'admin_staff', 'company_admin', 'dispatcher')
+        and cm.role_in_company::text in (
+          'owner',
+          'admin',
+          'admin_staff',
+          'company_admin',
+          'dispatcher'
+        )
         and cm.status = 'active'
     )
   );
