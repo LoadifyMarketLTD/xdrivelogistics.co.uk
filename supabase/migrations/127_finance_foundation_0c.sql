@@ -136,36 +136,49 @@ BEFORE INSERT ON public.job_commercial_agreements
 FOR EACH ROW
 EXECUTE FUNCTION public.fn_complete_commercial_agreement_snapshot();
 
+-- Materialize the target-table references before UPDATE. PostgreSQL does not
+-- permit the UPDATE target alias to be referenced from a JOIN ... ON clause in
+-- the FROM list.
+WITH agreement_defaults AS (
+  SELECT
+    jca.id,
+    j.payment_terms AS job_payment_terms,
+    j.pod_required AS job_pod_required,
+    cs.default_vat_rate,
+    cs.default_payment_terms
+  FROM public.job_commercial_agreements jca
+  JOIN public.jobs j ON j.id = jca.job_id
+  LEFT JOIN public.company_settings cs
+    ON cs.company_id = jca.supplier_company_id
+)
 UPDATE public.job_commercial_agreements jca
 SET
   vat_rate = CASE
-    WHEN cs.default_vat_rate IN (0, 5, 20) THEN cs.default_vat_rate::smallint
+    WHEN d.default_vat_rate IN (0, 5, 20) THEN d.default_vat_rate::smallint
     ELSE 0
   END,
   vat_amount = round((jca.agreed_amount * (
     CASE
-      WHEN cs.default_vat_rate IN (0, 5, 20) THEN cs.default_vat_rate
+      WHEN d.default_vat_rate IN (0, 5, 20) THEN d.default_vat_rate
       ELSE 0
     END
   )) / 100.0, 2),
   agreed_gross_amount = round(
     jca.agreed_amount + round((jca.agreed_amount * (
       CASE
-        WHEN cs.default_vat_rate IN (0, 5, 20) THEN cs.default_vat_rate
+        WHEN d.default_vat_rate IN (0, 5, 20) THEN d.default_vat_rate
         ELSE 0
       END
     )) / 100.0, 2),
     2
   ),
-  payment_terms = COALESCE(j.payment_terms, cs.default_payment_terms, '14 days'),
-  payment_due_days = public.fn_parse_payment_due_days(COALESCE(j.payment_terms, cs.default_payment_terms, '14 days')),
-  pod_required = COALESCE(j.pod_required, true),
+  payment_terms = COALESCE(d.job_payment_terms, d.default_payment_terms, '14 days'),
+  payment_due_days = public.fn_parse_payment_due_days(COALESCE(d.job_payment_terms, d.default_payment_terms, '14 days')),
+  pod_required = COALESCE(d.job_pod_required, true),
   agreement_status = 'accepted',
   accepted_at = COALESCE(jca.accepted_at, jca.agreed_at, jca.created_at, now())
-FROM public.jobs j
-LEFT JOIN public.company_settings cs
-  ON cs.company_id = jca.supplier_company_id
-WHERE j.id = jca.job_id;
+FROM agreement_defaults d
+WHERE d.id = jca.id;
 
 ALTER TABLE public.job_commercial_agreements
   ALTER COLUMN vat_rate SET NOT NULL,
