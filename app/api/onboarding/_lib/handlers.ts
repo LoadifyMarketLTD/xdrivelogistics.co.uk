@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
 import type { z } from 'zod';
 
@@ -9,6 +9,7 @@ import {
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
 import { normalizeOnboardingStatus, type OnboardingAccountType } from '../../_lib/onboarding';
+import { syncOnboardingAccess } from './accessSync';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -98,7 +99,6 @@ const resolveApplicantPatchStatus = (
 
   return { nextStatus: existingStatus };
 };
-
 
 export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options: {
   expectedAccountType: OnboardingAccountType;
@@ -280,6 +280,19 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
       .single();
 
     if (updateError) return json(500, { error: updateError.message });
+
+    const accessSyncError = await syncOnboardingAccess(supabaseAdmin, {
+      userId: authUser.id,
+      accountType: expectedAccountType,
+      status: normalizeOnboardingStatus(updated.status),
+      companyId: updated.company_id ?? companyId,
+    });
+    if (accessSyncError) {
+      return json(500, {
+        error: 'Onboarding was submitted, but account access could not be synchronized.',
+        details: accessSyncError.message,
+      });
+    }
 
     const { error: notificationError } = await supabaseAdmin.from('notification_events').insert({
       event_type: 'onboarding_submitted',
