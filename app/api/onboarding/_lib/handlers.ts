@@ -13,6 +13,8 @@ import { syncOnboardingAccess } from './accessSync';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
+const APPLICANT_EDITABLE_STATUSES = new Set(['invited', 'draft', 'in_progress', 'request_changes']);
+
 type OnboardingPatchData = {
   payload?: Record<string, unknown>;
   status?: string;
@@ -92,7 +94,7 @@ const resolveApplicantPatchStatus = (
     };
   }
 
-  if (existingStatus === 'draft') {
+  if (existingStatus === 'draft' || existingStatus === 'invited') {
     if (!requestedStatus || requestedStatus === 'draft') return { nextStatus: 'draft' };
     return { nextStatus: 'in_progress' };
   }
@@ -140,7 +142,7 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
     }
 
     if (token && !app.token_activated_at) {
-      const status = app.status === 'draft' ? 'in_progress' : app.status;
+      const status = app.status === 'draft' || app.status === 'invited' ? 'in_progress' : app.status;
       const { data: activated, error: activationError } = await supabaseAdmin
         .from('onboarding_applications')
         .update({
@@ -251,6 +253,15 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
 
     if (!validateAccountType(application.account_type, expectedAccountType)) {
       return json(403, { error: 'Forbidden onboarding account type.' });
+    }
+
+    const applicationStatus = normalizeOnboardingStatus(application.status);
+    if (!APPLICANT_EDITABLE_STATUSES.has(applicationStatus)) {
+      return json(409, {
+        error: `Onboarding cannot be submitted while its status is ${applicationStatus}.`,
+        code: 'onboarding_not_editable',
+        status: applicationStatus,
+      });
     }
 
     const parsedPayload = payloadSchema.safeParse((application.payload ?? {}) as Record<string, unknown>);
