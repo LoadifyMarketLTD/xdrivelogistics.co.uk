@@ -51,6 +51,50 @@ export const fleetPayloadSchema = z
   })
   .passthrough();
 
+// Saving a draft must not require the applicant to have already completed or
+// correctly formatted every field. Final submission still uses the strict
+// schemas above. This is what makes "Save and continue later" genuinely usable.
+const draftText = z.string().max(5000);
+
+const customerDraftPayloadSchema = z
+  .object({
+    full_name: draftText.optional(),
+    contact_email: draftText.optional(),
+    contact_phone: draftText.optional(),
+    company_name: draftText.optional(),
+    billing_address: draftText.optional(),
+  })
+  .passthrough();
+
+const brokerDraftPayloadSchema = z
+  .object({
+    company_name: draftText.optional(),
+    trading_name: draftText.optional(),
+    company_number: draftText.optional(),
+    vat_number: draftText.optional(),
+    billing_address: draftText.optional(),
+    trading_address: draftText.optional(),
+    contact_person: draftText.optional(),
+    finance_contact: draftText.optional(),
+    contact_email: draftText.optional(),
+    contact_phone: draftText.optional(),
+  })
+  .passthrough();
+
+const fleetDraftPayloadSchema = z
+  .object({
+    legal_company_name: draftText.optional(),
+    trading_name: draftText.optional(),
+    company_number: draftText.optional(),
+    vat_number: draftText.optional(),
+    registered_address: draftText.optional(),
+    trading_address: draftText.optional(),
+    contact_person: draftText.optional(),
+    compliance_contact: draftText.optional(),
+    transport_contact: draftText.optional(),
+  })
+  .passthrough();
+
 const normalizeDateOnly = (rawValue: string): string | null => {
   const value = rawValue.trim();
   if (!value) return '';
@@ -94,15 +138,15 @@ const ownerDriverRecordSchema = z.record(z.string(), z.unknown());
 export const ownerDriverPayloadSchema = ownerDriverRecordSchema;
 
 export const customerPatchSchema = onboardingPatchBaseSchema.extend({
-  payload: customerPayloadSchema.partial().optional(),
+  payload: customerDraftPayloadSchema.optional(),
 });
 
 export const brokerPatchSchema = onboardingPatchBaseSchema.extend({
-  payload: brokerPayloadSchema.partial().optional(),
+  payload: brokerDraftPayloadSchema.optional(),
 });
 
 export const fleetPatchSchema = onboardingPatchBaseSchema.extend({
-  payload: fleetPayloadSchema.partial().optional(),
+  payload: fleetDraftPayloadSchema.optional(),
 });
 
 export const ownerDriverPatchSchema = onboardingPatchBaseSchema.extend({
