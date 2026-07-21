@@ -71,3 +71,5 @@ END
 $$;
 
 NOTIFY pgrst, 'reload schema';
+
+-- Touchpoint: validates the downstream helper-parameter repair in clean bootstrap.
