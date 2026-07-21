@@ -11,6 +11,8 @@ on:
 
 permissions:
   contents: read
+  issues: write
+  pull-requests: write
 
 concurrency:
   group: native-android-build-${{ github.ref }}
@@ -83,7 +85,7 @@ jobs:
             -PXDRIVE_SUPABASE_ANON_KEY="$CI_SUPABASE_ANON_KEY" \
             clean :app:assembleDebug :app:assembleRelease
 
-      - name: Verify APK outputs and embedded CI-only configuration
+      - name: Verify APK outputs
         working-directory: android-native
         shell: bash
         run: |
@@ -94,9 +96,7 @@ jobs:
           test -s "$release_apk"
           unzip -tq "$debug_apk"
           unzip -tq "$release_apk"
-          if grep -R --binary-files=text -F "$CI_SUPABASE_ANON_KEY" app/build/outputs/apk >/dev/null 2>&1; then
-            echo "CI placeholder key is embedded as expected; artifacts are validation-only and must not be released."
-          fi
+          echo "Artifacts are CI validation-only and must not be published or installed as production releases."
 
       - name: Create SHA-bound provenance manifest
         working-directory: android-native
@@ -156,3 +156,42 @@ jobs:
             android-native/build/provenance/android-build.json
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish Android build success
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          debug_sha=$(sha256sum android-native/app/build/outputs/apk/debug/app-debug.apk | awk '{print $1}')
+          release_sha=$(sha256sum android-native/app/build/outputs/apk/release/app-release-unsigned.apk | awk '{print $1}')
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -f body="<!-- native-android-reproducible-build-success -->
+          ### Native Android exact-SHA build passed
+
+          Commit: \`${GITHUB_SHA}\`
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          Gradle: \`${GRADLE_VERSION}\` (distribution checksum verified)
+          Debug APK SHA-256: \`${debug_sha}\`
+          Unsigned release APK SHA-256: \`${release_sha}\`
+
+          Both APKs were compiled from the exact branch SHA with Java 17, AGP 8.5.2 and Kotlin 1.9.24. They use a non-production CI configuration and are validation artifacts, not deployable signed releases."
+
+      - name: Publish Android build failure
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -f body="<!-- native-android-reproducible-build-failure -->
+          ### Native Android exact-SHA build failed
+
+          Commit: \`${GITHUB_SHA}\`
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          The APK has not been declared reproducible. Inspect the failed Gradle step before any Android release decision."
