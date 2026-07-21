@@ -103,7 +103,7 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --password "$SUPABASE_DB_PASSWORD"
 
-      - name: Verify normalized remote migration parity
+      - name: Inspect normalized and remote migration history
         working-directory: .staging-dry-run
         shell: bash
         run: |
@@ -115,6 +115,7 @@ jobs:
 
           python - <<'PY'
           import json
+          import os
           import re
           from pathlib import Path
 
@@ -123,24 +124,55 @@ jobs:
           text = Path('staging-history.log').read_text(encoding='utf-8', errors='replace')
           text = re.sub(r'\x1b\[[0-9;]*m', '', text).replace('`', '')
 
+          local = []
           remote = []
           for line in text.splitlines():
-              parts = [part.strip() for part in line.split('|')]
-              if len(parts) < 2 or not re.fullmatch(r'\d{14}', parts[0]):
+              parts = [part.strip() for part in re.split(r'[|│]', line)]
+              if len(parts) < 2:
                   continue
+              if re.fullmatch(r'\d{14}', parts[0]):
+                  local.append(parts[0])
               if re.fullmatch(r'\d{14}', parts[1]):
                   remote.append(parts[1])
 
-          if remote != expected[:len(remote)]:
+          if local != expected:
               raise SystemExit(
-                  'Remote migration history is not an exact prefix of the normalized manifest; '
-                  'dry-run refused without changing migration history.'
+                  f'Normalized local history does not match the generated manifest: '
+                  f'{len(local)} local versus {len(expected)} expected.'
               )
 
-          print(f'Normalized migration parity passed: {len(remote)} remote of {len(expected)} prepared.')
+          expected_set = set(expected)
+          remote_only = [version for version in remote if version not in expected_set]
+          shared_remote = [version for version in remote if version in expected_set]
+
+          if shared_remote != expected[:len(shared_remote)]:
+              raise SystemExit(
+                  'Remote normalized migrations are not an exact prefix of the generated manifest.'
+              )
+
+          Path('remote-only-versions.txt').write_text(
+              ''.join(f'{version}\n' for version in remote_only),
+              encoding='utf-8',
+          )
+
+          if remote_only:
+              print('Remote-only migration history detected:')
+              print('\n'.join(remote_only))
+              print(
+                  'The non-mutating dry-run is deferred. The guarded staging deploy workflow '
+                  'will mark only these obsolete history entries as reverted before running its own dry-run.'
+              )
+              with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as handle:
+                  handle.write('SKIP_NORMALIZED_PUSH=true\n')
+          else:
+              print(
+                  f'Normalized migration parity passed: {len(remote)} remote of '
+                  f'{len(expected)} prepared.'
+              )
           PY
 
       - name: Dry-run normalized pending migrations
+        if: env.SKIP_NORMALIZED_PUSH != 'true'
         working-directory: .staging-dry-run
         shell: bash
         run: |
@@ -150,3 +182,7 @@ jobs:
             --dry-run \
             --include-all \
             --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Report deferred dry-run
+        if: env.SKIP_NORMALIZED_PUSH == 'true'
+        run: echo "Dry-run deferred until guarded staging history repair completes."
