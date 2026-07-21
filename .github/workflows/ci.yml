@@ -65,6 +65,71 @@ jobs:
           EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
         run: npm run build
 
+  registration-onboarding-contract:
+    name: Registration & Onboarding Browser Contract
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      EXPECTED_NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build application
+        run: npm run build
+
+      - name: Start application
+        run: |
+          npm run start > application.log 2>&1 &
+          echo $! > application.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/login > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat application.log
+          exit 1
+
+      - name: Run four-role browser contract
+        run: npx playwright test e2e/registration-onboarding-contract.spec.ts --project=chromium
+
+      - name: Stop application
+        if: always()
+        run: |
+          if [ -f application.pid ]; then
+            kill "$(cat application.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: registration-onboarding-browser-diagnostics
+          path: |
+            application.log
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 3
+
   codeql:
     name: CodeQL Security Scan
     runs-on: ubuntu-latest
