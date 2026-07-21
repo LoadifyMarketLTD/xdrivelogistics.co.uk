@@ -129,7 +129,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .single();
 
   if (updateError) return respond(500, { error: updateError.message });
-  await insertTrackingEvent(id, driver.userId, config.eventType, config.label);
+  try {
+    await insertTrackingEvent(id, driver.userId, config.eventType, config.label);
+  } catch (error) {
+    return respond(500, { error: error instanceof Error ? error.message : 'Failed to record tracking event.' });
+  }
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }
@@ -177,19 +181,13 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   const now = new Date().toISOString();
   const existingPhotos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
   const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
-  const signatureData = {
-    type: 'driver_mobile_signature',
-    value: rawSignature,
-    captured_at: now,
-    captured_by: userId,
-  };
 
   const { data: updated, error: updateError } = await supabaseAdmin!
     .from('jobs')
     .update({
       delivery_photos: [...existingPhotos, ...photoPaths],
       pod_photos: [...existingDocuments, ...documentPaths],
-      delivery_signature_data: signatureData,
+      delivery_signature_data: rawSignature,
       client_signature_name: recipientName,
       delivery_notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null,
       pod_generated: true,
@@ -202,7 +200,11 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     .single();
 
   if (updateError) return respond(500, { error: updateError.message });
-  await insertTrackingEvent(jobId, userId, 'note', 'POD evidence uploaded');
+  try {
+    await insertTrackingEvent(jobId, userId, 'note', 'POD evidence uploaded');
+  } catch (error) {
+    return respond(500, { error: error instanceof Error ? error.message : 'Failed to record POD tracking event.' });
+  }
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }
