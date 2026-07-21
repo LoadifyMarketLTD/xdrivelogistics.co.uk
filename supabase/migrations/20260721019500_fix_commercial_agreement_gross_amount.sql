@@ -2,6 +2,9 @@
 -- snapshot trigger used COALESCE, so omitted values kept the zero defaults
 -- instead of calculating VAT and gross amounts. Marketplace invoices then
 -- inherited amount = 0 even though agreed_amount/net_amount was valid.
+--
+-- Existing accepted agreements remain immutable. Legacy zero snapshots are
+-- handled defensively by invoice generation without mutating their source row.
 
 BEGIN;
 
@@ -63,18 +66,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-UPDATE public.job_commercial_agreements
-SET
-  vat_amount = round((agreed_amount * vat_rate) / 100.0, 2),
-  agreed_gross_amount = round(
-    agreed_amount + round((agreed_amount * vat_rate) / 100.0, 2),
-    2
-  )
-WHERE agreed_gross_amount IS NULL
-   OR agreed_gross_amount <= 0
-   OR vat_amount IS NULL
-   OR (vat_rate > 0 AND vat_amount <= 0);
 
 COMMENT ON FUNCTION public.fn_complete_commercial_agreement_snapshot() IS
   'Creates an immutable accepted-price snapshot where agreed_amount is net and VAT/gross are deterministically calculated.';
