@@ -1,1 +1,7 @@
-'use client'; import { BrokerInvoicesPage } from '../BrokerWorkspaceModules'; export default function Page(){ return <BrokerInvoicesPage type="customer"/>; }
+'use client';
+
+import InvoiceRegisterPage from '../../components/workspace/InvoiceRegisterPage';
+
+export default function Page() {
+  return <InvoiceRegisterPage mode="broker-customer" />;
+}
