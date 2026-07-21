@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { classifyOnboardingLifecycleStatus } from '../../../lib/accessLifecycle';
 import {
   getOnboardingPathForAccountType,
   type AccountType,
@@ -57,13 +58,21 @@ export default function OnboardingResumePage() {
     if (!payload.accountType) return;
     setAccountType(payload.accountType);
 
-    const status = String(payload.status ?? '').toLowerCase();
-    if (status === 'approved') {
+    const lifecycle = classifyOnboardingLifecycleStatus(payload.status);
+    if (lifecycle === 'approved') {
       router.replace('/login');
       return;
     }
-    if (status === 'under_review' || status === 'submitted') {
+    if (lifecycle === 'review') {
       router.replace('/pending-approval');
+      return;
+    }
+    if (lifecycle === 'rejected') {
+      router.replace('/forbidden?reason=onboarding-rejected');
+      return;
+    }
+    if (lifecycle === 'unknown') {
+      setError('This onboarding application has an unsupported status. Please contact XDrive support.');
       return;
     }
     if (payload.resumeAllowed === false || payload.invitationRevoked) {
@@ -118,7 +127,7 @@ export default function OnboardingResumePage() {
     <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '2rem', background: '#f4f6f8' }}>
       <section style={{ width: '100%', maxWidth: 560, border: '1px solid #d7e0ea', borderRadius: 14, background: '#fff', padding: '2rem', textAlign: 'center', boxShadow: '0 12px 30px rgba(15,23,42,0.08)' }}>
         <h1 style={{ margin: 0, color: '#0b2f6b' }}>{revoked ? 'Invitation revoked' : 'Preparing your onboarding'}</h1>
-        <p style={{ color: error ? '#b91c1c' : message ? '#166534' : '#64748b', lineHeight: 1.6, marginBottom: revoked ? '1rem' : 0 }}>
+        <p role={error ? 'alert' : undefined} style={{ color: error ? '#b91c1c' : message ? '#166534' : '#64748b', lineHeight: 1.6, marginBottom: revoked ? '1rem' : 0 }}>
           {error || message || (revoked
             ? 'This onboarding link was revoked and will not be regenerated automatically. Issue a new secure invitation to continue.'
             : 'We are opening the correct application and restoring your saved progress.')}
