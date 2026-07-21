@@ -6,6 +6,8 @@ on:
     branches:
       - agent/staging-integration
     paths:
+      - "supabase/migrations/**"
+      - "scripts/prepare_staging_bootstrap.py"
       - "scripts/validate_remote_staging_operations.mjs"
       - ".github/workflows/validate-remote-staging-operations.yml"
 
