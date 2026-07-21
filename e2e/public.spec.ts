@@ -25,6 +25,18 @@ test.describe('Public pages', () => {
     await page.goto('/login');
     await expect(page.locator('input[type="email"], [data-testid="email"]')).toBeVisible();
   });
+
+  test('registration exposes only the four public account types', async ({ page }) => {
+    await page.goto('/register');
+    const accountType = page.locator('#register-role');
+    await expect(accountType).toBeVisible();
+    await expect(accountType.locator('option')).toHaveCount(4);
+    await expect(accountType).toContainText('Customer / Shipper');
+    await expect(accountType).toContainText('Transport Broker');
+    await expect(accountType).toContainText('Fleet Operator');
+    await expect(accountType).toContainText('Owner Operator');
+    await expect(accountType).not.toContainText('Fleet Driver');
+  });
 });
 
 // ── Auth redirect ─────────────────────────────────────────────────────────────
@@ -52,6 +64,12 @@ test.describe('Auth redirects', () => {
   test('unauthenticated /customer redirects to login', async ({ page }) => {
     await page.goto('/customer');
     await page.waitForURL(url => /login|auth|\/$/i.test(url.pathname), { timeout: 8_000 });
+    await expect(page.locator('input[type="email"], [data-testid="email"]')).toBeVisible();
+  });
+
+  test('unauthenticated onboarding resume redirects to login with return path', async ({ page }) => {
+    await page.goto('/onboarding/resume');
+    await page.waitForURL(url => url.pathname === '/login' && url.searchParams.get('next') === '/onboarding/resume', { timeout: 8_000 });
     await expect(page.locator('input[type="email"], [data-testid="email"]')).toBeVisible();
   });
 });
