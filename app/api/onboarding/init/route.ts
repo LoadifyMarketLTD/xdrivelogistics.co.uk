@@ -39,9 +39,19 @@ const authenticate = async (request: NextRequest) => {
 
 const selectExistingApplication = async (userId: string) => supabaseAdmin!
   .from('onboarding_applications')
-  .select('id, status, account_type, company_id, token_hash, token_expires_at, token_activated_at, token_last_sent_at, token_revoked_at')
+  .select('id, status, account_type, company_id, token_hash, token_expires_at, token_activated_at, token_last_sent_at')
   .eq('user_id', userId)
   .maybeSingle();
+
+const isInvitationRevoked = (application: {
+  token_hash?: string | null;
+  token_expires_at?: string | null;
+} | null | undefined) => Boolean(
+  application &&
+  !application.token_hash &&
+  application.token_expires_at &&
+  new Date(application.token_expires_at).getTime() <= Date.now()
+);
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
@@ -68,7 +78,7 @@ export async function GET(request: NextRequest) {
   });
   if (accessSyncError) return json(500, { error: accessSyncError.message });
 
-  const invitationRevoked = Boolean(existing.token_revoked_at);
+  const invitationRevoked = isInvitationRevoked(existing);
 
   return json(200, {
     onboardingApplicationId: existing.id,
@@ -124,7 +134,7 @@ export async function POST(request: NextRequest) {
     existing?.token_expires_at && new Date(existing.token_expires_at).getTime() <= now.getTime()
   );
   const explicitResend = payload.forceRegenerateToken === true;
-  const invitationRevoked = Boolean(existing?.token_revoked_at);
+  const invitationRevoked = isInvitationRevoked(existing);
 
   if (explicitResend && existing?.token_last_sent_at) {
     const elapsed = now.getTime() - new Date(existing.token_last_sent_at).getTime();
@@ -161,7 +171,6 @@ export async function POST(request: NextRequest) {
     row.token_expires_at = expiresAt;
     row.token_activated_at = null;
     row.token_last_sent_at = now.toISOString();
-    row.token_revoked_at = null;
   }
 
   Object.keys(row).forEach((key) => {
@@ -171,7 +180,7 @@ export async function POST(request: NextRequest) {
   const { data: upserted, error: upsertError } = await supabaseAdmin!
     .from('onboarding_applications')
     .upsert(row, { onConflict: 'user_id' })
-    .select('id, status, account_type, company_id, token_expires_at, token_revoked_at')
+    .select('id, status, account_type, company_id, token_hash, token_expires_at')
     .single();
 
   if (upsertError) return json(500, { error: upsertError.message });
@@ -189,7 +198,10 @@ export async function POST(request: NextRequest) {
     const { error: notificationError } = await supabaseAdmin!
       .from('notification_events')
       .insert({
-        event_type: explicitResend ? 'onboarding_invite_resent' : 'onboarding_invite',
+        // The notification worker handles onboarding_invite for both first-send
+        // and resend. A payload flag keeps the audit distinction without
+        // creating an event type the worker would silently skip.
+        event_type: 'onboarding_invite',
         entity_type: 'onboarding_application',
         entity_id: upserted.id,
         recipient_user_id: authUser.id,
@@ -199,6 +211,7 @@ export async function POST(request: NextRequest) {
           account_type: upserted.account_type,
           onboarding_application_id: upserted.id,
           token_expires_at: upserted.token_expires_at,
+          resent: explicitResend,
         },
       });
 
@@ -207,7 +220,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const resumeAllowed = normalizedUpsertedStatus === 'approved' || !upserted.token_revoked_at;
+  const upsertedInvitationRevoked = isInvitationRevoked(upserted);
+  const resumeAllowed = normalizedUpsertedStatus === 'approved' || !upsertedInvitationRevoked;
 
   return json(200, {
     onboardingApplicationId: upserted.id,
@@ -217,7 +231,7 @@ export async function POST(request: NextRequest) {
     tokenExpiresAt: upserted.token_expires_at,
     invitationRegenerated: shouldRegenerateToken,
     invitationResent: explicitResend && shouldRegenerateToken,
-    invitationRevoked: Boolean(upserted.token_revoked_at),
+    invitationRevoked: upsertedInvitationRevoked,
     resumeAllowed,
   });
 }
@@ -245,7 +259,6 @@ export async function DELETE(request: NextRequest) {
       token_hash: null,
       token_expires_at: revokedAt,
       token_activated_at: null,
-      token_revoked_at: revokedAt,
       last_activity_at: revokedAt,
       updated_at: revokedAt,
     })
@@ -253,24 +266,6 @@ export async function DELETE(request: NextRequest) {
     .eq('user_id', auth.user.id);
 
   if (updateError) return json(500, { error: updateError.message });
-
-  const { error: notificationError } = await supabaseAdmin!
-    .from('notification_events')
-    .insert({
-      event_type: 'onboarding_invite_revoked',
-      entity_type: 'onboarding_application',
-      entity_id: existing.id,
-      recipient_user_id: auth.user.id,
-      idempotency_key: `onboarding-invite-revoked:${existing.id}:${revokedAt}`,
-      payload: {
-        onboarding_application_id: existing.id,
-        revoked_at: revokedAt,
-      },
-    });
-
-  if (notificationError && notificationError.code !== '23505') {
-    return json(500, { error: notificationError.message });
-  }
 
   return json(200, {
     success: true,
