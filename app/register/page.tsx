@@ -4,44 +4,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
+import {
+  ACCOUNT_TYPE_CONFIG,
+  ACCOUNT_TYPE_OPTIONS,
+  type AccountType,
+} from '../../lib/accountTypes';
 import { getAuthCallbackEmailRedirectTo } from '../../lib/authFlow';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
-
-type RegisterRole = 'owner_operator' | 'fleet_operator' | 'transport_broker' | 'customer_shipper';
-
-type SignupConfig = {
-  appRole: 'broker' | 'company_admin' | 'driver' | 'customer';
-  accountType: 'owner_driver' | 'fleet_courier' | 'broker_shipper' | 'customer_shipper';
-  workspaceMode: 'owner_driver' | 'company' | 'broker' | 'customer';
-  ownerDriverWorkspace: boolean;
-};
-
-const SIGNUP_ROLE_CONFIG: Record<RegisterRole, SignupConfig> = {
-  owner_operator: {
-    appRole: 'driver',
-    accountType: 'owner_driver',
-    workspaceMode: 'owner_driver',
-    ownerDriverWorkspace: true,
-  },
-  fleet_operator: {
-    appRole: 'company_admin',
-    accountType: 'fleet_courier',
-    workspaceMode: 'company',
-    ownerDriverWorkspace: false,
-  },
-  transport_broker: {
-    appRole: 'broker',
-    accountType: 'broker_shipper',
-    workspaceMode: 'broker',
-    ownerDriverWorkspace: false,
-  },
-  customer_shipper: {
-    appRole: 'customer',
-    accountType: 'customer_shipper',
-    workspaceMode: 'customer',
-    ownerDriverWorkspace: false,
-  },
-};
 
 const inputStyle = {
   width: '100%',
@@ -57,7 +26,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<RegisterRole>('customer_shipper');
+  const [accountType, setAccountType] = useState<AccountType>('customer');
   const [message, setMessage] = useState('');
   const [warning, setWarning] = useState('');
   const [error, setError] = useState('');
@@ -84,7 +53,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const signupConfig = SIGNUP_ROLE_CONFIG[role];
+      const signupConfig = ACCOUNT_TYPE_CONFIG[accountType];
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
@@ -92,9 +61,9 @@ export default function RegisterPage() {
           emailRedirectTo: getAuthCallbackEmailRedirectTo(),
           data: {
             role: signupConfig.appRole,
-            requested_role: role,
-            signup_type: role,
-            account_type: signupConfig.accountType,
+            requested_role: accountType,
+            signup_type: accountType,
+            account_type: accountType,
             workspace_mode: signupConfig.workspaceMode,
             owner_driver_workspace: signupConfig.ownerDriverWorkspace,
           },
@@ -128,7 +97,10 @@ export default function RegisterPage() {
             Authorization: `Bearer ${data.session.access_token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ forceRegenerateToken: false }),
+          body: JSON.stringify({
+            account_type: accountType,
+            forceRegenerateToken: false,
+          }),
         });
         const initPayload = (await initResponse.json().catch(() => null)) as { error?: string } | null;
         if (!initResponse.ok) {
@@ -163,11 +135,18 @@ export default function RegisterPage() {
           <input id="register-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} style={inputStyle} />
 
           <label htmlFor="register-role">Account type</label>
-          <select id="register-role" value={role} onChange={(e) => setRole(e.target.value as RegisterRole)} disabled={loading} style={inputStyle}>
-            <option value="customer_shipper">Customer / Shipper</option>
-            <option value="transport_broker">Transport Broker</option>
-            <option value="fleet_operator">Fleet Operator</option>
-            <option value="owner_operator">Owner Operator</option>
+          <select
+            id="register-role"
+            value={accountType}
+            onChange={(e) => setAccountType(e.target.value as AccountType)}
+            disabled={loading}
+            style={inputStyle}
+          >
+            {ACCOUNT_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
 
           <label htmlFor="register-password">Password</label>
