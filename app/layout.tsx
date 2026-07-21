@@ -8,6 +8,7 @@ import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 import '@fontsource/inter/800.css'
 import { AuthProvider } from './components/AuthContext'
+import OnboardingAccessGuard from './components/OnboardingAccessGuard'
 import { COMPANY_CONFIG } from './config/company'
 import ServiceWorkerRegistration from './components/ServiceWorkerRegistration'
 import { getCanonicalSiteOrigin, getCanonicalSiteUrl } from '../lib/siteUrl'
@@ -122,6 +123,7 @@ export default async function RootLayout({
       </head>
       <body>
         <AuthProvider>
+          <OnboardingAccessGuard />
           {children}
         </AuthProvider>
         <ServiceWorkerRegistration />
