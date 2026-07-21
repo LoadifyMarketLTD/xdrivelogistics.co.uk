@@ -9,6 +9,11 @@ on:
       - "supabase/migrations/**"
       - "scripts/prepare_staging_bootstrap.py"
       - "scripts/validate_remote_staging_operations.mjs"
+      - "app/api/jobs/**"
+      - "app/api/driver/mobile/**"
+      - "app/api/driver/finance/**"
+      - "app/api/admin/jobs/**"
+      - "app/api/admin/bids/**"
       - ".github/workflows/validate-remote-staging-operations.yml"
 
 permissions:
@@ -34,10 +39,10 @@ jobs:
       STAGING_APP_ORIGIN: http://127.0.0.1:3000
 
     steps:
-      - name: Checkout staging integration branch
+      - name: Checkout staging integration commit
         uses: actions/checkout@v4
         with:
-          ref: agent/staging-integration
+          ref: ${{ github.sha }}
           fetch-depth: 1
 
       - name: Guard staging project identity
