@@ -1,5 +1,8 @@
 'use client';
 
+import { useState } from 'react';
+import { supabase } from '../../../lib/supabaseClient';
+
 export function Field({
   label,
   value,
@@ -38,6 +41,98 @@ export function ToggleField({
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span>{label}</span>
     </label>
+  );
+}
+
+function InvitationControls({ status }: { status: string }) {
+  const [working, setWorking] = useState<'resend' | 'revoke' | null>(null);
+  const [feedback, setFeedback] = useState('');
+  const [error, setError] = useState('');
+  const normalizedStatus = status.trim().toLowerCase();
+
+  if (normalizedStatus === 'approved' || normalizedStatus === 'under_review' || normalizedStatus === 'submitted') {
+    return null;
+  }
+
+  const authenticatedRequest = async (method: 'POST' | 'DELETE') => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('Your session has expired. Please sign in again.');
+
+    const response = await fetch('/api/onboarding/init', {
+      method,
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+      },
+      ...(method === 'POST' ? { body: JSON.stringify({ forceRegenerateToken: true }) } : {}),
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string; tokenExpiresAt?: string | null };
+    if (!response.ok) throw new Error(payload.error ?? 'The invitation action failed.');
+    return payload;
+  };
+
+  const resend = async () => {
+    setWorking('resend');
+    setError('');
+    setFeedback('');
+    try {
+      const payload = await authenticatedRequest('POST');
+      const expiry = payload.tokenExpiresAt
+        ? new Date(payload.tokenExpiresAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+        : null;
+      setFeedback(`A new secure invitation was issued${expiry ? ` and expires ${expiry}` : ''}.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to resend the invitation.');
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const revoke = async () => {
+    if (!window.confirm('Revoke the current onboarding invitation link? Your saved application data will remain available.')) return;
+
+    setWorking('revoke');
+    setError('');
+    setFeedback('');
+    try {
+      await authenticatedRequest('DELETE');
+      setFeedback('The current invitation link has been revoked. Use Resend invitation when you need a new secure link.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to revoke the invitation.');
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  return (
+    <section style={{ marginTop: '1.5rem', border: '1px solid #d7e0ea', borderRadius: 10, background: '#f8fafc', padding: '1rem' }}>
+      <h2 style={{ margin: '0 0 0.35rem', fontSize: '1rem', color: '#0f172a' }}>Secure invitation link</h2>
+      <p style={{ margin: '0 0 0.8rem', color: '#64748b', fontSize: '0.82rem', lineHeight: 1.5 }}>
+        Invitation links expire after 48 hours. Resending invalidates the previous link; revoking stops automatic regeneration until you explicitly resend it.
+      </p>
+      <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          disabled={working !== null}
+          onClick={() => void resend()}
+          style={{ border: 0, borderRadius: 7, background: '#1d4ed8', color: '#fff', padding: '0.58rem 0.78rem', fontWeight: 800, cursor: working ? 'wait' : 'pointer' }}
+        >
+          {working === 'resend' ? 'Resending…' : 'Resend invitation'}
+        </button>
+        <button
+          type="button"
+          disabled={working !== null}
+          onClick={() => void revoke()}
+          style={{ border: '1px solid #fecaca', borderRadius: 7, background: '#fff', color: '#b91c1c', padding: '0.58rem 0.78rem', fontWeight: 800, cursor: working ? 'wait' : 'pointer' }}
+        >
+          {working === 'revoke' ? 'Revoking…' : 'Revoke invitation'}
+        </button>
+      </div>
+      {feedback && <p style={{ margin: '0.7rem 0 0', color: '#166534', fontSize: '0.8rem' }}>{feedback}</p>}
+      {error && <p style={{ margin: '0.7rem 0 0', color: '#b91c1c', fontSize: '0.8rem' }}>{error}</p>}
+    </section>
   );
 }
 
@@ -117,6 +212,8 @@ export function PageLayout({
           Back to login
         </button>
       </div>
+
+      <InvitationControls status={status} />
     </main>
   );
 }
