@@ -1,0 +1,11 @@
+{
+  "result": "success",
+  "source_sha": "bbb980d663fe7d65f9e0eb849bb5aff0c186f3c6",
+  "run_id": "29835546885",
+  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29835546885",
+  "branch": "agent/staging-integration",
+  "project_ref": "svfjlhljuizckzabtewx",
+  "verified_migration_count": "176",
+  "production_targeted": false,
+  "recorded_at": "2026-07-21T13:41:32.446263+00:00"
+}
