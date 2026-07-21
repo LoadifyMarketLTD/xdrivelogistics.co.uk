@@ -6,6 +6,7 @@ on:
       - agent/staging-integration
     paths:
       - "supabase/migrations/**"
+      - "scripts/prepare_staging_bootstrap.py"
       - ".github/workflows/supabase-staging-dry-run.yml"
 
 permissions:
@@ -15,9 +16,12 @@ concurrency:
   group: supabase-staging-dry-run
   cancel-in-progress: false
 
+env:
+  EXPECTED_STAGING_PROJECT_REF: svfjlhljuizckzabtewx
+
 jobs:
   migration-dry-run:
-    name: Validate migrations against staging
+    name: Validate normalized migrations against staging
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: staging
@@ -30,6 +34,14 @@ jobs:
     steps:
       - name: Checkout staging integration branch
         uses: actions/checkout@v4
+        with:
+          ref: agent/staging-integration
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
@@ -43,18 +55,47 @@ jobs:
           test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo "Missing SUPABASE_ACCESS_TOKEN"; exit 1; }
           test -n "${SUPABASE_DB_PASSWORD:-}" || { echo "Missing SUPABASE_DB_PASSWORD"; exit 1; }
           test -n "${SUPABASE_PROJECT_REF:-}" || { echo "Missing SUPABASE_PROJECT_REF"; exit 1; }
-          [[ "$SUPABASE_PROJECT_REF" =~ ^[a-z0-9]{20}$ ]] || { echo "SUPABASE_PROJECT_REF has an unexpected format"; exit 1; }
-          echo "Staging configuration is present. Secret values are not printed."
 
-      - name: Initialize temporary Supabase CLI configuration
+          if [ "$SUPABASE_PROJECT_REF" != "$EXPECTED_STAGING_PROJECT_REF" ]; then
+            echo "Refusing dry-run: configured project is not the approved disposable staging project."
+            exit 1
+          fi
+
+          echo "Staging-only project guard passed."
+
+      - name: Prepare normalized migration set
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f supabase/config.toml ]; then
-            supabase init
-          fi
+          rm -rf .staging-dry-run
+          mkdir -p .staging-dry-run
+          cd .staging-dry-run
+          supabase init
+          cd ..
+
+          python scripts/prepare_staging_bootstrap.py \
+            --source supabase/migrations \
+            --destination .staging-dry-run/supabase/migrations \
+            --manifest .staging-dry-run/dry-run-manifest.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(
+              Path('.staging-dry-run/dry-run-manifest.json').read_text(encoding='utf-8')
+          )
+          assert manifest['included_count'] > 0, 'No migrations were prepared'
+          assert manifest['excluded_count'] == 1, manifest['excluded_count']
+          assert manifest['excluded'][0]['source'] == '068_targeted_data_repair_current_accounts.sql'
+          print(
+              f"Prepared normalized dry-run manifest: {manifest['included_count']} included, "
+              "1 production-data repair excluded."
+          )
+          PY
 
       - name: Link disposable staging project
+        working-directory: .staging-dry-run
         shell: bash
         run: |
           set -euo pipefail
@@ -62,15 +103,45 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --password "$SUPABASE_DB_PASSWORD"
 
-      - name: Show migration history comparison
+      - name: Verify normalized remote migration parity
+        working-directory: .staging-dry-run
         shell: bash
         run: |
           set -euo pipefail
           supabase migration list \
             --linked \
-            --password "$SUPABASE_DB_PASSWORD"
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee staging-history.log
 
-      - name: Dry-run all pending migrations
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          manifest = json.loads(Path('dry-run-manifest.json').read_text(encoding='utf-8'))
+          expected = [item['staged_version'] for item in manifest['migrations']]
+          text = Path('staging-history.log').read_text(encoding='utf-8', errors='replace')
+          text = re.sub(r'\x1b\[[0-9;]*m', '', text).replace('`', '')
+
+          remote = []
+          for line in text.splitlines():
+              parts = [part.strip() for part in line.split('|')]
+              if len(parts) < 2 or not re.fullmatch(r'\d{14}', parts[0]):
+                  continue
+              if re.fullmatch(r'\d{14}', parts[1]):
+                  remote.append(parts[1])
+
+          if remote != expected[:len(remote)]:
+              raise SystemExit(
+                  'Remote migration history is not an exact prefix of the normalized manifest; '
+                  'dry-run refused without changing migration history.'
+              )
+
+          print(f'Normalized migration parity passed: {len(remote)} remote of {len(expected)} prepared.')
+          PY
+
+      - name: Dry-run normalized pending migrations
+        working-directory: .staging-dry-run
         shell: bash
         run: |
           set -euo pipefail
