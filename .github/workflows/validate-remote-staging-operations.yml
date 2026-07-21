@@ -1,0 +1,262 @@
+name: Validate Remote Staging Operations
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/staging-integration
+    paths:
+      - "scripts/validate_remote_staging_operations.mjs"
+      - ".github/workflows/validate-remote-staging-operations.yml"
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: validate-remote-staging-operations
+  cancel-in-progress: false
+
+jobs:
+  operations-journey:
+    name: Job, bid, award, driver lifecycle, POD and invoice
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      EXPECTED_STAGING_PROJECT_REF: svfjlhljuizckzabtewx
+      STAGING_APP_ORIGIN: http://127.0.0.1:3000
+
+    steps:
+      - name: Checkout staging integration branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/staging-integration
+          fetch-depth: 1
+
+      - name: Guard staging project identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "agent/staging-integration"
+          test -n "${SUPABASE_ACCESS_TOKEN:-}"
+          test -n "${SUPABASE_DB_PASSWORD:-}"
+          test -n "${SUPABASE_PROJECT_REF:-}"
+          test "$SUPABASE_PROJECT_REF" = "$EXPECTED_STAGING_PROJECT_REF"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Verify staging schema matches the normalized manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .operations-schema-check
+          mkdir -p .operations-schema-check
+          cd .operations-schema-check
+          supabase init
+          cd ..
+
+          python scripts/prepare_staging_bootstrap.py \
+            --source supabase/migrations \
+            --destination .operations-schema-check/supabase/migrations \
+            --manifest .operations-schema-check/manifest.json
+
+          cd .operations-schema-check
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase migration list --linked --password "$SUPABASE_DB_PASSWORD" 2>&1 | tee migration-history.log
+
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          expected = [
+              item['staged_version']
+              for item in json.loads(Path('manifest.json').read_text(encoding='utf-8'))['migrations']
+          ]
+          text = Path('migration-history.log').read_text(encoding='utf-8', errors='replace')
+          text = re.sub(r'\x1b\[[0-9;]*m', '', text).replace('`', '')
+          remote = []
+          for line in text.splitlines():
+              parts = [part.strip() for part in re.split(r'[|│]', line)]
+              if len(parts) >= 2 and re.fullmatch(r'\d{14}', parts[1]):
+                  remote.append(parts[1])
+
+          print(f'Expected normalized migrations: {len(expected)}')
+          print(f'Remote recorded migrations: {len(remote)}')
+          if remote != expected:
+              raise SystemExit('Staging schema history does not exactly match the generated normalized manifest.')
+          PY
+
+      - name: Resolve project API keys without exposing them
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/api-keys?reveal=true" \
+            --header "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            --output /tmp/supabase-api-keys.json
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          keys = json.loads(Path('/tmp/supabase-api-keys.json').read_text(encoding='utf-8'))
+
+          def find_key(*, names=(), types=()):
+              for item in keys:
+                  if item.get('name') in names and item.get('api_key'):
+                      return item['api_key']
+              for item in keys:
+                  if item.get('type') in types and item.get('api_key'):
+                      return item['api_key']
+              return None
+
+          public_key = find_key(names=('anon',), types=('publishable',))
+          secret_key = find_key(names=('service_role',), types=('secret',))
+          if not public_key or not secret_key:
+              available = [f"{item.get('type')}:{item.get('name')}" for item in keys]
+              raise SystemExit(f'Required public/server API keys were not available. Key descriptors: {available}')
+
+          print(f'::add-mask::{public_key}')
+          print(f'::add-mask::{secret_key}')
+          env_file = Path(os.environ['GITHUB_ENV'])
+          with env_file.open('a', encoding='utf-8') as handle:
+              url = f'https://{os.environ["SUPABASE_PROJECT_REF"]}.supabase.co'
+              handle.write(f'STAGING_SUPABASE_URL={url}\n')
+              handle.write(f'STAGING_SUPABASE_PUBLIC_KEY={public_key}\n')
+              handle.write(f'STAGING_SUPABASE_SECRET_KEY={secret_key}\n')
+              handle.write(f'NEXT_PUBLIC_SUPABASE_URL={url}\n')
+              handle.write(f'EXPECTED_NEXT_PUBLIC_SUPABASE_URL={url}\n')
+              handle.write(f'NEXT_PUBLIC_SUPABASE_ANON_KEY={public_key}\n')
+              handle.write(f'SUPABASE_SERVICE_ROLE_KEY={secret_key}\n')
+          PY
+
+          rm -f /tmp/supabase-api-keys.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application against disposable staging
+        env:
+          SUPABASE_ENV_STRICT: "true"
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+          XDRIVE_FORCE_CANONICAL_HOST: "false"
+        run: npm run build
+
+      - name: Start staging-bound application
+        shell: bash
+        env:
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+          XDRIVE_FORCE_CANONICAL_HOST: "false"
+        run: |
+          set -euo pipefail
+          npm run start > /tmp/staging-operations-next.log 2>&1 &
+          echo $! > /tmp/staging-operations-next.pid
+
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:3000/login > /dev/null; then
+              echo "Staging-bound application is ready."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          cat /tmp/staging-operations-next.log
+          exit 1
+
+      - name: Validate complete operations journey
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/validate_remote_staging_operations.mjs 2>&1 | tee /tmp/staging-operations.log
+
+      - name: Publish operations validation success
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -f body="<!-- remote-staging-operations-success -->
+          ### Remote staging operations journey passed
+
+          Commit: \`${GITHUB_SHA}\`
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          A job was posted idempotently, quoted, awarded atomically, auto-allocated to an approved owner-driver, executed through pickup and delivery, protected by the POD requirement, completed, and converted into an idempotent marketplace invoice. Tenant authorization, loading-photo persistence, tracking history and commercial-agreement linkage were verified. No invoice email was sent."
+
+      - name: Publish concise operations failure
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          {
+            echo '<!-- remote-staging-operations-failure -->'
+            echo '### Remote staging operations validation failed'
+            echo
+            echo "Commit: \`${GITHUB_SHA}\`"
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo '```text'
+            if [ -f /tmp/staging-operations.log ]; then
+              grep -E 'STAGING_OPERATIONS_VALIDATION_FAILED|returned [0-9]+|Failed to|incorrect|not |wrong|Expected at least' /tmp/staging-operations.log \
+                | tail -n 35 || tail -n 50 /tmp/staging-operations.log
+            elif [ -f .operations-schema-check/migration-history.log ]; then
+              tail -n 50 .operations-schema-check/migration-history.log
+            elif [ -f /tmp/staging-operations-next.log ]; then
+              tail -n 50 /tmp/staging-operations-next.log
+            else
+              echo 'The workflow failed before a diagnostic log was created.'
+            fi
+            echo '```'
+          } > /tmp/operations-diagnostic.md
+
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/248/comments" \
+            -F body=@/tmp/operations-diagnostic.md
+
+      - name: Upload non-secret operations logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-staging-operations-logs
+          path: |
+            .operations-schema-check/manifest.json
+            .operations-schema-check/migration-history.log
+            /tmp/staging-operations-next.log
+            /tmp/staging-operations.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop staging-bound application
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/staging-operations-next.pid ]; then
+            kill "$(cat /tmp/staging-operations-next.pid)" || true
+          fi
