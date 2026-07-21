@@ -1,3 +1,4 @@
+import { resolveAccountTypeFromMetadata, type AccountType } from './accountTypes';
 import {
   isRoleAllowedForPath,
   mapAppRole,
@@ -8,7 +9,12 @@ import { resolveAuthContext } from './authContextResolver';
 import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './driverWorkspaceMode';
 import { supabase } from './supabaseClient';
 import type { CompanyMembership, Driver, Profile } from './types/database';
-import { getWorkspaceHomeRoute, resolveWorkspaceRole, type WorkspaceRole } from './workspaceRole';
+import {
+  getWorkspaceDefinition,
+  getWorkspaceHomeRoute,
+  resolveWorkspaceRole,
+  type WorkspaceRole,
+} from './workspaceRole';
 
 export type UserRole =
   | 'guest'
@@ -83,7 +89,8 @@ const readMetadataFlag = (
 };
 
 export const getFallbackRole = (sessionUser: SessionUser): string | null =>
-  readMetadataRole(sessionUser.app_metadata, 'role')
+  resolveAccountTypeFromMetadata(sessionUser.user_metadata, sessionUser.app_metadata)
+  ?? readMetadataRole(sessionUser.app_metadata, 'role')
   ?? readMetadataRole(sessionUser.user_metadata, 'role')
   ?? readMetadataRole(sessionUser.user_metadata, 'requested_role')
   ?? readMetadataRole(sessionUser.user_metadata, 'account_type')
@@ -116,11 +123,21 @@ const unsupportedStatusError = (
     hint: 'Use an active, pending/review, or blocked lifecycle status.',
   });
 
+const workspaceRoleForPublicAccount = (accountType: AccountType | null): WorkspaceRole | null => {
+  if (accountType === 'customer') return 'customer';
+  if (accountType === 'broker') return 'broker';
+  if (accountType === 'fleet_operator') return 'carrier_admin';
+  if (accountType === 'owner_driver') return 'owner_driver';
+  return null;
+};
+
 const resolveFinanceAccess = (
   role: UserRole,
   membershipRole: CompanyMembership['role_in_company'] | null,
-  sessionUser: SessionUser
+  sessionUser: SessionUser,
+  accountType: AccountType | null
 ): 'full' | 'limited' | 'hidden' => {
+  if (accountType === 'owner_driver') return 'hidden';
   if (role === 'owner' || role === 'company_admin') return 'full';
   if (role !== 'company_staff') return 'hidden';
   if (membershipRole === 'finance') return 'full';
@@ -144,13 +161,14 @@ const ok = (
   mustChangePassword: boolean,
   options: {
     rawRole: string | null;
+    workspaceRoleOverride: WorkspaceRole | null;
     ownerDriverWorkspace: boolean;
     canAccessDriverMode: boolean;
     ownerDriverExecutionMode: boolean;
     financeAccess: 'full' | 'limited' | 'hidden';
   }
 ): AuthResolutionResult => {
-  const workspaceRole = resolveWorkspaceRole({
+  const workspaceRole = options.workspaceRoleOverride ?? resolveWorkspaceRole({
     role,
     rawRole: options.rawRole,
     membershipRole,
@@ -188,8 +206,9 @@ export const resolveAuthenticatedUser = async (
     });
   }
 
+  const accountType = resolveAccountTypeFromMetadata(sessionUser.user_metadata, sessionUser.app_metadata);
   const fallbackRole = getFallbackRole(sessionUser);
-  const ownerDriverWorkspaceRequested = isDriverProviderWorkspaceRequested(
+  const ownerDriverWorkspaceRequested = accountType === 'owner_driver' || isDriverProviderWorkspaceRequested(
     sessionUser.user_metadata,
     sessionUser.app_metadata
   );
@@ -236,9 +255,7 @@ export const resolveAuthenticatedUser = async (
   if (creatorCompanyResult.error) return dbErrorResult(companyQuery, creatorCompanyResult.error);
 
   const profile = profileResult.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'> | null;
-  if (!profile) {
-    return { user: null, reason: 'profile_missing' };
-  }
+  if (!profile) return { user: null, reason: 'profile_missing' };
 
   const profileStatus = profile.status ?? '';
   const profileAccessState = classifyAccessLifecycleStatus(profileStatus);
@@ -283,7 +300,7 @@ export const resolveAuthenticatedUser = async (
 
   const resolvedRole = context.role as UserRole;
   const companyId = context.companyId;
-  if (roleRequiresCompanyContext(resolvedRole) && !companyId) {
+  if (roleRequiresCompanyContext(resolvedRole) && (!companyId || !membership)) {
     return { user: null, reason: 'company_context_missing' };
   }
 
@@ -308,16 +325,19 @@ export const resolveAuthenticatedUser = async (
     }
   }
 
-  if (
-    ownerDriverWorkspaceRequested
-    && driver
-    && driver.app_access === false
-  ) {
+  if (accountType === 'owner_driver' && driver?.app_access !== true) {
     return { user: null, reason: 'account_pending' };
   }
 
   const membershipRole = membership?.role_in_company ?? null;
-  const financeAccess = resolveFinanceAccess(resolvedRole, membershipRole, sessionUser);
+  const financeAccess = resolveFinanceAccess(resolvedRole, membershipRole, sessionUser, accountType);
+  const rawRole = accountType ?? fallbackRole ?? profile.role ?? null;
+  const canAccessDriverMode = ownerDriverWorkspaceRequested && (
+    Boolean(driver)
+    || profile.is_driver === true
+    || mapAppRole(profile.role) === 'driver'
+    || mapAppRole(fallbackRole) === 'driver'
+  );
 
   return ok(
     sessionUser,
@@ -326,13 +346,12 @@ export const resolveAuthenticatedUser = async (
     membership?.id ?? null,
     membershipRole,
     driver?.id ?? null,
-    resolvedRole === 'driver' ? driver?.must_change_password === true : false,
+    canAccessDriverMode ? driver?.must_change_password === true : resolvedRole === 'driver' && driver?.must_change_password === true,
     {
-      rawRole: profile.role ?? fallbackRole ?? null,
+      rawRole,
+      workspaceRoleOverride: workspaceRoleForPublicAccount(accountType),
       ownerDriverWorkspace: ownerDriverWorkspaceRequested,
-      canAccessDriverMode:
-        ownerDriverWorkspaceRequested
-        && (Boolean(driver) || profile.is_driver === true || mapAppRole(profile.role) === 'driver'),
+      canAccessDriverMode,
       ownerDriverExecutionMode: ownerDriverExecutionModeRequested,
       financeAccess,
     }
@@ -357,6 +376,10 @@ export const getPostLoginRoute = (
     return '/driver/change-password';
   }
 
+  if (currentUser.workspaceRole) {
+    return getWorkspaceDefinition(currentUser.workspaceRole).homeHref;
+  }
+
   return getWorkspaceHomeRoute({
     role: currentUser.role,
     rawRole: currentUser.rawRole ?? null,
@@ -368,6 +391,8 @@ export const getPostLoginRoute = (
 
 export const roleCanAccessPath = (
   currentUser: Pick<ResolvedAuthUser, 'role'> & {
+    rawRole?: string | null;
+    workspaceRole?: WorkspaceRole | null;
     canAccessDriverMode?: boolean;
     membershipRole?: CompanyMembership['role_in_company'] | null;
     financeAccess?: 'full' | 'limited' | 'hidden' | null;
@@ -376,6 +401,8 @@ export const roleCanAccessPath = (
   path: string
 ) =>
   isRoleAllowedForPath(path, mapAppRole(currentUser.role), {
+    rawRole: currentUser.rawRole ?? null,
+    workspaceRole: currentUser.workspaceRole ?? null,
     canAccessDriverMode: currentUser.canAccessDriverMode === true,
     membershipRole: currentUser.membershipRole ?? null,
     financeAccess: currentUser.financeAccess ?? null,
