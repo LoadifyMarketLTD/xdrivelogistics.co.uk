@@ -32,6 +32,17 @@ const updateOwnerDriverAccess = async (
   return error ? new Error(error.message) : null;
 };
 
+const syncCanonicalAuthRole = async (
+  client: SupabaseClient,
+  userId: string,
+  canonicalRole: 'customer' | 'broker' | 'company_admin' | 'driver',
+): Promise<Error | null> => {
+  const { error } = await client.auth.admin.updateUserById(userId, {
+    app_metadata: { role: canonicalRole },
+  });
+  return error ? new Error(error.message) : null;
+};
+
 export const syncOnboardingAccess = async (
   client: SupabaseClient,
   {
@@ -98,6 +109,13 @@ export const syncOnboardingAccess = async (
   }
 
   if (profileError) return new Error(profileError.message);
+
+  // Profile storage may temporarily use a legacy-compatible role. The signed
+  // auth identity always keeps the canonical role so the next token refresh or
+  // login resolves Broker/Fleet/Customer/Owner Driver without ambiguity.
+  const metadataError = await syncCanonicalAuthRole(client, userId, canonicalRole);
+  if (metadataError) return metadataError;
+
   if (accountType !== 'owner_driver') return null;
 
   return updateOwnerDriverAccess(
