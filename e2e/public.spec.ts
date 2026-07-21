@@ -1,51 +1,39 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import {
+  ACCOUNT_TYPE_CONFIG,
+  ACCOUNT_TYPES,
+  toStoredOnboardingAccountType,
+  type AccountAppRole,
+  type AccountType,
+  type AccountWorkspaceMode,
+  type StoredOnboardingAccountType,
+} from '../lib/accountTypes';
 
 const SUPABASE_ORIGIN = 'https://placeholder.supabase.co';
 const TEST_PASSWORD = 'SecurePass123!';
 
 type PublicRoleCase = {
   label: string;
-  selectorValue: 'customer_shipper' | 'transport_broker' | 'fleet_operator' | 'owner_operator';
-  appRole: 'customer' | 'broker' | 'company_admin' | 'driver';
-  accountType: 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver';
-  workspaceMode: 'customer' | 'broker' | 'company' | 'owner_driver';
+  selectorValue: AccountType;
+  appRole: AccountAppRole;
+  accountType: AccountType;
+  storedAccountType: StoredOnboardingAccountType;
+  workspaceMode: AccountWorkspaceMode;
   onboardingPath: string;
 };
 
-const PUBLIC_ROLE_CASES: PublicRoleCase[] = [
-  {
-    label: 'Customer / Shipper',
-    selectorValue: 'customer_shipper',
-    appRole: 'customer',
-    accountType: 'customer_shipper',
-    workspaceMode: 'customer',
-    onboardingPath: '/onboarding/customer/resume',
-  },
-  {
-    label: 'Transport Broker',
-    selectorValue: 'transport_broker',
-    appRole: 'broker',
-    accountType: 'broker_shipper',
-    workspaceMode: 'broker',
-    onboardingPath: '/onboarding/broker/resume',
-  },
-  {
-    label: 'Fleet Operator',
-    selectorValue: 'fleet_operator',
-    appRole: 'company_admin',
-    accountType: 'fleet_courier',
-    workspaceMode: 'company',
-    onboardingPath: '/onboarding/fleet/resume',
-  },
-  {
-    label: 'Owner Operator',
-    selectorValue: 'owner_operator',
-    appRole: 'driver',
-    accountType: 'owner_driver',
-    workspaceMode: 'owner_driver',
-    onboardingPath: '/onboarding/owner-driver/resume',
-  },
-];
+const PUBLIC_ROLE_CASES: PublicRoleCase[] = ACCOUNT_TYPES.map((accountType) => {
+  const config = ACCOUNT_TYPE_CONFIG[accountType];
+  return {
+    label: config.label,
+    selectorValue: accountType,
+    appRole: config.appRole,
+    accountType,
+    storedAccountType: toStoredOnboardingAccountType(accountType),
+    workspaceMode: config.workspaceMode,
+    onboardingPath: config.onboardingPath,
+  };
+});
 
 const jsonHeaders = {
   'access-control-allow-origin': '*',
@@ -84,6 +72,12 @@ const buildAuthResponse = ({
 
 const fulfilJson = async (route: Route, body: unknown, status = 200) => {
   await route.fulfill({ status, headers: jsonHeaders, body: JSON.stringify(body) });
+};
+
+const requestJson = (route: Route): Record<string, unknown> => {
+  const raw = route.request().postData();
+  if (!raw) return {};
+  return JSON.parse(raw) as Record<string, unknown>;
 };
 
 const mockPostgrestForPendingProfile = async (page: Page, roleCase: PublicRoleCase) => {
@@ -129,12 +123,13 @@ const mockPostgrestForPendingProfile = async (page: Page, roleCase: PublicRoleCa
 const mockOnboardingBrowserApis = async (
   page: Page,
   roleCase: PublicRoleCase,
-  status: 'draft' | 'in_progress' | 'under_review' = 'draft'
+  status: 'draft' | 'in_progress' | 'under_review' = 'draft',
+  onInitRequest?: (payload: Record<string, unknown>) => void
 ) => {
   const application = {
     id: `application-${roleCase.accountType}`,
     user_id: `user-${roleCase.accountType}`,
-    account_type: roleCase.accountType,
+    account_type: roleCase.storedAccountType,
     status,
     current_step: 'account_type_wizard',
     completion_percentage: 5,
@@ -142,6 +137,7 @@ const mockOnboardingBrowserApis = async (
   };
 
   await page.route('**/api/onboarding/init', async (route) => {
+    onInitRequest?.(requestJson(route));
     await fulfilJson(route, {
       onboardingApplicationId: application.id,
       status,
@@ -168,9 +164,12 @@ const registerRole = async (page: Page, roleCase: PublicRoleCase) => {
   const email = `${roleCase.accountType}@example.test`;
   const userId = `user-${roleCase.accountType}`;
   let capturedMetadata: Record<string, unknown> | null = null;
+  let capturedInitPayload: Record<string, unknown> | null = null;
 
   await mockPostgrestForPendingProfile(page, roleCase);
-  await mockOnboardingBrowserApis(page, roleCase);
+  await mockOnboardingBrowserApis(page, roleCase, 'draft', (payload) => {
+    capturedInitPayload = payload;
+  });
 
   await page.route(`${SUPABASE_ORIGIN}/auth/v1/signup**`, async (route) => {
     const requestBody = requestJson(route);
@@ -189,18 +188,17 @@ const registerRole = async (page: Page, roleCase: PublicRoleCase) => {
 
   expect(capturedMetadata).toMatchObject({
     role: roleCase.appRole,
-    requested_role: roleCase.selectorValue,
-    signup_type: roleCase.selectorValue,
+    requested_role: roleCase.accountType,
+    signup_type: roleCase.accountType,
     account_type: roleCase.accountType,
     workspace_mode: roleCase.workspaceMode,
     owner_driver_workspace: roleCase.accountType === 'owner_driver',
   });
-};
 
-const requestJson = (route: Route): Record<string, unknown> => {
-  const raw = route.request().postData();
-  if (!raw) return {};
-  return JSON.parse(raw) as Record<string, unknown>;
+  expect(capturedInitPayload).toEqual({
+    account_type: roleCase.accountType,
+    forceRegenerateToken: false,
+  });
 };
 
 const mockPasswordLogin = async (
@@ -245,15 +243,21 @@ test.describe('Public pages', () => {
     await expect(page.locator('input[type="email"], [data-testid="email"]')).toBeVisible();
   });
 
-  test('registration exposes only the four public account types', async ({ page }) => {
+  test('registration exposes only the four canonical public account types', async ({ page }) => {
     await page.goto('/register');
     const accountType = page.locator('#register-role');
     await expect(accountType).toBeVisible();
     await expect(accountType.locator('option')).toHaveCount(4);
+
+    const optionValues = await accountType.locator('option').evaluateAll((options) =>
+      options.map((option) => (option as HTMLOptionElement).value)
+    );
+    expect(optionValues).toEqual([...ACCOUNT_TYPES]);
+
     await expect(accountType).toContainText('Customer / Shipper');
     await expect(accountType).toContainText('Transport Broker');
     await expect(accountType).toContainText('Fleet Operator');
-    await expect(accountType).toContainText('Owner Operator');
+    await expect(accountType).toContainText('Owner Driver');
     await expect(accountType).not.toContainText('Fleet Driver');
   });
 });
@@ -262,18 +266,18 @@ test.describe('Public pages', () => {
 
 test.describe('Registration and onboarding role routing', () => {
   for (const roleCase of PUBLIC_ROLE_CASES) {
-    test(`${roleCase.label} keeps its canonical role and opens the correct onboarding`, async ({ page }) => {
+    test(`${roleCase.label} sends canonical account_type and opens the correct onboarding`, async ({ page }) => {
       await registerRole(page, roleCase);
     });
   }
 
   test('an existing Broker with incomplete onboarding resumes Broker onboarding after login', async ({ page }) => {
-    const roleCase = PUBLIC_ROLE_CASES[1];
+    const roleCase = PUBLIC_ROLE_CASES.find((item) => item.accountType === 'broker')!;
     const email = 'existing-broker@example.test';
     const userMetadata = {
       role: roleCase.appRole,
       account_type: roleCase.accountType,
-      requested_role: roleCase.selectorValue,
+      requested_role: roleCase.accountType,
       workspace_mode: roleCase.workspaceMode,
     };
 
@@ -290,12 +294,12 @@ test.describe('Registration and onboarding role routing', () => {
   });
 
   test('an account under review is sent to Pending Approval after login', async ({ page }) => {
-    const roleCase = PUBLIC_ROLE_CASES[2];
+    const roleCase = PUBLIC_ROLE_CASES.find((item) => item.accountType === 'fleet_operator')!;
     const email = 'fleet-under-review@example.test';
     const userMetadata = {
       role: roleCase.appRole,
       account_type: roleCase.accountType,
-      requested_role: roleCase.selectorValue,
+      requested_role: roleCase.accountType,
       workspace_mode: roleCase.workspaceMode,
     };
 
