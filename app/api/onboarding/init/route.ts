@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import {
+  getBearerToken,
+  isSupabaseAdminConfigured,
+  supabaseAdmin,
+  supabaseValidator,
+} from '../../_lib/supabaseAdmin';
 import {
   buildOnboardingUrl,
   generateOnboardingToken,
@@ -16,7 +21,8 @@ const requestSchema = z.object({
   forceRegenerateToken: z.boolean().optional(),
 });
 
-const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
+const json = (status: number, body: Record<string, unknown>) =>
+  NextResponse.json(body, { status });
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -43,11 +49,9 @@ export async function POST(request: NextRequest) {
   }
 
   const authUser = authData.user;
-  const metadataAccountType = normalizeOnboardingAccountType(
-    resolveOnboardingAccountTypeFromMetadata(
-      (authUser.user_metadata ?? null) as Record<string, unknown> | null,
-      (authUser.app_metadata ?? null) as Record<string, unknown> | null
-    )
+  const metadataAccountType = resolveOnboardingAccountTypeFromMetadata(
+    (authUser.user_metadata ?? null) as Record<string, unknown> | null,
+    (authUser.app_metadata ?? null) as Record<string, unknown> | null
   );
 
   const { data: existing, error: existingError } = await supabaseAdmin
@@ -58,9 +62,25 @@ export async function POST(request: NextRequest) {
 
   if (existingError) return json(500, { error: existingError.message });
 
-  // A saved onboarding selection is authoritative. Legacy or incomplete auth
-  // metadata must never silently turn a driver/fleet/broker into a customer.
-  const accountType = normalizeOnboardingAccountType(existing?.account_type ?? metadataAccountType);
+  const existingAccountType = normalizeOnboardingAccountType(existing?.account_type);
+  if (existing && !existingAccountType) {
+    return json(409, {
+      error: 'The saved onboarding application has an unsupported account type. Contact XDrive support before continuing.',
+      code: 'unsupported_saved_account_type',
+    });
+  }
+
+  // A valid saved onboarding selection is authoritative. Auth metadata is used
+  // only to initialise a new application. Unknown values are never converted
+  // to Customer/Shipper.
+  const accountType = existingAccountType ?? metadataAccountType;
+  if (!accountType) {
+    return json(409, {
+      error: 'Account type is missing or unsupported. Select a valid account type during registration or contact XDrive support.',
+      code: 'missing_or_unsupported_account_type',
+    });
+  }
+
   const normalizedExistingStatus = normalizeOnboardingStatus(existing?.status);
   const now = new Date();
   const tokenExpired = Boolean(
@@ -114,7 +134,9 @@ export async function POST(request: NextRequest) {
     const { error: notificationError } = await supabaseAdmin
       .from('notification_events')
       .insert({
-        event_type: payload.forceRegenerateToken ? 'onboarding_invite_resent' : 'onboarding_invite',
+        event_type: payload.forceRegenerateToken
+          ? 'onboarding_invite_resent'
+          : 'onboarding_invite',
         entity_type: 'onboarding_application',
         entity_id: upserted.id,
         recipient_user_id: authUser.id,
