@@ -48,7 +48,6 @@ jobs:
               for path in sorted(Path('supabase/migrations').glob('*.sql'))
               if path.read_bytes().startswith(b'\xef\xbb\xbf')
           ]
-
           if bad:
               print('UTF-8 BOM found; temporary bootstrap copies will be normalized:')
               print('\n'.join(bad))
@@ -91,25 +90,32 @@ jobs:
           manifest = json.loads((root / 'bootstrap-manifest.json').read_text(encoding='utf-8'))
           migrations = manifest['migrations']
           versions = [item['staged_version'] for item in migrations]
+          sources = {item['source'] for item in migrations}
+          required_sources = {
+              '20260720231500_onboarding_approval_driver_access_guard.sql',
+              '20260720234500_canonical_driver_job_lifecycle.sql',
+              '20260720235500_invoice_delivery_tracking.sql',
+              '20260721000500_job_creation_idempotency.sql',
+              '20260721001500_scrub_notification_secrets.sql',
+              '20260721003000_fix_onboarding_membership_role_enum.sql',
+              '20260721004500_fix_onboarding_review_company_id_ambiguity.sql',
+              '20260721005500_fix_onboarding_review_conflict_target_ambiguity.sql',
+          }
 
           assert migrations, 'No migrations were prepared'
           assert len(versions) == len(set(versions)), 'Prepared migration versions are not unique'
+          assert manifest['included_count'] == len(migrations), 'Manifest included_count is inconsistent'
           assert manifest['excluded_count'] == 1, 'Unexpected number of excluded migrations'
           assert manifest['excluded'][0]['source'] == '068_targeted_data_repair_current_accounts.sql'
+
+          missing = sorted(required_sources - sources)
+          assert not missing, f'Required staging migrations are missing: {missing}'
           assert all(
               not (root / 'supabase' / 'migrations' / item['staged'])
               .read_bytes()
               .startswith(b'\xef\xbb\xbf')
               for item in migrations
           ), 'Prepared migration still contains UTF-8 BOM'
-          assert migrations[-8]['source'] == '20260720231500_onboarding_approval_driver_access_guard.sql'
-          assert migrations[-7]['source'] == '20260720234500_canonical_driver_job_lifecycle.sql'
-          assert migrations[-6]['source'] == '20260720235500_invoice_delivery_tracking.sql'
-          assert migrations[-5]['source'] == '20260721000500_job_creation_idempotency.sql'
-          assert migrations[-4]['source'] == '20260721001500_scrub_notification_secrets.sql'
-          assert migrations[-3]['source'] == '20260721003000_fix_onboarding_membership_role_enum.sql'
-          assert migrations[-2]['source'] == '20260721004500_fix_onboarding_review_company_id_ambiguity.sql'
-          assert migrations[-1]['source'] == '20260721005500_fix_onboarding_review_conflict_target_ambiguity.sql'
 
           print(
               f"Manifest validated: {len(migrations)} included, "
@@ -219,7 +225,7 @@ jobs:
           Commit: \`${GITHUB_SHA}\`
           Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
 
-          All normalized migrations were applied from zero and the recorded migration count matched the manifest."
+          All normalized migrations were applied from zero and the recorded migration count matched the generated manifest."
 
       - name: Upload bootstrap manifest
         if: ${{ always() && hashFiles('.staging-bootstrap/bootstrap-manifest.json') != '' }}
