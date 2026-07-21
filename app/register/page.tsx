@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 import { getAuthCallbackEmailRedirectTo } from '../../lib/authFlow';
-import { normalizeProfileRoleForStorage } from '../../lib/authRole';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
 type RegisterRole = 'owner_operator' | 'fleet_operator' | 'transport_broker' | 'customer_shipper';
@@ -86,7 +85,6 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const signupConfig = SIGNUP_ROLE_CONFIG[role];
-      const storedRole = normalizeProfileRoleForStorage(signupConfig.appRole) ?? 'customer';
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
@@ -112,8 +110,8 @@ export default function RegisterPage() {
         const { error: profileError } = await supabase.from('profiles').upsert(
           {
             user_id: data.user.id,
-            role: storedRole,
-            status: signupConfig.accountType === 'customer_shipper' ? 'active' : 'pending',
+            role: signupConfig.appRole,
+            status: 'pending',
             is_driver: signupConfig.appRole === 'driver',
             updated_at: new Date().toISOString(),
           },
