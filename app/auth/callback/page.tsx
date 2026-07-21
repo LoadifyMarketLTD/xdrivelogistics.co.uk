@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { classifyOnboardingLifecycleStatus } from '../../../lib/accessLifecycle';
 import {
   RESET_PASSWORD_PATH,
   getBrowserAuthSignals,
@@ -11,7 +12,6 @@ import { clearRouteAuthCookie, writeRouteAuthCookie } from '../../../lib/routeAu
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
 const AUTH_CALLBACK_TIMEOUT_MS = 10_000;
-
 
 const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -28,6 +28,12 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<
 
 type OtpType = 'invite' | 'recovery' | 'signup' | 'email' | 'email_change';
 
+type OnboardingInitPayload = {
+  error?: string;
+  status?: string;
+  onboardingUrl?: string;
+};
+
 const clearBrowserTokens = (pathname: string) => {
   if (typeof window === 'undefined') return;
   window.history.replaceState(null, '', pathname);
@@ -42,6 +48,16 @@ const hasSignupOnboardingMetadata = (sessionUser: SessionUser) => {
     const value = metadata[key];
     return typeof value === 'string' && value.trim().length > 0;
   });
+};
+
+const normalizeOnboardingPath = (raw: string | undefined): string | null => {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return raw.startsWith('/') ? raw : null;
+  }
 };
 
 export default function AuthCallbackPage() {
@@ -66,6 +82,7 @@ export default function AuthCallbackPage() {
       }
       return 'other';
     };
+
     const getOtpType = (queryType: string | null, hashType: string | null, flow: string | null): OtpType | null => {
       const normalizedType = (queryType ?? hashType ?? flow ?? '').trim().toLowerCase();
       if (normalizedType === 'invite') return 'invite';
@@ -97,54 +114,53 @@ export default function AuthCallbackPage() {
       } = await withTimeout(supabase.auth.getSession(), AUTH_CALLBACK_TIMEOUT_MS);
       writeRouteAuthCookie(session);
 
-      let onboardingPath: string | null = null;
-      let onboardingStatus: string | null = null;
       const shouldInitializeOnboarding = callbackRecoveryType === 'signup' || hasSignupOnboardingMetadata(sessionUser);
-
       if (shouldInitializeOnboarding && session?.access_token) {
         const initResponse = await fetch('/api/onboarding/init', {
           method: 'POST',
           headers: {
-            Authorization: 'Bearer ' + session.access_token,
+            Authorization: `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ forceRegenerateToken: false }),
-        }).catch(() => null);
+        });
+        const initData = await initResponse.json().catch(() => null) as OnboardingInitPayload | null;
 
-        if (initResponse?.ok) {
-          const initData = await initResponse.json().catch(() => null) as { onboardingUrl?: string; status?: string } | null;
-          onboardingStatus = initData?.status ?? null;
-          if (initData?.onboardingUrl) {
-            try {
-              const url = new URL(initData.onboardingUrl);
-              onboardingPath = `${url.pathname}${url.search}`;
-            } catch {
-              onboardingPath = initData.onboardingUrl.startsWith('/') ? initData.onboardingUrl : null;
-            }
-          }
+        if (!initResponse.ok) {
+          throw new Error(initData?.error ?? 'Unable to initialize onboarding after email confirmation.');
         }
+
+        const lifecycle = classifyOnboardingLifecycleStatus(initData?.status);
+        const onboardingPath = normalizeOnboardingPath(initData?.onboardingUrl) ?? '/onboarding/resume';
+        if (lifecycle === 'editable') {
+          router.replace(onboardingPath);
+          return;
+        }
+        if (lifecycle === 'review') {
+          router.replace('/pending-approval');
+          return;
+        }
+        if (lifecycle === 'rejected') {
+          router.replace('/forbidden?reason=onboarding-rejected');
+          return;
+        }
+        if (lifecycle === 'unknown') {
+          throw new Error('This onboarding application has an unsupported status.');
+        }
+        // Approved onboarding continues below to the role/company workspace resolver.
       }
 
       const result = await withTimeout(resolveAuthenticatedUser(sessionUser), AUTH_CALLBACK_TIMEOUT_MS);
       if (!result.user) {
-        if (onboardingPath) {
-          const normalizedStatus = (onboardingStatus ?? '').toLowerCase();
-          const pendingReviewStatuses = new Set(['under_review', 'request_changes']);
-          router.replace(pendingReviewStatuses.has(normalizedStatus) ? '/pending-approval' : onboardingPath);
+        if (result.reason === 'account_pending') {
+          router.replace('/pending-approval');
           return;
         }
         router.replace('/forbidden');
         return;
       }
 
-      if (onboardingPath && onboardingStatus && onboardingStatus !== 'approved') {
-        const normalizedStatus = onboardingStatus.toLowerCase();
-        const pendingReviewStatuses = new Set(['under_review', 'request_changes']);
-        router.replace(pendingReviewStatuses.has(normalizedStatus) ? '/pending-approval' : onboardingPath);
-        return;
-      }
-
-      router.replace(onboardingPath ?? getPostLoginRoute(result.user));
+      router.replace(getPostLoginRoute(result.user));
     };
 
     const completeAuth = async () => {
@@ -191,13 +207,14 @@ export default function AuthCallbackPage() {
         }
 
         if (!sessionUser && hasSessionTokens) {
-          const { data: setSessionData } = await withTimeout(
+          const { data: setSessionData, error: setSessionError } = await withTimeout(
             supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
             }),
             AUTH_CALLBACK_TIMEOUT_MS
           );
+          if (setSessionError) throw setSessionError;
           if (setSessionData.user) {
             sessionUser = setSessionData.user;
             consumedBrowserTokens = true;
@@ -211,12 +228,11 @@ export default function AuthCallbackPage() {
           );
           if (exchangeError) {
             if (isPkceVerifierMissingError(exchangeError.message)) {
-              setError(
-                'This sign-in link cannot be completed in this browser session. Please request a new link and open it in the same browser.'
-              );
+              setError('This sign-in link cannot be completed in this browser session. Please request a new link and open it in the same browser.');
               setIsLinkIssue(true);
               return;
             }
+            throw exchangeError;
           }
           if (exchangeData.user) {
             sessionUser = exchangeData.user;
@@ -232,16 +248,15 @@ export default function AuthCallbackPage() {
             }),
             AUTH_CALLBACK_TIMEOUT_MS
           );
-          if (!verifyError && verifyData.user) {
+          if (verifyError) throw verifyError;
+          if (verifyData.user) {
             sessionUser = verifyData.user;
             verifiedOtpType = otpType;
             consumedBrowserTokens = true;
           }
         }
 
-        if (consumedBrowserTokens) {
-          clearBrowserTokens('/auth/callback');
-        }
+        if (consumedBrowserTokens) clearBrowserTokens('/auth/callback');
 
         if (!sessionUser) {
           setError(
@@ -261,9 +276,9 @@ export default function AuthCallbackPage() {
         }
 
         await redirectAuthenticatedUser(sessionUser, callbackRecoveryType);
-      } catch (err) {
+      } catch (reason) {
         clearRouteAuthCookie();
-        const message = err instanceof Error ? err.message : 'Authentication callback failed.';
+        const message = reason instanceof Error ? reason.message : 'Authentication callback failed.';
         setError(
           isPkceVerifierMissingError(message)
             ? 'This sign-in link cannot be completed in this browser session. Please request a new link and open it in the same browser.'
@@ -280,21 +295,14 @@ export default function AuthCallbackPage() {
     <main>
       <section style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <h1 style={{ marginBottom: '1rem' }}>{isLinkIssue ? 'Link issue detected' : 'Completing sign-in…'}</h1>
-        {error && <p style={{ color: '#dc2626' }}>{error}</p>}
+        {error && <p role="alert" style={{ color: '#dc2626' }}>{error}</p>}
         {isLinkIssue && (
           <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             {recoveryType === 'recovery' ? (
               <button
                 type="button"
                 onClick={() => router.replace('/login')}
-                style={{
-                  padding: '0.75rem 1.25rem',
-                  backgroundColor: '#1F7A3D',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                }}
+                style={{ padding: '0.75rem 1.25rem', backgroundColor: '#1F7A3D', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
               >
                 Request a new reset link
               </button>
@@ -303,28 +311,14 @@ export default function AuthCallbackPage() {
                 <button
                   type="button"
                   onClick={() => router.replace('/login')}
-                  style={{
-                    padding: '0.75rem 1.25rem',
-                    backgroundColor: '#1F7A3D',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                  }}
+                  style={{ padding: '0.75rem 1.25rem', backgroundColor: '#1F7A3D', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
                 >
                   Back to sign in
                 </button>
                 <button
                   type="button"
                   onClick={() => router.replace('/register')}
-                  style={{
-                    padding: '0.75rem 1.25rem',
-                    backgroundColor: '#1d4ed8',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                  }}
+                  style={{ padding: '0.75rem 1.25rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
                 >
                   Go to register
                 </button>
