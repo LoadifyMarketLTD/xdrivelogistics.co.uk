@@ -152,16 +152,40 @@ export const resolveAuthoritativeRole = ({
   ownerDriverWorkspaceRequested?: boolean;
 }): AppUserRole | null => {
   const normalizedProfileRole = (profileRole ?? '').toLowerCase().trim();
+  const normalizedCreatorCompanyType = (creatorCompanyType ?? '').toLowerCase().trim();
   const resolvedProfileRole = mapAppRole(profileRole);
   const resolvedFallbackRole = mapAppRole(fallbackRole);
+  const ownerDriverCompany = ['owner_driver', 'owner_operator'].includes(normalizedCreatorCompanyType);
   const ownerDriverWorkspace =
-    ownerDriverWorkspaceRequested &&
+    (ownerDriverWorkspaceRequested || ownerDriverCompany) &&
     (resolvedProfileRole === 'driver' || resolvedFallbackRole === 'driver' || isDriver);
 
-  // An Owner Driver owns a workspace company for tenancy, but remains a Driver
-  // identity. Company ownership must not silently convert the public account
-  // into a Fleet Operator/company_admin role.
+  // A company record provides tenancy for an Owner Driver, but the identity
+  // remains Driver. Company ownership must not convert it to Fleet Operator.
   if (ownerDriverWorkspace) return 'driver';
+
+  // Older Broker accounts were persisted with profile.role = company. The
+  // company type is stronger evidence than that compatibility alias.
+  if (
+    ['broker', 'broker_shipper', 'shipper_broker', 'transport_broker'].includes(normalizedCreatorCompanyType) &&
+    (
+      resolvedProfileRole === 'company_staff' ||
+      resolvedFallbackRole === 'broker' ||
+      membershipRole === 'owner' ||
+      membershipRole === 'admin'
+    )
+  ) {
+    return 'broker';
+  }
+
+  // Apply the same compatibility recovery to an explicitly typed customer
+  // company, without treating an unknown company as Customer.
+  if (
+    ['customer', 'customer_shipper', 'shipper'].includes(normalizedCreatorCompanyType) &&
+    resolvedProfileRole === 'company_staff'
+  ) {
+    return 'customer';
+  }
 
   if (
     resolvedFallbackRole &&
