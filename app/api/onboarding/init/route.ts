@@ -47,18 +47,20 @@ const authenticate = async (request: NextRequest) => {
 
 const selectExistingApplication = async (userId: string) => supabaseAdmin!
   .from('onboarding_applications')
-  .select('id, status, account_type, token_hash, token_expires_at, token_activated_at, token_last_sent_at, token_revoked_at')
+  .select('id, status, account_type, company_id, token_hash, token_expires_at, token_activated_at, token_last_sent_at, token_revoked_at')
   .eq('user_id', userId)
   .maybeSingle();
 
-const syncProfileFromOnboarding = async ({
+const syncAccessFromOnboarding = async ({
   userId,
   accountType,
   status,
+  companyId,
 }: {
   userId: string;
   accountType: OnboardingAccountType;
   status: OnboardingStatus;
+  companyId: string | null;
 }) => {
   const { data: existingProfile, error: profileReadError } = await supabaseAdmin!
     .from('profiles')
@@ -77,20 +79,37 @@ const syncProfileFromOnboarding = async ({
     ? 'suspended'
     : lifecycleStatus;
 
-  const { error } = await supabaseAdmin!
+  const { error: profileError } = await supabaseAdmin!
     .from('profiles')
     .upsert(
       {
         user_id: userId,
         role: PROFILE_ROLE_BY_ACCOUNT_TYPE[accountType],
         status: profileStatus,
+        company_id: companyId,
         is_driver: accountType === 'owner_driver',
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id' }
     );
 
-  return error;
+  if (profileError) return profileError;
+
+  if (accountType !== 'owner_driver') return null;
+
+  const driverPatch: Record<string, unknown> = {
+    app_access: status === 'approved' && profileStatus !== 'suspended',
+    updated_at: new Date().toISOString(),
+  };
+  if (companyId) driverPatch.company_id = companyId;
+  if (status === 'approved' && profileStatus !== 'suspended') driverPatch.status = 'active';
+
+  const { error: driverError } = await supabaseAdmin!
+    .from('drivers')
+    .update(driverPatch)
+    .eq('user_id', userId);
+
+  return driverError;
 };
 
 export async function GET(request: NextRequest) {
@@ -110,6 +129,14 @@ export async function GET(request: NextRequest) {
   }
 
   const status = normalizeOnboardingStatus(existing.status);
+  const accessSyncError = await syncAccessFromOnboarding({
+    userId: auth.user.id,
+    accountType,
+    status,
+    companyId: existing.company_id ?? null,
+  });
+  if (accessSyncError) return json(500, { error: accessSyncError.message });
+
   const invitationRevoked = Boolean(existing.token_revoked_at);
 
   return json(200, {
@@ -213,18 +240,19 @@ export async function POST(request: NextRequest) {
   const { data: upserted, error: upsertError } = await supabaseAdmin!
     .from('onboarding_applications')
     .upsert(row, { onConflict: 'user_id' })
-    .select('id, status, account_type, token_expires_at, token_revoked_at')
+    .select('id, status, account_type, company_id, token_expires_at, token_revoked_at')
     .single();
 
   if (upsertError) return json(500, { error: upsertError.message });
 
   const normalizedUpsertedStatus = normalizeOnboardingStatus(upserted.status);
-  const profileSyncError = await syncProfileFromOnboarding({
+  const accessSyncError = await syncAccessFromOnboarding({
     userId: authUser.id,
     accountType,
     status: normalizedUpsertedStatus,
+    companyId: upserted.company_id ?? null,
   });
-  if (profileSyncError) return json(500, { error: profileSyncError.message });
+  if (accessSyncError) return json(500, { error: accessSyncError.message });
 
   if (shouldRegenerateToken && invitationUrl) {
     const { error: notificationError } = await supabaseAdmin!
