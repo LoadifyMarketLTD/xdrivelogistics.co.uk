@@ -69,7 +69,9 @@ export const normalizeOnboardingStatus = (raw: string | null | undefined): Onboa
   return LEGACY_ONBOARDING_STATUS_MAPPING[value] ?? 'draft';
 };
 
-export const normalizeOnboardingAccountType = (raw: string | null | undefined): OnboardingAccountType => {
+export const normalizeOnboardingAccountType = (
+  raw: string | null | undefined
+): OnboardingAccountType | null => {
   const value = (raw ?? '').toLowerCase().trim();
   if (
     value === 'owner_driver' ||
@@ -94,7 +96,7 @@ export const normalizeOnboardingAccountType = (raw: string | null | undefined): 
     value === 'broker' ||
     value === 'broker_shipper'
   ) return 'broker_shipper';
-  return 'customer_shipper';
+  return null;
 };
 
 export const resolveOnboardingAccountTypeFromMetadata = (
@@ -104,8 +106,10 @@ export const resolveOnboardingAccountTypeFromMetadata = (
   const candidates = [
     typeof userMetadata?.account_type === 'string' ? userMetadata.account_type : null,
     typeof userMetadata?.requested_role === 'string' ? userMetadata.requested_role : null,
+    typeof userMetadata?.signup_type === 'string' ? userMetadata.signup_type : null,
     typeof appMetadata?.account_type === 'string' ? appMetadata.account_type : null,
     typeof appMetadata?.requested_role === 'string' ? appMetadata.requested_role : null,
+    typeof appMetadata?.signup_type === 'string' ? appMetadata.signup_type : null,
   ];
 
   for (const candidate of candidates) {
