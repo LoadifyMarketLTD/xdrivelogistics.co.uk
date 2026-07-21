@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import {
+  ACCOUNT_TYPES,
+  toStoredOnboardingAccountType,
+  type AccountType,
+} from '../../../../lib/accountTypes';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import {
   buildOnboardingUrl,
@@ -10,12 +15,16 @@ import {
   normalizeOnboardingStatus,
   resolveOnboardingAccountTypeFromMetadata,
   resolveOnboardingTokenTtlHours,
+  toPublicAccountType,
 } from '../../_lib/onboarding';
 import { syncOnboardingAccess } from '../_lib/accessSync';
 
-const requestSchema = z.object({
-  forceRegenerateToken: z.boolean().optional(),
-});
+const requestSchema = z
+  .object({
+    account_type: z.enum(ACCOUNT_TYPES).optional(),
+    forceRegenerateToken: z.boolean().optional(),
+  })
+  .strict();
 
 const RESEND_COOLDOWN_MS = 60_000;
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
@@ -53,6 +62,12 @@ const isInvitationRevoked = (application: {
   new Date(application.token_expires_at).getTime() <= Date.now()
 );
 
+const resolveStoredAndPublicAccountType = (raw: string | null | undefined) => {
+  const storedAccountType = normalizeOnboardingAccountType(raw);
+  const accountType = storedAccountType ? toPublicAccountType(storedAccountType) : null;
+  return { storedAccountType, accountType };
+};
+
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
   if (auth.error || !auth.user) return auth.error;
@@ -61,8 +76,8 @@ export async function GET(request: NextRequest) {
   if (error) return json(500, { error: error.message });
   if (!existing) return json(404, { error: 'Onboarding application not found.' });
 
-  const accountType = normalizeOnboardingAccountType(existing.account_type);
-  if (!accountType) {
+  const { storedAccountType, accountType } = resolveStoredAndPublicAccountType(existing.account_type);
+  if (!storedAccountType || !accountType) {
     return json(409, {
       error: 'This account has an unsupported onboarding role. Please contact XDrive support before continuing.',
       code: 'unsupported_onboarding_role',
@@ -72,7 +87,7 @@ export async function GET(request: NextRequest) {
   const status = normalizeOnboardingStatus(existing.status);
   const accessSyncError = await syncOnboardingAccess(supabaseAdmin!, {
     userId: auth.user.id,
-    accountType,
+    accountType: storedAccountType,
     status,
     companyId: existing.company_id ?? null,
   });
@@ -99,7 +114,13 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const parsed = requestSchema.safeParse(body);
-    if (!parsed.success) return json(400, { error: 'Invalid request payload.' });
+    if (!parsed.success) {
+      return json(400, {
+        error: 'Invalid request payload.',
+        code: 'invalid_account_type',
+        acceptedAccountTypes: ACCOUNT_TYPES,
+      });
+    }
     payload = parsed.data;
   } catch {
     return json(400, { error: 'Invalid JSON body.' });
@@ -114,19 +135,56 @@ export async function POST(request: NextRequest) {
   const { data: existing, error: existingError } = await selectExistingApplication(authUser.id);
   if (existingError) return json(500, { error: existingError.message });
 
-  const existingAccountType = existing
-    ? normalizeOnboardingAccountType(existing.account_type)
-    : null;
-  if (existing && !existingAccountType) {
+  const existingTypes = existing
+    ? resolveStoredAndPublicAccountType(existing.account_type)
+    : { storedAccountType: null, accountType: null };
+  if (existing && (!existingTypes.storedAccountType || !existingTypes.accountType)) {
     return json(409, {
       error: 'This account has an unsupported onboarding role. Please contact XDrive support before continuing.',
       code: 'unsupported_onboarding_role',
     });
   }
 
-  // Existing onboarding data is authoritative. Metadata must never silently
-  // reclassify a previously selected driver, fleet, broker or customer account.
-  const accountType = existingAccountType ?? metadataAccountType;
+  if (
+    existingTypes.accountType &&
+    payload.account_type &&
+    payload.account_type !== existingTypes.accountType
+  ) {
+    return json(409, {
+      error: 'The requested account_type does not match the existing onboarding application.',
+      code: 'account_type_mismatch',
+      accountType: existingTypes.accountType,
+    });
+  }
+
+  if (
+    !existing &&
+    payload.account_type &&
+    metadataAccountType &&
+    payload.account_type !== metadataAccountType
+  ) {
+    return json(409, {
+      error: 'The account_type in the request does not match the authenticated signup metadata.',
+      code: 'account_type_mismatch',
+    });
+  }
+
+  // Existing onboarding data is authoritative. New applications must provide or
+  // inherit one of the four canonical account types from lib/accountTypes.ts.
+  const accountType: AccountType | null = existingTypes.accountType
+    ?? payload.account_type
+    ?? metadataAccountType;
+
+  if (!accountType) {
+    return json(400, {
+      error: 'account_type is required.',
+      code: 'account_type_required',
+      acceptedAccountTypes: ACCOUNT_TYPES,
+    });
+  }
+
+  const storedAccountType = existingTypes.storedAccountType
+    ?? toStoredOnboardingAccountType(accountType);
 
   const now = new Date();
   const normalizedExistingStatus = normalizeOnboardingStatus(existing?.status);
@@ -155,7 +213,7 @@ export async function POST(request: NextRequest) {
   const row: Record<string, unknown> = {
     user_id: authUser.id,
     email: authUser.email ?? 'unknown@xdrive.local',
-    account_type: accountType,
+    account_type: storedAccountType,
     status: normalizedExistingStatus,
     last_activity_at: now.toISOString(),
     current_step: normalizedExistingStatus === 'approved' ? 'workspace_unlocked' : (existing ? undefined : 'account_type_wizard'),
@@ -166,7 +224,7 @@ export async function POST(request: NextRequest) {
     const ttlHours = await resolveOnboardingTokenTtlHours(supabaseAdmin);
     const onboardingToken = generateOnboardingToken();
     const expiresAt = new Date(now.getTime() + ttlHours * 60 * 60 * 1000).toISOString();
-    invitationUrl = buildOnboardingUrl(onboardingToken, accountType);
+    invitationUrl = buildOnboardingUrl(onboardingToken, storedAccountType);
     row.token_hash = hashOnboardingToken(onboardingToken);
     row.token_expires_at = expiresAt;
     row.token_activated_at = null;
@@ -188,7 +246,7 @@ export async function POST(request: NextRequest) {
   const normalizedUpsertedStatus = normalizeOnboardingStatus(upserted.status);
   const accessSyncError = await syncOnboardingAccess(supabaseAdmin!, {
     userId: authUser.id,
-    accountType,
+    accountType: storedAccountType,
     status: normalizedUpsertedStatus,
     companyId: upserted.company_id ?? null,
   });
@@ -198,9 +256,6 @@ export async function POST(request: NextRequest) {
     const { error: notificationError } = await supabaseAdmin!
       .from('notification_events')
       .insert({
-        // The notification worker handles onboarding_invite for both first-send
-        // and resend. A payload flag keeps the audit distinction without
-        // creating an event type the worker would silently skip.
         event_type: 'onboarding_invite',
         entity_type: 'onboarding_application',
         entity_id: upserted.id,
@@ -208,7 +263,7 @@ export async function POST(request: NextRequest) {
         idempotency_key: `onboarding-invite:${upserted.id}:${upserted.token_expires_at}`,
         payload: {
           onboarding_url: invitationUrl,
-          account_type: upserted.account_type,
+          account_type: accountType,
           onboarding_application_id: upserted.id,
           token_expires_at: upserted.token_expires_at,
           resent: explicitResend,
@@ -226,7 +281,7 @@ export async function POST(request: NextRequest) {
   return json(200, {
     onboardingApplicationId: upserted.id,
     status: normalizedUpsertedStatus,
-    accountType: upserted.account_type,
+    accountType,
     onboardingUrl: '/onboarding/resume',
     tokenExpiresAt: upserted.token_expires_at,
     invitationRegenerated: shouldRegenerateToken,
