@@ -1,34 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { requirePlatformOwner } from '../../_lib/platformAuth';
+import { supabaseAdmin } from '../../_lib/supabaseAdmin';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
-
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const access = await requirePlatformOwner(request);
+  if (!access.ok) return respond(access.failure.status, { error: access.failure.error });
+  if (!supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
 
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
+  const requestedLimit = Number(searchParams.get('limit') ?? 200);
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 500) : 200;
 
   const { data, error } = await supabaseAdmin
     .from('owner_audit_log')
@@ -36,30 +19,29 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  if (error) return respond(500, { error: error.message });
+  if (error) return respond(503, { error: 'Platform audit history is temporarily unavailable.', detail: error.message, degraded: true });
 
   const rows = data ?? [];
-
-  const companyIds = Array.from(new Set(rows.map((r) => r.target_company_id as string).filter(Boolean)));
-  const { data: companies } = companyIds.length > 0
+  const companyIds = Array.from(new Set(rows.map((row) => row.target_company_id as string).filter(Boolean)));
+  const { data: companies, error: companiesError } = companyIds.length > 0
     ? await supabaseAdmin.from('companies').select('id, name').in('id', companyIds)
-    : { data: [] };
+    : { data: [], error: null };
 
-  const nameById = new Map(
-    ((companies ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]),
-  );
+  if (companiesError) return respond(503, { error: 'Platform audit company context is temporarily unavailable.', detail: companiesError.message, degraded: true });
 
+  const nameById = new Map(((companies ?? []) as { id: string; name: string }[]).map((company) => [company.id, company.name]));
   return respond(200, {
-    rows: rows.map((r) => ({
-      ...r,
-      company_name: nameById.get(r.target_company_id as string) ?? 'Unknown',
+    rows: rows.map((row) => ({
+      ...row,
+      company_name: nameById.get(row.target_company_id as string) ?? 'Unknown',
     })),
     summary: {
       total: rows.length,
-      approvals: rows.filter((r) => r.action_type === 'approve_company').length,
-      suspensions: rows.filter((r) => r.action_type === 'suspend_company').length,
-      reinstatements: rows.filter((r) => r.action_type === 'reinstate_company').length,
-      rejections: rows.filter((r) => r.action_type === 'reject_company').length,
+      approvals: rows.filter((row) => ['approve_company', 'company_approved'].includes(row.action_type)).length,
+      suspensions: rows.filter((row) => ['suspend_company', 'company_suspended'].includes(row.action_type)).length,
+      reinstatements: rows.filter((row) => ['reinstate_company', 'company_reinstated'].includes(row.action_type)).length,
+      rejections: rows.filter((row) => ['reject_company', 'company_rejected'].includes(row.action_type)).length,
     },
+    degraded: false,
   });
 }
