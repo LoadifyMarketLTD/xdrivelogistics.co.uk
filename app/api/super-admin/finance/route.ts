@@ -1,6 +1,6 @@
+
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePlatformOwner } from '../../_lib/platformAuth';
-import { supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import {
   buildInvoiceStatusSummary,
   isInvoiceFullyPaid,
@@ -9,6 +9,22 @@ import {
 } from '../../../../lib/invoiceStatus';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+
+const verifyOwner = async (request: NextRequest) => {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
+  const token = getBearerToken(request);
+  if (!token) return null;
+  const validatorClient = supabaseValidator ?? supabaseAdmin;
+  const { data: authData, error } = await validatorClient.auth.getUser(token);
+  if (error || !authData.user) return null;
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('role')
+    .eq('user_id', authData.user.id)
+    .maybeSingle();
+  if (!profile || profile.role !== 'owner') return null;
+  return authData.user;
+};
 
 type CompanyRow = { id: string; name: string };
 
@@ -28,19 +44,22 @@ type InvoicePaymentHistoryRow = {
 const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
   if (!supabaseAdmin || ids.length === 0) return new Map();
   const { data } = await supabaseAdmin.from('companies').select('id, name').in('id', ids);
-  return new Map((data as CompanyRow[] ?? []).map((company) => [company.id, company.name]));
+  return new Map((data as CompanyRow[] ?? []).map((c) => [c.id, c.name]));
 };
 
 export async function GET(request: NextRequest) {
-  const access = await requirePlatformOwner(request);
-  if (!access.ok) return respond(access.failure.status, { error: access.failure.error });
-  if (!supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
+
+  const owner = await verifyOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
 
   const { searchParams } = new URL(request.url);
   const section = (searchParams.get('section') ?? '').toLowerCase();
-  const requestedLimit = Number(searchParams.get('limit') ?? 200);
-  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 500) : 200;
+  const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
 
+  // ── Invoices ────────────────────────────────────────────────────────────────
   if (section === 'invoices') {
     const { data, error } = await supabaseAdmin
       .from('invoices')
@@ -51,32 +70,42 @@ export async function GET(request: NextRequest) {
     if (error) return respond(500, { error: error.message });
 
     const rows = data ?? [];
-    const nameById = await companyNameMap(Array.from(new Set(rows.map((row) => row.company_id as string).filter(Boolean))));
-    const normalizedRows = rows.map((row) => ({
-      ...row,
+    const nameById = await companyNameMap(
+      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
+    );
+
+    const normalizedRows = rows.map((r) => ({
+      ...r,
       status: toCanonicalInvoiceDisplayStatus(
-        row.status as string | null | undefined,
-        row.due_date as string | null | undefined,
-        row.payment_status as string | null | undefined,
+        r.status as string | null | undefined,
+        r.due_date as string | null | undefined,
+        r.payment_status as string | null | undefined,
       ),
     }));
 
-    const totalAmount = normalizedRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    const totalAmount = normalizedRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const paidAmount = normalizedRows
-      .filter((row) => toCanonicalPaymentStatus(row.payment_status as string | null | undefined) === 'paid')
-      .reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+      .filter((r) => toCanonicalPaymentStatus(r.payment_status as string | null | undefined) === 'paid')
+      .reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
     const summary = buildInvoiceStatusSummary(normalizedRows.map((row) => row.status));
 
     return respond(200, {
       section,
-      rows: normalizedRows.map((row) => ({
-        ...row,
-        company_name: nameById.get(row.company_id as string) ?? 'Unknown',
+      rows: normalizedRows.map((r) => ({
+        ...r,
+        company_name: nameById.get(r.company_id as string) ?? 'Unknown',
       })),
-      summary: { ...summary, totalAmount, paidAmount, unpaidAmount: totalAmount - paidAmount },
+      summary: {
+        ...summary,
+        totalAmount,
+        paidAmount,
+        unpaidAmount: totalAmount - paidAmount,
+      },
     });
   }
 
+  // ── Payments ─────────────────────────────────────────────────────────────────
   if (section === 'payments') {
     const { data, error } = await supabaseAdmin
       .from('invoice_payment_history')
@@ -87,33 +116,40 @@ export async function GET(request: NextRequest) {
     if (error) return respond(500, { error: error.message });
 
     const rows = (data ?? []) as InvoicePaymentHistoryRow[];
-    const invoiceIds = Array.from(new Set(rows.map((row) => row.invoice_id).filter(Boolean)));
+    const invoiceIds = Array.from(new Set(rows.map((r) => r.invoice_id).filter(Boolean)));
     const { data: invoiceStates } = invoiceIds.length === 0
       ? { data: [] }
-      : await supabaseAdmin.from('invoices').select('id, payment_status').in('id', invoiceIds);
-    const nameById = await companyNameMap(Array.from(new Set(rows.map((row) => row.company_id).filter(Boolean))));
+      : await supabaseAdmin
+          .from('invoices')
+          .select('id, payment_status')
+          .in('id', invoiceIds);
+    const nameById = await companyNameMap(
+      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
+    );
     const paymentStatusByInvoiceId = new Map(
       ((invoiceStates ?? []) as Array<{ id: string; payment_status: string | null }>).map((row) => [row.id, row.payment_status])
     );
-    const totalAmount = rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+
+    const totalAmount = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
     return respond(200, {
       section,
-      rows: rows.map((row) => ({
-        ...row,
-        company_name: nameById.get(row.company_id) ?? 'Unknown',
-        payment_status: toCanonicalPaymentStatus(paymentStatusByInvoiceId.get(row.invoice_id) ?? null),
+      rows: rows.map((r) => ({
+        ...r,
+        company_name: nameById.get(r.company_id as string) ?? 'Unknown',
+        payment_status: toCanonicalPaymentStatus(paymentStatusByInvoiceId.get(r.invoice_id) ?? null),
       })),
       summary: {
         total: rows.length,
-        paid: rows.filter((row) => isInvoiceFullyPaid(paymentStatusByInvoiceId.get(row.invoice_id) ?? null)).length,
-        partially_paid: rows.filter((row) => toCanonicalPaymentStatus(paymentStatusByInvoiceId.get(row.invoice_id) ?? null) === 'partially_paid').length,
-        unpaid: rows.filter((row) => toCanonicalPaymentStatus(paymentStatusByInvoiceId.get(row.invoice_id) ?? null) === 'unpaid').length,
+        paid: rows.filter((r) => isInvoiceFullyPaid(paymentStatusByInvoiceId.get(r.invoice_id) ?? null)).length,
+        partially_paid: rows.filter((r) => toCanonicalPaymentStatus(paymentStatusByInvoiceId.get(r.invoice_id) ?? null) === 'partially_paid').length,
+        unpaid: rows.filter((r) => toCanonicalPaymentStatus(paymentStatusByInvoiceId.get(r.invoice_id) ?? null) === 'unpaid').length,
         totalAmount,
       },
     });
   }
 
+  // ── Revenue ──────────────────────────────────────────────────────────────────
   if (section === 'revenue') {
     const [paidResult, allResult] = await Promise.all([
       supabaseAdmin
@@ -122,7 +158,10 @@ export async function GET(request: NextRequest) {
         .eq('payment_status', 'paid')
         .order('invoice_date', { ascending: false })
         .limit(500),
-      supabaseAdmin.from('invoices').select('id, amount, payment_status').limit(2000),
+      supabaseAdmin
+        .from('invoices')
+        .select('id, amount, payment_status')
+        .limit(2000),
     ]);
 
     if (paidResult.error) return respond(500, { error: paidResult.error.message });
@@ -130,17 +169,19 @@ export async function GET(request: NextRequest) {
 
     const paidRows = paidResult.data ?? [];
     const allRows = allResult.data ?? [];
-    const totalRevenue = paidRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
-    const totalInvoiced = allRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+
+    const totalRevenue = paidRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const totalInvoiced = allRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
     const byMonth: Record<string, number> = {};
-    for (const invoice of paidRows) {
-      if (!invoice.invoice_date) continue;
-      const month = (invoice.invoice_date as string).slice(0, 7);
-      byMonth[month] = (byMonth[month] ?? 0) + (Number(invoice.amount) || 0);
+    for (const inv of paidRows) {
+      if (!inv.invoice_date) continue;
+      const month = (inv.invoice_date as string).slice(0, 7);
+      byMonth[month] = (byMonth[month] ?? 0) + (Number(inv.amount) || 0);
     }
 
     const monthlyRevenue = Object.entries(byMonth)
-      .sort(([left], [right]) => right.localeCompare(left))
+      .sort(([a], [b]) => b.localeCompare(a))
       .slice(0, 12)
       .map(([month, amount]) => ({ month, amount: Math.round(amount * 100) / 100 }));
 
@@ -159,6 +200,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // ── Invoice Financial Breakdown ──────────────────────────────────────────────
   if (section === 'fees') {
     const { data, error } = await supabaseAdmin
       .from('invoices')
@@ -169,16 +211,19 @@ export async function GET(request: NextRequest) {
     if (error) return respond(500, { error: error.message });
 
     const rows = data ?? [];
-    const nameById = await companyNameMap(Array.from(new Set(rows.map((row) => row.company_id as string).filter(Boolean))));
-    const paidRows = rows.filter((row) => isInvoiceFullyPaid(row.payment_status as string | null | undefined));
-    const totalVat = paidRows.reduce((sum, row) => sum + (Number(row.vat_amount) || 0), 0);
-    const totalNet = paidRows.reduce((sum, row) => sum + (Number(row.net_amount) || 0), 0);
+    const nameById = await companyNameMap(
+      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
+    );
+
+    const paidRows = rows.filter((r) => isInvoiceFullyPaid(r.payment_status as string | null | undefined));
+    const totalVat = paidRows.reduce((s, r) => s + (Number(r.vat_amount) || 0), 0);
+    const totalNet = paidRows.reduce((s, r) => s + (Number(r.net_amount) || 0), 0);
 
     return respond(200, {
       section,
-      rows: rows.map((row) => ({
-        ...row,
-        company_name: nameById.get(row.company_id as string) ?? 'Unknown',
+      rows: rows.map((r) => ({
+        ...r,
+        company_name: nameById.get(r.company_id as string) ?? 'Unknown',
       })),
       summary: {
         totalVatCollected: Math.round(totalVat * 100) / 100,
