@@ -1,0 +1,91 @@
+name: Patch disposable staging exclusion contracts
+
+on:
+  push:
+    branches:
+      - agent/staging-integration
+    paths:
+      - .github/patch-disposable-staging-exclusions.trigger
+
+permissions:
+  contents: write
+
+concurrency:
+  group: patch-disposable-staging-exclusions
+  cancel-in-progress: false
+
+jobs:
+  patch-contracts:
+    name: Align disposable migration exclusion assertions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact integration branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: agent/staging-integration
+          fetch-depth: 1
+
+      - name: Patch exact assertion blocks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test "${GITHUB_REPOSITORY}" = 'LoadifyMarketLTD/xdrivelogistics.co.uk'
+          test "${GITHUB_REF_NAME}" = 'agent/staging-integration'
+
+          python - <<'PY'
+          from pathlib import Path
+
+          expected_sources = """          excluded_sources = {item['source'] for item in manifest['excluded']}
+          expected_excluded_sources = {
+              '068_targeted_data_repair_current_accounts.sql',
+              '20260721221000_reconcile_confirmed_current_accounts.sql',
+          }
+          assert manifest['excluded_count'] == len(expected_excluded_sources)
+          assert excluded_sources == expected_excluded_sources, (
+              f'Unexpected excluded migrations: {sorted(excluded_sources)}'
+          )"""
+
+          p0 = Path('.github/workflows/validate-staging-p0-delta.yml')
+          p0_text = p0.read_text(encoding='utf-8')
+          old_p0 = "          assert manifest['excluded_count'] == 1"
+          if p0_text.count(old_p0) != 1:
+              raise SystemExit('P0 exclusion assertion did not match exactly once.')
+          p0.write_text(p0_text.replace(old_p0, expected_sources), encoding='utf-8')
+
+          bootstrap = Path('.github/workflows/validate-clean-staging-bootstrap.yml')
+          bootstrap_text = bootstrap.read_text(encoding='utf-8')
+          old_bootstrap = """          assert manifest['excluded_count'] == 1, 'Unexpected number of excluded migrations'
+          assert manifest['excluded'][0]['source'] == '068_targeted_data_repair_current_accounts.sql'"""
+          if bootstrap_text.count(old_bootstrap) != 1:
+              raise SystemExit('Clean bootstrap exclusion assertions did not match exactly once.')
+          bootstrap.write_text(bootstrap_text.replace(old_bootstrap, expected_sources), encoding='utf-8')
+
+          unexpected = []
+          for path in sorted(Path('.github/workflows').glob('*.yml')):
+              if path.name == 'patch-disposable-staging-exclusions.yml':
+                  continue
+              text = path.read_text(encoding='utf-8')
+              if "excluded_count'] == 1" in text or "excluded'][0]['source']" in text:
+                  unexpected.append(str(path))
+          if unexpected:
+              raise SystemExit('Legacy single-exclusion assertions remain: ' + ', '.join(unexpected))
+          PY
+
+          grep -q "20260721221000_reconcile_confirmed_current_accounts.sql" .github/workflows/validate-staging-p0-delta.yml
+          grep -q "20260721221000_reconcile_confirmed_current_accounts.sql" .github/workflows/validate-clean-staging-bootstrap.yml
+
+      - name: Commit exact workflow contract patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/patch-disposable-staging-exclusions.trigger
+          git rm .github/workflows/patch-disposable-staging-exclusions.yml
+          git add .github/workflows/validate-staging-p0-delta.yml .github/workflows/validate-clean-staging-bootstrap.yml
+          git diff --cached --check
+          git commit -m 'fix(staging): align disposable exclusion contracts'
+          git push origin HEAD:agent/staging-integration
