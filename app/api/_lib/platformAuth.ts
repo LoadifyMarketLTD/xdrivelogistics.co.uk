@@ -12,6 +12,13 @@ export type PlatformAccessResult =
   | { ok: false; failure: PlatformAccessFailure };
 
 /**
+ * Platform ownership is stored only in profiles.role.
+ * Ordinary company ownership is stored separately in company_memberships.role
+ * and must never satisfy this predicate.
+ */
+export const isPlatformOwnerProfileRole = (role: unknown): role is 'owner' => role === 'owner';
+
+/**
  * Canonical platform-owner authorisation.
  *
  * The repository's persisted application role `owner` is the canonical source
@@ -41,7 +48,7 @@ export async function requirePlatformOwner(request: NextRequest): Promise<Platfo
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
-  if (profileError || !profile || profile.role !== 'owner') {
+  if (profileError || !profile || !isPlatformOwnerProfileRole(profile.role)) {
     return { ok: false, failure: { status: 403, error: 'Forbidden: platform owner role required.' } };
   }
 
