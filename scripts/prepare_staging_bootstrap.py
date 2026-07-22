@@ -21,6 +21,9 @@ EXCLUDED_MIGRATIONS = {
     "068_targeted_data_repair_current_accounts.sql": (
         "Production-data repair tied to named XDrive accounts and duplicate-company consolidation"
     ),
+    "20260721221000_reconcile_confirmed_current_accounts.sql": (
+        "Environment-specific reconciliation tied to confirmed live account identities that are intentionally absent from disposable staging"
+    ),
 }
 
 VERSION_RE = re.compile(r"^(?P<version>\d+?)_(?P<name>.+\.sql)$")
