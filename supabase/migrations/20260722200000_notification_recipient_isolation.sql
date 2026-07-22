@@ -1,5 +1,6 @@
 -- Phase 1 security containment: notification recipient isolation.
 --
+-- Replaces the legacy company-wide SELECT policy from migration 071.
 -- Private notification rows are visible only to their intended recipient.
 -- Company broadcasts remain visible to users with an active membership in the
 -- notification row's company. This migration intentionally changes no producer
