@@ -3,7 +3,7 @@ name: Resolve staging integration conflicts
 on:
   push:
     branches:
-      - agent/staging-integration
+      - agent/staging-integration-sync-main
     paths:
       - .github/staging-merge-main.trigger
 
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: resolve-staging-integration-conflicts
+  group: resolve-staging-integration-conflicts-sync-main
   cancel-in-progress: false
 
 jobs:
@@ -21,10 +21,10 @@ jobs:
     timeout-minutes: 35
 
     steps:
-      - name: Checkout exact integration branch
+      - name: Checkout isolated sync branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: agent/staging-integration
+          ref: agent/staging-integration-sync-main
           fetch-depth: 0
 
       - name: Merge main and resolve the reviewed conflict set
@@ -33,7 +33,7 @@ jobs:
           set -euo pipefail
 
           test "${GITHUB_REPOSITORY}" = 'LoadifyMarketLTD/xdrivelogistics.co.uk'
-          test "${GITHUB_REF_NAME}" = 'agent/staging-integration'
+          test "${GITHUB_REF_NAME}" = 'agent/staging-integration-sync-main'
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -162,10 +162,10 @@ jobs:
           npm install --ignore-scripts --no-audit --no-fund
           npm run typecheck
 
-      - name: Commit reviewed merge
+      - name: Commit reviewed merge on isolated sync branch
         shell: bash
         run: |
           set -euo pipefail
           git status --short
           git commit -m 'merge(main): resolve staging integration conflicts with reviewed manifest'
-          git push origin HEAD:agent/staging-integration
+          git push origin HEAD:agent/staging-integration-sync-main
