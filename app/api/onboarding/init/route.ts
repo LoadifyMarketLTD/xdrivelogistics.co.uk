@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import {
+  getBearerToken,
+  isSupabaseAdminConfigured,
+  supabaseAdmin,
+  supabaseValidator,
+} from '../../_lib/supabaseAdmin';
 import {
   buildOnboardingUrl,
   generateOnboardingToken,
@@ -17,20 +22,30 @@ const requestSchema = z.object({
 });
 
 const RESEND_COOLDOWN_MS = 60_000;
-const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
+
+const json = (status: number, body: Record<string, unknown>) =>
+  NextResponse.json(body, { status });
 
 const authenticate = async (request: NextRequest) => {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return { error: json(503, { error: 'Server auth is not configured.' }), user: null };
+    return {
+      error: json(503, { error: 'Server auth is not configured.' }),
+      user: null,
+    };
   }
 
   const token = getBearerToken(request);
-  if (!token) return { error: json(401, { error: 'Unauthorized.' }), user: null };
+  if (!token) {
+    return { error: json(401, { error: 'Unauthorized.' }), user: null };
+  }
 
   const validatorClient = supabaseValidator ?? supabaseAdmin;
   const { data, error } = await validatorClient.auth.getUser(token);
   if (error || !data.user) {
-    return { error: json(401, { error: 'Unauthorized: invalid token.' }), user: null };
+    return {
+      error: json(401, { error: 'Unauthorized: invalid token.' }),
+      user: null,
+    };
   }
 
   return { error: null, user: data.user };
@@ -44,55 +59,88 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const parsed = requestSchema.safeParse(body);
-    if (!parsed.success) return json(400, { error: 'Invalid request payload.' });
+    if (!parsed.success) {
+      return json(400, { error: 'Invalid request payload.' });
+    }
     payload = parsed.data;
   } catch {
     return json(400, { error: 'Invalid JSON body.' });
   }
 
   const authUser = auth.user;
-  const metadataAccountType = normalizeOnboardingAccountType(
-    resolveOnboardingAccountTypeFromMetadata(
-      (authUser.user_metadata ?? null) as Record<string, unknown> | null,
-      (authUser.app_metadata ?? null) as Record<string, unknown> | null
-    )
+  const metadataAccountType = resolveOnboardingAccountTypeFromMetadata(
+    (authUser.user_metadata ?? null) as Record<string, unknown> | null,
+    (authUser.app_metadata ?? null) as Record<string, unknown> | null
   );
 
   const { data: existing, error: existingError } = await supabaseAdmin!
     .from('onboarding_applications')
-    .select('id, status, account_type, token_hash, token_expires_at, token_activated_at, token_last_sent_at, token_revoked_at')
+    .select(
+      'id, status, account_type, token_hash, token_expires_at, token_activated_at, token_last_sent_at, token_revoked_at'
+    )
     .eq('user_id', authUser.id)
     .maybeSingle();
 
   if (existingError) return json(500, { error: existingError.message });
 
-  // Existing onboarding data is authoritative. Legacy accounts may not have
-  // complete signup metadata, so metadata must never silently reclassify a
-  // previously selected driver, fleet, broker or customer workspace.
-  const accountType = normalizeOnboardingAccountType(existing?.account_type ?? metadataAccountType);
+  const existingAccountType = normalizeOnboardingAccountType(
+    existing?.account_type
+  );
+  if (existing && !existingAccountType) {
+    return json(409, {
+      error:
+        'The saved onboarding application has an unsupported account type. Contact XDrive support before continuing.',
+      code: 'unsupported_saved_account_type',
+    });
+  }
+
+  // A valid saved onboarding selection is authoritative. Auth metadata is used
+  // only to initialise a new application. Unknown values are never converted
+  // to Customer/Shipper.
+  const accountType = existingAccountType ?? metadataAccountType;
+  if (!accountType) {
+    return json(409, {
+      error:
+        'Account type is missing or unsupported. Select a valid account type during registration or contact XDrive support.',
+      code: 'missing_or_unsupported_account_type',
+    });
+  }
 
   const now = new Date();
   const normalizedExistingStatus = normalizeOnboardingStatus(existing?.status);
   const tokenExpired = Boolean(
-    existing?.token_expires_at && new Date(existing.token_expires_at).getTime() <= now.getTime()
+    existing?.token_expires_at &&
+      new Date(existing.token_expires_at).getTime() <= now.getTime()
   );
   const explicitResend = payload.forceRegenerateToken === true;
   const invitationRevoked = Boolean(existing?.token_revoked_at);
+  const canRegenerateToken = normalizedExistingStatus !== 'approved';
 
-  if (explicitResend && existing?.token_last_sent_at) {
-    const elapsed = now.getTime() - new Date(existing.token_last_sent_at).getTime();
+  if (
+    explicitResend &&
+    canRegenerateToken &&
+    existing?.token_last_sent_at
+  ) {
+    const elapsed =
+      now.getTime() - new Date(existing.token_last_sent_at).getTime();
     if (elapsed >= 0 && elapsed < RESEND_COOLDOWN_MS) {
+      const retryAfterSeconds = Math.ceil(
+        (RESEND_COOLDOWN_MS - elapsed) / 1000
+      );
       return json(429, {
-        error: `Please wait ${Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000)} seconds before resending the invitation.`,
-        retryAfterSeconds: Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000),
+        error: `Please wait ${retryAfterSeconds} seconds before resending the invitation.`,
+        retryAfterSeconds,
       });
     }
   }
 
   const shouldRegenerateToken =
-    explicitResend ||
-    !existing ||
-    (!invitationRevoked && (!existing.token_hash || tokenExpired));
+    canRegenerateToken &&
+    (explicitResend ||
+      !existing ||
+      (!invitationRevoked &&
+        !existing.token_activated_at &&
+        (!existing.token_hash || tokenExpired)));
 
   let invitationUrl: string | null = null;
   const row: Record<string, unknown> = {
@@ -101,14 +149,22 @@ export async function POST(request: NextRequest) {
     account_type: accountType,
     status: normalizedExistingStatus,
     last_activity_at: now.toISOString(),
-    current_step: normalizedExistingStatus === 'approved' ? 'workspace_unlocked' : (existing ? undefined : 'account_type_wizard'),
-    completion_percentage: normalizedExistingStatus === 'approved' ? 100 : (existing ? undefined : 5),
   };
+
+  if (!existing) {
+    row.current_step = 'account_type_wizard';
+    row.completion_percentage = 5;
+  } else if (normalizedExistingStatus === 'approved') {
+    row.current_step = 'workspace_unlocked';
+    row.completion_percentage = 100;
+  }
 
   if (shouldRegenerateToken) {
     const ttlHours = await resolveOnboardingTokenTtlHours(supabaseAdmin);
     const onboardingToken = generateOnboardingToken();
-    const expiresAt = new Date(now.getTime() + ttlHours * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(
+      now.getTime() + ttlHours * 60 * 60 * 1000
+    ).toISOString();
     invitationUrl = buildOnboardingUrl(onboardingToken, accountType);
     row.token_hash = hashOnboardingToken(onboardingToken);
     row.token_expires_at = expiresAt;
@@ -116,10 +172,6 @@ export async function POST(request: NextRequest) {
     row.token_last_sent_at = now.toISOString();
     row.token_revoked_at = null;
   }
-
-  Object.keys(row).forEach((key) => {
-    if (row[key] === undefined) delete row[key];
-  });
 
   const { data: upserted, error: upsertError } = await supabaseAdmin!
     .from('onboarding_applications')
@@ -133,7 +185,9 @@ export async function POST(request: NextRequest) {
     const { error: notificationError } = await supabaseAdmin!
       .from('notification_events')
       .insert({
-        event_type: explicitResend ? 'onboarding_invite_resent' : 'onboarding_invite',
+        event_type: explicitResend
+          ? 'onboarding_invite_resent'
+          : 'onboarding_invite',
         entity_type: 'onboarding_application',
         entity_id: upserted.id,
         recipient_user_id: authUser.id,
@@ -151,7 +205,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const resumeAllowed = normalizedExistingStatus === 'approved' || !upserted.token_revoked_at;
+  const resumeAllowed =
+    normalizedExistingStatus === 'approved' || !upserted.token_revoked_at;
 
   return json(200, {
     onboardingApplicationId: upserted.id,
@@ -177,9 +232,13 @@ export async function DELETE(request: NextRequest) {
     .maybeSingle();
 
   if (existingError) return json(500, { error: existingError.message });
-  if (!existing) return json(404, { error: 'Onboarding application not found.' });
+  if (!existing) {
+    return json(404, { error: 'Onboarding application not found.' });
+  }
   if (normalizeOnboardingStatus(existing.status) === 'approved') {
-    return json(409, { error: 'An approved onboarding application cannot be revoked.' });
+    return json(409, {
+      error: 'An approved onboarding application cannot be revoked.',
+    });
   }
 
   const revokedAt = new Date().toISOString();
