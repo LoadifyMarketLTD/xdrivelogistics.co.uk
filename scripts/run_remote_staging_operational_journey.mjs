@@ -2,7 +2,7 @@
 
 // Rerun marker: profile roles use the canonical application values enforced by
 // profiles_role_canonical; company ownership remains in company_memberships.
-// P0 prerequisite: verified successfully at 205/205 disposable migrations.
+// P0 prerequisite: verified successfully at 206/206 disposable migrations.
 // POD evidence is uploaded to the private staging bucket before submission.
 import { readFile, writeFile, unlink } from 'node:fs/promises';
 
