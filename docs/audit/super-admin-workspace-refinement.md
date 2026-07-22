@@ -21,6 +21,9 @@ Routes changed in this phase:
 - `/api/super-admin/platform?section=analytics`
 - `/api/super-admin/platform?section=notifications`
 - `/api/super-admin/companies`
+- `/api/super-admin/companies/[id]`
+- `/api/super-admin/onboarding/[id]`
+- `/api/super-admin/audit`
 
 The navigation structure and `SuperAdminWorkspaceShell` were not redesigned.
 
@@ -30,6 +33,10 @@ The navigation structure and `SuperAdminWorkspaceShell` were not redesigned.
 - `app/api/super-admin/stats/route.ts`
 - `app/api/super-admin/platform/route.ts`
 - `app/api/super-admin/companies/route.ts`
+- `app/api/super-admin/companies/[id]/route.ts`
+- `app/api/super-admin/onboarding/[id]/route.ts`
+- `app/api/super-admin/audit/route.ts`
+- `e2e/super-admin-platform.spec.ts`
 
 ## New files
 
@@ -54,6 +61,8 @@ It:
 The persisted application role `owner` maps to the frontend workspace role `platform_owner`. Company membership ownership does not satisfy this server helper.
 
 Frontend access remains protected by `ProtectedRoute` and the central `/super-admin` route capability boundary. Server-side access remains authoritative.
+
+High-risk company governance and onboarding mutations now use the authenticated actor returned by the canonical helper when invoking the existing audited RPCs.
 
 ## KPI definitions
 
@@ -177,16 +186,25 @@ The existing company approval, suspension and governance history routes remain t
 
 The refined companies register uses canonical server authorisation. Governance history continues to read `owner_audit_log` defensively and reports history availability separately from company data.
 
+Company status changes continue through the existing `set_company_status_governance` RPC with:
+
+- authenticated actor ID;
+- target company ID;
+- explicit action type;
+- previous and new status returned by the RPC;
+- persisted reason;
+- server-side transition validation.
+
+Onboarding decisions continue through the existing `review_onboarding_application_atomic` RPC with the authenticated actor ID, action and optional review notes.
+
+The audit endpoint now returns an explicit degraded response when its persisted source or company-name projection is unavailable. It also reconciles legacy and current company governance action names in its summary.
+
 No unsupported controls were added for:
 
-- company suspension without an existing endpoint;
 - platform finance mutation;
 - feature flag mutation;
 - compliance mutation;
-- dispute resolution;
-- onboarding approval.
-
-Those controls remain in their existing repository-backed modules.
+- dispute resolution beyond existing modules.
 
 ## Health boundaries
 
@@ -225,6 +243,8 @@ Company admins, company owners, staff, brokers, customers and drivers cannot sat
 - shared `workspaceTheme`
 - shared lifecycle classifier
 - shared invoice classifier
+- existing company governance RPC
+- existing onboarding review RPC
 - existing companies, onboarding, compliance, finance, disputes, audit and health modules
 
 ## Tests
@@ -235,6 +255,7 @@ Company admins, company owners, staff, brokers, customers and drivers cannot sat
 - awarded/allocated exclusion from active execution;
 - invoice status and payment reconciliation;
 - canonical authorisation usage by refined APIs;
+- authenticated actor propagation into high-risk governance RPCs;
 - safe notification projection;
 - absence of bid amounts and raw payload exposure.
 
