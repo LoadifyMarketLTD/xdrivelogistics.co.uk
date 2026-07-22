@@ -25,8 +25,14 @@ function uniqueName() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function isPersistentJobPath(jobId: string, uri: string, kind: 'photos' | 'documents') {
+  const value = uri.trim();
+  return value.startsWith(`${jobId}/${kind}/`) && !value.includes('://') && !value.includes('..') && !value.includes('\\');
+}
+
 async function uploadLocalPodFile(jobId: string, uri: string, kind: 'photos' | 'documents') {
-  if (!uri.includes('://')) return uri;
+  if (isPersistentJobPath(jobId, uri, kind)) return uri.trim();
+  if (!uri.includes('://')) throw new Error('POD evidence path is invalid. Please select the file again.');
 
   const response = await fetch(uri);
   if (!response.ok) throw new Error(`Unable to read the selected POD ${kind === 'photos' ? 'photo' : 'document'}.`);

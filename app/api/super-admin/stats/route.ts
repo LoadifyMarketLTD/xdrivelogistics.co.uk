@@ -5,6 +5,7 @@ const respond = (status: number, payload: Record<string, unknown>) => NextRespon
 
 const PENDING_COMPANY_STATUSES = new Set(['pending', 'pending_approval']);
 const OPEN_JOB_STATUSES = new Set(['draft', 'posted', 'quoted', 'awarded', 'allocated', 'collected', 'in_transit']);
+const MISSING_INTERNAL_ACCOUNT_COLUMN_CODES = new Set(['42703', 'PGRST204']);
 
 const resolveOwnerProfile = async (authUserId: string) => {
   if (!supabaseAdmin) return null;
@@ -38,9 +39,10 @@ export async function GET(request: NextRequest) {
     return respond(403, { error: 'Forbidden: owner role required.' });
   }
 
-  const [companiesResult, driversTotal, jobsResult, invoicesResult] = await Promise.all([
+  const [companiesResult, driversResult, internalProfilesResult, jobsResult, invoicesResult] = await Promise.all([
     supabaseAdmin.from('companies').select('status', { count: 'exact' }),
-    supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
+    supabaseAdmin.from('drivers').select('user_id', { count: 'exact' }),
+    supabaseAdmin.from('profiles').select('user_id').eq('is_internal_account', true),
     supabaseAdmin.from('jobs').select('status', { count: 'exact' }),
     supabaseAdmin.from('invoices').select('payment_status', { count: 'exact' }),
   ]);
@@ -48,8 +50,14 @@ export async function GET(request: NextRequest) {
   if (companiesResult.error) {
     return respond(500, { error: companiesResult.error.message });
   }
-  if (driversTotal.error) {
-    return respond(500, { error: driversTotal.error.message });
+  if (driversResult.error) {
+    return respond(500, { error: driversResult.error.message });
+  }
+  if (
+    internalProfilesResult.error &&
+    !MISSING_INTERNAL_ACCOUNT_COLUMN_CODES.has(String(internalProfilesResult.error.code ?? ''))
+  ) {
+    return respond(500, { error: internalProfilesResult.error.message });
   }
   if (jobsResult.error) {
     return respond(500, { error: jobsResult.error.message });
@@ -57,6 +65,17 @@ export async function GET(request: NextRequest) {
   if (invoicesResult.error) {
     return respond(500, { error: invoicesResult.error.message });
   }
+
+  const internalUserIds = new Set(
+    (internalProfilesResult.data ?? [])
+      .map((row) => String(row.user_id ?? '').trim())
+      .filter(Boolean)
+  );
+  const driverRows = driversResult.data ?? [];
+  const externalDriverCount = driverRows.filter((row) => {
+    const userId = String(row.user_id ?? '').trim();
+    return !userId || !internalUserIds.has(userId);
+  }).length;
 
   const companyStatuses = (companiesResult.data ?? []).map((row) => String(row.status ?? '').trim().toLowerCase());
   const companiesActive = companyStatuses.filter((status) => status === 'active').length;
@@ -76,7 +95,7 @@ export async function GET(request: NextRequest) {
     companiesActive,
     companiesSuspended,
     companiesPending,
-    driversTotal: driversTotal.count ?? 0,
+    driversTotal: internalProfilesResult.error ? (driversResult.count ?? driverRows.length) : externalDriverCount,
     jobsTotal: jobsResult.count ?? jobStatuses.length,
     jobsOpen,
     jobsDelivered,
