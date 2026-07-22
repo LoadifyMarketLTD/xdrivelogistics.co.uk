@@ -1,8 +1,8 @@
 {
   "result": "failure",
-  "source_sha": "5e51bdd5e359b23358a3dd1095d0d1975b7a0c93",
-  "run_id": "29899193894",
-  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29899193894",
+  "source_sha": "3c439ae95d29c8f4795a05a2fb31998cd81f9c5e",
+  "run_id": "29901715666",
+  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29901715666",
   "branch": "agent/staging-integration",
   "project_ref": "svfjlhljuizckzabtewx",
   "protected_tables": [
@@ -21,5 +21,5 @@
     "messages"
   ],
   "production_targeted": false,
-  "recorded_at": "2026-07-22T07:21:50.033112+00:00"
+  "recorded_at": "2026-07-22T07:51:36.428855+00:00"
 }
