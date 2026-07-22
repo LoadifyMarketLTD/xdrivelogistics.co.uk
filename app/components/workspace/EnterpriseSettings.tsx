@@ -14,6 +14,12 @@ export type SettingsGroup = { id: string; label: string; items: SettingsItem[] }
 const roleRoot = (role: WorkspaceRole) => role === 'customer' ? '/customer' : role === 'broker' ? '/broker' : role === 'driver' || role === 'owner_driver' ? '/driver' : role === 'platform_owner' ? '/super-admin' : '/admin';
 
 const accountItems = (role: WorkspaceRole): SettingsItem[] => {
+  if (role === 'platform_owner') {
+    return [
+      { id: 'company', label: 'Platform settings', description: 'Global platform configuration', href: '/super-admin/settings/global', capability: 'platform.manage' },
+      { id: 'profile', label: 'Platform administrators', description: 'Administrator accounts and access', href: '/super-admin/users/platform-admins', capability: 'platform.manage' },
+    ];
+  }
   const root = roleRoot(role); const driver = role === 'driver' || role === 'owner_driver';
   return [
     { id: 'company', label: 'Company', description: 'Identity, contact and registered details', href: role === 'customer' ? '/customer/settings' : role === 'broker' ? '/broker/settings' : driver ? '/driver/profile' : `${root}/settings`, capability: driver ? undefined : 'settings.manage', roles: driver ? ['owner_driver'] : undefined },
@@ -22,6 +28,12 @@ const accountItems = (role: WorkspaceRole): SettingsItem[] => {
 };
 
 const operationsItems = (role: WorkspaceRole): SettingsItem[] => {
+  if (role === 'platform_owner') {
+    return [
+      { id: 'members', label: 'All users', description: 'Platform user directory', href: '/super-admin/users', capability: 'platform.manage' },
+      { id: 'drivers', label: 'Drivers', description: 'Platform driver directory', href: '/super-admin/users/drivers', capability: 'platform.manage' },
+    ];
+  }
   const driver = role === 'driver' || role === 'owner_driver';
   return [
     { id: 'members', label: 'Members / Team', description: 'Company membership and permissions', href: role === 'customer' ? '/customer/team' : role === 'broker' ? '/broker/settings?section=members' : '/admin/dispatchers', capability: 'company.members.manage' },
@@ -31,6 +43,12 @@ const operationsItems = (role: WorkspaceRole): SettingsItem[] => {
 };
 
 const complianceCommercialItems = (role: WorkspaceRole): SettingsItem[] => {
+  if (role === 'platform_owner') {
+    return [
+      { id: 'documents', label: 'Documents', description: 'Platform compliance document review', href: '/super-admin/compliance/documents', capability: 'platform.manage' },
+      { id: 'billing', label: 'Billing', description: 'Platform invoices and payment records', href: '/super-admin/finance/invoices', capability: 'platform.manage' },
+    ];
+  }
   const driver = role === 'driver' || role === 'owner_driver'; const customer = role === 'customer'; const broker = role === 'broker';
   return [
     { id: 'documents', label: 'Documents', description: 'Compliance records and secure file actions', href: driver ? '/driver/documents' : customer ? '/customer/documents' : broker ? '/broker/pod-review' : '/admin/documents', capability: driver ? 'documents.own.manage' : customer || broker ? 'jobs.review_pod' : 'documents.company.manage' },
@@ -39,6 +57,13 @@ const complianceCommercialItems = (role: WorkspaceRole): SettingsItem[] => {
 };
 
 const preferenceItems = (role: WorkspaceRole): SettingsItem[] => {
+  if (role === 'platform_owner') {
+    return [
+      { id: 'notifications', label: 'Notifications', description: 'Platform notification queue', href: '/super-admin/notifications', capability: 'platform.manage' },
+      { id: 'security', label: 'Security', description: 'Roles and platform permissions', href: '/super-admin/settings/roles-permissions', capability: 'platform.manage' },
+      { id: 'support', label: 'Support', description: 'Platform support tickets', href: '/super-admin/support/tickets', capability: 'platform.manage' },
+    ];
+  }
   const root = roleRoot(role); const driver = role === 'driver' || role === 'owner_driver'; const customer = role === 'customer'; const broker = role === 'broker';
   return [
     { id: 'notifications', label: 'Notifications', description: 'Operational alerts and delivery channels', href: customer ? '/customer/notifications' : broker ? '/broker/notifications' : driver ? '/driver/messages' : `${root}/settings?section=notifications` },
@@ -64,8 +89,7 @@ const routeMatches = (pathname: string, href: string) => pathname === baseHref(h
 const itemIsActive = (pathname: string, section: string | null, item: SettingsItem) => {
   if (!routeMatches(pathname, item.href)) return false;
   const expected = expectedSection(item.href);
-  if (expected) return section === expected;
-  return !section || !getEnterpriseSettingsGroups('viewer').length;
+  return expected ? section === expected : !section;
 };
 export const isEnterpriseSettingsRoute = (pathname: string, role: WorkspaceRole) => getEnterpriseSettingsGroups(role).some((group) => group.items.some((item) => routeMatches(pathname, item.href)));
 
