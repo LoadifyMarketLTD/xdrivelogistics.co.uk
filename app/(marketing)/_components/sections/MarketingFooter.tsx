@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ExternalLink, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
+import { COMPANY_CONFIG } from '../../../config/company';
 
 const contactLinks = {
-  email: 'xdrivelogisticsltd@gmail.com',
+  email: COMPANY_CONFIG.email,
   phoneDisplay: '+44 7423 272138',
   phoneHref: 'tel:+447423272138',
   whatsapp: 'https://wa.me/447423272138',
