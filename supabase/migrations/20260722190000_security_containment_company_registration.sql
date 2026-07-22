@@ -90,13 +90,23 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended('register-company-user:' || p_actor_user_id::text, 0));
   PERFORM pg_advisory_xact_lock(hashtextextended('register-company-number:' || v_company_number, 0));
 
+  -- Prefer an existing company already owned by this actor. If historical
+  -- duplicates exist, this makes same-user retries deterministic while still
+  -- rejecting takeover of a company owned by somebody else.
   SELECT c.*
   INTO v_company
   FROM public.companies c
+  LEFT JOIN public.company_memberships cm
+    ON cm.company_id = c.id
+   AND cm.user_id = p_actor_user_id
+   AND cm.status = 'active'
+   AND cm.role_in_company = 'owner'
   WHERE regexp_replace(upper(trim(coalesce(c.company_number, ''))), '[^A-Z0-9]', '', 'g') = v_company_number
-  ORDER BY c.created_at ASC, c.id ASC
+  ORDER BY ((c.created_by = p_actor_user_id) OR cm.id IS NOT NULL) DESC,
+           c.created_at ASC,
+           c.id ASC
   LIMIT 1
-  FOR UPDATE;
+  FOR UPDATE OF c;
 
   IF FOUND THEN
     SELECT EXISTS (
