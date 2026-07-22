@@ -1,7 +1,8 @@
 import { Buffer } from 'node:buffer';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from '../../../../../../../lib/server/invoicePdf';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { isDriverContext, requireDriver } from '../../../../mobile/_lib';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
 
 export const runtime = 'nodejs';
@@ -17,23 +18,27 @@ const escapeHtml = (value: unknown) =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
 
-async function resolveDriver(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const { data: authData, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: driverRow } = await supabaseAdmin
-    .from('drivers')
-    .select('id, company_id, user_id')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!driverRow) return null;
-  return { userId: authData.user.id, driverId: driverRow.id as string, companyId: driverRow.company_id as string };
-}
-
 const cleanFileName = (value: string) =>
-  value.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_');
+  value.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_').slice(0, 120) || 'invoice';
+
+const cleanHeader = (value: unknown) =>
+  String(value ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 160);
+
+const validEmail = (value: string) =>
+  value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+const isMissingDeliverySchema = (
+  error: { code?: string | null; message?: string | null } | null | undefined
+) => {
+  if (!error) return false;
+  const code = String(error.code ?? '');
+  const message = String(error.message ?? '').toLowerCase();
+  return (
+    code === '42703' ||
+    code === 'PGRST204' ||
+    (message.includes('delivery_') && (message.includes('column') || message.includes('schema cache')))
+  );
+};
 
 export async function POST(
   request: NextRequest,
@@ -42,13 +47,31 @@ export async function POST(
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
-  const driver = await resolveDriver(request);
-  if (!driver) return respond(401, { error: 'Unauthorized' });
+
+  const driver = await requireDriver(request);
+  if (!isDriverContext(driver)) return driver;
+
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('company_memberships')
+    .select('role_in_company')
+    .eq('company_id', driver.companyId)
+    .eq('user_id', driver.userId)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (membershipError) return respond(500, { error: membershipError.message });
+
+  const membershipRole = String(membership?.role_in_company ?? '').toLowerCase();
+  if (!['owner', 'admin'].includes(membershipRole)) {
+    return respond(403, { error: 'Company owner or admin access is required to send invoices.' });
+  }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim() ?? '';
-  const fromEmail = process.env.FROM_EMAIL?.trim() || 'XDrive Logistics <no-reply@xdrivelogistics.co.uk>';
+  const fromEmail = process.env.FROM_EMAIL?.trim()
+    || 'XDrive Logistics <no-reply@xdrivelogistics.co.uk>';
   if (!resendApiKey) {
-    return respond(503, { error: 'Invoice delivery is not configured. RESEND_API_KEY is missing.' });
+    return respond(503, {
+      error: 'Invoice delivery is not configured. RESEND_API_KEY is missing.',
+    });
   }
 
   const { id } = await params;
@@ -60,6 +83,12 @@ export async function POST(
     .maybeSingle();
   if (fetchError) return respond(500, { error: fetchError.message });
   if (!invoice) return respond(404, { error: 'Invoice not found.' });
+
+  if (typeof invoice.delivery_state !== 'string') {
+    return respond(503, {
+      error: 'Invoice delivery is not enabled in the database yet. The invoice remains Draft.',
+    });
+  }
 
   const currentStatus = toCanonicalInvoiceStatus(invoice.status);
   if (currentStatus === 'Sent' && invoice.delivery_message_id) {
@@ -74,7 +103,9 @@ export async function POST(
     });
   }
   if (invoice.delivery_state === 'sending') {
-    return respond(409, { error: 'This invoice is already being delivered. Refresh before retrying.' });
+    return respond(409, {
+      error: 'This invoice is already being delivered. Do not resend until the current attempt is verified.',
+    });
   }
   if (currentStatus !== 'Draft') {
     return respond(409, {
@@ -82,9 +113,13 @@ export async function POST(
     });
   }
 
-  const recipientEmail = typeof invoice.client_email === 'string' ? invoice.client_email.trim().toLowerCase() : '';
-  if (!recipientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
-    return respond(422, { error: 'A valid client email address is required before sending the invoice.' });
+  const recipientEmail = typeof invoice.client_email === 'string'
+    ? invoice.client_email.trim().toLowerCase()
+    : '';
+  if (!validEmail(recipientEmail)) {
+    return respond(422, {
+      error: 'A valid client email address is required before sending the invoice.',
+    });
   }
 
   const claimTime = new Date().toISOString();
@@ -98,14 +133,24 @@ export async function POST(
       updated_at: claimTime,
     })
     .eq('id', invoice.id)
+    .eq('company_id', driver.companyId)
     .eq('status', invoice.status)
     .in('delivery_state', ['idle', 'failed'])
     .select('*')
     .maybeSingle();
 
-  if (claimError) return respond(500, { error: claimError.message });
+  if (claimError) {
+    if (isMissingDeliverySchema(claimError)) {
+      return respond(503, {
+        error: 'Invoice delivery is not enabled in the database yet. The invoice remains Draft.',
+      });
+    }
+    return respond(500, { error: claimError.message });
+  }
   if (!claimedInvoice) {
-    return respond(409, { error: 'Invoice delivery was claimed by another request. Refresh before retrying.' });
+    return respond(409, {
+      error: 'Invoice delivery was claimed by another request. Refresh before retrying.',
+    });
   }
 
   const failDelivery = async (status: number, message: string) => {
@@ -113,13 +158,14 @@ export async function POST(
       .from('invoices')
       .update({
         delivery_state: 'failed',
-        delivery_error: message,
+        delivery_error: message.slice(0, 2000),
         delivery_attempted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq('id', claimedInvoice.id)
+      .eq('company_id', driver.companyId)
       .eq('delivery_state', 'sending');
-    return respond(status, { error: message });
+    return respond(status, { error: message, invoiceStatus: 'Draft' });
   };
 
   const { data: company, error: companyError } = await supabaseAdmin
@@ -130,7 +176,12 @@ export async function POST(
   if (companyError) return failDelivery(500, companyError.message);
   if (!company) return failDelivery(422, 'Invoice issuer company details are missing.');
 
-  const issuerAddress = [company.address_line1, company.address_line2, company.city, company.postcode]
+  const issuerAddress = [
+    company.address_line1,
+    company.address_line2,
+    company.city,
+    company.postcode,
+  ]
     .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     .join(', ');
 
@@ -158,15 +209,30 @@ export async function POST(
       paymentTerms: claimedInvoice.payment_terms as string | null,
     });
   } catch (reason) {
-    return failDelivery(500, reason instanceof Error ? reason.message : 'Invoice PDF generation failed.');
+    return failDelivery(
+      500,
+      reason instanceof Error ? reason.message : 'Invoice PDF generation failed.'
+    );
   }
 
-  const fileName = `${cleanFileName(String(claimedInvoice.invoice_number ?? claimedInvoice.id))}.pdf`;
+  if (!pdfBytes.byteLength || pdfBytes.byteLength > 10 * 1024 * 1024) {
+    return failDelivery(500, 'Generated invoice PDF is empty or exceeds the 10 MB limit.');
+  }
+
+  const fileName = `${cleanFileName(
+    String(claimedInvoice.invoice_number ?? claimedInvoice.id)
+  )}.pdf`;
   const storagePath = `${driver.companyId}/${claimedInvoice.id}/${fileName}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from('invoice-docs')
-    .upload(storagePath, pdfBytes, { contentType: 'application/pdf', upsert: true, cacheControl: '3600' });
-  if (uploadError) return failDelivery(500, `Invoice PDF storage failed: ${uploadError.message}`);
+    .upload(storagePath, pdfBytes, {
+      contentType: 'application/pdf',
+      upsert: true,
+      cacheControl: '3600',
+    });
+  if (uploadError) {
+    return failDelivery(500, `Invoice PDF storage failed: ${uploadError.message}`);
+  }
 
   const { data: existingDocument, error: existingDocumentError } = await supabaseAdmin
     .from('invoice_documents')
@@ -176,66 +242,87 @@ export async function POST(
     .maybeSingle();
   if (existingDocumentError) return failDelivery(500, existingDocumentError.message);
 
+  const documentValues = {
+    file_url: storagePath,
+    file_name: fileName,
+    file_size_bytes: pdfBytes.byteLength,
+    uploaded_by: driver.userId,
+  };
   if (existingDocument) {
-    const { error: documentUpdateError } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('invoice_documents')
-      .update({
-        file_url: storagePath,
-        file_name: fileName,
-        file_size_bytes: pdfBytes.byteLength,
-        uploaded_by: driver.userId,
-      })
-      .eq('id', existingDocument.id);
-    if (documentUpdateError) return failDelivery(500, documentUpdateError.message);
+      .update(documentValues)
+      .eq('id', existingDocument.id)
+      .eq('company_id', driver.companyId);
+    if (error) return failDelivery(500, error.message);
   } else {
-    const { error: documentInsertError } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('invoice_documents')
       .insert({
         invoice_id: claimedInvoice.id,
         company_id: driver.companyId,
-        uploaded_by: driver.userId,
         doc_type: 'invoice_pdf',
-        file_url: storagePath,
-        file_name: fileName,
-        file_size_bytes: pdfBytes.byteLength,
+        ...documentValues,
       });
-    if (documentInsertError) return failDelivery(500, documentInsertError.message);
+    if (error) return failDelivery(500, error.message);
   }
 
   const attemptedAt = new Date().toISOString();
-  const invoiceNumber = String(claimedInvoice.invoice_number ?? claimedInvoice.id);
+  const invoiceNumber = cleanHeader(claimedInvoice.invoice_number ?? claimedInvoice.id);
   const clientName = String(claimedInvoice.client_name ?? 'Customer');
   const pickup = String(claimedInvoice.pickup_location ?? 'collection');
   const delivery = String(claimedInvoice.delivery_location ?? 'delivery');
-  const companyName = String(company.name ?? 'XDrive Logistics');
-  const currencyCode = String(claimedInvoice.currency ?? 'GBP');
+  const companyName = cleanHeader(company.name ?? 'XDrive Logistics');
+  const currencyCode = cleanHeader(claimedInvoice.currency ?? 'GBP') || 'GBP';
   const dueDate = String(claimedInvoice.due_date ?? 'See attached invoice');
 
-  const emailResponse = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: fromEmail,
-      to: [recipientEmail],
-      subject: `Invoice ${invoiceNumber} from ${companyName}`,
-      html: `
-        <h2>Invoice ${escapeHtml(invoiceNumber)}</h2>
-        <p>Hello ${escapeHtml(clientName)},</p>
-        <p>Please find attached your invoice for the transport service from <strong>${escapeHtml(pickup)}</strong> to <strong>${escapeHtml(delivery)}</strong>.</p>
-        <p><strong>Total:</strong> ${Number(claimedInvoice.amount ?? 0).toFixed(2)} ${escapeHtml(currencyCode)}<br />
-        <strong>Due date:</strong> ${escapeHtml(dueDate)}</p>
-        <p>Kind regards,<br />${escapeHtml(companyName)}</p>
-      `,
-      attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }],
-    }),
-  });
+  let emailResponse: Response;
+  try {
+    emailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(20_000),
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [recipientEmail],
+        subject: `Invoice ${invoiceNumber} from ${companyName}`,
+        html: `
+          <h2>Invoice ${escapeHtml(invoiceNumber)}</h2>
+          <p>Hello ${escapeHtml(clientName)},</p>
+          <p>Please find attached your invoice for the transport service from <strong>${escapeHtml(pickup)}</strong> to <strong>${escapeHtml(delivery)}</strong>.</p>
+          <p><strong>Total:</strong> ${Number(claimedInvoice.amount ?? 0).toFixed(2)} ${escapeHtml(currencyCode)}<br />
+          <strong>Due date:</strong> ${escapeHtml(dueDate)}</p>
+          <p>Kind regards,<br />${escapeHtml(companyName)}</p>
+        `,
+        attachments: [
+          {
+            filename: fileName,
+            content: Buffer.from(pdfBytes).toString('base64'),
+          },
+        ],
+      }),
+    });
+  } catch (reason) {
+    return failDelivery(
+      502,
+      reason instanceof Error
+        ? `Invoice was not sent: ${reason.message}`
+        : 'Invoice provider request failed.'
+    );
+  }
 
-  const emailPayload = (await emailResponse.json().catch(() => null)) as { id?: string; message?: string; error?: { message?: string } } | null;
+  const emailPayload = (await emailResponse.json().catch(() => null)) as {
+    id?: string;
+    message?: string;
+    error?: { message?: string };
+  } | null;
   if (!emailResponse.ok || !emailPayload?.id) {
-    const deliveryError = emailPayload?.error?.message ?? emailPayload?.message ?? `Email provider returned ${emailResponse.status}.`;
+    const deliveryError = emailPayload?.error?.message
+      ?? emailPayload?.message
+      ?? `Email provider returned ${emailResponse.status}.`;
     return failDelivery(502, `Invoice was not sent: ${deliveryError}`);
   }
 
@@ -254,14 +341,16 @@ export async function POST(
       updated_at: attemptedAt,
     })
     .eq('id', claimedInvoice.id)
+    .eq('company_id', driver.companyId)
     .eq('delivery_state', 'sending')
-    .select('id, status, submitted_at, delivery_state, delivery_message_id, delivery_recipient_email')
+    .select(
+      'id, status, submitted_at, delivery_state, delivery_message_id, delivery_recipient_email'
+    )
     .maybeSingle();
 
-  if (updateError) return respond(500, { error: updateError.message });
-  if (!updated) {
+  if (updateError || !updated) {
     return respond(500, {
-      error: 'The email provider accepted the invoice, but the delivery record could not be finalised. Do not resend until support verifies the provider message.',
+      error: 'The provider accepted the invoice, but XDrive could not finalise the delivery record. Do not resend until support verifies the provider message.',
       deliveryMessageId: emailPayload.id,
     });
   }
@@ -269,7 +358,8 @@ export async function POST(
   return respond(200, {
     invoice: {
       ...updated,
-      status: toCanonicalInvoiceStatus((updated as { status?: string }).status),
+      status: toCanonicalInvoiceStatus(updated.status),
     },
+    replayed: false,
   });
 }
