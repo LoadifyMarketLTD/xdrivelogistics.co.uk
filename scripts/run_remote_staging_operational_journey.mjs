@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-// Rerun marker: P0 disposable staging schema verified at 204/204 migrations.
+// Rerun marker: profile roles use the canonical application values enforced by
+// profiles_role_canonical; company ownership remains in company_memberships.
 import { readFile, writeFile, unlink } from 'node:fs/promises';
 
 const sourceUrl = new URL('./validate_remote_staging_operational_journey.mjs', import.meta.url);
@@ -8,7 +9,7 @@ const generatedUrl = new URL('./.generated_operational_journey_roles.mjs', impor
 
 const original = await readFile(sourceUrl, 'utf8');
 const legacyFixture = "    [buyer, buyerCompany, buyerEmail, 'owner', false],\n    [carrier, carrierCompany, carrierEmail, 'owner', true],";
-const canonicalFixture = "    [buyer, buyerCompany, buyerEmail, 'customer_shipper', false],\n    [carrier, carrierCompany, carrierEmail, 'owner_driver', true],";
+const canonicalFixture = "    [buyer, buyerCompany, buyerEmail, 'customer', false],\n    [carrier, carrierCompany, carrierEmail, 'driver', true],";
 
 const occurrences = original.split(legacyFixture).length - 1;
 if (occurrences !== 1) {
