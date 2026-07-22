@@ -71,6 +71,7 @@ const getNotificationSummary = (event: NotificationEventRow) => {
 };
 
 const getNotificationHref = (event: NotificationEventRow) => {
+  // payload.job_id is the canonical source; fall back to entity_id for job/pod events
   const jobId =
     typeof event.payload.job_id === 'string'
       ? event.payload.job_id
@@ -81,6 +82,7 @@ const getNotificationHref = (event: NotificationEventRow) => {
     return `/admin/jobs/${jobId}`;
   }
   if (event.event_type === 'bid_accepted') {
+    // bid_accepted payload.job_id contains the related job; route there if available
     const bidJobId = typeof event.payload.job_id === 'string' ? event.payload.job_id : null;
     return bidJobId ? `/admin/jobs/${bidJobId}` : '/admin/bids';
   }
