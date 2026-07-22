@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { isPlatformOwnerProfileRole } from '../app/api/_lib/platformAuth';
+import { isPlatformOwnerProfileRole } from '../lib/platformRole';
 import { getEffectiveJobStatus, getInvoiceState, isActiveExecutionStatus } from '../lib/workspaceClassifiers';
 
 test.describe('super admin platform boundaries', () => {
