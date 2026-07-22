@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { getVisibleWorkspaceNav, getWorkspaceDefinition, hasWorkspaceCapability, resolveWorkspaceRole, type WorkspaceRole } from '../../../lib/workspaceRole';
+import WorkspaceCompanySwitcher from './WorkspaceCompanySwitcher';
 import { workspaceTheme } from './WorkspaceUI';
 import { EnterpriseSettingsBoundary, isEnterpriseSettingsRoute } from './EnterpriseSettings';
 
@@ -104,6 +105,7 @@ export default function WorkspaceShell({ children, forcedRole }: { children: Rea
             {settingsRoute && <span style={{ fontSize: '0.59rem', fontWeight: 800, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.18rem 0.4rem', borderRadius: '999px' }}>Settings</span>}
             {!settingsRoute && role !== 'driver' && role !== 'customer' && role !== 'broker' && role !== 'owner_driver' && <span style={{ fontSize: '0.59rem', fontWeight: 800, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.18rem 0.4rem', borderRadius: '999px' }}>Company View</span>}
           </div>
+          <WorkspaceCompanySwitcher />
         </div>
 
         <nav style={{ flex: 1, overflowY: 'auto', padding: '0.48rem' }}>
