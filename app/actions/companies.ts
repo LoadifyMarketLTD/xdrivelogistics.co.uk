@@ -3,102 +3,145 @@
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 
-// Inițializăm clientul de admin (Service Role) care rulează strict securizat pe server
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
 );
 
 interface RegistrationResult {
   success: boolean;
   error?: string;
   companyId?: string;
+  created?: boolean;
+}
+
+type CompaniesHouseCompany = {
+  company_name?: unknown;
+  company_number?: unknown;
+  company_status?: unknown;
+};
+
+type AtomicRegistrationRow = {
+  success: boolean;
+  http_status: number;
+  error_code: string | null;
+  error_message: string | null;
+  company_id: string | null;
+  created: boolean;
+};
+
+function normaliseCompanyNumber(value: string): string {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
 /**
- * Validează un număr de companie din UK prin intermediul Companies House API
- * și înregistrează entitatea în platforma XDrive doar dacă statusul este 'active'.
- * Aliniat 100% cu structura reală a bazei de date (folosește 'company_number').
+ * Validates an active UK company through Companies House and atomically links it
+ * to the authenticated account. The actor is derived from a verified Supabase
+ * access token; callers cannot select a user id.
  */
 export async function registerValidatedCompany(
-  companyNumber: string, 
-  userId: string
+  companyNumber: string,
+  sessionAccessToken: string
 ): Promise<RegistrationResult> {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const apiKey = process.env.COMPANIES_HOUSE_API_KEY;
-    if (!apiKey) {
-      console.error('CRITICAL: COMPANIES_HOUSE_API_KEY is missing from environment variables.');
+
+    if (!supabaseUrl || !serviceRoleKey || !apiKey) {
+      console.error('Company registration server configuration is incomplete.');
       return { success: false, error: 'Configurație server invalidă. Contactați asistența.' };
     }
 
-    // 1. Apelăm API-ul oficial guvernamental din UK
+    const accessToken = sessionAccessToken?.trim();
+    if (!accessToken) {
+      return { success: false, error: 'Sesiunea de autentificare lipsește sau a expirat.' };
+    }
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !authData.user) {
+      return { success: false, error: 'Sesiunea de autentificare nu este validă.' };
+    }
+
+    const canonicalCompanyNumber = normaliseCompanyNumber(companyNumber);
+    if (!canonicalCompanyNumber || canonicalCompanyNumber.length > 32) {
+      return { success: false, error: 'Numărul companiei este invalid.' };
+    }
+
     const authHeader = Buffer.from(`${apiKey}:`).toString('base64');
-    const response = await fetch(`https://api.company-information.service.gov.uk/company/${encodeURIComponent(companyNumber.trim())}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json',
-      },
-      next: { revalidate: 3600 } // Cache-uim rezultatul pentru o oră pentru a proteja cota de API
-    });
+    const response = await fetch(
+      `https://api.company-information.service.gov.uk/company/${encodeURIComponent(canonicalCompanyNumber)}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Basic ${authHeader}`,
+          'Content-Type': 'application/json',
+        },
+        next: { revalidate: 3600 },
+      }
+    );
 
     if (!response.ok) {
       return { success: false, error: 'Numărul introdus nu a fost găsit în registrul oficial Companies House.' };
     }
 
-    const companyData = await response.json();
+    const companyData = (await response.json()) as CompaniesHouseCompany;
+    const registryStatus = typeof companyData.company_status === 'string'
+      ? companyData.company_status.trim().toLowerCase()
+      : '';
+    const registeredName = typeof companyData.company_name === 'string'
+      ? companyData.company_name.trim()
+      : '';
+    const registryCompanyNumber = typeof companyData.company_number === 'string'
+      ? normaliseCompanyNumber(companyData.company_number)
+      : canonicalCompanyNumber;
 
-    // 2. Regula de business XDrive: Permitem înregistrarea doar dacă firma este activă la stat
-    if (companyData.company_status !== 'active') {
-      return { 
-        success: false, 
-        error: `Înregistrare respinsă. Această companie are statusul guvernamental '${companyData.company_status}'. Permitem accesul doar firmelor active.` 
+    if (registryStatus !== 'active') {
+      return {
+        success: false,
+        error: `Înregistrare respinsă. Această companie are statusul guvernamental '${registryStatus || 'necunoscut'}'. Permitem accesul doar firmelor active.`,
       };
     }
 
-    // 3. Inserăm entitatea în tabela 'companies' folosind denumirea exactă a coloanei tale: 'company_number'
-    const { data: newCompany, error: dbError } = await supabaseAdmin
-      .from('companies')
-      .insert([
-        {
-          name: companyData.company_name,
-          company_number: companyNumber, // Corectat conform structurii tale live din Supabase
-          status: 'pending_approval',   // Tipul USER-DEFINED enum acceptă acest string inițial
-          created_by: userId            // Coloana 'created_by' este obligatorie (NOT NULL) în tabela ta
-        }
-      ])
-      .select('id')
-      .single();
-
-    if (dbError) {
-      console.error('Database insertion error during company onboarding:', dbError.message);
-      return { success: false, error: 'Eroare la salvarea profilului companiei în baza de date.' };
+    if (!registeredName || registryCompanyNumber !== canonicalCompanyNumber) {
+      return { success: false, error: 'Răspunsul Companies House nu corespunde numărului de companie solicitat.' };
     }
 
-    // 4. Legăm automat utilizatorul în tabela ta de joncțiune 'company_memberships'
-    const { error: membershipError } = await supabaseAdmin
-      .from('company_memberships')
-      .insert([
-        {
-          company_id: newCompany.id,
-          user_id: userId,            // Coloana ta reală se numește 'user_id' (nu member_id)
-          role_in_company: 'company_admin', // Coloana ta reală este 'role_in_company' (text)
-          status: 'active'            // Setează statusul direct ca activ
-        }
-      ]);
+    const { data, error: rpcError } = await supabaseAdmin.rpc('register_validated_company_atomic', {
+      p_actor_user_id: authData.user.id,
+      p_company_number: registryCompanyNumber,
+      p_company_name: registeredName,
+      p_registry_status: registryStatus,
+    });
 
-    if (membershipError) {
-      console.error('Error generating administrative membership node:', membershipError.message);
-      return { success: false, error: 'Compania a fost creată, dar asocierea contului tău a eșuat.' };
+    if (rpcError) {
+      console.error('Atomic company registration failed:', rpcError.message);
+      return { success: false, error: 'Compania nu a putut fi înregistrată.' };
     }
 
-    // Curățăm cache-ul paginii de aprobări din panoul de Super Admin pentru a afișa datele instant
+    const result = (Array.isArray(data) ? data[0] : data) as AtomicRegistrationRow | null;
+    if (!result?.success || !result.company_id) {
+      return {
+        success: false,
+        error: result?.error_message || 'Compania nu a putut fi înregistrată.',
+      };
+    }
+
     revalidatePath('/super-admin/companies/approvals');
-    
-    return { success: true, companyId: newCompany.id };
 
-  } catch (err) {
-    console.error('Unexpected fatal exception on registerValidatedCompany runtime:', err);
+    return {
+      success: true,
+      companyId: result.company_id,
+      created: result.created,
+    };
+  } catch (error) {
+    console.error('Unexpected company registration failure:', error);
     return { success: false, error: 'Eroare critică de sistem la procesarea înregistrării.' };
   }
 }
