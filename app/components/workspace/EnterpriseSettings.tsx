@@ -2,7 +2,7 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import { useMemo } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { hasWorkspaceCapability, resolveWorkspaceRole, type WorkspaceCapability, type WorkspaceRole } from '../../../lib/workspaceRole';
 
@@ -31,15 +31,22 @@ const operationsItems = (role: WorkspaceRole): SettingsItem[] => {
 };
 
 const complianceCommercialItems = (role: WorkspaceRole): SettingsItem[] => {
-  const driver = role === 'driver' || role === 'owner_driver';
-  const customer = role === 'customer'; const broker = role === 'broker';
+  const driver = role === 'driver' || role === 'owner_driver'; const customer = role === 'customer'; const broker = role === 'broker';
   return [
     { id: 'documents', label: 'Documents', description: 'Compliance records and secure file actions', href: driver ? '/driver/documents' : customer ? '/customer/documents' : broker ? '/broker/pod-review' : '/admin/documents', capability: driver ? 'documents.own.manage' : customer || broker ? 'jobs.review_pod' : 'documents.company.manage' },
     { id: 'billing', label: 'Billing', description: 'Invoices, payments and existing finance actions', href: customer ? '/customer/invoices' : broker ? '/broker/customer-invoices' : driver ? '/driver/finance' : '/admin/invoices', capability: customer ? 'invoices.customer.manage' : broker ? 'invoices.customer.manage' : driver ? 'invoices.carrier.manage' : 'payments.manage' },
   ];
 };
 
-const preferenceItems = (_role: WorkspaceRole): SettingsItem[] => [];
+const preferenceItems = (role: WorkspaceRole): SettingsItem[] => {
+  const root = roleRoot(role); const driver = role === 'driver' || role === 'owner_driver'; const customer = role === 'customer'; const broker = role === 'broker';
+  return [
+    { id: 'notifications', label: 'Notifications', description: 'Operational alerts and delivery channels', href: customer ? '/customer/notifications' : broker ? '/broker/notifications' : driver ? '/driver/messages' : `${root}/settings?section=notifications` },
+    { id: 'security', label: 'Security', description: 'Password and account protection', href: driver ? '/driver/change-password' : `${root}/settings?section=security` },
+    { id: 'integrations', label: 'Integrations', description: 'Connected services already supported by this workspace', href: `${root}/settings?section=integrations`, capability: driver ? undefined : 'settings.manage', roles: driver ? ['owner_driver'] : undefined },
+    { id: 'support', label: 'Support', description: 'Help, contact and service assistance', href: `${root}/settings?section=support` },
+  ];
+};
 
 export const getEnterpriseSettingsGroups = (role: WorkspaceRole): SettingsGroup[] => {
   const groups: SettingsGroup[] = [
@@ -52,12 +59,19 @@ export const getEnterpriseSettingsGroups = (role: WorkspaceRole): SettingsGroup[
 };
 
 const baseHref = (href: string) => href.split('?')[0];
+const expectedSection = (href: string) => new URLSearchParams(href.split('?')[1] ?? '').get('section');
 const routeMatches = (pathname: string, href: string) => pathname === baseHref(href) || pathname.startsWith(`${baseHref(href)}/`);
+const itemIsActive = (pathname: string, section: string | null, item: SettingsItem) => {
+  if (!routeMatches(pathname, item.href)) return false;
+  const expected = expectedSection(item.href);
+  if (expected) return section === expected;
+  return !section || !getEnterpriseSettingsGroups('viewer').length;
+};
 export const isEnterpriseSettingsRoute = (pathname: string, role: WorkspaceRole) => getEnterpriseSettingsGroups(role).some((group) => group.items.some((item) => routeMatches(pathname, item.href)));
 
 export function SettingsPageHeader({ title, description, actions, status }: { title: string; description?: string; actions?: ReactNode; status?: ReactNode }) { return <header style={{ marginBottom: '0.75rem' }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.8rem', flexWrap: 'wrap' }}><div style={{ minWidth: 0, flex: '1 1 520px' }}><div style={{ color: theme.blue, fontSize: '0.64rem', fontWeight: 850, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Workspace settings</div><h1 style={{ margin: 0, color: theme.text, fontSize: 'clamp(1.3rem,2vw,1.75rem)', lineHeight: 1.15 }}>{title}</h1>{description && <p style={{ margin: '0.3rem 0 0', color: theme.muted, maxWidth: 860, fontSize: '0.79rem', lineHeight: 1.48 }}>{description}</p>}{status && <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.45rem' }}>{status}</div>}</div>{actions && <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>{actions}</div>}</div></header>; }
-export function SettingsTopNav({ groups }: { groups: SettingsGroup[] }) { const pathname = usePathname(); const router = useRouter(); return <nav aria-label="Settings modules" style={{ display: 'flex', gap: '0.2rem', overflowX: 'auto', background: '#fff', border: `1px solid ${theme.border}`, borderRadius: 9, padding: '0.3rem', marginBottom: '0.72rem' }}>{groups.flatMap((group) => group.items).map((item) => { const active = routeMatches(pathname, item.href); return <button key={item.id} type="button" onClick={() => router.push(item.href)} style={{ whiteSpace: 'nowrap', border: 0, borderBottom: `2px solid ${active ? theme.blue : 'transparent'}`, borderRadius: 6, background: active ? '#eff6ff' : 'transparent', color: active ? theme.blue : theme.text, padding: '0.46rem 0.58rem', fontSize: '0.67rem', fontWeight: active ? 850 : 700, cursor: 'pointer' }}>{item.label}</button>; })}</nav>; }
-export function SettingsSidebar({ groups }: { groups: SettingsGroup[] }) { const pathname = usePathname(); const router = useRouter(); return <aside className="xdrive-enterprise-settings-sidebar" aria-label="Settings navigation" style={{ position: 'sticky', top: 70, alignSelf: 'start', background: '#fff', border: `1px solid ${theme.border}`, borderRadius: 9, padding: '0.42rem', maxHeight: 'calc(100vh - 88px)', overflowY: 'auto' }}>{groups.map((group) => <div key={group.id} style={{ marginBottom: '0.4rem' }}><div style={{ padding: '0.24rem 0.4rem', color: theme.muted, fontSize: '0.57rem', fontWeight: 850, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{group.label}</div>{group.items.map((item) => { const active = routeMatches(pathname, item.href); return <button key={item.id} type="button" onClick={() => router.push(item.href)} style={{ width: '100%', border: 0, borderLeft: `3px solid ${active ? theme.blue : 'transparent'}`, borderRadius: 7, background: active ? '#eff6ff' : 'transparent', color: active ? theme.blue : theme.text, textAlign: 'left', padding: '0.5rem 0.56rem', marginBottom: '0.1rem', cursor: 'pointer' }}><strong style={{ display: 'block', fontSize: '0.69rem' }}>{item.label}</strong>{item.description && <small style={{ display: 'block', color: theme.muted, fontSize: '0.6rem', lineHeight: 1.3, marginTop: '0.08rem' }}>{item.description}</small>}</button>; })}</div>)}</aside>; }
+export function SettingsTopNav({ groups }: { groups: SettingsGroup[] }) { const pathname = usePathname(); const search = useSearchParams(); const router = useRouter(); const section = search.get('section'); return <nav aria-label="Settings modules" style={{ display: 'flex', gap: '0.2rem', overflowX: 'auto', background: '#fff', border: `1px solid ${theme.border}`, borderRadius: 9, padding: '0.3rem', marginBottom: '0.72rem' }}>{groups.flatMap((group) => group.items).map((item) => { const active = itemIsActive(pathname, section, item); return <button key={item.id} type="button" onClick={() => router.push(item.href)} style={{ whiteSpace: 'nowrap', border: 0, borderBottom: `2px solid ${active ? theme.blue : 'transparent'}`, borderRadius: 6, background: active ? '#eff6ff' : 'transparent', color: active ? theme.blue : theme.text, padding: '0.46rem 0.58rem', fontSize: '0.67rem', fontWeight: active ? 850 : 700, cursor: 'pointer' }}>{item.label}</button>; })}</nav>; }
+export function SettingsSidebar({ groups }: { groups: SettingsGroup[] }) { const pathname = usePathname(); const search = useSearchParams(); const router = useRouter(); const section = search.get('section'); return <aside className="xdrive-enterprise-settings-sidebar" aria-label="Settings navigation" style={{ position: 'sticky', top: 70, alignSelf: 'start', background: '#fff', border: `1px solid ${theme.border}`, borderRadius: 9, padding: '0.42rem', maxHeight: 'calc(100vh - 88px)', overflowY: 'auto' }}>{groups.map((group) => <div key={group.id} style={{ marginBottom: '0.4rem' }}><div style={{ padding: '0.24rem 0.4rem', color: theme.muted, fontSize: '0.57rem', fontWeight: 850, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{group.label}</div>{group.items.map((item) => { const active = itemIsActive(pathname, section, item); return <button key={item.id} type="button" onClick={() => router.push(item.href)} style={{ width: '100%', border: 0, borderLeft: `3px solid ${active ? theme.blue : 'transparent'}`, borderRadius: 7, background: active ? '#eff6ff' : 'transparent', color: active ? theme.blue : theme.text, textAlign: 'left', padding: '0.5rem 0.56rem', marginBottom: '0.1rem', cursor: 'pointer' }}><strong style={{ display: 'block', fontSize: '0.69rem' }}>{item.label}</strong>{item.description && <small style={{ display: 'block', color: theme.muted, fontSize: '0.6rem', lineHeight: 1.3, marginTop: '0.08rem' }}>{item.description}</small>}</button>; })}</div>)}</aside>; }
 
 export function SettingsLayout({ children, title = 'Settings', description = 'Manage the settings available to your current role and company workspace.', actions, status }: { children: ReactNode; title?: string; description?: string; actions?: ReactNode; status?: ReactNode }) {
   const { user } = useAuth(); const role = resolveWorkspaceRole(user); const groups = useMemo(() => getEnterpriseSettingsGroups(role), [role]);
