@@ -1,4 +1,4 @@
-name: Inspect staging integration conflicts
+name: Resolve staging integration conflicts
 
 on:
   push:
@@ -11,14 +11,14 @@ permissions:
   contents: write
 
 concurrency:
-  group: inspect-staging-integration-conflicts
-  cancel-in-progress: true
+  group: resolve-staging-integration-conflicts
+  cancel-in-progress: false
 
 jobs:
-  inspect-conflicts:
-    name: Record exact main merge conflicts
+  resolve-conflicts:
+    name: Merge main with reviewed resolutions
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 35
 
     steps:
       - name: Checkout exact integration branch
@@ -27,7 +27,7 @@ jobs:
           ref: agent/staging-integration
           fetch-depth: 0
 
-      - name: Inspect merge without committing it
+      - name: Merge main and resolve the reviewed conflict set
         shell: bash
         run: |
           set -euo pipefail
@@ -39,7 +39,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch --no-tags origin main
 
-          base_sha="$(git rev-parse HEAD)"
+          branch_sha="$(git rev-parse HEAD)"
           main_sha="$(git rev-parse origin/main)"
 
           set +e
@@ -48,35 +48,124 @@ jobs:
           set -e
 
           mapfile -t conflicts < <(git diff --name-only --diff-filter=U | LC_ALL=C sort)
+          expected=(
+            '.github/workflows/ci.yml'
+            'app/api/_lib/onboarding.ts'
+            'app/api/driver/finance/invoices/[id]/submit/route.ts'
+            'app/api/driver/mobile/_lib.ts'
+            'app/api/driver/mobile/jobs/[id]/[action]/route.ts'
+            'app/api/jobs/create/route.ts'
+            'app/components/OnboardingAccessGuard.tsx'
+            'app/onboarding/resume/page.tsx'
+            'app/register/page.tsx'
+            'apps/driver-mobile/src/api/jobs.ts'
+            'lib/server/invoicePdf.ts'
+            'supabase/functions/notify-operational-event/index.ts'
+          )
+
+          printf '%s\n' "${expected[@]}" > /tmp/expected-conflicts.txt
+          printf '%s\n' "${conflicts[@]}" > /tmp/actual-conflicts.txt
+          if ! diff -u /tmp/expected-conflicts.txt /tmp/actual-conflicts.txt; then
+            echo 'The conflict set changed. Refusing to apply a stale resolution manifest.' >&2
+            exit 1
+          fi
+          test "${merge_status}" -ne 0
+
+          ours=(
+            'app/api/_lib/onboarding.ts'
+            'app/api/driver/mobile/_lib.ts'
+            'app/onboarding/resume/page.tsx'
+            'app/register/page.tsx'
+            'supabase/functions/notify-operational-event/index.ts'
+          )
+          theirs=(
+            '.github/workflows/ci.yml'
+            'app/api/driver/finance/invoices/[id]/submit/route.ts'
+            'app/api/driver/mobile/jobs/[id]/[action]/route.ts'
+            'app/api/jobs/create/route.ts'
+            'app/components/OnboardingAccessGuard.tsx'
+            'apps/driver-mobile/src/api/jobs.ts'
+            'lib/server/invoicePdf.ts'
+          )
+
+          for path in "${ours[@]}"; do
+            git checkout --ours -- "$path"
+            git add -- "$path"
+          done
+          for path in "${theirs[@]}"; do
+            git checkout --theirs -- "$path"
+            git add -- "$path"
+          done
+
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            echo 'Unresolved merge entries remain.' >&2
+            git diff --name-only --diff-filter=U >&2
+            exit 1
+          fi
+
+          grep -q "fallback = Number.isFinite(envValue) && envValue > 0 ? envValue : 48" app/api/_lib/onboarding.ts
+          grep -q "return null;" app/api/_lib/onboarding.ts
+          grep -q "fleet_driver_compliance_current" app/api/driver/mobile/_lib.ts
+          grep -q "owner_driver_compliance_current" app/api/driver/mobile/_lib.ts
+          grep -q "invitationRevoked" app/onboarding/resume/page.tsx
+          grep -q "status: signupConfig.accountType === 'customer_shipper' ? 'active' : 'pending'" app/register/page.tsx
+          grep -q "claim_notification_events" supabase/functions/notify-operational-event/index.ts
+          grep -q "Idempotency-Key" supabase/functions/notify-operational-event/index.ts
+          grep -q "token_revoked_at" app/api/onboarding/init/route.ts
+          grep -q "export async function DELETE" app/api/onboarding/init/route.ts
+
+          git rm -f -- .github/staging-merge-main.trigger
+          git rm -f -- staging-validation/main-merge-conflicts-latest.txt
+          git rm -f -- .github/workflows/resolve-staging-integration-conflict.yml
 
           {
-            printf 'merge_status=%s\n' "${merge_status}"
-            printf 'base_branch=agent/staging-integration\n'
-            printf 'base_sha=%s\n' "${base_sha}"
-            printf 'main_sha=%s\n' "${main_sha}"
+            printf 'branch_before=%s\n' "$branch_sha"
+            printf 'main_merged=%s\n' "$main_sha"
             printf 'conflict_count=%s\n' "${#conflicts[@]}"
-            printf '%s\n' 'conflicts:'
-            if (( ${#conflicts[@]} == 0 )); then
-              printf '%s\n' '  (none)'
-            else
-              printf '  %s\n' "${conflicts[@]}"
-            fi
-          } > /tmp/main-merge-conflicts-latest.txt
+            printf 'resolution=reviewed-manifest\n'
+          } > staging-validation/main-merge-latest.txt
+          git add staging-validation/main-merge-latest.txt
 
-          if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
-            git merge --abort
-          else
-            git reset --hard HEAD
-          fi
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
 
-          mkdir -p staging-validation
-          cp /tmp/main-merge-conflicts-latest.txt staging-validation/main-merge-conflicts-latest.txt
-          git add staging-validation/main-merge-conflicts-latest.txt
+      - name: Install dependencies
+        run: npm ci
 
-          if git diff --cached --quiet; then
-            echo 'Conflict report is unchanged.'
-            exit 0
-          fi
+      - name: Lint merged tree
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          EXPECTED_NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+        run: npm run lint
 
-          git commit -m 'ci(staging): record current main merge conflicts'
+      - name: Typecheck merged tree
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          EXPECTED_NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+        run: npm run typecheck
+
+      - name: Build merged tree
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          EXPECTED_NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+        run: npm run build
+
+      - name: Typecheck Expo Driver
+        working-directory: apps/driver-mobile
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+
+      - name: Commit reviewed merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --short
+          git commit -m 'merge(main): resolve staging integration conflicts with reviewed manifest'
           git push origin HEAD:agent/staging-integration
