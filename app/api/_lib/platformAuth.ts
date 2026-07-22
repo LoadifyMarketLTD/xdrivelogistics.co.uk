@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
+import { isPlatformOwnerProfileRole } from '../../../lib/platformRole';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from './supabaseAdmin';
 
 export type PlatformAccessFailure = {
@@ -10,13 +11,6 @@ export type PlatformAccessFailure = {
 export type PlatformAccessResult =
   | { ok: true; user: User }
   | { ok: false; failure: PlatformAccessFailure };
-
-/**
- * Platform ownership is stored only in profiles.role.
- * Ordinary company ownership is stored separately in company_memberships.role
- * and must never satisfy this predicate.
- */
-export const isPlatformOwnerProfileRole = (role: unknown): role is 'owner' => role === 'owner';
 
 /**
  * Canonical platform-owner authorisation.
