@@ -1,9 +1,9 @@
 BEGIN;
 
 -- The disposable Supabase project exposes pgcrypto through the extensions
--- schema, while older environments may expose digest through public. Avoid an
--- unqualified gen_random_bytes() call and resolve SHA-256 explicitly so token
--- rotation behaves consistently across both layouts.
+-- schema, while older environments may expose digest through public. Generate
+-- the opaque token without depending on a schema-specific random-byte function
+-- and resolve SHA-256 explicitly so rotation behaves consistently.
 CREATE OR REPLACE FUNCTION public.rotate_fleet_driver_invitation_token(
   p_invitation_id uuid,
   p_actor_user_id uuid,
@@ -54,8 +54,7 @@ BEGIN
     RAISE EXCEPTION 'Actor is not authorised for this company.' USING ERRCODE = '42501';
   END IF;
 
-  -- Two version-4 UUID values provide a 64-character opaque token without
-  -- depending on the schema location of pgcrypto.gen_random_bytes().
+  -- Two version-4 UUID values provide a 64-character opaque token.
   v_raw_token := replace(gen_random_uuid()::text, '-', '')
     || replace(gen_random_uuid()::text, '-', '');
 
@@ -113,8 +112,9 @@ BEGIN
   INTO v_definition;
 
   IF v_definition IS NULL
-     OR position('gen_random_bytes' IN v_definition) > 0
-     OR position('v_token_hash' IN v_definition) = 0 THEN
+     OR position('v_raw_token := encode(gen_random_bytes' IN v_definition) > 0
+     OR position('v_token_hash' IN v_definition) = 0
+     OR position('gen_random_uuid' IN v_definition) = 0 THEN
     RAISE EXCEPTION 'Fleet invitation token crypto reconciliation failed.';
   END IF;
 END
