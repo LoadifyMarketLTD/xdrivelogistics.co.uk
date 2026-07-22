@@ -244,11 +244,9 @@ export async function insertTrackingEvent(jobId: string, userId: string, eventTy
 
   const { error } = await supabaseAdmin.from('job_tracking_events').insert({
     job_id: jobId,
-    user_id: userId,
-    created_by: userId,
     event_type: eventType,
-    message,
-    meta: { source: 'driver_mobile' },
+    created_by: userId,
+    note: message,
   });
 
   if (error) throw new Error(`Failed to record tracking event: ${error.message}`);
