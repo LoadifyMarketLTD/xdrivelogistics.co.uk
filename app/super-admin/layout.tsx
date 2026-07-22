@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import SuperAdminWorkspaceShell from './_components/SuperAdminWorkspaceShell';
+import { EnterpriseSettingsBoundary } from '../components/workspace/EnterpriseSettings';
 
 export const metadata: Metadata = {
   title: 'Super Admin | XDrive Logistics',
@@ -9,5 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default function SuperAdminLayout({ children }: { children: ReactNode }) {
-  return <SuperAdminWorkspaceShell>{children}</SuperAdminWorkspaceShell>;
+  return (
+    <SuperAdminWorkspaceShell>
+      <EnterpriseSettingsBoundary>{children}</EnterpriseSettingsBoundary>
+    </SuperAdminWorkspaceShell>
+  );
 }
