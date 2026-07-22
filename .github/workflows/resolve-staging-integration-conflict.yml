@@ -1,84 +1,86 @@
-name: Resolve staging integration conflict
+name: Inspect staging integration conflicts
 
 on:
-  push:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
     branches:
       - agent/staging-integration
-    paths:
-      - .github/staging-merge-main.trigger
 
 permissions:
   contents: write
+  pull-requests: read
 
 concurrency:
-  group: resolve-staging-integration-conflict
-  cancel-in-progress: false
+  group: inspect-staging-integration-conflicts
+  cancel-in-progress: true
 
 jobs:
-  merge-main:
-    name: Merge main with guarded resolution
+  inspect-conflicts:
+    name: Record exact main merge conflicts
+    if: >-
+      github.event.pull_request.number == 271 &&
+      github.event.pull_request.head.ref == 'main' &&
+      github.event.pull_request.base.ref == 'agent/staging-integration' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
-      - name: Checkout exact integration branch
+      - name: Checkout trusted integration branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: agent/staging-integration
           fetch-depth: 0
 
-      - name: Merge current main and resolve only onboarding init
+      - name: Inspect merge without committing it
         shell: bash
         run: |
           set -euo pipefail
 
-          expected_repo='LoadifyMarketLTD/xdrivelogistics.co.uk'
-          expected_branch='agent/staging-integration'
-          expected_conflict='app/api/onboarding/init/route.ts'
-
-          test "${GITHUB_REPOSITORY}" = "${expected_repo}"
-          test "${GITHUB_REF_NAME}" = "${expected_branch}"
+          test "${GITHUB_REPOSITORY}" = 'LoadifyMarketLTD/xdrivelogistics.co.uk'
+          test "${{ github.event.pull_request.head.ref }}" = 'main'
+          test "${{ github.event.pull_request.base.ref }}" = 'agent/staging-integration'
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch --no-tags origin main
-
-          if git merge-base --is-ancestor origin/main HEAD; then
-            echo 'The integration branch already contains current main.'
-            exit 0
-          fi
 
           set +e
           git merge --no-ff --no-commit origin/main
           merge_status=$?
           set -e
 
-          mapfile -t unresolved < <(git diff --name-only --diff-filter=U)
+          mapfile -t conflicts < <(git diff --name-only --diff-filter=U | LC_ALL=C sort)
 
-          if (( ${#unresolved[@]} > 0 )); then
-            if (( ${#unresolved[@]} != 1 )) || [[ "${unresolved[0]}" != "${expected_conflict}" ]]; then
-              echo 'Unexpected conflicts detected:' >&2
-              printf ' - %s\n' "${unresolved[@]}" >&2
-              git merge --abort
-              exit 1
+          mkdir -p staging-validation
+          {
+            printf 'merge_status=%s\n' "${merge_status}"
+            printf 'base_branch=agent/staging-integration\n'
+            printf 'base_sha=%s\n' "$(git rev-parse HEAD)"
+            printf 'main_sha=%s\n' "$(git rev-parse origin/main)"
+            printf 'conflict_count=%s\n' "${#conflicts[@]}"
+            printf '%s\n' 'conflicts:'
+            if (( ${#conflicts[@]} == 0 )); then
+              printf '%s\n' '  (none)'
+            else
+              printf '  %s\n' "${conflicts[@]}"
             fi
+          } > staging-validation/main-merge-conflicts-latest.txt
 
-            # The branch version is the reviewed combined implementation: it
-            # includes main's strict identity checks plus cooldown, resend and
-            # revoke controls. Keep it as the explicit resolution.
-            git checkout --ours -- "${expected_conflict}"
-            git add "${expected_conflict}"
-          elif (( merge_status != 0 )); then
-            echo 'Merge failed without a resolvable conflict.' >&2
+          if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             git merge --abort
-            exit 1
+          else
+            git reset --hard HEAD
           fi
 
-          if git diff --name-only --diff-filter=U | grep -q .; then
-            echo 'Unresolved conflicts remain.' >&2
-            git merge --abort
-            exit 1
+          git add staging-validation/main-merge-conflicts-latest.txt
+          if git diff --cached --quiet; then
+            echo 'Conflict report is unchanged.'
+            exit 0
           fi
 
-          git commit -m 'Merge main into staging integration and resolve onboarding init'
+          git commit -m 'ci(staging): record current main merge conflicts'
           git push origin HEAD:agent/staging-integration
