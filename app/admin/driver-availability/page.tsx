@@ -1,1 +1,7 @@
-'use client'; import { DriverAvailabilityPage } from '../AdminWorkspaceModules'; export default function Page(){return <DriverAvailabilityPage/>}
+'use client';
+
+import { FleetDriversView } from '../fleet/FleetWorkspaceViews';
+
+export default function Page() {
+  return <FleetDriversView />;
+}
