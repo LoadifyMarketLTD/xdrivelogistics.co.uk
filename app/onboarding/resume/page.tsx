@@ -67,8 +67,12 @@ export default function OnboardingResumePage() {
       router.replace('/login');
       return;
     }
-    if (status === 'under_review' || status === 'submitted') {
+    if (['submitted', 'under_review', 'compliance_review', 'admin_approval'].includes(status)) {
       router.replace('/pending-approval');
+      return;
+    }
+    if (status === 'rejected') {
+      router.replace('/forbidden?reason=onboarding-rejected');
       return;
     }
     if (payload.resumeAllowed === false || payload.invitationRevoked) {
@@ -107,8 +111,9 @@ export default function OnboardingResumePage() {
       setRevoked(false);
       setMessage('A new secure onboarding invitation has been issued. Opening your application…');
       window.setTimeout(() => {
-        if (payload.accountType ?? accountType) {
-          router.replace(routeByAccountType[(payload.accountType ?? accountType)!]);
+        const resolvedAccountType = payload.accountType ?? accountType;
+        if (resolvedAccountType) {
+          router.replace(routeByAccountType[resolvedAccountType]);
         }
       }, 700);
     } catch (reason) {
