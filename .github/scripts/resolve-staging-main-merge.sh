@@ -47,6 +47,7 @@ allowed=(
   'app/api/driver/mobile/_lib.ts'
   'app/api/driver/mobile/jobs/[id]/[action]/route.ts'
   'app/api/jobs/create/route.ts'
+  'app/api/onboarding/init/route.ts'
   'app/components/OnboardingAccessGuard.tsx'
   'app/onboarding/resume/page.tsx'
   'app/register/page.tsx'
@@ -67,6 +68,7 @@ is_unmerged() {
 ours=(
   'app/api/_lib/onboarding.ts'
   'app/api/driver/mobile/_lib.ts'
+  'app/api/onboarding/init/route.ts'
   'app/onboarding/resume/page.tsx'
   'app/register/page.tsx'
   'supabase/functions/notify-operational-event/index.ts'
