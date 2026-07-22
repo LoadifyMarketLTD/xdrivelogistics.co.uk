@@ -3,17 +3,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-);
-
 interface RegistrationResult {
   success: boolean;
   error?: string;
@@ -58,6 +47,13 @@ export async function registerValidatedCompany(
       console.error('Company registration server configuration is incomplete.');
       return { success: false, error: 'Configurație server invalidă. Contactați asistența.' };
     }
+
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
 
     const accessToken = sessionAccessToken?.trim();
     if (!accessToken) {
