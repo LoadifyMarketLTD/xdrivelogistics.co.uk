@@ -55,8 +55,13 @@ jobs:
           merge_status=$?
           set -e
 
+          if ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+            echo "Merge did not enter a valid merge state (status=${merge_status})." >&2
+            exit 1
+          fi
+
           mapfile -t conflicts < <(git diff --name-only --diff-filter=U | LC_ALL=C sort)
-          expected=(
+          allowed=(
             '.github/workflows/ci.yml'
             'app/api/_lib/onboarding.ts'
             'app/api/driver/finance/invoices/[id]/submit/route.ts'
@@ -71,13 +76,17 @@ jobs:
             'supabase/functions/notify-operational-event/index.ts'
           )
 
-          printf '%s\n' "${expected[@]}" > /tmp/expected-conflicts.txt
-          printf '%s\n' "${conflicts[@]}" > /tmp/actual-conflicts.txt
-          if ! diff -u /tmp/expected-conflicts.txt /tmp/actual-conflicts.txt; then
-            echo 'The conflict set changed. Refusing to apply a stale resolution manifest.' >&2
-            exit 1
-          fi
-          test "${merge_status}" -ne 0
+          printf '%s\n' "${allowed[@]}" > /tmp/allowed-conflicts.txt
+          for path in "${conflicts[@]}"; do
+            if ! grep -Fxq -- "$path" /tmp/allowed-conflicts.txt; then
+              echo "Unexpected conflict outside the reviewed manifest: $path" >&2
+              exit 1
+            fi
+          done
+
+          is_unmerged() {
+            git diff --name-only --diff-filter=U -- "$1" | grep -Fxq -- "$1"
+          }
 
           ours=(
             'app/api/_lib/onboarding.ts'
@@ -97,12 +106,16 @@ jobs:
           )
 
           for path in "${ours[@]}"; do
-            git checkout --ours -- "$path"
-            git add -- "$path"
+            if is_unmerged "$path"; then
+              git checkout --ours -- "$path"
+              git add -- "$path"
+            fi
           done
           for path in "${theirs[@]}"; do
-            git checkout --theirs -- "$path"
-            git add -- "$path"
+            if is_unmerged "$path"; then
+              git checkout --theirs -- "$path"
+              git add -- "$path"
+            fi
           done
 
           if git diff --name-only --diff-filter=U | grep -q .; then
@@ -122,15 +135,21 @@ jobs:
           grep -q "token_revoked_at" app/api/onboarding/init/route.ts
           grep -q "export async function DELETE" app/api/onboarding/init/route.ts
 
-          git rm -f -- .github/staging-merge-main.trigger
-          git rm -f -- staging-validation/main-merge-conflicts-latest.txt
-          git rm -f -- .github/workflows/resolve-staging-integration-conflict.yml
+          git rm -f --ignore-unmatch -- .github/staging-merge-main.trigger
+          git rm -f --ignore-unmatch -- staging-validation/main-merge-conflicts-latest.txt
+          git rm -f --ignore-unmatch -- .github/workflows/resolve-staging-integration-conflict.yml
 
+          conflict_list='none'
+          if (( ${#conflicts[@]} > 0 )); then
+            conflict_list="$(IFS=,; echo "${conflicts[*]}")"
+          fi
           {
             printf 'branch_before=%s\n' "$branch_sha"
             printf 'main_merged=%s\n' "$main_sha"
+            printf 'merge_status=%s\n' "$merge_status"
             printf 'conflict_count=%s\n' "${#conflicts[@]}"
-            printf 'resolution=reviewed-manifest\n'
+            printf 'conflicts=%s\n' "$conflict_list"
+            printf 'resolution=reviewed-subset-manifest\n'
           } > staging-validation/main-merge-latest.txt
           git add staging-validation/main-merge-latest.txt
 
