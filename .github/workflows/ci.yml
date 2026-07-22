@@ -81,8 +81,8 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run public and auth-redirect smoke tests
-        run: npx playwright test e2e/public.spec.ts --project=chromium
+      - name: Run stable public smoke tests
+        run: npx playwright test e2e/ci-public-smoke.spec.ts --project=chromium
 
   expo-driver-typecheck:
     name: Expo Driver Typecheck

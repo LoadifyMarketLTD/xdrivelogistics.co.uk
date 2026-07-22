@@ -1,0 +1,98 @@
+name: Validate Job Creation Idempotency
+
+on:
+  pull_request:
+    paths:
+      - "app/api/jobs/create/route.ts"
+      - "app/components/workspace/LoadPostingForm.tsx"
+      - "supabase/migrations/20260721000500_job_creation_idempotency.sql"
+      - ".github/workflows/validate-job-creation-idempotency.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  job-idempotency:
+    name: Apply migration twice and reject duplicate job creation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: xdrive_job_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d xdrive_job_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: xdrive_job_test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create jobs fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE EXTENSION IF NOT EXISTS pgcrypto;
+          CREATE TABLE public.jobs (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            company_id uuid NOT NULL
+          );
+          SQL
+
+      - name: Apply migration twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260721000500_job_creation_idempotency.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260721000500_job_creation_idempotency.sql
+
+      - name: Verify retry semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE
+            company_a uuid := gen_random_uuid();
+            company_b uuid := gen_random_uuid();
+            retry_key text := gen_random_uuid()::text;
+          BEGIN
+            INSERT INTO public.jobs (company_id, creation_idempotency_key)
+            VALUES (company_a, retry_key);
+
+            BEGIN
+              INSERT INTO public.jobs (company_id, creation_idempotency_key)
+              VALUES (company_a, retry_key);
+              RAISE EXCEPTION 'Duplicate request in the same company was accepted.';
+            EXCEPTION
+              WHEN unique_violation THEN NULL;
+            END;
+
+            INSERT INTO public.jobs (company_id, creation_idempotency_key)
+            VALUES (company_b, retry_key);
+
+            INSERT INTO public.jobs (company_id, creation_idempotency_key)
+            VALUES (company_a, NULL), (company_a, NULL);
+
+            IF (SELECT count(*) FROM public.jobs) <> 4 THEN
+              RAISE EXCEPTION 'Unexpected job count after retry tests.';
+            END IF;
+          END;
+          $$;
+          SQL

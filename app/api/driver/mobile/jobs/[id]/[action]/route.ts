@@ -129,19 +129,40 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .single();
 
   if (updateError) return respond(500, { error: updateError.message });
-  try {
-    await insertTrackingEvent(id, driver.userId, config.eventType, config.label);
-  } catch (error) {
-    return respond(500, { error: error instanceof Error ? error.message : 'Failed to record tracking event.' });
-  }
+  await insertTrackingEvent(id, driver.userId, config.eventType, config.label);
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }
 
-const persistentPodPath = (jobId: string, value: unknown): value is string => {
+const persistentPodPath = (
+  jobId: string,
+  kind: 'photos' | 'documents',
+  value: unknown
+): value is string => {
   if (typeof value !== 'string') return false;
   const path = value.trim();
-  return path.length > 0 && !path.includes('://') && path.startsWith(`${jobId}/`);
+  return (
+    path.length > 0 &&
+    path.length <= 1024 &&
+    path.startsWith(`${jobId}/${kind}/`) &&
+    !path.includes('://') &&
+    !path.includes('..') &&
+    !path.includes('\\') &&
+    !path.startsWith('/')
+  );
+};
+
+const storageObjectExists = async (path: string) => {
+  const segments = path.split('/');
+  const fileName = segments.pop();
+  const folder = segments.join('/');
+  if (!fileName || !folder) return false;
+
+  const { data, error } = await supabaseAdmin!.storage
+    .from('pod-docs')
+    .list(folder, { limit: 100, search: fileName });
+  if (error) throw new Error(error.message);
+  return (data ?? []).some((entry) => entry.name === fileName);
 };
 
 async function savePod(request: NextRequest, jobId: string, userId: string, driverId: string) {
@@ -165,31 +186,67 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   const job = existing as unknown as MobileJobRow;
   const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() : '';
   const rawSignature = typeof body.signatureData === 'string' ? body.signatureData.trim() : '';
-  const photoPaths = safeArray(body.photoUris).filter((value) => persistentPodPath(jobId, value));
-  const documentPaths = safeArray(body.documentUris).filter((value) => persistentPodPath(jobId, value));
+  const rawPhotoUris = safeArray(body.photoUris);
+  const rawDocumentUris = safeArray(body.documentUris);
 
-  const suppliedEvidenceCount = safeArray(body.photoUris).length + safeArray(body.documentUris).length;
-  if (photoPaths.length + documentPaths.length !== suppliedEvidenceCount) {
+  if (!recipientName) return respond(400, { error: 'Recipient name is required for POD.' });
+  if (recipientName.length > 200) return respond(400, { error: 'Recipient name is too long.' });
+  if (rawPhotoUris.length > 10 || rawDocumentUris.length > 10) {
+    return respond(400, { error: 'A maximum of 10 POD photos and 10 documents is allowed.' });
+  }
+  if (rawSignature && !/^data:image\/(png|jpeg);base64,/i.test(rawSignature)) {
+    return respond(400, { error: 'Recipient signature format is invalid.' });
+  }
+  if (rawSignature.length > 2_500_000) {
+    return respond(413, { error: 'Recipient signature is too large.' });
+  }
+
+  const photoPaths = rawPhotoUris.filter((value) => persistentPodPath(jobId, 'photos', value));
+  const documentPaths = rawDocumentUris.filter((value) => persistentPodPath(jobId, 'documents', value));
+  if (photoPaths.length !== rawPhotoUris.length || documentPaths.length !== rawDocumentUris.length) {
     return respond(400, { error: 'POD files must be uploaded to XDrive storage before submission.' });
   }
-  if (!recipientName) return respond(400, { error: 'Recipient name is required for POD.' });
-  if (!rawSignature) return respond(400, { error: 'Recipient signature is required for POD.' });
-  if (photoPaths.length + documentPaths.length === 0) {
-    return respond(400, { error: 'At least one POD photo or document is required.' });
+  if (!rawSignature && photoPaths.length + documentPaths.length === 0) {
+    return respond(400, { error: 'A recipient signature, POD photo or POD document is required.' });
+  }
+
+  try {
+    const existenceChecks = await Promise.all(
+      [...photoPaths, ...documentPaths].map((path) => storageObjectExists(path))
+    );
+    if (existenceChecks.some((exists) => !exists)) {
+      return respond(400, { error: 'One or more POD files could not be found in XDrive storage.' });
+    }
+  } catch (reason) {
+    return respond(503, {
+      error: reason instanceof Error
+        ? `POD storage could not be verified: ${reason.message}`
+        : 'POD storage could not be verified.',
+    });
   }
 
   const now = new Date().toISOString();
   const existingPhotos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
   const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
+  const signatureData = rawSignature
+    ? {
+        type: 'driver_mobile_signature',
+        value: rawSignature,
+        captured_at: now,
+        captured_by: userId,
+      }
+    : job.delivery_signature_data ?? null;
 
   const { data: updated, error: updateError } = await supabaseAdmin!
     .from('jobs')
     .update({
       delivery_photos: [...existingPhotos, ...photoPaths],
       pod_photos: [...existingDocuments, ...documentPaths],
-      delivery_signature_data: rawSignature,
+      delivery_signature_data: signatureData,
       client_signature_name: recipientName,
-      delivery_notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null,
+      delivery_notes: typeof body.notes === 'string' && body.notes.trim()
+        ? body.notes.trim().slice(0, 5000)
+        : null,
       pod_generated: true,
       pod_generated_at: now,
       updated_at: now,
@@ -200,11 +257,7 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     .single();
 
   if (updateError) return respond(500, { error: updateError.message });
-  try {
-    await insertTrackingEvent(jobId, userId, 'note', 'POD evidence uploaded');
-  } catch (error) {
-    return respond(500, { error: error instanceof Error ? error.message : 'Failed to record POD tracking event.' });
-  }
+  await insertTrackingEvent(jobId, userId, 'note', 'Persistent POD evidence uploaded');
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }
