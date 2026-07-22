@@ -1,26 +1,27 @@
 {
   "expo": {
-    "name": "XDrive Driver",
-    "slug": "xdrive-driver",
-    "version": "1.0.0",
+    "name": "XDrive Driver Preview",
+    "slug": "xdrive-driver-preview",
+    "version": "1.1.0-preview.1",
     "orientation": "portrait",
     "newArchEnabled": false,
     "icon": "./assets/xdrive-native-logo.jpeg",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "co.uk.xdrivelogistics.driver.preview"
     },
     "android": {
-      "package": "co.uk.xdrivelogistics.driver",
-      "versionCode": 1,
+      "package": "co.uk.xdrivelogistics.driver.preview",
+      "versionCode": 2,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "CAMERA",
+        "POST_NOTIFICATIONS"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#000000",
+        "backgroundColor": "#0B2F6B",
         "foregroundImage": "./assets/xdrive-native-logo.jpeg"
       },
       "predictiveBackGestureEnabled": false
@@ -30,6 +31,7 @@
     },
     "owner": "xdrive-logistics-ltd",
     "extra": {
+      "releaseChannel": "preview",
       "eas": {
         "projectId": "c19b0bdf-567a-488e-b78f-d36b84f25c99"
       }

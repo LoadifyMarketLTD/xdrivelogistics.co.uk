@@ -58,21 +58,57 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: 'Invalid session.' });
 
-  const { data: driverRow, error: driverError } = await supabaseAdmin
-    .from('drivers')
-    .select('id, company_id, user_id, app_access, status')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
+  const [{ data: driverRow, error: driverError }, { data: profileRow, error: profileError }] = await Promise.all([
+    supabaseAdmin
+      .from('drivers')
+      .select('id, company_id, user_id, app_access, status')
+      .eq('user_id', authData.user.id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('profiles')
+      .select('status')
+      .eq('user_id', authData.user.id)
+      .maybeSingle(),
+  ]);
 
   if (driverError) return respond(500, { error: driverError.message });
+  if (profileError) return respond(500, { error: profileError.message });
+  if (!profileRow) return respond(403, { error: 'Driver profile not found.' });
+
+  const profileStatus = String(profileRow.status ?? '').trim().toLowerCase();
+  if (profileStatus !== 'active') {
+    return respond(403, { error: 'Driver profile is not active.' });
+  }
+
   if (!driverRow) return respond(403, { error: 'Driver record not found.' });
-  if ((driverRow as { app_access?: boolean }).app_access === false) return respond(403, { error: 'Driver app access is disabled.' });
-  if (String((driverRow as { status?: string | null }).status ?? '').toLowerCase() !== 'active') return respond(403, { error: 'Driver account is not active.' });
+  if (driverRow.app_access !== true) {
+    return respond(403, { error: 'Driver app access has not been approved.' });
+  }
+
+  const driverStatus = String(driverRow.status ?? '').trim().toLowerCase();
+  if (driverStatus !== 'active') {
+    return respond(403, { error: 'Driver account is not active.' });
+  }
+
+  const companyId = typeof driverRow.company_id === 'string' ? driverRow.company_id.trim() : '';
+  if (!companyId) {
+    return respond(403, { error: 'Driver is not linked to an active company workspace.' });
+  }
+
+  const { data: companyRow, error: companyError } = await supabaseAdmin
+    .from('companies')
+    .select('status')
+    .eq('id', companyId)
+    .maybeSingle();
+  if (companyError) return respond(500, { error: companyError.message });
+  if (!companyRow || String(companyRow.status ?? '').trim().toLowerCase() !== 'active') {
+    return respond(403, { error: 'Driver company workspace is not active.' });
+  }
 
   return {
     userId: authData.user.id,
-    driverId: String((driverRow as { id: string }).id),
-    companyId: String((driverRow as { company_id: string }).company_id),
+    driverId: String(driverRow.id),
+    companyId,
   };
 }
 

@@ -140,14 +140,15 @@ export function DriverAvailabilityPage() {
 
 export function FleetPositionsPage() {
   const data = useCompanyWorkspaceData();
+  const locations = data.locations;
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const latest = useMemo(() => {
-    const map = new Map<string, (typeof data.locations)[number]>();
-    for (const location of data.locations) {
+    const map = new Map<string, (typeof locations)[number]>();
+    for (const location of locations) {
       if (!map.has(location.driver_id)) map.set(location.driver_id, location);
     }
     return map;
-  }, [data.locations]);
+  }, [locations]);
 
   const points = useMemo<FleetMapPoint[]>(
     () =>
