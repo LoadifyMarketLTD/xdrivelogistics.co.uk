@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import PodDocumentsPage from '../components/workspace/PodDocumentsPage';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, DataTable, EmptyState, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, StatusBadge } from '../components/workspace/WorkspaceUI';
-import { currentStatus, invoiceStatus, isInvoiceOverdue, lifecycleLabel, money, routeLabel, when } from './BrokerDashboardView';
+import { currentStatus, invoiceStatus, isInvoiceOverdue, lifecycleLabel, money, routeLabel } from './BrokerDashboardView';
 
 export function BrokerPodPage(){return <PodDocumentsPage mode="broker"/>}
 
