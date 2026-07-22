@@ -1,7 +1,7 @@
 'use client';
 
-import { FleetMaintenancePage } from '../../AdminWorkspaceModules';
+import { FleetVehiclesView } from '../FleetWorkspaceViews';
 
 export default function Page() {
-  return <FleetMaintenancePage />;
+  return <FleetVehiclesView />;
 }
