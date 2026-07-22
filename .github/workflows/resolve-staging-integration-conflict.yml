@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: agent/staging-integration-sync-main
-          fetch-depth: 0
+          fetch-depth: 1
           show-progress: false
 
       - name: Merge main and resolve the reviewed conflict set
@@ -60,7 +60,9 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git fetch --quiet --no-tags origin main
+          git fetch --quiet --no-tags --depth=1000 origin \
+            +refs/heads/agent/staging-integration-sync-main:refs/remotes/origin/agent/staging-integration-sync-main \
+            +refs/heads/main:refs/remotes/origin/main
 
           branch_sha="$(git rev-parse HEAD)"
           main_sha="$(git rev-parse origin/main)"
