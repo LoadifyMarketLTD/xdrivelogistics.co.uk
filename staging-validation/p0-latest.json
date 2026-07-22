@@ -1,12 +1,25 @@
 {
-  "result": "failure",
-  "source_sha": "7222572a8228d65858aa0053f09f79d2110b94ac",
-  "run_id": "29902154073",
-  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29902154073",
+  "result": "success",
+  "source_sha": "7adde6dbca4784fa5d164f9d4a64f6063da28d05",
+  "run_id": "29902391531",
+  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29902391531",
   "branch": "agent/staging-integration",
   "project_ref": "svfjlhljuizckzabtewx",
   "verified_migration_count": "204",
-  "required_migrations": [],
+  "required_migrations": [
+    "20260721132500_onboarding_invitation_controls.sql",
+    "20260721134000_owner_driver_compliance_runtime_guard.sql",
+    "20260721141000_reconcile_onboarding_invitation_schema.sql",
+    "20260721143000_notification_claim_retry_idempotency.sql",
+    "20260721143500_notification_vault_configuration_rpc.sql",
+    "20260721144500_deduplicate_onboarding_documents.sql",
+    "20260721145000_notification_manual_dispatch_guard.sql",
+    "20260721150000_fleet_driver_invitation_compliance.sql",
+    "20260721150500_unique_company_driver_identity.sql",
+    "20260721151000_fleet_driver_invitation_atomic_review.sql",
+    "20260721151500_legacy_driver_invite_bridge.sql",
+    "20260721152000_driver_company_user_constraint.sql"
+  ],
   "production_targeted": false,
-  "recorded_at": "2026-07-22T07:58:22.646019+00:00"
+  "recorded_at": "2026-07-22T08:02:25.165079+00:00"
 }
