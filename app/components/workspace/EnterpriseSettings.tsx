@@ -22,14 +22,22 @@ const accountItems = (role: WorkspaceRole): SettingsItem[] => {
   ];
 };
 
-const operationsItems = (_role: WorkspaceRole): SettingsItem[] => [];
+const operationsItems = (role: WorkspaceRole): SettingsItem[] => {
+  const driver = role === 'driver' || role === 'owner_driver';
+  return [
+    { id: 'members', label: 'Members / Team', description: 'Company membership and permissions', href: role === 'customer' ? '/customer/team' : role === 'broker' ? '/broker/settings?section=members' : '/admin/dispatchers', capability: 'company.members.manage' },
+    { id: 'drivers', label: 'Drivers', description: 'Driver identity, contact and availability', href: driver ? '/driver/profile' : '/admin/drivers', capability: driver ? undefined : 'drivers.manage', roles: driver ? ['driver', 'owner_driver'] : undefined },
+    { id: 'vehicles', label: 'Vehicles', description: 'Vehicle identity and operational records', href: driver ? '/driver/vehicles' : '/admin/vehicles', capability: 'vehicles.manage' },
+  ];
+};
+
 const complianceCommercialItems = (_role: WorkspaceRole): SettingsItem[] => [];
 const preferenceItems = (_role: WorkspaceRole): SettingsItem[] => [];
 
 export const getEnterpriseSettingsGroups = (role: WorkspaceRole): SettingsGroup[] => {
   const groups: SettingsGroup[] = [
     { id: 'account', label: 'Account', items: accountItems(role) },
-    { id: 'operations', label: 'Operations', items: operationsItems(role) },
+    { id: 'operations', label: 'People & vehicles', items: operationsItems(role) },
     { id: 'commercial', label: 'Compliance & billing', items: complianceCommercialItems(role) },
     { id: 'preferences', label: 'Preferences', items: preferenceItems(role) },
   ];
@@ -38,7 +46,6 @@ export const getEnterpriseSettingsGroups = (role: WorkspaceRole): SettingsGroup[
 
 const baseHref = (href: string) => href.split('?')[0];
 const routeMatches = (pathname: string, href: string) => pathname === baseHref(href) || pathname.startsWith(`${baseHref(href)}/`);
-
 export const isEnterpriseSettingsRoute = (pathname: string, role: WorkspaceRole) => getEnterpriseSettingsGroups(role).some((group) => group.items.some((item) => routeMatches(pathname, item.href)));
 
 export function SettingsPageHeader({ title, description, actions, status }: { title: string; description?: string; actions?: ReactNode; status?: ReactNode }) {
@@ -72,10 +79,7 @@ export function EnterpriseSettingsBoundary({ children }: { children: ReactNode }
   return <SettingsLayout>{children}</SettingsLayout>;
 }
 
-export function SettingsSection({ title, description, actions, children }: { title: string; description?: string; actions?: ReactNode; children: ReactNode }) {
-  return <section style={{ background: '#fff', border: `1px solid ${theme.border}`, borderRadius: 9, overflow: 'hidden', marginBottom: '0.72rem' }}><div style={{ padding: '0.7rem 0.8rem', borderBottom: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', gap: '0.6rem', flexWrap: 'wrap' }}><div><h2 style={{ margin: 0, fontSize: '0.87rem', color: theme.text }}>{title}</h2>{description && <p style={{ margin: '0.18rem 0 0', color: theme.muted, fontSize: '0.67rem', lineHeight: 1.42 }}>{description}</p>}</div>{actions}</div><div style={{ padding: '0.8rem' }}>{children}</div></section>;
-}
-
+export function SettingsSection({ title, description, actions, children }: { title: string; description?: string; actions?: ReactNode; children: ReactNode }) { return <section style={{ background: '#fff', border: `1px solid ${theme.border}`, borderRadius: 9, overflow: 'hidden', marginBottom: '0.72rem' }}><div style={{ padding: '0.7rem 0.8rem', borderBottom: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', gap: '0.6rem', flexWrap: 'wrap' }}><div><h2 style={{ margin: 0, fontSize: '0.87rem', color: theme.text }}>{title}</h2>{description && <p style={{ margin: '0.18rem 0 0', color: theme.muted, fontSize: '0.67rem', lineHeight: 1.42 }}>{description}</p>}</div>{actions}</div><div style={{ padding: '0.8rem' }}>{children}</div></section>; }
 export function SettingsFormGrid({ children, columns = 2 }: { children: ReactNode; columns?: 1 | 2 | 3 }) { return <div className="xdrive-settings-form-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${columns},minmax(0,1fr))`, gap: '0.7rem' }}>{children}<style jsx>{`@media(max-width:720px){.xdrive-settings-form-grid{grid-template-columns:1fr!important}}`}</style></div>; }
 export function SettingsFieldGroup({ label, hint, error, children, fullWidth }: { label: string; hint?: string; error?: string; children: ReactNode; fullWidth?: boolean }) { return <label style={{ display: 'grid', gap: '0.27rem', gridColumn: fullWidth ? '1/-1' : undefined, color: theme.text, fontSize: '0.69rem', fontWeight: 800 }}><span>{label}</span>{children}{hint && <small style={{ color: theme.muted, fontSize: '0.6rem', fontWeight: 500 }}>{hint}</small>}{error && <small style={{ color: theme.red, fontSize: '0.61rem' }}>{error}</small>}</label>; }
 export const settingsInputStyle: CSSProperties = { width: '100%', border: `1px solid ${theme.borderStrong}`, borderRadius: 8, padding: '0.57rem 0.64rem', minHeight: 38, fontSize: '0.75rem', color: theme.text, background: '#fff', outlineColor: theme.blue };
