@@ -1,17 +1,14 @@
 name: Inspect staging integration conflicts
 
 on:
-  pull_request_target:
-    types:
-      - opened
-      - reopened
-      - synchronize
+  push:
     branches:
       - agent/staging-integration
+    paths:
+      - .github/staging-merge-main.trigger
 
 permissions:
   contents: write
-  pull-requests: read
 
 concurrency:
   group: inspect-staging-integration-conflicts
@@ -20,16 +17,11 @@ concurrency:
 jobs:
   inspect-conflicts:
     name: Record exact main merge conflicts
-    if: >-
-      github.event.pull_request.number == 271 &&
-      github.event.pull_request.head.ref == 'main' &&
-      github.event.pull_request.base.ref == 'agent/staging-integration' &&
-      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
-      - name: Checkout trusted integration branch
+      - name: Checkout exact integration branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: agent/staging-integration
@@ -41,12 +33,14 @@ jobs:
           set -euo pipefail
 
           test "${GITHUB_REPOSITORY}" = 'LoadifyMarketLTD/xdrivelogistics.co.uk'
-          test "${{ github.event.pull_request.head.ref }}" = 'main'
-          test "${{ github.event.pull_request.base.ref }}" = 'agent/staging-integration'
+          test "${GITHUB_REF_NAME}" = 'agent/staging-integration'
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch --no-tags origin main
+
+          base_sha="$(git rev-parse HEAD)"
+          main_sha="$(git rev-parse origin/main)"
 
           set +e
           git merge --no-ff --no-commit origin/main
@@ -55,12 +49,11 @@ jobs:
 
           mapfile -t conflicts < <(git diff --name-only --diff-filter=U | LC_ALL=C sort)
 
-          mkdir -p staging-validation
           {
             printf 'merge_status=%s\n' "${merge_status}"
             printf 'base_branch=agent/staging-integration\n'
-            printf 'base_sha=%s\n' "$(git rev-parse HEAD)"
-            printf 'main_sha=%s\n' "$(git rev-parse origin/main)"
+            printf 'base_sha=%s\n' "${base_sha}"
+            printf 'main_sha=%s\n' "${main_sha}"
             printf 'conflict_count=%s\n' "${#conflicts[@]}"
             printf '%s\n' 'conflicts:'
             if (( ${#conflicts[@]} == 0 )); then
@@ -68,7 +61,7 @@ jobs:
             else
               printf '  %s\n' "${conflicts[@]}"
             fi
-          } > staging-validation/main-merge-conflicts-latest.txt
+          } > /tmp/main-merge-conflicts-latest.txt
 
           if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             git merge --abort
@@ -76,7 +69,10 @@ jobs:
             git reset --hard HEAD
           fi
 
+          mkdir -p staging-validation
+          cp /tmp/main-merge-conflicts-latest.txt staging-validation/main-merge-conflicts-latest.txt
           git add staging-validation/main-merge-conflicts-latest.txt
+
           if git diff --cached --quiet; then
             echo 'Conflict report is unchanged.'
             exit 0
