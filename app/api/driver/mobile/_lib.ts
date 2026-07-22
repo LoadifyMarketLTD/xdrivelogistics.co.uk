@@ -246,7 +246,8 @@ export async function insertTrackingEvent(jobId: string, userId: string, eventTy
     job_id: jobId,
     event_type: eventType,
     created_by: userId,
-    note: message,
+    message,
+    meta: { source: 'driver_mobile' },
   });
 
   if (error) throw new Error(`Failed to record tracking event: ${error.message}`);
