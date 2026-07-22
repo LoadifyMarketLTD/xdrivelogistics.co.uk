@@ -96,7 +96,17 @@ jobs:
           }
           missing = sorted(required - sources)
           assert not missing, f'Required P0 migrations missing: {missing}'
-          assert manifest['excluded_count'] == 1
+
+          excluded_sources = {item['source'] for item in manifest['excluded']}
+          expected_excluded_sources = {
+              '068_targeted_data_repair_current_accounts.sql',
+              '20260721221000_reconcile_confirmed_current_accounts.sql',
+          }
+          assert manifest['excluded_count'] == len(expected_excluded_sources)
+          assert excluded_sources == expected_excluded_sources, (
+              f'Unexpected excluded migrations: {sorted(excluded_sources)}'
+          )
+
           Path('.p0-staging-validation/required-migrations.json').write_text(
               json.dumps(sorted(required), indent=2) + '\n', encoding='utf-8'
           )
