@@ -3,6 +3,7 @@
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../components/AuthContext';
 import { resolveWorkspaceRole } from '../../lib/workspaceRole';
+import { resolveAdminDashboardKind } from '../../lib/adminWorkspaceRole';
 import AdminWorkspaceView from './AdminWorkspaceView';
 import {
   CarrierDashboard,
@@ -14,15 +15,12 @@ import {
 function CompanyWorkspaceRoleDashboard() {
   const { user } = useAuth();
   const role = resolveWorkspaceRole(user);
+  const dashboard = resolveAdminDashboardKind(role, Boolean(user?.companyId));
 
-  if (role === 'fleet_manager') return <FleetDashboard />;
-  if (role === 'finance') return <FinanceDashboard />;
-  if (role === 'compliance') return <ComplianceDashboard />;
-  if (['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'].includes(role)) {
-    if (role === 'platform_owner' && !user?.companyId) return <CarrierDashboard />;
-    return <AdminWorkspaceView />;
-  }
-
+  if (dashboard === 'fleet') return <FleetDashboard />;
+  if (dashboard === 'finance') return <FinanceDashboard />;
+  if (dashboard === 'compliance') return <ComplianceDashboard />;
+  if (dashboard === 'admin') return <AdminWorkspaceView />;
   return <CarrierDashboard />;
 }
 
