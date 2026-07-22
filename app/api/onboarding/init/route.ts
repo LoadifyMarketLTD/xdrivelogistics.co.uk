@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
       code: 'missing_or_unsupported_account_type',
     });
   }
+  const resolvedAccountType = accountType;
 
   const normalizedExistingStatus = normalizeOnboardingStatus(existing?.status);
   const now = new Date();
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
   const row: Record<string, unknown> = {
     user_id: authUser.id,
     email: authUser.email ?? 'unknown@xdrive.local',
-    account_type: accountType,
+    account_type: resolvedAccountType,
     status: normalizedExistingStatus,
     last_activity_at: now.toISOString(),
   };
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
     const ttlHours = await resolveOnboardingTokenTtlHours(supabaseAdmin);
     const onboardingToken = generateOnboardingToken();
     const expiresAt = new Date(now.getTime() + ttlHours * 60 * 60 * 1000).toISOString();
-    invitationUrl = buildOnboardingUrl(onboardingToken, accountType);
+    invitationUrl = buildOnboardingUrl(onboardingToken, resolvedAccountType);
     row.token_hash = hashOnboardingToken(onboardingToken);
     row.token_expires_at = expiresAt;
     row.token_activated_at = null;
