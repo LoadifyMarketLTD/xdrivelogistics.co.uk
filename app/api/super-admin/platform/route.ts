@@ -1,23 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { requirePlatformOwner } from '../../_lib/platformAuth';
+import { supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { getEffectiveJobStatus, getInvoiceState, isActiveExecutionStatus } from '../../../../lib/workspaceClassifiers';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
 
 type NotificationEventRow = {
   id: string;
@@ -30,92 +16,75 @@ type NotificationEventRow = {
   processed_at: string | null;
 };
 
-const getNotificationTitle = (eventType: string) => {
+const notificationTitle = (eventType: string) => {
   switch (eventType) {
-    case 'job_assigned':
-      return 'Job assigned';
-    case 'bid_accepted':
-      return 'Bid accepted';
-    case 'pod_uploaded':
-      return 'POD uploaded';
-    default:
-      return 'Notification event';
+    case 'job_assigned': return 'Job assigned';
+    case 'bid_accepted': return 'Bid accepted';
+    case 'pod_uploaded': return 'POD uploaded';
+    case 'invoice_created': return 'Invoice created';
+    case 'invoice_overdue': return 'Invoice overdue';
+    default: return eventType.replace(/_/g, ' ');
   }
 };
 
-const getNotificationMessage = (row: NotificationEventRow) => {
+const safeNotificationMessage = (row: NotificationEventRow) => {
   const payload = row.payload ?? {};
   const pickup = typeof payload.pickup_location === 'string' ? payload.pickup_location : null;
   const delivery = typeof payload.delivery_location === 'string' ? payload.delivery_location : null;
-
   switch (row.event_type) {
     case 'job_assigned':
-      return `${pickup ?? 'TBC'} → ${delivery ?? 'TBC'}`;
-    case 'bid_accepted': {
-      const amountCandidates = [payload.bid_price_gbp, payload.amount, payload.bid_amount];
-      const numericAmount = amountCandidates.find((value) => typeof value === 'number');
-      return typeof numericAmount === 'number'
-        ? `Accepted amount: £${numericAmount.toFixed(2)}`
-        : 'A carrier bid has been accepted.';
-    }
+      return `${pickup ?? 'Collection TBC'} → ${delivery ?? 'Delivery TBC'}`;
+    case 'bid_accepted':
+      return 'A carrier bid has been accepted.';
     case 'pod_uploaded':
-      return `${pickup ?? 'Pickup'} → ${delivery ?? 'Delivery'} marked delivered.`;
+      return 'Proof of delivery was uploaded.';
+    case 'invoice_created':
+      return 'An invoice was created.';
+    case 'invoice_overdue':
+      return 'An invoice passed its recorded due date.';
     default:
-      return `Entity ${row.entity_id}`;
+      return 'Persisted platform event.';
   }
 };
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const access = await requirePlatformOwner(request);
+  if (!access.ok) return respond(access.failure.status, { error: access.failure.error });
+  if (!supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
 
   const { searchParams } = new URL(request.url);
   const section = (searchParams.get('section') ?? '').toLowerCase();
 
-  // ── Analytics ─────────────────────────────────────────────────────────────────
   if (section === 'analytics') {
-    const [
-      companies,
-      companiesActive,
-      drivers,
-      jobs,
-      jobsDelivered,
-      jobsOpen,
-      invoices,
-      invoicesPaid,
-      quotes,
-      bids,
-    ] = await Promise.all([
+    const [companies, companiesActive, drivers, jobs, invoices, quotes, bids] = await Promise.all([
       supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }),
       supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
       supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
-      supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }),
-      supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered'),
-      supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).in('status', ['posted', 'allocated', 'in_transit']),
-      supabaseAdmin.from('invoices').select('id, amount, payment_status').limit(2000),
-      supabaseAdmin.from('invoices').select('id, amount').eq('payment_status', 'paid').limit(2000),
+      supabaseAdmin.from('jobs').select('id, status, current_status, created_at').limit(5000),
+      supabaseAdmin.from('invoices').select('id, amount, status, payment_status, due_date').limit(5000),
       supabaseAdmin.from('quotes').select('id', { count: 'exact', head: true }),
       supabaseAdmin.from('job_bids').select('id', { count: 'exact', head: true }),
     ]);
 
-    const totalInvoiced = (invoices.data ?? []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
-    const totalRevenue = (invoicesPaid.data ?? []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const requiredResults = [companies, companiesActive, drivers, jobs, invoices, quotes, bids];
+    const failed = requiredResults.find((result) => result.error);
+    if (failed?.error) return respond(500, { error: failed.error.message, degraded: true });
 
-    // Jobs trend: last 30 days grouped by week
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
-    const { data: recentJobs } = await supabaseAdmin
-      .from('jobs')
-      .select('id, status, created_at')
-      .gte('created_at', thirtyDaysAgo)
-      .order('created_at', { ascending: true });
+    const jobRows = jobs.data ?? [];
+    const deliveredJobs = jobRows.filter((job) => ['delivered', 'completed', 'invoiced', 'paid'].includes(getEffectiveJobStatus(job))).length;
+    const activeJobs = jobRows.filter((job) => isActiveExecutionStatus(getEffectiveJobStatus(job))).length;
+    const invoiceRows = invoices.data ?? [];
+    const totalInvoiced = invoiceRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    const paidRevenue = invoiceRows.filter((row) => getInvoiceState(row).paid).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    const overdueInvoices = invoiceRows.filter((row) => getInvoiceState(row).overdue).length;
 
+    const thirtyDaysAgo = Date.now() - 30 * 86_400_000;
     const weeklyJobs: Record<string, number> = {};
-    for (const job of (recentJobs ?? [])) {
-      const week = `W${Math.ceil(new Date(job.created_at as string).getDate() / 7)} ${new Date(job.created_at as string).toLocaleString('en-GB', { month: 'short' })}`;
+    for (const job of jobRows) {
+      const createdAt = new Date(String(job.created_at ?? '')).getTime();
+      if (!Number.isFinite(createdAt) || createdAt < thirtyDaysAgo) continue;
+      const date = new Date(createdAt);
+      const week = `W${Math.ceil(date.getDate() / 7)} ${date.toLocaleString('en-GB', { month: 'short' })}`;
       weeklyJobs[week] = (weeklyJobs[week] ?? 0) + 1;
     }
 
@@ -125,46 +94,48 @@ export async function GET(request: NextRequest) {
         totalCompanies: companies.count ?? 0,
         activeCompanies: companiesActive.count ?? 0,
         totalDrivers: drivers.count ?? 0,
-        totalJobs: jobs.count ?? 0,
-        deliveredJobs: jobsDelivered.count ?? 0,
-        activeJobs: jobsOpen.count ?? 0,
+        totalJobs: jobRows.length,
+        deliveredJobs,
+        activeJobs,
         totalQuotes: quotes.count ?? 0,
         totalBids: bids.count ?? 0,
         totalInvoiced: Math.round(totalInvoiced * 100) / 100,
-        totalRevenue: Math.round(totalRevenue * 100) / 100,
-        paymentStatusRate: totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0,
-        deliveryRate: (jobs.count ?? 0) > 0 ? Math.round(((jobsDelivered.count ?? 0) / (jobs.count ?? 1)) * 100) : 0,
+        totalRevenue: Math.round(paidRevenue * 100) / 100,
+        overdueInvoices,
+        paymentStatusRate: totalInvoiced > 0 ? Math.round((paidRevenue / totalInvoiced) * 100) : 0,
+        deliveryRate: jobRows.length > 0 ? Math.round((deliveredJobs / jobRows.length) * 100) : 0,
       },
       weeklyJobs: Object.entries(weeklyJobs).map(([week, count]) => ({ week, count })),
+      degraded: false,
     });
   }
 
-  // ── Notifications ─────────────────────────────────────────────────────────────
   if (section === 'notifications') {
+    const limitParam = Number(searchParams.get('limit') ?? 200);
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(Math.trunc(limitParam), 1), 500) : 200;
     const { data, error } = await supabaseAdmin
       .from('notification_events')
       .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at')
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(limit);
 
     if (error) {
-      return respond(200, {
-        section,
-        rows: [],
-        summary: { total: 0, unread: 0, read: 0 },
-        note: error.message,
+      return respond(503, {
+        error: 'Platform notifications are temporarily unavailable.',
+        detail: error.message,
+        degraded: true,
       });
     }
 
-    const rows = ((data ?? []) as NotificationEventRow[]).map((r) => ({
-      id: r.id,
-      user_id: r.recipient_user_id,
-      type: r.event_type,
-      title: getNotificationTitle(r.event_type),
-      message: getNotificationMessage(r),
-      status: r.status,
-      processed: r.processed_at !== null,
-      created_at: r.created_at,
+    const rows = ((data ?? []) as NotificationEventRow[]).map((row) => ({
+      id: row.id,
+      user_id: row.recipient_user_id,
+      type: row.event_type,
+      title: notificationTitle(row.event_type),
+      message: safeNotificationMessage(row),
+      status: row.status,
+      processed: row.processed_at !== null,
+      created_at: row.created_at,
     }));
 
     return respond(200, {
@@ -172,11 +143,13 @@ export async function GET(request: NextRequest) {
       rows,
       summary: {
         total: rows.length,
-        pending: rows.filter((r) => r.status === 'pending').length,
-        sent: rows.filter((r) => r.status === 'sent').length,
-        failed: rows.filter((r) => r.status === 'failed').length,
-        skipped: rows.filter((r) => r.status === 'skipped').length,
+        pending: rows.filter((row) => row.status === 'pending').length,
+        sent: rows.filter((row) => row.status === 'sent').length,
+        delivered: rows.filter((row) => row.status === 'delivered').length,
+        failed: rows.filter((row) => row.status === 'failed').length,
+        skipped: rows.filter((row) => row.status === 'skipped').length,
       },
+      degraded: false,
     });
   }
 
