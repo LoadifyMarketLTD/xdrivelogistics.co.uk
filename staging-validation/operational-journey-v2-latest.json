@@ -1,13 +1,13 @@
 {
-  "result": "failure",
-  "source_sha": "b96c21a0a2c1ecb4b1da828f787cd3dea4fa7ecb",
-  "run_id": "29905742333",
-  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29905742333",
+  "result": "success",
+  "source_sha": "428f98f477aefaa3e95fc718843b344a02a5cb6e",
+  "run_id": "29906509953",
+  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29906509953",
   "branch": "agent/staging-integration",
   "project_ref": "svfjlhljuizckzabtewx",
   "buyer_profile_role": "customer_shipper",
   "carrier_profile_role": "owner_driver",
   "journey": "customer post -> carrier quote -> customer API award -> driver lifecycle -> POD -> completion -> invoice",
   "production_targeted": false,
-  "recorded_at": "2026-07-22T08:54:49.554613+00:00"
+  "recorded_at": "2026-07-22T09:06:43.897612+00:00"
 }
