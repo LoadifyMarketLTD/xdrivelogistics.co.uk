@@ -105,8 +105,16 @@ jobs:
           assert migrations, 'No migrations were prepared'
           assert len(versions) == len(set(versions)), 'Prepared migration versions are not unique'
           assert manifest['included_count'] == len(migrations), 'Manifest included_count is inconsistent'
-          assert manifest['excluded_count'] == 1, 'Unexpected number of excluded migrations'
-          assert manifest['excluded'][0]['source'] == '068_targeted_data_repair_current_accounts.sql'
+
+          excluded_sources = {item['source'] for item in manifest['excluded']}
+          expected_excluded_sources = {
+              '068_targeted_data_repair_current_accounts.sql',
+              '20260721221000_reconcile_confirmed_current_accounts.sql',
+          }
+          assert manifest['excluded_count'] == len(expected_excluded_sources)
+          assert excluded_sources == expected_excluded_sources, (
+              f'Unexpected excluded migrations: {sorted(excluded_sources)}'
+          )
 
           missing = sorted(required_sources - sources)
           assert not missing, f'Required staging migrations are missing: {missing}'
