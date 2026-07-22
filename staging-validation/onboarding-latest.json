@@ -1,8 +1,8 @@
 {
-  "result": "success",
-  "source_sha": "d20a8351a5b84db50af311738e751ab3ae54de4f",
-  "run_id": "29839939124",
-  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29839939124",
+  "result": "failure",
+  "source_sha": "b66c360f841a5216b12d11e669f17c5804c2d21f",
+  "run_id": "29898410600",
+  "run_url": "https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/actions/runs/29898410600",
   "branch": "agent/staging-integration",
   "project_ref": "svfjlhljuizckzabtewx",
   "journeys": [
@@ -26,5 +26,5 @@
     "cross-application evidence mutation denial"
   ],
   "production_targeted": false,
-  "recorded_at": "2026-07-21T14:39:35.791195+00:00"
+  "recorded_at": "2026-07-22T06:57:02.076122+00:00"
 }
