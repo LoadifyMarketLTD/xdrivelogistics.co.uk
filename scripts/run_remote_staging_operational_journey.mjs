@@ -2,6 +2,7 @@
 
 // Rerun marker: profile roles use the canonical application values enforced by
 // profiles_role_canonical; company ownership remains in company_memberships.
+// P0 prerequisite: verified successfully at 205/205 disposable migrations.
 import { readFile, writeFile, unlink } from 'node:fs/promises';
 
 const sourceUrl = new URL('./validate_remote_staging_operational_journey.mjs', import.meta.url);
