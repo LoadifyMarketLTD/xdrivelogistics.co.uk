@@ -1,0 +1,6 @@
+branch_before=725c10b9de4398e4b5f07c66b91391038718bd3c
+main_merged=4abb16714924403202c36983a5bf8555ea717c2c
+merge_status=1
+conflict_count=13
+conflicts=.github/workflows/ci.yml,app/api/_lib/onboarding.ts,app/api/driver/finance/invoices/[id]/submit/route.ts,app/api/driver/mobile/_lib.ts,app/api/driver/mobile/jobs/[id]/[action]/route.ts,app/api/jobs/create/route.ts,app/api/onboarding/init/route.ts,app/components/OnboardingAccessGuard.tsx,app/onboarding/resume/page.tsx,app/register/page.tsx,apps/driver-mobile/src/api/jobs.ts,lib/server/invoicePdf.ts,supabase/functions/notify-operational-event/index.ts
+resolution=reviewed-subset-manifest
