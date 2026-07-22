@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { isPlatformOwnerProfileRole } from '../app/api/_lib/platformAuth';
 import { getEffectiveJobStatus, getInvoiceState, isActiveExecutionStatus } from '../lib/workspaceClassifiers';
 
 test.describe('super admin platform boundaries', () => {
@@ -14,6 +15,26 @@ test.describe('super admin platform boundaries', () => {
     expect(getInvoiceState({ status: 'void', payment_status: 'unpaid' }).unpaid).toBe(false);
     expect(getInvoiceState({ status: 'submitted', payment_status: 'paid' }).unpaid).toBe(false);
     expect(getInvoiceState({ status: 'submitted', payment_status: 'unpaid', due_date: '2020-01-01' }).overdue).toBe(true);
+  });
+
+  test('allows only the canonical platform-owner profile role', () => {
+    expect(isPlatformOwnerProfileRole('owner')).toBe(true);
+    expect(isPlatformOwnerProfileRole('company_admin')).toBe(false);
+    expect(isPlatformOwnerProfileRole('company_staff')).toBe(false);
+    expect(isPlatformOwnerProfileRole('customer')).toBe(false);
+    expect(isPlatformOwnerProfileRole('broker')).toBe(false);
+    expect(isPlatformOwnerProfileRole('driver')).toBe(false);
+    expect(isPlatformOwnerProfileRole(null)).toBe(false);
+    expect(isPlatformOwnerProfileRole(undefined)).toBe(false);
+  });
+
+  test('keeps ordinary company ownership separate from platform ownership', () => {
+    const workspaceRole = readFileSync('lib/workspaceRole.ts', 'utf8');
+    expect(workspaceRole).toContain("if (membershipRole === 'owner') return 'company_owner'");
+    expect(workspaceRole).toContain("if (appRole === 'owner'");
+    const platformAuth = readFileSync('app/api/_lib/platformAuth.ts', 'utf8');
+    expect(platformAuth).toContain(".from('profiles')");
+    expect(platformAuth).not.toContain(".from('company_memberships')");
   });
 
   test('refined platform APIs use canonical server authorisation', () => {
