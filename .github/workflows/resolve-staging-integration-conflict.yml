@@ -1,11 +1,12 @@
 name: Resolve staging integration conflicts
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/staging-integration-sync-main
-    paths:
-      - .github/staging-merge-main.trigger
+      - agent/staging-integration
+    types:
+      - synchronize
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,6 +18,7 @@ concurrency:
 jobs:
   resolve-conflicts:
     name: Merge main with reviewed resolutions
+    if: github.head_ref == 'agent/staging-integration-sync-main' && github.base_ref == 'agent/staging-integration'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
 
@@ -29,11 +31,17 @@ jobs:
 
       - name: Merge main and resolve the reviewed conflict set
         shell: bash
+        env:
+          EXPECTED_HEAD_REF: agent/staging-integration-sync-main
+          EXPECTED_BASE_REF: agent/staging-integration
+          ACTUAL_HEAD_REF: ${{ github.head_ref }}
+          ACTUAL_BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
 
           test "${GITHUB_REPOSITORY}" = 'LoadifyMarketLTD/xdrivelogistics.co.uk'
-          test "${GITHUB_REF_NAME}" = 'agent/staging-integration-sync-main'
+          test "${ACTUAL_HEAD_REF}" = "${EXPECTED_HEAD_REF}"
+          test "${ACTUAL_BASE_REF}" = "${EXPECTED_BASE_REF}"
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
