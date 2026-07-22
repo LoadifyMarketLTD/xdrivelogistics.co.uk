@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+// Rerun marker: P0 disposable staging schema verified at 204/204 migrations.
 import { readFile, writeFile, unlink } from 'node:fs/promises';
 
 const sourceUrl = new URL('./validate_remote_staging_operational_journey.mjs', import.meta.url);
