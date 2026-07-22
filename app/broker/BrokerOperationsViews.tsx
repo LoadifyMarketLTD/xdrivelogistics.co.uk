@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
-import { useCompanyWorkspaceData, type WorkspaceJob } from '../components/workspace/useCompanyWorkspaceData';
+import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import { AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, ProgressSteps, StatusBadge, TwoColumn, workspaceTheme } from '../components/workspace/WorkspaceUI';
 import { currentStatus, isActiveDelivery, isOverdue, latestLocation, lifecycleLabel, lifecycleStages, routeLabel, stageIndex, when } from './BrokerDashboardView';
 
