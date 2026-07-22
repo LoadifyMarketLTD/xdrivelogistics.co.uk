@@ -1,6 +1,8 @@
 -- Real-database RLS verification for notification recipient isolation.
 -- Run against a disposable/local/staging database after all migrations.
--- The transaction is rolled back and leaves no fixture data behind.
+-- Covers private recipient access, same-company isolation, company broadcasts,
+-- inactive/non-member denial, anonymous denial, service-role processing and the
+-- existing Web badge/count query shape. The transaction is always rolled back.
 
 BEGIN;
 
@@ -47,38 +49,32 @@ VALUES
   ('30000000-0000-0000-0000-000000000002', 'notification_rls_broadcast_test', 'test', gen_random_uuid(),
     '10000000-0000-0000-0000-000000000001', NULL, '{}'::jsonb, 'pending');
 
--- Intended recipient: private + broadcast visible.
 SELECT set_config('request.jwt.claims', json_build_object('sub', '20000000-0000-0000-0000-000000000001', 'role', 'authenticated')::text, true);
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.assert_count((SELECT count(*) FROM public.notification_events WHERE id IN ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002')), 2, 'Recipient visibility failed.');
 RESET ROLE;
 
--- Another active member in the same company: broadcast only.
 SELECT set_config('request.jwt.claims', json_build_object('sub', '20000000-0000-0000-0000-000000000002', 'role', 'authenticated')::text, true);
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.assert_count((SELECT count(*) FROM public.notification_events WHERE id = '30000000-0000-0000-0000-000000000001'), 0, 'Same-company peer read a recipient-private notification.');
 SELECT pg_temp.assert_count((SELECT count(*) FROM public.notification_events WHERE id = '30000000-0000-0000-0000-000000000002'), 1, 'Active member could not read the company broadcast.');
 RESET ROLE;
 
--- Inactive membership: neither private nor broadcast.
 SELECT set_config('request.jwt.claims', json_build_object('sub', '20000000-0000-0000-0000-000000000003', 'role', 'authenticated')::text, true);
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.assert_count((SELECT count(*) FROM public.notification_events WHERE id IN ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002')), 0, 'Inactive member read notification rows.');
 RESET ROLE;
 
--- Member of another company: neither row visible.
 SELECT set_config('request.jwt.claims', json_build_object('sub', '20000000-0000-0000-0000-000000000004', 'role', 'authenticated')::text, true);
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.assert_count((SELECT count(*) FROM public.notification_events WHERE id IN ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002')), 0, 'Other-company member read notification rows.');
 RESET ROLE;
 
--- Authenticated non-member: neither row visible.
 SELECT set_config('request.jwt.claims', json_build_object('sub', '20000000-0000-0000-0000-000000000005', 'role', 'authenticated')::text, true);
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.assert_count((SELECT count(*) FROM public.notification_events WHERE id IN ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002')), 0, 'Authenticated non-member read notification rows.');
 RESET ROLE;
 
--- Unauthenticated access is rejected: anon has no direct SELECT grant and no policy.
 SELECT pg_temp.assert_count(
   (SELECT count(*) FROM information_schema.role_table_grants
    WHERE grantee = 'anon'
@@ -89,13 +85,11 @@ SELECT pg_temp.assert_count(
   'Anonymous role unexpectedly has SELECT privilege.'
 );
 
--- Service role retains full processing access and bypasses RLS.
 SELECT set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
 SET LOCAL ROLE service_role;
 SELECT pg_temp.assert_count((SELECT count(*) FROM public.notification_events WHERE id IN ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002')), 2, 'Service role processing access failed.');
 RESET ROLE;
 
--- Existing Web badge/count shape cannot include another user's private event.
 SELECT set_config('request.jwt.claims', json_build_object('sub', '20000000-0000-0000-0000-000000000002', 'role', 'authenticated')::text, true);
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.assert_count((SELECT count(*) FROM public.notification_events WHERE recipient_user_id = '20000000-0000-0000-0000-000000000002' AND status IN ('pending', 'failed')), 0, 'Badge/count query exposed another recipient private event.');
