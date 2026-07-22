@@ -21,10 +21,13 @@ export type MobileJobRow = {
   pickup_datetime: string | null;
   delivery_datetime: string | null;
   vehicle_type: string | null;
+  requested_vehicle_type: string | null;
   requested_vehicle_label: string | null;
   cargo_type: string | null;
   requested_cargo_label: string | null;
   budget_amount: number | string | null;
+  agreed_rate: number | string | null;
+  agreed_rate_gbp: number | string | null;
   collection_contact_name: string | null;
   collection_contact_phone: string | null;
   delivery_contact_name: string | null;
@@ -38,7 +41,7 @@ export type MobileJobRow = {
   pod_generated: boolean | null;
   delivery_photos: string[] | null;
   pod_photos: string[] | null;
-  delivery_signature_data: string | null;
+  delivery_signature_data: unknown;
   status_history: unknown;
   updated_at: string | null;
   created_at: string | null;
@@ -55,33 +58,90 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: 'Invalid session.' });
 
-  const { data: driverRow, error: driverError } = await supabaseAdmin
-    .from('drivers')
-    .select('id, company_id, user_id, app_access, status')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
+  const [{ data: driverRow, error: driverError }, { data: profileRow, error: profileError }] = await Promise.all([
+    supabaseAdmin
+      .from('drivers')
+      .select('id, company_id, user_id, app_access, status')
+      .eq('user_id', authData.user.id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('profiles')
+      .select('status')
+      .eq('user_id', authData.user.id)
+      .maybeSingle(),
+  ]);
 
   if (driverError) return respond(500, { error: driverError.message });
-  if (!driverRow) return respond(403, { error: 'Driver record not found.' });
-  if ((driverRow as { app_access?: boolean | null }).app_access !== true) {
-    return respond(403, { error: 'Driver application access is not approved.' });
+  if (profileError) return respond(500, { error: profileError.message });
+  if (!profileRow) return respond(403, { error: 'Driver profile not found.' });
+
+  if (String(profileRow.status ?? '').trim().toLowerCase() !== 'active') {
+    return respond(403, { error: 'Driver profile is not active.' });
   }
-  if (String((driverRow as { status?: string | null }).status ?? '').toLowerCase() !== 'active') {
+
+  if (!driverRow) return respond(403, { error: 'Driver record not found.' });
+  if (driverRow.app_access !== true) {
+    return respond(403, { error: 'Driver app access has not been approved.' });
+  }
+  if (String(driverRow.status ?? '').trim().toLowerCase() !== 'active') {
     return respond(403, { error: 'Driver account is not active.' });
   }
 
-  const { data: complianceAllowed, error: complianceError } = await supabaseAdmin.rpc('owner_driver_compliance_current', {
-    p_user_id: authData.user.id,
-  });
-  if (complianceError) return respond(500, { error: complianceError.message });
-  if (complianceAllowed !== true) {
-    return respond(403, { error: 'Mandatory driver compliance is missing, unverified or expired.' });
+  const driverId = String(driverRow.id);
+  const companyId = typeof driverRow.company_id === 'string' ? driverRow.company_id.trim() : '';
+  if (!companyId) {
+    return respond(403, { error: 'Driver is not linked to an active company workspace.' });
+  }
+
+  const [companyResult, ownerApplicationResult, fleetInvitationResult] = await Promise.all([
+    supabaseAdmin.from('companies').select('status').eq('id', companyId).maybeSingle(),
+    supabaseAdmin
+      .from('onboarding_applications')
+      .select('id')
+      .eq('user_id', authData.user.id)
+      .eq('account_type', 'owner_driver')
+      .maybeSingle(),
+    supabaseAdmin
+      .from('fleet_driver_invitations')
+      .select('id')
+      .eq('driver_id', driverId)
+      .maybeSingle(),
+  ]);
+
+  if (companyResult.error) return respond(500, { error: companyResult.error.message });
+  if (ownerApplicationResult.error) return respond(500, { error: ownerApplicationResult.error.message });
+  if (fleetInvitationResult.error) return respond(500, { error: fleetInvitationResult.error.message });
+
+  if (!companyResult.data || String(companyResult.data.status ?? '').trim().toLowerCase() !== 'active') {
+    return respond(403, { error: 'Driver company workspace is not active.' });
+  }
+
+  if (ownerApplicationResult.data) {
+    const { data: ownerCompliant, error: ownerComplianceError } = await supabaseAdmin.rpc(
+      'owner_driver_compliance_current',
+      { p_user_id: authData.user.id }
+    );
+    if (ownerComplianceError) return respond(500, { error: ownerComplianceError.message });
+    if (ownerCompliant !== true) {
+      return respond(403, { error: 'Owner-driver compliance is missing, unverified or expired.' });
+    }
+  }
+
+  if (fleetInvitationResult.data) {
+    const { data: fleetCompliant, error: fleetComplianceError } = await supabaseAdmin.rpc(
+      'fleet_driver_compliance_current',
+      { p_driver_id: driverId }
+    );
+    if (fleetComplianceError) return respond(500, { error: fleetComplianceError.message });
+    if (fleetCompliant !== true) {
+      return respond(403, { error: 'Fleet-driver compliance is missing, unverified or expired.' });
+    }
   }
 
   return {
     userId: authData.user.id,
-    driverId: String((driverRow as { id: string }).id),
-    companyId: String((driverRow as { company_id: string }).company_id),
+    driverId,
+    companyId,
   };
 }
 
@@ -101,10 +161,13 @@ export const jobSelect = [
   'pickup_datetime',
   'delivery_datetime',
   'vehicle_type',
+  'requested_vehicle_type',
   'requested_vehicle_label',
   'cargo_type',
   'requested_cargo_label',
   'budget_amount',
+  'agreed_rate',
+  'agreed_rate_gbp',
   'collection_contact_name',
   'collection_contact_phone',
   'delivery_contact_name',
@@ -137,7 +200,7 @@ export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' 
   return Boolean(job.pod_generated)
     || safeArray(job.delivery_photos).length > 0
     || safeArray(job.pod_photos).length > 0
-    || Boolean(job.delivery_signature_data?.trim());
+    || Boolean(job.delivery_signature_data);
 }
 
 export function toMoney(value: number | string | null | undefined) {
@@ -169,8 +232,8 @@ export function mapJob(row: MobileJobRow) {
     pickupTime: row.pickup_datetime || 'Pickup time TBC',
     deliveryTime: row.delivery_datetime || 'Delivery time TBC',
     cargoType: row.requested_cargo_label || row.cargo_type || 'Cargo TBC',
-    vehicleRequirement: row.requested_vehicle_label || row.vehicle_type || 'Vehicle TBC',
-    price: toMoney(row.budget_amount),
+    vehicleRequirement: row.requested_vehicle_label || row.requested_vehicle_type || row.vehicle_type || 'Vehicle TBC',
+    price: toMoney(row.agreed_rate_gbp ?? row.agreed_rate ?? row.budget_amount),
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
     podRequired: row.pod_required !== false,
     podGenerated: hasPod(row),
@@ -187,6 +250,7 @@ export async function insertTrackingEvent(jobId: string, userId: string, eventTy
 
   const { error } = await supabaseAdmin.from('job_tracking_events').insert({
     job_id: jobId,
+    user_id: userId,
     created_by: userId,
     event_type: eventType,
     message,
