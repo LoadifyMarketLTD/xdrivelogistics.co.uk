@@ -48,7 +48,9 @@ export async function GET(request: NextRequest) {
   try {
     driver = await resolveFinanceOwner(request);
   } catch (reason) {
-    return respond(500, { error: reason instanceof Error ? reason.message : 'Finance access could not be verified.' });
+    return respond(500, {
+      error: reason instanceof Error ? reason.message : 'Finance access could not be verified.',
+    });
   }
   if (!driver) return respond(401, { error: 'Unauthorized.' });
   if (!driver.canManageFinance) {
@@ -57,20 +59,7 @@ export async function GET(request: NextRequest) {
 
   const { data: jobs, error: jobsError } = await supabaseAdmin
     .from('jobs')
-    .select([
-      'id',
-      'company_id',
-      'awarded_carrier_company_id',
-      'pickup_location',
-      'delivery_location',
-      'pickup_datetime',
-      'delivery_datetime',
-      'budget_amount',
-      'client_name',
-      'status',
-      'customer_reference',
-      'updated_at',
-    ].join(', '))
+    .select('id, company_id, awarded_carrier_company_id, pickup_location, delivery_location, pickup_datetime, delivery_datetime, budget_amount, client_name, status, customer_reference, updated_at')
     .or(`company_id.eq.${driver.companyId},awarded_carrier_company_id.eq.${driver.companyId}`)
     .in('status', ['delivered', 'completed', 'invoiced'])
     .order('updated_at', { ascending: false })
@@ -78,7 +67,7 @@ export async function GET(request: NextRequest) {
 
   if (jobsError) return respond(500, { error: jobsError.message });
 
-  const jobIds = (jobs ?? []).map((job) => job.id as string);
+  const jobIds = (jobs ?? []).map((job) => job.id);
   const { data: invoices, error: invoicesError } = jobIds.length
     ? await supabaseAdmin
       .from('invoices')
@@ -96,7 +85,7 @@ export async function GET(request: NextRequest) {
   return respond(200, {
     rows: (jobs ?? []).map((job) => ({
       ...job,
-      invoice: invoiceByJob.get(job.id as string) ?? null,
+      invoice: invoiceByJob.get(job.id) ?? null,
     })),
   });
 }
