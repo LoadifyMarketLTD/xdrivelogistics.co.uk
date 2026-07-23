@@ -112,6 +112,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
+#variable_conflict use_column
 DECLARE
   v_company_number text := regexp_replace(upper(trim(coalesce(p_company_number, ''))), '[^A-Z0-9]', '', 'g');
   v_company_name text := trim(coalesce(p_company_name, ''));
