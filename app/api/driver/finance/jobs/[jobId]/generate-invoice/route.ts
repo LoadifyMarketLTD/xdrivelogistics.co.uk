@@ -5,29 +5,53 @@ import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../.
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
+const cleanText = (value: unknown) =>
+  typeof value === 'string' && value.trim() ? value.trim() : null;
+
+const positiveNumber = (value: unknown) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+};
+
+const paymentDueDays = (terms: string | null, explicitDays: unknown) => {
+  const supplied = Number(explicitDays);
+  if (Number.isInteger(supplied) && supplied >= 0) return supplied;
+  if (!terms) return 14;
+  if (['pay now', 'immediate', 'due on receipt'].includes(terms.trim().toLowerCase())) return 0;
+  const match = terms.match(/\d+/);
+  return match ? Number(match[0]) : 14;
+};
+
+const addDays = (date: string, days: number) => {
+  const result = new Date(`${date}T00:00:00.000Z`);
+  result.setUTCDate(result.getUTCDate() + days);
+  return result.toISOString().slice(0, 10);
+};
+
 async function resolveDriver(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
   const token = getBearerToken(request);
   if (!token) return null;
   const { data: authData, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !authData.user) return null;
+
   const { data: driverRow } = await supabaseAdmin
     .from('drivers')
     .select('id, company_id, user_id')
     .eq('user_id', authData.user.id)
     .maybeSingle();
+
   if (!driverRow) return null;
-  return { userId: authData.user.id, driverId: driverRow.id as string, companyId: driverRow.company_id as string };
+  return {
+    userId: authData.user.id,
+    driverId: driverRow.id as string,
+    companyId: driverRow.company_id as string,
+  };
 }
 
 // POST /api/driver/finance/jobs/[jobId]/generate-invoice
-// Generates a draft marketplace invoice from the job's commercial agreement.
-// For marketplace jobs (exchange/direct visibility) a commercial agreement MUST
-// exist — the route never falls back to jobs.budget_amount.
-// For non-marketplace (direct/private) jobs: uses body.amount if supplied,
-// otherwise falls back to jobs.budget_amount automatically.
-// Required body: { idempotency_key }
-// Optional body: { amount?, client_name?, client_email?, payment_terms?, vat_rate?, service_description? }
+// Creates or safely replays a Draft invoice from the completed transport record.
+// Marketplace values come only from the accepted immutable commercial agreement.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
@@ -35,11 +59,11 @@ export async function POST(
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
+
   const driver = await resolveDriver(request);
-  if (!driver) return respond(401, { error: 'Unauthorized' });
+  if (!driver) return respond(401, { error: 'Unauthorized.' });
 
   const { jobId } = await params;
-
   let body: Record<string, unknown> = {};
   try {
     const raw = await request.text();
@@ -48,39 +72,47 @@ export async function POST(
     return respond(400, { error: 'Invalid JSON body.' });
   }
 
-  // Idempotency key is mandatory at the API level.
-  const idempotencyKey =
-    typeof body.idempotency_key === 'string' ? body.idempotency_key.trim() : '';
+  const idempotencyKey = cleanText(body.idempotency_key);
   if (!idempotencyKey) {
-    return respond(400, {
-      error: 'idempotency_key is required. Supply a client-generated UUID to prevent duplicate invoices.',
-    });
+    return respond(400, { error: 'idempotency_key is required.' });
   }
 
-  // Fetch the job — carrier company must be the awarded carrier.
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select(
-      'id, company_id, awarded_carrier_company_id, exchange_visibility, status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount'
-    )
+    .select([
+      'id',
+      'company_id',
+      'awarded_carrier_company_id',
+      'exchange_visibility',
+      'status',
+      'pickup_location',
+      'pickup_datetime',
+      'delivery_location',
+      'delivery_datetime',
+      'load_details',
+      'currency',
+      'client_name',
+      'client_email',
+      'budget_amount',
+      'customer_reference',
+    ].join(', '))
     .eq('id', jobId)
     .or(`company_id.eq.${driver.companyId},awarded_carrier_company_id.eq.${driver.companyId}`)
     .maybeSingle();
 
   if (jobError) return respond(500, { error: jobError.message });
-  if (!job) return respond(404, { error: 'Job not found.' });
+  if (!job) return respond(404, { error: 'Job not found in this company workspace.' });
 
-  // Canonical job lifecycle: delivered → invoiced → paid.
-  if (!['delivered', 'invoiced'].includes(job.status as string)) {
+  const jobStatus = String(job.status ?? '').toLowerCase();
+  if (!['delivered', 'completed', 'invoiced'].includes(jobStatus)) {
     return respond(409, {
-      error: `Invoice can only be generated for a delivered or invoiced job. Current status: "${job.status as string}".`,
+      error: `Invoice can only be generated after delivery. Current job status: "${jobStatus || 'unknown'}".`,
     });
   }
 
   const isMarketplaceJob =
     job.exchange_visibility === 'exchange' || job.exchange_visibility === 'direct';
 
-  // ── Marketplace path: amount MUST come from the commercial agreement ────────
   let commercialAgreementId: string | null = null;
   let buyerCompanyId: string | null = null;
   let supplierCompanyId: string | null = null;
@@ -89,112 +121,95 @@ export async function POST(
   let agreementVatRate: 0 | 5 | 20 | null = null;
   let agreementVatAmount: number | null = null;
   let agreementGrossAmount: number | null = null;
+  let agreementPaymentTerms: string | null = null;
+  let agreementPaymentDueDays: number | null = null;
+  let buyerName: string | null = null;
+  let buyerEmail: string | null = null;
+  let buyerAddress: string | null = null;
 
   if (isMarketplaceJob) {
-    const { data: agreement } = await supabaseAdmin
+    const { data: agreement, error: agreementError } = await supabaseAdmin
       .from('job_commercial_agreements')
-      .select('id, buyer_company_id, supplier_company_id, agreed_amount, currency, vat_rate, vat_amount, agreed_gross_amount')
+      .select([
+        'id',
+        'buyer_company_id',
+        'supplier_company_id',
+        'agreed_amount',
+        'currency',
+        'vat_rate',
+        'vat_amount',
+        'agreed_gross_amount',
+        'payment_terms',
+        'payment_due_days',
+      ].join(', '))
       .eq('job_id', jobId)
       .eq('supplier_company_id', driver.companyId)
       .maybeSingle();
 
+    if (agreementError) return respond(500, { error: agreementError.message });
     if (!agreement) {
       return respond(422, {
-        error:
-          'No commercial agreement found for this marketplace job. ' +
-          'An invoice can only be generated after a bid has been formally accepted.',
+        error: 'The accepted quote has no commercial agreement. The invoice was not created.',
       });
     }
 
     commercialAgreementId = agreement.id as string;
     buyerCompanyId = agreement.buyer_company_id as string;
     supplierCompanyId = agreement.supplier_company_id as string;
-    agreedAmount = agreement.agreed_amount as number;
-    agreementCurrency = agreement.currency as string;
-    const rawVat = agreement.vat_rate as number | null;
+    agreedAmount = positiveNumber(agreement.agreed_amount);
+    agreementCurrency = cleanText(agreement.currency);
+    const rawVat = Number(agreement.vat_rate);
     agreementVatRate = rawVat === 0 || rawVat === 5 || rawVat === 20 ? rawVat : 0;
-    agreementVatAmount = agreement.vat_amount as number | null;
-    agreementGrossAmount = agreement.agreed_gross_amount as number | null;
+    agreementVatAmount = Number.isFinite(Number(agreement.vat_amount))
+      ? Number(agreement.vat_amount)
+      : null;
+    agreementGrossAmount = positiveNumber(agreement.agreed_gross_amount);
+    agreementPaymentTerms = cleanText(agreement.payment_terms);
+    agreementPaymentDueDays = Number.isInteger(Number(agreement.payment_due_days))
+      ? Number(agreement.payment_due_days)
+      : null;
 
-    const { data: existingByAgreement, error: existingByAgreementError } = await supabaseAdmin
-      .from('invoices')
-      .select('id, invoice_number, status, invoice_generation_idempotency_key')
-      .eq('commercial_agreement_id', commercialAgreementId)
-      .eq('invoice_origin', 'marketplace')
+    if (!agreedAmount) {
+      return respond(422, { error: 'The accepted commercial agreement has no positive amount.' });
+    }
+
+    const { data: buyer, error: buyerError } = await supabaseAdmin
+      .from('companies')
+      .select('name, email, address_line1, address_line2, city, postcode')
+      .eq('id', buyerCompanyId)
       .maybeSingle();
 
-    if (existingByAgreementError) {
-      return respond(500, { error: existingByAgreementError.message });
-    }
-
-    if (existingByAgreement) {
-      return respond(200, {
-        invoice: {
-          ...existingByAgreement,
-          status: toCanonicalInvoiceStatus((existingByAgreement as { status?: string }).status),
-        },
-      });
-    }
-  } else {
-    // Non-marketplace route guard remains job-scoped.
-    const { data: existing } = await supabaseAdmin
-      .from('invoices')
-      .select('id, invoice_number, status')
-      .eq('job_id', jobId)
-      .eq('company_id', driver.companyId)
-      .maybeSingle();
-
-    if (existing) {
-      return respond(409, {
-        error: 'An invoice already exists for this job.',
-        invoice: existing,
-      });
-    }
+    if (buyerError) return respond(500, { error: buyerError.message });
+    buyerName = cleanText(buyer?.name);
+    buyerEmail = cleanText(buyer?.email);
+    buyerAddress = [buyer?.address_line1, buyer?.address_line2, buyer?.city, buyer?.postcode]
+      .map(cleanText)
+      .filter((value): value is string => Boolean(value))
+      .join(', ') || null;
   }
-
-  const {
-    client_name: bodyClientName,
-    client_email: bodyClientEmail,
-    payment_terms: bodyPaymentTerms,
-    vat_rate: bodyVatRate,
-    service_description: bodyServiceDescription,
-  } = body;
 
   const clientName =
-    (typeof bodyClientName === 'string' && bodyClientName.trim()) ||
-    (typeof job.client_name === 'string' && job.client_name.trim()) ||
-    'Client TBC';
-  const clientEmail =
-    typeof bodyClientEmail === 'string' ? bodyClientEmail :
-    typeof job.client_email === 'string' ? job.client_email : null;
-
-  // Amount: for marketplace jobs use the commercial agreement exclusively.
-  // For non-marketplace jobs prefer caller-supplied amount; fall back to the
-  // job's budget_amount so the UI does not need to pass it explicitly.
-  const rawAmount: number = isMarketplaceJob
-    ? (agreedAmount ?? 0)
-    : (typeof body.amount === 'number' && body.amount > 0
-        ? body.amount
-        : (typeof job.budget_amount === 'number' && (job.budget_amount as number) > 0
-            ? (job.budget_amount as number)
-            : 0));
-
-  if (rawAmount <= 0) {
-    return respond(422, {
-      error: isMarketplaceJob
-        ? 'Commercial agreement has a zero or missing amount.'
-        : 'No amount available: supply a positive amount in the request body or ensure the job has a budget_amount.',
-    });
+    cleanText(body.client_name) || cleanText(job.client_name) || buyerName;
+  if (!clientName) {
+    return respond(422, { error: 'The customer company name is missing. The invoice was not created.' });
   }
 
-  // For marketplace invoices, VAT data is sourced exclusively from the commercial
-  // agreement snapshot — the caller cannot override it.
-  // For non-marketplace invoices, fall back to caller-supplied rate or 20%.
+  const clientEmail =
+    cleanText(body.client_email) || cleanText(job.client_email) || buyerEmail;
+  const clientAddress = cleanText(body.client_address) || buyerAddress;
+
+  const netAmount = isMarketplaceJob
+    ? agreedAmount
+    : positiveNumber(body.amount) || positiveNumber(job.budget_amount);
+  if (!netAmount) {
+    return respond(422, { error: 'No positive invoice amount is available for this job.' });
+  }
+
   const vatRate: 0 | 5 | 20 = isMarketplaceJob
     ? (agreementVatRate ?? 0)
-    : (bodyVatRate === 5 || bodyVatRate === 20 ? (bodyVatRate as 0 | 5 | 20) : 20);
-
-  const netAmount = rawAmount;
+    : body.vat_rate === 5 || body.vat_rate === 20
+      ? body.vat_rate
+      : 20;
   const vatAmount = isMarketplaceJob && agreementVatAmount !== null
     ? agreementVatAmount
     : Math.round(netAmount * (vatRate / 100) * 100) / 100;
@@ -202,29 +217,101 @@ export async function POST(
     ? agreementGrossAmount
     : Math.round((netAmount + vatAmount) * 100) / 100;
 
-  const paymentTerms =
-    typeof bodyPaymentTerms === 'string' ? bodyPaymentTerms : '14 days';
-
+  const paymentTerms = isMarketplaceJob
+    ? agreementPaymentTerms || '14 days'
+    : cleanText(body.payment_terms) || '14 days';
+  const dueDays = paymentDueDays(paymentTerms, isMarketplaceJob ? agreementPaymentDueDays : null);
+  const invoiceDate = new Date().toISOString().slice(0, 10);
+  const dueDate = addDays(invoiceDate, dueDays);
   const serviceDescription =
-    typeof bodyServiceDescription === 'string' && bodyServiceDescription.trim()
-      ? bodyServiceDescription
-      : typeof job.load_details === 'string'
-        ? job.load_details
-        : 'Logistics / delivery service';
+    cleanText(body.service_description) || cleanText(job.load_details) || 'Transport service';
+  const jobReference =
+    cleanText(job.customer_reference) || `JOB-${String(job.id).slice(0, 8).toUpperCase()}`;
 
-  // Generate invoice number
-  const fallbackNum = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${String(Date.now()).slice(-3)}`;
-  const { data: numData } = await supabaseAdmin.rpc('next_invoice_number', {
+  const snapshot = {
+    job_ref: jobReference,
+    job_id: jobId,
+    invoice_date: invoiceDate,
+    due_date: dueDate,
+    client_name: clientName,
+    client_address: clientAddress,
+    client_email: clientEmail,
+    pickup_location: cleanText(job.pickup_location),
+    pickup_datetime: cleanText(job.pickup_datetime),
+    delivery_location: cleanText(job.delivery_location),
+    delivery_datetime: cleanText(job.delivery_datetime),
+    service_description: serviceDescription,
+    amount: totalAmount,
+    net_amount: netAmount,
+    vat_amount: vatAmount,
+    vat_rate: vatRate,
+    currency: agreementCurrency || cleanText(job.currency) || 'GBP',
+    payment_terms: paymentTerms,
+    payment_status: 'unpaid',
+    commercial_agreement_id: commercialAgreementId,
+    buyer_company_id: buyerCompanyId,
+    supplier_company_id: supplierCompanyId,
+    invoice_origin: isMarketplaceJob ? 'marketplace' : 'direct',
+  };
+
+  if (isMarketplaceJob && commercialAgreementId) {
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('invoices')
+      .select('id, invoice_number, status, invoice_generation_idempotency_key')
+      .eq('commercial_agreement_id', commercialAgreementId)
+      .eq('invoice_origin', 'marketplace')
+      .maybeSingle();
+
+    if (existingError) return respond(500, { error: existingError.message });
+    if (existing) {
+      if (toCanonicalInvoiceStatus(existing.status) === 'Draft') {
+        const { data: repaired, error: repairError } = await supabaseAdmin
+          .from('invoices')
+          .update({
+            ...snapshot,
+            invoice_generation_idempotency_key:
+              cleanText(existing.invoice_generation_idempotency_key) || idempotencyKey,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id)
+          .eq('company_id', driver.companyId)
+          .select('id, invoice_number, status')
+          .single();
+
+        if (repairError) return respond(500, { error: repairError.message });
+        return respond(200, {
+          invoice: { ...repaired, status: toCanonicalInvoiceStatus(repaired.status) },
+          replayed: true,
+          repaired: true,
+        });
+      }
+
+      return respond(200, {
+        invoice: { ...existing, status: toCanonicalInvoiceStatus(existing.status) },
+        replayed: true,
+      });
+    }
+  } else {
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('invoices')
+      .select('id, invoice_number, status')
+      .eq('job_id', jobId)
+      .eq('company_id', driver.companyId)
+      .maybeSingle();
+    if (existingError) return respond(500, { error: existingError.message });
+    if (existing) {
+      return respond(200, {
+        invoice: { ...existing, status: toCanonicalInvoiceStatus(existing.status) },
+        replayed: true,
+      });
+    }
+  }
+
+  const fallbackNumber = `INV-${invoiceDate.slice(0, 7).replace('-', '')}-${String(Date.now()).slice(-3)}`;
+  const { data: numberData } = await supabaseAdmin.rpc('next_invoice_number', {
     p_company_id: driver.companyId,
   });
-  const invoiceNumber = typeof numData === 'string' && numData.trim() ? numData : fallbackNum;
-
-  const today = new Date().toISOString().split('T')[0];
-  const dueDate = (() => {
-    const d = new Date(today);
-    d.setDate(d.getDate() + (paymentTerms === '30 days' ? 30 : 14));
-    return d.toISOString().split('T')[0];
-  })();
+  const invoiceNumber = cleanText(numberData) || fallbackNumber;
 
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from('invoices')
@@ -232,82 +319,43 @@ export async function POST(
       company_id: driver.companyId,
       created_by: driver.userId,
       invoice_number: invoiceNumber,
-      job_ref: invoiceNumber,
-      job_id: jobId,
-      invoice_date: today,
-      due_date: dueDate,
       status: toLegacyInvoiceStatusForDb('Draft'),
-      client_name: clientName,
-      client_email: clientEmail,
-      pickup_location: typeof job.pickup_location === 'string' ? job.pickup_location : null,
-      pickup_datetime: typeof job.pickup_datetime === 'string' ? job.pickup_datetime : null,
-      delivery_location: typeof job.delivery_location === 'string' ? job.delivery_location : null,
-      delivery_datetime: typeof job.delivery_datetime === 'string' ? job.delivery_datetime : null,
-      service_description: serviceDescription,
-      amount: totalAmount,
-      net_amount: netAmount,
-      vat_amount: vatAmount,
-      vat_rate: vatRate,
-      currency: agreementCurrency ?? (typeof job.currency === 'string' ? job.currency : 'GBP'),
-      payment_terms: paymentTerms,
-      payment_status: 'unpaid',
-      // Linkage columns (populated for marketplace jobs only).
-      commercial_agreement_id: commercialAgreementId,
-      buyer_company_id: buyerCompanyId,
-      supplier_company_id: supplierCompanyId,
-      invoice_origin: isMarketplaceJob ? 'marketplace' : 'direct',
       invoice_generation_idempotency_key: isMarketplaceJob ? idempotencyKey : null,
+      ...snapshot,
     })
     .select('id, invoice_number, status')
     .single();
 
   if (insertError) {
-    if (insertError.code === '23505' && isMarketplaceJob && commercialAgreementId) {
-      const [existingByKeyResult, existingByAgreementResult] = await Promise.all([
-        supabaseAdmin
-          .from('invoices')
-          .select('id, invoice_number, status')
-          .eq('invoice_generation_idempotency_key', idempotencyKey)
-          .eq('invoice_origin', 'marketplace')
-          .maybeSingle(),
-        supabaseAdmin
+    if (insertError.code === '23505') {
+      const replayQuery = isMarketplaceJob && commercialAgreementId
+        ? supabaseAdmin
           .from('invoices')
           .select('id, invoice_number, status')
           .eq('commercial_agreement_id', commercialAgreementId)
           .eq('invoice_origin', 'marketplace')
-          .maybeSingle(),
-      ]);
-
-      const replayInvoice = existingByKeyResult.data ?? existingByAgreementResult.data;
-      const replayError = existingByKeyResult.error ?? existingByAgreementResult.error;
-
-      if (replayError) {
-        return respond(500, { error: replayError.message });
-      }
-
-      if (replayInvoice) {
+        : supabaseAdmin
+          .from('invoices')
+          .select('id, invoice_number, status')
+          .eq('job_id', jobId)
+          .eq('company_id', driver.companyId);
+      const { data: replay, error: replayError } = await replayQuery.maybeSingle();
+      if (replayError) return respond(500, { error: replayError.message });
+      if (replay) {
         return respond(200, {
-          invoice: {
-            ...replayInvoice,
-            status: toCanonicalInvoiceStatus((replayInvoice as { status?: string }).status),
-          },
+          invoice: { ...replay, status: toCanonicalInvoiceStatus(replay.status) },
+          replayed: true,
         });
       }
-    }
-
-    // Unique constraint on (company_id, invoice_number) — extremely rare race condition.
-    if (insertError.code === '23505') {
-      return respond(409, { error: 'Invoice number conflict — please retry.' });
+      return respond(409, { error: 'Invoice number conflict. Please retry.' });
     }
     return respond(500, { error: insertError.message });
   }
 
   return respond(201, {
     invoice: inserted
-      ? {
-          ...inserted,
-          status: toCanonicalInvoiceStatus((inserted as { status?: string }).status),
-        }
+      ? { ...inserted, status: toCanonicalInvoiceStatus(inserted.status) }
       : inserted,
+    replayed: false,
   });
 }
