@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout exact pull request SHA
         uses: actions/checkout@v4
+        with:
+          show-progress: false
 
       - name: Validate migration filenames and encodings
         run: node .github/scripts/validate-supabase-migration-files.mjs
