@@ -1,12 +1,20 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from './app/api/_lib/supabaseAdmin';
-import { resolveAuthContext, selectDeterministicMembership } from './lib/authContextResolver';
+import {
+  isSupabaseAdminConfigured,
+  supabaseAdmin,
+  supabaseValidator,
+} from './app/api/_lib/supabaseAdmin';
+import {
+  resolveAuthContext,
+  selectDeterministicMembership,
+} from './lib/authContextResolver';
 import { getPostLoginRoute } from './lib/authSession';
 import { isRoleAllowedForPath, mapAppRole, type AppUserRole } from './lib/authRole';
 import { ROUTE_AUTH_COOKIE_NAME } from './lib/routeAuthCookie';
 import { getCanonicalSiteUrl } from './lib/siteUrl';
+import { resolveWorkspaceRawRole } from './lib/workspaceIdentity';
 import { resolveWorkspaceRole, type WorkspaceRole } from './lib/workspaceRole';
 
 const DRIVER_PATH = '/driver';
@@ -14,7 +22,14 @@ const DRIVER_JOBS_PATH = '/driver/jobs';
 const DRIVER_CHANGE_PASSWORD_PATH = '/driver/change-password';
 const FORBIDDEN_PATH = '/forbidden';
 const LOGIN_PATH = '/login';
-const PROTECTED_PATH_PREFIXES = ['/super-admin', '/broker', '/admin', '/driver', '/customer', '/m'];
+const PROTECTED_PATH_PREFIXES = [
+  '/super-admin',
+  '/broker',
+  '/admin',
+  '/driver',
+  '/customer',
+  '/m',
+];
 
 type RouteAuthResult =
   | { kind: 'unauthenticated' }
@@ -33,7 +48,11 @@ type RouteAuthResult =
       membershipRole: string | null;
     };
 
-const buildRedirect = (request: NextRequest, pathname: string, clearCookie = false) => {
+const buildRedirect = (
+  request: NextRequest,
+  pathname: string,
+  clearCookie = false
+) => {
   const url = request.nextUrl.clone();
   url.pathname = pathname;
   url.search = '';
@@ -74,12 +93,18 @@ const buildLoginRedirect = (request: NextRequest, reason?: string) => {
   return response;
 };
 
-const readMetadataText = (metadata: Record<string, unknown> | null | undefined, key: string) => {
+const readMetadataText = (
+  metadata: Record<string, unknown> | null | undefined,
+  key: string
+) => {
   const value = metadata?.[key];
   return typeof value === 'string' && value.trim().length > 0 ? value : null;
 };
 
-const readMetadataFlag = (metadata: Record<string, unknown> | null | undefined, key: string) => {
+const readMetadataFlag = (
+  metadata: Record<string, unknown> | null | undefined,
+  key: string
+) => {
   const value = metadata?.[key];
   if (typeof value === 'boolean') return value;
   if (typeof value !== 'string') return false;
@@ -138,7 +163,10 @@ const isOwnerDriverExecutionModeRequested = (
   return (
     readMetadataFlag(userMetadata, 'owner_driver_execution_mode') ||
     readMetadataFlag(appMetadata, 'owner_driver_execution_mode') ||
-    tags.some((value) => value === 'driver' || value === 'driver_mode' || value === 'execution')
+    tags.some(
+      (value) =>
+        value === 'driver' || value === 'driver_mode' || value === 'execution'
+    )
   );
 };
 
@@ -158,21 +186,33 @@ const canonicalSiteUrl = getCanonicalSiteUrl();
 const canonicalHost = canonicalSiteUrl.host.toLowerCase();
 
 const shouldEnforceCanonicalHost = () =>
-  process.env.NODE_ENV === 'production' || process.env.XDRIVE_FORCE_CANONICAL_HOST === 'true';
+  process.env.NODE_ENV === 'production' ||
+  process.env.XDRIVE_FORCE_CANONICAL_HOST === 'true';
 
-const normalizeHost = (host: string) => host.replace(/:\d+$/, '').replace(/^\[(.*)\]$/, '$1').toLowerCase();
-const isLocalTestHost = (host: string) => ['localhost', '127.0.0.1', '::1'].includes(normalizeHost(host));
+const normalizeHost = (host: string) =>
+  host.replace(/:\d+$/, '').replace(/^\[(.*)\]$/, '$1').toLowerCase();
+const isLocalTestHost = (host: string) =>
+  ['localhost', '127.0.0.1', '::1'].includes(normalizeHost(host));
 const isNetlifyPreviewHost = (host: string) =>
   host.endsWith('.netlify.app') &&
-  (host.startsWith('deploy-preview-') || host.startsWith('branch-') || host.includes('--'));
+  (host.startsWith('deploy-preview-') ||
+    host.startsWith('branch-') ||
+    host.includes('--'));
 
 const isProtectedPath = (pathname: string) =>
-  PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  PROTECTED_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
 
 const buildCanonicalHostRedirect = (request: NextRequest) => {
   if (!shouldEnforceCanonicalHost()) return null;
   const incomingHost = request.headers.get('host')?.toLowerCase();
-  if (!incomingHost || incomingHost === canonicalHost || isLocalTestHost(incomingHost) || isNetlifyPreviewHost(incomingHost)) {
+  if (
+    !incomingHost ||
+    incomingHost === canonicalHost ||
+    isLocalTestHost(incomingHost) ||
+    isNetlifyPreviewHost(incomingHost)
+  ) {
     return null;
   }
   const redirectUrl = request.nextUrl.clone();
@@ -182,107 +222,120 @@ const buildCanonicalHostRedirect = (request: NextRequest) => {
   return NextResponse.redirect(redirectUrl, 308);
 };
 
-const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> => {
-  const accessToken = request.cookies.get(ROUTE_AUTH_COOKIE_NAME)?.value?.trim();
+const resolveRouteAuth = async (
+  request: NextRequest
+): Promise<RouteAuthResult> => {
+  const accessToken = request.cookies
+    .get(ROUTE_AUTH_COOKIE_NAME)
+    ?.value?.trim();
   if (!accessToken || !supabaseValidator) return { kind: 'unauthenticated' };
 
-  const { data: authData, error: authError } = await supabaseValidator.auth.getUser(accessToken);
-  if (authError && isServiceFailure(authError.message)) return { kind: 'service_unavailable' };
+  const { data: authData, error: authError } =
+    await supabaseValidator.auth.getUser(accessToken);
+  if (authError && isServiceFailure(authError.message)) {
+    return { kind: 'service_unavailable' };
+  }
   if (authError || !authData.user) return { kind: 'unauthenticated' };
 
   const fallbackRole = readMetadataText(
     authData.user.app_metadata as Record<string, unknown> | null | undefined,
     'role'
   );
-  const userMetadata = authData.user.user_metadata as Record<string, unknown> | null | undefined;
-  const appMetadata = authData.user.app_metadata as Record<string, unknown> | null | undefined;
-  const ownerDriverWorkspace = isOwnerDriverWorkspaceRequested(userMetadata, appMetadata);
-  const ownerDriverExecutionMode = isOwnerDriverExecutionModeRequested(userMetadata, appMetadata);
+  const userMetadata = authData.user.user_metadata as
+    | Record<string, unknown>
+    | null
+    | undefined;
+  const appMetadata = authData.user.app_metadata as
+    | Record<string, unknown>
+    | null
+    | undefined;
+  const ownerDriverWorkspace = isOwnerDriverWorkspaceRequested(
+    userMetadata,
+    appMetadata
+  );
+  const ownerDriverExecutionMode = isOwnerDriverExecutionModeRequested(
+    userMetadata,
+    appMetadata
+  );
 
+  // Protected routes require authoritative database context. Metadata-only
+  // authorization is never sufficient when the service-role client is absent.
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    const role = mapAppRole(fallbackRole);
-    return role
-      ? {
-          kind: 'authenticated',
-          role,
-          rawRole: fallbackRole,
-          workspaceRole: resolveWorkspaceRole({ role, rawRole: fallbackRole, ownerDriverWorkspace }),
-          mustChangePassword: false,
-          appAccess: null,
-          ownerDriverWorkspace,
-          ownerDriverExecutionMode,
-          canAccessDriverMode: ownerDriverWorkspace && role === 'driver',
-          membershipRole: null,
-        }
-      : { kind: 'forbidden' };
-  }
-
-  const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
-    supabaseAdmin
-      .from('profiles')
-      .select('role, status, is_driver, company_id')
-      .eq('user_id', authData.user.id)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('company_memberships')
-      .select('id, company_id, role_in_company, status, created_at')
-      .eq('user_id', authData.user.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false }),
-    supabaseAdmin
-      .from('drivers')
-      .select('app_access, must_change_password, company_id')
-      .eq('user_id', authData.user.id)
-      .limit(1)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('companies')
-      .select('id, company_type')
-      .eq('created_by', authData.user.id)
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  if (
-    isServiceFailure(profileRes.error?.message) ||
-    isServiceFailure(membershipRes.error?.message) ||
-    isServiceFailure(driverRes.error?.message) ||
-    isServiceFailure(creatorCompanyRes.error?.message)
-  ) {
     return { kind: 'service_unavailable' };
   }
 
-  const profile = profileRes.error
-    ? null
-    : (profileRes.data as {
-        role?: string | null;
-        status?: string | null;
-        is_driver?: boolean | null;
-        company_id?: string | null;
-      } | null);
-  const memberships = membershipRes.error
-    ? []
-    : ((membershipRes.data ?? []) as Array<{
-        id?: string | null;
-        company_id?: string | null;
-        role_in_company?: string | null;
-        status?: string | null;
-        created_at?: string | null;
-      }>);
-  const membership = selectDeterministicMembership(memberships, profile?.company_id ?? null);
-  const driver = driverRes.error
-    ? null
-    : (driverRes.data as {
-        app_access?: boolean | null;
-        must_change_password?: boolean | null;
-        company_id?: string | null;
-      } | null);
-  const creatorCompany = creatorCompanyRes.error
-    ? null
-    : (creatorCompanyRes.data as { id?: string | null; company_type?: string | null } | null);
+  const [profileRes, membershipRes, driverRes, creatorCompanyRes] =
+    await Promise.all([
+      supabaseAdmin
+        .from('profiles')
+        .select('role, status, is_driver, company_id')
+        .eq('user_id', authData.user.id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('company_memberships')
+        .select('id, company_id, role_in_company, status, created_at')
+        .eq('user_id', authData.user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true }),
+      supabaseAdmin
+        .from('drivers')
+        .select('app_access, must_change_password, company_id')
+        .eq('user_id', authData.user.id)
+        .limit(1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('companies')
+        .select('id, company_type')
+        .eq('created_by', authData.user.id)
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+  const lookupErrors = [
+    profileRes.error,
+    membershipRes.error,
+    driverRes.error,
+    creatorCompanyRes.error,
+  ].filter(Boolean);
+  if (lookupErrors.length > 0) {
+    return { kind: 'service_unavailable' };
+  }
+
+  const profile = profileRes.data as {
+    role?: string | null;
+    status?: string | null;
+    is_driver?: boolean | null;
+    company_id?: string | null;
+  } | null;
+  const memberships = (membershipRes.data ?? []) as Array<{
+    id?: string | null;
+    company_id?: string | null;
+    role_in_company?: string | null;
+    status?: string | null;
+    created_at?: string | null;
+  }>;
+  const membership = selectDeterministicMembership(
+    memberships,
+    profile?.company_id ?? null
+  );
+  const driver = driverRes.data as {
+    app_access?: boolean | null;
+    must_change_password?: boolean | null;
+    company_id?: string | null;
+  } | null;
+  const creatorCompany = creatorCompanyRes.data as {
+    id?: string | null;
+    company_type?: string | null;
+  } | null;
 
   const profileStatus = profile?.status?.toLowerCase();
-  if (profileStatus === 'pending' || profileStatus === 'blocked' || profileStatus === 'suspended' || profileStatus === 'inactive') {
+  if (
+    profileStatus === 'pending' ||
+    profileStatus === 'blocked' ||
+    profileStatus === 'suspended' ||
+    profileStatus === 'inactive'
+  ) {
     return { kind: 'forbidden' };
   }
 
@@ -309,7 +362,12 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
       profile?.is_driver === true ||
       mapAppRole(profile?.role ?? null) === 'driver' ||
       mapAppRole(fallbackRole) === 'driver');
-  const rawRole = profile?.role ?? fallbackRole ?? null;
+  const rawRole = resolveWorkspaceRawRole({
+    profileRole: profile?.role ?? null,
+    fallbackRole,
+    userMetadata,
+    appMetadata,
+  });
   const workspaceRole = resolveWorkspaceRole({
     role,
     rawRole,
@@ -322,8 +380,13 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     role,
     rawRole,
     workspaceRole,
-    mustChangePassword: (role === 'driver' || canAccessDriverMode) && driver?.must_change_password === true,
-    appAccess: role === 'driver' || canAccessDriverMode ? (driver?.app_access ?? null) : null,
+    mustChangePassword:
+      (role === 'driver' || canAccessDriverMode) &&
+      driver?.must_change_password === true,
+    appAccess:
+      role === 'driver' || canAccessDriverMode
+        ? (driver?.app_access ?? null)
+        : null,
     ownerDriverWorkspace,
     ownerDriverExecutionMode,
     canAccessDriverMode,
@@ -338,37 +401,54 @@ export async function middleware(request: NextRequest) {
 
   const auth = await resolveRouteAuth(request);
   if (auth.kind === 'unauthenticated') return buildLoginRedirect(request);
-  if (auth.kind === 'service_unavailable') return buildLoginRedirect(request, 'service_unavailable');
+  if (auth.kind === 'service_unavailable') {
+    return buildLoginRedirect(request, 'service_unavailable');
+  }
   if (auth.kind === 'forbidden') return buildRedirect(request, FORBIDDEN_PATH);
 
   const url = request.nextUrl.clone();
   const hasMockDashboardParam =
     url.pathname === DRIVER_JOBS_PATH &&
-    (url.searchParams.get('mock-dashboard') === '1' || url.searchParams.has('mock-dashboard'));
-  const driverRouteRequested = url.pathname === DRIVER_PATH || url.pathname.startsWith('/driver/');
-  const driverModeActive = auth.role === 'driver' || (auth.canAccessDriverMode && driverRouteRequested);
+    (url.searchParams.get('mock-dashboard') === '1' ||
+      url.searchParams.has('mock-dashboard'));
+  const driverRouteRequested =
+    url.pathname === DRIVER_PATH || url.pathname.startsWith('/driver/');
+  const driverModeActive =
+    auth.role === 'driver' ||
+    (auth.canAccessDriverMode && driverRouteRequested);
 
   if (driverModeActive) {
-    if (auth.appAccess === false) return buildRedirect(request, FORBIDDEN_PATH);
-    if (auth.mustChangePassword && url.pathname !== DRIVER_CHANGE_PASSWORD_PATH) {
+    if (auth.appAccess === false) {
+      return buildRedirect(request, FORBIDDEN_PATH);
+    }
+    if (
+      auth.mustChangePassword &&
+      url.pathname !== DRIVER_CHANGE_PASSWORD_PATH
+    ) {
       return buildRedirect(request, DRIVER_CHANGE_PASSWORD_PATH);
     }
   }
 
-  if (url.pathname === '/admin' && (auth.workspaceRole === 'driver' || auth.workspaceRole === 'owner_driver')) {
+  if (
+    url.pathname === '/admin' &&
+    (auth.workspaceRole === 'driver' || auth.workspaceRole === 'owner_driver')
+  ) {
     return buildRedirect(request, '/driver');
   }
+
   if (url.pathname === DRIVER_PATH && auth.mustChangePassword) {
     return buildRedirect(request, DRIVER_CHANGE_PASSWORD_PATH);
   }
 
-  if (!isRoleAllowedForPath(url.pathname, auth.role, {
-    canAccessDriverMode: auth.canAccessDriverMode,
-    membershipRole: auth.membershipRole,
-    ownerDriverWorkspace: auth.ownerDriverWorkspace,
-    rawRole: auth.rawRole,
-    workspaceRole: auth.workspaceRole,
-  })) {
+  if (
+    !isRoleAllowedForPath(url.pathname, auth.role, {
+      canAccessDriverMode: auth.canAccessDriverMode,
+      membershipRole: auth.membershipRole,
+      ownerDriverWorkspace: auth.ownerDriverWorkspace,
+      rawRole: auth.rawRole,
+      workspaceRole: auth.workspaceRole,
+    })
+  ) {
     const canonicalPath = getPostLoginRoute({
       role: auth.role,
       rawRole: auth.rawRole,
@@ -384,7 +464,9 @@ export async function middleware(request: NextRequest) {
       : buildRedirect(request, FORBIDDEN_PATH);
   }
 
-  if (hasMockDashboardParam) return buildRedirect(request, DRIVER_JOBS_PATH);
+  if (hasMockDashboardParam) {
+    return buildRedirect(request, DRIVER_JOBS_PATH);
+  }
   return NextResponse.next();
 }
 
