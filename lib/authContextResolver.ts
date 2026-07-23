@@ -1,8 +1,10 @@
 import { resolveAuthoritativeRole, type AppUserRole } from '@/lib/authRole';
 
 export type AuthMembershipLike = {
+  id?: string | null;
   company_id?: string | null;
   role_in_company?: string | null;
+  created_at?: string | null;
 };
 
 type ResolveAuthContextInput = {
@@ -32,24 +34,41 @@ export const normalizeCompanyId = (value: unknown): string | null => {
   return normalized || null;
 };
 
+const membershipTimestamp = (membership: AuthMembershipLike): number => {
+  if (typeof membership.created_at !== 'string') return Number.NEGATIVE_INFINITY;
+  const value = Date.parse(membership.created_at);
+  return Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
+};
+
+const membershipStableKey = (membership: AuthMembershipLike): string =>
+  String(membership.id ?? membership.company_id ?? '').trim();
+
 /**
  * Select the active membership used for auth and route resolution.
- * A profile company is the explicit active-company hint. If it does not match,
- * preserve the stable database order supplied by the caller.
+ * A profile company is the explicit active-company hint. Otherwise selection
+ * is deterministic: newest created_at first, then stable id/company key.
  */
 export const selectDeterministicMembership = <T extends AuthMembershipLike>(
   memberships: readonly T[] | null | undefined,
   profileCompanyId?: string | null
 ): T | null => {
   if (!memberships?.length) return null;
+
+  const ordered = [...memberships].sort((left, right) => {
+    const timestampDifference = membershipTimestamp(right) - membershipTimestamp(left);
+    if (timestampDifference !== 0) return timestampDifference;
+    return membershipStableKey(left).localeCompare(membershipStableKey(right));
+  });
+
   const preferredCompanyId = normalizeCompanyId(profileCompanyId);
   if (preferredCompanyId) {
-    const preferred = memberships.find(
+    const preferred = ordered.find(
       (membership) => normalizeCompanyId(membership.company_id) === preferredCompanyId
     );
     if (preferred) return preferred;
   }
-  return memberships[0] ?? null;
+
+  return ordered[0] ?? null;
 };
 
 export const resolveAuthContext = ({
