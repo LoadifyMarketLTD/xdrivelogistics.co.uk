@@ -4,6 +4,15 @@
 -- missing from repo migrations. Recreate it forward-only so clean environments
 -- and migration replays have the same object the app queries.
 
+-- The legacy production view exposes a load_id column. Clean bootstrap schemas
+-- did not contain that compatibility column on job_bids, which made creation of
+-- the view fail before the remaining migration chain could run.
+ALTER TABLE public.job_bids
+  ADD COLUMN IF NOT EXISTS load_id uuid REFERENCES public.loads(id) ON DELETE CASCADE;
+
+CREATE INDEX IF NOT EXISTS idx_job_bids_load_id
+  ON public.job_bids(load_id);
+
 CREATE OR REPLACE VIEW public.job_bids_with_job_owner
 WITH (security_invoker = true)
 AS
