@@ -1,5 +1,10 @@
 import { resolveAuthoritativeRole, type AppUserRole } from '@/lib/authRole';
 
+export type AuthMembershipLike = {
+  company_id?: string | null;
+  role_in_company?: string | null;
+};
+
 type ResolveAuthContextInput = {
   creatorCompanyId?: string | null;
   creatorCompanyType?: string | null;
@@ -21,10 +26,30 @@ type ResolveAuthContextResult = {
   role: AppUserRole | null;
 };
 
-const normalizeId = (value: unknown): string | null => {
+export const normalizeCompanyId = (value: unknown): string | null => {
   if (typeof value !== 'string') return null;
   const normalized = value.trim();
   return normalized || null;
+};
+
+/**
+ * Select the active membership used for auth and route resolution.
+ * A profile company is the explicit active-company hint. If it does not match,
+ * preserve the stable database order supplied by the caller.
+ */
+export const selectDeterministicMembership = <T extends AuthMembershipLike>(
+  memberships: readonly T[] | null | undefined,
+  profileCompanyId?: string | null
+): T | null => {
+  if (!memberships?.length) return null;
+  const preferredCompanyId = normalizeCompanyId(profileCompanyId);
+  if (preferredCompanyId) {
+    const preferred = memberships.find(
+      (membership) => normalizeCompanyId(membership.company_id) === preferredCompanyId
+    );
+    if (preferred) return preferred;
+  }
+  return memberships[0] ?? null;
 };
 
 export const resolveAuthContext = ({
@@ -44,17 +69,17 @@ export const resolveAuthContext = ({
     membershipRole,
     profileRole,
     isDriver,
-    hasCreatedCompany: Boolean(normalizeId(creatorCompanyId)),
+    hasCreatedCompany: Boolean(normalizeCompanyId(creatorCompanyId)),
     creatorCompanyType,
     fallbackRole,
     ownerDriverWorkspaceRequested,
   });
 
   const companyId =
-    normalizeId(membershipCompanyId) ??
-    normalizeId(profileCompanyId) ??
-    normalizeId(driverCompanyId) ??
-    normalizeId(creatorCompanyId) ??
+    normalizeCompanyId(membershipCompanyId) ??
+    normalizeCompanyId(profileCompanyId) ??
+    normalizeCompanyId(driverCompanyId) ??
+    normalizeCompanyId(creatorCompanyId) ??
     null;
 
   if (!resolvedRole) {
