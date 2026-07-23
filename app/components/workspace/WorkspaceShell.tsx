@@ -101,7 +101,7 @@ export default function WorkspaceShell({
   if (!hydrated) return <div style={{ minHeight: '100vh', background: workspaceTheme.page }} />;
 
   const sidebarStyle: CSSProperties = {
-    width: isCompact ? '292px' : '258px',
+    width: isCompact ? '292px' : '252px',
     background: '#f8fafc',
     borderRight: `1px solid ${workspaceTheme.border}`,
     display: 'flex',
@@ -120,32 +120,32 @@ export default function WorkspaceShell({
     <div style={{ display: 'flex', minHeight: '100vh', background: workspaceTheme.page, color: workspaceTheme.text }}>
       {isCompact && sidebarOpen && <button aria-label="Close menu" onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, border: 0, background: 'rgba(15,23,42,0.55)', zIndex: 50, cursor: 'pointer' }} />}
 
-      <aside style={sidebarStyle}>
-        <div style={{ padding: '0.82rem', background: '#fff', borderBottom: `1px solid ${workspaceTheme.border}` }}>
+      <aside style={sidebarStyle} aria-label={`${definition.label} navigation`}>
+        <div style={{ padding: '0.75rem', background: '#fff', borderBottom: `1px solid ${workspaceTheme.border}` }}>
           <button onClick={() => router.push(definition.homeHref)} style={{ border: 0, background: 'transparent', padding: 0, width: '100%', cursor: 'pointer', textAlign: 'left' }}>
-            <div style={{ display: 'flex', gap: '0.58rem', alignItems: 'center' }}>
-              <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: workspaceTheme.navy, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '0.55rem', alignItems: 'center' }}>
+              <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: workspaceTheme.navy, display: 'grid', placeItems: 'center', flexShrink: 0, boxShadow: '0 2px 6px rgba(11,47,107,0.18)' }}>
                 <span style={{ color: workspaceTheme.orange, fontWeight: 950, fontSize: '1rem' }}>X</span>
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ color: workspaceTheme.text, fontSize: '0.82rem', fontWeight: 850, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{companyName}</div>
-                <div style={{ color: workspaceTheme.muted, fontSize: '0.64rem', marginTop: '0.1rem' }}>{definition.subtitle}</div>
+                <div style={{ color: workspaceTheme.text, fontSize: '0.8rem', fontWeight: 850, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{companyName}</div>
+                <div style={{ color: workspaceTheme.muted, fontSize: '0.62rem', marginTop: '0.08rem' }}>{definition.subtitle}</div>
               </div>
             </div>
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.61rem', fontWeight: 850, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', padding: '0.2rem 0.42rem', borderRadius: '999px' }}>{definition.label}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.32rem', marginTop: '0.55rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.59rem', fontWeight: 850, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', padding: '0.18rem 0.4rem', borderRadius: '999px' }}>{definition.label}</span>
             {role !== 'driver' && role !== 'customer' && role !== 'broker' && role !== 'owner_driver' && (
-              <span style={{ fontSize: '0.61rem', fontWeight: 800, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.2rem 0.42rem', borderRadius: '999px' }}>Company View</span>
+              <span style={{ fontSize: '0.59rem', fontWeight: 800, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.18rem 0.4rem', borderRadius: '999px' }}>Company View</span>
             )}
           </div>
         </div>
 
-        <nav style={{ flex: 1, overflowY: 'auto', padding: '0.52rem' }}>
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '0.48rem' }}>
           {nav.map((group) => (
-            <div key={group.id} style={{ marginBottom: '0.45rem' }}>
-              <div style={{ padding: '0.27rem 0.45rem 0.2rem', color: '#64748b', fontSize: '0.61rem', fontWeight: 850, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group.label}</div>
-              <div style={{ display: 'grid', gap: '0.12rem' }}>
+            <div key={group.id} style={{ marginBottom: '0.42rem' }}>
+              <div style={{ padding: '0.25rem 0.42rem 0.18rem', color: '#64748b', fontSize: '0.58rem', fontWeight: 850, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group.label}</div>
+              <div style={{ display: 'grid', gap: '0.1rem' }}>
                 {group.items.map((item) => {
                   const active = isActive(item.href);
                   return (
@@ -155,24 +155,24 @@ export default function WorkspaceShell({
                       style={{
                         width: '100%',
                         display: 'grid',
-                        gridTemplateColumns: '23px minmax(0, 1fr) 8px',
+                        gridTemplateColumns: '22px minmax(0,1fr) 7px',
                         alignItems: 'center',
-                        gap: '0.35rem',
+                        gap: '0.34rem',
                         border: 0,
                         borderLeft: active ? `3px solid ${workspaceTheme.blue}` : '3px solid transparent',
-                        borderRadius: '8px',
+                        borderRadius: '7px',
                         background: active ? '#eff6ff' : 'transparent',
                         color: active ? workspaceTheme.blue : workspaceTheme.text,
-                        padding: '0.43rem 0.48rem',
-                        fontSize: '0.73rem',
+                        padding: '0.4rem 0.45rem',
+                        fontSize: '0.7rem',
                         fontWeight: active ? 850 : 650,
                         textAlign: 'left',
                         cursor: 'pointer',
                       }}
                     >
-                      <span aria-hidden="true" style={{ width: '22px', height: '22px', borderRadius: '7px', display: 'grid', placeItems: 'center', background: active ? '#dbeafe' : '#eef2f6', color: active ? workspaceTheme.blue : '#475569', fontSize: item.icon === 'OC' ? '0.55rem' : '0.72rem', fontWeight: 900 }}>{item.icon ?? '•'}</span>
+                      <span aria-hidden="true" style={{ width: '21px', height: '21px', borderRadius: '6px', display: 'grid', placeItems: 'center', background: active ? '#dbeafe' : '#eef2f6', color: active ? workspaceTheme.blue : '#475569', fontSize: item.icon === 'OC' ? '0.52rem' : '0.68rem', fontWeight: 900 }}>{item.icon ?? '•'}</span>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-                      {active ? <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: workspaceTheme.blue }} /> : <span />}
+                      {active ? <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: workspaceTheme.blue }} /> : <span />}
                     </button>
                   );
                 })}
@@ -181,29 +181,29 @@ export default function WorkspaceShell({
           ))}
         </nav>
 
-        <div style={{ padding: '0.72rem', borderTop: `1px solid ${workspaceTheme.border}`, background: '#fff' }}>
-          <div style={{ color: workspaceTheme.muted, fontSize: '0.66rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '0.5rem' }}>{user?.email ?? ''}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.38rem' }}>
-            <button onClick={() => router.push(definition.homeHref)} style={{ border: `1px solid ${workspaceTheme.border}`, borderRadius: '8px', background: '#fff', color: workspaceTheme.text, padding: '0.43rem', fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer' }}>Home</button>
-            <button onClick={() => void logout()} style={{ border: '1px solid #fecaca', borderRadius: '8px', background: '#fef2f2', color: workspaceTheme.red, padding: '0.43rem', fontSize: '0.68rem', fontWeight: 800, cursor: 'pointer' }}>Sign out</button>
+        <div style={{ padding: '0.65rem', borderTop: `1px solid ${workspaceTheme.border}`, background: '#fff' }}>
+          <div style={{ color: workspaceTheme.muted, fontSize: '0.63rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '0.45rem' }}>{user?.email ?? ''}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.34rem' }}>
+            <button onClick={() => router.push(definition.homeHref)} style={{ border: `1px solid ${workspaceTheme.border}`, borderRadius: '7px', background: '#fff', color: workspaceTheme.text, padding: '0.4rem', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}>Home</button>
+            <button onClick={() => void logout()} style={{ border: '1px solid #fecaca', borderRadius: '7px', background: '#fff', color: workspaceTheme.red, padding: '0.4rem', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer' }}>Sign out</button>
           </div>
         </div>
       </aside>
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <header style={{ minHeight: '58px', background: '#fff', borderBottom: `1px solid ${workspaceTheme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.62rem clamp(0.8rem, 2vw, 1.3rem)', position: 'sticky', top: 0, zIndex: 35, gap: '0.8rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.62rem', minWidth: 0 }}>
-            {isCompact && <button onClick={() => setSidebarOpen(true)} style={{ width: '38px', height: '38px', border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', background: '#fff', color: workspaceTheme.text, fontSize: '1rem', fontWeight: 900, cursor: 'pointer' }}>☰</button>}
+        <header style={{ minHeight: '56px', background: '#fff', borderBottom: `1px solid ${workspaceTheme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.56rem clamp(0.75rem,2vw,1.2rem)', position: 'sticky', top: 0, zIndex: 35, gap: '0.75rem', boxShadow: '0 1px 5px rgba(15,23,42,0.04)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.58rem', minWidth: 0 }}>
+            {isCompact && <button aria-label="Open menu" onClick={() => setSidebarOpen(true)} style={{ width: '36px', height: '36px', border: `1px solid ${workspaceTheme.border}`, borderRadius: '8px', background: '#fff', color: workspaceTheme.text, fontSize: '0.95rem', fontWeight: 900, cursor: 'pointer' }}>☰</button>}
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '0.7rem', color: workspaceTheme.muted, fontWeight: 750 }}>{definition.label}</div>
-              <div style={{ fontSize: '0.82rem', color: workspaceTheme.text, fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{companyName}</div>
+              <div style={{ fontSize: '0.65rem', color: workspaceTheme.muted, fontWeight: 750 }}>{definition.label}</div>
+              <div style={{ fontSize: '0.78rem', color: workspaceTheme.text, fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{companyName}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.48rem', flexShrink: 0 }}>
-            {primaryAction && <button onClick={() => router.push(primaryAction.href)} style={{ border: 0, background: workspaceTheme.green, color: '#fff', padding: '0.52rem 0.8rem', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 850, cursor: 'pointer' }}>+ {primaryAction.label}</button>}
-            <button onClick={() => router.push(notificationsHref)} title="Notifications" style={{ position: 'relative', width: '38px', height: '38px', border: `1px solid ${workspaceTheme.border}`, borderRadius: '50%', background: '#fff', cursor: 'pointer', fontSize: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.42rem', flexShrink: 0 }}>
+            {primaryAction && <button onClick={() => router.push(primaryAction.href)} style={{ border: 0, background: workspaceTheme.orange, color: '#172033', padding: '0.48rem 0.72rem', borderRadius: '8px', fontSize: '0.69rem', fontWeight: 850, cursor: 'pointer', boxShadow: '0 2px 7px rgba(245,163,0,0.22)' }}>+ {primaryAction.label}</button>}
+            <button onClick={() => router.push(notificationsHref)} title="Notifications" aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`} style={{ position: 'relative', width: '36px', height: '36px', border: `1px solid ${workspaceTheme.border}`, borderRadius: '50%', background: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}>
               🔔
-              {unreadCount > 0 && <span style={{ position: 'absolute', top: '-4px', right: '-4px', minWidth: '17px', height: '17px', padding: '0 3px', borderRadius: '999px', background: workspaceTheme.red, color: '#fff', display: 'grid', placeItems: 'center', fontSize: '0.58rem', fontWeight: 900 }}>{unreadCount > 99 ? '99+' : unreadCount}</span>}
+              {unreadCount > 0 && <span style={{ position: 'absolute', top: '-4px', right: '-4px', minWidth: '16px', height: '16px', padding: '0 3px', borderRadius: '999px', background: workspaceTheme.red, color: '#fff', display: 'grid', placeItems: 'center', fontSize: '0.55rem', fontWeight: 900 }}>{unreadCount > 99 ? '99+' : unreadCount}</span>}
             </button>
           </div>
         </header>
@@ -211,8 +211,19 @@ export default function WorkspaceShell({
       </div>
 
       <style jsx global>{`
+        * { box-sizing: border-box; }
+        body { background: ${workspaceTheme.page}; }
+        button, input, select, textarea { font: inherit; }
+        .xdrive-table-row:hover td { background: #fbfdff; }
         @media (max-width: 820px) {
-          .xdrive-two-column { grid-template-columns: 1fr !important; }
+          .xdrive-two-column, .xdrive-settings-layout { grid-template-columns: 1fr !important; }
+          .xdrive-settings-layout > aside { position: static !important; display: flex; overflow-x: auto; gap: 0.25rem; }
+          .xdrive-settings-layout > aside button { min-width: 155px; margin-bottom: 0 !important; }
+        }
+        @media (max-width: 560px) {
+          .xdrive-page-frame { padding-left: 0.65rem !important; padding-right: 0.65rem !important; }
+          .xdrive-page-header { margin-bottom: 0.75rem !important; }
+          .xdrive-kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
         }
       `}</style>
     </div>
