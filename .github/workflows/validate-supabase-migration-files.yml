@@ -1,0 +1,25 @@
+name: Validate Supabase Migration Files
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - ".github/scripts/validate-supabase-migration-files.mjs"
+      - ".github/workflows/validate-supabase-migration-files.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migration-files:
+    name: Reject duplicate versions and UTF-8 BOM files
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout exact pull request SHA
+        uses: actions/checkout@v4
+
+      - name: Validate migration filenames and encodings
+        run: node .github/scripts/validate-supabase-migration-files.mjs
