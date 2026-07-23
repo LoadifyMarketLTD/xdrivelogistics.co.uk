@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCompanyWorkspaceData, type WorkspaceInvoice } from './useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -17,6 +17,10 @@ import {
 } from './WorkspaceUI';
 
 type Mode = 'customer' | 'broker-customer' | 'broker-carrier';
+
+const PAYMENT_FILTERS = new Set(['all', 'draft', 'sent', 'unpaid', 'paid', 'disputed', 'cancelled']);
+export const normalizeInvoicePaymentFilter = (value: string | null) =>
+  value && PAYMENT_FILTERS.has(value.toLowerCase()) ? value.toLowerCase() : 'all';
 
 const money = (value: number | null | undefined) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(value ?? 0));
@@ -46,9 +50,15 @@ const config: Record<Mode, { eyebrow: string; title: string; description: string
 
 export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const workspace = useCompanyWorkspaceData();
-  const [status, setStatus] = useState('all');
+  const requestedPaymentFilter = normalizeInvoicePaymentFilter(searchParams.get('payment'));
+  const [status, setStatus] = useState(requestedPaymentFilter);
   const page = config[mode];
+
+  useEffect(() => {
+    setStatus(requestedPaymentFilter);
+  }, [requestedPaymentFilter]);
 
   const invoices = useMemo(() => {
     const scoped = workspace.invoices.filter((invoice) => {
