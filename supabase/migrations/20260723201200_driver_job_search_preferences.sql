@@ -1,4 +1,4 @@
--- Migration 116: Driver job search preferences for Inbox / Saved / Deleted.
+-- Driver job search preferences for Inbox / Saved / Deleted.
 
 BEGIN;
 

@@ -1,4 +1,4 @@
--- Migration 114: Align marketplace bid compliance with live driver/vehicle records.
+-- Align marketplace bid compliance with live driver/vehicle records.
 --
 -- The original bid guard only trusted rows in driver_documents and
 -- vehicle_documents. Newer onboarding/admin flows can leave the operational

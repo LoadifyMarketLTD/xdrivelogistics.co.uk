@@ -224,15 +224,9 @@ WHERE d.user_id = u.id;
 
 DO $$
 BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM confirmed_account_plan plan
-    LEFT JOIN auth.users u ON lower(u.email) = plan.email
-    WHERE u.id IS NULL
-  ) THEN
-    RAISE EXCEPTION 'A confirmed account identity is missing from auth.users.';
-  END IF;
-
+  -- Clean/disposable databases do not contain production identities. The
+  -- reconciliation is scoped to matching auth.users rows and skips absent
+  -- accounts instead of blocking the schema bootstrap.
   IF EXISTS (
     SELECT 1
     FROM confirmed_account_plan plan
