@@ -23,6 +23,15 @@ const money = (value: number | null | undefined) =>
 const date = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleDateString('en-GB') : 'Not set';
 
+const isCustomerVisibleInvoice = (invoice: WorkspaceInvoice) => {
+  const status = String(invoice.status ?? '').toLowerCase();
+  return (
+    !['pending', 'draft', 'cancelled'].includes(status) &&
+    Number(invoice.amount ?? 0) > 0 &&
+    Boolean(invoice.client_name?.trim())
+  );
+};
+
 const config: Record<Mode, { eyebrow: string; title: string; description: string; detailBase: string }> = {
   customer: {
     eyebrow: 'Customer finance',
@@ -53,7 +62,8 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
   const invoices = useMemo(() => {
     const scoped = workspace.invoices.filter((invoice) => {
       if (mode === 'customer') {
-        return invoice.buyer_company_id === workspace.companyId || workspace.jobs.some((job) => job.id === invoice.job_id);
+        const belongsToCustomer = invoice.buyer_company_id === workspace.companyId || workspace.jobs.some((job) => job.id === invoice.job_id);
+        return belongsToCustomer && isCustomerVisibleInvoice(invoice);
       }
       if (mode === 'broker-customer') return invoice.company_id === workspace.companyId;
       return invoice.buyer_company_id === workspace.companyId;
@@ -63,7 +73,10 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
   }, [mode, status, workspace.companyId, workspace.invoices, workspace.jobs]);
 
   const allScoped = useMemo(() => workspace.invoices.filter((invoice) => {
-    if (mode === 'customer') return invoice.buyer_company_id === workspace.companyId || workspace.jobs.some((job) => job.id === invoice.job_id);
+    if (mode === 'customer') {
+      const belongsToCustomer = invoice.buyer_company_id === workspace.companyId || workspace.jobs.some((job) => job.id === invoice.job_id);
+      return belongsToCustomer && isCustomerVisibleInvoice(invoice);
+    }
     if (mode === 'broker-customer') return invoice.company_id === workspace.companyId;
     return invoice.buyer_company_id === workspace.companyId;
   }), [mode, workspace.companyId, workspace.invoices, workspace.jobs]);
