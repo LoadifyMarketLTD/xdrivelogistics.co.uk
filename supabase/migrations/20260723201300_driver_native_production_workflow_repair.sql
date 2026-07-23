@@ -178,7 +178,7 @@ BEGIN
     RAISE EXCEPTION 'Authentication required';
   END IF;
 
-  SELECT jb.job_id, j.company_id, jb.bidder_company_id
+  SELECT jb.job_id, j.company_id, jb.company_id
   INTO v_job_id, v_owner_company_id, v_bidder_company_id
   FROM public.job_bids jb
   JOIN public.jobs j ON j.id = jb.job_id
@@ -195,7 +195,7 @@ BEGIN
     WHERE cm.company_id = v_owner_company_id
       AND cm.user_id = v_actor
       AND cm.status = 'active'
-      AND cm.role_in_company IN ('owner', 'admin', 'member', 'dispatcher')
+      AND cm.role_in_company IN ('owner', 'admin', 'dispatcher')
   ) THEN
     RAISE EXCEPTION 'Not authorized to accept bids for this job';
   END IF;
