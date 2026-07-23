@@ -13,9 +13,24 @@ const positiveNumber = (value: unknown) => {
   return Number.isFinite(number) && number > 0 ? number : null;
 };
 
+const optionalFiniteNumber = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const optionalNonNegativeInteger = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : null;
+};
+
+const validEmail = (value: string | null) =>
+  Boolean(value && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
+
 const resolveDueDays = (terms: string | null, explicitDays: unknown) => {
-  const supplied = Number(explicitDays);
-  if (Number.isInteger(supplied) && supplied >= 0) return supplied;
+  const supplied = optionalNonNegativeInteger(explicitDays);
+  if (supplied !== null) return supplied;
   if (!terms) return 14;
   if (['pay now', 'immediate', 'due on receipt'].includes(terms.trim().toLowerCase())) return 0;
   const match = terms.match(/\d+/);
@@ -149,17 +164,21 @@ export async function POST(
     agreedCurrency = cleanText(agreement.currency);
     const rawVatRate = Number(agreement.vat_rate);
     agreedVatRate = rawVatRate === 5 || rawVatRate === 20 ? rawVatRate : 0;
-    agreedVatAmount = Number.isFinite(Number(agreement.vat_amount))
-      ? Number(agreement.vat_amount)
-      : null;
+    agreedVatAmount = optionalFiniteNumber(agreement.vat_amount);
     agreedGross = positiveNumber(agreement.agreed_gross_amount);
     agreedTerms = cleanText(agreement.payment_terms);
-    agreedDueDays = Number.isInteger(Number(agreement.payment_due_days))
-      ? Number(agreement.payment_due_days)
-      : null;
+    agreedDueDays = optionalNonNegativeInteger(agreement.payment_due_days);
 
-    if (!agreedNet) {
-      return respond(422, { error: 'The accepted commercial agreement has no positive amount.' });
+    if (!agreedNet || agreedVatAmount === null || !agreedGross || !agreedCurrency || !agreedTerms) {
+      return respond(422, {
+        error: 'The accepted commercial agreement snapshot is incomplete. The invoice was not created.',
+      });
+    }
+
+    if (agreedVatAmount < 0 || Math.abs(agreedGross - (agreedNet + agreedVatAmount)) > 0.01) {
+      return respond(422, {
+        error: 'The accepted commercial agreement totals are inconsistent. The invoice was not created.',
+      });
     }
 
     const { data: buyer, error: buyerError } = await supabaseAdmin
@@ -170,20 +189,35 @@ export async function POST(
     if (buyerError) return respond(500, { error: buyerError.message });
 
     buyerName = cleanText(buyer?.name);
-    buyerEmail = cleanText(buyer?.email);
+    buyerEmail = cleanText(buyer?.email)?.toLowerCase() ?? null;
     buyerAddress = [buyer?.address_line1, buyer?.address_line2, buyer?.city, buyer?.postcode]
       .map(cleanText)
       .filter((value): value is string => Boolean(value))
       .join(', ') || null;
+
+    if (!buyerName) {
+      return respond(422, {
+        error: 'The buyer company name is missing. The invoice was not created.',
+      });
+    }
+    if (!validEmail(buyerEmail)) {
+      return respond(422, {
+        error: 'The buyer company email is missing or invalid. The invoice was not created.',
+      });
+    }
   }
 
-  const clientName = cleanText(body.client_name) || cleanText(job.client_name) || buyerName;
+  const clientName = marketplace
+    ? buyerName
+    : cleanText(body.client_name) || cleanText(job.client_name);
   if (!clientName) {
     return respond(422, { error: 'The customer company name is missing. The invoice was not created.' });
   }
 
-  const clientEmail = cleanText(body.client_email) || cleanText(job.client_email) || buyerEmail;
-  const clientAddress = cleanText(body.client_address) || buyerAddress;
+  const clientEmail = marketplace
+    ? buyerEmail
+    : (cleanText(body.client_email) || cleanText(job.client_email))?.toLowerCase() ?? null;
+  const clientAddress = marketplace ? buyerAddress : cleanText(body.client_address);
   const netAmount = marketplace
     ? agreedNet
     : positiveNumber(body.amount) || positiveNumber(job.budget_amount);
@@ -194,15 +228,19 @@ export async function POST(
     : body.vat_rate === 5 || body.vat_rate === 20
       ? body.vat_rate
       : 20;
-  const vatAmount = marketplace && agreedVatAmount !== null
+  const vatAmount = marketplace
     ? agreedVatAmount
     : Math.round(netAmount * (vatRate / 100) * 100) / 100;
-  const totalAmount = marketplace && agreedGross !== null
+  const totalAmount = marketplace
     ? agreedGross
     : Math.round((netAmount + vatAmount) * 100) / 100;
 
+  if (vatAmount === null || totalAmount === null || vatAmount < 0 || totalAmount <= 0) {
+    return respond(422, { error: 'Invoice totals are invalid. The invoice was not created.' });
+  }
+
   const paymentTerms = marketplace
-    ? agreedTerms || '14 days'
+    ? agreedTerms
     : cleanText(body.payment_terms) || '14 days';
   const invoiceDate = new Date().toISOString().slice(0, 10);
   const dueDate = addDays(invoiceDate, resolveDueDays(paymentTerms, marketplace ? agreedDueDays : null));
@@ -238,7 +276,8 @@ export async function POST(
   if (marketplace && agreementId) {
     const { data: existing, error: existingError } = await supabaseAdmin
       .from('invoices')
-      .select('id, invoice_number, status, invoice_generation_idempotency_key, amount, net_amount, client_name, delivery_state, delivery_provider, delivery_message_id, delivery_recipient_email')
+      .select('id, invoice_number, status, invoice_generation_idempotency_key, amount, net_amount, client_name, client_email, delivery_state, delivery_provider, delivery_message_id, delivery_recipient_email')
+      .eq('company_id', actor.companyId)
       .eq('commercial_agreement_id', agreementId)
       .eq('invoice_origin', 'marketplace')
       .maybeSingle();
@@ -246,9 +285,11 @@ export async function POST(
     if (existingError) return respond(500, { error: existingError.message });
     if (existing) {
       const currentStatus = toCanonicalInvoiceStatus(existing.status);
+      const existingEmail = cleanText(existing.client_email)?.toLowerCase() ?? null;
       const completeSnapshot = Number(existing.amount ?? 0) > 0
         && Number(existing.net_amount ?? 0) > 0
-        && Boolean(cleanText(existing.client_name));
+        && Boolean(cleanText(existing.client_name))
+        && validEmail(existingEmail);
       const provenDelivery = existing.delivery_state === 'sent'
         && Boolean(cleanText(existing.delivery_provider))
         && Boolean(cleanText(existing.delivery_message_id))
@@ -342,6 +383,7 @@ export async function POST(
         const { data: replay, error: replayError } = await supabaseAdmin
           .from('invoices')
           .select('id, invoice_number, status')
+          .eq('company_id', actor.companyId)
           .eq('commercial_agreement_id', agreementId)
           .eq('invoice_origin', 'marketplace')
           .maybeSingle();
