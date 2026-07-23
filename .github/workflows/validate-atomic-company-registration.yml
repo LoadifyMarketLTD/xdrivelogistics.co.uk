@@ -1,0 +1,58 @@
+name: Validate Atomic Company Registration
+
+on:
+  pull_request:
+    paths:
+      - "app/actions/companies.ts"
+      - "app/api/onboarding/_lib/handlers.ts"
+      - "lib/server/companyRegistration.ts"
+      - "supabase/migrations/20260723205000_atomic_authenticated_company_registration.sql"
+      - "supabase/migrations/20260723205100_require_verified_company_onboarding.sql"
+      - "scripts/validate_atomic_company_registration.sh"
+      - ".github/workflows/validate-atomic-company-registration.yml"
+  push:
+    branches:
+      - fix/atomic-company-registration-only
+    paths:
+      - "app/actions/companies.ts"
+      - "app/api/onboarding/_lib/handlers.ts"
+      - "lib/server/companyRegistration.ts"
+      - "supabase/migrations/20260723205000_atomic_authenticated_company_registration.sql"
+      - "supabase/migrations/20260723205100_require_verified_company_onboarding.sql"
+      - "scripts/validate_atomic_company_registration.sh"
+      - ".github/workflows/validate-atomic-company-registration.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+    steps:
+      - name: Checkout exact workflow SHA
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Validate atomic registration, retry, concurrency and takeover protection
+        run: bash scripts/validate_atomic_company_registration.sh
