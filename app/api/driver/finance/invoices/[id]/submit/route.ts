@@ -168,6 +168,36 @@ export async function POST(
     return respond(status, { error: message, invoiceStatus: 'Draft' });
   };
 
+  const invoiceNumber = cleanHeader(claimedInvoice.invoice_number);
+  const jobReference = cleanHeader(claimedInvoice.job_ref);
+  const clientName = cleanHeader(claimedInvoice.client_name);
+  const currencyCode = cleanHeader(claimedInvoice.currency ?? 'GBP') || 'GBP';
+  const netAmount = Number(claimedInvoice.net_amount);
+  const vatAmount = Number(claimedInvoice.vat_amount);
+  const vatRate = Number(claimedInvoice.vat_rate);
+  const totalAmount = Number(claimedInvoice.amount);
+
+  if (!invoiceNumber) return failDelivery(422, 'Invoice number is missing. The invoice was not sent.');
+  if (!jobReference) return failDelivery(422, 'Job reference is missing. The invoice was not sent.');
+  if (!clientName) return failDelivery(422, 'Customer company name is missing. The invoice was not sent.');
+  if (!currencyCode || currencyCode.length > 3) {
+    return failDelivery(422, 'Invoice currency is invalid. The invoice was not sent.');
+  }
+  if (!Number.isFinite(netAmount) || netAmount <= 0
+      || !Number.isFinite(vatAmount) || vatAmount < 0
+      || !Number.isFinite(vatRate) || ![0, 5, 20].includes(vatRate)
+      || !Number.isFinite(totalAmount) || totalAmount <= 0
+      || Math.abs(totalAmount - (netAmount + vatAmount)) > 0.01) {
+    return failDelivery(422, 'Invoice totals are invalid. Net amount plus VAT must equal the positive invoice total.');
+  }
+
+  const claimedRecipientEmail = typeof claimedInvoice.client_email === 'string'
+    ? claimedInvoice.client_email.trim().toLowerCase()
+    : '';
+  if (claimedRecipientEmail !== recipientEmail) {
+    return failDelivery(409, 'The customer email changed while delivery was being prepared. Refresh and retry.');
+  }
+
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
     .select('name, address_line1, address_line2, city, postcode, company_number, vat_number')
@@ -175,6 +205,9 @@ export async function POST(
     .maybeSingle();
   if (companyError) return failDelivery(500, companyError.message);
   if (!company) return failDelivery(422, 'Invoice issuer company details are missing.');
+
+  const companyName = cleanHeader(company.name);
+  if (!companyName) return failDelivery(422, 'Invoice issuer company name is missing.');
 
   const issuerAddress = [
     company.address_line1,
@@ -188,24 +221,25 @@ export async function POST(
   let pdfBytes: Uint8Array;
   try {
     pdfBytes = await buildInvoicePdf({
-      invoiceNumber: String(claimedInvoice.invoice_number ?? claimedInvoice.id),
+      invoiceNumber,
+      jobReference,
       invoiceDate: String(claimedInvoice.invoice_date ?? new Date().toISOString().slice(0, 10)),
       dueDate: String(claimedInvoice.due_date ?? new Date().toISOString().slice(0, 10)),
-      issuerName: String(company.name ?? 'XDrive Logistics'),
+      issuerName: companyName,
       issuerAddress,
       issuerCompanyNumber: company.company_number as string | null,
       issuerVatNumber: company.vat_number as string | null,
-      clientName: String(claimedInvoice.client_name ?? 'Customer'),
+      clientName,
       clientAddress: claimedInvoice.client_address as string | null,
       clientEmail: recipientEmail,
       pickupLocation: claimedInvoice.pickup_location as string | null,
       deliveryLocation: claimedInvoice.delivery_location as string | null,
       serviceDescription: claimedInvoice.service_description as string | null,
-      netAmount: Number(claimedInvoice.net_amount ?? claimedInvoice.amount ?? 0),
-      vatAmount: Number(claimedInvoice.vat_amount ?? 0),
-      vatRate: Number(claimedInvoice.vat_rate ?? 0),
-      totalAmount: Number(claimedInvoice.amount ?? 0),
-      currency: String(claimedInvoice.currency ?? 'GBP'),
+      netAmount,
+      vatAmount,
+      vatRate,
+      totalAmount,
+      currency: currencyCode,
       paymentTerms: claimedInvoice.payment_terms as string | null,
     });
   } catch (reason) {
@@ -219,9 +253,7 @@ export async function POST(
     return failDelivery(500, 'Generated invoice PDF is empty or exceeds the 10 MB limit.');
   }
 
-  const fileName = `${cleanFileName(
-    String(claimedInvoice.invoice_number ?? claimedInvoice.id)
-  )}.pdf`;
+  const fileName = `${cleanFileName(invoiceNumber)}.pdf`;
   const storagePath = `${driver.companyId}/${claimedInvoice.id}/${fileName}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from('invoice-docs')
@@ -268,12 +300,8 @@ export async function POST(
   }
 
   const attemptedAt = new Date().toISOString();
-  const invoiceNumber = cleanHeader(claimedInvoice.invoice_number ?? claimedInvoice.id);
-  const clientName = String(claimedInvoice.client_name ?? 'Customer');
   const pickup = String(claimedInvoice.pickup_location ?? 'collection');
   const delivery = String(claimedInvoice.delivery_location ?? 'delivery');
-  const companyName = cleanHeader(company.name ?? 'XDrive Logistics');
-  const currencyCode = cleanHeader(claimedInvoice.currency ?? 'GBP') || 'GBP';
   const dueDate = String(claimedInvoice.due_date ?? 'See attached invoice');
 
   let emailResponse: Response;
@@ -283,6 +311,7 @@ export async function POST(
       headers: {
         Authorization: `Bearer ${resendApiKey}`,
         'Content-Type': 'application/json',
+        'Idempotency-Key': `invoice-send/${claimedInvoice.id}`,
       },
       signal: AbortSignal.timeout(20_000),
       body: JSON.stringify({
@@ -292,8 +321,8 @@ export async function POST(
         html: `
           <h2>Invoice ${escapeHtml(invoiceNumber)}</h2>
           <p>Hello ${escapeHtml(clientName)},</p>
-          <p>Please find attached your invoice for the transport service from <strong>${escapeHtml(pickup)}</strong> to <strong>${escapeHtml(delivery)}</strong>.</p>
-          <p><strong>Total:</strong> ${Number(claimedInvoice.amount ?? 0).toFixed(2)} ${escapeHtml(currencyCode)}<br />
+          <p>Please find attached your invoice for job <strong>${escapeHtml(jobReference)}</strong>, covering the transport service from <strong>${escapeHtml(pickup)}</strong> to <strong>${escapeHtml(delivery)}</strong>.</p>
+          <p><strong>Total:</strong> ${totalAmount.toFixed(2)} ${escapeHtml(currencyCode)}<br />
           <strong>Due date:</strong> ${escapeHtml(dueDate)}</p>
           <p>Kind regards,<br />${escapeHtml(companyName)}</p>
         `,
