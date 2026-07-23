@@ -8,7 +8,9 @@ on:
       - "lib/server/companyRegistration.ts"
       - "supabase/migrations/20260723205000_atomic_authenticated_company_registration.sql"
       - "supabase/migrations/20260723205100_require_verified_company_onboarding.sql"
+      - "supabase/migrations/20260723205200_harden_verified_company_claims.sql"
       - "scripts/validate_atomic_company_registration.sh"
+      - "scripts/validate_company_registration_hardening.sh"
       - ".github/workflows/validate-atomic-company-registration.yml"
   push:
     branches:
@@ -19,7 +21,9 @@ on:
       - "lib/server/companyRegistration.ts"
       - "supabase/migrations/20260723205000_atomic_authenticated_company_registration.sql"
       - "supabase/migrations/20260723205100_require_verified_company_onboarding.sql"
+      - "supabase/migrations/20260723205200_harden_verified_company_claims.sql"
       - "scripts/validate_atomic_company_registration.sh"
+      - "scripts/validate_company_registration_hardening.sh"
       - ".github/workflows/validate-atomic-company-registration.yml"
 
 permissions:
@@ -61,7 +65,10 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          bash scripts/validate_atomic_company_registration.sh 2>&1 | tee company-registration-validation.log
+          {
+            bash scripts/validate_atomic_company_registration.sh
+            bash scripts/validate_company_registration_hardening.sh
+          } 2>&1 | tee company-registration-validation.log
 
       - name: Publish focused failure diagnostics
         if: failure() && github.event_name == 'pull_request'
@@ -71,6 +78,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          diagnostic="$(tail -n 80 company-registration-validation.log 2>/dev/null || echo 'Validation log was not created.')"
+          diagnostic="$(tail -n 100 company-registration-validation.log 2>/dev/null || echo 'Validation log was not created.')"
           body="$(printf '### Atomic company registration validation failed\n\n```text\n%s\n```' "$diagnostic")"
           gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$body"
