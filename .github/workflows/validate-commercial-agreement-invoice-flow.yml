@@ -1,0 +1,210 @@
+name: Validate Commercial Invoice Flow
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20260723170500_fix_commercial_agreement_snapshot_defaults.sql"
+      - "app/api/driver/finance/jobs/[jobId]/generate-invoice/route.ts"
+      - "app/api/driver/finance/invoices/[id]/submit/route.ts"
+      - "lib/server/invoicePdf.ts"
+      - "app/components/workspace/useCompanyWorkspaceData.ts"
+      - "app/customer/CustomerWorkspaceModules.tsx"
+      - ".github/workflows/validate-commercial-agreement-invoice-flow.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  commercial-invoice-flow:
+    name: Validate immutable commercial invoice snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: xdrive_commercial_invoice
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d xdrive_commercial_invoice"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: xdrive_commercial_invoice
+
+    steps:
+      - name: Checkout exact pull request SHA
+        uses: actions/checkout@v4
+
+      - name: Create pre-repair commercial agreement schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+          CREATE TABLE public.companies (
+            id uuid PRIMARY KEY,
+            name text NOT NULL
+          );
+
+          CREATE TABLE public.company_settings (
+            company_id uuid PRIMARY KEY REFERENCES public.companies(id),
+            default_vat_rate integer,
+            default_payment_terms text
+          );
+
+          CREATE TABLE public.jobs (
+            id uuid PRIMARY KEY,
+            company_id uuid NOT NULL REFERENCES public.companies(id),
+            payment_terms text,
+            pod_required boolean DEFAULT true
+          );
+
+          CREATE TABLE public.job_bids (
+            id uuid PRIMARY KEY,
+            job_id uuid NOT NULL REFERENCES public.jobs(id),
+            company_id uuid NOT NULL REFERENCES public.companies(id),
+            amount numeric(12,2) NOT NULL
+          );
+
+          CREATE TABLE public.job_commercial_agreements (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            job_id uuid NOT NULL REFERENCES public.jobs(id),
+            bid_id uuid NOT NULL REFERENCES public.job_bids(id),
+            buyer_company_id uuid NOT NULL REFERENCES public.companies(id),
+            supplier_company_id uuid NOT NULL REFERENCES public.companies(id),
+            agreed_amount numeric(12,2) NOT NULL CHECK (agreed_amount > 0),
+            currency text NOT NULL DEFAULT 'GBP',
+            agreed_at timestamptz NOT NULL DEFAULT now(),
+            created_by uuid,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            vat_rate smallint NOT NULL DEFAULT 0 CHECK (vat_rate IN (0, 5, 20)),
+            vat_amount numeric(12,2) NOT NULL DEFAULT 0,
+            agreed_gross_amount numeric(12,2) NOT NULL DEFAULT 0,
+            payment_terms text NOT NULL DEFAULT '14 days',
+            payment_due_days integer NOT NULL DEFAULT 14 CHECK (payment_due_days >= 0),
+            pod_required boolean NOT NULL DEFAULT true,
+            agreement_status text NOT NULL DEFAULT 'accepted',
+            accepted_at timestamptz NOT NULL DEFAULT now()
+          );
+
+          CREATE OR REPLACE FUNCTION public.fn_parse_payment_due_days(p_payment_terms text)
+          RETURNS integer
+          LANGUAGE plpgsql
+          IMMUTABLE
+          AS $$
+          DECLARE
+            v_match text;
+          BEGIN
+            IF p_payment_terms IS NULL OR btrim(p_payment_terms) = '' THEN
+              RETURN 14;
+            END IF;
+            IF lower(btrim(p_payment_terms)) IN ('pay now', 'immediate', 'due on receipt') THEN
+              RETURN 0;
+            END IF;
+            v_match := substring(p_payment_terms FROM '([0-9]+)');
+            RETURN COALESCE(NULLIF(v_match, '')::integer, 14);
+          END;
+          $$;
+
+          INSERT INTO public.companies(id, name) VALUES
+            ('00000000-0000-0000-0000-000000000001', 'Buyer Ltd'),
+            ('00000000-0000-0000-0000-000000000002', 'Carrier Ltd');
+
+          INSERT INTO public.company_settings(company_id, default_vat_rate, default_payment_terms)
+          VALUES ('00000000-0000-0000-0000-000000000002', 20, '14 days');
+
+          INSERT INTO public.jobs(id, company_id, payment_terms, pod_required) VALUES
+            ('00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000001', '30 days', true),
+            ('00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000001', 'due on receipt', true),
+            ('00000000-0000-0000-0000-000000000013', '00000000-0000-0000-0000-000000000001', '14 days', true);
+
+          INSERT INTO public.job_bids(id, job_id, company_id, amount) VALUES
+            ('00000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000002', 225),
+            ('00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000002', 100),
+            ('00000000-0000-0000-0000-000000000023', '00000000-0000-0000-0000-000000000013', '00000000-0000-0000-0000-000000000002', 100);
+          SQL
+
+      - name: Apply snapshot repair twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260723170500_fix_commercial_agreement_snapshot_defaults.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260723170500_fix_commercial_agreement_snapshot_defaults.sql
+
+      - name: Verify VAT, totals, terms and fail-closed behaviour
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE
+            standard_snapshot public.job_commercial_agreements%ROWTYPE;
+            zero_snapshot public.job_commercial_agreements%ROWTYPE;
+          BEGIN
+            INSERT INTO public.job_commercial_agreements(
+              job_id, bid_id, buyer_company_id, supplier_company_id,
+              agreed_amount, currency
+            ) VALUES (
+              '00000000-0000-0000-0000-000000000011',
+              '00000000-0000-0000-0000-000000000021',
+              '00000000-0000-0000-0000-000000000001',
+              '00000000-0000-0000-0000-000000000002',
+              225, 'GBP'
+            ) RETURNING * INTO standard_snapshot;
+
+            IF standard_snapshot.vat_rate <> 20
+               OR standard_snapshot.vat_amount <> 45
+               OR standard_snapshot.agreed_gross_amount <> 270
+               OR standard_snapshot.payment_terms <> '30 days'
+               OR standard_snapshot.payment_due_days <> 30 THEN
+              RAISE EXCEPTION 'Standard agreement snapshot is incorrect: %', row_to_json(standard_snapshot);
+            END IF;
+
+            INSERT INTO public.job_commercial_agreements(
+              job_id, bid_id, buyer_company_id, supplier_company_id,
+              agreed_amount, currency, vat_rate, vat_amount, agreed_gross_amount
+            ) VALUES (
+              '00000000-0000-0000-0000-000000000012',
+              '00000000-0000-0000-0000-000000000022',
+              '00000000-0000-0000-0000-000000000001',
+              '00000000-0000-0000-0000-000000000002',
+              100, 'GBP', 0, 0, 100
+            ) RETURNING * INTO zero_snapshot;
+
+            IF zero_snapshot.vat_rate <> 0
+               OR zero_snapshot.vat_amount <> 0
+               OR zero_snapshot.agreed_gross_amount <> 100
+               OR zero_snapshot.payment_terms <> 'due on receipt'
+               OR zero_snapshot.payment_due_days <> 0 THEN
+              RAISE EXCEPTION 'Explicit zero-VAT agreement snapshot is incorrect: %', row_to_json(zero_snapshot);
+            END IF;
+
+            BEGIN
+              INSERT INTO public.job_commercial_agreements(
+                job_id, bid_id, buyer_company_id, supplier_company_id,
+                agreed_amount, currency, vat_rate, vat_amount, agreed_gross_amount
+              ) VALUES (
+                '00000000-0000-0000-0000-000000000013',
+                '00000000-0000-0000-0000-000000000023',
+                '00000000-0000-0000-0000-000000000001',
+                '00000000-0000-0000-0000-000000000002',
+                100, 'GBP', 20, 1, 101
+              );
+              RAISE EXCEPTION 'Inconsistent VAT snapshot was accepted.';
+            EXCEPTION WHEN check_violation THEN
+              NULL;
+            END;
+          END $$;
+          SQL
