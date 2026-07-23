@@ -11,6 +11,12 @@ import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, Pag
 const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
 const active = new Set(['awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
+const isCustomerVisibleInvoice = (invoice: { status: string; amount?: number | null; client_name?: string | null }) => {
+  const status = String(invoice.status ?? '').toLowerCase();
+  return !['pending', 'draft', 'cancelled'].includes(status)
+    && Number(invoice.amount ?? 0) > 0
+    && Boolean(invoice.client_name?.trim());
+};
 
 export function CustomerDashboard() {
   const router = useRouter(); const data = useCompanyWorkspaceData();
@@ -22,7 +28,7 @@ export function CustomerDashboard() {
     active: data.jobs.filter((job) => active.has(job.current_status ?? job.status)).length,
     delayed: data.jobs.filter((job) => active.has(job.current_status ?? job.status) && job.delivery_datetime && new Date(job.delivery_datetime).getTime() < Date.now()).length,
     pod: data.jobs.filter((job) => (job.delivery_photos?.length ?? 0) > 0).length,
-    unpaid: data.invoices.filter((invoice) => invoice.buyer_company_id === data.companyId && invoice.payment_status !== 'paid' && !['paid', 'Paid'].includes(invoice.status)).length,
+    unpaid: data.invoices.filter((invoice) => invoice.buyer_company_id === data.companyId && isCustomerVisibleInvoice(invoice) && invoice.payment_status !== 'paid' && !['paid', 'Paid'].includes(invoice.status)).length,
   }), [data]);
   return <PageFrame>
     <PageHeader eyebrow="Customer transport" title="Customer Dashboard" description="Post transport requirements, compare carrier quotes, track delivery milestones and retrieve POD and invoices." actions={<><ActionButton tone="warning" onClick={() => router.push('/customer/post-load')}>Post Load</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/deliveries')}>Track Deliveries</ActionButton></>} />
@@ -53,7 +59,7 @@ export function CustomerDeliveriesPage(){const data=useCompanyWorkspaceData();co
 
 export function CustomerDocumentsPage(){const data=useCompanyWorkspaceData();const rows=data.jobs.filter(j=>(j.delivery_photos?.length??0)>0||['delivered','completed'].includes(j.status));return <PageFrame><PageHeader eyebrow="Delivery evidence" title="POD & Documents" description="Customer access is limited to documents for the customer&apos;s own jobs; driver and vehicle compliance documents remain private."/><Panel><DataTable columns={['Load','Route','Delivered','POD files','Status']} rows={rows.map(j=>[j.id.slice(0,8).toUpperCase(),`${j.pickup_postcode??j.pickup_location} → ${j.delivery_postcode??j.delivery_location}`,when(j.delivery_datetime),j.delivery_photos?.length??0,(j.delivery_photos?.length??0)>0?<StatusBadge key="status" value="Available" tone="green"/>:<StatusBadge key="status" value="Awaiting POD" tone="orange"/>])} empty={<EmptyState title="No POD documents available"/>}/></Panel></PageFrame>}
 
-export function CustomerInvoicesPage(){const data=useCompanyWorkspaceData();const rows=data.invoices.filter(i=>i.buyer_company_id===data.companyId||data.jobs.some(j=>j.id===i.job_id));return <PageFrame><PageHeader eyebrow="Customer finance" title="Invoices" description="Invoices addressed to this customer company, linked to the transport job and payment status."/><Panel><DataTable columns={['Invoice','Job','Amount','Due','Payment status']} rows={rows.map(i=>[i.invoice_number??i.id.slice(0,8),i.job_id?.slice(0,8)??'—',money(Number(i.amount??0)),i.due_date?new Date(i.due_date).toLocaleDateString('en-GB'):'Not set',<StatusBadge key="status" value={i.payment_status??i.status}/>])} empty={<EmptyState title="No customer invoices"/>}/></Panel></PageFrame>}
+export function CustomerInvoicesPage(){const data=useCompanyWorkspaceData();const rows=data.invoices.filter(i=>(i.buyer_company_id===data.companyId||data.jobs.some(j=>j.id===i.job_id))&&isCustomerVisibleInvoice(i));return <PageFrame><PageHeader eyebrow="Customer finance" title="Invoices" description="Invoices addressed to this customer company, linked to the transport job and payment status."/><Panel><DataTable columns={['Invoice','Job','Amount','Due','Payment status']} rows={rows.map(i=>[i.invoice_number??i.id.slice(0,8),i.job_id?.slice(0,8)??'—',money(Number(i.amount??0)),i.due_date?new Date(i.due_date).toLocaleDateString('en-GB'):'Not set',<StatusBadge key="status" value={i.payment_status??i.status}/>])} empty={<EmptyState title="No customer invoices"/>}/></Panel></PageFrame>}
 
 export function CustomerUpdatesPage(){const {user}=useAuth();const [rows,setRows]=useState<Array<{id:string;event_type:string;entity_type:string;status:string;created_at:string;payload:Record<string,unknown>|null}>>([]);const [loading,setLoading]=useState(true);useEffect(()=>{if(!user?.companyId){setLoading(false);return;}supabase.from('notification_events').select('id,event_type,entity_type,status,created_at,payload').eq('company_id',user.companyId).order('created_at',{ascending:false}).limit(100).then(({data})=>{setRows((data??[]) as typeof rows);setLoading(false);});},[user?.companyId]);return <PageFrame><PageHeader eyebrow="Notifications" title="Updates" description="A chronological feed of quotes, awards, status changes, POD and invoice events."/><Panel>{loading?<EmptyState title="Loading updates…"/>:<DataTable columns={['Event','Entity','Time','Status','Detail']} rows={rows.map(r=>[r.event_type.replace(/_/g,' '),r.entity_type,when(r.created_at),<StatusBadge key="status" value={r.status}/>,typeof r.payload?.message==='string'?r.payload.message:'—'])} empty={<EmptyState title="No updates yet"/>}/>}</Panel></PageFrame>}
 
