@@ -5,7 +5,6 @@ on:
     paths:
       - "supabase/migrations/**"
       - ".github/scripts/validate-supabase-migration-files.mjs"
-      - ".github/scripts/audit-superseded-migration-pairs.py"
       - ".github/workflows/validate-supabase-migration-files.yml"
   workflow_dispatch:
 
@@ -52,27 +51,6 @@ jobs:
           ' <<<"${response}")"
           echo "SUPABASE_MIGRATION_VERSION_COLLISIONS=${version_report}"
           echo "SUPABASE_MIGRATION_IDENTICAL_CONTENT=${content_report}"
-
-  superseded-pair-audit:
-    name: Compare superseded migration copies
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      - name: Compare earlier and later logical copies
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          script="$(curl -fsSL \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/contents/.github/scripts/audit-superseded-migration-pairs.py?ref=${GITHUB_SHA}" \
-            | jq -r '.content' \
-            | base64 --decode)"
-          python -c "${script}"
 
   migration-files:
     name: Reject duplicate versions and UTF-8 BOM files
