@@ -84,6 +84,9 @@ jobs:
       - name: Run stable public smoke tests
         run: npx playwright test e2e/ci-public-smoke.spec.ts --project=chromium
 
+      - name: Run role resolution regression tests
+        run: npx playwright test e2e/role-resolution-regression.spec.ts --project=chromium
+
   expo-driver-typecheck:
     name: Expo Driver Typecheck
     runs-on: ubuntu-latest
