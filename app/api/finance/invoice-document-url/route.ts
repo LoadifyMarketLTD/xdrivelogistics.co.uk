@@ -9,6 +9,19 @@ import {
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
+const isCustomerVisibleInvoice = (invoice: Record<string, unknown>) => {
+  const status = String(invoice.status ?? '').toLowerCase();
+  const paymentStatus = String(invoice.payment_status ?? '').toLowerCase();
+  const deliveryState = String(invoice.delivery_state ?? '').toLowerCase();
+  const amount = Number(invoice.amount ?? 0);
+  const netAmount = Number(invoice.net_amount ?? 0);
+  const clientName = typeof invoice.client_name === 'string' ? invoice.client_name.trim() : '';
+
+  if (['pending', 'draft', 'cancelled'].includes(status)) return false;
+  if (!(amount > 0) || !(netAmount > 0) || !clientName) return false;
+  return deliveryState === 'sent' || status === 'paid' || paymentStatus === 'paid';
+};
+
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Invoice document service is not configured.' });
@@ -30,7 +43,7 @@ export async function GET(request: NextRequest) {
   const [{ data: invoice, error: invoiceError }, { data: document, error: documentError }, { data: memberships, error: membershipError }] = await Promise.all([
     supabaseAdmin
       .from('invoices')
-      .select('id, company_id, buyer_company_id, supplier_company_id, created_by')
+      .select('id, job_id, company_id, buyer_company_id, supplier_company_id, created_by, status, payment_status, delivery_state, amount, net_amount, client_name')
       .eq('id', invoiceId)
       .maybeSingle(),
     supabaseAdmin
@@ -50,16 +63,33 @@ export async function GET(request: NextRequest) {
   if (loadError) return respond(500, { error: loadError.message });
   if (!invoice || !document) return respond(404, { error: 'Invoice document not found.' });
 
+  let jobOwnerCompanyId: string | null = null;
+  if (typeof invoice.job_id === 'string' && invoice.job_id) {
+    const { data: job, error: jobError } = await supabaseAdmin
+      .from('jobs')
+      .select('company_id')
+      .eq('id', invoice.job_id)
+      .maybeSingle();
+    if (jobError) return respond(500, { error: jobError.message });
+    jobOwnerCompanyId = typeof job?.company_id === 'string' ? job.company_id : null;
+  }
+
   const companyIds = new Set((memberships ?? []).map((row) => row.company_id as string));
-  const authorised =
+  const issuerAuthorised =
     invoice.created_by === authData.user.id ||
     companyIds.has(invoice.company_id as string) ||
-    companyIds.has(invoice.buyer_company_id as string) ||
     companyIds.has(invoice.supplier_company_id as string) ||
     companyIds.has(document.company_id as string);
+  const buyerAuthorised =
+    companyIds.has(invoice.buyer_company_id as string) ||
+    (jobOwnerCompanyId ? companyIds.has(jobOwnerCompanyId) : false);
 
-  if (!authorised) {
+  if (!issuerAuthorised && !buyerAuthorised) {
     return respond(403, { error: 'This invoice document is outside your company workspace.' });
+  }
+
+  if (!issuerAuthorised && buyerAuthorised && !isCustomerVisibleInvoice(invoice as Record<string, unknown>)) {
+    return respond(404, { error: 'Invoice document not found.' });
   }
 
   const fileUrl = String(document.file_url ?? '').trim();
