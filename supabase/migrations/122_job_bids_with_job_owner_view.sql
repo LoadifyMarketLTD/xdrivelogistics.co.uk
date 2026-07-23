@@ -4,11 +4,11 @@
 -- missing from repo migrations. Recreate it forward-only so clean environments
 -- and migration replays have the same object the app queries.
 
--- The legacy production view exposes a load_id column. Clean bootstrap schemas
--- did not contain that compatibility column on job_bids, which made creation of
--- the view fail before the remaining migration chain could run.
+-- The legacy production view exposes load_id and updated_at. Clean bootstrap
+-- schemas did not contain those compatibility columns on job_bids.
 ALTER TABLE public.job_bids
-  ADD COLUMN IF NOT EXISTS load_id uuid REFERENCES public.loads(id) ON DELETE CASCADE;
+  ADD COLUMN IF NOT EXISTS load_id uuid REFERENCES public.loads(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 CREATE INDEX IF NOT EXISTS idx_job_bids_load_id
   ON public.job_bids(load_id);
@@ -23,13 +23,13 @@ SELECT
   jb.bid_price_gbp,
   jb.message,
   jb.created_at,
-  jb.bidder_company_id,
-  jb.quote_amount,
+  jb.company_id AS bidder_company_id,
+  COALESCE(jb.bid_price_gbp, jb.amount) AS quote_amount,
   jb.status AS bid_status,
   jb.load_id,
   jb.bidder_user_id,
   jb.currency,
-  jb.amount_gbp,
+  COALESCE(jb.bid_price_gbp, jb.amount) AS amount_gbp,
   jb.amount,
   jb.updated_at,
   jb.bidder_driver_id,
