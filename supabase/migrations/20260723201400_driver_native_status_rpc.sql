@@ -1,4 +1,4 @@
--- Migration 118: Native driver status updates through an atomic RPC.
+-- Native driver status updates through an atomic RPC.
 --
 -- The native Android app must not PATCH jobs directly for the execution
 -- workflow. RLS can legitimately hide the updated row from PostgREST, which

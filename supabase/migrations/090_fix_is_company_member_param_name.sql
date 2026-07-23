@@ -66,11 +66,14 @@ SELECT
 FROM pg_policy p
 JOIN pg_class c ON c.oid = p.polrelid
 JOIN pg_namespace n ON n.oid = c.relnamespace
-JOIN pg_depend d
-  ON d.classid = 'pg_policy'::regclass
- AND d.objid = p.oid
- AND d.refclassid = 'pg_proc'::regclass
-WHERE d.refobjid = to_regprocedure('public.is_company_member(uuid)')::oid;
+WHERE EXISTS (
+  SELECT 1
+  FROM pg_depend d
+  WHERE d.classid = 'pg_policy'::regclass
+    AND d.objid = p.oid
+    AND d.refclassid = 'pg_proc'::regclass
+    AND d.refobjid = to_regprocedure('public.is_company_member(uuid)')::oid
+);
 
 DROP FUNCTION IF EXISTS public.is_company_member(uuid) CASCADE;
 

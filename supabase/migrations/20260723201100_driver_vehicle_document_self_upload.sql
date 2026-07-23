@@ -1,4 +1,4 @@
--- Migration 115: Allow assigned drivers to upload documents for their vehicle.
+-- Allow assigned drivers to upload documents for their vehicle.
 -- Path convention: vehicle-docs/{company_id}/{vehicle_id}/{filename}
 
 BEGIN;

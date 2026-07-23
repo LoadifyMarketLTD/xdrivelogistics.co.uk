@@ -13,14 +13,14 @@ DO $$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM public.company_memberships
-    WHERE role_in_company NOT IN ('owner', 'admin', 'dispatcher', 'finance', 'member', 'viewer', 'driver')
+    WHERE role_in_company::text NOT IN ('owner', 'admin', 'dispatcher', 'finance', 'member', 'viewer', 'driver')
   ) THEN
     RAISE EXCEPTION 'Unexpected company_memberships.role_in_company value detected.';
   END IF;
 
   IF EXISTS (
     SELECT 1 FROM public.company_memberships
-    WHERE status NOT IN ('active', 'invited', 'disabled', 'suspended')
+    WHERE status::text NOT IN ('active', 'invited', 'disabled', 'suspended')
   ) THEN
     RAISE EXCEPTION 'Unexpected company_memberships.status value detected.';
   END IF;
@@ -53,7 +53,7 @@ ALTER TABLE public.company_memberships
 ALTER TABLE public.company_memberships
   ADD CONSTRAINT company_memberships_role_in_company_check
   CHECK (
-    role_in_company IN (
+    role_in_company::text IN (
       'owner', 'admin', 'dispatcher', 'finance', 'member', 'viewer', 'driver'
     )
   ) NOT VALID;
@@ -66,7 +66,7 @@ ALTER TABLE public.company_memberships
 
 ALTER TABLE public.company_memberships
   ADD CONSTRAINT company_memberships_status_check
-  CHECK (status IN ('active', 'invited', 'disabled', 'suspended')) NOT VALID;
+  CHECK (status::text IN ('active', 'invited', 'disabled', 'suspended')) NOT VALID;
 
 ALTER TABLE public.company_memberships
   VALIDATE CONSTRAINT company_memberships_status_check;
@@ -107,7 +107,7 @@ ALTER TABLE public.drivers VALIDATE CONSTRAINT drivers_user_id_fkey;
 
 -- RLS helpers must accept active memberships only. "disabled" and "invited"
 -- must never be treated as active merely because they are not "suspended".
-CREATE OR REPLACE FUNCTION public.is_company_member(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -118,14 +118,14 @@ AS $$
     SELECT 1
     FROM public.company_memberships cm
     JOIN public.companies c ON c.id = cm.company_id
-    WHERE cm.company_id = _company_id
+    WHERE cm.company_id = cid
       AND cm.user_id = auth.uid()
       AND cm.status = 'active'
       AND c.status::text = 'active'
   );
 $$;
 
-CREATE OR REPLACE FUNCTION public.is_company_admin(_company_id uuid)
+CREATE OR REPLACE FUNCTION public.is_company_admin(cid uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -136,7 +136,7 @@ AS $$
     SELECT 1
     FROM public.company_memberships cm
     JOIN public.companies c ON c.id = cm.company_id
-    WHERE cm.company_id = _company_id
+    WHERE cm.company_id = cid
       AND cm.user_id = auth.uid()
       AND cm.status = 'active'
       AND cm.role_in_company IN ('owner', 'admin')
@@ -180,7 +180,7 @@ ALTER TABLE public.job_tracking_events
 ALTER TABLE public.job_tracking_events
   ADD CONSTRAINT job_tracking_events_event_type_check
   CHECK (
-    event_type IN (
+    event_type::text IN (
       'created',
       'allocated',
       'awarded',
@@ -770,30 +770,50 @@ REVOKE ALL ON FUNCTION public.submit_onboarding_application(uuid)
 GRANT EXECUTE ON FUNCTION public.submit_onboarding_application(uuid)
   TO service_role;
 
-REVOKE ALL ON FUNCTION public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text)
-  TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text) FROM PUBLIC, anon, authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text) TO service_role';
+  END IF;
+END;
+$$;
 
-REVOKE ALL ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid)
-  TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.delete_unbid_exchange_job_atomic(uuid, uuid)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid) FROM PUBLIC, anon, authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid) TO service_role';
+  END IF;
+END;
+$$;
 
-REVOKE ALL ON FUNCTION public.request_awarded_job_cancellation_atomic(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.request_awarded_job_cancellation_atomic(uuid, uuid, text)
-  TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.request_awarded_job_cancellation_atomic(uuid, uuid, text)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.request_awarded_job_cancellation_atomic(uuid, uuid, text) FROM PUBLIC, anon, authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.request_awarded_job_cancellation_atomic(uuid, uuid, text) TO service_role';
+  END IF;
+END;
+$$;
 
-REVOKE ALL ON FUNCTION public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text)
-  TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text) FROM PUBLIC, anon, authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text) TO service_role';
+  END IF;
+END;
+$$;
 
-REVOKE ALL ON FUNCTION public.safe_dedup_drivers(uuid)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.safe_dedup_drivers(uuid)
-  TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.safe_dedup_drivers(uuid)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.safe_dedup_drivers(uuid) FROM PUBLIC, anon, authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.safe_dedup_drivers(uuid) TO service_role';
+  END IF;
+END;
+$$;
 
 COMMENT ON COLUMN public.notification_events.idempotency_key IS
   'Stable producer key used to prevent duplicate queue events.';
