@@ -1,0 +1,32 @@
+name: Probe Company Registration Readiness
+
+on:
+  pull_request:
+    paths:
+      - "app/api/internal/company-registration-readiness/route.ts"
+      - ".github/workflows/probe-company-registration-readiness.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Wait for preview and verify Companies House credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://deploy-preview-278--xdrivelogistics.netlify.app/api/internal/company-registration-readiness"
+          for attempt in $(seq 1 36); do
+            status="$(curl -sS -o response.json -w '%{http_code}' "$url" || true)"
+            if [[ "$status" == "200" ]] && jq -e '.ready == true and .providerStatus == 200' response.json >/dev/null; then
+              cat response.json
+              exit 0
+            fi
+            echo "Attempt ${attempt}: HTTP ${status}; response=$(cat response.json 2>/dev/null || true)"
+            sleep 10
+          done
+          echo "Companies House readiness probe failed."
+          exit 1
