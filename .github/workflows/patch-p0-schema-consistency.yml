@@ -1,0 +1,69 @@
+name: Patch P0 Schema Consistency Migration
+
+on:
+  push:
+    branches:
+      - fix/supabase-clean-bootstrap-remove-onboarding-bom
+    paths:
+      - ".github/workflows/patch-p0-schema-consistency.yml"
+      - "supabase/migrations/20260720121500_p0_database_security_and_schema_consistency.sql"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/supabase-clean-bootstrap-remove-onboarding-bom
+          fetch-depth: 0
+
+      - name: Apply clean-bootstrap-safe enum and function fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('supabase/migrations/20260720121500_p0_database_security_and_schema_consistency.sql')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              "WHERE role_in_company NOT IN ('owner', 'admin', 'dispatcher', 'finance', 'member', 'viewer', 'driver')":
+                  "WHERE role_in_company::text NOT IN ('owner', 'admin', 'dispatcher', 'finance', 'member', 'viewer', 'driver')",
+              "WHERE status NOT IN ('active', 'invited', 'disabled', 'suspended')":
+                  "WHERE status::text NOT IN ('active', 'invited', 'disabled', 'suspended')",
+              "    role_in_company IN (\n      'owner', 'admin', 'dispatcher', 'finance', 'member', 'viewer', 'driver'\n    )":
+                  "    role_in_company::text IN (\n      'owner', 'admin', 'dispatcher', 'finance', 'member', 'viewer', 'driver'\n    )",
+              "CHECK (status IN ('active', 'invited', 'disabled', 'suspended'))":
+                  "CHECK (status::text IN ('active', 'invited', 'disabled', 'suspended'))",
+              "public.is_company_member(_company_id uuid)": "public.is_company_member(cid uuid)",
+              "public.is_company_admin(_company_id uuid)": "public.is_company_admin(cid uuid)",
+              "cm.company_id = _company_id": "cm.company_id = cid",
+              "    event_type IN (": "    event_type::text IN (",
+          }
+
+          changed = False
+          for old, new in replacements.items():
+              if old in text:
+                  text = text.replace(old, new)
+                  changed = True
+
+          if changed:
+              path.write_text(text, encoding='utf-8', newline='\n')
+          PY
+
+      - name: Commit focused migration repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- supabase/migrations/20260720121500_p0_database_security_and_schema_consistency.sql; then
+            echo "Migration already patched."
+            exit 0
+          fi
+          git config user.name "xdrive-migration-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add supabase/migrations/20260720121500_p0_database_security_and_schema_consistency.sql
+          git commit -m "fix(migrations): make P0 schema consistency enum-safe"
+          git push origin HEAD:fix/supabase-clean-bootstrap-remove-onboarding-bom
