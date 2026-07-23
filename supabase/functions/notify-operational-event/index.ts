@@ -319,7 +319,9 @@ async function deliverEvent(event: NotificationEvent): Promise<DeliveryResult> {
     case 'job_assigned': return handleJobAssigned(event);
     case 'bid_accepted': return handleBidAccepted(event);
     case 'pod_uploaded': return handlePodUploaded(event);
-    case 'onboarding_invite': return handleOnboardingInvite(event);
+    case 'onboarding_invite':
+    case 'onboarding_invite_resent':
+      return handleOnboardingInvite(event);
     case 'onboarding_submitted': return handleOnboardingSubmitted(event);
     case 'onboarding_approved': return handleOnboardingApproved(event);
     case 'invoice_disputed': return handleInvoiceDisputed(event);
