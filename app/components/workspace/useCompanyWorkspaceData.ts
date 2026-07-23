@@ -46,6 +46,7 @@ export type WorkspaceInvoice = {
   invoice_number?: string | null;
   status: string;
   payment_status?: string | null;
+  delivery_state?: string | null;
   amount: number | null;
   due_date?: string | null;
   created_at: string;
@@ -118,6 +119,16 @@ const uniqueById = <T extends { id: string }>(rows: T[]): T[] => {
   return [...byId.values()];
 };
 
+const customerInvoiceVisible = (invoice: WorkspaceInvoice) => {
+  const status = String(invoice.status ?? '').toLowerCase();
+  const paymentStatus = String(invoice.payment_status ?? '').toLowerCase();
+  const deliveryState = String(invoice.delivery_state ?? '').toLowerCase();
+  return !['pending', 'draft', 'cancelled'].includes(status)
+    && Number(invoice.amount ?? 0) > 0
+    && Boolean(invoice.client_name?.trim())
+    && (deliveryState === 'sent' || status === 'paid' || paymentStatus === 'paid');
+};
+
 export function useCompanyWorkspaceData(): WorkspaceDataState {
   const { user } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(user?.companyId ?? null);
@@ -136,7 +147,10 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     let cancelled = false;
     const resolve = async () => {
       if (!user?.id) return;
-      const resolved = await resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: user.companyId ?? null });
+      const resolved = await resolveActiveCompanyId({
+        userId: user.id,
+        fallbackCompanyId: user.companyId ?? null,
+      });
       if (!cancelled) setCompanyId(resolved ?? null);
     };
     void resolve();
@@ -154,9 +168,6 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     setError('');
     const errors: string[] = [];
 
-    // A company must see work it created and work awarded to it. This keeps
-    // Customer/Broker ownership separate while allowing Carrier/Fleet access
-    // to won jobs without relying on a second, inconsistent jobs table.
     const jobsRes = await supabase
       .from('jobs')
       .select('id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name')
@@ -184,7 +195,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
         : Promise.resolve({ data: [] as WorkspaceBid[], error: null }),
       supabase
         .from('invoices')
-        .select('id, company_id, buyer_company_id, job_id, invoice_number, status, payment_status, amount, due_date, created_at, client_name')
+        .select('id, company_id, buyer_company_id, job_id, invoice_number, status, payment_status, delivery_state, amount, due_date, created_at, client_name')
         .or(`company_id.eq.${companyId},buyer_company_id.eq.${companyId}`)
         .order('created_at', { ascending: false })
         .limit(500),
@@ -213,9 +224,6 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     const driverIds = driverRows.map((driver) => driver.id);
     const vehicleIds = vehicleRows.map((vehicle) => vehicle.id);
 
-    // Document queries are constrained to the resolved company roster. They
-    // never fetch the platform-wide document register and rely on RLS as an
-    // additional control rather than the only tenant boundary.
     const [driverDocsRes, vehicleDocsRes] = await Promise.all([
       driverIds.length > 0
         ? supabase
@@ -237,10 +245,16 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
 
     const ownBids = safeRows<WorkspaceBid>(ownBidsRes as QueryResult<WorkspaceBid>, errors);
     const receivedBids = safeRows<WorkspaceBid>(receivedBidsRes as QueryResult<WorkspaceBid>, errors);
+    const invoiceRows = safeRows<WorkspaceInvoice>(invoicesRes as QueryResult<WorkspaceInvoice>, errors);
 
     setJobs(allJobs);
-    setBids(uniqueById([...ownBids, ...receivedBids]).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-    setInvoices(safeRows<WorkspaceInvoice>(invoicesRes as QueryResult<WorkspaceInvoice>, errors));
+    setBids(uniqueById([...ownBids, ...receivedBids]).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    ));
+    setInvoices(invoiceRows.filter((invoice) =>
+      invoice.company_id === companyId
+      || (invoice.buyer_company_id === companyId && customerInvoiceVisible(invoice))
+    ));
     setDrivers(driverRows);
     setVehicles(vehicleRows);
     setDriverDocuments(safeRows<WorkspaceDocument>(driverDocsRes as QueryResult<WorkspaceDocument>, errors));
@@ -252,5 +266,18 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  return { companyId, loading, error, jobs, bids, invoices, drivers, vehicles, driverDocuments, vehicleDocuments, locations, refresh };
+  return {
+    companyId,
+    loading,
+    error,
+    jobs,
+    bids,
+    invoices,
+    drivers,
+    vehicles,
+    driverDocuments,
+    vehicleDocuments,
+    locations,
+    refresh,
+  };
 }
