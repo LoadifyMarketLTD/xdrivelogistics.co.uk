@@ -29,32 +29,23 @@ for (const fileName of entries) {
   }
 }
 
-const duplicates = [...versions.entries()]
-  .filter(([, files]) => files.length > 1)
-  .sort(([left], [right]) => left.localeCompare(right, 'en'));
+const duplicates = Object.fromEntries(
+  [...versions.entries()]
+    .filter(([, files]) => files.length > 1)
+    .sort(([left], [right]) => left.localeCompare(right, 'en')),
+);
 
-console.log(`Migration files scanned: ${entries.length}`);
-console.log(`Unique migration versions: ${versions.size}`);
+const report = {
+  migrationFiles: entries.length,
+  uniqueVersions: versions.size,
+  duplicates,
+  invalidNames,
+  bomFiles,
+};
 
-if (duplicates.length > 0) {
-  console.error('\nDuplicate migration versions:');
-  for (const [version, files] of duplicates) {
-    console.error(`- ${version}`);
-    for (const fileName of files) console.error(`  - ${fileName}`);
-  }
-}
+console.log(`SUPABASE_MIGRATION_VALIDATION=${JSON.stringify(report)}`);
 
-if (invalidNames.length > 0) {
-  console.error('\nMigration files without a numeric version prefix:');
-  for (const fileName of invalidNames) console.error(`- ${fileName}`);
-}
-
-if (bomFiles.length > 0) {
-  console.error('\nMigration files containing a UTF-8 BOM:');
-  for (const fileName of bomFiles) console.error(`- ${fileName}`);
-}
-
-if (duplicates.length > 0 || invalidNames.length > 0 || bomFiles.length > 0) {
+if (Object.keys(duplicates).length > 0 || invalidNames.length > 0 || bomFiles.length > 0) {
   process.exitCode = 1;
 } else {
   console.log('Supabase migration filename and encoding validation passed.');
