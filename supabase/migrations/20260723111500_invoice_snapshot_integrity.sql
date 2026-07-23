@@ -156,6 +156,7 @@ WHERE invoice.id IN (SELECT id FROM invoice_snapshot_repair_targets)
   AND lower(invoice.status::text) IN ('submitted', 'approved')
   AND (
     invoice.delivery_state IS DISTINCT FROM 'sent'
+    OR NULLIF(btrim(COALESCE(invoice.delivery_provider, '')), '') IS NULL
     OR NULLIF(btrim(COALESCE(invoice.delivery_message_id, '')), '') IS NULL
     OR NULLIF(btrim(COALESCE(invoice.delivery_recipient_email, '')), '') IS NULL
     OR NOT EXISTS (
@@ -167,9 +168,9 @@ WHERE invoice.id IN (SELECT id FROM invoice_snapshot_repair_targets)
     )
   );
 
--- Customers may read a carrier invoice only after it leaves Draft and contains a
--- complete, positive commercial snapshot. Carrier-side access remains governed
--- by the existing company-member policy.
+-- Customers may read a carrier invoice only after it leaves Draft, contains a
+-- complete positive snapshot, and has proven provider delivery (or is already
+-- recorded as paid). Carrier-side access remains governed by the member policy.
 DROP POLICY IF EXISTS invoices_job_owner_read ON public.invoices;
 CREATE POLICY invoices_job_owner_read ON public.invoices
   FOR SELECT
@@ -180,6 +181,16 @@ CREATE POLICY invoices_job_owner_read ON public.invoices
     AND COALESCE(amount, 0) > 0
     AND COALESCE(net_amount, 0) > 0
     AND NULLIF(btrim(COALESCE(client_name, '')), '') IS NOT NULL
+    AND (
+      lower(status::text) = 'paid'
+      OR lower(payment_status::text) = 'paid'
+      OR (
+        delivery_state = 'sent'
+        AND NULLIF(btrim(COALESCE(delivery_provider, '')), '') IS NOT NULL
+        AND NULLIF(btrim(COALESCE(delivery_message_id, '')), '') IS NOT NULL
+        AND NULLIF(btrim(COALESCE(delivery_recipient_email, '')), '') IS NOT NULL
+      )
+    )
     AND EXISTS (
       SELECT 1
       FROM public.jobs job
@@ -247,6 +258,7 @@ BEGIN
 
   IF lower(NEW.status::text) IN ('submitted', 'approved') THEN
     IF NEW.delivery_state IS DISTINCT FROM 'sent'
+       OR NULLIF(btrim(COALESCE(NEW.delivery_provider, '')), '') IS NULL
        OR NULLIF(btrim(COALESCE(NEW.delivery_message_id, '')), '') IS NULL
        OR NULLIF(btrim(COALESCE(NEW.delivery_recipient_email, '')), '') IS NULL THEN
       RAISE EXCEPTION 'Invoice cannot be marked Sent before provider delivery is confirmed.' USING ERRCODE = '23514';
@@ -276,6 +288,8 @@ CREATE TRIGGER trg_validate_invoice_snapshot_integrity
 BEFORE INSERT OR UPDATE OF
   invoice_number,
   job_ref,
+  job_id,
+  company_id,
   client_name,
   amount,
   net_amount,
@@ -286,7 +300,11 @@ BEFORE INSERT OR UPDATE OF
   commercial_agreement_id,
   buyer_company_id,
   supplier_company_id,
-  status
+  status,
+  delivery_state,
+  delivery_provider,
+  delivery_message_id,
+  delivery_recipient_email
 ON public.invoices
 FOR EACH ROW
 EXECUTE FUNCTION public.fn_validate_invoice_snapshot_integrity();
