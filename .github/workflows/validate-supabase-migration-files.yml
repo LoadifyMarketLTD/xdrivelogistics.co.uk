@@ -113,13 +113,12 @@ jobs:
                   if line.strip() and not line.lstrip().startswith("--")
               ]
 
-          report = []
           for earlier, later in pairs:
               old_lines = normalized_lines(fetch(earlier))
               new_lines = normalized_lines(fetch(later))
               matcher = difflib.SequenceMatcher(a=old_lines, b=new_lines, autojunk=False)
               opcodes = matcher.get_opcodes()
-              report.append({
+              item = {
                   "earlier": earlier,
                   "later": later,
                   "equal": old_lines == new_lines,
@@ -128,9 +127,8 @@ jobs:
                   "laterLines": len(new_lines),
                   "inserted": sum(j2 - j1 for tag, i1, i2, j1, j2 in opcodes if tag in ("insert", "replace")),
                   "deleted": sum(i2 - i1 for tag, i1, i2, j1, j2 in opcodes if tag in ("delete", "replace")),
-              })
-
-          print("SUPABASE_SUPERSEDED_PAIR_AUDIT=" + json.dumps(report, separators=(",", ":")))
+              }
+              print("SUPABASE_SUPERSEDED_PAIR=" + json.dumps(item, separators=(",", ":")))
           PY
 
   migration-files:
