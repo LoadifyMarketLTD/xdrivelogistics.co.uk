@@ -49,7 +49,11 @@ create policy "driver_availability_slots_update_own"
     )
   );
 
--- Admins (company members with admin role) can read driver availability in their company
+-- Company members with an administrative company_role can read driver
+-- availability in their company. company_memberships.role_in_company is the
+-- public.company_role enum, whose canonical values are owner, admin,
+-- dispatcher and viewer. Profile/auth aliases such as admin_staff and
+-- company_admin are intentionally excluded because they are not enum values.
 create policy "driver_availability_slots_select_admin"
   on public.driver_availability_slots for select
   using (
@@ -60,7 +64,7 @@ create policy "driver_availability_slots_select_admin"
         on cm.company_id = d.company_id
       where d.id = driver_availability_slots.driver_id
         and cm.user_id = auth.uid()
-        and cm.role_in_company in ('owner', 'admin', 'admin_staff', 'company_admin', 'dispatcher')
+        and cm.role_in_company in ('owner', 'admin', 'dispatcher')
         and cm.status = 'active'
     )
   );
