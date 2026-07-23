@@ -4,7 +4,7 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
-async function resolveDriver(request: NextRequest) {
+async function resolveFinanceOwner(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
   const token = getBearerToken(request);
   if (!token) return null;
@@ -16,12 +16,23 @@ async function resolveDriver(request: NextRequest) {
     .select('id, company_id, user_id')
     .eq('user_id', authData.user.id)
     .maybeSingle();
-
   if (!driverRow) return null;
+
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('company_memberships')
+    .select('role_in_company')
+    .eq('company_id', driverRow.company_id)
+    .eq('user_id', authData.user.id)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (membershipError) throw new Error(membershipError.message);
+
+  const role = String(membership?.role_in_company ?? '').toLowerCase();
   return {
     userId: authData.user.id,
     driverId: driverRow.id as string,
     companyId: driverRow.company_id as string,
+    canManageFinance: role === 'owner' || role === 'admin',
   };
 }
 
@@ -33,8 +44,16 @@ export async function GET(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const driver = await resolveDriver(request);
+  let driver: Awaited<ReturnType<typeof resolveFinanceOwner>>;
+  try {
+    driver = await resolveFinanceOwner(request);
+  } catch (reason) {
+    return respond(500, { error: reason instanceof Error ? reason.message : 'Finance access could not be verified.' });
+  }
   if (!driver) return respond(401, { error: 'Unauthorized.' });
+  if (!driver.canManageFinance) {
+    return respond(403, { error: 'Company owner or admin access is required to create invoices.' });
+  }
 
   const { data: jobs, error: jobsError } = await supabaseAdmin
     .from('jobs')
