@@ -2,6 +2,7 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 type InvoicePdfInput = {
   invoiceNumber: string;
+  jobReference?: string | null;
   invoiceDate: string;
   dueDate: string;
   issuerName: string;
@@ -22,19 +23,29 @@ type InvoicePdfInput = {
   paymentTerms?: string | null;
 };
 
-const money = (value: number, currency: string) => {
-  try {
-    return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
-  } catch {
-    return `${value.toFixed(2)} ${currency}`;
-  }
-};
-
 const safeText = (value: string | null | undefined, fallback = 'Not provided') =>
   value?.trim() || fallback;
 
+const pdfText = (value: string | null | undefined, fallback = 'Not provided') =>
+  safeText(value, fallback)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\u00A0/g, ' ')
+    .replace(/[^\x20-\x7E\u00A3\u20AC]/g, '?');
+
+const money = (value: number, currency: string) => {
+  try {
+    return pdfText(new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value));
+  } catch {
+    return `${value.toFixed(2)} ${pdfText(currency, 'GBP')}`;
+  }
+};
+
 const wrapText = (text: string, maxChars = 82) => {
-  const words = text.split(/\s+/).filter(Boolean);
+  const words = pdfText(text, '').split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = '';
   for (const word of words) {
@@ -63,51 +74,59 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   const grey = rgb(90 / 255, 104 / 255, 125 / 255);
   const light = rgb(244 / 255, 246 / 255, 248 / 255);
   const dark = rgb(26 / 255, 31 / 255, 43 / 255);
+  const issuerName = pdfText(input.issuerName, 'Invoice issuer');
 
   page.drawRectangle({ x: 0, y: 745, width: 595.28, height: 96.89, color: navy });
-  page.drawText('XDRIVE', { x: 42, y: 792, size: 23, font: bold, color: rgb(1, 1, 1) });
-  page.drawText('LOGISTICS', { x: 42, y: 770, size: 13, font: bold, color: orange });
+  const issuerHeaderLines = wrapText(issuerName, 34).slice(0, 2);
+  issuerHeaderLines.forEach((line, index) => {
+    page.drawText(line, { x: 42, y: 795 - (index * 21), size: index === 0 ? 19 : 14, font: bold, color: rgb(1, 1, 1) });
+  });
+  page.drawText('TRANSPORT SERVICES', { x: 42, y: 753, size: 9, font: bold, color: orange });
   page.drawText('INVOICE', { x: 430, y: 784, size: 24, font: bold, color: rgb(1, 1, 1) });
-  page.drawText(input.invoiceNumber.slice(0, 50), { x: 430, y: 764, size: 10, font: regular, color: rgb(0.85, 0.9, 1) });
+  page.drawText(pdfText(input.invoiceNumber, 'Invoice').slice(0, 50), { x: 430, y: 764, size: 10, font: regular, color: rgb(0.85, 0.9, 1) });
 
-  page.drawText(safeText(input.issuerName).slice(0, 100), { x: 42, y: 715, size: 13, font: bold, color: dark });
+  page.drawText(issuerName.slice(0, 100), { x: 42, y: 715, size: 13, font: bold, color: dark });
   let issuerY = 697;
-  for (const line of wrapText(safeText(input.issuerAddress, ''), 55).slice(0, 4)) {
+  for (const line of wrapText(pdfText(input.issuerAddress, ''), 55).slice(0, 4)) {
     if (line) page.drawText(line, { x: 42, y: issuerY, size: 9, font: regular, color: grey });
     issuerY -= 13;
   }
   if (input.issuerCompanyNumber) {
-    page.drawText(`Company No: ${input.issuerCompanyNumber}`.slice(0, 90), { x: 42, y: issuerY, size: 9, font: regular, color: grey });
+    page.drawText(`Company No: ${pdfText(input.issuerCompanyNumber, '')}`.slice(0, 90), { x: 42, y: issuerY, size: 9, font: regular, color: grey });
     issuerY -= 13;
   }
   if (input.issuerVatNumber) {
-    page.drawText(`VAT: ${input.issuerVatNumber}`.slice(0, 90), { x: 42, y: issuerY, size: 9, font: regular, color: grey });
+    page.drawText(`VAT: ${pdfText(input.issuerVatNumber, '')}`.slice(0, 90), { x: 42, y: issuerY, size: 9, font: regular, color: grey });
   }
 
   page.drawRectangle({ x: 330, y: 650, width: 223, height: 76, color: light });
   page.drawText('BILL TO', { x: 346, y: 708, size: 8, font: bold, color: blue });
-  page.drawText(input.clientName.slice(0, 80), { x: 346, y: 690, size: 11, font: bold, color: dark });
-  page.drawText(safeText(input.clientAddress, '').slice(0, 160), { x: 346, y: 674, size: 8.5, font: regular, color: grey, maxWidth: 190 });
-  if (input.clientEmail) page.drawText(input.clientEmail.slice(0, 100), { x: 346, y: 660, size: 8.5, font: regular, color: grey });
+  page.drawText(pdfText(input.clientName, 'Customer').slice(0, 80), { x: 346, y: 690, size: 11, font: bold, color: dark });
+  page.drawText(pdfText(input.clientAddress, '').slice(0, 160), { x: 346, y: 674, size: 8.5, font: regular, color: grey, maxWidth: 190 });
+  if (input.clientEmail) page.drawText(pdfText(input.clientEmail, '').slice(0, 100), { x: 346, y: 660, size: 8.5, font: regular, color: grey });
 
-  page.drawText('Invoice date', { x: 42, y: 620, size: 8, font: bold, color: grey });
-  page.drawText(input.invoiceDate.slice(0, 30), { x: 42, y: 604, size: 10, font: regular, color: dark });
-  page.drawText('Due date', { x: 170, y: 620, size: 8, font: bold, color: grey });
-  page.drawText(input.dueDate.slice(0, 30), { x: 170, y: 604, size: 10, font: regular, color: dark });
-  page.drawText('Payment terms', { x: 298, y: 620, size: 8, font: bold, color: grey });
-  page.drawText(safeText(input.paymentTerms, '14 days').slice(0, 50), { x: 298, y: 604, size: 10, font: regular, color: dark });
+  const metadata = [
+    ['Invoice date', pdfText(input.invoiceDate, 'Not set'), 42],
+    ['Due date', pdfText(input.dueDate, 'Not set'), 158],
+    ['Payment terms', pdfText(input.paymentTerms, '14 days'), 274],
+    ['Job reference', pdfText(input.jobReference, 'Not set'), 414],
+  ] as const;
+  for (const [label, value, x] of metadata) {
+    page.drawText(label, { x, y: 620, size: 8, font: bold, color: grey });
+    page.drawText(value.slice(0, 24), { x, y: 604, size: 9, font: regular, color: dark });
+  }
 
   page.drawRectangle({ x: 42, y: 552, width: 511, height: 30, color: blue });
   page.drawText('SERVICE / ROUTE', { x: 54, y: 563, size: 9, font: bold, color: rgb(1, 1, 1) });
   page.drawText('AMOUNT', { x: 485, y: 563, size: 9, font: bold, color: rgb(1, 1, 1) });
 
-  const route = `${safeText(input.pickupLocation, 'Collection')} -> ${safeText(input.deliveryLocation, 'Delivery')}`;
+  const route = `${pdfText(input.pickupLocation, 'Collection')} -> ${pdfText(input.deliveryLocation, 'Delivery')}`;
   let itemY = 526;
   for (const line of wrapText(route, 78).slice(0, 5)) {
     page.drawText(line, { x: 54, y: itemY, size: 10, font: bold, color: dark });
     itemY -= 15;
   }
-  for (const line of wrapText(safeText(input.serviceDescription, 'Logistics / delivery service'), 78).slice(0, 6)) {
+  for (const line of wrapText(pdfText(input.serviceDescription, 'Logistics / delivery service'), 78).slice(0, 6)) {
     page.drawText(line, { x: 54, y: itemY, size: 9, font: regular, color: grey });
     itemY -= 13;
   }
@@ -129,8 +148,8 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   }
 
   page.drawLine({ start: { x: 42, y: 90 }, end: { x: 553, y: 90 }, thickness: 1, color: light });
-  page.drawText('Thank you for choosing XDrive Logistics.', { x: 42, y: 68, size: 9, font: bold, color: navy });
-  page.drawText('Move Freight. Manage Operations. Grow Your Network.', { x: 42, y: 51, size: 8, font: regular, color: grey });
+  page.drawText(`Invoice issued by ${issuerName}`.slice(0, 100), { x: 42, y: 68, size: 9, font: bold, color: navy });
+  page.drawText('Generated securely through the XDrive Logistics platform.', { x: 42, y: 51, size: 8, font: regular, color: grey });
 
   return pdf.save();
 }
