@@ -129,7 +129,7 @@ export default function WorkspaceShell({ children, forcedRole }: { children: Rea
             <button onClick={() => router.push(notificationsHref)} title="Notifications" aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`} style={{ position: 'relative', width: '36px', height: '36px', border: `1px solid ${workspaceTheme.border}`, borderRadius: '50%', background: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}>🔔{unreadCount > 0 && <span style={{ position: 'absolute', top: '-4px', right: '-4px', minWidth: '16px', height: '16px', padding: '0 3px', borderRadius: '999px', background: workspaceTheme.red, color: '#fff', display: 'grid', placeItems: 'center', fontSize: '0.55rem', fontWeight: 900 }}>{unreadCount > 99 ? '99+' : unreadCount}</span>}</button>
           </div>
         </header>
-        <main style={{ flex: 1, minWidth: 0 }}><EnterpriseSettingsBoundary>{children}</EnterpriseSettingsBoundary></main>
+        <main style={{ flex: 1, minWidth: 0 }}><EnterpriseSettingsBoundary role={role}>{children}</EnterpriseSettingsBoundary></main>
       </div>
 
       <style jsx global>{`
