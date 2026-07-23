@@ -33,6 +33,8 @@ permissions:
 
 jobs:
   validate:
+    # The workflow intentionally validates the exact final PR SHA after all
+    # temporary provider-readiness probes have been removed.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
