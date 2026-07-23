@@ -24,6 +24,8 @@ on:
 
 permissions:
   contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   validate:
@@ -54,5 +56,21 @@ jobs:
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-      - name: Validate atomic registration, retry, concurrency and takeover protection
-        run: bash scripts/validate_atomic_company_registration.sh
+      - name: Run atomic registration validation
+        id: validation
+        shell: bash
+        run: |
+          set -o pipefail
+          bash scripts/validate_atomic_company_registration.sh 2>&1 | tee company-registration-validation.log
+
+      - name: Publish focused failure diagnostics
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          diagnostic="$(tail -n 80 company-registration-validation.log 2>/dev/null || echo 'Validation log was not created.')"
+          body="$(printf '### Atomic company registration validation failed\n\n```text\n%s\n```' "$diagnostic")"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$body"
