@@ -130,7 +130,7 @@ try {
     const { error: profileError } = await service.from('profiles').upsert({
       user_id: user.id,
       full_name: `Tenant Owner ${company.name}`,
-      role: 'owner',
+      role: 'company_admin',
       status: 'active',
       company_id: company.id,
       is_driver: false,
