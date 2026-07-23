@@ -62,7 +62,17 @@ jobs:
       - name: Compare earlier and later logical copies
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python .github/scripts/audit-superseded-migration-pairs.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          script="$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/contents/.github/scripts/audit-superseded-migration-pairs.py?ref=${GITHUB_SHA}" \
+            | jq -r '.content' \
+            | base64 --decode)"
+          python -c "${script}"
 
   migration-files:
     name: Reject duplicate versions and UTF-8 BOM files
