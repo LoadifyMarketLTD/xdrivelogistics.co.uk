@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
 import type { z } from 'zod';
 
@@ -9,6 +9,10 @@ import {
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
 import { normalizeOnboardingStatus, type OnboardingAccountType } from '../../_lib/onboarding';
+import {
+  registerCompaniesHouseCompany,
+  type CompanyRegistrationAccountType,
+} from '../../../../lib/server/companyRegistration';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -48,6 +52,11 @@ const resolveApplication = async ({
 };
 
 const validateAccountType = (raw: string, expected: OnboardingAccountType) => raw === expected;
+
+const isCompanyRegistrationAccountType = (
+  accountType: OnboardingAccountType,
+): accountType is CompanyRegistrationAccountType =>
+  accountType === 'broker_shipper' || accountType === 'fleet_courier';
 
 const resolveApplicantPatchStatus = (
   existingStatusRaw: string | null | undefined,
@@ -98,7 +107,6 @@ const resolveApplicantPatchStatus = (
 
   return { nextStatus: existingStatus };
 };
-
 
 export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options: {
   expectedAccountType: OnboardingAccountType;
@@ -260,6 +268,59 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
 
     let companyId: string | null = application.company_id ?? null;
 
+    if (isCompanyRegistrationAccountType(expectedAccountType)) {
+      const validatedPayload = parsedPayload.data as Record<string, unknown>;
+      const rawCompanyNumber = typeof validatedPayload.company_number === 'string'
+        ? validatedPayload.company_number
+        : '';
+
+      const registration = await registerCompaniesHouseCompany({
+        supabase: supabaseAdmin,
+        actorUserId: authUser.id,
+        companyNumber: rawCompanyNumber,
+        accountType: expectedAccountType,
+      });
+
+      if (!registration.success) {
+        return json(registration.httpStatus, {
+          error: registration.error,
+          code: registration.errorCode,
+        });
+      }
+
+      companyId = registration.companyId;
+      const verifiedAt = new Date().toISOString();
+      const canonicalPayload: Record<string, unknown> = {
+        ...((application.payload ?? {}) as Record<string, unknown>),
+        company_number: registration.companyNumber,
+        companies_house_verified_name: registration.registeredName,
+        companies_house_registry_status: registration.registryStatus,
+        companies_house_verified_at: verifiedAt,
+      };
+
+      if (expectedAccountType === 'broker_shipper') {
+        canonicalPayload.company_name = registration.registeredName;
+      } else {
+        canonicalPayload.legal_company_name = registration.registeredName;
+      }
+
+      const { error: bindError } = await supabaseAdmin
+        .from('onboarding_applications')
+        .update({
+          company_id: registration.companyId,
+          payload: canonicalPayload,
+          last_activity_at: verifiedAt,
+        })
+        .eq('id', application.id)
+        .eq('user_id', authUser.id)
+        .eq('account_type', expectedAccountType);
+
+      if (bindError) {
+        console.error('[onboarding] Failed to bind verified company:', bindError.message);
+        return json(500, { error: 'The verified company could not be linked to onboarding.' });
+      }
+    }
+
     const { data, error: submitError } = await supabaseAdmin.rpc('submit_onboarding_application', {
       p_application_id: application.id,
     });
@@ -271,7 +332,16 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
       });
     }
 
-    companyId = data as string;
+    const submittedCompanyId = data as string;
+    if (companyId && submittedCompanyId !== companyId) {
+      console.error('[onboarding] Company registration postcondition failed.', {
+        applicationId: application.id,
+        expectedCompanyId: companyId,
+        submittedCompanyId,
+      });
+      return json(500, { error: 'Company registration could not be confirmed after submission.' });
+    }
+    companyId = submittedCompanyId;
 
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('onboarding_applications')
