@@ -228,16 +228,20 @@ export async function POST(
     : body.vat_rate === 5 || body.vat_rate === 20
       ? body.vat_rate
       : 20;
-  const vatAmount = marketplace
+  const unresolvedVatAmount = marketplace
     ? agreedVatAmount
     : Math.round(netAmount * (vatRate / 100) * 100) / 100;
-  const totalAmount = marketplace
+  if (unresolvedVatAmount === null || unresolvedVatAmount < 0) {
+    return respond(422, { error: 'Invoice VAT is invalid. The invoice was not created.' });
+  }
+  const vatAmount = unresolvedVatAmount;
+  const unresolvedTotalAmount = marketplace
     ? agreedGross
     : Math.round((netAmount + vatAmount) * 100) / 100;
-
-  if (vatAmount === null || totalAmount === null || vatAmount < 0 || totalAmount <= 0) {
-    return respond(422, { error: 'Invoice totals are invalid. The invoice was not created.' });
+  if (unresolvedTotalAmount === null || unresolvedTotalAmount <= 0) {
+    return respond(422, { error: 'Invoice total is invalid. The invoice was not created.' });
   }
+  const totalAmount = unresolvedTotalAmount;
 
   const paymentTerms = marketplace
     ? agreedTerms
