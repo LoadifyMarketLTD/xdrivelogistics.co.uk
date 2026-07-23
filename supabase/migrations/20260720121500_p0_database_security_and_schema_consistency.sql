@@ -770,30 +770,50 @@ REVOKE ALL ON FUNCTION public.submit_onboarding_application(uuid)
 GRANT EXECUTE ON FUNCTION public.submit_onboarding_application(uuid)
   TO service_role;
 
-REVOKE ALL ON FUNCTION public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text)
-  TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text) FROM PUBLIC, anon, authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.cancel_unassigned_exchange_job_atomic(uuid, uuid, text) TO service_role';
+  END IF;
+END;
+$$;
 
-REVOKE ALL ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid)
-  TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.delete_unbid_exchange_job_atomic(uuid, uuid)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid) FROM PUBLIC, anon, authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid) TO service_role';
+  END IF;
+END;
+$$;
 
-REVOKE ALL ON FUNCTION public.request_awarded_job_cancellation_atomic(uuid, uuid, text)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.request_awarded_job_cancellation_atomic(uuid, uuid, text)
-  TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.request_awarded_job_cancellation_atomic(uuid, uuid, text)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.request_awarded_job_cancellation_atomic(uuid, uuid, text) FROM PUBLIC, anon, authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.request_awarded_job_cancellation_atomic(uuid, uuid, text) TO service_role';
+  END IF;
+END;
+$$;
 
-REVOKE ALL ON FUNCTION public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text)
-  TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text) FROM PUBLIC, anon, authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.decide_awarded_job_cancellation_atomic(uuid, uuid, text, text) TO service_role';
+  END IF;
+END;
+$$;
 
-REVOKE ALL ON FUNCTION public.safe_dedup_drivers(uuid)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.safe_dedup_drivers(uuid)
-  TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.safe_dedup_drivers(uuid)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.safe_dedup_drivers(uuid) FROM PUBLIC, anon, authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.safe_dedup_drivers(uuid) TO service_role';
+  END IF;
+END;
+$$;
 
 COMMENT ON COLUMN public.notification_events.idempotency_key IS
   'Stable producer key used to prevent duplicate queue events.';
