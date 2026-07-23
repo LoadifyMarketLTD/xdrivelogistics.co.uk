@@ -28,7 +28,7 @@ const addDays = (date: string, days: number) => {
   return result.toISOString().slice(0, 10);
 };
 
-async function resolveDriver(request: NextRequest) {
+async function resolveFinanceOwner(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
   const token = getBearerToken(request);
   if (!token) return null;
@@ -40,12 +40,23 @@ async function resolveDriver(request: NextRequest) {
     .select('id, company_id, user_id')
     .eq('user_id', authData.user.id)
     .maybeSingle();
-
   if (!driverRow) return null;
+
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('company_memberships')
+    .select('role_in_company')
+    .eq('company_id', driverRow.company_id)
+    .eq('user_id', authData.user.id)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (membershipError) throw new Error(membershipError.message);
+
+  const role = String(membership?.role_in_company ?? '').toLowerCase();
   return {
     userId: authData.user.id,
     driverId: driverRow.id as string,
     companyId: driverRow.company_id as string,
+    canManageFinance: role === 'owner' || role === 'admin',
   };
 }
 
@@ -60,8 +71,16 @@ export async function POST(
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const driver = await resolveDriver(request);
+  let driver: Awaited<ReturnType<typeof resolveFinanceOwner>>;
+  try {
+    driver = await resolveFinanceOwner(request);
+  } catch (reason) {
+    return respond(500, { error: reason instanceof Error ? reason.message : 'Finance access could not be verified.' });
+  }
   if (!driver) return respond(401, { error: 'Unauthorized.' });
+  if (!driver.canManageFinance) {
+    return respond(403, { error: 'Company owner or admin access is required to create invoices.' });
+  }
 
   const { jobId } = await params;
   let body: Record<string, unknown> = {};
@@ -257,20 +276,61 @@ export async function POST(
   if (isMarketplaceJob && commercialAgreementId) {
     const { data: existing, error: existingError } = await supabaseAdmin
       .from('invoices')
-      .select('id, invoice_number, status, invoice_generation_idempotency_key')
+      .select([
+        'id',
+        'invoice_number',
+        'status',
+        'invoice_generation_idempotency_key',
+        'amount',
+        'net_amount',
+        'client_name',
+        'delivery_state',
+        'delivery_provider',
+        'delivery_message_id',
+        'delivery_recipient_email',
+      ].join(', '))
       .eq('commercial_agreement_id', commercialAgreementId)
       .eq('invoice_origin', 'marketplace')
       .maybeSingle();
 
     if (existingError) return respond(500, { error: existingError.message });
     if (existing) {
-      if (toCanonicalInvoiceStatus(existing.status) === 'Draft') {
+      const currentStatus = toCanonicalInvoiceStatus(existing.status);
+      const completeSnapshot = Number(existing.amount ?? 0) > 0
+        && Number(existing.net_amount ?? 0) > 0
+        && Boolean(cleanText(existing.client_name));
+      const provenDelivery = existing.delivery_state === 'sent'
+        && Boolean(cleanText(existing.delivery_provider))
+        && Boolean(cleanText(existing.delivery_message_id))
+        && Boolean(cleanText(existing.delivery_recipient_email));
+
+      if (!completeSnapshot && provenDelivery) {
+        return respond(409, {
+          error: 'This invoice has a confirmed provider delivery but an incomplete legacy snapshot. It requires finance review and was not changed automatically.',
+          invoice: { id: existing.id, invoice_number: existing.invoice_number },
+        });
+      }
+
+      if (currentStatus === 'Draft' || !completeSnapshot) {
+        const resetUnprovenSubmission = currentStatus !== 'Draft' && !provenDelivery;
         const { data: repaired, error: repairError } = await supabaseAdmin
           .from('invoices')
           .update({
             ...snapshot,
             invoice_generation_idempotency_key:
               cleanText(existing.invoice_generation_idempotency_key) || idempotencyKey,
+            ...(resetUnprovenSubmission
+              ? {
+                  status: toLegacyInvoiceStatusForDb('Draft'),
+                  submitted_at: null,
+                  submitted_by: null,
+                  delivery_state: 'idle',
+                  delivery_provider: null,
+                  delivery_message_id: null,
+                  delivery_recipient_email: null,
+                  delivery_error: 'Legacy incomplete invoice reset to Draft and rebuilt from the accepted commercial agreement.',
+                }
+              : {}),
             updated_at: new Date().toISOString(),
           })
           .eq('id', existing.id)
@@ -287,7 +347,7 @@ export async function POST(
       }
 
       return respond(200, {
-        invoice: { ...existing, status: toCanonicalInvoiceStatus(existing.status) },
+        invoice: { ...existing, status: currentStatus },
         replayed: true,
       });
     }
