@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
+import DashboardCompletionLayer from '../components/workspace/DashboardCompletionLayer';
 import SuperAdminWorkspaceShell from './_components/SuperAdminWorkspaceShell';
 
 export const metadata: Metadata = {
@@ -9,5 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default function SuperAdminLayout({ children }: { children: ReactNode }) {
-  return <SuperAdminWorkspaceShell>{children}</SuperAdminWorkspaceShell>;
+  return (
+    <SuperAdminWorkspaceShell>
+      {children}
+      <DashboardCompletionLayer mode="super-admin" />
+    </SuperAdminWorkspaceShell>
+  );
 }
