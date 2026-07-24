@@ -1,0 +1,1433 @@
+name: Apply Android Driver Remediation
+
+on:
+  push:
+    branches:
+      - fix/android-driver-tracking-only
+    paths:
+      - .github/workflows/apply-android-remediation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/android-driver-tracking-only
+          fetch-depth: 0
+
+      - name: Apply verified Android changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one match in {path}, found {count}")
+              file.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "android-native/app/src/main/AndroidManifest.xml",
+              '    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n',
+              '',
+          )
+
+          replace_once(
+              "android-native/app/src/main/java/co/uk/xdrivelogistics/driver/data/Models.kt",
+              '''data class DriverJob(
+              val id: String,
+              val status: String,
+              val currentStatus: String,
+              val pickupLocation: String,
+              val deliveryLocation: String,
+              val pickupDatetime: String?,
+              val deliveryDatetime: String?,
+              val clientName: String,
+              val clientPhone: String,
+              val vehicleType: String,
+              val cargoType: String,
+              val budgetAmount: Double?,
+              val loadDetails: String,
+              val pickupPostcode: String = "",
+              val deliveryPostcode: String = "",
+              val distanceMiles: Double? = null,
+              val pickupDistanceFromActiveDeliveryMiles: Double? = null,
+              val deliveryPhotos: List<String> = emptyList(),
+              val podPhotos: List<String> = emptyList(),
+          )''',
+              '''data class DriverJob(
+              val id: String,
+              val status: String,
+              val currentStatus: String,
+              val pickupLocation: String,
+              val deliveryLocation: String,
+              val pickupDatetime: String?,
+              val deliveryDatetime: String?,
+              val clientName: String,
+              val clientPhone: String,
+              val vehicleType: String,
+              val cargoType: String,
+              val budgetAmount: Double?,
+              val loadDetails: String,
+              val pickupPostcode: String = "",
+              val deliveryPostcode: String = "",
+              val distanceMiles: Double? = null,
+              val pickupDistanceFromActiveDeliveryMiles: Double? = null,
+              val deliveryPhotos: List<String> = emptyList(),
+              val podPhotos: List<String> = emptyList(),
+              val collectionPhotoUrl: String? = null,
+              val deliverySignatureData: String? = null,
+              val clientSignatureName: String = "",
+              val podRequired: Boolean = true,
+          ) {
+              fun statusKey(): String = currentStatus.ifBlank { status }.lowercase()
+
+              fun driverStatusKey(): String = when (statusKey()) {
+                  "assigned", "accepted" -> "allocated"
+                  "arrived_pickup" -> "on_site_pickup"
+                  "collected" -> "loaded"
+                  "on_route_delivery", "on_my_way_to_delivery" -> "in_transit"
+                  "arrived_delivery" -> "on_site_delivery"
+                  else -> statusKey()
+              }
+
+              fun isInProgress(): Boolean = driverStatusKey() in listOf(
+                  "on_my_way",
+                  "on_site_pickup",
+                  "loaded",
+                  "in_transit",
+                  "on_site_delivery",
+                  "in_progress",
+              )
+
+              fun isActive(): Boolean = driverStatusKey() !in listOf(
+                  "delivered",
+                  "completed",
+                  "cancelled",
+                  "canceled",
+                  "invoiced",
+                  "paid",
+              )
+
+              fun hasPod(): Boolean = deliveryPhotos.isNotEmpty() || podPhotos.isNotEmpty()
+
+              fun hasCollectionProof(): Boolean = !collectionPhotoUrl.isNullOrBlank()
+
+              fun hasDeliveryConfirmation(): Boolean = !podRequired || (
+                  hasPod() &&
+                      !deliverySignatureData.isNullOrBlank() &&
+                      clientSignatureName.isNotBlank()
+                  )
+
+              fun isPosted(): Boolean = driverStatusKey() == "posted"
+
+              fun routeLabel(): String = "${pickupLocation.ifBlank { "Pickup" }} -> ${deliveryLocation.ifBlank { "Delivery" }}"
+
+              fun statusLabel(): String = when (driverStatusKey()) {
+                  "allocated" -> "Allocated"
+                  "awarded" -> "Awarded"
+                  "on_my_way" -> "On My Way to Collection"
+                  "on_site_pickup" -> "Arrived at Collection"
+                  "loaded" -> "Loaded"
+                  "in_transit" -> "On My Way to Delivery"
+                  "on_site_delivery" -> "Arrived at Delivery"
+                  "delivered" -> "Delivered (POD)"
+                  "completed" -> "Completed"
+                  else -> driverStatusKey().split('_').joinToString(" ") { part ->
+                      part.replaceFirstChar { it.uppercase() }
+                  }
+              }
+
+              fun nextStatus(): String = when (driverStatusKey()) {
+                  "allocated", "awarded" -> "on_my_way"
+                  "on_my_way" -> "on_site_pickup"
+                  "on_site_pickup" -> "loaded"
+                  "loaded" -> "in_transit"
+                  "in_transit" -> "on_site_delivery"
+                  "on_site_delivery" -> "delivered"
+                  "delivered" -> "completed"
+                  else -> ""
+              }
+
+              fun nextActionLabel(): String = when (nextStatus()) {
+                  "on_my_way" -> "On My Way to Collection"
+                  "on_site_pickup" -> "Arrived at Collection"
+                  "loaded" -> "Loaded / Collected"
+                  "in_transit" -> "On My Way to Delivery"
+                  "on_site_delivery" -> "Arrived at Delivery"
+                  "delivered" -> "Mark as Delivered"
+                  "completed" -> "Complete Job"
+                  else -> "No further action"
+              }
+
+              fun needsCollectionProof(): Boolean = nextStatus() == "loaded"
+
+              fun blockingRequirementFor(next: String = nextStatus()): String? = when (next) {
+                  "loaded" -> if (hasCollectionProof()) null else "Take or upload a collection photo before marking the job Loaded."
+                  "delivered" -> when {
+                      !podRequired -> null
+                      !hasPod() -> "Upload a signed POD or delivery photo before marking the job Delivered."
+                      clientSignatureName.isBlank() -> "Enter and save the recipient name before marking the job Delivered."
+                      deliverySignatureData.isNullOrBlank() -> "Confirm the signed POD evidence before marking the job Delivered."
+                      else -> null
+                  }
+                  else -> null
+              }
+
+              fun canMoveNext(): Boolean = nextStatus().isNotBlank() && blockingRequirementFor() == null
+          }''',
+          )
+
+          vm = "android-native/app/src/main/java/co/uk/xdrivelogistics/driver/DriverViewModel.kt"
+          replace_once(
+              vm,
+              '''            if (selectedJob == null) {
+                          _uiState.value = _uiState.value.copy(error = "Selected job was not found.")
+                          return@launch
+                      }
+
+                      if (nextStatus == "delivered" && selectedJob.podPhotos.isEmpty() && selectedJob.deliveryPhotos.isEmpty()) {
+                          _uiState.value = _uiState.value.copy(error = "Upload POD before marking delivery complete.")
+                          return@launch
+                      }
+          ''',
+              '''            if (selectedJob == null) {
+                          _uiState.value = _uiState.value.copy(error = "Selected job was not found.")
+                          return@launch
+                      }
+
+                      if (selectedJob.isPosted()) {
+                          _uiState.value = _uiState.value.copy(
+                              error = "Submit a quote and wait for the customer to award the job before starting work.",
+                          )
+                          return@launch
+                      }
+
+                      selectedJob.blockingRequirementFor(nextStatus)?.let { requirement ->
+                          _uiState.value = _uiState.value.copy(error = requirement)
+                          return@launch
+                      }
+          ''',
+          )
+          replace_once(
+              vm,
+              '''            val result = if (nextStatus == "allocated" && selectedJob.status.lowercase() == "posted") {
+                          api.acceptPostedJob(session, profile, jobId)
+                      } else {
+                          api.updateJobStatus(session, profile.driverId, jobId, nextStatus)
+                      }
+
+                      result
+          ''',
+              '''            api.updateJobStatus(session, profile.driverId, jobId, nextStatus)
+          ''',
+          )
+          replace_once(
+              vm,
+              '''                        message = "POD uploaded.",
+          ''',
+              '''                        message = if (selectedJob.needsCollectionProof()) {
+                              "Collection proof uploaded."
+                          } else {
+                              "Delivery proof uploaded."
+                          },
+          ''',
+          )
+          replace_once(
+              vm,
+              '''    fun uploadComplianceDocument(docType: String, isVehicleDocument: Boolean, fileName: String, mimeType: String, bytes: ByteArray) {
+          ''',
+              '''    fun confirmDeliveryRecipientForSelectedJob(recipientName: String) {
+                  viewModelScope.launch {
+                      val session = _uiState.value.session ?: return@launch
+                      val profile = _uiState.value.profile ?: return@launch
+                      val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
+                      if (selectedJob == null) {
+                          _uiState.value = _uiState.value.copy(error = "Select a job first.")
+                          return@launch
+                      }
+                      if (!selectedJob.hasPod()) {
+                          _uiState.value = _uiState.value.copy(error = "Upload the signed POD evidence before confirming the recipient.")
+                          return@launch
+                      }
+                      val cleanName = recipientName.trim()
+                      if (cleanName.isBlank()) {
+                          _uiState.value = _uiState.value.copy(error = "Enter the recipient name.")
+                          return@launch
+                      }
+
+                      _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
+                      api.confirmDeliveryRecipient(session, profile.driverId, selectedJob, cleanName)
+                          .onSuccess {
+                              _uiState.value = _uiState.value.copy(
+                                  isLoading = false,
+                                  message = "Recipient and signed POD evidence confirmed.",
+                              )
+                              refreshDriverData()
+                          }
+                          .onFailure { error ->
+                              _uiState.value = _uiState.value.copy(
+                                  isLoading = false,
+                                  error = error.friendlyDriverMessage("Failed to confirm delivery evidence."),
+                              )
+                          }
+                  }
+              }
+
+              fun uploadComplianceDocument(docType: String, isVehicleDocument: Boolean, fileName: String, mimeType: String, bytes: ByteArray) {
+          ''',
+          )
+          replace_once(
+              vm,
+              '''private fun isValidTransition(currentRaw: String, next: String): Boolean {
+              val current = normalizeDriverStatus(currentRaw)
+              return when (next) {
+                  "allocated" -> current == "posted"
+                  "on_my_way" -> current == "allocated"
+                  "on_site_pickup" -> current == "on_my_way"
+                  "loaded" -> current == "on_site_pickup"
+                  "on_site_delivery" -> current == "loaded"
+                  "delivered" -> current == "on_site_delivery"
+                  "completed" -> current == "delivered"
+                  else -> false
+              }
+          }
+
+          private fun normalizeDriverStatus(raw: String): String =
+              when (raw.lowercase().ifBlank { "assigned" }) {
+                  "assigned" -> "allocated"
+                  "accepted" -> "allocated"
+                  "arrived_pickup" -> "on_site_pickup"
+                  "collected" -> "loaded"
+                  "in_transit", "on_route_delivery", "arrived_delivery" -> "on_site_delivery"
+                  else -> raw.lowercase().ifBlank { "assigned" }
+              }
+          ''',
+              '''private fun isValidTransition(currentRaw: String, next: String): Boolean {
+              val current = normalizeDriverStatus(currentRaw)
+              return when (next) {
+                  "on_my_way" -> current in listOf("allocated", "awarded")
+                  "on_site_pickup" -> current == "on_my_way"
+                  "loaded" -> current == "on_site_pickup"
+                  "in_transit" -> current == "loaded"
+                  "on_site_delivery" -> current == "in_transit"
+                  "delivered" -> current == "on_site_delivery"
+                  "completed" -> current == "delivered"
+                  else -> false
+              }
+          }
+
+          private fun normalizeDriverStatus(raw: String): String =
+              when (raw.lowercase().ifBlank { "assigned" }) {
+                  "assigned", "accepted" -> "allocated"
+                  "arrived_pickup" -> "on_site_pickup"
+                  "collected" -> "loaded"
+                  "on_route_delivery", "on_my_way_to_delivery" -> "in_transit"
+                  "arrived_delivery" -> "on_site_delivery"
+                  else -> raw.lowercase().ifBlank { "assigned" }
+              }
+          ''',
+          )
+
+          api = "android-native/app/src/main/java/co/uk/xdrivelogistics/driver/data/ApiClient.kt"
+          replace_once(
+              api,
+              'val select = "id,status,current_status,pickup_location,delivery_location,pickup_datetime,delivery_datetime,client_name,client_phone,collection_contact_phone,delivery_contact_phone,vehicle_type,cargo_type,budget_amount,load_details,delivery_photos,pod_photos,distance_miles,job_distance_miles,pickup_postcode,delivery_postcode"',
+              'val select = "id,status,current_status,pickup_location,delivery_location,pickup_datetime,delivery_datetime,client_name,client_phone,collection_contact_phone,delivery_contact_phone,vehicle_type,cargo_type,budget_amount,load_details,delivery_photos,pod_photos,collection_photo_url,delivery_signature_data,client_signature_name,pod_required,distance_miles,job_distance_miles,pickup_postcode,delivery_postcode"',
+          )
+          replace_once(
+              api,
+              '''                            deliveryPhotos = parseStringArray(row.get("delivery_photos") as? JsonArray),
+                                      podPhotos = parseStringArray(row.get("pod_photos") as? JsonArray),
+          ''',
+              '''                            deliveryPhotos = parseStringArray(row.get("delivery_photos") as? JsonArray),
+                                      podPhotos = parseStringArray(row.get("pod_photos") as? JsonArray),
+                                      collectionPhotoUrl = row.nullableString("collection_photo_url"),
+                                      deliverySignatureData = row.get("delivery_signature_data")
+                                          ?.takeUnless { it.isJsonNull }
+                                          ?.let { gson.toJson(it) },
+                                      clientSignatureName = row.string("client_signature_name"),
+                                      podRequired = row.get("pod_required")
+                                          ?.takeUnless { it.isJsonNull }
+                                          ?.asBoolean
+                                          ?: true,
+          ''',
+          )
+          start = '''    suspend fun acceptPostedJob(
+                  session: DriverSession,
+                  profile: DriverProfile,
+                  jobId: String,
+              ): Result<Unit> = networkResult {
+                  val payload = JsonObject().apply {
+                      addProperty("status", "allocated")
+                      addProperty("current_status", "allocated")
+                      addProperty("assigned_driver_id", profile.driverId)
+                      addProperty("assigned_company_id", profile.companyId)
+                      addProperty("updated_at", java.time.Instant.now().toString())
+                  }
+
+                  val encodedJobId = URLEncoder.encode(jobId, StandardCharsets.UTF_8.toString())
+                  val request = Request.Builder()
+                      .url("${supabaseUrl.trimEnd('/')}/rest/v1/jobs?id=eq.$encodedJobId&status=eq.posted")
+                      .addHeader("apikey", supabaseAnonKey)
+                      .addHeader("Authorization", "Bearer ${session.accessToken}")
+                      .addHeader("Content-Type", "application/json")
+                      .addHeader("Prefer", "return=representation")
+                      .patch(gson.toJson(payload).toRequestBody(jsonMediaType))
+                      .build()
+
+                  http.newCall(request).execute().use { response ->
+                      val raw = response.body?.string().orEmpty()
+                      if (!response.isSuccessful) {
+                          throw IllegalStateException(extractError(raw, "Failed to accept job."))
+                      }
+
+                      val rows = runCatching { gson.fromJson(raw, JsonArray::class.java) }.getOrNull()
+                      if (rows == null || rows.size() == 0) {
+                          throw IllegalStateException("This job is no longer available.")
+                      }
+                  }
+              }
+
+          '''
+          replace_once(api, start, '')
+          replace_once(
+              api,
+              '''        val nextDeliveryPhotos = (job.deliveryPhotos + storagePath).distinct()
+                  val nextPodPhotos = (job.podPhotos + storagePath).distinct()
+
+                  val patchBody = JsonObject().apply {
+                      add("delivery_photos", gson.toJsonTree(nextDeliveryPhotos))
+                      add("pod_photos", gson.toJsonTree(nextPodPhotos))
+                      addProperty("updated_at", java.time.Instant.now().toString())
+                  }
+          ''',
+              '''        val patchBody = JsonObject().apply {
+                      if (job.needsCollectionProof()) {
+                          addProperty("collection_photo_url", storagePath)
+                      } else {
+                          val nextDeliveryPhotos = (job.deliveryPhotos + storagePath).distinct()
+                          val nextPodPhotos = (job.podPhotos + storagePath).distinct()
+                          add("delivery_photos", gson.toJsonTree(nextDeliveryPhotos))
+                          add("pod_photos", gson.toJsonTree(nextPodPhotos))
+                      }
+                      addProperty("updated_at", java.time.Instant.now().toString())
+                  }
+          ''',
+          )
+          replace_once(
+              api,
+              '''    private fun supabaseRequest(pathAndQuery: String, accessToken: String): Request {
+          ''',
+              '''    suspend fun confirmDeliveryRecipient(
+                  session: DriverSession,
+                  driverId: String,
+                  job: DriverJob,
+                  recipientName: String,
+              ): Result<Unit> = networkResult {
+                  val evidencePath = (job.podPhotos + job.deliveryPhotos).lastOrNull()
+                      ?: throw IllegalStateException("Upload the signed POD evidence first.")
+                  val confirmation = JsonObject().apply {
+                      addProperty("type", "signed_pod_evidence")
+                      addProperty("evidence_path", evidencePath)
+                      addProperty("recipient_name", recipientName)
+                      addProperty("confirmed_at", java.time.Instant.now().toString())
+                      addProperty("source", "xdrive_driver_android")
+                  }
+                  val patchBody = JsonObject().apply {
+                      addProperty("client_signature_name", recipientName)
+                      add("delivery_signature_data", confirmation)
+                      addProperty("updated_at", java.time.Instant.now().toString())
+                  }
+                  val encodedJobId = URLEncoder.encode(job.id, StandardCharsets.UTF_8.toString())
+                  val encodedDriverId = URLEncoder.encode(driverId, StandardCharsets.UTF_8.toString())
+                  val request = Request.Builder()
+                      .url("${supabaseUrl.trimEnd('/')}/rest/v1/jobs?id=eq.$encodedJobId&assigned_driver_id=eq.$encodedDriverId")
+                      .addHeader("apikey", supabaseAnonKey)
+                      .addHeader("Authorization", "Bearer ${session.accessToken}")
+                      .addHeader("Content-Type", "application/json")
+                      .addHeader("Prefer", "return=representation")
+                      .patch(gson.toJson(patchBody).toRequestBody(jsonMediaType))
+                      .build()
+
+                  http.newCall(request).execute().use { response ->
+                      val raw = response.body?.string().orEmpty()
+                      if (!response.isSuccessful) {
+                          throw IllegalStateException(extractError(raw, "Failed to confirm delivery evidence."))
+                      }
+                      val rows = runCatching { gson.fromJson(raw, JsonArray::class.java) }.getOrNull()
+                      if (rows == null || rows.size() == 0) {
+                          throw IllegalStateException("Delivery evidence could not be linked to this assignment.")
+                      }
+                  }
+              }
+
+              private fun supabaseRequest(pathAndQuery: String, accessToken: String): Request {
+          ''',
+          )
+          replace_once(
+              api,
+              '''            "arrived_pickup" -> "on_site_pickup"
+                          "loaded" -> "loaded"
+                          "on_route_delivery", "arrived_delivery" -> "on_site_delivery"
+                          "delivered" -> "delivered"
+          ''',
+              '''            "arrived_pickup", "on_my_way_to_pickup" -> "on_site_pickup"
+                          "loaded" -> "loaded"
+                          "on_route_delivery", "on_my_way_to_delivery" -> "in_transit"
+                          "arrived_delivery" -> "on_site_delivery"
+                          "delivered" -> "delivered"
+          ''',
+          )
+
+          activity = "android-native/app/src/main/java/co/uk/xdrivelogistics/driver/MainActivity.kt"
+          replace_once(activity, 'import android.content.Intent\n', 'import android.content.Intent\nimport android.content.pm.PackageManager\n')
+          replace_once(activity, 'import android.os.Bundle\n', 'import android.os.Build\nimport android.os.Bundle\n')
+          replace_once(activity, 'import androidx.core.content.FileProvider\n', 'import androidx.core.content.ContextCompat\nimport androidx.core.content.FileProvider\n')
+          replace_once(
+              activity,
+              '''                var pendingComplianceDoc by remember { mutableStateOf<ComplianceDocOption?>(null) }
+          ''',
+              '''                var pendingComplianceDoc by remember { mutableStateOf<ComplianceDocOption?>(null) }
+                          var startTrackingAfterPermission by remember { mutableStateOf(false) }
+          ''',
+          )
+          replace_once(
+              activity,
+              '''                val locationPermissionLauncher = rememberLauncherForActivityResult(
+                          contract = ActivityResultContracts.RequestMultiplePermissions()
+                      ) { granted ->
+                          val hasLocation = granted[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                              granted[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+
+                          if (hasLocation) {
+                              fusedClient.lastLocation.addOnSuccessListener { location ->
+                                  if (location != null) viewModel.sendLocation(location.latitude, location.longitude)
+                              }
+                          }
+                      }
+          ''',
+              '''                val locationPermissionLauncher = rememberLauncherForActivityResult(
+                          contract = ActivityResultContracts.RequestMultiplePermissions()
+                      ) { granted ->
+                          val hasLocation = granted[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                              granted[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
+                              hasForegroundLocationPermission()
+
+                          if (hasLocation && startTrackingAfterPermission) {
+                              ContextCompat.startForegroundService(
+                                  this,
+                                  Intent(this, TrackingService::class.java),
+                              )
+                          } else if (hasLocation) {
+                              fusedClient.lastLocation.addOnSuccessListener { location ->
+                                  if (location != null) viewModel.sendLocation(location.latitude, location.longitude)
+                              }
+                          }
+                          startTrackingAfterPermission = false
+                      }
+          ''',
+          )
+          replace_once(
+              activity,
+              '''                            onSaveReturnJourney = viewModel::saveReturnJourney,
+          ''',
+              '''                            onSaveReturnJourney = viewModel::saveReturnJourney,
+                                      onConfirmDeliveryRecipient = viewModel::confirmDeliveryRecipientForSelectedJob,
+          ''',
+          )
+          replace_once(
+              activity,
+              '''                            onStartTracking = {
+                                      locationPermissionLauncher.launch(
+                                          arrayOf(
+                                              Manifest.permission.ACCESS_FINE_LOCATION,
+                                              Manifest.permission.ACCESS_COARSE_LOCATION,
+                                          )
+                                      )
+                                      startForegroundService(Intent(this, TrackingService::class.java))
+                                  },
+          ''',
+              '''                            onStartTracking = {
+                                      if (hasForegroundLocationPermission()) {
+                                          ContextCompat.startForegroundService(
+                                              this,
+                                              Intent(this, TrackingService::class.java),
+                                          )
+                                      } else {
+                                          startTrackingAfterPermission = true
+                                          locationPermissionLauncher.launch(trackingRuntimePermissions())
+                                      }
+                                  },
+          ''',
+          )
+          replace_once(
+              activity,
+              '''                            onPublishLocation = {
+                                      locationPermissionLauncher.launch(
+                                          arrayOf(
+                                              Manifest.permission.ACCESS_FINE_LOCATION,
+                                              Manifest.permission.ACCESS_COARSE_LOCATION,
+                                          )
+                                      )
+                                  },
+          ''',
+              '''                            onPublishLocation = {
+                                      startTrackingAfterPermission = false
+                                      if (hasForegroundLocationPermission()) {
+                                          fusedClient.lastLocation.addOnSuccessListener { location ->
+                                              if (location != null) viewModel.sendLocation(location.latitude, location.longitude)
+                                          }
+                                      } else {
+                                          locationPermissionLauncher.launch(trackingRuntimePermissions(includeNotifications = false))
+                                      }
+                                  },
+          ''',
+          )
+          replace_once(
+              activity,
+              '''    onSaveReturnJourney: (String, String, String) -> Unit,
+              onStartTracking: () -> Unit,
+          ''',
+              '''    onSaveReturnJourney: (String, String, String) -> Unit,
+              onConfirmDeliveryRecipient: (String) -> Unit,
+              onStartTracking: () -> Unit,
+          ''',
+          )
+          replace_once(
+              activity,
+              '''                DriverTab.ACTION -> ActionScreen(state, onSendNote, onSubmitQuote, onPickPodFile, onCapturePodPhoto, onMoveStatus, onNavigateTo)
+          ''',
+              '''                DriverTab.ACTION -> ActionScreen(
+                      state,
+                      onSendNote,
+                      onSubmitQuote,
+                      onPickPodFile,
+                      onCapturePodPhoto,
+                      onConfirmDeliveryRecipient,
+                      onMoveStatus,
+                      onNavigateTo,
+                  )
+          ''',
+          )
+          replace_once(
+              activity,
+              '''    onCapturePodPhoto: () -> Unit,
+              onMoveStatus: (String) -> Unit,
+          ''',
+              '''    onCapturePodPhoto: () -> Unit,
+              onConfirmDeliveryRecipient: (String) -> Unit,
+              onMoveStatus: (String) -> Unit,
+          ''',
+          )
+          replace_once(
+              activity,
+              '''                "POD" -> item { PodPanel(selected, onCapturePodPhoto, onPickPodFile) }
+          ''',
+              '''                "POD" -> item {
+                      PodPanel(
+                          selected,
+                          onCapturePodPhoto,
+                          onPickPodFile,
+                          onConfirmDeliveryRecipient,
+                      )
+                  }
+          ''',
+          )
+          replace_once(
+              activity,
+              '''            if (job.nextStatus() == "delivered" && !job.hasPod()) {
+                          Text("POD required before Delivered.", color = Yellow, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+                      }
+          ''',
+              '''            job.blockingRequirementFor()?.let { requirement ->
+                          Text(requirement, color = Yellow, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+                      }
+          ''',
+          )
+          old_pod = '''@Composable
+          private fun PodPanel(job: DriverJob, onCapturePodPhoto: () -> Unit, onPickPodFile: () -> Unit) {
+              XDriveCard {
+                  Text("Proof of Delivery", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                  Text("POD files: ${job.podPhotos.size}", color = TextSecondary)
+                  Text("Delivery photos: ${job.deliveryPhotos.size}", color = TextSecondary)
+                  Spacer(Modifier.height(10.dp))
+                  Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                      Button(
+                          onClick = onCapturePodPhoto,
+                          modifier = Modifier.weight(1f),
+                          colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
+                          shape = RoundedCornerShape(14.dp),
+                      ) { Text("Take Photo") }
+                      Button(
+                          onClick = onPickPodFile,
+                          modifier = Modifier.weight(1f),
+                          colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = TextPrimary),
+                          shape = RoundedCornerShape(14.dp),
+                      ) { Text("Choose File") }
+                  }
+                  val attachments = (job.podPhotos + job.deliveryPhotos).distinct()
+                  if (attachments.isEmpty()) {
+                      Spacer(Modifier.height(12.dp))
+                      Text("No POD evidence uploaded yet.", color = TextSecondary)
+                  } else {
+                      Spacer(Modifier.height(12.dp))
+                      Text("Attachments", color = TextPrimary, fontWeight = FontWeight.Bold)
+                      attachments.forEachIndexed { index, item ->
+                          InfoLine("File ${index + 1}", item.substringAfterLast('/'))
+                      }
+                  }
+              }
+          }
+          '''
+          new_pod = '''@Composable
+          private fun PodPanel(
+              job: DriverJob,
+              onCapturePodPhoto: () -> Unit,
+              onPickPodFile: () -> Unit,
+              onConfirmDeliveryRecipient: (String) -> Unit,
+          ) {
+              val collectionStage = job.needsCollectionProof()
+              var recipientName by remember(job.id, job.clientSignatureName) {
+                  mutableStateOf(job.clientSignatureName)
+              }
+              XDriveCard {
+                  Text(
+                      if (collectionStage) "Collection Proof" else "Proof of Delivery",
+                      color = TextPrimary,
+                      fontWeight = FontWeight.Bold,
+                      fontSize = 18.sp,
+                  )
+                  if (collectionStage) {
+                      Text(
+                          if (job.hasCollectionProof()) "Collection photo uploaded." else "A collection photo is required before Loaded.",
+                          color = TextSecondary,
+                      )
+                  } else {
+                      Text("POD files: ${job.podPhotos.size}", color = TextSecondary)
+                      Text("Delivery photos: ${job.deliveryPhotos.size}", color = TextSecondary)
+                  }
+                  Spacer(Modifier.height(10.dp))
+                  Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                      Button(
+                          onClick = onCapturePodPhoto,
+                          modifier = Modifier.weight(1f),
+                          colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
+                          shape = RoundedCornerShape(14.dp),
+                      ) { Text(if (collectionStage) "Take Collection Photo" else "Take POD Photo") }
+                      Button(
+                          onClick = onPickPodFile,
+                          modifier = Modifier.weight(1f),
+                          colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = TextPrimary),
+                          shape = RoundedCornerShape(14.dp),
+                      ) { Text("Choose File") }
+                  }
+
+                  val attachments = if (collectionStage) {
+                      listOfNotNull(job.collectionPhotoUrl)
+                  } else {
+                      (job.podPhotos + job.deliveryPhotos).distinct()
+                  }
+                  if (attachments.isEmpty()) {
+                      Spacer(Modifier.height(12.dp))
+                      Text(
+                          if (collectionStage) "No collection proof uploaded yet." else "No POD evidence uploaded yet.",
+                          color = TextSecondary,
+                      )
+                  } else {
+                      Spacer(Modifier.height(12.dp))
+                      Text("Attachments", color = TextPrimary, fontWeight = FontWeight.Bold)
+                      attachments.forEachIndexed { index, item ->
+                          InfoLine("File ${index + 1}", item.substringAfterLast('/'))
+                      }
+                  }
+
+                  if (!collectionStage && job.podRequired) {
+                      Spacer(Modifier.height(14.dp))
+                      Text("Recipient confirmation", color = TextPrimary, fontWeight = FontWeight.Bold)
+                      Text(
+                          "Enter the recipient name after the signed POD or delivery evidence has been uploaded.",
+                          color = TextSecondary,
+                          fontSize = 13.sp,
+                      )
+                      Spacer(Modifier.height(10.dp))
+                      XDriveTextField(
+                          value = recipientName,
+                          onValueChange = { recipientName = it },
+                          label = "Recipient name",
+                          leading = "Sign",
+                      )
+                      Spacer(Modifier.height(10.dp))
+                      Button(
+                          onClick = { onConfirmDeliveryRecipient(recipientName) },
+                          enabled = recipientName.isNotBlank() && job.hasPod(),
+                          modifier = Modifier.fillMaxWidth(),
+                          colors = ButtonDefaults.buttonColors(containerColor = Success, contentColor = Navy),
+                          shape = RoundedCornerShape(14.dp),
+                      ) {
+                          Text("Confirm Signed POD", fontWeight = FontWeight.Bold)
+                      }
+                      if (job.hasDeliveryConfirmation()) {
+                          Text(
+                              "Recipient confirmed: ${job.clientSignatureName}",
+                              color = Success,
+                              fontSize = 13.sp,
+                              modifier = Modifier.padding(top = 8.dp),
+                          )
+                      }
+                  }
+              }
+          }
+          '''
+          replace_once(activity, old_pod, new_pod)
+          replace_once(
+              activity,
+              '''private fun MainActivity.createPodPhotoUri(): Uri {
+          ''',
+              '''private fun MainActivity.hasForegroundLocationPermission(): Boolean {
+              val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+              val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+              return fine || coarse
+          }
+
+          private fun MainActivity.trackingRuntimePermissions(includeNotifications: Boolean = true): Array<String> =
+              buildList {
+                  add(Manifest.permission.ACCESS_FINE_LOCATION)
+                  add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                  if (includeNotifications && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                      add(Manifest.permission.POST_NOTIFICATIONS)
+                  }
+              }.toTypedArray()
+
+          private fun MainActivity.createPodPhotoUri(): Uri {
+          ''',
+          )
+
+          replace_once(
+              "android-native/app/build.gradle.kts",
+              '    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n',
+              '    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n    androidTestImplementation("androidx.test:core-ktx:1.6.1")\n',
+          )
+
+          readme = Path("android-native/README.md")
+          text = readme.read_text()
+          text = text.replace(
+              "- Job status transitions from native UI (`on_my_way`, `loaded`, `delivered`)\n- Delivery completion guard: `delivered` requires existing POD evidence\n",
+              "- Complete canonical job execution chain: `allocated/awarded -> on_my_way -> on_site_pickup -> loaded -> in_transit -> on_site_delivery -> delivered -> completed`\n- Collection proof guard before `loaded` and signed POD/recipient confirmation guard before `delivered`\n- Foreground GPS tracking with encrypted durable retry and session refresh\n",
+          )
+          text = text.replace(
+              "2. Add WorkManager periodic location sync for robust background delivery.\n3. Add complete status chain UI (`on_site_pickup`, `in_transit`, `on_site_delivery`) and proof capture checkpoints.\n4. Add instrumentation tests for login, jobs visibility, note submission, and POD upload.\n5. Add Gradle wrapper and CI build lane for automatic APK artifacts per commit.\n",
+              "2. Add optional WorkManager recovery for OEM-specific service termination.\n3. Expand instrumentation tests for authenticated login, live job visibility, notes and provider-backed POD uploads.\n4. Add production signing and Play/App Distribution release promotion after staging acceptance.\n",
+          )
+          readme.write_text(text)
+          PY
+
+          cat > android-native/app/src/main/java/co/uk/xdrivelogistics/driver/TrackingPolicy.kt <<'EOF'
+          package co.uk.xdrivelogistics.driver
+
+          data class PendingLocation(
+              val latitude: Double,
+              val longitude: Double,
+              val capturedAtEpochMs: Long,
+          ) {
+              fun isFresh(
+                  nowEpochMs: Long = System.currentTimeMillis(),
+                  maxAgeMs: Long = DEFAULT_MAX_AGE_MS,
+              ): Boolean = capturedAtEpochMs > 0L && nowEpochMs - capturedAtEpochMs <= maxAgeMs
+
+              companion object {
+                  const val DEFAULT_MAX_AGE_MS = 10 * 60 * 1000L
+              }
+          }
+
+          internal enum class UploadOutcome {
+              SUCCESS,
+              RETRY,
+              AUTH_REQUIRED,
+          }
+
+          internal fun Throwable.isAuthenticationFailure(): Boolean {
+              val value = message.orEmpty().lowercase()
+              return "401" in value ||
+                  "jwt" in value ||
+                  "token" in value ||
+                  "unauthorized" in value ||
+                  "session expired" in value
+          }
+          EOF
+
+          cat > android-native/app/src/main/java/co/uk/xdrivelogistics/driver/PendingLocationStore.kt <<'EOF'
+          package co.uk.xdrivelogistics.driver
+
+          import android.content.Context
+          import android.content.SharedPreferences
+          import androidx.security.crypto.EncryptedSharedPreferences
+          import androidx.security.crypto.MasterKey
+
+          class PendingLocationStore(context: Context) {
+              private val appContext = context.applicationContext
+              private val preferences: SharedPreferences by lazy {
+                  val masterKey = MasterKey.Builder(appContext)
+                      .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                      .build()
+                  EncryptedSharedPreferences.create(
+                      appContext,
+                      STORE_NAME,
+                      masterKey,
+                      EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                      EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+                  )
+              }
+
+              fun save(location: PendingLocation) {
+                  preferences.edit()
+                      .putString(KEY_LATITUDE, location.latitude.toString())
+                      .putString(KEY_LONGITUDE, location.longitude.toString())
+                      .putLong(KEY_CAPTURED_AT, location.capturedAtEpochMs)
+                      .apply()
+              }
+
+              fun read(): PendingLocation? {
+                  val latitude = preferences.getString(KEY_LATITUDE, null)?.toDoubleOrNull() ?: return null
+                  val longitude = preferences.getString(KEY_LONGITUDE, null)?.toDoubleOrNull() ?: return null
+                  val capturedAt = preferences.getLong(KEY_CAPTURED_AT, 0L)
+                  return PendingLocation(latitude, longitude, capturedAt)
+              }
+
+              fun clear() {
+                  preferences.edit().clear().apply()
+              }
+
+              private companion object {
+                  const val STORE_NAME = "xdrive_secure_pending_location"
+                  const val KEY_LATITUDE = "latitude"
+                  const val KEY_LONGITUDE = "longitude"
+                  const val KEY_CAPTURED_AT = "captured_at"
+              }
+          }
+          EOF
+
+          cat > android-native/app/src/main/java/co/uk/xdrivelogistics/driver/TrackingService.kt <<'EOF'
+          package co.uk.xdrivelogistics.driver
+
+          import android.Manifest
+          import android.app.Notification
+          import android.app.NotificationChannel
+          import android.app.NotificationManager
+          import android.app.PendingIntent
+          import android.app.Service
+          import android.content.Intent
+          import android.content.pm.PackageManager
+          import android.content.pm.ServiceInfo
+          import android.os.Build
+          import android.os.IBinder
+          import androidx.core.app.NotificationCompat
+          import androidx.core.app.ServiceCompat
+          import androidx.core.content.ContextCompat
+          import co.uk.xdrivelogistics.driver.data.ApiClient
+          import co.uk.xdrivelogistics.driver.data.DriverSession
+          import co.uk.xdrivelogistics.driver.data.SessionStore
+          import com.google.android.gms.location.CancellationTokenSource
+          import com.google.android.gms.location.LocationServices
+          import com.google.android.gms.location.Priority
+          import kotlinx.coroutines.CoroutineScope
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.Job
+          import kotlinx.coroutines.SupervisorJob
+          import kotlinx.coroutines.cancel
+          import kotlinx.coroutines.delay
+          import kotlinx.coroutines.isActive
+          import kotlinx.coroutines.launch
+          import kotlinx.coroutines.tasks.await
+          import java.time.ZonedDateTime
+          import java.time.format.DateTimeFormatter
+
+          class TrackingService : Service() {
+              private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+              private var trackingJob: Job? = null
+
+              private val api by lazy {
+                  ApiClient(
+                      xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
+                      supabaseUrl = BuildConfig.SUPABASE_URL,
+                      supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
+                  )
+              }
+              private val sessionStore by lazy { SessionStore(applicationContext) }
+              private val pendingStore by lazy { PendingLocationStore(applicationContext) }
+              private val fusedClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
+
+              override fun onCreate() {
+                  super.onCreate()
+                  ensureChannel()
+              }
+
+              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+                  if (intent?.action == ACTION_STOP) {
+                      pendingStore.clear()
+                      stopSelf()
+                      return START_NOT_STICKY
+                  }
+
+                  if (!hasLocationPermission()) {
+                      stopSelfResult(startId)
+                      return START_NOT_STICKY
+                  }
+
+                  val session = runCatching { sessionStore.readSession() }.getOrNull()
+                  if (session == null || !startForegroundSafely()) {
+                      stopSelfResult(startId)
+                      return START_NOT_STICKY
+                  }
+
+                  if (trackingJob?.isActive != true) {
+                      trackingJob = scope.launch { runTrackingLoop() }
+                  }
+
+                  return START_STICKY
+              }
+
+              override fun onDestroy() {
+                  scope.cancel()
+                  super.onDestroy()
+              }
+
+              override fun onBind(intent: Intent?): IBinder? = null
+
+              private fun startForegroundSafely(): Boolean = runCatching {
+                  ServiceCompat.startForeground(
+                      this,
+                      NOTIFICATION_ID,
+                      notification(
+                          title = "XDrive tracking active",
+                          text = "Preparing the first secure location update.",
+                          ongoing = true,
+                      ),
+                      ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
+                  )
+                  true
+              }.getOrDefault(false)
+
+              private suspend fun runTrackingLoop() {
+                  while (scope.coroutineContext.isActive) {
+                      if (!hasLocationPermission()) {
+                          stopWithMessage(
+                              "XDrive tracking stopped",
+                              "Location permission was removed. Open the app to restart tracking.",
+                          )
+                          return
+                      }
+
+                      val session = runCatching { sessionStore.readSession() }.getOrNull()
+                      if (session == null) {
+                          stopWithMessage(
+                              "XDrive tracking stopped",
+                              "Sign in to the driver app before sharing location.",
+                          )
+                          return
+                      }
+
+                      captureCurrentLocation()?.let { current ->
+                          pendingStore.save(current)
+                      }
+
+                      val pending = pendingStore.read()
+                      if (pending == null) {
+                          updateNotification(
+                              "XDrive tracking waiting for GPS",
+                              "No current position is available yet. Tracking will retry automatically.",
+                              ongoing = true,
+                          )
+                          delay(RETRY_INTERVAL_MS)
+                          continue
+                      }
+
+                      if (!pending.isFresh()) {
+                          pendingStore.clear()
+                          updateNotification(
+                              "XDrive tracking waiting for GPS",
+                              "The saved position expired. Waiting for a fresh GPS fix.",
+                              ongoing = true,
+                          )
+                          delay(RETRY_INTERVAL_MS)
+                          continue
+                      }
+
+                      when (uploadPending(session, pending)) {
+                          UploadOutcome.SUCCESS -> {
+                              pendingStore.clear()
+                              showSharedNotification()
+                              delay(TRACKING_INTERVAL_MS)
+                          }
+                          UploadOutcome.RETRY -> {
+                              updateNotification(
+                                  "XDrive tracking waiting for connection",
+                                  "The latest location is encrypted on this device and will retry automatically.",
+                                  ongoing = true,
+                              )
+                              delay(RETRY_INTERVAL_MS)
+                          }
+                          UploadOutcome.AUTH_REQUIRED -> {
+                              stopWithMessage(
+                                  "XDrive tracking stopped",
+                                  "Your session expired. Sign in again to resume tracking.",
+                              )
+                              return
+                          }
+                      }
+                  }
+              }
+
+              private suspend fun captureCurrentLocation(): PendingLocation? = runCatching {
+                  val tokenSource = CancellationTokenSource()
+                  val location = fusedClient.getCurrentLocation(
+                      Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                      tokenSource.token,
+                  ).await() ?: return null
+                  PendingLocation(
+                      latitude = location.latitude,
+                      longitude = location.longitude,
+                      capturedAtEpochMs = System.currentTimeMillis(),
+                  )
+              }.getOrNull()
+
+              private suspend fun uploadPending(
+                  session: DriverSession,
+                  pending: PendingLocation,
+              ): UploadOutcome {
+                  val first = api.sendLocation(session.accessToken, pending.latitude, pending.longitude)
+                  if (first.isSuccess) return UploadOutcome.SUCCESS
+
+                  val firstError = first.exceptionOrNull()
+                  if (firstError?.isAuthenticationFailure() != true) return UploadOutcome.RETRY
+
+                  val refreshed = api.refreshSession(session)
+                  if (refreshed.isFailure) {
+                      return if (refreshed.exceptionOrNull()?.isAuthenticationFailure() == true) {
+                          UploadOutcome.AUTH_REQUIRED
+                      } else {
+                          UploadOutcome.RETRY
+                      }
+                  }
+
+                  val refreshedSession = refreshed.getOrThrow()
+                  sessionStore.saveSession(refreshedSession)
+                  val retried = api.sendLocation(
+                      refreshedSession.accessToken,
+                      pending.latitude,
+                      pending.longitude,
+                  )
+                  return when {
+                      retried.isSuccess -> UploadOutcome.SUCCESS
+                      retried.exceptionOrNull()?.isAuthenticationFailure() == true -> UploadOutcome.AUTH_REQUIRED
+                      else -> UploadOutcome.RETRY
+                  }
+              }
+
+              private suspend fun stopWithMessage(title: String, text: String) {
+                  updateNotification(title, text, ongoing = false)
+                  delay(STOP_MESSAGE_DELAY_MS)
+                  stopSelf()
+              }
+
+              private fun hasLocationPermission(): Boolean {
+                  val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                  val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                  return fine || coarse
+              }
+
+              private fun notification(title: String, text: String, ongoing: Boolean): Notification {
+                  val openIntent = PendingIntent.getActivity(
+                      this,
+                      0,
+                      Intent(this, MainActivity::class.java),
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                  )
+                  val stopIntent = PendingIntent.getService(
+                      this,
+                      1,
+                      Intent(this, TrackingService::class.java).setAction(ACTION_STOP),
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                  )
+                  return NotificationCompat.Builder(this, CHANNEL_ID)
+                      .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                      .setContentTitle(title)
+                      .setContentText(text)
+                      .setContentIntent(openIntent)
+                      .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopIntent)
+                      .setOngoing(ongoing)
+                      .setOnlyAlertOnce(true)
+                      .build()
+              }
+
+              private fun updateNotification(title: String, text: String, ongoing: Boolean) {
+                  getSystemService(NotificationManager::class.java)
+                      .notify(NOTIFICATION_ID, notification(title, text, ongoing))
+              }
+
+              private fun showSharedNotification() {
+                  val time = ZonedDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+                  updateNotification(
+                      "XDrive tracking active",
+                      "Last location shared successfully at $time.",
+                      ongoing = true,
+                  )
+              }
+
+              private fun ensureChannel() {
+                  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+                  val manager = getSystemService(NotificationManager::class.java)
+                  manager.createNotificationChannel(
+                      NotificationChannel(
+                          CHANNEL_ID,
+                          "Driver tracking",
+                          NotificationManager.IMPORTANCE_LOW,
+                      ),
+                  )
+              }
+
+              companion object {
+                  const val ACTION_STOP = "co.uk.xdrivelogistics.driver.STOP_TRACKING"
+                  private const val CHANNEL_ID = "xdrive_driver_tracking"
+                  private const val NOTIFICATION_ID = 4601
+                  private const val TRACKING_INTERVAL_MS = 60_000L
+                  private const val RETRY_INTERVAL_MS = 15_000L
+                  private const val STOP_MESSAGE_DELAY_MS = 1_500L
+              }
+          }
+          EOF
+
+          mkdir -p android-native/app/src/test/java/co/uk/xdrivelogistics/driver
+          cat > android-native/app/src/test/java/co/uk/xdrivelogistics/driver/DriverJobLifecycleTest.kt <<'EOF'
+          package co.uk.xdrivelogistics.driver
+
+          import co.uk.xdrivelogistics.driver.data.DriverJob
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertFalse
+          import org.junit.Assert.assertNull
+          import org.junit.Assert.assertTrue
+          import org.junit.Test
+
+          class DriverJobLifecycleTest {
+              @Test
+              fun `canonical chain includes in transit`() {
+                  assertEquals("on_my_way", job("allocated").nextStatus())
+                  assertEquals("on_my_way", job("awarded").nextStatus())
+                  assertEquals("in_transit", job("loaded").nextStatus())
+                  assertEquals("on_site_delivery", job("in_transit").nextStatus())
+              }
+
+              @Test
+              fun `posted job cannot be started directly`() {
+                  val posted = job("posted")
+                  assertEquals("", posted.nextStatus())
+                  assertFalse(posted.canMoveNext())
+              }
+
+              @Test
+              fun `collection proof is required before loaded`() {
+                  val missing = job("on_site_pickup")
+                  assertFalse(missing.canMoveNext())
+                  assertTrue(missing.blockingRequirementFor()?.contains("collection photo") == true)
+
+                  val ready = job("on_site_pickup", collectionPhotoUrl = "proof/collection.jpg")
+                  assertTrue(ready.canMoveNext())
+                  assertNull(ready.blockingRequirementFor())
+              }
+
+              @Test
+              fun `signed pod and recipient are required before delivered`() {
+                  val photoOnly = job(
+                      "on_site_delivery",
+                      deliveryPhotos = listOf("proof/delivery.jpg"),
+                  )
+                  assertFalse(photoOnly.canMoveNext())
+
+                  val complete = job(
+                      "on_site_delivery",
+                      deliveryPhotos = listOf("proof/delivery.jpg"),
+                      clientSignatureName = "Alex Recipient",
+                      deliverySignatureData = "signed-pod",
+                  )
+                  assertTrue(complete.canMoveNext())
+              }
+
+              @Test
+              fun `legacy aliases normalize without skipping a step`() {
+                  assertEquals("in_transit", job("on_route_delivery").driverStatusKey())
+                  assertEquals("on_site_delivery", job("arrived_delivery").driverStatusKey())
+              }
+
+              private fun job(
+                  status: String,
+                  collectionPhotoUrl: String? = null,
+                  deliveryPhotos: List<String> = emptyList(),
+                  clientSignatureName: String = "",
+                  deliverySignatureData: String? = null,
+              ) = DriverJob(
+                  id = "job-1",
+                  status = status,
+                  currentStatus = status,
+                  pickupLocation = "Blackburn",
+                  deliveryLocation = "London",
+                  pickupDatetime = null,
+                  deliveryDatetime = null,
+                  clientName = "Client",
+                  clientPhone = "",
+                  vehicleType = "Luton",
+                  cargoType = "Pallets",
+                  budgetAmount = null,
+                  loadDetails = "",
+                  collectionPhotoUrl = collectionPhotoUrl,
+                  deliveryPhotos = deliveryPhotos,
+                  clientSignatureName = clientSignatureName,
+                  deliverySignatureData = deliverySignatureData,
+              )
+          }
+          EOF
+
+          cat > android-native/app/src/test/java/co/uk/xdrivelogistics/driver/TrackingPolicyTest.kt <<'EOF'
+          package co.uk.xdrivelogistics.driver
+
+          import org.junit.Assert.assertFalse
+          import org.junit.Assert.assertTrue
+          import org.junit.Test
+
+          class TrackingPolicyTest {
+              @Test
+              fun `pending location expires after safety window`() {
+                  val location = PendingLocation(53.75, -2.48, 1_000L)
+                  assertTrue(location.isFresh(nowEpochMs = 1_000L + 60_000L))
+                  assertFalse(location.isFresh(nowEpochMs = 1_000L + PendingLocation.DEFAULT_MAX_AGE_MS + 1L))
+              }
+
+              @Test
+              fun `authentication failures are distinguished from network failures`() {
+                  assertTrue(IllegalStateException("401 unauthorized token").isAuthenticationFailure())
+                  assertTrue(IllegalStateException("JWT expired").isAuthenticationFailure())
+                  assertFalse(IllegalStateException("Unable to resolve host").isAuthenticationFailure())
+              }
+          }
+          EOF
+
+          mkdir -p android-native/app/src/androidTest/java/co/uk/xdrivelogistics/driver
+          cat > android-native/app/src/androidTest/java/co/uk/xdrivelogistics/driver/PendingLocationStoreInstrumentedTest.kt <<'EOF'
+          package co.uk.xdrivelogistics.driver
+
+          import androidx.test.core.app.ApplicationProvider
+          import androidx.test.ext.junit.runners.AndroidJUnit4
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertNull
+          import org.junit.Test
+          import org.junit.runner.RunWith
+
+          @RunWith(AndroidJUnit4::class)
+          class PendingLocationStoreInstrumentedTest {
+              @Test
+              fun encryptedStorePersistsNewestLocationAndClears() {
+                  val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+                  val store = PendingLocationStore(context)
+                  store.clear()
+
+                  val first = PendingLocation(53.748, -2.482, 100L)
+                  val newest = PendingLocation(53.750, -2.480, 200L)
+                  store.save(first)
+                  store.save(newest)
+
+                  assertEquals(newest, store.read())
+                  store.clear()
+                  assertNull(store.read())
+              }
+          }
+          EOF
+
+          cat > .github/workflows/android-native-ci.yml <<'EOF'
+          name: Android Native CI
+
+          on:
+            pull_request:
+              paths:
+                - "android-native/**"
+                - ".github/workflows/android-native-ci.yml"
+            push:
+              branches:
+                - fix/android-driver-tracking-only
+              paths:
+                - "android-native/**"
+                - ".github/workflows/android-native-ci.yml"
+
+          permissions:
+            contents: read
+
+          jobs:
+            build:
+              runs-on: ubuntu-latest
+              timeout-minutes: 25
+              steps:
+                - uses: actions/checkout@v4
+                - uses: actions/setup-java@v4
+                  with:
+                    distribution: temurin
+                    java-version: "17"
+                    cache: gradle
+                - uses: android-actions/setup-android@v3
+                - name: Install Android SDK 35
+                  run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+                - name: Build, lint and unit test native driver app
+                  working-directory: android-native
+                  run: |
+                    chmod +x gradlew
+                    ./gradlew --no-daemon clean testDebugUnitTest lintDebug assembleDebug
+                - name: Create APK checksum
+                  working-directory: android-native
+                  run: sha256sum app/build/outputs/apk/debug/app-debug.apk > app-debug.apk.sha256
+                - uses: actions/upload-artifact@v4
+                  with:
+                    name: xdrive-driver-debug-${{ github.sha }}
+                    path: |
+                      android-native/app/build/outputs/apk/debug/app-debug.apk
+                      android-native/app-debug.apk.sha256
+                    if-no-files-found: error
+                    retention-days: 14
+
+            instrumented:
+              runs-on: ubuntu-latest
+              timeout-minutes: 30
+              steps:
+                - uses: actions/checkout@v4
+                - uses: actions/setup-java@v4
+                  with:
+                    distribution: temurin
+                    java-version: "17"
+                    cache: gradle
+                - uses: android-actions/setup-android@v3
+                - name: Enable KVM
+                  run: |
+                    echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+                    sudo udevadm control --reload-rules
+                    sudo udevadm trigger --name-match=kvm
+                - name: Run Android 14 emulator tests
+                  uses: reactivecircus/android-emulator-runner@v2
+                  with:
+                    api-level: 34
+                    arch: x86_64
+                    profile: pixel_6
+                    disable-animations: true
+                    script: cd android-native && chmod +x gradlew && ./gradlew --no-daemon connectedDebugAndroidTest
+          EOF
+
+          git config user.name "xdrive-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add android-native .github/workflows/android-native-ci.yml
+          git commit -m "Complete Android driver execution, proof and tracking flow"
+          git push origin HEAD:fix/android-driver-tracking-only
