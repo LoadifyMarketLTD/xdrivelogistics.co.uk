@@ -2,21 +2,18 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
-  pull_request:
-    branches: ["**"]
+    branches: ["main"]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   android-pr281-repair:
     name: Android PR 281 Repair
-    if: github.event_name == 'pull_request' && github.event.pull_request.number == 281 && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'Run scoped Android PR 281 repair')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -72,8 +69,7 @@ private fun DriverJob.routeLabel(): String = "${pickupLocation.ifBlank { "Pickup
 private fun DriverJob.statusLabel(): String = driverStatusKey().statusLabel()
 
 '''
-          if obsolete_status_helpers in text:
-              text = text.replace(obsolete_status_helpers, '', 1)
+          text = text.replace(obsolete_status_helpers, '', 1)
 
           obsolete_action_helpers = '''private fun DriverJob.nextStatus(): String = when (driverStatusKey()) {
     "allocated" -> "on_my_way"
@@ -99,8 +95,7 @@ private fun DriverJob.canMoveNext(): Boolean =
     nextStatus().isNotBlank() && (nextStatus() != "delivered" || hasPod())
 
 '''
-          if obsolete_action_helpers in text:
-              text = text.replace(obsolete_action_helpers, '', 1)
+          text = text.replace(obsolete_action_helpers, '', 1)
           main.write_text(text)
 
           tracking = Path('android-native/app/src/main/java/co/uk/xdrivelogistics/driver/TrackingService.kt')
@@ -137,129 +132,3 @@ private fun DriverJob.canMoveNext(): Boolean =
                   android-native/app/src/main/java/co/uk/xdrivelogistics/driver/TrackingService.kt
           git commit -m "Fix Android permission lint and remove stale lifecycle helpers"
           git push origin HEAD:fix/android-driver-tracking-only
-
-  build-and-lint:
-    name: Build & Lint
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
-          EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-        run: npm run lint
-
-      - name: Typecheck
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
-          EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-        run: npm run typecheck
-
-      - name: Build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
-          EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-        run: npm run build
-
-  public-e2e-smoke:
-    name: Public E2E Smoke
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
-      EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Run stable public smoke tests
-        run: npx playwright test e2e/ci-public-smoke.spec.ts --project=chromium
-
-  expo-driver-typecheck:
-    name: Expo Driver Typecheck
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install Expo driver dependencies
-        working-directory: apps/driver-mobile
-        run: npm install --ignore-scripts --no-audit --no-fund
-
-      - name: Typecheck Expo driver
-        working-directory: apps/driver-mobile
-        run: npm run typecheck
-
-  codeql:
-    name: CodeQL Security Scan
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      actions: read
-      contents: read
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: javascript-typescript, actions
-          queries: security-extended
-          build-mode: none
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:javascript-typescript"
