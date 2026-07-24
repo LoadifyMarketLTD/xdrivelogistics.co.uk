@@ -21,6 +21,14 @@ const PROVIDER_WORKSPACE_TAGS = new Set([
   'sole_trader',
 ]);
 
+const INDIVIDUAL_DRIVER_TAGS = new Set([
+  'individual_driver',
+  'individual-driver',
+  'driver_only',
+  'driver-only',
+  'fleet_driver',
+]);
+
 const DRIVER_EXECUTION_MODE_TAGS = new Set(['driver', 'driver_mode', 'execution']);
 
 const readMetadataText = (metadata: DriverWorkspaceMetadata, key: string) => {
@@ -36,6 +44,14 @@ const readMetadataFlag = (metadata: DriverWorkspaceMetadata, key: string) => {
   return normalized === 'true' || normalized === '1' || normalized === 'yes';
 };
 
+const hasExplicitFalseFlag = (metadata: DriverWorkspaceMetadata, key: string) => {
+  const value = metadata?.[key];
+  if (value === false) return true;
+  if (typeof value !== 'string') return false;
+  const normalized = value.toLowerCase().trim();
+  return normalized === 'false' || normalized === '0' || normalized === 'no';
+};
+
 const readNormalizedMetadataTags = (metadata: DriverWorkspaceMetadata, keys: string[]) =>
   keys
     .map((key) => readMetadataText(metadata, key))
@@ -47,9 +63,19 @@ export const isDriverProviderWorkspaceRequested = (
   appMetadata: DriverWorkspaceMetadata
 ) => {
   const tags = [
-    ...readNormalizedMetadataTags(userMetadata, ['account_type', 'workspace_mode', 'requested_role', 'role']),
-    ...readNormalizedMetadataTags(appMetadata, ['account_type', 'workspace_mode', 'requested_role', 'role']),
+    ...readNormalizedMetadataTags(userMetadata, ['account_type', 'workspace_mode', 'requested_role', 'signup_type', 'role']),
+    ...readNormalizedMetadataTags(appMetadata, ['account_type', 'workspace_mode', 'requested_role', 'signup_type', 'role']),
   ];
+
+  const explicitIndividualDriver = tags.some((value) => INDIVIDUAL_DRIVER_TAGS.has(value));
+  const driverWorkspaceMode = tags.includes('driver') || tags.includes('fleet_driver');
+  const workspaceExplicitlyDisabled =
+    hasExplicitFalseFlag(userMetadata, 'owner_driver_workspace') ||
+    hasExplicitFalseFlag(appMetadata, 'owner_driver_workspace');
+
+  if (explicitIndividualDriver || (driverWorkspaceMode && workspaceExplicitlyDisabled)) {
+    return false;
+  }
 
   return (
     readMetadataFlag(userMetadata, 'owner_driver_workspace') ||

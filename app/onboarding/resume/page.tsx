@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 
-type AccountType = 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver';
+type AccountType = 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'individual_driver' | 'owner_driver';
 
 const routeByAccountType: Record<AccountType, string> = {
   customer_shipper: '/onboarding/customer/resume',
   broker_shipper: '/onboarding/broker/resume',
   fleet_courier: '/onboarding/fleet/resume',
+  individual_driver: '/onboarding/individual-driver/resume',
   owner_driver: '/onboarding/owner-driver/resume',
 };
 
