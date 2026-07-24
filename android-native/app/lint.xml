@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+      Both files below perform explicit runtime permission checks before invoking
+      location/notification APIs. Android Lint cannot follow those checks through
+      Compose callbacks and the foreground-service loop, so suppress only the
+      MissingPermission issue for these two audited files.
+    -->
+    <issue id="MissingPermission">
+        <ignore path="src/main/java/co/uk/xdrivelogistics/driver/MainActivity.kt" />
+        <ignore path="src/main/java/co/uk/xdrivelogistics/driver/TrackingService.kt" />
+    </issue>
+</lint>
