@@ -17,9 +17,9 @@ import androidx.core.content.ContextCompat
 import co.uk.xdrivelogistics.driver.data.ApiClient
 import co.uk.xdrivelogistics.driver.data.DriverSession
 import co.uk.xdrivelogistics.driver.data.SessionStore
-import com.google.android.gms.location.CancellationTokenSource
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
