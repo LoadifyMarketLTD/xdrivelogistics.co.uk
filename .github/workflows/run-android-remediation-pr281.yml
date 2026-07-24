@@ -6,6 +6,8 @@ on:
 
 permissions:
   contents: write
+  issues: write
+  pull-requests: write
 
 jobs:
   apply:
@@ -24,6 +26,9 @@ jobs:
 
       - name: Execute prepared atomic remediation
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -38,4 +43,15 @@ jobs:
           Path('/tmp/apply-android-remediation.sh').write_text(script)
           PY
           chmod +x /tmp/apply-android-remediation.sh
-          /tmp/apply-android-remediation.sh
+
+          set +e
+          /tmp/apply-android-remediation.sh 2>&1 | tee /tmp/android-remediation.log
+          status=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$status" -ne 0 ]; then
+            diagnostic="$(tail -n 120 /tmp/android-remediation.log)"
+            body="$(printf '### Android remediation application failed\n\n```text\n%s\n```' "$diagnostic")"
+            gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$body"
+            exit "$status"
+          fi
