@@ -2,7 +2,7 @@ BEGIN;
 
 -- Auth-session helpers may resolve or repair an already-approved company context,
 -- but they must never create governance state, reactivate disabled membership,
--- or bypass onboarding approval.
+-- bypass onboarding approval, or silently choose between multiple workspaces.
 
 CREATE OR REPLACE FUNCTION public.get_or_create_company_for_user()
 RETURNS uuid
@@ -13,6 +13,8 @@ AS $$
 DECLARE
   v_user_id uuid := auth.uid();
   v_membership public.company_memberships%ROWTYPE;
+  v_active_membership_count integer := 0;
+  v_membership_count integer := 0;
   v_company_id uuid;
   v_company_status text;
   v_onboarding_approved boolean := false;
@@ -22,20 +24,26 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  SELECT cm.*
-  INTO v_membership
+  SELECT
+    count(*) FILTER (WHERE cm.status::text = 'active'),
+    count(*)
+  INTO
+    v_active_membership_count,
+    v_membership_count
   FROM public.company_memberships AS cm
-  WHERE cm.user_id = v_user_id
-  ORDER BY
-    CASE WHEN cm.status::text = 'active' THEN 0 ELSE 1 END,
-    cm.created_at DESC
-  LIMIT 1;
+  WHERE cm.user_id = v_user_id;
 
-  IF FOUND THEN
-    IF v_membership.status::text <> 'active' THEN
-      RAISE EXCEPTION 'Company membership is not active and cannot be restored by authentication bootstrap.'
-        USING ERRCODE = '42501';
-    END IF;
+  IF v_active_membership_count > 1 THEN
+    RAISE EXCEPTION 'Multiple active company memberships exist. Select a workspace explicitly.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF v_active_membership_count = 1 THEN
+    SELECT cm.*
+    INTO STRICT v_membership
+    FROM public.company_memberships AS cm
+    WHERE cm.user_id = v_user_id
+      AND cm.status::text = 'active';
 
     SELECT c.status::text
     INTO v_company_status
@@ -47,6 +55,11 @@ BEGIN
     END IF;
 
     RETURN v_membership.company_id;
+  END IF;
+
+  IF v_membership_count > 0 THEN
+    RAISE EXCEPTION 'Company membership is not active and cannot be restored by authentication bootstrap.'
+      USING ERRCODE = '42501';
   END IF;
 
   -- Compatibility repair is permitted only for the authenticated creator of an
@@ -218,9 +231,9 @@ GRANT EXECUTE ON FUNCTION public.get_or_create_company_for_user() TO authenticat
 GRANT EXECUTE ON FUNCTION public.bootstrap_company_membership() TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.get_or_create_company_for_user() IS
-  'Resolve active company context or repair an approved creator membership. Never creates a first company or activates non-active membership.';
+  'Resolve one unambiguous active company context or repair an approved creator membership. Never creates a first company, activates non-active membership, or silently selects between active workspaces.';
 COMMENT ON FUNCTION public.bootstrap_company_membership() IS
-  'Repair only a genuinely missing approved owner membership. Never reactivates invited, disabled, suspended or revoked membership.';
+  'Resolve the profile-selected workspace or repair only a genuinely missing approved owner membership. Never reactivates invited, disabled, suspended or revoked membership.';
 
 NOTIFY pgrst, 'reload schema';
 
