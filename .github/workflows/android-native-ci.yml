@@ -1,0 +1,79 @@
+name: Android Native CI
+
+on:
+  pull_request:
+    paths:
+      - "android-native/**"
+      - ".github/workflows/android-native-ci.yml"
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - name: Install Android SDK 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Build, lint and unit test native driver app
+        working-directory: android-native
+        shell: bash
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon clean testDebugUnitTest lintDebug assembleDebug 2>&1 | tee /tmp/android-gradle-build.log
+      - name: Publish focused build diagnostics
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          diagnostic="$(tail -n 180 /tmp/android-gradle-build.log)"
+          body="$(printf '### Android native build failure\n\n```text\n%s\n```' "$diagnostic")"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$body"
+      - name: Create APK checksum
+        working-directory: android-native
+        run: sha256sum app/build/outputs/apk/debug/app-debug.apk > app-debug.apk.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xdrive-driver-debug-${{ github.sha }}
+          path: |
+            android-native/app/build/outputs/apk/debug/app-debug.apk
+            android-native/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  instrumented:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run Android 14 emulator tests
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: cd android-native && chmod +x gradlew && ./gradlew --no-daemon connectedDebugAndroidTest
