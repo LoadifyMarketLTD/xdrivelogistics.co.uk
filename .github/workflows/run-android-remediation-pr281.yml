@@ -92,8 +92,8 @@ jobs:
           set -e
 
           if [ "$status" -ne 0 ]; then
-            diagnostic="$(tail -n 14 /tmp/android-remediation.log)"
-            body="$(printf '### Android remediation precise failure\n\n```text\n%s\n```' "$diagnostic")"
-            gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$body"
+            diagnostic="$(tail -n 16 /tmp/android-remediation.log)"
+            body="$(printf '## Android remediation diagnostic\n\n```text\n%s\n```' "$diagnostic")"
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" -X PATCH -f body="$body"
             exit "$status"
           fi
