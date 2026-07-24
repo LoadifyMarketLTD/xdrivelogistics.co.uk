@@ -60,8 +60,8 @@ jobs:
           set -e
 
           if [ "$status" -ne 0 ]; then
-            diagnostic="$(tail -n 160 /tmp/android-remediation.log)"
-            body="$(printf '### Android remediation application failed\n\n```text\n%s\n```' "$diagnostic")"
+            diagnostic="$(tail -n 10 /tmp/android-remediation.log)"
+            body="$(printf '### Android remediation precise failure\n\n```text\n%s\n```' "$diagnostic")"
             gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$body"
             exit "$status"
           fi
