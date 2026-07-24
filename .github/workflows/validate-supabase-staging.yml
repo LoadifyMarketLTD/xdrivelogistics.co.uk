@@ -79,6 +79,33 @@ jobs:
           echo "$status" > migration-inventory/migration-list-exit-code.txt
           exit 0
 
+      - name: Repair remote-only legacy migration history
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Staging was bootstrapped with fake-timestamp versions (20000101xxxxxx).
+          # These don't map to any local file and cause dry-run to fail with
+          # "Remote migration versions not found in local migrations directory."
+          # Revert them before the dry-run so the version sets are reconciled.
+
+          versions=$(grep -oP '\b20000101\d{6}\b' migration-inventory/linked-migration-list.txt \
+            | sort -u | tr '\n' ' ' | xargs || true)
+
+          if [ -z "$versions" ]; then
+            echo "No remote-only legacy versions detected; skipping repair."
+            exit 0
+          fi
+
+          count=$(echo "$versions" | wc -w)
+          echo "Reverting $count remote-only legacy versions from staging migration history..."
+          # shellcheck disable=SC2086  # intentional word-splitting for version list
+          supabase migration repair \
+            --status reverted \
+            --password "$SUPABASE_DB_PASSWORD" \
+            $versions
+          echo "Repair complete."
+
       - name: Capture dry-run reconciliation error
         shell: bash
         run: |
