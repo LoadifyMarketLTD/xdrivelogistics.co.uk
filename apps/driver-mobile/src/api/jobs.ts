@@ -47,7 +47,7 @@ async function uploadLocalPodFile(jobId: string, uri: string, kind: 'photos' | '
     : 'application/octet-stream';
 
   const { error } = await supabase.storage
-    .from('pod-docs')
+    .from('pod-photos')
     .upload(storagePath, bytes, { contentType, upsert: false, cacheControl: '3600' });
   if (error) throw new Error(`POD upload failed: ${error.message}`);
   return storagePath;
