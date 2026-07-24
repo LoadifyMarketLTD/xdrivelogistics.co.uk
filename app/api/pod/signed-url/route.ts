@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { data: signed, error: signedUrlError } = await supabaseAdmin.storage
-    .from('pod-docs')
+    .from('pod-photos')
     .createSignedUrl(objectPath, 120);
 
   if (signedUrlError || !signed?.signedUrl) {
