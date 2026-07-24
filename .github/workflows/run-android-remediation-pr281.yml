@@ -1,0 +1,41 @@
+name: Controlled Android Remediation PR 281
+
+on:
+  pull_request:
+    types: [reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: >-
+      github.event.pull_request.number == 281 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'fix/android-driver-tracking-only'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/android-driver-tracking-only
+          fetch-depth: 0
+
+      - name: Execute prepared atomic remediation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path('.github/workflows/apply-android-remediation.yml').read_text().splitlines()
+          start = next(i for i, line in enumerate(source) if line.strip() == 'run: |') + 1
+          script_lines = source[start:]
+          nonempty = [line for line in script_lines if line.strip()]
+          indent = min(len(line) - len(line.lstrip()) for line in nonempty)
+          script = '\n'.join(line[indent:] if line.strip() else '' for line in script_lines) + '\n'
+          Path('/tmp/apply-android-remediation.sh').write_text(script)
+          PY
+          chmod +x /tmp/apply-android-remediation.sh
+          /tmp/apply-android-remediation.sh
