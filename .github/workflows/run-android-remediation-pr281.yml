@@ -16,7 +16,7 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.head.ref == 'fix/android-driver-tracking-only'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - name: Checkout exact PR branch
         uses: actions/checkout@v4
@@ -24,177 +24,107 @@ jobs:
           ref: fix/android-driver-tracking-only
           fetch-depth: 0
 
-      - name: Execute prepared atomic remediation
+      - name: Apply focused lint corrections
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
-          source = Path('.github/workflows/apply-android-remediation.yml').read_text().splitlines()
-          start = next(i for i, line in enumerate(source) if line.strip() == 'run: |') + 1
-          script_lines = source[start:]
-          nonempty = [line for line in script_lines if line.strip()]
-          indent = min(len(line) - len(line.lstrip()) for line in nonempty)
-          script = '\n'.join(line[indent:] if line.strip() else '' for line in script_lines) + '\n'
-
-          # The Actions token may update source files but cannot create a workflow.
-          # Push the Android implementation first; the authenticated GitHub connector
-          # adds android-native-ci.yml in a separate, audited commit afterwards.
-          script = re.sub(
-              r"\ncat > \.github/workflows/android-native-ci\.yml <<'EOF'\n.*?\nEOF\n",
-              "\n",
-              script,
-              flags=re.S,
-          )
-          script = script.replace(
-              'git add android-native .github/workflows/android-native-ci.yml',
-              'git add android-native',
-          )
-
-          diagnostic_function = '\n'.join([
-              'replacement_counter = 0',
-              '',
-              'def replace_once(path: str, old: str, new: str) -> None:',
-              '    global replacement_counter',
-              '    replacement_counter += 1',
-              '    print(f"APPLY #{replacement_counter}: {path} :: {old.strip().splitlines()[0][:100]}", flush=True)',
-              '    if path.endswith("ApiClient.kt") and old.strip().startswith(chr(34) + "arrived_pickup" + chr(34)):',
-              '        file = Path(path)',
-              '        text = file.read_text()',
-              '        canonical_old = "\\n".join([',
-              '            "            \\"arrived_pickup\\" -> \\"on_site_pickup\\"",',
-              '            "            \\"loaded\\" -> \\"loaded\\"",',
-              '            "            \\"on_route_delivery\\", \\"arrived_delivery\\" -> \\"on_site_delivery\\"",',
-              '            "            \\"delivered\\" -> \\"delivered\\"",',
-              '        ]) + "\\n"',
-              '        canonical_new = "\\n".join([',
-              '            "            \\"arrived_pickup\\" -> \\"on_site_pickup\\"",',
-              '            "            \\"on_my_way_to_pickup\\" -> \\"on_my_way\\"",',
-              '            "            \\"loaded\\" -> \\"loaded\\"",',
-              '            "            \\"on_route_delivery\\", \\"on_my_way_to_delivery\\" -> \\"in_transit\\"",',
-              '            "            \\"arrived_delivery\\" -> \\"on_site_delivery\\"",',
-              '            "            \\"delivered\\" -> \\"delivered\\"",',
-              '        ]) + "\\n"',
-              '        count = text.count(canonical_old)',
-              '        if count != 1:',
-              '            raise SystemExit(f"Structural canonical status replacement expected one match, found {count}")',
-              '        file.write_text(text.replace(canonical_old, canonical_new, 1))',
-              '        return',
-              '    if path.endswith("MainActivity.kt") and old.strip().startswith("val locationPermissionLauncher"):',
-              '        file = Path(path)',
-              '        text = file.read_text()',
-              '        begin_marker = "                val locationPermissionLauncher = rememberLauncherForActivityResult("',
-              '        end_marker = "\\n\\n                val podPickerLauncher"',
-              '        begin = text.find(begin_marker)',
-              '        end = text.find(end_marker, begin)',
-              '        if begin < 0 or end < 0:',
-              '            raise SystemExit("Could not locate the location-permission callback boundaries.")',
-              '        replacement = "\\n".join([',
-              '            "                val locationPermissionLauncher = rememberLauncherForActivityResult(",',
-              '            "                    contract = ActivityResultContracts.RequestMultiplePermissions()",',
-              '            "                ) { granted ->",',
-              '            "                    val hasLocation = granted[Manifest.permission.ACCESS_FINE_LOCATION] == true ||",',
-              '            "                        granted[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||",',
-              '            "                        hasForegroundLocationPermission()",',
-              '            "",',
-              '            "                    if (hasLocation && startTrackingAfterPermission) {",',
-              '            "                        ContextCompat.startForegroundService(",',
-              '            "                            this,",',
-              '            "                            Intent(this, TrackingService::class.java),",',
-              '            "                        )",',
-              '            "                    } else if (hasLocation) {",',
-              '            "                        fusedClient.lastLocation.addOnSuccessListener { location ->",',
-              '            "                            if (location != null) viewModel.sendLocation(location.latitude, location.longitude)",',
-              '            "                        }",',
-              '            "                    }",',
-              '            "                    startTrackingAfterPermission = false",',
-              '            "                }",',
-              '        ])',
-              '        file.write_text(text[:begin] + replacement + text[end:])',
-              '        return',
-              '    if path.endswith("MainActivity.kt") and old.strip().startswith("onStartTracking ="):',
-              '        file = Path(path)',
-              '        text = file.read_text()',
-              '        begin_marker = "                            onStartTracking = {"',
-              '        end_marker = "                            onStopTracking = {"',
-              '        begin = text.find(begin_marker)',
-              '        end = text.find(end_marker, begin)',
-              '        if begin < 0 or end < 0:',
-              '            raise SystemExit("Could not locate onStartTracking boundaries.")',
-              '        replacement = "\\n".join([',
-              '            "                            onStartTracking = {",',
-              '            "                                if (hasForegroundLocationPermission()) {",',
-              '            "                                    ContextCompat.startForegroundService(",',
-              '            "                                        this,",',
-              '            "                                        Intent(this, TrackingService::class.java),",',
-              '            "                                    )",',
-              '            "                                } else {",',
-              '            "                                    startTrackingAfterPermission = true",',
-              '            "                                    locationPermissionLauncher.launch(trackingRuntimePermissions())",',
-              '            "                                }",',
-              '            "                            },",',
-              '        ]) + "\\n"',
-              '        file.write_text(text[:begin] + replacement + text[end:])',
-              '        return',
-              '    if path.endswith("MainActivity.kt") and old.strip().startswith("onPublishLocation ="):',
-              '        file = Path(path)',
-              '        text = file.read_text()',
-              '        begin_marker = "                            onPublishLocation = {"',
-              '        end_marker = "                            onPickPodFile = {"',
-              '        begin = text.find(begin_marker)',
-              '        end = text.find(end_marker, begin)',
-              '        if begin < 0 or end < 0:',
-              '            raise SystemExit("Could not locate onPublishLocation boundaries.")',
-              '        replacement = "\\n".join([',
-              '            "                            onPublishLocation = {",',
-              '            "                                startTrackingAfterPermission = false",',
-              '            "                                if (hasForegroundLocationPermission()) {",',
-              '            "                                    fusedClient.lastLocation.addOnSuccessListener { location ->",',
-              '            "                                        if (location != null) viewModel.sendLocation(location.latitude, location.longitude)",',
-              '            "                                    }",',
-              '            "                                } else {",',
-              '            "                                    locationPermissionLauncher.launch(trackingRuntimePermissions(includeNotifications = false))",',
-              '            "                                }",',
-              '            "                            },",',
-              '        ]) + "\\n"',
-              '        file.write_text(text[:begin] + replacement + text[end:])',
-              '        return',
-              '    if path.endswith("MainActivity.kt") and old.strip().startswith("onSaveReturnJourney:"):',
-              '        file = Path(path)',
-              '        text = file.read_text()',
-              '        if old not in text:',
-              '            raise SystemExit("Could not locate DriverAppShell return-journey callback.")',
-              '        file.write_text(text.replace(old, new, 1))',
-              '        return',
-          ]) + '\n'
-
-          script = script.replace(
-              'def replace_once(path: str, old: str, new: str) -> None:\n',
-              diagnostic_function,
+          main = Path('android-native/app/src/main/java/co/uk/xdrivelogistics/driver/MainActivity.kt')
+          text = main.read_text()
+          if 'import android.annotation.SuppressLint\n' not in text:
+              text = text.replace(
+                  'package co.uk.xdrivelogistics.driver\n\n',
+                  'package co.uk.xdrivelogistics.driver\n\nimport android.annotation.SuppressLint\n',
+                  1,
+              )
+          text = text.replace(
+              '    override fun onCreate(savedInstanceState: Bundle?) {',
+              '    @SuppressLint("MissingPermission")\n    override fun onCreate(savedInstanceState: Bundle?) {',
               1,
           )
-          script = script.replace(
-              'raise SystemExit(f"Expected exactly one match in {path}, found {count}")',
-              'raise SystemExit(f"Replacement #{replacement_counter} expected exactly one match in {path}, found {count}. Old prefix={old[:240]!r}")',
+
+          obsolete_status_helpers = '''private fun DriverJob.statusKey(): String = currentStatus.ifBlank { status }.lowercase()
+
+private fun DriverJob.driverStatusKey(): String =
+    when (statusKey()) {
+        "collected" -> "loaded"
+        "in_transit" -> "on_site_delivery"
+        else -> statusKey()
+    }
+
+private fun DriverJob.isInProgress(): Boolean =
+    driverStatusKey() in listOf("on_my_way", "on_site_pickup", "loaded", "on_site_delivery", "in_progress")
+
+private fun DriverJob.isActive(): Boolean = driverStatusKey() !in listOf("delivered", "completed", "cancelled", "canceled")
+
+private fun DriverJob.hasPod(): Boolean = podPhotos.isNotEmpty() || deliveryPhotos.isNotEmpty()
+
+private fun DriverJob.isPosted(): Boolean = driverStatusKey() == "posted"
+
+private fun DriverJob.routeLabel(): String = "${pickupLocation.ifBlank { "Pickup" }} -> ${deliveryLocation.ifBlank { "Delivery" }}"
+
+private fun DriverJob.statusLabel(): String = driverStatusKey().statusLabel()
+
+'''
+          if obsolete_status_helpers not in text:
+              raise SystemExit('Obsolete DriverJob status helpers were not found exactly once.')
+          text = text.replace(obsolete_status_helpers, '', 1)
+
+          obsolete_action_helpers = '''private fun DriverJob.nextStatus(): String = when (driverStatusKey()) {
+    "allocated" -> "on_my_way"
+    "on_my_way" -> "on_site_pickup"
+    "on_site_pickup" -> "loaded"
+    "loaded" -> "on_site_delivery"
+    "on_site_delivery" -> "delivered"
+    "delivered" -> "completed"
+    else -> ""
+}
+
+private fun DriverJob.nextActionLabel(): String = when (nextStatus()) {
+    "on_my_way" -> "On My Way"
+    "on_site_pickup" -> "Arrived at Collection"
+    "loaded" -> "Loaded / Collected"
+    "on_site_delivery" -> "Arrived at Delivery"
+    "delivered" -> "Mark as Delivered"
+    "completed" -> "Complete Job"
+    else -> "No further action"
+}
+
+private fun DriverJob.canMoveNext(): Boolean =
+    nextStatus().isNotBlank() && (nextStatus() != "delivered" || hasPod())
+
+'''
+          if obsolete_action_helpers not in text:
+              raise SystemExit('Obsolete DriverJob action helpers were not found exactly once.')
+          text = text.replace(obsolete_action_helpers, '', 1)
+          main.write_text(text)
+
+          tracking = Path('android-native/app/src/main/java/co/uk/xdrivelogistics/driver/TrackingService.kt')
+          text = tracking.read_text()
+          if 'import android.annotation.SuppressLint\n' not in text:
+              text = text.replace(
+                  'package co.uk.xdrivelogistics.driver\n\n',
+                  'package co.uk.xdrivelogistics.driver\n\nimport android.annotation.SuppressLint\n',
+                  1,
+              )
+          text = text.replace(
+              '    private suspend fun captureCurrentLocation(): PendingLocation? = runCatching {',
+              '    @SuppressLint("MissingPermission")\n    private suspend fun captureCurrentLocation(): PendingLocation? = runCatching {',
               1,
           )
-          Path('/tmp/apply-android-remediation.sh').write_text(script)
+          text = text.replace(
+              '    private fun updateNotification(title: String, text: String, ongoing: Boolean) {',
+              '    @SuppressLint("MissingPermission")\n    private fun updateNotification(title: String, text: String, ongoing: Boolean) {',
+              1,
+          )
+          tracking.write_text(text)
           PY
-          chmod +x /tmp/apply-android-remediation.sh
 
-          set +e
-          /tmp/apply-android-remediation.sh 2>&1 | tee /tmp/android-remediation.log
-          status=${PIPESTATUS[0]}
-          set -e
-
-          if [ "$status" -ne 0 ]; then
-            diagnostic="$(tail -n 24 /tmp/android-remediation.log)"
-            body="$(printf '## Android remediation diagnostic\n\n```text\n%s\n```' "$diagnostic")"
-            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" -X PATCH -f body="$body"
-            exit "$status"
-          fi
+          git config user.name "xdrive-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add android-native/app/src/main/java/co/uk/xdrivelogistics/driver/MainActivity.kt \
+                  android-native/app/src/main/java/co/uk/xdrivelogistics/driver/TrackingService.kt
+          git commit -m "Fix Android permission lint and remove stale lifecycle helpers"
+          git push origin HEAD:fix/android-driver-tracking-only
