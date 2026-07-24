@@ -116,8 +116,8 @@ export const getDriverWorkspaceCapabilities = (
   if (mode === 'provider_driver') {
     return getCapabilitiesForRole('driver', {
       ...context,
-      workspaceRole: 'driver',
-      ownerDriverWorkspace: false,
+      workspaceRole: 'owner_driver',
+      ownerDriverWorkspace: true,
     });
   }
 
@@ -130,7 +130,8 @@ export const getDriverWorkspaceCapabilities = (
 
   return getCapabilitiesForRole('driver', {
     ...context,
-    workspaceRole: context.ownerDriverWorkspace ? 'owner_driver' : 'driver',
+    workspaceRole: 'driver',
+    ownerDriverWorkspace: false,
   });
 };
 
