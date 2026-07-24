@@ -2,7 +2,9 @@ package co.uk.xdrivelogistics.driver
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
@@ -10,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -142,6 +145,7 @@ class MainActivity : ComponentActivity() {
                 val snackbarHostState = remember { SnackbarHostState() }
                 var pendingPodPhotoUri by remember { mutableStateOf<Uri?>(null) }
                 var pendingComplianceDoc by remember { mutableStateOf<ComplianceDocOption?>(null) }
+                var startTrackingAfterPermission by remember { mutableStateOf(false) }
 
                 fun uploadPodUri(uri: Uri, fallbackName: String, fallbackMime: String) {
                     val mimeType = contentResolver.getType(uri) ?: fallbackMime
@@ -183,13 +187,20 @@ class MainActivity : ComponentActivity() {
                     contract = ActivityResultContracts.RequestMultiplePermissions()
                 ) { granted ->
                     val hasLocation = granted[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                        granted[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+                        granted[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
+                        hasForegroundLocationPermission()
 
-                    if (hasLocation) {
+                    if (hasLocation && startTrackingAfterPermission) {
+                        ContextCompat.startForegroundService(
+                            this,
+                            Intent(this, TrackingService::class.java),
+                        )
+                    } else if (hasLocation) {
                         fusedClient.lastLocation.addOnSuccessListener { location ->
                             if (location != null) viewModel.sendLocation(location.latitude, location.longitude)
                         }
                     }
+                    startTrackingAfterPermission = false
                 }
 
                 val podPickerLauncher = rememberLauncherForActivityResult(
@@ -261,25 +272,30 @@ class MainActivity : ComponentActivity() {
                             onMarkAlertRead = viewModel::markAlertRead,
                             onDeleteAlert = viewModel::deleteAlert,
                             onSaveReturnJourney = viewModel::saveReturnJourney,
+                            onConfirmDeliveryRecipient = viewModel::confirmDeliveryRecipientForSelectedJob,
                             onStartTracking = {
-                                locationPermissionLauncher.launch(
-                                    arrayOf(
-                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                                if (hasForegroundLocationPermission()) {
+                                    ContextCompat.startForegroundService(
+                                        this,
+                                        Intent(this, TrackingService::class.java),
                                     )
-                                )
-                                startForegroundService(Intent(this, TrackingService::class.java))
+                                } else {
+                                    startTrackingAfterPermission = true
+                                    locationPermissionLauncher.launch(trackingRuntimePermissions())
+                                }
                             },
                             onStopTracking = {
                                 stopService(Intent(this, TrackingService::class.java))
                             },
                             onPublishLocation = {
-                                locationPermissionLauncher.launch(
-                                    arrayOf(
-                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION,
-                                    )
-                                )
+                                startTrackingAfterPermission = false
+                                if (hasForegroundLocationPermission()) {
+                                    fusedClient.lastLocation.addOnSuccessListener { location ->
+                                        if (location != null) viewModel.sendLocation(location.latitude, location.longitude)
+                                    }
+                                } else {
+                                    locationPermissionLauncher.launch(trackingRuntimePermissions(includeNotifications = false))
+                                }
                             },
                             onPickPodFile = {
                                 val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
@@ -457,6 +473,7 @@ private fun DriverAppShell(
     onMarkAlertRead: (String) -> Unit,
     onDeleteAlert: (String) -> Unit,
     onSaveReturnJourney: (String, String, String) -> Unit,
+    onConfirmDeliveryRecipient: (String) -> Unit,
     onStartTracking: () -> Unit,
     onStopTracking: () -> Unit,
     onPublishLocation: () -> Unit,
@@ -486,7 +503,16 @@ private fun DriverAppShell(
                 DriverTab.BOOKINGS -> BookingsScreen(state, onJobSelected, onTabChange)
                 DriverTab.JOBS -> MyJobsScreen(state, onJobSelected, onTabChange, onMoveStatus, onSubmitQuote)
                 DriverTab.SMARTPAY -> SmartPayScreen(state)
-                DriverTab.ACTION -> ActionScreen(state, onSendNote, onSubmitQuote, onPickPodFile, onCapturePodPhoto, onMoveStatus, onNavigateTo)
+                DriverTab.ACTION -> ActionScreen(
+            state,
+            onSendNote,
+            onSubmitQuote,
+            onPickPodFile,
+            onCapturePodPhoto,
+            onConfirmDeliveryRecipient,
+            onMoveStatus,
+            onNavigateTo,
+        )
                 DriverTab.MESSAGES -> MessagesScreen(state, onSendNote, onMarkAlertRead, onDeleteAlert)
                 DriverTab.PROFILE -> ProfileScreen(state, onUpdatePassword, onLogout, onPickComplianceDocument, onSaveReturnJourney, onStartTracking, onStopTracking)
             }
@@ -1047,6 +1073,7 @@ private fun ActionScreen(
     onSubmitQuote: (String, String) -> Unit,
     onPickPodFile: () -> Unit,
     onCapturePodPhoto: () -> Unit,
+    onConfirmDeliveryRecipient: (String) -> Unit,
     onMoveStatus: (String) -> Unit,
     onNavigateTo: (String) -> Unit,
 ) {
@@ -1093,7 +1120,14 @@ private fun ActionScreen(
                 "Summary" -> item { JobSummaryPanel(selected, onSubmitQuote) }
                 "Stops" -> item { JobStopsPanel(selected, onNavigateTo) }
                 "Status" -> item { JobStatusPanel(selected, onMoveStatus, onSubmitQuote) }
-                "POD" -> item { PodPanel(selected, onCapturePodPhoto, onPickPodFile) }
+                "POD" -> item {
+            PodPanel(
+                selected,
+                onCapturePodPhoto,
+                onPickPodFile,
+                onConfirmDeliveryRecipient,
+            )
+        }
             }
         }
         item {
@@ -1464,8 +1498,8 @@ private fun JobStatusPanel(job: DriverJob, onMoveStatus: (String) -> Unit, onSub
                 colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
                 shape = RoundedCornerShape(14.dp),
             ) { Text(job.nextActionLabel(), fontWeight = FontWeight.Bold) }
-            if (job.nextStatus() == "delivered" && !job.hasPod()) {
-                Text("POD required before Delivered.", color = Yellow, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+            job.blockingRequirementFor()?.let { requirement ->
+                Text(requirement, color = Yellow, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
             }
             if (job.nextStatus() == "completed") {
                 Text("Final step: complete after Delivered is confirmed.", color = TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
@@ -1475,11 +1509,32 @@ private fun JobStatusPanel(job: DriverJob, onMoveStatus: (String) -> Unit, onSub
 }
 
 @Composable
-private fun PodPanel(job: DriverJob, onCapturePodPhoto: () -> Unit, onPickPodFile: () -> Unit) {
+private fun PodPanel(
+    job: DriverJob,
+    onCapturePodPhoto: () -> Unit,
+    onPickPodFile: () -> Unit,
+    onConfirmDeliveryRecipient: (String) -> Unit,
+) {
+    val collectionStage = job.needsCollectionProof()
+    var recipientName by remember(job.id, job.clientSignatureName) {
+        mutableStateOf(job.clientSignatureName)
+    }
     XDriveCard {
-        Text("Proof of Delivery", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Text("POD files: ${job.podPhotos.size}", color = TextSecondary)
-        Text("Delivery photos: ${job.deliveryPhotos.size}", color = TextSecondary)
+        Text(
+            if (collectionStage) "Collection Proof" else "Proof of Delivery",
+            color = TextPrimary,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+        )
+        if (collectionStage) {
+            Text(
+                if (job.hasCollectionProof()) "Collection photo uploaded." else "A collection photo is required before Loaded.",
+                color = TextSecondary,
+            )
+        } else {
+            Text("POD files: ${job.podPhotos.size}", color = TextSecondary)
+            Text("Delivery photos: ${job.deliveryPhotos.size}", color = TextSecondary)
+        }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
@@ -1487,7 +1542,7 @@ private fun PodPanel(job: DriverJob, onCapturePodPhoto: () -> Unit, onPickPodFil
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
                 shape = RoundedCornerShape(14.dp),
-            ) { Text("Take Photo") }
+            ) { Text(if (collectionStage) "Take Collection Photo" else "Take POD Photo") }
             Button(
                 onClick = onPickPodFile,
                 modifier = Modifier.weight(1f),
@@ -1495,15 +1550,58 @@ private fun PodPanel(job: DriverJob, onCapturePodPhoto: () -> Unit, onPickPodFil
                 shape = RoundedCornerShape(14.dp),
             ) { Text("Choose File") }
         }
-        val attachments = (job.podPhotos + job.deliveryPhotos).distinct()
+
+        val attachments = if (collectionStage) {
+            listOfNotNull(job.collectionPhotoUrl)
+        } else {
+            (job.podPhotos + job.deliveryPhotos).distinct()
+        }
         if (attachments.isEmpty()) {
             Spacer(Modifier.height(12.dp))
-            Text("No POD evidence uploaded yet.", color = TextSecondary)
+            Text(
+                if (collectionStage) "No collection proof uploaded yet." else "No POD evidence uploaded yet.",
+                color = TextSecondary,
+            )
         } else {
             Spacer(Modifier.height(12.dp))
             Text("Attachments", color = TextPrimary, fontWeight = FontWeight.Bold)
             attachments.forEachIndexed { index, item ->
                 InfoLine("File ${index + 1}", item.substringAfterLast('/'))
+            }
+        }
+
+        if (!collectionStage && job.podRequired) {
+            Spacer(Modifier.height(14.dp))
+            Text("Recipient confirmation", color = TextPrimary, fontWeight = FontWeight.Bold)
+            Text(
+                "Enter the recipient name after the signed POD or delivery evidence has been uploaded.",
+                color = TextSecondary,
+                fontSize = 13.sp,
+            )
+            Spacer(Modifier.height(10.dp))
+            XDriveTextField(
+                value = recipientName,
+                onValueChange = { recipientName = it },
+                label = "Recipient name",
+                leading = "Sign",
+            )
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = { onConfirmDeliveryRecipient(recipientName) },
+                enabled = recipientName.isNotBlank() && job.hasPod(),
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Success, contentColor = Navy),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Text("Confirm Signed POD", fontWeight = FontWeight.Bold)
+            }
+            if (job.hasDeliveryConfirmation()) {
+                Text(
+                    "Recipient confirmed: ${job.clientSignatureName}",
+                    color = Success,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
     }
@@ -2583,6 +2681,21 @@ private fun DriverJob.nextActionLabel(): String = when (nextStatus()) {
 
 private fun DriverJob.canMoveNext(): Boolean =
     nextStatus().isNotBlank() && (nextStatus() != "delivered" || hasPod())
+
+private fun MainActivity.hasForegroundLocationPermission(): Boolean {
+    val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    return fine || coarse
+}
+
+private fun MainActivity.trackingRuntimePermissions(includeNotifications: Boolean = true): Array<String> =
+    buildList {
+        add(Manifest.permission.ACCESS_FINE_LOCATION)
+        add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (includeNotifications && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }.toTypedArray()
 
 private fun MainActivity.createPodPhotoUri(): Uri {
     val podDir = File(cacheDir, "pod").apply { mkdirs() }

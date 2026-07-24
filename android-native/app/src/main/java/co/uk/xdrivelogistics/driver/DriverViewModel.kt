@@ -325,8 +325,15 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
 
-            if (nextStatus == "delivered" && selectedJob.podPhotos.isEmpty() && selectedJob.deliveryPhotos.isEmpty()) {
-                _uiState.value = _uiState.value.copy(error = "Upload POD before marking delivery complete.")
+            if (selectedJob.isPosted()) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Submit a quote and wait for the customer to award the job before starting work.",
+                )
+                return@launch
+            }
+
+            selectedJob.blockingRequirementFor(nextStatus)?.let { requirement ->
+                _uiState.value = _uiState.value.copy(error = requirement)
                 return@launch
             }
 
@@ -339,13 +346,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
 
-            val result = if (nextStatus == "allocated" && selectedJob.status.lowercase() == "posted") {
-                api.acceptPostedJob(session, profile, jobId)
-            } else {
-                api.updateJobStatus(session, profile.driverId, jobId, nextStatus)
-            }
-
-            result
+            api.updateJobStatus(session, profile.driverId, jobId, nextStatus)
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -421,7 +422,11 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        message = "POD uploaded.",
+                        message = if (selectedJob.needsCollectionProof()) {
+                    "Collection proof uploaded."
+                } else {
+                    "Delivery proof uploaded."
+                },
                     )
                     refreshDriverData()
                 }
@@ -429,6 +434,43 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = error.friendlyDriverMessage("Failed to upload POD."),
+                    )
+                }
+        }
+    }
+
+    fun confirmDeliveryRecipientForSelectedJob(recipientName: String) {
+        viewModelScope.launch {
+            val session = _uiState.value.session ?: return@launch
+            val profile = _uiState.value.profile ?: return@launch
+            val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
+            if (selectedJob == null) {
+                _uiState.value = _uiState.value.copy(error = "Select a job first.")
+                return@launch
+            }
+            if (!selectedJob.hasPod()) {
+                _uiState.value = _uiState.value.copy(error = "Upload the signed POD evidence before confirming the recipient.")
+                return@launch
+            }
+            val cleanName = recipientName.trim()
+            if (cleanName.isBlank()) {
+                _uiState.value = _uiState.value.copy(error = "Enter the recipient name.")
+                return@launch
+            }
+
+            _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
+            api.confirmDeliveryRecipient(session, profile.driverId, selectedJob, cleanName)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        message = "Recipient and signed POD evidence confirmed.",
+                    )
+                    refreshDriverData()
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = error.friendlyDriverMessage("Failed to confirm delivery evidence."),
                     )
                 }
         }
@@ -501,11 +543,11 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 private fun isValidTransition(currentRaw: String, next: String): Boolean {
     val current = normalizeDriverStatus(currentRaw)
     return when (next) {
-        "allocated" -> current == "posted"
-        "on_my_way" -> current == "allocated"
+        "on_my_way" -> current in listOf("allocated", "awarded")
         "on_site_pickup" -> current == "on_my_way"
         "loaded" -> current == "on_site_pickup"
-        "on_site_delivery" -> current == "loaded"
+        "in_transit" -> current == "loaded"
+        "on_site_delivery" -> current == "in_transit"
         "delivered" -> current == "on_site_delivery"
         "completed" -> current == "delivered"
         else -> false
@@ -514,11 +556,11 @@ private fun isValidTransition(currentRaw: String, next: String): Boolean {
 
 private fun normalizeDriverStatus(raw: String): String =
     when (raw.lowercase().ifBlank { "assigned" }) {
-        "assigned" -> "allocated"
-        "accepted" -> "allocated"
+        "assigned", "accepted" -> "allocated"
         "arrived_pickup" -> "on_site_pickup"
         "collected" -> "loaded"
-        "in_transit", "on_route_delivery", "arrived_delivery" -> "on_site_delivery"
+        "on_route_delivery", "on_my_way_to_delivery" -> "in_transit"
+        "arrived_delivery" -> "on_site_delivery"
         else -> raw.lowercase().ifBlank { "assigned" }
     }
 
