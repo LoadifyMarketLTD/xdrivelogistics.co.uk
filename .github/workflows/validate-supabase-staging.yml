@@ -1,0 +1,152 @@
+name: Validate Supabase Staging
+
+on:
+  push:
+    branches:
+      - audit/production-e2e-user-lifecycle
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/validate-supabase-staging.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-staging-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-staging:
+    name: Inventory and dry-run migrations against staging
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 20
+
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate required staging configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo "SUPABASE_ACCESS_TOKEN is missing"; exit 1; }
+          test -n "${SUPABASE_DB_PASSWORD:-}" || { echo "SUPABASE_DB_PASSWORD is missing"; exit 1; }
+          test -n "${SUPABASE_PROJECT_REF:-}" || { echo "SUPABASE_PROJECT_REF is missing"; exit 1; }
+          test "$SUPABASE_PROJECT_REF" = "svfjlhljuizckzabtewx" || {
+            echo "Refusing to run: environment is not the approved XDrive Logistics Staging project."
+            exit 1
+          }
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link approved staging project
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase link \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Inventory local migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p migration-inventory
+          find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort > migration-inventory/local-files.txt
+          sed -E 's/^([0-9]+)_.*/\1/' migration-inventory/local-files.txt > migration-inventory/local-versions.txt
+          {
+            echo "local_file_count=$(wc -l < migration-inventory/local-files.txt)"
+            echo "local_first=$(head -n 1 migration-inventory/local-files.txt || true)"
+            echo "local_last=$(tail -n 1 migration-inventory/local-files.txt || true)"
+          } | tee migration-inventory/local-summary.txt
+
+      - name: Inventory linked migration state
+        shell: bash
+        run: |
+          set +e
+          supabase migration list --linked 2>&1 | tee migration-inventory/linked-migration-list.txt
+          status=${PIPESTATUS[0]}
+          echo "$status" > migration-inventory/migration-list-exit-code.txt
+          exit 0
+
+      - name: Capture dry-run reconciliation error
+        shell: bash
+        run: |
+          set +e
+          supabase db push \
+            --linked \
+            --dry-run \
+            --include-all \
+            --password "$SUPABASE_DB_PASSWORD" \
+            2>&1 | tee migration-inventory/dry-run.txt
+          status=${PIPESTATUS[0]}
+          echo "$status" > migration-inventory/dry-run-exit-code.txt
+          exit 0
+
+      - name: Build migration inventory summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib, re
+
+          root = pathlib.Path('migration-inventory')
+          local_versions = {
+              line.strip() for line in (root / 'local-versions.txt').read_text().splitlines()
+              if line.strip()
+          }
+          text = (root / 'dry-run.txt').read_text(errors='replace')
+          remote_only = re.findall(r'\b20000101\d{6}\b', text)
+          remote_only = list(dict.fromkeys(remote_only))
+
+          summary = [
+              f'Approved staging project: svfjlhljuizckzabtewx',
+              f'Local migration files: {len(local_versions)}',
+              f'Remote-only versions reported by CLI: {len(remote_only)}',
+          ]
+          if remote_only:
+              summary += [
+                  f'First remote-only version: {remote_only[0]}',
+                  f'Last remote-only version: {remote_only[-1]}',
+              ]
+
+          (root / 'remote-only-versions.txt').write_text('\n'.join(remote_only) + ('\n' if remote_only else ''))
+          (root / 'inventory-summary.txt').write_text('\n'.join(summary) + '\n')
+          print('\n'.join(summary))
+          PY
+
+      - name: Upload migration inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-staging-migration-inventory
+          path: migration-inventory/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail safely when histories diverge
+        shell: bash
+        run: |
+          set -euo pipefail
+          dry_run_status=$(cat migration-inventory/dry-run-exit-code.txt)
+          if [ "$dry_run_status" != "0" ]; then
+            echo "Staging migration history diverges from the repository. Inventory artifact uploaded; no migration was applied."
+            exit 1
+          fi
+          echo "Dry-run passed. No migration was applied."
+
+      - name: Confirm production remains out of scope
+        if: always()
+        shell: bash
+        run: |
+          echo "Validation targeted approved staging ref only: $SUPABASE_PROJECT_REF"
+          echo "No production project was linked and no migration was applied."
