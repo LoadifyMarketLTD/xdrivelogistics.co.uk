@@ -102,6 +102,53 @@ jobs:
               '        ])',
               '        file.write_text(text[:begin] + replacement + text[end:])',
               '        return',
+              '    if path.endswith("MainActivity.kt") and old.strip().startswith("onStartTracking ="):',
+              '        file = Path(path)',
+              '        text = file.read_text()',
+              '        begin_marker = "                            onStartTracking = {"',
+              '        end_marker = "                            onStopTracking = {"',
+              '        begin = text.find(begin_marker)',
+              '        end = text.find(end_marker, begin)',
+              '        if begin < 0 or end < 0:',
+              '            raise SystemExit("Could not locate onStartTracking boundaries.")',
+              '        replacement = "\\n".join([',
+              '            "                            onStartTracking = {",',
+              '            "                                if (hasForegroundLocationPermission()) {",',
+              '            "                                    ContextCompat.startForegroundService(",',
+              '            "                                        this,",',
+              '            "                                        Intent(this, TrackingService::class.java),",',
+              '            "                                    )",',
+              '            "                                } else {",',
+              '            "                                    startTrackingAfterPermission = true",',
+              '            "                                    locationPermissionLauncher.launch(trackingRuntimePermissions())",',
+              '            "                                }",',
+              '            "                            },",',
+              '        ]) + "\\n"',
+              '        file.write_text(text[:begin] + replacement + text[end:])',
+              '        return',
+              '    if path.endswith("MainActivity.kt") and old.strip().startswith("onPublishLocation ="):',
+              '        file = Path(path)',
+              '        text = file.read_text()',
+              '        begin_marker = "                            onPublishLocation = {"',
+              '        end_marker = "                            onPickPodFile = {"',
+              '        begin = text.find(begin_marker)',
+              '        end = text.find(end_marker, begin)',
+              '        if begin < 0 or end < 0:',
+              '            raise SystemExit("Could not locate onPublishLocation boundaries.")',
+              '        replacement = "\\n".join([',
+              '            "                            onPublishLocation = {",',
+              '            "                                startTrackingAfterPermission = false",',
+              '            "                                if (hasForegroundLocationPermission()) {",',
+              '            "                                    fusedClient.lastLocation.addOnSuccessListener { location ->",',
+              '            "                                        if (location != null) viewModel.sendLocation(location.latitude, location.longitude)",',
+              '            "                                    }",',
+              '            "                                } else {",',
+              '            "                                    locationPermissionLauncher.launch(trackingRuntimePermissions(includeNotifications = false))",',
+              '            "                                }",',
+              '            "                            },",',
+              '        ]) + "\\n"',
+              '        file.write_text(text[:begin] + replacement + text[end:])',
+              '        return',
           ]) + '\n'
 
           script = script.replace(
@@ -124,7 +171,7 @@ jobs:
           set -e
 
           if [ "$status" -ne 0 ]; then
-            diagnostic="$(tail -n 18 /tmp/android-remediation.log)"
+            diagnostic="$(tail -n 20 /tmp/android-remediation.log)"
             body="$(printf '## Android remediation diagnostic\n\n```text\n%s\n```' "$diagnostic")"
             gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" -X PATCH -f body="$body"
             exit "$status"
