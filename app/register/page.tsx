@@ -8,21 +8,26 @@ import { getAuthCallbackEmailRedirectTo } from '../../lib/authFlow';
 import { normalizeProfileRoleForStorage } from '../../lib/authRole';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
-type RegisterRole = 'owner_operator' | 'fleet_operator' | 'transport_broker' | 'customer_shipper';
+type RegisterRole =
+  | 'individual_driver'
+  | 'owner_operator'
+  | 'fleet_operator'
+  | 'transport_broker'
+  | 'customer_shipper';
 
 type SignupConfig = {
   appRole: 'broker' | 'company_admin' | 'driver' | 'customer';
   accountType: 'owner_driver' | 'fleet_courier' | 'broker_shipper' | 'customer_shipper';
-  workspaceMode: 'owner_driver' | 'company' | 'broker' | 'customer';
+  workspaceMode: 'driver' | 'owner_driver' | 'company' | 'broker' | 'customer';
   ownerDriverWorkspace: boolean;
 };
 
-const SIGNUP_ROLE_CONFIG: Record<RegisterRole, SignupConfig> = {
-  owner_operator: {
+const SIGNUP_ROLE_CONFIG: Record<Exclude<RegisterRole, 'owner_operator'>, SignupConfig> = {
+  individual_driver: {
     appRole: 'driver',
     accountType: 'owner_driver',
-    workspaceMode: 'owner_driver',
-    ownerDriverWorkspace: true,
+    workspaceMode: 'driver',
+    ownerDriverWorkspace: false,
   },
   fleet_operator: {
     appRole: 'company_admin',
@@ -44,16 +49,37 @@ const SIGNUP_ROLE_CONFIG: Record<RegisterRole, SignupConfig> = {
   },
 };
 
+const getSignupConfig = (role: RegisterRole, ownerDriverWorkspace: boolean): SignupConfig => {
+  if (role === 'owner_operator') {
+    return {
+      appRole: 'driver',
+      accountType: 'owner_driver',
+      workspaceMode: ownerDriverWorkspace ? 'owner_driver' : 'driver',
+      ownerDriverWorkspace,
+    };
+  }
+
+  return SIGNUP_ROLE_CONFIG[role];
+};
+
 export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<RegisterRole>('customer_shipper');
+  const [ownerDriverWorkspace, setOwnerDriverWorkspace] = useState(false);
   const [message, setMessage] = useState('');
   const [warning, setWarning] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleRoleChange = (nextRole: RegisterRole) => {
+    setRole(nextRole);
+    if (nextRole !== 'owner_operator') {
+      setOwnerDriverWorkspace(false);
+    }
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -79,7 +105,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const signupConfig = SIGNUP_ROLE_CONFIG[role];
+      const signupConfig = getSignupConfig(role, ownerDriverWorkspace);
       const storedRole = normalizeProfileRoleForStorage(signupConfig.appRole) ?? 'customer';
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
@@ -140,6 +166,7 @@ export default function RegisterPage() {
       setPassword('');
       setConfirmPassword('');
       setRole('customer_shipper');
+      setOwnerDriverWorkspace(false);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Registration failed.');
     } finally {
@@ -173,7 +200,7 @@ export default function RegisterPage() {
           <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={180} height={40} priority style={{ width: 'auto', height: '40px' }} />
         </div>
         <p style={{ marginTop: 0, color: '#5B6B85', marginBottom: '1.5rem' }}>
-          Register as a customer, transport broker, fleet operator, or owner operator.
+          Register as an individual driver, owner operator, fleet operator, transport broker, or customer.
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -197,15 +224,40 @@ export default function RegisterPage() {
           <select
             id="register-role"
             value={role}
-            onChange={(e) => setRole(e.target.value as RegisterRole)}
+            onChange={(e) => handleRoleChange(e.target.value as RegisterRole)}
             disabled={loading}
             style={{ width: '100%', marginBottom: '1rem', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
           >
             <option value="customer_shipper">Customer / Shipper</option>
             <option value="transport_broker">Transport Broker</option>
             <option value="fleet_operator">Fleet Operator</option>
+            <option value="individual_driver">Individual Driver</option>
             <option value="owner_operator">Owner Operator</option>
           </select>
+
+          {role === 'owner_operator' && (
+            <fieldset
+              data-testid="owner-driver-workspace-choice"
+              style={{ margin: '0 0 1rem', padding: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
+            >
+              <legend style={{ color: '#0B1B33', fontWeight: 600 }}>Owner operator workspace</legend>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', color: '#0B1B33' }}>
+                <input
+                  type="checkbox"
+                  name="owner_driver_workspace"
+                  checked={ownerDriverWorkspace}
+                  onChange={(e) => setOwnerDriverWorkspace(e.target.checked)}
+                  disabled={loading}
+                />
+                <span>
+                  Create and manage my own operations workspace.
+                  <small style={{ display: 'block', marginTop: '0.25rem', color: '#5B6B85' }}>
+                    Leave this unchecked to use only the driver workspace without creating a business workspace.
+                  </small>
+                </span>
+              </label>
+            </fieldset>
+          )}
 
           <label htmlFor="register-password" style={{ display: 'block', marginBottom: '0.4rem', color: '#0B1B33' }}>
             Password
@@ -238,24 +290,12 @@ export default function RegisterPage() {
           />
 
           <p style={{ marginTop: 0, marginBottom: '1rem', color: '#5B6B85', fontSize: '0.9rem' }}>
-            Customers use the customer workspace. Brokers, fleet operators, and owner operators use the operations workspace with permissions matched to their role.
+            Individual drivers use the driver workspace. Owner operators can choose whether they need their own operations workspace.
           </p>
 
-          {error && (
-            <p style={{ margin: '0 0 1rem', color: '#dc2626', fontSize: '0.9rem' }}>
-              {error}
-            </p>
-          )}
-          {message && (
-            <p style={{ margin: '0 0 1rem', color: '#166534', fontSize: '0.9rem' }}>
-              {message}
-            </p>
-          )}
-          {warning && (
-            <p style={{ margin: '0 0 1rem', color: '#b45309', fontSize: '0.9rem' }}>
-              {warning}
-            </p>
-          )}
+          {error && <p style={{ margin: '0 0 1rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</p>}
+          {message && <p style={{ margin: '0 0 1rem', color: '#166534', fontSize: '0.9rem' }}>{message}</p>}
+          {warning && <p style={{ margin: '0 0 1rem', color: '#b45309', fontSize: '0.9rem' }}>{warning}</p>}
 
           <button
             type="submit"
