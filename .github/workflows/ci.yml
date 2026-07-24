@@ -2,133 +2,140 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
-  android-pr281-repair:
-    name: Android PR 281 Repair
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'Run scoped Android PR 281 repair')
+  build-and-lint:
+    name: Build & Lint
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+
     steps:
-      - name: Checkout exact Android branch
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          ref: fix/android-driver-tracking-only
-          fetch-depth: 0
+          node-version: "20"
+          cache: "npm"
 
-      - name: Apply focused lint corrections
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
+      - name: Install dependencies
+        run: npm ci
 
-          main = Path('android-native/app/src/main/java/co/uk/xdrivelogistics/driver/MainActivity.kt')
-          text = main.read_text()
-          if 'import android.annotation.SuppressLint\n' not in text:
-              text = text.replace(
-                  'package co.uk.xdrivelogistics.driver\n\n',
-                  'package co.uk.xdrivelogistics.driver\n\nimport android.annotation.SuppressLint\n',
-                  1,
-              )
-          if '@SuppressLint("MissingPermission")\n    override fun onCreate' not in text:
-              text = text.replace(
-                  '    override fun onCreate(savedInstanceState: Bundle?) {',
-                  '    @SuppressLint("MissingPermission")\n    override fun onCreate(savedInstanceState: Bundle?) {',
-                  1,
-              )
+      - name: Lint
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+          EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+        run: npm run lint
 
-          obsolete_status_helpers = '''private fun DriverJob.statusKey(): String = currentStatus.ifBlank { status }.lowercase()
+      - name: Typecheck
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+          EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+        run: npm run typecheck
 
-private fun DriverJob.driverStatusKey(): String =
-    when (statusKey()) {
-        "collected" -> "loaded"
-        "in_transit" -> "on_site_delivery"
-        else -> statusKey()
-    }
+      - name: Build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+          EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+        run: npm run build
 
-private fun DriverJob.isInProgress(): Boolean =
-    driverStatusKey() in listOf("on_my_way", "on_site_pickup", "loaded", "on_site_delivery", "in_progress")
+  public-e2e-smoke:
+    name: Public E2E Smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+      EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
 
-private fun DriverJob.isActive(): Boolean = driverStatusKey() !in listOf("delivered", "completed", "cancelled", "canceled")
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-private fun DriverJob.hasPod(): Boolean = podPhotos.isNotEmpty() || deliveryPhotos.isNotEmpty()
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
 
-private fun DriverJob.isPosted(): Boolean = driverStatusKey() == "posted"
+      - name: Install dependencies
+        run: npm ci
 
-private fun DriverJob.routeLabel(): String = "${pickupLocation.ifBlank { "Pickup" }} -> ${deliveryLocation.ifBlank { "Delivery" }}"
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
 
-private fun DriverJob.statusLabel(): String = driverStatusKey().statusLabel()
+      - name: Run stable public smoke tests
+        run: npx playwright test e2e/ci-public-smoke.spec.ts --project=chromium
 
-'''
-          text = text.replace(obsolete_status_helpers, '', 1)
+  expo-driver-typecheck:
+    name: Expo Driver Typecheck
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
-          obsolete_action_helpers = '''private fun DriverJob.nextStatus(): String = when (driverStatusKey()) {
-    "allocated" -> "on_my_way"
-    "on_my_way" -> "on_site_pickup"
-    "on_site_pickup" -> "loaded"
-    "loaded" -> "on_site_delivery"
-    "on_site_delivery" -> "delivered"
-    "delivered" -> "completed"
-    else -> ""
-}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-private fun DriverJob.nextActionLabel(): String = when (nextStatus()) {
-    "on_my_way" -> "On My Way"
-    "on_site_pickup" -> "Arrived at Collection"
-    "loaded" -> "Loaded / Collected"
-    "on_site_delivery" -> "Arrived at Delivery"
-    "delivered" -> "Mark as Delivered"
-    "completed" -> "Complete Job"
-    else -> "No further action"
-}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
-private fun DriverJob.canMoveNext(): Boolean =
-    nextStatus().isNotBlank() && (nextStatus() != "delivered" || hasPod())
+      - name: Install Expo driver dependencies
+        working-directory: apps/driver-mobile
+        run: npm install --ignore-scripts --no-audit --no-fund
 
-'''
-          text = text.replace(obsolete_action_helpers, '', 1)
-          main.write_text(text)
+      - name: Typecheck Expo driver
+        working-directory: apps/driver-mobile
+        run: npm run typecheck
 
-          tracking = Path('android-native/app/src/main/java/co/uk/xdrivelogistics/driver/TrackingService.kt')
-          text = tracking.read_text()
-          if 'import android.annotation.SuppressLint\n' not in text:
-              text = text.replace(
-                  'package co.uk.xdrivelogistics.driver\n\n',
-                  'package co.uk.xdrivelogistics.driver\n\nimport android.annotation.SuppressLint\n',
-                  1,
-              )
-          if '@SuppressLint("MissingPermission")\n    private suspend fun captureCurrentLocation' not in text:
-              text = text.replace(
-                  '    private suspend fun captureCurrentLocation(): PendingLocation? = runCatching {',
-                  '    @SuppressLint("MissingPermission")\n    private suspend fun captureCurrentLocation(): PendingLocation? = runCatching {',
-                  1,
-              )
-          if '@SuppressLint("MissingPermission")\n    private fun updateNotification' not in text:
-              text = text.replace(
-                  '    private fun updateNotification(title: String, text: String, ongoing: Boolean) {',
-                  '    @SuppressLint("MissingPermission")\n    private fun updateNotification(title: String, text: String, ongoing: Boolean) {',
-                  1,
-              )
-          tracking.write_text(text)
-          PY
+  codeql:
+    name: CodeQL Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
 
-          if git diff --quiet -- android-native; then
-            echo "Android source already repaired."
-            exit 0
-          fi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-          git config user.name "xdrive-automation"
-          git config user.email "actions@users.noreply.github.com"
-          git add android-native/app/src/main/java/co/uk/xdrivelogistics/driver/MainActivity.kt \
-                  android-native/app/src/main/java/co/uk/xdrivelogistics/driver/TrackingService.kt
-          git commit -m "Fix Android permission lint and remove stale lifecycle helpers"
-          git push origin HEAD:fix/android-driver-tracking-only
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript, actions
+          queries: security-extended
+          build-mode: none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:javascript-typescript"
