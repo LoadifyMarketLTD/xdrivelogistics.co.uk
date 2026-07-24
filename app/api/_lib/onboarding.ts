@@ -2,20 +2,34 @@ import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCanonicalSiteOrigin } from '../../../lib/siteUrl';
 
-export const ONBOARDING_ACCOUNT_TYPES = ['customer_shipper', 'broker_shipper', 'fleet_courier', 'owner_driver'] as const;
+export const ONBOARDING_ACCOUNT_TYPES = [
+  'customer_shipper',
+  'broker_shipper',
+  'fleet_courier',
+  'individual_driver',
+  'owner_driver',
+] as const;
 export type OnboardingAccountType = (typeof ONBOARDING_ACCOUNT_TYPES)[number];
 
-export const ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE: Record<OnboardingAccountType, 'customer' | 'broker' | 'fleet' | 'owner-driver'> = {
+export const ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE: Record<
+  OnboardingAccountType,
+  'customer' | 'broker' | 'fleet' | 'individual-driver' | 'owner-driver'
+> = {
   customer_shipper: 'customer',
   broker_shipper: 'broker',
   fleet_courier: 'fleet',
+  individual_driver: 'individual-driver',
   owner_driver: 'owner-driver',
 };
 
-export const ONBOARDING_ACCOUNT_TYPE_BY_ROUTE_SEGMENT: Record<'customer' | 'broker' | 'fleet' | 'owner-driver', OnboardingAccountType> = {
+export const ONBOARDING_ACCOUNT_TYPE_BY_ROUTE_SEGMENT: Record<
+  'customer' | 'broker' | 'fleet' | 'individual-driver' | 'owner-driver',
+  OnboardingAccountType
+> = {
   customer: 'customer_shipper',
   broker: 'broker_shipper',
   fleet: 'fleet_courier',
+  'individual-driver': 'individual_driver',
   'owner-driver': 'owner_driver',
 };
 
@@ -26,6 +40,13 @@ export const FLEET_DOCUMENT_TYPES = [
   'vehicle_insurance',
   'company_registration',
   'vat_registration',
+] as const;
+
+export const INDIVIDUAL_DRIVER_DOCUMENT_TYPES = [
+  'driving_licence',
+  'proof_of_address',
+  'right_to_work',
+  'visa_document',
 ] as const;
 
 export const OWNER_DRIVER_DOCUMENT_TYPES = [
@@ -71,6 +92,14 @@ export const normalizeOnboardingStatus = (raw: string | null | undefined): Onboa
 };
 
 const ONBOARDING_ACCOUNT_TYPE_ALIASES: Readonly<Record<string, OnboardingAccountType>> = {
+  individual_driver: 'individual_driver',
+  'individual-driver': 'individual_driver',
+  driver_only: 'individual_driver',
+  'driver-only': 'individual_driver',
+  solo_driver: 'individual_driver',
+  company_driver: 'individual_driver',
+  fleet_driver: 'individual_driver',
+
   owner_driver: 'owner_driver',
   'owner-driver': 'owner_driver',
   owner_operator: 'owner_driver',
@@ -105,13 +134,16 @@ export const resolveOnboardingAccountTypeFromMetadata = (
   userMetadata: Record<string, unknown> | null | undefined,
   appMetadata: Record<string, unknown> | null | undefined
 ): OnboardingAccountType | null => {
+  // Requested/signup role is more specific than the legacy account_type field.
+  // This allows Individual Driver registrations created while account_type still
+  // carried owner_driver to enter the correct lightweight onboarding flow.
   const candidates = [
-    userMetadata?.account_type,
     userMetadata?.requested_role,
     userMetadata?.signup_type,
-    appMetadata?.account_type,
+    userMetadata?.account_type,
     appMetadata?.requested_role,
     appMetadata?.signup_type,
+    appMetadata?.account_type,
   ];
 
   for (const candidate of candidates) {
