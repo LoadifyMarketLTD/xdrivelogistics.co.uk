@@ -2,7 +2,6 @@
 <resources>
     <style name="Theme.XDriveDriver" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:colorAccent">#0A4FB4</item>
     </style>
 </resources>
