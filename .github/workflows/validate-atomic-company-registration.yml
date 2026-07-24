@@ -57,7 +57,7 @@ jobs:
 
     steps:
       - name: Checkout exact workflow SHA
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
