@@ -1,0 +1,80 @@
+name: Validate Supabase Staging
+
+on:
+  push:
+    branches:
+      - audit/production-e2e-user-lifecycle
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/validate-supabase-staging.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-staging-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-staging:
+    name: Link and dry-run migrations against staging
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 20
+
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate required staging configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo "SUPABASE_ACCESS_TOKEN is missing"; exit 1; }
+          test -n "${SUPABASE_DB_PASSWORD:-}" || { echo "SUPABASE_DB_PASSWORD is missing"; exit 1; }
+          test -n "${SUPABASE_PROJECT_REF:-}" || { echo "SUPABASE_PROJECT_REF is missing"; exit 1; }
+          test "$SUPABASE_PROJECT_REF" = "svfjlhljuizckzabtewx" || {
+            echo "Refusing to run: environment is not the approved XDrive Logistics Staging project."
+            exit 1
+          }
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link approved staging project
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase link \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Show linked migration state
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list --linked
+
+      - name: Dry-run pending migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db push \
+            --linked \
+            --dry-run \
+            --include-all \
+            --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Confirm production remains out of scope
+        shell: bash
+        run: |
+          echo "Validation completed against approved staging ref: $SUPABASE_PROJECT_REF"
+          echo "No migration was applied by this workflow because db push ran with --dry-run."
