@@ -5,11 +5,26 @@ const isProductionTarget = /https:\/\/xdrivelogistics\.co\.uk\/?$/i.test(
 );
 const allowProductionMutation = process.env.E2E_ALLOW_PRODUCTION_MUTATION === 'true';
 
+const approvedTestEmails = new Set(
+  (process.env.E2E_APPROVED_TEST_EMAILS ?? '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+);
+
 const dedicatedAccount = (name: string) => {
-  const email = process.env[`${name}_EMAIL`] ?? '';
+  const email = (process.env[`${name}_EMAIL`] ?? '').trim().toLowerCase();
   const password = process.env[`${name}_PASSWORD`] ?? '';
-  const isDedicated = /(^|[+._-])e2e([+._-]|@)/i.test(email);
-  return { email, password, ready: Boolean(email && password && isDedicated) };
+  const hasE2EMarker = /(^|[+._-])e2e([+._-]|@)/i.test(email);
+  const explicitlyApproved = approvedTestEmails.has(email);
+  const approvedForTesting = hasE2EMarker || explicitlyApproved;
+
+  return {
+    email,
+    password,
+    approvedForTesting,
+    ready: Boolean(email && password && approvedForTesting),
+  };
 };
 
 const driver = dedicatedAccount('E2E_LIFECYCLE_DRIVER');
@@ -55,10 +70,10 @@ test.describe('registration role contract (read-only)', () => {
 
 test.describe('production lifecycle evidence', () => {
   test.skip(!isProductionTarget, 'Set PLAYWRIGHT_BASE_URL=https://xdrivelogistics.co.uk for production evidence.');
-  test.skip(!allowProductionMutation, 'Set E2E_ALLOW_PRODUCTION_MUTATION=true only for dedicated E2E accounts.');
+  test.skip(!allowProductionMutation, 'Set E2E_ALLOW_PRODUCTION_MUTATION=true only for approved test accounts.');
 
   test('individual driver reaches only the driver workspace', async ({ page }) => {
-    test.skip(!driver.ready, 'Dedicated E2E driver credentials are required.');
+    test.skip(!driver.ready, 'Approved driver test credentials are required.');
     await login(page, driver.email, driver.password);
     await expect(page).toHaveURL(/\/(driver|onboarding|pending-approval)(\/|\?|$)/);
 
@@ -67,13 +82,13 @@ test.describe('production lifecycle evidence', () => {
   });
 
   test('owner-driver reaches the intended operations workspace', async ({ page }) => {
-    test.skip(!ownerDriver.ready, 'Dedicated E2E owner-driver credentials are required.');
+    test.skip(!ownerDriver.ready, 'Approved owner-driver test credentials are required.');
     await login(page, ownerDriver.email, ownerDriver.password);
     await expect(page).toHaveURL(/\/(admin|driver|onboarding|pending-approval)(\/|\?|$)/);
   });
 
   test('carrier owner reaches company operations and not super-admin', async ({ page }) => {
-    test.skip(!carrierOwner.ready, 'Dedicated E2E carrier-owner credentials are required.');
+    test.skip(!carrierOwner.ready, 'Approved carrier-owner test credentials are required.');
     await login(page, carrierOwner.email, carrierOwner.password);
     await expect(page).toHaveURL(/\/(admin|onboarding|pending-approval)(\/|\?|$)/);
 
