@@ -625,7 +625,7 @@ class ApiClient(
     }
 
     suspend fun loadAssignedJobs(session: DriverSession, profile: DriverProfile): Result<List<DriverJob>> = networkResult {
-        val select = "id,status,current_status,pickup_location,delivery_location,pickup_datetime,delivery_datetime,client_name,client_phone,collection_contact_phone,delivery_contact_phone,vehicle_type,cargo_type,budget_amount,load_details,delivery_photos,pod_photos,distance_miles,job_distance_miles,pickup_postcode,delivery_postcode"
+        val select = "id,status,current_status,pickup_location,delivery_location,pickup_datetime,delivery_datetime,client_name,client_phone,collection_contact_phone,delivery_contact_phone,vehicle_type,cargo_type,budget_amount,load_details,delivery_photos,pod_photos,collection_photo_url,delivery_signature_data,client_signature_name,pod_required,distance_miles,job_distance_miles,pickup_postcode,delivery_postcode"
         val encodedDriverId = URLEncoder.encode(profile.driverId, StandardCharsets.UTF_8.toString())
         val encodedCompanyId = URLEncoder.encode(profile.companyId, StandardCharsets.UTF_8.toString())
         val query = "select=$select&or=(status.eq.posted,assigned_driver_id.eq.$encodedDriverId,assigned_company_id.eq.$encodedCompanyId,awarded_carrier_company_id.eq.$encodedCompanyId)&order=pickup_datetime.asc&limit=100"
@@ -672,6 +672,15 @@ class ApiClient(
                             distanceMiles = distanceMiles,
                             deliveryPhotos = parseStringArray(row.get("delivery_photos") as? JsonArray),
                             podPhotos = parseStringArray(row.get("pod_photos") as? JsonArray),
+                            collectionPhotoUrl = row.nullableString("collection_photo_url"),
+                            deliverySignatureData = row.get("delivery_signature_data")
+                                ?.takeUnless { it.isJsonNull }
+                                ?.let { gson.toJson(it) },
+                            clientSignatureName = row.string("client_signature_name"),
+                            podRequired = row.get("pod_required")
+                                ?.takeUnless { it.isJsonNull }
+                                ?.asBoolean
+                                ?: true,
                         )
                     )
                 }
@@ -697,42 +706,6 @@ class ApiClient(
                         job
                     }
                 }
-            }
-        }
-    }
-
-    suspend fun acceptPostedJob(
-        session: DriverSession,
-        profile: DriverProfile,
-        jobId: String,
-    ): Result<Unit> = networkResult {
-        val payload = JsonObject().apply {
-            addProperty("status", "allocated")
-            addProperty("current_status", "allocated")
-            addProperty("assigned_driver_id", profile.driverId)
-            addProperty("assigned_company_id", profile.companyId)
-            addProperty("updated_at", java.time.Instant.now().toString())
-        }
-
-        val encodedJobId = URLEncoder.encode(jobId, StandardCharsets.UTF_8.toString())
-        val request = Request.Builder()
-            .url("${supabaseUrl.trimEnd('/')}/rest/v1/jobs?id=eq.$encodedJobId&status=eq.posted")
-            .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "Bearer ${session.accessToken}")
-            .addHeader("Content-Type", "application/json")
-            .addHeader("Prefer", "return=representation")
-            .patch(gson.toJson(payload).toRequestBody(jsonMediaType))
-            .build()
-
-        http.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                throw IllegalStateException(extractError(raw, "Failed to accept job."))
-            }
-
-            val rows = runCatching { gson.fromJson(raw, JsonArray::class.java) }.getOrNull()
-            if (rows == null || rows.size() == 0) {
-                throw IllegalStateException("This job is no longer available.")
             }
         }
     }
@@ -901,12 +874,15 @@ class ApiClient(
             }
         }
 
-        val nextDeliveryPhotos = (job.deliveryPhotos + storagePath).distinct()
-        val nextPodPhotos = (job.podPhotos + storagePath).distinct()
-
         val patchBody = JsonObject().apply {
-            add("delivery_photos", gson.toJsonTree(nextDeliveryPhotos))
-            add("pod_photos", gson.toJsonTree(nextPodPhotos))
+            if (job.needsCollectionProof()) {
+                addProperty("collection_photo_url", storagePath)
+            } else {
+                val nextDeliveryPhotos = (job.deliveryPhotos + storagePath).distinct()
+                val nextPodPhotos = (job.podPhotos + storagePath).distinct()
+                add("delivery_photos", gson.toJsonTree(nextDeliveryPhotos))
+                add("pod_photos", gson.toJsonTree(nextPodPhotos))
+            }
             addProperty("updated_at", java.time.Instant.now().toString())
         }
 
@@ -929,6 +905,49 @@ class ApiClient(
         }
 
         storagePath
+    }
+
+    suspend fun confirmDeliveryRecipient(
+        session: DriverSession,
+        driverId: String,
+        job: DriverJob,
+        recipientName: String,
+    ): Result<Unit> = networkResult {
+        val evidencePath = (job.podPhotos + job.deliveryPhotos).lastOrNull()
+            ?: throw IllegalStateException("Upload the signed POD evidence first.")
+        val confirmation = JsonObject().apply {
+            addProperty("type", "signed_pod_evidence")
+            addProperty("evidence_path", evidencePath)
+            addProperty("recipient_name", recipientName)
+            addProperty("confirmed_at", java.time.Instant.now().toString())
+            addProperty("source", "xdrive_driver_android")
+        }
+        val patchBody = JsonObject().apply {
+            addProperty("client_signature_name", recipientName)
+            add("delivery_signature_data", confirmation)
+            addProperty("updated_at", java.time.Instant.now().toString())
+        }
+        val encodedJobId = URLEncoder.encode(job.id, StandardCharsets.UTF_8.toString())
+        val encodedDriverId = URLEncoder.encode(driverId, StandardCharsets.UTF_8.toString())
+        val request = Request.Builder()
+            .url("${supabaseUrl.trimEnd('/')}/rest/v1/jobs?id=eq.$encodedJobId&assigned_driver_id=eq.$encodedDriverId")
+            .addHeader("apikey", supabaseAnonKey)
+            .addHeader("Authorization", "Bearer ${session.accessToken}")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "return=representation")
+            .patch(gson.toJson(patchBody).toRequestBody(jsonMediaType))
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw IllegalStateException(extractError(raw, "Failed to confirm delivery evidence."))
+            }
+            val rows = runCatching { gson.fromJson(raw, JsonArray::class.java) }.getOrNull()
+            if (rows == null || rows.size() == 0) {
+                throw IllegalStateException("Delivery evidence could not be linked to this assignment.")
+            }
+        }
     }
 
     private fun supabaseRequest(pathAndQuery: String, accessToken: String): Request {
@@ -1065,8 +1084,10 @@ class ApiClient(
         when (driverStatus.lowercase()) {
             "accepted", "assigned" -> "allocated"
             "arrived_pickup" -> "on_site_pickup"
+            "on_my_way_to_pickup" -> "on_my_way"
             "loaded" -> "loaded"
-            "on_route_delivery", "arrived_delivery" -> "on_site_delivery"
+            "on_route_delivery", "on_my_way_to_delivery" -> "in_transit"
+            "arrived_delivery" -> "on_site_delivery"
             "delivered" -> "delivered"
             "completed" -> "completed"
             else -> driverStatus

@@ -19,8 +19,9 @@ This folder contains the native Android migration baseline for the XDrive Driver
 - Quick note dispatch via `/api/driver/jobs/{jobId}/notes`
 - Password update via `/api/driver/password`
 - GPS publish via `/api/driver/location` (runtime permission flow included)
-- Job status transitions from native UI (`on_my_way`, `loaded`, `delivered`)
-- Delivery completion guard: `delivered` requires existing POD evidence
+- Complete canonical job execution chain: `allocated/awarded -> on_my_way -> on_site_pickup -> loaded -> in_transit -> on_site_delivery -> delivered -> completed`
+- Collection proof guard before `loaded` and signed POD/recipient confirmation guard before `delivered`
+- Foreground GPS tracking with encrypted durable retry and session refresh
 - Real POD document picker upload to Supabase Storage bucket `pod-docs` and photo arrays update on `jobs`
 
 ## Configure Build Properties
@@ -59,7 +60,6 @@ APK output path:
 ## Next Native Work (recommended)
 
 1. Add push notifications (FCM) for assignment and dispatch events.
-2. Add WorkManager periodic location sync for robust background delivery.
-3. Add complete status chain UI (`on_site_pickup`, `in_transit`, `on_site_delivery`) and proof capture checkpoints.
-4. Add instrumentation tests for login, jobs visibility, note submission, and POD upload.
-5. Add Gradle wrapper and CI build lane for automatic APK artifacts per commit.
+2. Add optional WorkManager recovery for OEM-specific service termination.
+3. Expand instrumentation tests for authenticated login, live job visibility, notes and provider-backed POD uploads.
+4. Add production signing and Play/App Distribution release promotion after staging acceptance.
