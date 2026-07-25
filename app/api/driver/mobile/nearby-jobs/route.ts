@@ -144,6 +144,8 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
       amount: priceVisible ? numberOrNull(row.budget_amount) : null,
       currency: priceVisible ? row.currency || 'GBP' : null,
     },
+    isFixedPrice: row.is_fixed_price === true,
+    fixedPriceAmountGbp: row.is_fixed_price === true ? numberOrNull(row.budget_amount) : null,
     canQuote: true,
     canSave: true,
     expiresAt: null,
@@ -219,15 +221,21 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Number(searchParams.get('limit') ?? 50) || 50, 100);
   const destinationMode = searchParams.get('mode') === 'destination';
 
+  const visibilityFilter = driver.companyId
+    ? `exchange_visibility.eq.exchange,and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${driver.companyId})`
+    : 'exchange_visibility.eq.exchange';
+
   let query = supabaseAdmin
     .from('jobs')
     .select(nearbySelect)
-    .or(`exchange_visibility.eq.exchange,and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${driver.companyId})`)
+    .or(visibilityFilter)
     .eq('status', 'posted')
     .is('awarded_carrier_company_id', null)
-    .neq('company_id', driver.companyId)
     .order('exchange_posted_at', { ascending: false })
     .limit(limit);
+  if (driver.companyId) {
+    query = query.neq('company_id', driver.companyId);
+  }
 
   if (search) {
     query = query.or(`pickup_location.ilike.%${search}%,pickup_postcode.ilike.%${search}%,delivery_location.ilike.%${search}%,delivery_postcode.ilike.%${search}%,vehicle_type.ilike.%${search}%,requested_vehicle_label.ilike.%${search}%`);
@@ -237,8 +245,14 @@ export async function GET(request: NextRequest) {
   if (error) return respond(500, { error: error.message });
 
   const rows = (data ?? []) as unknown as NearbyJobRow[];
+  const commercialBidExtras = driver.canCommercialBid
+    ? {}
+    : {
+        canQuote: false,
+        quoteWarning: 'Your account type does not permit commercial bidding.',
+      };
   if (!destinationMode) {
-    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row)) });
+    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, commercialBidExtras)) });
   }
 
   const { data: currentJob, error: currentJobError } = await supabaseAdmin
@@ -251,10 +265,10 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
   if (currentJobError) return respond(500, { error: currentJobError.message });
   if (!currentJob) {
-    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row)), returnIq: { active: false, reason: 'No active delivery is assigned to this driver.' } });
+    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, commercialBidExtras)), returnIq: { active: false, reason: 'No active delivery is assigned to this driver.' } });
   }
   if (!['in_transit', 'delivered'].includes(String(currentJob.status))) {
-    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row)), returnIq: { active: false, reason: 'Activates when the driver is on the way to delivery.' } });
+    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, commercialBidExtras)), returnIq: { active: false, reason: 'Activates when the driver is on the way to delivery.' } });
   }
 
   const geocoded = await postcodeCoordinates([currentJob.delivery_postcode, ...rows.map((row) => row.pickup_postcode)]);
@@ -263,7 +277,7 @@ export async function GET(request: NextRequest) {
     ?? null;
   if (!destination) {
     return respond(200, {
-      jobs: rows.map((row) => mapNearbyJob(row)),
+      jobs: rows.map((row) => mapNearbyJob(row, commercialBidExtras)),
       returnIq: {
         active: false,
         currentJobReference: `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}`,
@@ -280,7 +294,9 @@ export async function GET(request: NextRequest) {
 
   const [driverAccess, companyAccess, vehicleAccess] = await Promise.all([
     supabaseAdmin.from('drivers').select('international_work_approved').eq('id', driver.driverId).maybeSingle(),
-    supabaseAdmin.from('companies').select('international_work_approved').eq('id', driver.companyId).maybeSingle(),
+    driver.companyId
+      ? supabaseAdmin.from('companies').select('international_work_approved').eq('id', driver.companyId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('vehicles').select('international_work_approved,type').eq('assigned_driver_id', driver.driverId).maybeSingle(),
   ]);
   const internationalApproved = driverAccess.data?.international_work_approved === true
@@ -303,6 +319,15 @@ export async function GET(request: NextRequest) {
     const requiredRank = vehicleRank[requiredVehicle] ?? 0;
     const vehicleCompatible = Boolean(assignedVehicle) && (requiredRank > 0 && assignedRank > 0 ? assignedRank >= requiredRank : assignedVehicle === requiredVehicle);
     const destinationPriority = miles !== null && miles <= radiusMiles && !timingImpossible && vehicleCompatible && !needsInternationalApproval;
+    const quoteWarning = driver.canCommercialBid !== true
+      ? 'Your account type does not permit commercial bidding.'
+      : needsInternationalApproval
+        ? 'International eligibility must be approved for the company, driver and assigned vehicle.'
+        : timingImpossible
+          ? 'Timing conflict: collection is before the current delivery ETA.'
+          : closeTiming
+            ? 'Collection is close to the current ETA. Confirm unloading and travel time before quoting.'
+            : null;
     return {
       row,
       miles,
@@ -312,15 +337,9 @@ export async function GET(request: NextRequest) {
       extras: {
         distanceFromCurrentDeliveryMiles: miles === null ? null : Number(miles.toFixed(1)),
         destinationPriority,
-        canQuote: !needsInternationalApproval,
+        canQuote: quoteWarning == null,
         internationalEligibilityRequired: needsInternationalApproval,
-        quoteWarning: needsInternationalApproval
-          ? 'International eligibility must be approved for the company, driver and assigned vehicle.'
-          : timingImpossible
-            ? 'Timing conflict: collection is before the current delivery ETA.'
-          : closeTiming
-            ? 'Collection is close to the current ETA. Confirm unloading and travel time before quoting.'
-            : null,
+        quoteWarning,
       },
     };
   });

@@ -67,6 +67,10 @@ export type ResolvedAuthUser = {
   canAccessDriverMode: boolean;
   ownerDriverExecutionMode: boolean;
   financeAccess: 'full' | 'limited' | 'hidden';
+  driverType: string | null;
+  canCommercialBid: boolean;
+  driverStatus: string | null;
+  appAccess: boolean | null;
 };
 
 const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, key: string) => {
@@ -129,7 +133,7 @@ export const resolveAuthenticatedUser = async (
   const membershipLookupQuery =
     `company_memberships.select(id,company_id,role_in_company,status).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc)`;
   const driverLookupQuery =
-    `drivers.select(id,company_id,user_id,must_change_password).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
+    `drivers.select(id,company_id,user_id,must_change_password,status,app_access,driver_type,can_commercial_bid).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
   const creatorCompanyLookupQuery =
     `companies.select(id,company_type).eq(created_by,${sessionUser.id}).limit(1).maybeSingle()`;
   const [profileRes, membershipResInitial, driverRes, creatorCompanyRes] = await Promise.all([
@@ -146,7 +150,7 @@ export const resolveAuthenticatedUser = async (
       .order('created_at', { ascending: false }),
     supabase
       .from('drivers')
-      .select('id, company_id, user_id, must_change_password')
+      .select('id, company_id, user_id, must_change_password, status, app_access, driver_type, can_commercial_bid')
       .eq('user_id', sessionUser.id)
       .limit(1)
       .maybeSingle(),
@@ -218,7 +222,7 @@ export const resolveAuthenticatedUser = async (
   let membership = membershipFromProfile ?? memberships?.[0] ?? null;
   const driver = driverRes.error
     ? null
-    : (driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password'> | null);
+    : (driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password' | 'status' | 'app_access' | 'driver_type' | 'can_commercial_bid'> | null);
   const creatorCompany = creatorCompanyRes.error
     ? null
     : (creatorCompanyRes.data as { id: string; company_type: string | null } | null);
@@ -455,6 +459,10 @@ export const resolveAuthenticatedUser = async (
           (resolvedMembership?.role_in_company as CompanyMembership['role_in_company'] | null) ?? null,
           sessionUser
         ),
+        driverType: typeof driver?.driver_type === 'string' ? driver.driver_type : null,
+        canCommercialBid: driver?.can_commercial_bid === true,
+        driverStatus: typeof driver?.status === 'string' ? driver.status : null,
+        appAccess: typeof driver?.app_access === 'boolean' ? driver.app_access : null,
       }
     );
   }
@@ -489,6 +497,10 @@ const ok = (
     canAccessDriverMode: boolean;
     ownerDriverExecutionMode: boolean;
     financeAccess: 'full' | 'limited' | 'hidden';
+    driverType: string | null;
+    canCommercialBid: boolean;
+    driverStatus: string | null;
+    appAccess: boolean | null;
   }
 ): AuthResolutionResult => {
   const workspaceRole = resolveWorkspaceRole({
@@ -513,6 +525,10 @@ const ok = (
     canAccessDriverMode: options.canAccessDriverMode,
     ownerDriverExecutionMode: options.ownerDriverExecutionMode,
     financeAccess: options.financeAccess,
+    driverType: options.driverType,
+    canCommercialBid: options.canCommercialBid,
+    driverStatus: options.driverStatus,
+    appAccess: options.appAccess,
   };
   console.debug('[XDrive Auth] resolved user', { role, workspaceRole, companyId, userId: sessionUser.id });
   return { user: resolved, reason: null };
