@@ -1,33 +1,64 @@
 'use client';
 
-import SuperAdminUserListPage, { statusDot, fmt } from '@/app/super-admin/_components/SuperAdminUserListPage';
+import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
+import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
+
+type Row = {
+  id: string;
+  display_name: string;
+  company_name: string;
+  availability_status: string;
+  last_seen_at: string | null;
+  last_lat: number | null;
+  last_lng: number | null;
+};
 
 export default function Page() {
   return (
-    <SuperAdminUserListPage
+    <SuperAdminLiveTablePage<Row>
       icon="🚗"
       title="Drivers"
-      description="Platform-wide driver accounts, availability and app access status."
-      section="Users"
-      roleFilter="driver"
+      sectionLabel="Fleet"
+      description="Platform-wide driver accounts, availability status and last known location."
+      endpoint="/api/super-admin/operations?section=driver-availability&limit=500"
+      emptyMessage="No drivers found."
       columns={[
-        { label: 'Name', render: (row) => <strong>{row.name}</strong> },
-        { label: 'Email', render: (row) => <span style={{ color: '#94a3b8' }}>{row.email}</span> },
-        { label: 'Phone', render: (row) => <span style={{ color: '#94a3b8' }}>{row.phone ?? '—'}</span> },
-        { label: 'Company', render: (row) => row.company ?? '—' },
-        { label: 'Status', render: (row) => statusDot(row.status) },
-        { label: 'Availability', render: (row) => statusDot(row.availability_status) },
         {
-          label: 'App access',
+          key: 'display_name',
+          label: 'Driver',
+          render: (row) => <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>{row.display_name}</span>,
+        },
+        {
+          key: 'company_name',
+          label: 'Company',
+          render: (row) => <span style={{ fontSize: '0.75rem' }}>{row.company_name}</span>,
+        },
+        {
+          key: 'availability_status',
+          label: 'Availability',
+          render: (row) => <StatusChip value={row.availability_status} />,
+        },
+        {
+          key: 'last_seen_at',
+          label: 'Last seen',
           render: (row) => (
-            <span style={{ color: row.app_access ? '#22c55e' : '#ef4444', fontWeight: 700, fontSize: '0.75rem' }}>
-              {row.app_access ? 'Enabled' : 'Disabled'}
+            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+              {row.last_seen_at ? formatDateTime(row.last_seen_at) : '—'}
             </span>
           ),
         },
-        { label: 'Joined', render: (row) => <span style={{ color: '#94a3b8' }}>{fmt(row.created_at)}</span> },
+        {
+          key: 'location',
+          label: 'Location',
+          render: (row) => (
+            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+              {row.last_lat != null && row.last_lng != null
+                ? `${row.last_lat.toFixed(4)}, ${row.last_lng.toFixed(4)}`
+                : '—'}
+            </span>
+          ),
+        },
       ]}
     />
   );
 }
-

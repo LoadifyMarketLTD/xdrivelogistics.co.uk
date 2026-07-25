@@ -29,6 +29,8 @@ type TeamMember = {
   isCurrentUser: boolean;
 };
 
+const ROLE_OPTIONS: Array<TeamMember['role']> = ['owner', 'admin', 'dispatcher', 'viewer'];
+
 const formatDate = (value: string) =>
   new Date(value).toLocaleDateString('en-GB', {
     day: '2-digit',
@@ -36,9 +38,7 @@ const formatDate = (value: string) =>
     year: 'numeric',
   });
 
-const ROLE_OPTIONS: Array<TeamMember['role']> = ['owner', 'admin', 'dispatcher', 'viewer'];
-
-export default function CustomerTeamPage() {
+export default function BrokerTeamPage() {
   const workspace = useCompanyWorkspaceData();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +52,7 @@ export default function CustomerTeamPage() {
   const getAuthHeader = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;
-    return accessToken ? ['Bearer', accessToken].join(' ') : null;
+    return accessToken ? 'Bearer ' + accessToken : null;
   }, []);
 
   const load = useCallback(async () => {
@@ -85,7 +85,7 @@ export default function CustomerTeamPage() {
     };
 
     if (!response.ok) {
-      setError(payload.error ?? 'Unable to load the company team.');
+      setError(payload.error ?? 'Unable to load the broker company team.');
       setMembers([]);
       setCanManageTeam(false);
     } else {
@@ -110,21 +110,14 @@ export default function CustomerTeamPage() {
 
     const response = await fetch('/api/customer/team', {
       method: 'PATCH',
-      headers: {
-        Authorization: authHeader,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        companyId: workspace.companyId,
-        ...body,
-      }),
+      headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId: workspace.companyId, ...body }),
     });
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
     if (!response.ok) {
       setError(payload.error ?? 'Team update failed.');
       return;
     }
-
     setNotice(successMessage);
     await load();
   };
@@ -146,15 +139,8 @@ export default function CustomerTeamPage() {
     setNotice('');
     const response = await fetch('/api/customer/team', {
       method: 'POST',
-      headers: {
-        Authorization: authHeader,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        companyId: workspace.companyId,
-        email: inviteEmail.trim(),
-        role: inviteRole,
-      }),
+      headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId: workspace.companyId, email: inviteEmail.trim(), role: inviteRole }),
     });
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
     if (!response.ok) {
@@ -167,25 +153,16 @@ export default function CustomerTeamPage() {
     setPendingActionId(null);
   };
 
-  const activeCount = useMemo(
-    () => members.filter((member) => member.membershipStatus === 'active').length,
-    [members]
-  );
-  const invitedCount = useMemo(
-    () => members.filter((member) => member.membershipStatus === 'invited').length,
-    [members]
-  );
-  const adminCount = useMemo(
-    () => members.filter((member) => ['owner', 'admin'].includes(member.role)).length,
-    [members]
-  );
+  const activeCount = useMemo(() => members.filter((m) => m.membershipStatus === 'active').length, [members]);
+  const invitedCount = useMemo(() => members.filter((m) => m.membershipStatus === 'invited').length, [members]);
+  const adminCount = useMemo(() => members.filter((m) => ['owner', 'admin'].includes(m.role)).length, [members]);
 
   return (
     <PageFrame>
       <PageHeader
-        eyebrow="Customer administration"
+        eyebrow="Broker administration"
         title="Team"
-        description="Manage team invitations, access roles and membership status using server-authorised company-scoped actions."
+        description="Manage broker team invitations, access roles and membership status using server-authorised company-scoped actions."
         actions={
           <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>
             {loading ? 'Refreshing…' : 'Refresh'}
@@ -210,53 +187,33 @@ export default function CustomerTeamPage() {
               value={inviteEmail}
               onChange={(event) => setInviteEmail(event.target.value)}
               placeholder="email@company.com"
-              style={{
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                padding: '0.5rem 0.65rem',
-                minWidth: '220px',
-                fontSize: '0.78rem',
-              }}
+              style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.5rem 0.65rem', minWidth: '220px', fontSize: '0.78rem' }}
             />
             <select
               value={inviteRole}
               onChange={(event) => setInviteRole(event.target.value as 'admin' | 'dispatcher' | 'viewer')}
-              style={{
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                padding: '0.5rem 0.65rem',
-                fontSize: '0.78rem',
-                background: '#fff',
-              }}
+              style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.5rem 0.65rem', fontSize: '0.78rem', background: '#fff' }}
             >
               <option value="viewer">viewer</option>
               <option value="dispatcher">dispatcher</option>
               <option value="admin">admin</option>
             </select>
-            <ActionButton
-              tone="primary"
-              disabled={pendingActionId === 'invite'}
-              onClick={() => void sendInvite()}
-            >
+            <ActionButton tone="primary" disabled={pendingActionId === 'invite'} onClick={() => void sendInvite()}>
               {pendingActionId === 'invite' ? 'Inviting…' : 'Invite member'}
             </ActionButton>
           </div>
         </Panel>
       )}
 
-      <Panel
-        title="Company team"
-        description="Only memberships belonging to the active customer company are returned."
-      >
+      <Panel title="Broker team" description="Only memberships belonging to the active broker company are returned.">
         <DataTable
-          columns={['Member', 'Email', 'Phone', 'Role', 'Membership', 'Profile', 'Joined', 'Actions']}
+          columns={['Member', 'Email', 'Role', 'Membership', 'Profile', 'Joined', 'Actions']}
           rows={members.map((member) => [
             <strong key="member">
-              {member.fullName?.trim() || member.email || 'Company member'}
+              {member.fullName?.trim() || member.email || 'Broker team member'}
               {member.isCurrentUser ? ' (you)' : ''}
             </strong>,
             member.email ?? 'Not recorded',
-            member.phone ?? 'Not recorded',
             member.role.replace(/_/g, ' '),
             <StatusBadge key="membership" value={member.membershipStatus} />,
             <StatusBadge
@@ -283,9 +240,7 @@ export default function CustomerTeamPage() {
                     style={{ fontSize: '0.7rem' }}
                   >
                     {ROLE_OPTIONS.map((roleOption) => (
-                      <option key={roleOption} value={roleOption}>
-                        {roleOption}
-                      </option>
+                      <option key={roleOption} value={roleOption}>{roleOption}</option>
                     ))}
                   </select>
                   {member.membershipStatus === 'suspended' ? (
@@ -324,7 +279,7 @@ export default function CustomerTeamPage() {
                   type="button"
                   disabled={pendingActionId === member.id}
                   onClick={() => {
-                    if (!window.confirm('Remove this member from the company team?')) return;
+                    if (!window.confirm('Remove this member from the broker team?')) return;
                     setPendingActionId(member.id);
                     void runTeamAction(
                       { membershipId: member.id, action: 'remove' },

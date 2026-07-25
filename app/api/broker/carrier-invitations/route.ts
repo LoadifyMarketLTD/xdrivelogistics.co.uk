@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -9,191 +10,227 @@ import {
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status });
 
-// ── Auth helper ──────────────────────────────────────────────────────────────
+const postSchema = z.object({
+  carrierEmail: z.string().email().optional(),
+  carrierCompanyId: z.string().uuid().optional(),
+  message: z.string().max(2000).optional(),
+}).refine(
+  (data) => data.carrierEmail !== undefined || data.carrierCompanyId !== undefined,
+  { message: 'Either carrierEmail or carrierCompanyId must be provided.' }
+);
 
-async function resolveCallerMembership(
-  request: NextRequest,
-  companyId: string,
-): Promise<{ userId: string } | null> {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
+const deleteSchema = z.object({
+  invitationId: z.string().uuid(),
+});
 
+const resolveCallerCompany = async (request: NextRequest) => {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return { error: json(503, { error: 'Service not configured.' }) };
+  }
   const token = getBearerToken(request);
-  if (!token) return null;
+  if (!token) return { error: json(401, { error: 'Unauthorized — missing bearer token.' }) };
 
   const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const {
-    data: { user },
-    error: authErr,
-  } = await validatorClient.auth.getUser(token);
-  if (authErr || !user) return null;
+  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
+  if (authError || !authData.user) {
+    return { error: json(401, { error: 'Unauthorized — invalid or expired token.' }) };
+  }
 
   const { data: membership } = await supabaseAdmin
     .from('company_memberships')
-    .select('id')
-    .eq('company_id', companyId)
-    .eq('user_id', user.id)
+    .select('company_id, role_in_company, status')
+    .eq('user_id', authData.user.id)
     .eq('status', 'active')
     .limit(1)
     .maybeSingle();
 
-  if (!membership?.id) return null;
-  return { userId: user.id };
-}
-
-// ── GET — list invitations for a broker company ──────────────────────────────
-
-export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return json(503, { error: 'Service is not configured.' });
+  if (!membership) {
+    return { error: json(403, { error: 'Active company membership required.' }) };
   }
 
-  const { searchParams } = new URL(request.url);
-  const companyId = searchParams.get('companyId')?.trim();
-  if (!companyId) return json(400, { error: 'companyId is required.' });
+  const managerRoles = ['owner', 'admin', 'company_admin', 'admin_staff', 'company'];
+  const canManage = managerRoles.includes(membership.role_in_company);
 
-  const caller = await resolveCallerMembership(request, companyId);
-  if (!caller) return json(403, { error: 'Forbidden — active broker membership required.' });
+  return { user: authData.user, companyId: membership.company_id as string, canManage };
+};
 
-  const { data, error } = await supabaseAdmin
+export async function GET(request: NextRequest) {
+  const resolved = await resolveCallerCompany(request);
+  if ('error' in resolved) return resolved.error;
+  const { companyId } = resolved;
+  const admin = supabaseAdmin!;
+
+  const { data: rows, error } = await admin
     .from('broker_carrier_invitations')
-    .select(
-      'id, invited_email, carrier_company_id, status, message, created_at, updated_at, accepted_at, revoked_at, invited_by',
-    )
+    .select('id, carrier_email, carrier_company_id, status, message, created_at, updated_at')
     .eq('broker_company_id', companyId)
     .order('created_at', { ascending: false })
     .limit(200);
 
   if (error) return json(500, { error: error.message });
 
-  // Resolve carrier company names for accepted invitations
-  const rows = (data ?? []) as Array<Record<string, unknown>>;
-  const carrierIds = Array.from(
-    new Set(rows.map((r) => r.carrier_company_id as string | null).filter(Boolean) as string[]),
-  );
-  let carrierNames: Map<string, string> = new Map();
-  if (carrierIds.length > 0) {
-    const { data: carriers } = await supabaseAdmin
+  // Enrich with company names where available
+  const companyIds = (rows ?? [])
+    .map((row) => row.carrier_company_id)
+    .filter((id): id is string => typeof id === 'string');
+
+  const nameMap = new Map<string, string>();
+  if (companyIds.length > 0) {
+    const { data: companies } = await admin
       .from('companies')
       .select('id, name')
-      .in('id', carrierIds);
-    carrierNames = new Map(
-      (carriers ?? []).map((c: Record<string, unknown>) => [c.id as string, c.name as string]),
-    );
+      .in('id', companyIds);
+    for (const company of companies ?? []) {
+      nameMap.set(company.id, company.name);
+    }
   }
 
-  const invitations = rows.map((row) => ({
-    ...row,
-    carrier_company_name: row.carrier_company_id
-      ? (carrierNames.get(row.carrier_company_id as string) ?? null)
-      : null,
-  }));
-
-  return json(200, { invitations, total: invitations.length });
+  return json(200, {
+    invitations: (rows ?? []).map((row) => ({
+      ...row,
+      carrierCompanyName: row.carrier_company_id ? (nameMap.get(row.carrier_company_id) ?? null) : null,
+    })),
+    canManage: resolved.canManage,
+  });
 }
 
-// ── POST — create a new carrier invitation ───────────────────────────────────
-
 export async function POST(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return json(503, { error: 'Service is not configured.' });
+  const resolved = await resolveCallerCompany(request);
+  if ('error' in resolved) return resolved.error;
+  const { user, companyId, canManage } = resolved;
+
+  if (!canManage) {
+    return json(403, { error: 'Admin or owner role required to invite carriers.' });
   }
 
-  let body: { companyId?: string; email?: string; message?: string };
+  const admin = supabaseAdmin!;
+
+  let body: unknown;
   try {
-    body = (await request.json()) as typeof body;
+    body = await request.json();
   } catch {
     return json(400, { error: 'Invalid JSON body.' });
   }
 
-  const companyId = body.companyId?.trim();
-  const rawEmail = body.email?.trim();
-  const message = body.message?.trim() ?? null;
+  const parsed = postSchema.safeParse(body);
+  if (!parsed.success) {
+    return json(400, { error: 'Validation failed.', details: parsed.error.flatten() });
+  }
 
-  if (!companyId) return json(400, { error: 'companyId is required.' });
-  if (!rawEmail) return json(400, { error: 'email is required.' });
+  const { carrierEmail, carrierCompanyId, message } = parsed.data;
 
-  const email = rawEmail.toLowerCase();
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) return json(400, { error: 'Invalid email address.' });
-
-  const caller = await resolveCallerMembership(request, companyId);
-  if (!caller) return json(403, { error: 'Forbidden — active broker membership required.' });
-
-  // Prevent duplicate pending invitation for same (broker, email)
-  const { data: existing } = await supabaseAdmin
+  // Check for duplicate pending invitation
+  const { data: existing } = await admin
     .from('broker_carrier_invitations')
     .select('id, status')
     .eq('broker_company_id', companyId)
-    .eq('invited_email', email)
     .eq('status', 'pending')
+    .or(
+      [
+        carrierEmail ? `carrier_email.eq.${carrierEmail}` : null,
+        carrierCompanyId ? `carrier_company_id.eq.${carrierCompanyId}` : null,
+      ]
+        .filter(Boolean)
+        .join(',')
+    )
     .limit(1)
     .maybeSingle();
 
-  if (existing?.id) {
-    return json(409, { error: 'A pending invitation for this email already exists.' });
+  if (existing) {
+    return json(409, { error: 'An active invitation already exists for this carrier.' });
   }
 
-  const { data: invitation, error: insertErr } = await supabaseAdmin
+  const { data: inserted, error: insertError } = await admin
     .from('broker_carrier_invitations')
     .insert({
       broker_company_id: companyId,
-      invited_email: email,
-      invited_by: caller.userId,
-      message,
+      carrier_email: carrierEmail ?? null,
+      carrier_company_id: carrierCompanyId ?? null,
       status: 'pending',
+      message: message ?? null,
+      invited_by: user.id,
     })
-    .select('id, invited_email, status, created_at')
-    .single();
+    .select('id, carrier_email, carrier_company_id, status, message, created_at')
+    .maybeSingle();
 
-  if (insertErr) return json(500, { error: insertErr.message });
+  if (insertError) return json(500, { error: insertError.message });
 
-  return json(201, { invitation, success: true });
-}
-
-// ── PATCH — revoke a pending invitation ──────────────────────────────────────
-
-export async function PATCH(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return json(503, { error: 'Service is not configured.' });
+  // Notify the carrier if they are already a platform user.
+  // Use profiles.user_id joined via company_memberships to find the carrier's user by email.
+  // This is fire-and-forget: notification failure must not block the invitation response.
+  if (carrierEmail && inserted?.id) {
+    const invId = inserted.id;
+    void (async () => {
+      try {
+        // Supabase admin does not expose getUserByEmail; query profiles via auth email
+        // match through company_memberships invited_email as a best-effort lookup.
+        // Fall back to a broadcast notification (recipient_user_id = null) so the
+        // edge function can resolve the recipient from the payload email.
+        await admin.from('notification_events').insert({
+          event_type: 'carrier_invitation_received',
+          entity_type: 'broker_carrier_invitation',
+          entity_id: invId,
+          company_id: companyId,
+          recipient_user_id: null,
+          payload: {
+            invitation_id: invId,
+            broker_company_id: companyId,
+            carrier_email: carrierEmail,
+            message: message ?? null,
+          },
+        });
+      } catch {
+        // Non-critical: notification failure must not block the invitation response
+      }
+    })();
   }
 
-  let body: { invitationId?: string; companyId?: string; action?: string };
+  return json(201, { invitation: inserted });
+}
+
+export async function DELETE(request: NextRequest) {
+  const resolved = await resolveCallerCompany(request);
+  if ('error' in resolved) return resolved.error;
+  const { companyId, canManage } = resolved;
+
+  if (!canManage) {
+    return json(403, { error: 'Admin or owner role required to revoke carrier invitations.' });
+  }
+
+  const admin = supabaseAdmin!;
+
+  let body: unknown;
   try {
-    body = (await request.json()) as typeof body;
+    body = await request.json();
   } catch {
     return json(400, { error: 'Invalid JSON body.' });
   }
 
-  const { invitationId, companyId, action } = body;
-  if (!invitationId) return json(400, { error: 'invitationId is required.' });
-  if (!companyId) return json(400, { error: 'companyId is required.' });
-  if (action !== 'revoke') return json(400, { error: 'action must be "revoke".' });
+  const parsed = deleteSchema.safeParse(body);
+  if (!parsed.success) {
+    return json(400, { error: 'Validation failed.', details: parsed.error.flatten() });
+  }
 
-  const caller = await resolveCallerMembership(request, companyId);
-  if (!caller) return json(403, { error: 'Forbidden — active broker membership required.' });
+  const { invitationId } = parsed.data;
 
-  // Fetch the invitation and verify it belongs to this broker
-  const { data: inv, error: fetchErr } = await supabaseAdmin
+  // Verify ownership
+  const { data: inv } = await admin
     .from('broker_carrier_invitations')
-    .select('id, status, broker_company_id')
+    .select('id, broker_company_id, status')
     .eq('id', invitationId)
     .maybeSingle();
 
-  if (fetchErr) return json(500, { error: fetchErr.message });
   if (!inv) return json(404, { error: 'Invitation not found.' });
-  if (inv.broker_company_id !== companyId)
-    return json(403, { error: 'Forbidden — invitation belongs to a different company.' });
-  if (inv.status !== 'pending')
-    return json(409, { error: `Cannot revoke an invitation with status "${inv.status}".` });
+  if (inv.broker_company_id !== companyId) {
+    return json(403, { error: 'Access denied — invitation does not belong to your company.' });
+  }
 
-  const { data: updated, error: updateErr } = await supabaseAdmin
+  const { error: updateError } = await admin
     .from('broker_carrier_invitations')
-    .update({ status: 'revoked', revoked_at: new Date().toISOString() })
-    .eq('id', invitationId)
-    .select('id, status, revoked_at')
-    .single();
+    .update({ status: 'revoked', updated_at: new Date().toISOString() })
+    .eq('id', invitationId);
 
-  if (updateErr) return json(500, { error: updateErr.message });
+  if (updateError) return json(500, { error: updateError.message });
 
-  return json(200, { invitation: updated, success: true });
+  return json(200, { revoked: true, invitationId });
 }

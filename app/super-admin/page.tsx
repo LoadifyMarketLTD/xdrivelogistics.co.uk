@@ -30,7 +30,6 @@ type PlatformStats = {
   jobsDelivered: number;
   invoicesTotal: number;
   invoicesUnpaid: number;
-  compliancePending: number;
 };
 
 type NotificationRow = {
@@ -116,7 +115,7 @@ function OwnerConsole() {
     { title: 'Companies', detail: 'Approval, suspension and company workspace governance.', metric: stats?.companiesTotal ?? 0, label: 'Companies', href: '/super-admin/companies', tone: 'navy' },
     { title: 'Drivers', detail: 'Driver access, readiness and operating capacity.', metric: stats?.driversTotal ?? 0, label: 'Drivers', href: '/super-admin/users/drivers', tone: 'purple' },
     { title: 'Finance', detail: 'Invoices, payment state and commercial exceptions.', metric: stats?.invoicesUnpaid ?? 0, label: 'Unpaid invoices', href: '/super-admin/finance/invoices', tone: 'orange' },
-    { title: 'Compliance', detail: 'Documents, approvals, expiry and risk controls.', metric: stats?.compliancePending ?? 0, label: 'Needs review', href: '/super-admin/compliance/documents', tone: 'red' },
+    { title: 'Compliance', detail: 'Documents, approvals, expiry and risk controls.', metric: stats?.companiesSuspended ?? 0, label: 'Suspended', href: '/super-admin/compliance/documents', tone: 'red' },
   ], [stats]);
 
   return (
@@ -135,14 +134,14 @@ function OwnerConsole() {
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
 
       <KpiGrid>
-        <KpiCard label="Total companies" value={loading ? '…' : stats?.companiesTotal ?? 0} tone="navy" />
-        <KpiCard label="Active companies" value={loading ? '…' : stats?.companiesActive ?? 0} tone="green" />
+        <KpiCard label="Total companies" value={loading ? '…' : stats?.companiesTotal ?? 0} tone="navy" onClick={() => router.push('/super-admin/companies')} />
+        <KpiCard label="Active companies" value={loading ? '…' : stats?.companiesActive ?? 0} tone="green" onClick={() => router.push('/super-admin/companies/active')} />
         <KpiCard label="Pending approval" value={loading ? '…' : stats?.companiesPending ?? 0} tone="orange" onClick={() => router.push('/super-admin/companies/approvals')} />
-        <KpiCard label="Open jobs" value={loading ? '…' : stats?.jobsOpen ?? 0} tone="blue" />
-        <KpiCard label="Delivered jobs" value={loading ? '…' : stats?.jobsDelivered ?? 0} tone="green" />
-        <KpiCard label="Drivers" value={loading ? '…' : stats?.driversTotal ?? 0} tone="purple" />
-        <KpiCard label="Invoices" value={loading ? '…' : stats?.invoicesTotal ?? 0} tone="navy" />
-        <KpiCard label="Unpaid invoices" value={loading ? '…' : stats?.invoicesUnpaid ?? 0} tone="red" />
+        <KpiCard label="Open jobs" value={loading ? '…' : stats?.jobsOpen ?? 0} tone="blue" onClick={() => router.push('/super-admin/marketplace')} />
+        <KpiCard label="Delivered jobs" value={loading ? '…' : stats?.jobsDelivered ?? 0} tone="green" onClick={() => router.push('/super-admin/operations/completed-jobs')} />
+        <KpiCard label="Drivers" value={loading ? '…' : stats?.driversTotal ?? 0} tone="purple" onClick={() => router.push('/super-admin/users/drivers')} />
+        <KpiCard label="Invoices" value={loading ? '…' : stats?.invoicesTotal ?? 0} tone="navy" onClick={() => router.push('/super-admin/finance/invoices')} />
+        <KpiCard label="Unpaid invoices" value={loading ? '…' : stats?.invoicesUnpaid ?? 0} tone="red" onClick={() => router.push('/super-admin/finance/invoices')} />
       </KpiGrid>
 
       <Panel title="Platform workspaces" description="Every workspace follows the same navigation, status language and page hierarchy." style={{ marginBottom: '0.9rem' }}>
