@@ -158,6 +158,12 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
 
     setLoad(loadData as LoadRow);
 
+    // Pre-fill bid amount with proposed price when applicable
+    const row = loadData as LoadRow;
+    if (row.is_fixed_price && row.budget_amount && row.budget_amount > 0) {
+      setBidAmount(String(row.budget_amount));
+    }
+
     if (userId) {
       const { data: bidData } = await supabase
         .from('job_bids')
@@ -176,15 +182,13 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
     void fetchLoad();
   }, [fetchLoad]);
 
-  const handleBidSubmit = async () => {
+  const handleBidSubmit = async (overrideAmount?: number) => {
     if (!userId || bidLoading) return;
     if (bidBlockedMessage) {
       setError(bidBlockedMessage);
       return;
     }
-    const amount = load?.is_fixed_price
-      ? (load.budget_amount ?? 0)
-      : parseFloat(bidAmount);
+    const amount = overrideAmount ?? parseFloat(bidAmount);
     if (Number.isNaN(amount) || amount <= 0) {
       setError('Enter a valid bid amount greater than £0.');
       return;
@@ -393,11 +397,11 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                   </div>
                   <span style={{
                     fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
-                    backgroundColor: load.is_fixed_price ? '#dcfce7' : '#fef3c7',
-                    color: load.is_fixed_price ? '#15803d' : '#92400e',
+                    backgroundColor: load.is_fixed_price ? '#fef9c3' : '#fef3c7',
+                    color: load.is_fixed_price ? '#854d0e' : '#92400e',
                     padding: '0.25rem 0.65rem', borderRadius: '4px',
                   }}>
-                    {load.is_fixed_price ? 'Fixed price' : 'Quote required'}
+                    {load.is_fixed_price ? 'Proposed price' : 'Quote required'}
                   </span>
                 </div>
 
@@ -419,16 +423,14 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                   <div style={{ backgroundColor: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '8px', padding: '0.85rem', color: '#92400e', fontSize: '0.84rem', fontWeight: 600 }}>
                     {bidBlockedMessage}
                   </div>
-                ) : load.is_fixed_price ? (
-                  <button
-                    style={{ ...btn, background: '#1d4ed8', color: '#fff' }}
-                    disabled={bidLoading}
-                    onClick={() => void handleBidSubmit()}
-                  >
-                    {bidLoading ? 'Accepting…' : 'Accept fixed-price load'}
-                  </button>
                 ) : (
                   <div style={{ display: 'grid', gap: '0.6rem' }}>
+                    {load.is_fixed_price && load.budget_amount && load.budget_amount > 0 && (
+                      <div style={{ backgroundColor: '#fef9c3', border: '1px solid #fde68a', borderRadius: '8px', padding: '0.75rem', fontSize: '0.82rem', color: '#713f12' }}>
+                        <strong>Proposed price: {money(load.budget_amount, load.currency || 'GBP')}</strong>
+                        {' '}— You may accept this or enter a different amount as a counter-offer.
+                      </div>
+                    )}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.6rem' }}>
                       <div>
                         <label style={{ display: 'block', fontSize: '0.72rem', color: '#475569', fontWeight: 700, marginBottom: '0.3rem' }}>
@@ -458,12 +460,21 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {load.is_fixed_price && load.budget_amount && load.budget_amount > 0 && (
+                        <button
+                          style={{ ...btn, background: '#15803d', color: '#fff' }}
+                          disabled={bidLoading}
+                          onClick={() => void handleBidSubmit(load.budget_amount ?? undefined)}
+                        >
+                          {bidLoading ? 'Accepting…' : `Accept proposed price (${money(load.budget_amount, load.currency || 'GBP')})`}
+                        </button>
+                      )}
                       <button
                         style={{ ...btn, background: '#1d4ed8', color: '#fff' }}
                         disabled={bidLoading || !bidAmount}
                         onClick={() => void handleBidSubmit()}
                       >
-                        {bidLoading ? 'Submitting…' : 'Submit quote'}
+                        {bidLoading ? 'Submitting…' : load.is_fixed_price ? 'Submit counter-offer' : 'Submit quote'}
                       </button>
                       <button
                         style={{ ...btn, background: '#f1f5f9', color: '#475569' }}

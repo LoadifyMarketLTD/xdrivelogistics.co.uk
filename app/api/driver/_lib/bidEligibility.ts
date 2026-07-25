@@ -47,8 +47,8 @@ export type DriverBidEligibility = {
     ownCompanyJob: boolean;
     assigned: boolean;
     awarded: boolean;
-    isFixedPrice: boolean;
-    fixedPriceAmountGbp: number | null;
+    hasProposedPrice: boolean;
+    proposedPriceGbp: number | null;
   };
   hasActiveBid: boolean;
   denialReasons: string[];
@@ -120,7 +120,7 @@ export async function resolveDriverBidEligibility(
   if (awarded) denialReasons.push('job_already_awarded');
   if (hasActiveBid) denialReasons.push('active_bid_exists');
 
-  const fixedPriceAmountGbp = job?.is_fixed_price === true ? toAmount(job.budget_amount) : null;
+  const proposedPriceGbp = job?.is_fixed_price === true ? toAmount(job.budget_amount) : null;
 
   return {
     job,
@@ -144,8 +144,8 @@ export async function resolveDriverBidEligibility(
         ownCompanyJob,
         assigned,
         awarded,
-        isFixedPrice: job?.is_fixed_price === true,
-        fixedPriceAmountGbp,
+        hasProposedPrice: job?.is_fixed_price === true,
+        proposedPriceGbp,
       },
       hasActiveBid,
       denialReasons,

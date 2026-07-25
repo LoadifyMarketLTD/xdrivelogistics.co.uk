@@ -46,9 +46,7 @@ export async function POST(request: NextRequest) {
     return respond(409, { error: 'This job is no longer available for quotation.' });
   }
 
-  const amount = job.is_fixed_price === true
-    ? Number(eligibility.job.fixedPriceAmountGbp ?? 0)
-    : requestedAmount;
+  const amount = requestedAmount;
   if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000) {
     return respond(400, { error: 'Enter a valid quote amount.' });
   }

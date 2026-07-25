@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 type Session = { token: string; page: Page };
-type NearbyJob = { id: string; canQuote?: boolean; quoteWarning?: string | null; isFixedPrice?: boolean; fixedPriceAmountGbp?: number | null };
+type NearbyJob = { id: string; canQuote?: boolean; quoteWarning?: string | null; hasProposedPrice?: boolean; proposedPriceGbp?: number | null };
 
 async function login(page: Page, email: string, password: string) {
   await page.goto('/login');
@@ -75,7 +75,7 @@ test.describe('driver commercial bidding e2e', () => {
     const job = await firstQuoteableJob(session);
     test.skip(!job, 'No quoteable jobs are currently available for this driver.');
 
-    const amount = Number(job!.fixedPriceAmountGbp ?? 250);
+    const amount = Number(job!.proposedPriceGbp ?? 250);
     const { response, payload } = await apiJson<{ success?: boolean; bidId?: string; error?: string }>(session, '/api/driver/mobile/bids', {
       method: 'POST',
       data: { jobId: job!.id, amount, message: 'Playwright e2e commercial bid' },
@@ -135,7 +135,7 @@ test.describe('driver commercial bidding e2e', () => {
     const job = await firstQuoteableJob(session);
     test.skip(!job, 'No quoteable jobs are currently available for duplicate-bid test.');
 
-    const amount = Number(job!.fixedPriceAmountGbp ?? 275);
+    const amount = Number(job!.proposedPriceGbp ?? 275);
     const first = await apiJson<{ error?: string }>(session, '/api/driver/mobile/bids', {
       method: 'POST',
       data: { jobId: job!.id, amount, message: 'Duplicate bid test (first)' },
@@ -149,22 +149,50 @@ test.describe('driver commercial bidding e2e', () => {
     expect(second.response.status()).toBe(409);
   });
 
-  test('fixed-price load -> bid_price_gbp is budget amount and no manual input in UI', async ({ page }) => {
+  test('proposed-price load -> driver sees proposed price, can accept or counter-offer, bid persists driver amount', async ({ page }) => {
     const email = process.env.E2E_FIXED_PRICE_DRIVER_EMAIL ?? process.env.E2E_INDIVIDUAL_DRIVER_EMAIL ?? '';
     const password = process.env.E2E_FIXED_PRICE_DRIVER_PASSWORD ?? process.env.E2E_INDIVIDUAL_DRIVER_PASSWORD ?? '';
     test.skip(!email || !password, 'Set E2E_FIXED_PRICE_DRIVER_EMAIL/PASSWORD or E2E_INDIVIDUAL_DRIVER_EMAIL/PASSWORD.');
 
     const session = await driverSession(page, email, password);
-    const job = await firstQuoteableJob(session, (candidate) => candidate.isFixedPrice === true && Number(candidate.fixedPriceAmountGbp ?? 0) > 0);
-    test.skip(!job, 'No fixed-price quoteable load is currently available.');
+    const job = await firstQuoteableJob(session, (candidate) => candidate.hasProposedPrice === true && Number(candidate.proposedPriceGbp ?? 0) > 0);
+    test.skip(!job, 'No proposed-price quoteable load is currently available.');
 
+    // Web UI: proposed price badge, pre-filled input, and counter-offer input are all present
     await page.goto(`/driver/loads/${job!.id}`);
-    await expect(page.getByRole('button', { name: /accept fixed-price load/i })).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('input[type="number"]')).toHaveCount(0);
+    await expect(page.getByText(/proposed price/i).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('input[type="number"]')).toBeVisible({ timeout: 5_000 });
 
+    // Accept proposed price via API — persists the driver's chosen amount (proposed price)
+    const proposedAmount = Number(job!.proposedPriceGbp);
+    const acceptResult = await apiJson<{ success?: boolean; bidId?: string; error?: string }>(session, '/api/driver/mobile/bids', {
+      method: 'POST',
+      data: { jobId: job!.id, amount: proposedAmount, message: 'Driver accepts proposed price' },
+    });
+
+    expect([201, 409]).toContain(acceptResult.response.status());
+    if (acceptResult.response.status() === 201) {
+      const resources = await apiJson<{ resources?: { quotes?: Array<{ id?: string; bid_price_gbp?: number | null; amount?: number | null }> } }>(session, '/api/driver/mobile/resources');
+      expect(resources.response.status()).toBe(200);
+      const saved = (resources.payload.resources?.quotes ?? []).find((quote) => quote.id === acceptResult.payload.bidId);
+      // The persisted bid amount must equal what the driver submitted, not be forced to anything else
+      expect(saved?.bid_price_gbp ?? saved?.amount).toBe(proposedAmount);
+    }
+  });
+
+  test('proposed-price load -> driver submits higher counter-offer, actual amount is persisted', async ({ page }) => {
+    const email = process.env.E2E_COUNTER_OFFER_DRIVER_EMAIL ?? process.env.E2E_INDIVIDUAL_DRIVER_EMAIL ?? '';
+    const password = process.env.E2E_COUNTER_OFFER_DRIVER_PASSWORD ?? process.env.E2E_INDIVIDUAL_DRIVER_PASSWORD ?? '';
+    test.skip(!email || !password, 'Set E2E_COUNTER_OFFER_DRIVER_EMAIL/PASSWORD or E2E_INDIVIDUAL_DRIVER_EMAIL/PASSWORD.');
+
+    const session = await driverSession(page, email, password);
+    const job = await firstQuoteableJob(session, (candidate) => candidate.hasProposedPrice === true && Number(candidate.proposedPriceGbp ?? 0) > 0);
+    test.skip(!job, 'No proposed-price quoteable load is currently available.');
+
+    const counterAmount = Number(job!.proposedPriceGbp!) + 50;
     const result = await apiJson<{ success?: boolean; bidId?: string; error?: string }>(session, '/api/driver/mobile/bids', {
       method: 'POST',
-      data: { jobId: job!.id, amount: 1, message: 'Fixed price auto amount test' },
+      data: { jobId: job!.id, amount: counterAmount, message: 'Counter-offer higher than proposed' },
     });
 
     expect([201, 409]).toContain(result.response.status());
@@ -172,7 +200,33 @@ test.describe('driver commercial bidding e2e', () => {
       const resources = await apiJson<{ resources?: { quotes?: Array<{ id?: string; bid_price_gbp?: number | null; amount?: number | null }> } }>(session, '/api/driver/mobile/resources');
       expect(resources.response.status()).toBe(200);
       const saved = (resources.payload.resources?.quotes ?? []).find((quote) => quote.id === result.payload.bidId);
-      expect(saved?.bid_price_gbp ?? saved?.amount).toBe(Number(job!.fixedPriceAmountGbp));
+      // Must persist the driver's actual counter-offer, not the proposed price
+      expect(saved?.bid_price_gbp ?? saved?.amount).toBe(counterAmount);
+    }
+  });
+
+  test('proposed-price load -> driver submits lower counter-offer, actual amount is persisted', async ({ page }) => {
+    const email = process.env.E2E_LOWER_COUNTER_DRIVER_EMAIL ?? process.env.E2E_INDIVIDUAL_DRIVER_EMAIL ?? '';
+    const password = process.env.E2E_LOWER_COUNTER_DRIVER_PASSWORD ?? process.env.E2E_INDIVIDUAL_DRIVER_PASSWORD ?? '';
+    test.skip(!email || !password, 'Set E2E_LOWER_COUNTER_DRIVER_EMAIL/PASSWORD or E2E_INDIVIDUAL_DRIVER_EMAIL/PASSWORD.');
+
+    const session = await driverSession(page, email, password);
+    const job = await firstQuoteableJob(session, (candidate) => candidate.hasProposedPrice === true && Number(candidate.proposedPriceGbp ?? 0) > 10);
+    test.skip(!job, 'No proposed-price quoteable load is currently available with price > £10.');
+
+    const lowerAmount = Math.max(1, Number(job!.proposedPriceGbp!) - 30);
+    const result = await apiJson<{ success?: boolean; bidId?: string; error?: string }>(session, '/api/driver/mobile/bids', {
+      method: 'POST',
+      data: { jobId: job!.id, amount: lowerAmount, message: 'Counter-offer lower than proposed' },
+    });
+
+    expect([201, 409]).toContain(result.response.status());
+    if (result.response.status() === 201) {
+      const resources = await apiJson<{ resources?: { quotes?: Array<{ id?: string; bid_price_gbp?: number | null; amount?: number | null }> } }>(session, '/api/driver/mobile/resources');
+      expect(resources.response.status()).toBe(200);
+      const saved = (resources.payload.resources?.quotes ?? []).find((quote) => quote.id === result.payload.bidId);
+      // Must persist the driver's actual lower counter-offer, not the proposed price
+      expect(saved?.bid_price_gbp ?? saved?.amount).toBe(lowerAmount);
     }
   });
 
@@ -187,7 +241,7 @@ test.describe('driver commercial bidding e2e', () => {
 
     const submit = await apiJson<{ success?: boolean; bidId?: string; error?: string }>(session, '/api/driver/mobile/bids', {
       method: 'POST',
-      data: { jobId: job!.id, amount: Number(job!.fixedPriceAmountGbp ?? 240), message: 'No-company driver quote' },
+      data: { jobId: job!.id, amount: Number(job!.proposedPriceGbp ?? 240), message: 'No-company driver quote' },
     });
 
     expect([201, 409]).toContain(submit.response.status());

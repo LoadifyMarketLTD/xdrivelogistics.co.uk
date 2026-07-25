@@ -107,7 +107,7 @@ function publicArea(postcode: unknown) {
 }
 
 function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
-  const priceVisible = row.is_fixed_price === true && row.budget_amount != null;
+  const hasProposedPrice = row.is_fixed_price === true && row.budget_amount != null;
   const company = companyInfo(row.companies);
   return {
     id: row.id,
@@ -140,12 +140,12 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
     journeyDistanceMiles: numberOrNull(row.job_distance_miles),
     estimatedJourneyMinutes: numberOrNull(row.job_distance_minutes),
     publicPrice: {
-      visible: priceVisible,
-      amount: priceVisible ? numberOrNull(row.budget_amount) : null,
-      currency: priceVisible ? row.currency || 'GBP' : null,
+      visible: hasProposedPrice,
+      amount: hasProposedPrice ? numberOrNull(row.budget_amount) : null,
+      currency: hasProposedPrice ? row.currency || 'GBP' : null,
     },
-    isFixedPrice: row.is_fixed_price === true,
-    fixedPriceAmountGbp: row.is_fixed_price === true ? numberOrNull(row.budget_amount) : null,
+    hasProposedPrice,
+    proposedPriceGbp: hasProposedPrice ? numberOrNull(row.budget_amount) : null,
     canQuote: true,
     canSave: true,
     expiresAt: null,
