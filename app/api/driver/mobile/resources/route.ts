@@ -14,7 +14,7 @@ function publicArea(postcode: unknown) {
 function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null) {
   const privateDetailsRevealed = String(row.assigned_driver_id ?? '') === driverId
     && ['allocated', 'collected', 'in_transit', 'delivered'].includes(String(row.status ?? '').toLowerCase());
-  const fixedPriceVisible = row.is_fixed_price === true && Number(row.budget_amount ?? 0) > 0;
+  const proposedPriceVisible = Number(row.budget_amount ?? 0) > 0;
   return {
     ...row,
     public_reference: `XDL-${String(row.id ?? '').slice(0, 8).toUpperCase()}`,
@@ -31,7 +31,7 @@ function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null
     load_details: privateDetailsRevealed ? row.load_details : null,
     special_requirements: privateDetailsRevealed ? row.special_requirements : null,
     access_restrictions: privateDetailsRevealed ? row.access_restrictions : null,
-    budget_amount: fixedPriceVisible ? row.budget_amount : null,
+    budget_amount: proposedPriceVisible ? row.budget_amount : null,
     private_details_revealed: privateDetailsRevealed,
     can_update_lifecycle: privateDetailsRevealed && String(row.status ?? '').toLowerCase() !== 'delivered',
   };

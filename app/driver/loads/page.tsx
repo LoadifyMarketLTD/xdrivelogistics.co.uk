@@ -482,8 +482,10 @@ export default function AvailableLoadsPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {load.budget_amount != null && (
                         <span style={{ fontSize: '1.1rem', fontWeight: 800, color: load.is_fixed_price ? '#15803d' : '#0f172a' }}>
-                          Â£{load.budget_amount.toFixed(2)}
-                          {!load.is_fixed_price && <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#64748b' }}> budget</span>}
+                          £{load.budget_amount.toFixed(2)}
+                          {load.is_fixed_price
+                            ? <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#15803d', marginLeft: '0.3rem' }}>proposed</span>
+                            : <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#64748b' }}> budget</span>}
                         </span>
                       )}
                       {load.myBidStatus && (
@@ -569,15 +571,28 @@ export default function AvailableLoadsPage() {
                   ) : (
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       {!load.myBidStatus ? (
-                        <button
-                          onClick={() => {
-                            setBidLoadId(load.id);
-                            setBidAmount(load.budget_amount ? String(load.budget_amount) : '');
-                          }}
-                          style={{ padding: '0.5rem 0.9rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.83rem' }}
-                        >
-                          Submit Quote
-                        </button>
+                        <>
+                          <button
+                            onClick={() => {
+                              setBidLoadId(load.id);
+                              setBidAmount('');
+                            }}
+                            style={{ padding: '0.5rem 0.9rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.83rem' }}
+                          >
+                            Submit Quote
+                          </button>
+                          {load.is_fixed_price && load.budget_amount != null && (
+                            <button
+                              onClick={() => {
+                                setBidLoadId(load.id);
+                                setBidAmount(String(load.budget_amount));
+                              }}
+                              style={{ padding: '0.5rem 0.9rem', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.83rem' }}
+                            >
+                              Accept proposed (£{load.budget_amount.toFixed(2)})
+                            </button>
+                          )}
+                        </>
                       ) : (
                         <span style={{ fontSize: '0.82rem', color: '#6d28d9', fontWeight: 600 }}>
                           Quote submitted: Â£{load.myBidAmount?.toFixed(2) ?? 'â€”'}
