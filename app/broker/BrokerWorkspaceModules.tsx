@@ -111,8 +111,58 @@ export function BrokerJobsPage() {
 }
 
 export function BrokerPodPage() {
-  const data = useCompanyWorkspaceData(); const rows = data.jobs.filter((job) => ['delivered', 'completed'].includes(job.status));
-  return <PageFrame><PageHeader eyebrow="Proof of delivery" title="POD Review" description="Review proof before releasing customer invoicing and carrier cost approval." /><Panel title="POD queue"><DataTable columns={['Load', 'Customer', 'Route', 'Delivery status', 'POD', 'Next action']} rows={rows.map((job) => [job.id.slice(0, 8).toUpperCase(), job.client_name ?? 'Customer', `${job.pickup_postcode ?? job.pickup_location} → ${job.delivery_postcode ?? job.delivery_location}`, <StatusBadge key="delivery" value={job.status} />, (job.delivery_photos?.length ?? 0) > 0 ? `${job.delivery_photos?.length} file(s)` : 'Missing', (job.delivery_photos?.length ?? 0) > 0 ? <StatusBadge key="next" value="Ready for review" tone="green" /> : <StatusBadge key="next" value="Request POD" tone="orange" />])} empty={<EmptyState title="No delivered jobs awaiting POD review" />} /></Panel></PageFrame>;
+  const data = useCompanyWorkspaceData();
+  const [working, setWorking] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, { ok: boolean; msg: string }>>({});
+  const rows = data.jobs.filter((job) => ['delivered', 'completed'].includes(job.status));
+
+  const podAction = async (jobId: string, action: 'approve' | 'reject' | 'request_missing', note?: string) => {
+    setWorking(jobId);
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+    const res = await fetch('/api/broker/pod-review', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ jobId, companyId: data.companyId, action, note }),
+    });
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    setResults((prev) => ({
+      ...prev,
+      [jobId]: { ok: res.ok, msg: res.ok ? `POD ${action.replace('_', ' ')} recorded.` : (body.error ?? 'Action failed.') },
+    }));
+    setWorking(null);
+    await data.refresh();
+  };
+
+  return <PageFrame>
+    <PageHeader eyebrow="Proof of delivery" title="POD Review" description="Review proof before releasing customer invoicing and carrier cost approval." />
+    <Panel title="POD queue">
+      <DataTable
+        columns={['Load', 'Customer', 'Route', 'POD files', 'Review status', 'Actions']}
+        rows={rows.map((job) => {
+          const hasPod = (job.delivery_photos?.length ?? 0) > 0;
+          const podStatus = (job as Record<string, unknown>).broker_pod_review_status as string | undefined;
+          const result = results[job.id];
+          return [
+            job.id.slice(0, 8).toUpperCase(),
+            job.client_name ?? 'Customer',
+            `${job.pickup_postcode ?? job.pickup_location} → ${job.delivery_postcode ?? job.delivery_location}`,
+            hasPod ? `${job.delivery_photos?.length ?? 0} file(s)` : <StatusBadge key="pod-missing" value="Missing" tone="red" />,
+            podStatus ? <StatusBadge key="review-status" value={podStatus.replace('_', ' ')} tone={podStatus === 'approved' ? 'green' : podStatus === 'rejected' ? 'red' : 'orange'} /> : <StatusBadge key="review-pending" value="Pending review" tone="orange" />,
+            <span key="actions" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+              {result && <span style={{ fontSize: '0.72rem', color: result.ok ? '#22c55e' : '#ef4444', fontWeight: 700 }}>{result.msg}</span>}
+              {!result && hasPod && (!podStatus || podStatus === 'pending') && <>
+                <ActionButton key="approve" tone="success" disabled={working === job.id} onClick={() => void podAction(job.id, 'approve')}>{working === job.id ? '…' : 'Approve'}</ActionButton>
+                <ActionButton key="reject" tone="danger" disabled={working === job.id} onClick={() => void podAction(job.id, 'reject')}>{working === job.id ? '…' : 'Reject'}</ActionButton>
+              </>}
+              {!result && !hasPod && <ActionButton key="request" tone="secondary" disabled={working === job.id} onClick={() => void podAction(job.id, 'request_missing')}>{working === job.id ? '…' : 'Request POD'}</ActionButton>}
+            </span>,
+          ];
+        })}
+        empty={<EmptyState title="No delivered jobs awaiting POD review" />}
+      />
+    </Panel>
+  </PageFrame>;
 }
 
 export function BrokerMarginsPage() {
@@ -175,6 +225,31 @@ export function BrokerDisputesPage() {
     return () => { cancelled = true; };
   }, [data.companyId, data.jobs]);
 
+  const [actionResults, setActionResults] = useState<Record<string, { ok: boolean; msg: string }>>({});
+  const [working, setWorkingDispute] = useState<string | null>(null);
+
+  const disputeAction = async (disputeId: string, action: string, resolutionNote?: string) => {
+    setWorkingDispute(disputeId);
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+    const res = await fetch('/api/broker/disputes', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ disputeId, companyId: data.companyId, action, resolutionNote }),
+    });
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    setActionResults((prev) => ({
+      ...prev,
+      [disputeId]: { ok: res.ok, msg: res.ok ? `Dispute ${action}d.` : (body.error ?? 'Action failed.') },
+    }));
+    setWorkingDispute(null);
+    if (res.ok) {
+      setRows((prev) => prev.map((row) => row.id === disputeId
+        ? { ...row, status: action === 'investigate' ? 'investigating' : action === 'resolve' ? 'resolved' : 'closed' }
+        : row));
+    }
+  };
+
   return <PageFrame>
     <PageHeader eyebrow="Commercial exceptions" title="Disputes" description="Customer, carrier and POD disputes linked only to broker-managed loads." />
     {error && <AlertBanner tone="danger">{error}</AlertBanner>}
@@ -185,15 +260,25 @@ export function BrokerDisputesPage() {
     </KpiGrid>
     <Panel title="Dispute register">
       <DataTable
-        columns={['Job', 'Raised by', 'Issue', 'Opened', 'Status', 'Resolution']}
-        rows={rows.map((row) => [
-          row.job_id.slice(0, 8).toUpperCase(),
-          row.raised_by_company_id === data.companyId ? 'Broker company' : 'Trading partner',
-          row.description ?? 'No description recorded',
-          when(row.created_at),
-          <StatusBadge key="status" value={row.status} />,
-          row.resolution_note ?? 'Pending',
-        ])}
+        columns={['Job', 'Raised by', 'Issue', 'Opened', 'Status', 'Actions']}
+        rows={rows.map((row) => {
+          const result = actionResults[row.id];
+          return [
+            row.job_id.slice(0, 8).toUpperCase(),
+            row.raised_by_company_id === data.companyId ? 'Broker company' : 'Trading partner',
+            row.description ?? 'No description recorded',
+            when(row.created_at),
+            <StatusBadge key="status" value={row.status} />,
+            <span key="actions" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+              {result && <span style={{ fontSize: '0.72rem', color: result.ok ? '#22c55e' : '#ef4444', fontWeight: 700 }}>{result.msg}</span>}
+              {!result && row.status === 'open' && <ActionButton key="inv" tone="secondary" disabled={working === row.id} onClick={() => void disputeAction(row.id, 'investigate')}>{working === row.id ? '…' : 'Investigate'}</ActionButton>}
+              {!result && ['open', 'investigating'].includes(row.status) && <ActionButton key="res" tone="success" disabled={working === row.id} onClick={() => void disputeAction(row.id, 'resolve', 'Resolved by broker.')}>{working === row.id ? '…' : 'Resolve'}</ActionButton>}
+              {!result && ['open', 'investigating'].includes(row.status) && <ActionButton key="esc" tone="warning" disabled={working === row.id} onClick={() => void disputeAction(row.id, 'escalate', 'Escalated for senior review.')}>{working === row.id ? '…' : 'Escalate'}</ActionButton>}
+              {!result && !['closed'].includes(row.status) && <ActionButton key="close" tone="danger" disabled={working === row.id} onClick={() => void disputeAction(row.id, 'close', 'Closed by broker.')}>{working === row.id ? '…' : 'Close'}</ActionButton>}
+              {row.resolution_note && !result && <span style={{ fontSize: '0.72rem', color: '#64748b' }}>{row.resolution_note.slice(0, 40)}{row.resolution_note.length > 40 ? '…' : ''}</span>}
+            </span>,
+          ];
+        })}
         empty={<EmptyState title={loading ? 'Loading disputes…' : 'No disputes found'} description="Disputes raised against broker-managed loads will appear here." />}
       />
     </Panel>
