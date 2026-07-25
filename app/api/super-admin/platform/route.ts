@@ -28,6 +28,9 @@ type NotificationEventRow = {
   status: string;
   created_at: string;
   processed_at: string | null;
+  last_error: string | null;
+  attempt_count: number | null;
+  next_attempt_at: string | null;
 };
 
 const getNotificationTitle = (eventType: string) => {
@@ -143,7 +146,7 @@ export async function GET(request: NextRequest) {
   if (section === 'notifications') {
     const { data, error } = await supabaseAdmin
       .from('notification_events')
-      .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at')
+      .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at')
       .order('created_at', { ascending: false })
       .limit(200);
 
@@ -165,6 +168,9 @@ export async function GET(request: NextRequest) {
       status: r.status,
       processed: r.processed_at !== null,
       created_at: r.created_at,
+      last_error: r.last_error,
+      attempt_count: r.attempt_count ?? 0,
+      next_attempt_at: r.next_attempt_at,
     }));
 
     return respond(200, {
@@ -181,4 +187,50 @@ export async function GET(request: NextRequest) {
   }
 
   return respond(400, { error: 'Invalid section. Use analytics or notifications.' });
+}
+
+export async function PATCH(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
+
+  const owner = await verifyOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+
+  const body = await request.json().catch(() => null) as { section?: string; action?: string; notificationId?: string } | null;
+  const section = String(body?.section ?? '').toLowerCase();
+  const action = String(body?.action ?? '').toLowerCase();
+  const notificationId = String(body?.notificationId ?? '').trim();
+
+  if (section !== 'notifications' || action !== 'retry' || !notificationId) {
+    return respond(400, { error: 'Invalid action payload.' });
+  }
+
+  const { data: notification, error: notificationError } = await supabaseAdmin
+    .from('notification_events')
+    .select('id, status')
+    .eq('id', notificationId)
+    .maybeSingle();
+
+  if (notificationError) return respond(500, { error: notificationError.message });
+  if (!notification) return respond(404, { error: 'Notification event not found.' });
+
+  const currentStatus = String(notification.status ?? '').toLowerCase();
+  if (currentStatus !== 'failed' && currentStatus !== 'skipped') {
+    return respond(409, { error: `Notification cannot be retried from status "${currentStatus || 'unknown'}".` });
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('notification_events')
+    .update({
+      status: 'pending',
+      processed_at: null,
+      last_error: null,
+      next_attempt_at: new Date().toISOString(),
+    })
+    .eq('id', notificationId);
+
+  if (updateError) return respond(500, { error: updateError.message });
+
+  return respond(200, { success: true, notificationId, status: 'pending' });
 }
