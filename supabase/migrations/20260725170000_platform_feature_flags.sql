@@ -37,7 +37,7 @@ VALUES
 ON CONFLICT (key) DO NOTHING;
 
 -- updated_at trigger
-CREATE OR REPLACE FUNCTION set_platform_feature_flag_updated_at()
+CREATE OR REPLACE FUNCTION public.set_platform_feature_flag_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
   NEW.updated_at = now();
@@ -48,7 +48,7 @@ $$;
 DROP TRIGGER IF EXISTS trg_pff_updated_at ON platform_feature_flags;
 CREATE TRIGGER trg_pff_updated_at
   BEFORE UPDATE ON platform_feature_flags
-  FOR EACH ROW EXECUTE FUNCTION set_platform_feature_flag_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.set_platform_feature_flag_updated_at();
 
 -- RLS: service role only (no browser access)
 ALTER TABLE platform_feature_flags ENABLE ROW LEVEL SECURITY;

@@ -164,7 +164,9 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
 
   const handleBidSubmit = async () => {
     if (!userId || !companyId || bidLoading) return;
-    const amount = parseFloat(bidAmount);
+    const amount = load?.is_fixed_price
+      ? (load.budget_amount ?? 0)
+      : parseFloat(bidAmount);
     if (Number.isNaN(amount) || amount <= 0) {
       setError('Enter a valid bid amount greater than £0.');
       return;
