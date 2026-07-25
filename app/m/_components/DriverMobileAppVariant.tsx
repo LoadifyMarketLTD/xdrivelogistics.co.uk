@@ -518,7 +518,7 @@ export default function DriverMobileAppVariant({
     setBusyAction('pod-upload');
     const safeName = selectedPodFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storagePath = `${job.id}/${Date.now()}-${safeName}`;
-    const upload = await supabase.storage.from('pod-docs').upload(storagePath, selectedPodFile, { cacheControl: '3600', upsert: false });
+    const upload = await supabase.storage.from('pod-photos').upload(storagePath, selectedPodFile, { cacheControl: '3600', upsert: false });
 
     if (upload.error) {
       setBusyAction(null);

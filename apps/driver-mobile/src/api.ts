@@ -242,7 +242,7 @@ export async function uploadPodDocument(
   const fileResponse = await fetch(input.uri);
   const blob = await fileResponse.blob();
 
-  const uploadResponse = await fetch(`${config.supabaseUrl}/storage/v1/object/pod-docs/${storagePath}`, {
+  const uploadResponse = await fetch(`${config.supabaseUrl}/storage/v1/object/pod-photos/${storagePath}`, {
     method: "POST",
     headers: {
       apikey: config.supabaseAnonKey,

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 
-type AccountType = 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver';
+type AccountType = 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver' | 'individual_driver';
 
 type Application = {
   id: string;
@@ -19,6 +19,7 @@ type Application = {
 const brokerDocs = ['company_registration', 'public_liability', 'vat_registration'] as const;
 const fleetDocs = ['operator_licence', 'public_liability', 'goods_in_transit', 'vehicle_insurance', 'company_registration', 'vat_registration'] as const;
 const ownerDriverDocs = ['driving_licence', 'cpc', 'proof_of_address', 'insurance', 'right_to_work', 'visa_document'] as const;
+const individualDriverDocs = ['driving_licence', 'proof_of_address', 'right_to_work', 'visa_document'] as const;
 
 export default function OnboardingTokenPage() {
   const params = useParams<{ token: string }>();
@@ -39,6 +40,7 @@ export default function OnboardingTokenPage() {
     if (accountType === 'broker_shipper') return brokerDocs;
     if (accountType === 'fleet_courier') return fleetDocs;
     if (accountType === 'owner_driver') return ownerDriverDocs;
+    if (accountType === 'individual_driver') return individualDriverDocs;
     return [];
   }, [accountType]);
 
@@ -64,6 +66,15 @@ export default function OnboardingTokenPage() {
         model: formData.model ?? formData.vehicle_model ?? '',
         payload: formData.payload ?? formData.vehicle_payload ?? '',
         dimensions: formData.dimensions ?? formData.vehicle_dimensions ?? '',
+        settled_status: toBoolean(formData.settled_status),
+        pre_settled_status: toBoolean(formData.pre_settled_status),
+      };
+    }
+
+    if (accountType === 'individual_driver') {
+      return {
+        ...formData,
+        right_to_work_status: formData.right_to_work_status ?? 'other',
         settled_status: toBoolean(formData.settled_status),
         pre_settled_status: toBoolean(formData.pre_settled_status),
       };
@@ -124,6 +135,7 @@ export default function OnboardingTokenPage() {
     if (accountType === 'customer_shipper') return 'customer';
     if (accountType === 'fleet_courier') return 'fleet';
     if (accountType === 'owner_driver') return 'owner-driver';
+    if (accountType === 'individual_driver') return 'individual-driver';
     return 'broker';
   };
 
@@ -307,6 +319,23 @@ export default function OnboardingTokenPage() {
     </section>
   );
 
+  const renderIndividualDriver = () => (
+    <section>
+      <h2>Individual Driver Details</h2>
+      <p style={{ color: '#6B7280', marginTop: 0 }}>This account is for individual drivers employed by or working for a fleet or transport company. No carrier workspace will be created.</p>
+      <Field label="Full Name" value={formData.full_name ?? ''} onChange={(v) => updateField('full_name', v)} />
+      <Field label="Date of Birth" value={formData.dob ?? ''} onChange={(v) => updateField('dob', v)} />
+      <Field label="Address" value={formData.address ?? ''} onChange={(v) => updateField('address', v)} />
+      <Field label="Phone" value={formData.phone ?? ''} onChange={(v) => updateField('phone', v)} />
+      <Field label="Email" value={formData.email ?? ''} onChange={(v) => updateField('email', v)} />
+      <Field label="Right to Work Status (citizen / visa_required / share_code_required / settled / pre_settled / other)" value={formData.right_to_work_status ?? ''} onChange={(v) => updateField('right_to_work_status', v)} />
+      <Field label="Visa Expiry (YYYY-MM-DD, when applicable)" value={formData.visa_expiry ?? ''} onChange={(v) => updateField('visa_expiry', v)} />
+      <Field label="Share Code (when applicable)" value={formData.share_code ?? ''} onChange={(v) => updateField('share_code', v)} />
+      <Field label="Settled Status (true/false)" value={formData.settled_status ?? ''} onChange={(v) => updateField('settled_status', v)} />
+      <Field label="Pre-Settled Status (true/false)" value={formData.pre_settled_status ?? ''} onChange={(v) => updateField('pre_settled_status', v)} />
+    </section>
+  );
+
   if (loading) {
     return <main style={{ padding: '2rem' }}>Loading onboarding...</main>;
   }
@@ -341,6 +370,7 @@ export default function OnboardingTokenPage() {
       {application.account_type === 'broker_shipper' && renderBrokerShipper()}
       {application.account_type === 'fleet_courier' && renderFleetCourier()}
       {application.account_type === 'owner_driver' && renderOwnerDriver()}
+      {application.account_type === 'individual_driver' && renderIndividualDriver()}
 
       {requiredDocs.length > 0 && (
       <section style={{ marginTop: '2rem' }}>

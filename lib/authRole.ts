@@ -109,16 +109,20 @@ export const mapAppRole = (value: string | null | undefined): AppUserRole | null
 };
 
 /**
- * Persist profile roles using the legacy-compatible database values so auth
- * writes keep working even when production has not yet applied migration 063.
+ * Persist profile roles using the canonical database values defined by the
+ * profiles_role_canonical constraint (migration 098):
+ *   owner | broker | company_admin | company_staff | driver | customer
+ *
+ * Legacy aliases ('admin', 'company') are no longer accepted by the DB
+ * constraint and must NOT be written. Canonical values only.
  */
 export const normalizeProfileRoleForStorage = (value: string | null | undefined): string | null => {
   const resolvedRole = mapAppRole(value);
 
   if (resolvedRole === 'owner') return 'owner';
-  if (resolvedRole === 'broker') return 'company';
-  if (resolvedRole === 'company_admin') return 'admin';
-  if (resolvedRole === 'company_staff') return 'company';
+  if (resolvedRole === 'broker') return 'broker';
+  if (resolvedRole === 'company_admin') return 'company_admin';
+  if (resolvedRole === 'company_staff') return 'company_staff';
   if (resolvedRole === 'driver') return 'driver';
   if (resolvedRole === 'customer') return 'customer';
 

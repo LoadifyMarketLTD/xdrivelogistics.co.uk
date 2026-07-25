@@ -253,7 +253,7 @@ export default function DriverMobileApp() {
     setBusyAction('pod');
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storagePath = `${activeJob.id}/${Date.now()}-${safeName}`;
-    const upload = await supabase.storage.from('pod-docs').upload(storagePath, file, { cacheControl: '3600', upsert: false });
+    const upload = await supabase.storage.from('pod-photos').upload(storagePath, file, { cacheControl: '3600', upsert: false });
     if (upload.error) {
       setBusyAction(null);
       setMessage(`POD upload failed: ${upload.error.message}`);
