@@ -331,7 +331,7 @@ export function FleetActiveJobsPage() {
             <ActionButton
               key="action"
               tone="secondary"
-              onClick={() => router.push(`/admin/jobs?job=${job.id}`)}
+              onClick={() => router.push(`/admin/jobs/${job.id}`)}
             >
               Open
             </ActionButton>,
@@ -617,7 +617,7 @@ export function IncidentsPage() {
             <ActionButton
               key="action"
               tone="secondary"
-              onClick={() => router.push(`/admin/jobs?job=${job.id}`)}
+              onClick={() => router.push(`/admin/jobs/${job.id}`)}
             >
               Investigate
             </ActionButton>,
