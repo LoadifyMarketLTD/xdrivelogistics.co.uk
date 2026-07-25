@@ -126,7 +126,7 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
       return;
     }
     setQuoteJob(job);
-    setQuoteAmount('');
+    setQuoteAmount(job.hasProposedPrice && job.proposedPriceGbp ? String(job.proposedPriceGbp) : '');
     setQuoteMessage('');
   }, [canCommercialBid]);
 
@@ -140,11 +140,9 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
       setError(quoteJob.quoteWarning);
       return;
     }
-    const amount = quoteJob.isFixedPrice
-      ? Number(quoteJob.fixedPriceAmountGbp ?? 0)
-      : Number(quoteAmount.replace(',', '.'));
+    const amount = Number(quoteAmount.replace(',', '.'));
     if (!Number.isFinite(amount) || amount <= 0) {
-      setError(quoteJob.isFixedPrice ? 'This fixed-price load cannot be quoted right now.' : 'Enter a valid quote amount.');
+      setError('Enter a valid quote amount.');
       return;
     }
     setSubmitting(true);
@@ -178,11 +176,10 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {quoteJob ? <View style={styles.quotePanel}>
       <Text style={styles.quoteTitle}>{quoteJob.reference}: {quoteJob.pickupLocation} to {quoteJob.deliveryLocation}</Text>
-      {quoteJob.isFixedPrice ? (
-        <Text style={styles.fixedPriceLabel}>Fixed price: £{Number(quoteJob.fixedPriceAmountGbp ?? 0).toFixed(2)}</Text>
-      ) : (
-        <TextInput value={quoteAmount} onChangeText={setQuoteAmount} keyboardType="decimal-pad" placeholder="Quote amount (GBP)" placeholderTextColor="#6b7280" style={styles.input} />
-      )}
+      {quoteJob.hasProposedPrice && quoteJob.proposedPriceGbp ? (
+        <Text style={styles.proposedPriceHint}>Proposed price: £{Number(quoteJob.proposedPriceGbp).toFixed(2)} — you may accept this or enter a different amount below.</Text>
+      ) : null}
+      <TextInput value={quoteAmount} onChangeText={setQuoteAmount} keyboardType="decimal-pad" placeholder="Quote amount (GBP)" placeholderTextColor="#6b7280" style={styles.input} />
       <TextInput value={quoteMessage} onChangeText={setQuoteMessage} placeholder="Message to customer (optional)" placeholderTextColor="#6b7280" style={[styles.input, styles.messageInput]} multiline />
       <View style={styles.quoteActions}>
         <TouchableOpacity style={styles.cancelButton} onPress={() => setQuoteJob(null)} disabled={submitting}><Text style={styles.cancelText}>CANCEL</Text></TouchableOpacity>
@@ -211,7 +208,7 @@ const styles = StyleSheet.create({
   quoteTitle: { color: '#f8fafc', fontSize: 14, fontWeight: '800' },
   input: { minHeight: 48, color: '#f8fafc', backgroundColor: '#111827', borderColor: '#1f2937', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12 },
   messageInput: { minHeight: 76, paddingTop: 12, textAlignVertical: 'top' },
-  fixedPriceLabel: { color: '#f8fafc', fontWeight: '800', fontSize: 16 },
+  proposedPriceHint: { color: '#fbbf24', fontWeight: '700', fontSize: 13 },
   quoteActions: { flexDirection: 'row', gap: 10 },
   cancelButton: { flex: 1, minHeight: 46, borderColor: '#334155', borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   cancelText: { color: '#cbd5e1', fontWeight: '900' },

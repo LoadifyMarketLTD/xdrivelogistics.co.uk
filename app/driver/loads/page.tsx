@@ -481,9 +481,12 @@ export default function AvailableLoadsPage() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {load.budget_amount != null && (
-                        <span style={{ fontSize: '1.1rem', fontWeight: 800, color: load.is_fixed_price ? '#15803d' : '#0f172a' }}>
-                          Â£{load.budget_amount.toFixed(2)}
-                          {!load.is_fixed_price && <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#64748b' }}> budget</span>}
+                        <span style={{ fontSize: '1.1rem', fontWeight: 800, color: load.is_fixed_price ? '#854d0e' : '#0f172a' }}>
+                          £{load.budget_amount.toFixed(2)}
+                          {load.is_fixed_price
+                            ? <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#854d0e' }}> proposed</span>
+                            : <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#64748b' }}> budget</span>
+                          }
                         </span>
                       )}
                       {load.myBidStatus && (

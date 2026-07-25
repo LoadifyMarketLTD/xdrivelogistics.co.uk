@@ -173,7 +173,7 @@ export default function SearchLoadsPage() {
 
           <KpiGrid>
             <KpiCard label="Matching loads" value={displayedLoads.length} tone="blue" />
-            <KpiCard label="Fixed-price" value={displayedLoads.filter((load) => load.is_fixed_price).length} tone="green" />
+            <KpiCard label="Proposed price" value={displayedLoads.filter((load) => load.is_fixed_price).length} tone="green" />
             <KpiCard label="Quote required" value={displayedLoads.filter((load) => !load.is_fixed_price).length} tone="orange" />
             <KpiCard label="Search state" value={<span style={{ fontSize: '0.95rem' }}>{appliedFilters ? 'Applied' : 'Ready'}</span>} tone="navy" />
           </KpiGrid>
@@ -210,7 +210,7 @@ export default function SearchLoadsPage() {
                   <div key="vehicle"><span style={{ display: 'block' }}>{load.requested_vehicle_label ?? VEHICLE_LABELS[load.vehicle_type ?? ''] ?? load.vehicle_type ?? 'Not specified'}</span><span style={{ color: '#64748b' }}>{load.requested_cargo_label ?? load.cargo_type?.replaceAll('_', ' ') ?? 'Freight not specified'}</span></div>,
                   summaryText,
                   money(load.budget_amount, load.currency || 'GBP'),
-                  <StatusBadge key="status" value={load.is_fixed_price ? 'fixed price' : 'quote required'} tone={load.is_fixed_price ? 'green' : 'orange'} />,
+                  <StatusBadge key="status" value={load.is_fixed_price ? 'proposed price' : 'quote required'} tone={load.is_fixed_price ? 'green' : 'orange'} />,
                   <ActionButton key="open" tone="primary" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open / quote</ActionButton>,
                 ];
               })}

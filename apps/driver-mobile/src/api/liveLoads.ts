@@ -18,8 +18,8 @@ type ApiLoad = {
   destinationPriority?: boolean;
   distanceFromCurrentDeliveryMiles?: number | null;
   quoteWarning?: string | null;
-  isFixedPrice?: boolean;
-  fixedPriceAmountGbp?: number | null;
+  hasProposedPrice?: boolean;
+  proposedPriceGbp?: number | null;
 };
 
 export type LiveLoadsResponse = {
@@ -55,8 +55,8 @@ export type LiveLoad = {
   directDeliveryRequired: boolean;
   destinationPriority: boolean;
   distanceFromCurrentDeliveryMiles?: number;
-  isFixedPrice: boolean;
-  fixedPriceAmountGbp?: number;
+  hasProposedPrice: boolean;
+  proposedPriceGbp?: number;
 };
 
 function money(amount: number | null, currency = 'GBP') {
@@ -87,8 +87,8 @@ function mapLiveLoad(load: ApiLoad): LiveLoad {
     directDeliveryRequired: load.directDeliveryRequired === true,
     destinationPriority: load.destinationPriority === true,
     distanceFromCurrentDeliveryMiles: load.distanceFromCurrentDeliveryMiles ?? undefined,
-    isFixedPrice: load.isFixedPrice === true,
-    fixedPriceAmountGbp: typeof load.fixedPriceAmountGbp === 'number' ? load.fixedPriceAmountGbp : undefined,
+    hasProposedPrice: load.hasProposedPrice === true,
+    proposedPriceGbp: typeof load.proposedPriceGbp === 'number' ? load.proposedPriceGbp : undefined,
   };
 }
 
