@@ -1,110 +1,72 @@
 'use client';
 
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
-import { StatusChip, formatDate } from '@/app/super-admin/_components/superAdminFormatters';
+import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
 
 type Row = {
   id: string;
   entity_type: string;
-  entity_name: string;
-  company_name: string;
+  entity_name: string | null;
+  company_name: string | null;
   doc_type: string;
   status: string;
   expiry_date: string | null;
-  days_until_expiry: number;
+  issued_date: string | null;
   is_expired: boolean;
-  expires_soon: boolean;
+  created_at: string;
 };
-
-function ExpiryBadge({ row }: { row: Row }) {
-  if (row.is_expired)
-    return <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.75rem' }}>EXPIRED</span>;
-  if (row.expires_soon)
-    return (
-      <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: '0.75rem' }}>
-        {row.days_until_expiry}d
-      </span>
-    );
-  return (
-    <span style={{ color: '#22c55e', fontWeight: 700, fontSize: '0.75rem' }}>
-      {row.days_until_expiry}d
-    </span>
-  );
-}
 
 export default function Page() {
   return (
     <SuperAdminLiveTablePage<Row>
-      icon="📄"
-      title="Company Compliance Status"
+      icon="📋"
+      title="Company Compliance"
       sectionLabel="Companies"
-      description="Compliance and document expiry monitoring across all companies — insurance, operator licences and vehicle certificates."
-      endpoint="/api/super-admin/compliance?section=expiries&limit=250"
-      rowsField="rows"
+      description="Compliance document status across all companies — driver and vehicle documents, expiry tracking."
+      endpoint="/api/super-admin/compliance?section=documents&limit=250"
       summaryField="summary"
-      emptyMessage="No expiring or expired compliance documents found."
+      emptyMessage="No compliance documents found."
       columns={[
         {
-          key: 'company_name',
+          key: 'company',
           label: 'Company',
-          render: (row) => <strong style={{ color: '#f1f5f9' }}>{row.company_name}</strong>,
+          render: (row) => <span style={{ fontSize: '0.78rem' }}>{row.company_name ?? '—'}</span>,
         },
         {
-          key: 'entity_type',
+          key: 'entity',
           label: 'Entity',
           render: (row) => (
-            <span style={{ color: '#94a3b8', fontSize: '0.78rem', textTransform: 'capitalize' }}>
-              {row.entity_type}
+            <span style={{ fontSize: '0.75rem' }}>
+              {row.entity_name ?? '—'}
+              <span style={{ marginLeft: '0.3rem', fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase' }}>({row.entity_type})</span>
             </span>
           ),
-        },
-        {
-          key: 'entity_name',
-          label: 'Driver / Vehicle',
-          render: (row) => <span style={{ color: '#cbd5e1' }}>{row.entity_name}</span>,
         },
         {
           key: 'doc_type',
-          label: 'Document type',
-          render: (row) => (
-            <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>
-              {row.doc_type.replace(/_/g, ' ')}
-            </span>
-          ),
+          label: 'Document',
+          render: (row) => <span style={{ fontSize: '0.75rem', textTransform: 'capitalize' }}>{row.doc_type.replace(/_/g, ' ')}</span>,
         },
         {
           key: 'status',
-          label: 'Doc status',
-          render: (row) => <StatusChip value={row.status} />,
+          label: 'Status',
+          render: (row) => <StatusChip value={row.is_expired ? 'expired' : row.status} />,
         },
         {
           key: 'expiry_date',
-          label: 'Expiry date',
+          label: 'Expiry',
           render: (row) => (
-            <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>
-              {row.expiry_date ? formatDate(row.expiry_date) : '—'}
+            <span style={{ fontSize: '0.75rem', color: row.is_expired ? '#ef4444' : '#94a3b8' }}>
+              {row.expiry_date ? formatDateTime(row.expiry_date) : '—'}
             </span>
           ),
         },
         {
-          key: 'days',
-          label: 'Days remaining',
-          render: (row) => <ExpiryBadge row={row} />,
-        },
-        {
-          key: 'action',
-          label: 'Action',
-          render: (_row) => (
-            <a
-              href="/super-admin/compliance/expiry-tracking"
-              style={{ color: '#f59e0b', fontWeight: 700, fontSize: '0.75rem', textDecoration: 'none' }}
-            >
-              View expiry tracking →
-            </a>
-          ),
+          key: 'created_at',
+          label: 'Uploaded',
+          render: (row) => <span style={{ fontSize: '0.75rem' }}>{formatDateTime(row.created_at)}</span>,
         },
       ]}
     />
   );
 }
-

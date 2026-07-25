@@ -168,6 +168,8 @@ export default function InvoiceDetailPage() {
   const [paymentHistory, setPaymentHistory] = useState<InvoicePaymentHistoryItem[]>([]);
   const [recordingPayment, setRecordingPayment] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [sendingInvoice, setSendingInvoice] = useState(false);
+  const [lifecycleAction, setLifecycleAction] = useState<'void' | 'credit_note' | null>(null);
   const [linkedJobId, setLinkedJobId] = useState<string | null>(prefillJobId);
   const [paymentInput, setPaymentInput] = useState({
     amount: '',
@@ -514,6 +516,70 @@ export default function InvoiceDetailPage() {
     setMarkingPaid(false);
   };
 
+  const handleSendInvoiceEmail = async () => {
+    if (isNew || !invoiceId || sendingInvoice) return;
+    setSendingInvoice(true);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) {
+      setSaveMessage('A live Supabase session is required to send invoices safely.');
+      setSendingInvoice(false);
+      return;
+    }
+
+    const response = await fetch(`/api/driver/finance/invoices/${invoiceId}/submit`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+      },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Failed to send invoice.' })) as { error?: string };
+      setSaveMessage(`Error sending invoice: ${payload.error ?? 'Failed to send invoice.'}`);
+      setSendingInvoice(false);
+      return;
+    }
+
+    await loadInvoice();
+    setSaveMessage('Invoice sent by email successfully.');
+    setSendingInvoice(false);
+  };
+
+  const handleInvoiceLifecycle = async (action: 'void' | 'credit_note') => {
+    if (isNew || !invoiceId || lifecycleAction) return;
+    setLifecycleAction(action);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) {
+      setSaveMessage('A live Supabase session is required to update invoice lifecycle safely.');
+      setLifecycleAction(null);
+      return;
+    }
+
+    const response = await fetch(`/api/admin/invoices/${invoiceId}/lifecycle`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action,
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Failed to update invoice lifecycle.' })) as { error?: string };
+      setSaveMessage(`Error updating lifecycle: ${payload.error ?? 'Failed to update invoice lifecycle.'}`);
+      setLifecycleAction(null);
+      return;
+    }
+
+    await loadInvoice();
+    setSaveMessage(action === 'void' ? 'Invoice voided successfully.' : 'Credit note request opened successfully.');
+    setLifecycleAction(null);
+  };
+
   const handleWhatsAppShare = () => {
     const paymentLines = [];
 
@@ -721,6 +787,63 @@ export default function InvoiceDetailPage() {
                       }}
                     >
                       {markingPaid ? '⏳ Updating…' : '✅ Settle Outstanding Balance'}
+                    </button>
+                  )}
+                  {!isNew && formData.status === 'Draft' && (
+                    <button
+                      onClick={() => void handleSendInvoiceEmail()}
+                      disabled={sendingInvoice}
+                      style={{
+                        padding: '0.75rem 1.25rem',
+                        backgroundColor: '#1d4ed8',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '0.95rem',
+                        fontWeight: '600',
+                        cursor: sendingInvoice ? 'not-allowed' : 'pointer',
+                        opacity: sendingInvoice ? 0.7 : 1,
+                      }}
+                    >
+                      {sendingInvoice ? '⏳ Sending…' : '📧 Send Invoice'}
+                    </button>
+                  )}
+                  {!isNew && formData.status !== 'Paid' && formData.status !== 'Cancelled' && (
+                    <button
+                      onClick={() => void handleInvoiceLifecycle('void')}
+                      disabled={lifecycleAction !== null}
+                      style={{
+                        padding: '0.75rem 1.25rem',
+                        backgroundColor: '#b91c1c',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '0.95rem',
+                        fontWeight: '600',
+                        cursor: lifecycleAction ? 'not-allowed' : 'pointer',
+                        opacity: lifecycleAction ? 0.7 : 1,
+                      }}
+                    >
+                      {lifecycleAction === 'void' ? '⏳ Voiding…' : '🛑 Void Invoice'}
+                    </button>
+                  )}
+                  {!isNew && formData.status !== 'Cancelled' && (
+                    <button
+                      onClick={() => void handleInvoiceLifecycle('credit_note')}
+                      disabled={lifecycleAction !== null}
+                      style={{
+                        padding: '0.75rem 1.25rem',
+                        backgroundColor: '#7c3aed',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '0.95rem',
+                        fontWeight: '600',
+                        cursor: lifecycleAction ? 'not-allowed' : 'pointer',
+                        opacity: lifecycleAction ? 0.7 : 1,
+                      }}
+                    >
+                      {lifecycleAction === 'credit_note' ? '⏳ Opening…' : '🧾 Credit Note'}
                     </button>
                   )}
                   <button

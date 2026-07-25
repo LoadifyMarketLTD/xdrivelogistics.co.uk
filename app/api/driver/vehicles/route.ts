@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -9,189 +10,179 @@ import {
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status });
 
-async function resolveDriver(request: NextRequest): Promise<{
-  userId: string;
-  driverId: string;
-  companyId: string | null;
-} | null> {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
+const VEHICLE_TYPES = [
+  'bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton',
+  'truck_7_5t', 'truck_18t', 'artic', 'swb_van', 'mwb_van', 'lwb_van',
+  'xlwb_van', 'luton_tail_lift', 'curtainside_van', 'truck_3_5t', 'truck_5t',
+  'truck_12t', 'truck_26t', 'artic_44t_curtainsider', 'artic_44t_box_trailer',
+  'artic_44t_flatbed', 'artic_44t_refrigerated', 'artic_44t_double_deck',
+  'hiab', 'moffett', 'adr_vehicle', 'refrigerated_vehicle',
+  'temperature_controlled_vehicle',
+] as const;
+
+const vehicleSchema = z.object({
+  type: z.enum(VEHICLE_TYPES),
+  reg_plate: z.string().min(1).max(20).optional(),
+  make: z.string().min(1).max(100).optional(),
+  model: z.string().min(1).max(100).optional(),
+  payload_kg: z.number().int().min(1).max(100000).optional(),
+  pallets_capacity: z.number().int().min(1).max(500).optional(),
+  has_tail_lift: z.boolean().optional(),
+  has_straps: z.boolean().optional(),
+  has_blankets: z.boolean().optional(),
+});
+
+const patchSchema = vehicleSchema.partial().extend({
+  id: z.string().uuid(),
+});
+
+const deactivateSchema = z.object({
+  vehicleId: z.string().uuid(),
+  action: z.literal('deactivate'),
+});
+
+const resolveDriver = async (request: NextRequest) => {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return { error: json(503, { error: 'Service not configured.' }) };
+  }
   const token = getBearerToken(request);
-  if (!token) return null;
+  if (!token) return { error: json(401, { error: 'Unauthorized — missing bearer token.' }) };
+
   const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const {
-    data: { user },
-    error: authErr,
-  } = await validatorClient.auth.getUser(token);
-  if (authErr || !user) return null;
+  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
+  if (authError || !authData.user) {
+    return { error: json(401, { error: 'Unauthorized — invalid or expired token.' }) };
+  }
 
   const { data: driver } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .limit(1)
+    .select('id, company_id, status')
+    .eq('user_id', authData.user.id)
     .maybeSingle();
 
-  if (!driver?.id) return null;
-  return { userId: user.id, driverId: driver.id as string, companyId: driver.company_id as string | null };
-}
-
-// GET /api/driver/vehicles — list vehicles assigned to this driver
-export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return json(503, { error: 'Service not configured.' });
+  if (!driver || driver.status !== 'active') {
+    return { error: json(403, { error: 'Active driver profile required.' }) };
   }
 
-  const driver = await resolveDriver(request);
-  if (!driver) return json(403, { error: 'Forbidden — active driver record required.' });
+  return { user: authData.user, driverId: driver.id, companyId: driver.company_id as string };
+};
 
-  const { data, error } = await supabaseAdmin
+export async function GET(request: NextRequest) {
+  const resolved = await resolveDriver(request);
+  if ('error' in resolved) return resolved.error;
+  const { driverId, companyId } = resolved;
+  const admin = supabaseAdmin!;
+
+  const { data: vehicles, error } = await admin
     .from('vehicles')
-    .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets, company_id, created_at')
-    .eq('assigned_driver_id', driver.driverId)
-    .order('created_at', { ascending: false });
+    .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets, assigned_driver_id, created_at')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false })
+    .limit(100);
 
   if (error) return json(500, { error: error.message });
 
-  return json(200, { vehicles: data ?? [], driverId: driver.driverId });
+  return json(200, {
+    vehicles: vehicles ?? [],
+    assignedVehicleId: (vehicles ?? []).find((v) => v.assigned_driver_id === driverId)?.id ?? null,
+  });
 }
 
-// POST /api/driver/vehicles — register a new vehicle for this driver
 export async function POST(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return json(503, { error: 'Service not configured.' });
-  }
+  const resolved = await resolveDriver(request);
+  if ('error' in resolved) return resolved.error;
+  const { companyId } = resolved;
+  const admin = supabaseAdmin!;
 
-  const driver = await resolveDriver(request);
-  if (!driver) return json(403, { error: 'Forbidden — active driver record required.' });
-
-  if (!driver.companyId) {
-    return json(400, { error: 'Driver must be linked to a company before registering a vehicle.' });
-  }
-
-  let body: {
-    type?: string;
-    reg_plate?: string;
-    make?: string;
-    model?: string;
-    payload_kg?: number | null;
-    pallets_capacity?: number | null;
-    has_tail_lift?: boolean;
-    has_straps?: boolean;
-    has_blankets?: boolean;
-  };
+  let body: unknown;
   try {
-    body = (await request.json()) as typeof body;
+    body = await request.json();
   } catch {
     return json(400, { error: 'Invalid JSON body.' });
   }
 
-  if (!body.type?.trim()) return json(400, { error: 'Vehicle type is required.' });
-  if (!body.reg_plate?.trim()) return json(400, { error: 'Registration plate is required.' });
+  const parsed = vehicleSchema.safeParse(body);
+  if (!parsed.success) {
+    return json(400, { error: 'Validation failed.', details: parsed.error.flatten() });
+  }
 
-  const { data: vehicle, error: insertErr } = await supabaseAdmin
+  const { data: inserted, error: insertError } = await admin
     .from('vehicles')
-    .insert({
-      company_id: driver.companyId,
-      assigned_driver_id: driver.driverId,
-      type: body.type.trim(),
-      reg_plate: body.reg_plate.trim().toUpperCase(),
-      make: body.make?.trim() ?? null,
-      model: body.model?.trim() ?? null,
-      payload_kg: body.payload_kg ?? null,
-      pallets_capacity: body.pallets_capacity ?? null,
-      has_tail_lift: body.has_tail_lift ?? false,
-      has_straps: body.has_straps ?? false,
-      has_blankets: body.has_blankets ?? false,
-    })
-    .select('id, type, reg_plate, make, model, payload_kg, has_tail_lift, created_at')
-    .single();
+    .insert({ ...parsed.data, company_id: companyId })
+    .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets')
+    .maybeSingle();
 
-  if (insertErr) return json(500, { error: insertErr.message });
+  if (insertError) return json(500, { error: insertError.message });
 
-  return json(201, { vehicle, success: true });
+  return json(201, { vehicle: inserted });
 }
 
-// PATCH /api/driver/vehicles — update or deactivate a vehicle
 export async function PATCH(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return json(503, { error: 'Service not configured.' });
-  }
+  const resolved = await resolveDriver(request);
+  if ('error' in resolved) return resolved.error;
+  const { companyId, driverId } = resolved;
+  const admin = supabaseAdmin!;
 
-  const driver = await resolveDriver(request);
-  if (!driver) return json(403, { error: 'Forbidden — active driver record required.' });
-
-  let body: {
-    vehicleId?: string;
-    action?: string;
-    type?: string;
-    reg_plate?: string;
-    make?: string;
-    model?: string;
-    payload_kg?: number | null;
-    pallets_capacity?: number | null;
-    has_tail_lift?: boolean;
-    has_straps?: boolean;
-    has_blankets?: boolean;
-  };
+  let body: unknown;
   try {
-    body = (await request.json()) as typeof body;
+    body = await request.json();
   } catch {
     return json(400, { error: 'Invalid JSON body.' });
   }
 
-  const { vehicleId, action } = body;
-  if (!vehicleId) return json(400, { error: 'vehicleId is required.' });
+  const deactivate = deactivateSchema.safeParse(body);
+  if (deactivate.success) {
+    const { data: vehicle } = await admin
+      .from('vehicles')
+      .select('id, company_id, assigned_driver_id, reg_plate')
+      .eq('id', deactivate.data.vehicleId)
+      .maybeSingle();
 
-  // Confirm vehicle is assigned to this driver
-  const { data: vehicle } = await supabaseAdmin
+    if (!vehicle) return json(404, { error: 'Vehicle not found.' });
+    if (vehicle.company_id !== companyId) {
+      return json(403, { error: 'Access denied — vehicle does not belong to your company.' });
+    }
+    if (vehicle.assigned_driver_id !== driverId) {
+      return json(403, { error: 'Forbidden — this vehicle is not assigned to you.' });
+    }
+
+    const { data: updated, error: updateError } = await admin
+      .from('vehicles')
+      .update({ assigned_driver_id: null })
+      .eq('id', deactivate.data.vehicleId)
+      .select('id, reg_plate, assigned_driver_id')
+      .maybeSingle();
+
+    if (updateError) return json(500, { error: updateError.message });
+    return json(200, { vehicle: updated, action: 'deactivated' });
+  }
+
+  const parsed = patchSchema.safeParse(body);
+  if (!parsed.success) {
+    return json(400, { error: 'Validation failed.', details: parsed.error.flatten() });
+  }
+
+  const { id: vehicleId, ...updateFields } = parsed.data;
+
+  const { data: vehicle } = await admin
     .from('vehicles')
-    .select('id, assigned_driver_id')
+    .select('id, company_id')
     .eq('id', vehicleId)
     .maybeSingle();
 
   if (!vehicle) return json(404, { error: 'Vehicle not found.' });
-  if (vehicle.assigned_driver_id !== driver.driverId) {
-    return json(403, { error: 'Forbidden — this vehicle is not assigned to you.' });
+  if (vehicle.company_id !== companyId) {
+    return json(403, { error: 'Access denied — vehicle does not belong to your company.' });
   }
 
-  if (action === 'deactivate') {
-    // Unassign vehicle from driver (soft deactivation — remove assignment)
-    const { data: updated, error: updateErr } = await supabaseAdmin
-      .from('vehicles')
-      .update({ assigned_driver_id: null })
-      .eq('id', vehicleId)
-      .select('id, reg_plate')
-      .single();
-
-    if (updateErr) return json(500, { error: updateErr.message });
-    return json(200, { vehicle: updated, action: 'deactivated', success: true });
-  }
-
-  // Default: update vehicle fields
-  const updatePayload: Record<string, unknown> = {};
-  if (body.type?.trim()) updatePayload.type = body.type.trim();
-  if (body.reg_plate?.trim()) updatePayload.reg_plate = body.reg_plate.trim().toUpperCase();
-  if ('make' in body) updatePayload.make = body.make?.trim() ?? null;
-  if ('model' in body) updatePayload.model = body.model?.trim() ?? null;
-  if ('payload_kg' in body) updatePayload.payload_kg = body.payload_kg ?? null;
-  if ('pallets_capacity' in body) updatePayload.pallets_capacity = body.pallets_capacity ?? null;
-  if ('has_tail_lift' in body) updatePayload.has_tail_lift = body.has_tail_lift;
-  if ('has_straps' in body) updatePayload.has_straps = body.has_straps;
-  if ('has_blankets' in body) updatePayload.has_blankets = body.has_blankets;
-
-  if (Object.keys(updatePayload).length === 0) {
-    return json(400, { error: 'No updatable fields provided.' });
-  }
-
-  const { data: updated, error: updateErr } = await supabaseAdmin
+  const { data: updated, error: updateError } = await admin
     .from('vehicles')
-    .update(updatePayload)
+    .update(updateFields)
     .eq('id', vehicleId)
-    .select('id, type, reg_plate, make, model, payload_kg, has_tail_lift')
-    .single();
+    .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets')
+    .maybeSingle();
 
-  if (updateErr) return json(500, { error: updateErr.message });
+  if (updateError) return json(500, { error: updateError.message });
 
-  return json(200, { vehicle: updated, action: 'updated', success: true });
+  return json(200, { vehicle: updated });
 }
