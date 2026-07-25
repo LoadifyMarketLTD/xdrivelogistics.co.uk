@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { isCanonicalPodPath } from '@/lib/podStorage';
 import {
   appendStatusHistory,
   hasPod,
@@ -134,24 +135,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }
 
-const persistentPodPath = (
-  jobId: string,
-  kind: 'photos' | 'documents',
-  value: unknown
-): value is string => {
-  if (typeof value !== 'string') return false;
-  const path = value.trim();
-  return (
-    path.length > 0 &&
-    path.length <= 1024 &&
-    path.startsWith(`${jobId}/${kind}/`) &&
-    !path.includes('://') &&
-    !path.includes('..') &&
-    !path.includes('\\') &&
-    !path.startsWith('/')
-  );
-};
-
 const storageObjectExists = async (path: string) => {
   const segments = path.split('/');
   const fileName = segments.pop();
@@ -201,8 +184,9 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     return respond(413, { error: 'Recipient signature is too large.' });
   }
 
-  const photoPaths = rawPhotoUris.filter((value) => persistentPodPath(jobId, 'photos', value));
-  const documentPaths = rawDocumentUris.filter((value) => persistentPodPath(jobId, 'documents', value));
+  const expectedPath = { companyId: job.company_id, jobId, uploaderUserId: userId };
+  const photoPaths = rawPhotoUris.filter((value) => isCanonicalPodPath(value, expectedPath));
+  const documentPaths = rawDocumentUris.filter((value) => isCanonicalPodPath(value, expectedPath));
   if (photoPaths.length !== rawPhotoUris.length || documentPaths.length !== rawDocumentUris.length) {
     return respond(400, { error: 'POD files must be uploaded to XDrive storage before submission.' });
   }

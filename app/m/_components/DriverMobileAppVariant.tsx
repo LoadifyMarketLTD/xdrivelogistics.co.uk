@@ -8,6 +8,7 @@ import { useAuth } from '../../components/AuthContext';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { submitJobNote } from '../../../lib/jobNotesApi';
 import { inspectJobEnvironmentalZones } from '../../../lib/environmentalZone';
+import { buildCanonicalPodPath, POD_BUCKET, sanitizePodFilename } from '../../../lib/podStorage';
 
 type DriverTab = 'today' | 'queue' | 'comms' | 'docs' | 'me';
 type MoreTab = 'profile' | 'vehicle' | 'documents' | 'messages' | 'security' | 'settings' | 'help' | 'privacy' | 'terms' | 'account' | 'support';
@@ -516,9 +517,18 @@ export default function DriverMobileAppVariant({
     }
 
     setBusyAction('pod-upload');
-    const safeName = selectedPodFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const storagePath = `${job.id}/${Date.now()}-${safeName}`;
-    const upload = await supabase.storage.from('pod-photos').upload(storagePath, selectedPodFile, { cacheControl: '3600', upsert: false });
+    if (!companyId || !user?.id) {
+      setBusyAction(null);
+      setFlashMessage('POD upload failed: company or user context is missing.');
+      return false;
+    }
+    const storagePath = buildCanonicalPodPath({
+      companyId,
+      jobId: job.id,
+      uploaderUserId: user.id,
+      filename: `${Date.now()}-${sanitizePodFilename(selectedPodFile.name, 'pod.jpg')}`,
+    });
+    const upload = await supabase.storage.from(POD_BUCKET).upload(storagePath, selectedPodFile, { cacheControl: '3600', upsert: false });
 
     if (upload.error) {
       setBusyAction(null);
@@ -564,7 +574,7 @@ export default function DriverMobileAppVariant({
     setSelectedPodFile(null);
     await loadData();
     return true;
-  }, [driverId, loadData, podNotes, podRecipientName, podSignature, selectedPodFile, user?.id]);
+  }, [companyId, driverId, loadData, podNotes, podRecipientName, podSignature, selectedPodFile, user?.id]);
 
   const updateJobStatus = useCallback(async (job: Job, nextStatus: string) => {
     if (!driverId || !isSupabaseConfigured) {

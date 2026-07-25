@@ -5,6 +5,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
+import { isCanonicalPodPath, POD_BUCKET } from '@/lib/podStorage';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status });
@@ -58,6 +59,9 @@ export async function GET(request: NextRequest) {
   if (!permittedPaths.has(objectPath)) {
     return json(404, { error: 'POD file is not linked to this job.' });
   }
+  if (!isCanonicalPodPath(objectPath, { companyId: job.company_id, jobId })) {
+    return json(400, { error: 'POD path is invalid.' });
+  }
 
   const companyIds = [job.company_id, job.awarded_carrier_company_id].filter(
     (value): value is string => typeof value === 'string' && value.length > 0
@@ -84,7 +88,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { data: signed, error: signedUrlError } = await supabaseAdmin.storage
-    .from('pod-photos')
+    .from(POD_BUCKET)
     .createSignedUrl(objectPath, 120);
 
   if (signedUrlError || !signed?.signedUrl) {

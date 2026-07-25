@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import MobileWebDeprecationNotice from './MobileWebDeprecationNotice';
+import { buildCanonicalPodPath, POD_BUCKET, sanitizePodFilename } from '../../../lib/podStorage';
 import {
   MobileCard,
   MobileKpiGrid,
@@ -251,9 +252,18 @@ export default function DriverMobileApp() {
   const uploadPod = async (file: File | null) => {
     if (!file || !activeJob || !driverId || !isSupabaseConfigured) return;
     setBusyAction('pod');
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const storagePath = `${activeJob.id}/${Date.now()}-${safeName}`;
-    const upload = await supabase.storage.from('pod-photos').upload(storagePath, file, { cacheControl: '3600', upsert: false });
+    if (!companyId || !user?.id) {
+      setBusyAction(null);
+      setMessage('POD upload failed: company or user context is missing.');
+      return;
+    }
+    const storagePath = buildCanonicalPodPath({
+      companyId,
+      jobId: activeJob.id,
+      uploaderUserId: user.id,
+      filename: `${Date.now()}-${sanitizePodFilename(file.name, 'pod.jpg')}`,
+    });
+    const upload = await supabase.storage.from(POD_BUCKET).upload(storagePath, file, { cacheControl: '3600', upsert: false });
     if (upload.error) {
       setBusyAction(null);
       setMessage(`POD upload failed: ${upload.error.message}`);

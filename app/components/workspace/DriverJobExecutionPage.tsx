@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DbJob } from '../../../lib/types/database';
+import { buildCanonicalPodPath, POD_BUCKET } from '../../../lib/podStorage';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
 import {
@@ -92,8 +93,14 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     if (!file.type.startsWith('image/')) throw new Error('Only image files can be uploaded here.');
     if (file.size > 15 * 1024 * 1024) throw new Error('Images must be 15 MB or smaller.');
     const extension = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'jpg';
-    const path = `${companyId}/${jobId}/${kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
-    const { error: uploadError } = await supabase.storage.from('pod-photos').upload(path, file, { upsert: false, contentType: file.type });
+    if (!user?.id) throw new Error('User context is missing.');
+    const path = buildCanonicalPodPath({
+      companyId,
+      jobId,
+      uploaderUserId: user.id,
+      filename: `${kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`,
+    });
+    const { error: uploadError } = await supabase.storage.from(POD_BUCKET).upload(path, file, { upsert: false, contentType: file.type });
     if (uploadError) throw new Error(uploadError.message);
     return path;
   };
