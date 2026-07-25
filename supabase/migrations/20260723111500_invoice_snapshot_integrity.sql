@@ -108,7 +108,7 @@ SET
   delivery_datetime = COALESCE(invoice.delivery_datetime, job.delivery_datetime),
   service_description = COALESCE(
     NULLIF(btrim(invoice.service_description), ''),
-    NULLIF(btrim(job.load_details), ''),
+    NULLIF(btrim(job.load_details::text), ''),
     'Transport service'
   ),
   job_ref = COALESCE(
