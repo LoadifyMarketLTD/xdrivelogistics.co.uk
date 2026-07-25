@@ -119,11 +119,13 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
     ? 'Your driver account is suspended. Contact support to restore bidding access.'
     : appAccess === false
       ? 'Your compliance documents are missing or expired. Update them before submitting commercial bids.'
-      : driverType === 'company_driver' && !canCommercialBid
-        ? 'Your account type does not permit commercial bidding'
-        : !canCommercialBid
-          ? 'Commercial bidding is not enabled for your account.'
-          : null;
+      : driverType === 'company_driver' && !companyId
+        ? 'Company drivers must be linked to an active company workspace before bidding.'
+        : driverType === 'company_driver' && !canCommercialBid
+          ? 'Your account type does not permit commercial bidding.'
+          : !canCommercialBid
+            ? 'Commercial bidding is not enabled for your account.'
+            : null;
 
   const fetchLoad = useCallback(async () => {
     if (!isSupabaseConfigured) {
