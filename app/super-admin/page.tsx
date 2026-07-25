@@ -134,14 +134,14 @@ function OwnerConsole() {
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
 
       <KpiGrid>
-        <KpiCard label="Total companies" value={loading ? '…' : stats?.companiesTotal ?? 0} tone="navy" />
-        <KpiCard label="Active companies" value={loading ? '…' : stats?.companiesActive ?? 0} tone="green" />
+        <KpiCard label="Total companies" value={loading ? '…' : stats?.companiesTotal ?? 0} tone="navy" onClick={() => router.push('/super-admin/companies')} />
+        <KpiCard label="Active companies" value={loading ? '…' : stats?.companiesActive ?? 0} tone="green" onClick={() => router.push('/super-admin/companies/active')} />
         <KpiCard label="Pending approval" value={loading ? '…' : stats?.companiesPending ?? 0} tone="orange" onClick={() => router.push('/super-admin/companies/approvals')} />
-        <KpiCard label="Open jobs" value={loading ? '…' : stats?.jobsOpen ?? 0} tone="blue" />
-        <KpiCard label="Delivered jobs" value={loading ? '…' : stats?.jobsDelivered ?? 0} tone="green" />
-        <KpiCard label="Drivers" value={loading ? '…' : stats?.driversTotal ?? 0} tone="purple" />
-        <KpiCard label="Invoices" value={loading ? '…' : stats?.invoicesTotal ?? 0} tone="navy" />
-        <KpiCard label="Unpaid invoices" value={loading ? '…' : stats?.invoicesUnpaid ?? 0} tone="red" />
+        <KpiCard label="Open jobs" value={loading ? '…' : stats?.jobsOpen ?? 0} tone="blue" onClick={() => router.push('/super-admin/marketplace')} />
+        <KpiCard label="Delivered jobs" value={loading ? '…' : stats?.jobsDelivered ?? 0} tone="green" onClick={() => router.push('/super-admin/operations/completed-jobs')} />
+        <KpiCard label="Drivers" value={loading ? '…' : stats?.driversTotal ?? 0} tone="purple" onClick={() => router.push('/super-admin/users/drivers')} />
+        <KpiCard label="Invoices" value={loading ? '…' : stats?.invoicesTotal ?? 0} tone="navy" onClick={() => router.push('/super-admin/finance/invoices')} />
+        <KpiCard label="Unpaid invoices" value={loading ? '…' : stats?.invoicesUnpaid ?? 0} tone="red" onClick={() => router.push('/super-admin/finance/invoices')} />
       </KpiGrid>
 
       <Panel title="Platform workspaces" description="Every workspace follows the same navigation, status language and page hierarchy." style={{ marginBottom: '0.9rem' }}>
@@ -188,10 +188,10 @@ function OwnerConsole() {
             <div style={{ display: 'grid', gap: '0.5rem' }}>
               {[
                 ['Approve companies', '/super-admin/companies/approvals'],
-                ['Review onboarding', '/super-admin/onboarding'],
+                ['Review onboarding', '/super-admin/companies/approvals'],
                 ['Review compliance', '/super-admin/compliance/documents'],
-                ['Review disputes', '/super-admin/marketplace/disputes'],
-              ].map(([label, href]) => <button key={href} type="button" onClick={() => router.push(href)} style={rowButton}><span>{label}</span><span>→</span></button>)}
+                ['Review disputes', '/super-admin/operations/disputes'],
+              ].map(([label, href]) => <button key={label} type="button" onClick={() => router.push(href)} style={rowButton}><span>{label}</span><span>→</span></button>)}
             </div>
           </Panel>
         </div>
