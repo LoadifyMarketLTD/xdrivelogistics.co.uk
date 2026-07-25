@@ -213,8 +213,41 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return respond(400, { error: 'Invalid section. Use feature-flags or global.' });
+  if (section === 'roles') {
+    const { data, error } = await supabaseAdmin
+      .from('platform_settings')
+      .select('key, value')
+      .eq('key', 'role_permissions_v1')
+      .maybeSingle();
+    if (error) return respond(500, { error: error.message });
+
+    if (data?.value) {
+      try {
+        const stored = JSON.parse(data.value) as unknown;
+        if (Array.isArray(stored)) {
+          return respond(200, { section, roles: stored });
+        }
+      } catch {
+        // Fall through to defaults
+      }
+    }
+
+    return respond(200, { section, roles: null });
+  }
+
+  return respond(400, { error: 'Invalid section. Use feature-flags, global, or roles.' });
 }
+
+const rolesUpdateSchema = z.object({
+  section: z.literal('roles'),
+  roles: z.array(z.object({
+    role: z.string().min(1),
+    label: z.string().min(1),
+    description: z.string().max(1000),
+    scopes: z.array(z.string().min(1)).min(1),
+    color: z.string().min(1),
+  })).min(1).max(20),
+});
 
 export async function PATCH(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -319,8 +352,25 @@ export async function PATCH(request: NextRequest) {
     return respond(200, { success: true, updated: upsertRows.length });
   }
 
+  const parsedRoles = rolesUpdateSchema.safeParse(body);
+  if (parsedRoles.success) {
+    const { error } = await supabaseAdmin
+      .from('platform_settings')
+      .upsert({
+        key: 'role_permissions_v1',
+        label: 'Role Permissions Matrix',
+        value: JSON.stringify(parsedRoles.data.roles),
+        value_type: 'text',
+        category: 'Platform Identity',
+        updated_by: owner.id,
+      }, { onConflict: 'key' });
+
+    if (error) return respond(500, { error: error.message });
+    return respond(200, { success: true, roles: parsedRoles.data.roles.length });
+  }
+
   return respond(400, {
     error:
-      'Validation failed. Use section=feature-flags with flags[] or section=global with settings[].',
+      'Validation failed. Use section=feature-flags with flags[], section=global with settings[], or section=roles with roles[].',
   });
 }
