@@ -188,10 +188,10 @@ function OwnerConsole() {
             <div style={{ display: 'grid', gap: '0.5rem' }}>
               {[
                 ['Approve companies', '/super-admin/companies/approvals'],
-                ['Review onboarding', '/super-admin/onboarding'],
+                ['Review onboarding', '/super-admin/companies/approvals'],
                 ['Review compliance', '/super-admin/compliance/documents'],
-                ['Review disputes', '/super-admin/marketplace/disputes'],
-              ].map(([label, href]) => <button key={href} type="button" onClick={() => router.push(href)} style={rowButton}><span>{label}</span><span>→</span></button>)}
+                ['Review disputes', '/super-admin/operations/disputes'],
+              ].map(([label, href]) => <button key={label} type="button" onClick={() => router.push(href)} style={rowButton}><span>{label}</span><span>→</span></button>)}
             </div>
           </Panel>
         </div>
