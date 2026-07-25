@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
   const bids = (bidsResult.data ?? []) as AnyRow[];
   const jobIds = [...new Set(bids.map((bid) => String(bid.job_id ?? '')).filter(Boolean))];
   const jobsResult = jobIds.length > 0
-    ? await supabaseAdmin!.from('jobs').select('id,status,assigned_driver_id,pickup_location,pickup_postcode,delivery_location,delivery_postcode,collection_contact_name,collection_contact_phone,delivery_contact_name,delivery_contact_phone,client_name,client_phone,load_details,special_requirements,access_restrictions,budget_amount').in('id', jobIds)
+    ? await supabaseAdmin!.from('jobs').select('id,company_id,status,assigned_driver_id,pickup_location,pickup_postcode,delivery_location,delivery_postcode,collection_contact_name,collection_contact_phone,delivery_contact_name,delivery_contact_phone,client_name,client_phone,load_details,special_requirements,access_restrictions,budget_amount').in('id', jobIds)
     : { data: [], error: null };
   if (jobsResult.error) return NextResponse.json({ error: jobsResult.error.message }, { status: 500 });
   const jobs = (jobsResult.data ?? []) as AnyRow[];
