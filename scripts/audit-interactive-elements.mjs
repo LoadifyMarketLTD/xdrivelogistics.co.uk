@@ -59,11 +59,14 @@ function sectionForRoute(route) {
   return bits[0];
 }
 
+const ASSET_EXT = /\.(svg|ico|png|jpg|jpeg|gif|webp|avif|css|js|mjs|woff|woff2|ttf|eot|map|pdf|xml|txt)$/i;
+
 function extractEntries(filePath, content) {
   const lines = content.split('\n');
   const entries = [];
   const push = (label, target, line, type) => {
     if (!target?.startsWith('/')) return;
+    if (ASSET_EXT.test(target)) return;
     entries.push({
       label: label?.trim() || `${type} ${target}`,
       currentTarget: target.trim(),
