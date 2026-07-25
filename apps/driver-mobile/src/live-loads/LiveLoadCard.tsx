@@ -46,6 +46,11 @@ export function LiveLoadCard({ job, action = 'QUOTE', onOpen, onAction }: { job:
       <View style={styles.field}><Text style={styles.fieldLabel}>JOB ID</Text><Text style={styles.fieldValue} numberOfLines={1}>{job.reference || 'Not provided'}</Text></View>
       <View style={styles.field}><Text style={styles.fieldLabel}>FREIGHT TYPE</Text><Text style={styles.fieldValue} numberOfLines={1}>{job.cargoType || 'Not provided'}</Text></View>
     </View>
+    {job.publicPricePublished && job.price ? (
+      <View style={styles.proposedChip}>
+        <Text style={styles.proposedChipText}>PROPOSED: {job.price}</Text>
+      </View>
+    ) : null}
     <TouchableOpacity style={[styles.action, job.canQuote === false && styles.actionLocked]} onPress={onAction} disabled={job.canQuote === false} accessibilityRole="button">
       <Text style={styles.actionText}>{job.canQuote === false ? 'CHECK ELIGIBILITY' : action.toUpperCase()}</Text>
     </TouchableOpacity>
@@ -78,4 +83,6 @@ const styles = StyleSheet.create({
   action: { width: '100%', minHeight: 52, backgroundColor: '#ffc107', borderRadius: 13, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   actionLocked: { backgroundColor: '#9ca3af' },
   actionText: { color: '#111827', fontSize: 17, fontWeight: '900', letterSpacing: 0.6 },
+  proposedChip: { alignSelf: 'flex-start', backgroundColor: '#14532d', borderColor: '#16a34a', borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
+  proposedChipText: { color: '#4ade80', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
 });

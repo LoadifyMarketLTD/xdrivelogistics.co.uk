@@ -246,6 +246,10 @@ export default function DriverMobileAppVariant({
   const [driverMessages, setDriverMessages] = useState<DriverMessage[]>([]);
   const [alertsFilter, setAlertsFilter] = useState<'all' | 'unread' | 'important'>('all');
   const [quoteStatusFilter, setQuoteStatusFilter] = useState<'open' | 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | 'expired'>('submitted');
+  const [quoteModalJob, setQuoteModalJob] = useState<Job | null>(null);
+  const [quoteModalAmount, setQuoteModalAmount] = useState('');
+  const [quoteModalMessage, setQuoteModalMessage] = useState('');
+  const [quoteModalSubmitting, setQuoteModalSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const podInputRef = useRef<HTMLInputElement>(null);
 
@@ -514,42 +518,45 @@ export default function DriverMobileAppVariant({
     setFlashMessage('Settings saved.');
   }, [emailNotifications, notifyTracked, user?.id]);
 
-  const submitOffer = useCallback(async (load: Job) => {
-    if (!isSupabaseConfigured || !user?.id || !driverId || !companyId) {
-      setFlashMessage('Offer submit unavailable for this account context.');
-      return;
-    }
-
+  const openQuoteModal = useCallback((load: Job) => {
     const existing = driverBids.find((bid) => bid.job_id === load.id && bid.status === 'submitted');
     if (existing) {
-      setFlashMessage('Offer already submitted for this job.');
+      setFlashMessage('You already have an active quote for this job.');
       return;
     }
+    setQuoteModalJob(load);
+    setQuoteModalAmount(typeof load.budget_amount === 'number' && load.budget_amount > 0 ? String(load.budget_amount) : '');
+    setQuoteModalMessage('');
+  }, [driverBids]);
 
-    setBusyAction(`offer:${load.id}`);
-    const amount = typeof load.budget_amount === 'number' && load.budget_amount > 0 ? load.budget_amount : 250;
-
+  const submitQuoteModal = useCallback(async () => {
+    if (!quoteModalJob || !isSupabaseConfigured || !user?.id || !driverId || !companyId) return;
+    const parsed = parseFloat(quoteModalAmount);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setFlashMessage('Enter a valid quote amount.');
+      return;
+    }
+    setQuoteModalSubmitting(true);
     const { error } = await supabase.from('job_bids').insert({
-      job_id: load.id,
+      job_id: quoteModalJob.id,
       company_id: companyId,
       bidder_user_id: user.id,
       bidder_driver_id: driverId,
-      amount,
-      bid_price_gbp: amount,
+      amount: parsed,
+      bid_price_gbp: parsed,
       currency: 'GBP',
       status: 'submitted',
-      message: 'Submitted from Driver Mobile',
+      message: quoteModalMessage.trim() || null,
     });
-
-    setBusyAction(null);
+    setQuoteModalSubmitting(false);
     if (error) {
-      setFlashMessage(`Offer failed: ${error.message}`);
+      setFlashMessage(`Quote failed: ${error.message}`);
       return;
     }
-
-    setFlashMessage('Offer submitted.');
+    setQuoteModalJob(null);
+    setFlashMessage('Quote submitted successfully.');
     await loadData();
-  }, [companyId, driverBids, driverId, loadData, user?.id]);
+  }, [companyId, driverId, loadData, quoteModalAmount, quoteModalJob, quoteModalMessage, user?.id]);
 
   const uploadPodForJob = useCallback(async (job: Job) => {
     if (!selectedPodFile || !driverId || !isSupabaseConfigured) {
@@ -1061,9 +1068,14 @@ export default function DriverMobileAppVariant({
                 <div key={job.id} style={routeCard}>
                   <div style={jobMetaRowLine}><span style={trackingLabel}>Ref #{job.id.slice(0, 8).toUpperCase()}</span><span style={statusCapsule}>OPEN</span></div>
                   <div style={routeAddress}>{job.pickup_location || 'Pickup pending'} {' -> '} {job.delivery_location || 'Delivery pending'}</div>
-                  <div style={routeTime}>{fmtDateTime(job.pickup_datetime, 'Schedule pending')} ? {job.vehicle_type || 'Vehicle type pending'}</div>
-                  <div style={jobMetaRowLine}><span style={trackingLabel}>{job.client_name || 'Company withheld'}</span><strong style={trackingValue}>{money(job.budget_amount)}</strong></div>
-                  <button style={quoteButton} onClick={() => void submitOffer(job)}>View Details</button>
+                  <div style={routeTime}>{fmtDateTime(job.pickup_datetime, 'Schedule pending')} · {job.vehicle_type || 'Vehicle type pending'}</div>
+                  <div style={jobMetaRowLine}>
+                    <span style={trackingLabel}>{job.client_name || 'Company withheld'}</span>
+                    {typeof job.budget_amount === 'number' && job.budget_amount > 0
+                      ? <strong style={{ ...trackingValue, color: '#15803d' }}>Proposed: {money(job.budget_amount)}</strong>
+                      : <strong style={trackingValue}>Open to quotes</strong>}
+                  </div>
+                  <button style={quoteButton} onClick={() => openQuoteModal(job)}>Submit Quote</button>
                 </div>
               ))
             ) : visibleBids.length === 0 ? (
@@ -1485,7 +1497,66 @@ export default function DriverMobileAppVariant({
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <main style={pageBg}>{renderTab()}</main>
+      <main style={pageBg}>
+        {renderTab()}
+        {quoteModalJob && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 2000, padding: '0 0 24px' }}>
+            <div style={{ background: '#fff', borderRadius: '16px 16px 0 0', padding: '1.25rem', width: '100%', maxWidth: '520px', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', display: 'grid', gap: '0.85rem' }}>
+              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>Submit Quote</div>
+              <div style={{ fontSize: '0.82rem', color: '#374151', background: '#f8fafc', borderRadius: '8px', padding: '0.6rem 0.75rem', borderLeft: '3px solid #1d4ed8' }}>
+                <div style={{ fontWeight: 700 }}>{quoteModalJob.pickup_location || 'Pickup'} → {quoteModalJob.delivery_location || 'Delivery'}</div>
+                {typeof quoteModalJob.budget_amount === 'number' && quoteModalJob.budget_amount > 0 && (
+                  <div style={{ marginTop: '0.25rem', color: '#15803d', fontWeight: 700 }}>
+                    Proposed price: £{quoteModalJob.budget_amount.toFixed(2)} — accept or enter your own
+                  </div>
+                )}
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#374151', marginBottom: '0.3rem' }}>Your Quote Amount (£) *</label>
+                <input
+                  type="number" min="1" step="0.01"
+                  value={quoteModalAmount}
+                  onChange={(e) => setQuoteModalAmount(e.target.value)}
+                  placeholder="e.g. 250.00"
+                  style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
+                />
+              </div>
+              {typeof quoteModalJob.budget_amount === 'number' && quoteModalJob.budget_amount > 0 && (
+                <button
+                  style={{ padding: '0.6rem', background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem' }}
+                  onClick={() => setQuoteModalAmount(String(quoteModalJob.budget_amount))}
+                >
+                  Accept proposed price (£{(quoteModalJob.budget_amount as number).toFixed(2)})
+                </button>
+              )}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#374151', marginBottom: '0.3rem' }}>Message (optional)</label>
+                <textarea
+                  rows={2} value={quoteModalMessage}
+                  onChange={(e) => setQuoteModalMessage(e.target.value)}
+                  placeholder="Notes to customer…"
+                  style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={() => setQuoteModalJob(null)}
+                  style={{ flex: 1, padding: '0.65rem', background: '#f1f5f9', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void submitQuoteModal()}
+                  disabled={quoteModalSubmitting || !quoteModalAmount}
+                  style={{ flex: 2, padding: '0.65rem', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: quoteModalSubmitting ? 'not-allowed' : 'pointer', opacity: quoteModalSubmitting ? 0.6 : 1 }}
+                >
+                  {quoteModalSubmitting ? 'Submitting…' : 'Submit Quote'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
     </ProtectedRoute>
   );
 }

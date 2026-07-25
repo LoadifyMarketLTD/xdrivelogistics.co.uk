@@ -42,6 +42,7 @@ export type LiveLoad = {
   cargoType: string;
   vehicleRequirement: string;
   price: string;
+  proposedPriceAmount: number | null;
   postingCompanyName?: string;
   postingCompanyMemberCode?: string;
   publicPricePublished: boolean;
@@ -72,6 +73,7 @@ function mapLiveLoad(load: ApiLoad): LiveLoad {
     cargoType: load.freightType || 'Freight not provided',
     vehicleRequirement: load.vehicleType || 'Vehicle required',
     price: priceVisible ? money(load.publicPrice.amount, load.publicPrice.currency || 'GBP') : '',
+    proposedPriceAmount: priceVisible ? (load.publicPrice.amount ?? null) : null,
     postingCompanyName: load.poster?.name || undefined,
     postingCompanyMemberCode: load.poster?.memberCode || undefined,
     publicPricePublished: priceVisible,

@@ -698,7 +698,7 @@ export default function MarketplacePage() {
                 <div style={{ marginTop: '0.2rem', color: '#64748b', fontSize: '0.8rem' }}>
                   {bidTarget.vehicle_type ? VEHICLE_LABEL[bidTarget.vehicle_type] ?? bidTarget.vehicle_type : 'Vehicle TBC'}
                   {bidTarget.pickup_datetime ? ` Â· ${fmtDate(bidTarget.pickup_datetime)}` : ''}
-                  {bidTarget.budget_amount ? ` Â· Budget: Â£${bidTarget.budget_amount.toFixed(2)}${bidTarget.is_fixed_price ? ' (fixed)' : ''}` : ''}
+                  {bidTarget.budget_amount ? ` · Proposed: £${bidTarget.budget_amount.toFixed(2)}` : ''}
                 </div>
               </div>
 
@@ -828,8 +828,8 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
           )}
           {load.budget_amount && (
             <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>
-              Â£{load.budget_amount.toFixed(2)}
-              {load.is_fixed_price && <span style={{ fontSize: '0.68rem', color: '#94a3b8', marginLeft: '0.25rem' }}>fixed</span>}
+              £{load.budget_amount.toFixed(2)}
+              {load.is_fixed_price && <span style={{ fontSize: '0.68rem', color: '#15803d', marginLeft: '0.25rem' }}>proposed</span>}
             </div>
           )}
           {load.vehicle_type && (

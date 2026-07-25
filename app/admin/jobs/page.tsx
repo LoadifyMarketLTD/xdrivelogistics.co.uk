@@ -1396,8 +1396,8 @@ export default function JobsPage() {
  <option value="private">Private / Internal</option>
  <option value="exchange">Post to Load Board</option>
  </select>
- <input type="number" min="0" value={formData.budgetAmount} onChange={(e) => setFormData({ ...formData, budgetAmount: e.target.value })} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }} placeholder="Budget / fixed price GBP" />
- <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: '#374151' }}><input type="checkbox" checked={formData.isFixedPrice} onChange={(e) => setFormData({ ...formData, isFixedPrice: e.target.checked })} /> Fixed price</label>
+ <input type="number" min="0" value={formData.budgetAmount} onChange={(e) => setFormData({ ...formData, budgetAmount: e.target.value })} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }} placeholder="Proposed price (GBP) — optional" />
+ <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: '#374151' }}><input type="checkbox" checked={formData.isFixedPrice} onChange={(e) => setFormData({ ...formData, isFixedPrice: e.target.checked })} /> Propose a price to drivers</label>
  </div>
  <textarea value={formData.cargoNotes} onChange={(e) => setFormData({ ...formData, cargoNotes: e.target.value })} rows={3} style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} placeholder="Operational notes, fragile items, booking details, access notes." />
  </div>
