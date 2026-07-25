@@ -103,11 +103,12 @@ function companyInfo(companies: NearbyJobRow['companies']) {
 
 function publicArea(postcode: unknown) {
   const value = String(postcode ?? '').trim().toUpperCase();
-  return value ? `Approx. area Â· ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
+  return value ? `Approx. area · ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
 }
 
 function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
-  const priceVisible = row.budget_amount != null;
+  const proposedPriceAmount = numberOrNull(row.budget_amount);
+  const priceVisible = proposedPriceAmount !== null && proposedPriceAmount > 0;
   const company = companyInfo(row.companies);
   return {
     id: row.id,
@@ -141,7 +142,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
     estimatedJourneyMinutes: numberOrNull(row.job_distance_minutes),
     publicPrice: {
       visible: priceVisible,
-      amount: priceVisible ? numberOrNull(row.budget_amount) : null,
+      amount: priceVisible ? proposedPriceAmount : null,
       currency: priceVisible ? row.currency || 'GBP' : null,
     },
     canQuote: true,

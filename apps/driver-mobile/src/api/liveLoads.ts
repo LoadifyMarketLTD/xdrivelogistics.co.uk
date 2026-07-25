@@ -115,7 +115,7 @@ export async function fetchActiveQuotedJobIds() {
     .from('job_bids')
     .select('job_id')
     .eq('bidder_user_id', auth.user.id)
-    .in('status', ['submitted', 'accepted', 'awarded', 'approved']);
+    .in('status', ['submitted', 'accepted']);
   if (error) throw new Error(error.message);
   return new Set((data ?? []).map((row: { job_id: string }) => String(row.job_id)));
 }
