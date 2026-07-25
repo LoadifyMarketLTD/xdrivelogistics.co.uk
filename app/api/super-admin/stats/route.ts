@@ -39,12 +39,14 @@ export async function GET(request: NextRequest) {
     return respond(403, { error: 'Forbidden: owner role required.' });
   }
 
-  const [companiesResult, driversResult, internalProfilesResult, jobsResult, invoicesResult] = await Promise.all([
+  const [companiesResult, driversResult, internalProfilesResult, jobsResult, invoicesResult, driverDocumentsResult, vehicleDocumentsResult] = await Promise.all([
     supabaseAdmin.from('companies').select('status', { count: 'exact' }),
     supabaseAdmin.from('drivers').select('user_id', { count: 'exact' }),
     supabaseAdmin.from('profiles').select('user_id').eq('is_internal_account', true),
     supabaseAdmin.from('jobs').select('status', { count: 'exact' }),
     supabaseAdmin.from('invoices').select('payment_status', { count: 'exact' }),
+    supabaseAdmin.from('driver_documents').select('status'),
+    supabaseAdmin.from('vehicle_documents').select('status'),
   ]);
 
   if (companiesResult.error) {
@@ -64,6 +66,12 @@ export async function GET(request: NextRequest) {
   }
   if (invoicesResult.error) {
     return respond(500, { error: invoicesResult.error.message });
+  }
+  if (driverDocumentsResult.error) {
+    return respond(500, { error: driverDocumentsResult.error.message });
+  }
+  if (vehicleDocumentsResult.error) {
+    return respond(500, { error: vehicleDocumentsResult.error.message });
   }
 
   const internalUserIds = new Set(
@@ -89,6 +97,11 @@ export async function GET(request: NextRequest) {
   const paymentStatuses = (invoicesResult.data ?? []).map((row) => String(row.payment_status ?? '').trim().toLowerCase());
   const paidInvoicesCount = paymentStatuses.filter((status) => status === 'paid').length;
   const invoicesCount = invoicesResult.count ?? paymentStatuses.length;
+  const documentStatuses = [
+    ...(driverDocumentsResult.data ?? []).map((row) => String(row.status ?? '').trim().toLowerCase()),
+    ...(vehicleDocumentsResult.data ?? []).map((row) => String(row.status ?? '').trim().toLowerCase()),
+  ];
+  const compliancePending = documentStatuses.filter((status) => status === 'pending' || status === 'rejected').length;
 
   return respond(200, {
     companiesTotal: companiesResult.count ?? companyStatuses.length,
@@ -101,5 +114,6 @@ export async function GET(request: NextRequest) {
     jobsDelivered,
     invoicesTotal: invoicesCount,
     invoicesUnpaid: Math.max(0, invoicesCount - paidInvoicesCount),
+    compliancePending,
   });
 }

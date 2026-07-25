@@ -14,6 +14,7 @@
     "mobile:apk": "npm --prefix apps/driver-mobile run build:android:apk",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "audit:interactive": "node ./scripts/audit-interactive-elements.mjs",
     "preview": "next start",
     "validate:supabase-env": "node ./scripts/validate-supabase-env.mjs"
   },

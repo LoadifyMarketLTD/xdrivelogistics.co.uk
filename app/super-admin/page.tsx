@@ -30,6 +30,7 @@ type PlatformStats = {
   jobsDelivered: number;
   invoicesTotal: number;
   invoicesUnpaid: number;
+  compliancePending: number;
 };
 
 type NotificationRow = {
@@ -115,7 +116,7 @@ function OwnerConsole() {
     { title: 'Companies', detail: 'Approval, suspension and company workspace governance.', metric: stats?.companiesTotal ?? 0, label: 'Companies', href: '/super-admin/companies', tone: 'navy' },
     { title: 'Drivers', detail: 'Driver access, readiness and operating capacity.', metric: stats?.driversTotal ?? 0, label: 'Drivers', href: '/super-admin/users/drivers', tone: 'purple' },
     { title: 'Finance', detail: 'Invoices, payment state and commercial exceptions.', metric: stats?.invoicesUnpaid ?? 0, label: 'Unpaid invoices', href: '/super-admin/finance/invoices', tone: 'orange' },
-    { title: 'Compliance', detail: 'Documents, approvals, expiry and risk controls.', metric: stats?.companiesSuspended ?? 0, label: 'Suspended', href: '/super-admin/compliance/documents', tone: 'red' },
+    { title: 'Compliance', detail: 'Documents, approvals, expiry and risk controls.', metric: stats?.compliancePending ?? 0, label: 'Needs review', href: '/super-admin/compliance/documents', tone: 'red' },
   ], [stats]);
 
   return (
@@ -188,8 +189,8 @@ function OwnerConsole() {
             <div style={{ display: 'grid', gap: '0.5rem' }}>
               {[
                 ['Approve companies', '/super-admin/companies/approvals'],
-                ['Review onboarding', '/super-admin/companies/approvals'],
-                ['Review compliance', '/super-admin/compliance/documents'],
+                ['Review onboarding', '/super-admin/companies/verification'],
+                ['Review compliance', '/super-admin/companies/compliance'],
                 ['Review disputes', '/super-admin/operations/disputes'],
               ].map(([label, href]) => <button key={label} type="button" onClick={() => router.push(href)} style={rowButton}><span>{label}</span><span>→</span></button>)}
             </div>
