@@ -30,15 +30,13 @@ const footerColumns = {
     { label: 'Drivers', href: '#solutions' },
   ],
   company: [
-    { label: 'About', href: '#resources' },
-    { label: 'Launch', href: '#launch' },
-    { label: 'Contact', href: '#contact' },
+    { label: 'Company', href: '/company' },
+    { label: 'Contact', href: '/contact' },
   ],
   legal: [
     { label: 'Privacy', href: '/privacy' },
     { label: 'Terms', href: '/terms' },
     { label: 'Cookies', href: '/cookies' },
-    { label: 'GDPR', href: '/privacy#gdpr' },
   ],
 } as const;
 
