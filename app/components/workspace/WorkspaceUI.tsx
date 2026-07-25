@@ -57,8 +57,9 @@ export function KpiGrid({ children }: { children: ReactNode }) {
 
 export function KpiCard({ label, value, detail, tone = 'blue', onClick, icon }: { label: string; value: ReactNode; detail?: ReactNode; tone?: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'navy'; onClick?: () => void; icon?: ReactNode }) {
   const color = { blue: workspaceTheme.blue, green: workspaceTheme.green, orange: workspaceTheme.orange, red: workspaceTheme.red, purple: workspaceTheme.purple, navy: workspaceTheme.navy }[tone];
-  return (
-    <button onClick={onClick} type="button" style={{ textAlign: 'left', background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', padding: '0.72rem 0.78rem', minHeight: '98px', boxShadow: compactShadow, cursor: onClick ? 'pointer' : 'default', position: 'relative', overflow: 'hidden' }}>
+  const cardStyle = { textAlign: 'left' as const, background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', padding: '0.72rem 0.78rem', minHeight: '98px', boxShadow: compactShadow, cursor: onClick ? 'pointer' : 'default', position: 'relative' as const, overflow: 'hidden' };
+  const content = (
+    <>
       <span aria-hidden="true" style={{ position: 'absolute', inset: '0 auto 0 0', width: '3px', background: color }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'flex-start' }}>
         <div style={{ color: workspaceTheme.muted, fontSize: '0.64rem', fontWeight: 850, letterSpacing: '0.055em', textTransform: 'uppercase' }}>{label}</div>
@@ -66,8 +67,10 @@ export function KpiCard({ label, value, detail, tone = 'blue', onClick, icon }: 
       </div>
       <div style={{ marginTop: '0.26rem', color: workspaceTheme.text, fontSize: '1.55rem', fontWeight: 900, lineHeight: 1.05 }}>{value}</div>
       {detail && <div style={{ color: workspaceTheme.muted, fontSize: '0.69rem', marginTop: '0.35rem', lineHeight: 1.35 }}>{detail}</div>}
-    </button>
+    </>
   );
+  if (!onClick) return <div style={cardStyle}>{content}</div>;
+  return <button onClick={onClick} type="button" style={cardStyle}>{content}</button>;
 }
 
 export function Panel({ title, description, actions, children, style, flush = false }: { title?: string; description?: string; actions?: ReactNode; children: ReactNode; style?: CSSProperties; flush?: boolean }) {

@@ -82,6 +82,7 @@ export default function DriverVehiclesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<VehicleForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
 
   const getAuthHeader = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -178,9 +179,28 @@ export default function DriverVehiclesPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const deactivate = async (vehicleId: string) => {
+    if (!window.confirm('Unassign this vehicle from you?')) return;
+    setDeactivatingId(vehicleId);
+    setError('');
+    setNotice('');
+    const auth = await getAuthHeader();
+    if (!auth) { setError('Session expired.'); setDeactivatingId(null); return; }
+    const response = await fetch('/api/driver/vehicles', {
+      method: 'PATCH',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vehicleId, action: 'deactivate' }),
+    });
+    const result = (await response.json().catch(() => ({}))) as { error?: string };
+    setDeactivatingId(null);
+    if (!response.ok) { setError(result.error ?? 'Unable to unassign vehicle.'); return; }
+    setNotice('Assigned vehicle removed.');
+    await load();
+  };
+
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell subtitle="Company vehicle fleet — add, edit and view assigned vehicles.">
+      <DriverWorkspaceShell subtitle="Company vehicle fleet — add, edit, and unassign your assigned vehicle.">
         <div style={{ display: 'grid', gap: '1rem', maxWidth: '960px' }}>
           {error && (
             <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem' }}>
@@ -298,13 +318,25 @@ export default function DriverVehiclesPage() {
                     {vehicle.has_straps && <span style={{ fontSize: '0.7rem', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '0.15rem 0.4rem' }}>Straps</span>}
                     {vehicle.has_blankets && <span style={{ fontSize: '0.7rem', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '0.15rem 0.4rem' }}>Blankets</span>}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => startEdit(vehicle)}
-                    style={{ width: '100%', background: 'none', border: '1px solid #d7e0ea', borderRadius: '6px', padding: '0.35rem', fontSize: '0.72rem', color: '#475569', cursor: 'pointer' }}
-                  >
-                    Edit
-                  </button>
+                  <div style={{ display: 'grid', gap: '0.45rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => startEdit(vehicle)}
+                      style={{ width: '100%', background: 'none', border: '1px solid #d7e0ea', borderRadius: '6px', padding: '0.35rem', fontSize: '0.72rem', color: '#475569', cursor: 'pointer' }}
+                    >
+                      Edit
+                    </button>
+                    {vehicle.id === assignedVehicleId && (
+                      <button
+                        type="button"
+                        onClick={() => void deactivate(vehicle.id)}
+                        disabled={deactivatingId === vehicle.id}
+                        style={{ width: '100%', background: '#ef4444', border: 'none', borderRadius: '6px', padding: '0.35rem', fontSize: '0.72rem', color: '#fff', cursor: deactivatingId === vehicle.id ? 'not-allowed' : 'pointer', opacity: deactivatingId === vehicle.id ? 0.7 : 1 }}
+                      >
+                        {deactivatingId === vehicle.id ? 'Removing…' : 'Remove assignment'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
