@@ -1,0 +1,531 @@
+{
+  "total": 261,
+  "CLOSED": 0,
+  "PARTIAL": 34,
+  "BROKEN": 17,
+  "PLACEHOLDER": 93,
+  "DUPLICATE": 117,
+  "OBSOLETE": 0,
+  "diagnostic": {
+    "buttonWithoutHandlerCount": 5,
+    "linksWithoutPageCount": 17,
+    "duplicateRouteTargetsCount": 117,
+    "placeholderTargetsCount": 93,
+    "inaccessiblePagesCount": 70,
+    "inaccessiblePages": [
+      {
+        "route": "/admin/driver-availability",
+        "sourceFile": "app/admin/driver-availability/page.tsx"
+      },
+      {
+        "route": "/admin/drivers-vehicles",
+        "sourceFile": "app/admin/drivers-vehicles/page.tsx"
+      },
+      {
+        "route": "/admin/finance/balances",
+        "sourceFile": "app/admin/finance/balances/page.tsx"
+      },
+      {
+        "route": "/admin/finance/payments",
+        "sourceFile": "app/admin/finance/payments/page.tsx"
+      },
+      {
+        "route": "/admin/finance/reports",
+        "sourceFile": "app/admin/finance/reports/page.tsx"
+      },
+      {
+        "route": "/admin/fleet/active-jobs",
+        "sourceFile": "app/admin/fleet/active-jobs/page.tsx"
+      },
+      {
+        "route": "/admin/fleet/future-availability",
+        "sourceFile": "app/admin/fleet/future-availability/page.tsx"
+      },
+      {
+        "route": "/admin/incidents",
+        "sourceFile": "app/admin/incidents/page.tsx"
+      },
+      {
+        "route": "/admin/invoices/[id]",
+        "sourceFile": "app/admin/invoices/[id]/page.tsx"
+      },
+      {
+        "route": "/admin/jobs/[id]",
+        "sourceFile": "app/admin/jobs/[id]/page.tsx"
+      },
+      {
+        "route": "/admin/notifications",
+        "sourceFile": "app/admin/notifications/page.tsx"
+      },
+      {
+        "route": "/auth/callback",
+        "sourceFile": "app/auth/callback/page.tsx"
+      },
+      {
+        "route": "/broker/carrier-costs/[id]",
+        "sourceFile": "app/broker/carrier-costs/[id]/page.tsx"
+      },
+      {
+        "route": "/broker/carrier-costs",
+        "sourceFile": "app/broker/carrier-costs/page.tsx"
+      },
+      {
+        "route": "/broker/customer-invoices/[id]",
+        "sourceFile": "app/broker/customer-invoices/[id]/page.tsx"
+      },
+      {
+        "route": "/broker/customer-invoices",
+        "sourceFile": "app/broker/customer-invoices/page.tsx"
+      },
+      {
+        "route": "/broker/customers",
+        "sourceFile": "app/broker/customers/page.tsx"
+      },
+      {
+        "route": "/broker/disputes",
+        "sourceFile": "app/broker/disputes/page.tsx"
+      },
+      {
+        "route": "/broker/loads",
+        "sourceFile": "app/broker/loads/page.tsx"
+      },
+      {
+        "route": "/broker/margins",
+        "sourceFile": "app/broker/margins/page.tsx"
+      },
+      {
+        "route": "/broker/notifications",
+        "sourceFile": "app/broker/notifications/page.tsx"
+      },
+      {
+        "route": "/broker",
+        "sourceFile": "app/broker/page.tsx"
+      },
+      {
+        "route": "/broker/settings",
+        "sourceFile": "app/broker/settings/page.tsx"
+      },
+      {
+        "route": "/customer/awards",
+        "sourceFile": "app/customer/awards/page.tsx"
+      },
+      {
+        "route": "/customer/invoices/[id]",
+        "sourceFile": "app/customer/invoices/[id]/page.tsx"
+      },
+      {
+        "route": "/customer/jobs/[id]",
+        "sourceFile": "app/customer/jobs/[id]/page.tsx"
+      },
+      {
+        "route": "/customer/notifications",
+        "sourceFile": "app/customer/notifications/page.tsx"
+      },
+      {
+        "route": "/customer/settings",
+        "sourceFile": "app/customer/settings/page.tsx"
+      },
+      {
+        "route": "/customer/team",
+        "sourceFile": "app/customer/team/page.tsx"
+      },
+      {
+        "route": "/customer/updates",
+        "sourceFile": "app/customer/updates/page.tsx"
+      },
+      {
+        "route": "/driver/finance/invoices/[id]",
+        "sourceFile": "app/driver/finance/invoices/[id]/page.tsx"
+      },
+      {
+        "route": "/driver/history",
+        "sourceFile": "app/driver/history/page.tsx"
+      },
+      {
+        "route": "/driver/jobs/[id]",
+        "sourceFile": "app/driver/jobs/[id]/page.tsx"
+      },
+      {
+        "route": "/driver/messages",
+        "sourceFile": "app/driver/messages/page.tsx"
+      },
+      {
+        "route": "/driver/more",
+        "sourceFile": "app/driver/more/page.tsx"
+      },
+      {
+        "route": "/driver/notifications",
+        "sourceFile": "app/driver/notifications/page.tsx"
+      },
+      {
+        "route": "/driver",
+        "sourceFile": "app/driver/page.tsx"
+      },
+      {
+        "route": "/driver/quotes",
+        "sourceFile": "app/driver/quotes/page.tsx"
+      },
+      {
+        "route": "/driver/returns",
+        "sourceFile": "app/driver/returns/page.tsx"
+      },
+      {
+        "route": "/driver/vehicles",
+        "sourceFile": "app/driver/vehicles/page.tsx"
+      },
+      {
+        "route": "/driver/won-work",
+        "sourceFile": "app/driver/won-work/page.tsx"
+      },
+      {
+        "route": "/forbidden",
+        "sourceFile": "app/forbidden/page.tsx"
+      },
+      {
+        "route": "/m/driver/active",
+        "sourceFile": "app/m/driver/active/page.tsx"
+      },
+      {
+        "route": "/m/driver/documents",
+        "sourceFile": "app/m/driver/documents/page.tsx"
+      },
+      {
+        "route": "/m/driver/jobs",
+        "sourceFile": "app/m/driver/jobs/page.tsx"
+      },
+      {
+        "route": "/m/driver/messages",
+        "sourceFile": "app/m/driver/messages/page.tsx"
+      },
+      {
+        "route": "/m/driver",
+        "sourceFile": "app/m/driver/page.tsx"
+      },
+      {
+        "route": "/m/driver/quotes",
+        "sourceFile": "app/m/driver/quotes/page.tsx"
+      },
+      {
+        "route": "/m/driver/settings",
+        "sourceFile": "app/m/driver/settings/page.tsx"
+      },
+      {
+        "route": "/m/jobs/[id]",
+        "sourceFile": "app/m/jobs/[id]/page.tsx"
+      },
+      {
+        "route": "/m/jobs",
+        "sourceFile": "app/m/jobs/page.tsx"
+      },
+      {
+        "route": "/m",
+        "sourceFile": "app/m/page.tsx"
+      },
+      {
+        "route": "/onboarding/[token]",
+        "sourceFile": "app/onboarding/[token]/page.tsx"
+      },
+      {
+        "route": "/onboarding/broker/[token]",
+        "sourceFile": "app/onboarding/broker/[token]/page.tsx"
+      },
+      {
+        "route": "/onboarding/broker/resume",
+        "sourceFile": "app/onboarding/broker/resume/page.tsx"
+      },
+      {
+        "route": "/onboarding/customer/[token]",
+        "sourceFile": "app/onboarding/customer/[token]/page.tsx"
+      },
+      {
+        "route": "/onboarding/customer/resume",
+        "sourceFile": "app/onboarding/customer/resume/page.tsx"
+      },
+      {
+        "route": "/onboarding/fleet/[token]",
+        "sourceFile": "app/onboarding/fleet/[token]/page.tsx"
+      },
+      {
+        "route": "/onboarding/fleet/resume",
+        "sourceFile": "app/onboarding/fleet/resume/page.tsx"
+      },
+      {
+        "route": "/onboarding/individual-driver/resume",
+        "sourceFile": "app/onboarding/individual-driver/resume/page.tsx"
+      },
+      {
+        "route": "/onboarding/owner-driver/[token]",
+        "sourceFile": "app/onboarding/owner-driver/[token]/page.tsx"
+      },
+      {
+        "route": "/onboarding/owner-driver/resume",
+        "sourceFile": "app/onboarding/owner-driver/resume/page.tsx"
+      },
+      {
+        "route": "/onboarding",
+        "sourceFile": "app/onboarding/page.tsx"
+      },
+      {
+        "route": "/onboarding/resume",
+        "sourceFile": "app/onboarding/resume/page.tsx"
+      },
+      {
+        "route": "/pending-approval",
+        "sourceFile": "app/pending-approval/page.tsx"
+      },
+      {
+        "route": "/reset-password",
+        "sourceFile": "app/reset-password/page.tsx"
+      },
+      {
+        "route": "/super-admin/users/company-owners",
+        "sourceFile": "app/super-admin/users/company-owners/page.tsx"
+      },
+      {
+        "route": "/super-admin/users/customers",
+        "sourceFile": "app/super-admin/users/customers/page.tsx"
+      },
+      {
+        "route": "/super-admin/users/dispatchers",
+        "sourceFile": "app/super-admin/users/dispatchers/page.tsx"
+      },
+      {
+        "route": "/support/feedback",
+        "sourceFile": "app/support/feedback/page.tsx"
+      }
+    ],
+    "brokenTargets": [
+      "/admin/drivers?driver=${driver.id}",
+      "/admin/diary?job=${job.id}",
+      "/admin/jobs?job=${job.id}",
+      "/admin/vehicles?vehicle=${vehicle.id}",
+      "/admin/jobs?job=${job.id}",
+      "/broker/compare-quotes?job=${job.id}",
+      "/broker/loads?job=${job.id}",
+      "/broker/loads?customer=${encodeURIComponent(customer.name)}",
+      "/broker/compare-quotes?job=${job.id}",
+      "/broker/jobs?job=${job.id}",
+      "/admin/post-load",
+      "/admin/jobs?job=${job.id}",
+      "/admin/diary?job=${job.id}",
+      "/admin/drivers?driver=${driver.id}",
+      "/driver/loads/saved",
+      "/driver/loads/${load.id}",
+      "/favicon.svg"
+    ],
+    "duplicateTargets": [
+      "/register",
+      "/contact",
+      "/privacy",
+      "/terms",
+      "/cookies",
+      "/register",
+      "/register",
+      "/register",
+      "/register",
+      "/register",
+      "/register",
+      "/register",
+      "/register",
+      "/register",
+      "/register",
+      "/contact",
+      "/privacy",
+      "/terms",
+      "/cookies",
+      "/register",
+      "/register",
+      "/register",
+      "/register",
+      "/register",
+      "/register",
+      "/admin/diary",
+      "/admin",
+      "/admin/bids",
+      "/admin/diary",
+      "/admin/fleet",
+      "/admin",
+      "/admin/bids",
+      "/admin/diary",
+      "/admin/fleet",
+      "/admin/documents",
+      "/admin/bids",
+      "/admin/diary",
+      "/admin/documents",
+      "/broker/post-load",
+      "/broker/compare-quotes",
+      "/broker/compare-quotes",
+      "/broker/post-load",
+      "/broker/post-load",
+      "/contact",
+      "/register",
+      "/driver/jobs",
+      "/admin/diary",
+      "/admin/diary",
+      "/admin/fleet/assignments",
+      "/admin/fleet/positions",
+      "/admin/fleet/assignments",
+      "/admin/documents/expiry",
+      "/admin/fleet/positions",
+      "/admin/fleet/assignments",
+      "/admin/documents/expiry",
+      "/admin/fleet/positions",
+      "/admin/documents",
+      "/admin/documents",
+      "/register",
+      "/customer/post-load",
+      "/customer/deliveries",
+      "/customer/quotes",
+      "/customer/jobs/${job.id}",
+      "/customer/post-load",
+      "/customer/post-load",
+      "/customer/quotes",
+      "/customer/deliveries",
+      "/customer/jobs/${job.id}",
+      "/customer/post-load",
+      "/customer/jobs/${job.id}",
+      "/customer/jobs/${j.id}",
+      "/customer/jobs/${j.id}",
+      "/driver/finance",
+      "/driver/finance",
+      "/driver/jobs/${job.id}",
+      "/driver/jobs/${activeJob.id}",
+      "/driver/jobs/${activeJob.id}",
+      "/driver/jobs/${job.id}",
+      "/driver/documents",
+      "/driver/documents",
+      "/driver/documents",
+      "/driver/jobs/${job.id}",
+      "/driver/jobs/${job.id}",
+      "/driver/jobs",
+      "/register",
+      "/cookies",
+      "/super-admin",
+      "/super-admin",
+      "/super-admin/health",
+      "/super-admin/notifications",
+      "/super-admin/marketplace",
+      "/super-admin/operations/disputes",
+      "/super-admin/operations/jobs",
+      "/super-admin/companies",
+      "/super-admin/companies/approvals",
+      "/super-admin/finance/invoices",
+      "/super-admin/compliance/documents",
+      "/super-admin/settings/feature-flags",
+      "/super-admin/settings/audit-logs",
+      "/super-admin",
+      "/admin",
+      "/admin",
+      "/super-admin/marketplace",
+      "/super-admin/operations/jobs",
+      "/super-admin/companies",
+      "/super-admin/finance/invoices",
+      "/super-admin/compliance/documents",
+      "/super-admin/companies/approvals",
+      "/super-admin/health",
+      "/super-admin/companies/approvals",
+      "/super-admin/notifications",
+      "/super-admin/notifications",
+      "/super-admin/health",
+      "/super-admin/settings/audit-logs",
+      "/super-admin/settings/feature-flags",
+      "/super-admin/companies/approvals",
+      "/super-admin/operations/disputes"
+    ],
+    "placeholderTargets": [
+      "/login",
+      "/login",
+      "/login",
+      "/login",
+      "/login",
+      "/request-quote",
+      "/login",
+      "/request-quote",
+      "/request-quote",
+      "/login",
+      "/request-quote",
+      "/login",
+      "/login",
+      "/request-quote",
+      "/login",
+      "/request-quote",
+      "/login",
+      "/login",
+      "/request-quote",
+      "/admin/returns",
+      "/admin/disputes",
+      "/admin/invoices/${row.id}",
+      "/admin/invoices",
+      "/admin/invoices/${newId}",
+      "/admin/invoices",
+      "/admin/jobs",
+      "/admin/invoices",
+      "/admin/invoices/new",
+      "/admin/invoices/new",
+      "/admin/invoices/${invoice.id}",
+      "/admin/invoices/${invoice.id}",
+      "/admin/invoices/${invoice.id}",
+      "/admin/jobs",
+      "/admin/invoices/new?${params.toString()}",
+      "/admin/jobs",
+      "/admin/jobs/${job.id}",
+      "/admin/jobs/${job.id}",
+      "/admin/jobs/${jobData.id}",
+      "/admin/marketplace",
+      "/admin/quotes",
+      "/admin/jobs",
+      "/admin/invoices",
+      "/admin/marketplace",
+      "/admin/jobs",
+      "/admin/quotes",
+      "/admin/operations-centre",
+      "/admin/jobs",
+      "/admin/disputes",
+      "/admin/drivers",
+      "/admin/vehicles",
+      "/admin/invoices",
+      "/admin/companies",
+      "/admin/dispatchers",
+      "/admin/settings",
+      "/admin/marketplace",
+      "/admin/quotes",
+      "/admin/jobs",
+      "/admin/vehicles",
+      "/admin/returns",
+      "/admin/invoices",
+      "/login",
+      "/admin/jobs/${job.id}",
+      "/admin/marketplace",
+      "/admin/jobs",
+      "/admin/invoices",
+      "/login",
+      "/admin/marketplace",
+      "/driver/finance/invoices/${payload.invoice.id}",
+      "/driver/finance/invoices/${invoice.id}",
+      "/driver/loads/search",
+      "/driver/loads/search",
+      "/driver/profile",
+      "/driver/change-password",
+      "/driver/profile",
+      "/driver/loads",
+      "/driver/availability",
+      "/driver/loads",
+      "/driver/change-password",
+      "/driver/change-password",
+      "/login",
+      "/login",
+      "/login",
+      "/login",
+      "/login",
+      "/super-admin/users/drivers",
+      "/super-admin/companies/active",
+      "/super-admin/companies/verification",
+      "/super-admin/companies/compliance",
+      "/super-admin/users",
+      "/super-admin/users/platform-admins",
+      "/super-admin/users/drivers",
+      "/super-admin/companies/verification",
+      "/super-admin/companies/compliance"
+    ]
+  }
+}
