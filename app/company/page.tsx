@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { COMPANY_CONFIG } from '../config/company';
 
 export const metadata: Metadata = {
-  title: 'Company | XDrive Logistics',
+  title: 'Company',
   description: 'Learn about XDrive Logistics Ltd, our platform, our mission and our UK logistics operations.',
 };
 
