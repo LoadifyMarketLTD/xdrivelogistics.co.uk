@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
@@ -28,6 +29,14 @@ const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
   const { data } = await supabaseAdmin.from('companies').select('id, name').in('id', ids);
   return new Map((data as CompanyRow[] ?? []).map((c) => [c.id, c.name]));
 };
+
+const updateDocumentSchema = z.object({
+  section: z.literal('documents'),
+  entityType: z.enum(['driver', 'vehicle']),
+  id: z.string().uuid(),
+  action: z.enum(['approve', 'reject']),
+  reason: z.string().trim().max(5000).optional(),
+});
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -249,4 +258,70 @@ export async function GET(request: NextRequest) {
   }
 
   return respond(400, { error: 'Invalid section. Use documents, expiries, insurance, or operator-licences.' });
+}
+
+export async function PATCH(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
+
+  const owner = await verifyOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return respond(400, { error: 'Invalid JSON body.' });
+  }
+
+  const parsed = updateDocumentSchema.safeParse(body);
+  if (!parsed.success) {
+    return respond(400, { error: 'Validation failed.', details: parsed.error.flatten() });
+  }
+
+  const { entityType, id, action, reason } = parsed.data;
+  const table = entityType === 'driver' ? 'driver_documents' : 'vehicle_documents';
+  const nextStatus = action === 'approve' ? 'approved' : 'rejected';
+
+  const { data: currentDoc, error: currentError } = await supabaseAdmin
+    .from(table)
+    .select('id, status')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (currentError) return respond(500, { error: currentError.message });
+  if (!currentDoc) return respond(404, { error: 'Document not found.' });
+
+  const payload: Record<string, unknown> = {
+    status: nextStatus,
+    verified_by: owner.id,
+    verified_at: new Date().toISOString(),
+    rejection_reason: action === 'reject' ? reason?.trim() || 'Rejected by super-admin compliance review.' : null,
+  };
+
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from(table)
+    .update(payload)
+    .eq('id', id)
+    .select('id, status, rejection_reason, verified_at, verified_by')
+    .maybeSingle();
+
+  if (updateError) return respond(500, { error: updateError.message });
+
+  await supabaseAdmin
+    .from('owner_audit_log')
+    .insert({
+      actor_user_id: owner.id,
+      target_company_id: null,
+      action_type: action === 'approve' ? 'document_approved' : 'document_rejected',
+      old_status: currentDoc.status ?? null,
+      new_status: nextStatus,
+      reason: reason?.trim() || `${entityType} document ${id} ${nextStatus} by super-admin compliance.`,
+      metadata: { document_id: id, entity_type: entityType },
+    })
+    .select('id')
+    .maybeSingle();
+
+  return respond(200, { document: updated, entityType });
 }
