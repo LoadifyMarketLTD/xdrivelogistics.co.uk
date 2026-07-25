@@ -137,47 +137,72 @@ type BrokerDispute = {
   created_at: string;
 };
 
+const noteInputStyle = { border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.45rem 0.6rem', fontSize: '0.76rem', width: '100%', minWidth: '180px', resize: 'vertical' } as const;
+
 export function BrokerDisputesPage() {
   const data = useCompanyWorkspaceData();
   const [rows, setRows] = useState<BrokerDispute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [working, setWorking] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+
+  const getAuthHeader = async () => {
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+    return token ? 'Bearer ' + token : null;
+  };
+
+  const load = async () => {
+    if (!data.companyId) { setRows([]); setLoading(false); return; }
+    setLoading(true);
+    setError('');
+    const jobIds = data.jobs.map((job) => job.id);
+    let query = supabase
+      .from('job_disputes')
+      .select('id, job_id, raised_by_company_id, status, description, resolution_note, created_at')
+      .order('created_at', { ascending: false })
+      .limit(250);
+    query = jobIds.length > 0
+      ? query.or(`raised_by_company_id.eq.${data.companyId},job_id.in.(${jobIds.join(',')})`)
+      : query.eq('raised_by_company_id', data.companyId);
+    const { data: result, error: queryError } = await query;
+    if (queryError) { setError(queryError.message); setRows([]); } else { setRows((result ?? []) as BrokerDispute[]); }
+    setLoading(false);
+  };
 
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
-      if (!data.companyId) {
-        if (!cancelled) { setRows([]); setLoading(false); }
-        return;
-      }
-      setLoading(true);
-      setError('');
-      const jobIds = data.jobs.map((job) => job.id);
-      let query = supabase
-        .from('job_disputes')
-        .select('id, job_id, raised_by_company_id, status, description, resolution_note, created_at')
-        .order('created_at', { ascending: false })
-        .limit(250);
-      query = jobIds.length > 0
-        ? query.or(`raised_by_company_id.eq.${data.companyId},job_id.in.(${jobIds.join(',')})`)
-        : query.eq('raised_by_company_id', data.companyId);
-      const { data: result, error: queryError } = await query;
-      if (cancelled) return;
-      if (queryError) {
-        setError(queryError.message);
-        setRows([]);
-      } else {
-        setRows((result ?? []) as BrokerDispute[]);
-      }
-      setLoading(false);
-    };
-    void load();
+    const run = async () => { if (!cancelled) await load(); };
+    void run();
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.companyId, data.jobs]);
+
+  const runAction = async (disputeId: string, action: 'resolve' | 'escalate') => {
+    setWorking(disputeId);
+    setNotice('');
+    setError('');
+    const auth = await getAuthHeader();
+    if (!auth) { setError('Session expired. Please sign in again.'); setWorking(null); return; }
+    const response = await fetch(`/api/broker/disputes/${disputeId}`, {
+      method: 'PATCH',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, resolution_note: notes[disputeId]?.trim() || undefined }),
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    setWorking(null);
+    if (!response.ok) { setError(payload.error ?? 'Action failed.'); return; }
+    setNotice(action === 'resolve' ? 'Dispute resolved.' : 'Dispute escalated to investigating.');
+    setNotes((prev) => { const next = { ...prev }; delete next[disputeId]; return next; });
+    await load();
+  };
 
   return <PageFrame>
     <PageHeader eyebrow="Commercial exceptions" title="Disputes" description="Customer, carrier and POD disputes linked only to broker-managed loads." />
     {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+    {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
     <KpiGrid>
       <KpiCard label="Open" value={rows.filter((row) => row.status === 'open').length} tone="red" />
       <KpiCard label="Investigating" value={rows.filter((row) => row.status === 'investigating').length} tone="orange" />
@@ -185,16 +210,168 @@ export function BrokerDisputesPage() {
     </KpiGrid>
     <Panel title="Dispute register">
       <DataTable
-        columns={['Job', 'Raised by', 'Issue', 'Opened', 'Status', 'Resolution']}
-        rows={rows.map((row) => [
-          row.job_id.slice(0, 8).toUpperCase(),
-          row.raised_by_company_id === data.companyId ? 'Broker company' : 'Trading partner',
-          row.description ?? 'No description recorded',
-          when(row.created_at),
-          <StatusBadge key="status" value={row.status} />,
-          row.resolution_note ?? 'Pending',
-        ])}
+        columns={['Job', 'Raised by', 'Issue', 'Opened', 'Status', 'Resolution note', 'Actions']}
+        rows={rows.map((row) => {
+          const isActive = !['resolved', 'closed'].includes(row.status);
+          return [
+            row.job_id.slice(0, 8).toUpperCase(),
+            row.raised_by_company_id === data.companyId ? 'Broker company' : 'Trading partner',
+            row.description ?? 'No description recorded',
+            when(row.created_at),
+            <StatusBadge key="status" value={row.status} />,
+            row.resolution_note ?? 'Pending',
+            isActive ? (
+              <div key="actions" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: '200px' }}>
+                <textarea
+                  placeholder="Resolution note (optional)…"
+                  value={notes[row.id] ?? ''}
+                  onChange={(e) => setNotes((prev) => ({ ...prev, [row.id]: e.target.value }))}
+                  rows={2}
+                  style={noteInputStyle}
+                />
+                <div style={{ display: 'flex', gap: '0.35rem' }}>
+                  <ActionButton key="resolve" tone="success" disabled={working === row.id} onClick={() => void runAction(row.id, 'resolve')}>
+                    {working === row.id ? 'Saving…' : 'Resolve'}
+                  </ActionButton>
+                  {row.status === 'open' && (
+                    <ActionButton key="escalate" tone="warning" disabled={working === row.id} onClick={() => void runAction(row.id, 'escalate')}>
+                      Escalate
+                    </ActionButton>
+                  )}
+                </div>
+              </div>
+            ) : <span key="done" style={{ color: '#64748b', fontSize: '0.72rem' }}>Closed</span>,
+          ];
+        })}
         empty={<EmptyState title={loading ? 'Loading disputes…' : 'No disputes found'} description="Disputes raised against broker-managed loads will appear here." />}
+      />
+    </Panel>
+  </PageFrame>;
+}
+
+type CarrierInvitation = {
+  id: string;
+  carrier_email: string | null;
+  carrier_company_id: string | null;
+  carrierCompanyName: string | null;
+  status: string;
+  message: string | null;
+  created_at: string;
+};
+
+export function BrokerCarrierNetworkPage() {
+  const [invitations, setInvitations] = useState<CarrierInvitation[]>([]);
+  const [canManage, setCanManage] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [working, setWorking] = useState<string | null>(null);
+  const [carrierEmail, setCarrierEmail] = useState('');
+  const [inviteMessage, setInviteMessage] = useState('');
+
+  const getAuthHeader = async () => {
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+    return token ? 'Bearer ' + token : null;
+  };
+
+  const load = async () => {
+    setLoading(true);
+    setError('');
+    const auth = await getAuthHeader();
+    if (!auth) { setError('Session expired.'); setLoading(false); return; }
+    const response = await fetch('/api/broker/carrier-invitations', { headers: { Authorization: auth } });
+    const payload = await response.json().catch(() => ({})) as { invitations?: CarrierInvitation[]; canManage?: boolean; error?: string };
+    if (!response.ok) { setError(payload.error ?? 'Failed to load carrier network.'); } else { setInvitations(payload.invitations ?? []); setCanManage(Boolean(payload.canManage)); }
+    setLoading(false);
+  };
+
+  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const invite = async () => {
+    if (!carrierEmail.trim()) { setError('Carrier email is required.'); return; }
+    setWorking('invite');
+    setError('');
+    setNotice('');
+    const auth = await getAuthHeader();
+    if (!auth) { setError('Session expired.'); setWorking(null); return; }
+    const response = await fetch('/api/broker/carrier-invitations', {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ carrierEmail: carrierEmail.trim(), message: inviteMessage.trim() || undefined }),
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    setWorking(null);
+    if (!response.ok) { setError(payload.error ?? 'Invitation failed.'); return; }
+    setCarrierEmail('');
+    setInviteMessage('');
+    setNotice('Carrier invitation sent.');
+    await load();
+  };
+
+  const revoke = async (invitationId: string) => {
+    if (!window.confirm('Revoke this carrier invitation?')) return;
+    setWorking(invitationId);
+    setError('');
+    setNotice('');
+    const auth = await getAuthHeader();
+    if (!auth) { setError('Session expired.'); setWorking(null); return; }
+    const response = await fetch('/api/broker/carrier-invitations', {
+      method: 'DELETE',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invitationId }),
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    setWorking(null);
+    if (!response.ok) { setError(payload.error ?? 'Revoke failed.'); return; }
+    setNotice('Invitation revoked.');
+    await load();
+  };
+
+  const pending = invitations.filter((i) => i.status === 'pending').length;
+  const accepted = invitations.filter((i) => i.status === 'accepted').length;
+  const revoked = invitations.filter((i) => i.status === 'revoked').length;
+
+  return <PageFrame>
+    <PageHeader eyebrow="Carrier network" title="Carrier Invitations" description="Invite carrier companies into the broker preferred network and manage access." actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>} />
+    {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+    {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
+    <KpiGrid>
+      <KpiCard label="Pending" value={pending} tone="orange" />
+      <KpiCard label="Accepted" value={accepted} tone="green" />
+      <KpiCard label="Revoked" value={revoked} />
+    </KpiGrid>
+    {canManage && (
+      <Panel title="Invite carrier" style={{ marginBottom: '0.9rem' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'flex-end' }}>
+          <div style={{ display: 'grid', gap: '0.25rem' }}>
+            <label style={{ fontSize: '0.72rem', color: '#334155', fontWeight: 700 }}>Carrier email</label>
+            <input value={carrierEmail} onChange={(e) => setCarrierEmail(e.target.value)} placeholder="carrier@company.com" style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.5rem 0.65rem', minWidth: '220px', fontSize: '0.78rem' }} />
+          </div>
+          <div style={{ display: 'grid', gap: '0.25rem' }}>
+            <label style={{ fontSize: '0.72rem', color: '#334155', fontWeight: 700 }}>Message (optional)</label>
+            <input value={inviteMessage} onChange={(e) => setInviteMessage(e.target.value)} placeholder="Personal invitation message…" style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.5rem 0.65rem', minWidth: '260px', fontSize: '0.78rem' }} />
+          </div>
+          <ActionButton tone="primary" disabled={working === 'invite'} onClick={() => void invite()}>{working === 'invite' ? 'Sending…' : 'Send invitation'}</ActionButton>
+        </div>
+      </Panel>
+    )}
+    <Panel title="Carrier network register" description="Only carriers invited by this broker company are listed.">
+      <DataTable
+        columns={['Carrier email', 'Company', 'Message', 'Invited', 'Status', 'Action']}
+        rows={invitations.map((inv) => [
+          inv.carrier_email ?? '—',
+          inv.carrierCompanyName ?? (inv.carrier_company_id ? inv.carrier_company_id.slice(0, 8) : '—'),
+          inv.message ?? '—',
+          when(inv.created_at),
+          <StatusBadge key="status" value={inv.status} />,
+          canManage && inv.status === 'pending' ? (
+            <ActionButton key="revoke" tone="danger" disabled={working === inv.id} onClick={() => void revoke(inv.id)}>
+              {working === inv.id ? 'Revoking…' : 'Revoke'}
+            </ActionButton>
+          ) : <span key="na" style={{ color: '#64748b', fontSize: '0.72rem' }}>—</span>,
+        ])}
+        empty={<EmptyState title={loading ? 'Loading…' : 'No carrier invitations yet'} description="Invite carrier companies to build a preferred sourcing network." />}
       />
     </Panel>
   </PageFrame>;

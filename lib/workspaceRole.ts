@@ -162,6 +162,7 @@ const carrierNav: WorkspaceNavGroup[] = [
     { id: 'marketplace', label: 'Marketplace', href: '/admin/marketplace', icon: '▦', capability: 'loads.view.marketplace' },
     { id: 'quotes', label: 'My Quotes', href: '/admin/quotes', icon: '◫', capability: 'quotes.submit' },
     { id: 'won-work', label: 'Won Work', href: '/admin/bids', icon: '✓', capability: 'jobs.view' },
+    { id: 'broker-invitations', label: 'Broker Invitations', href: '/admin/broker-invitations', icon: '✉' },
   ] },
   { id: 'operations', label: 'Operations', items: [
     { id: 'operations', label: 'Operations Centre', href: '/admin/operations-centre', icon: 'OC', capability: 'jobs.dispatch' },
@@ -218,7 +219,11 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
         { id: 'customer-invoices', label: 'Customer Invoices', href: '/broker/customer-invoices', icon: '£', capability: 'invoices.customer.manage' },
         { id: 'carrier-costs', label: 'Carrier Costs', href: '/broker/carrier-costs', icon: '£', capability: 'invoices.carrier.manage' },
       ] },
-      { id: 'settings', label: 'Administration', items: [{ id: 'settings', label: 'Settings', href: '/broker/settings', icon: '⚙', capability: 'settings.manage' }] },
+      { id: 'settings', label: 'Administration', items: [
+        { id: 'settings', label: 'Settings', href: '/broker/settings', icon: '⚙', capability: 'settings.manage' },
+        { id: 'team', label: 'Team', href: '/broker/team', icon: '◎', capability: 'settings.manage' },
+        { id: 'carrier-network', label: 'Carrier Network', href: '/broker/carrier-network', icon: '⊕', capability: 'settings.manage' },
+      ] },
     ],
   },
   customer: {

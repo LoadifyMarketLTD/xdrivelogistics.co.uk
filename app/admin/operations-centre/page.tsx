@@ -63,9 +63,13 @@ type Job = {
   vehicle: string;
   progress: number;
   status: string;
+  rawStatus: string;
   tone: Tone;
   bidCount: number;
   priority: string;
+  nextStatus: string | null;
+  nextStatusLabel: string | null;
+  assignedDriverId: string | null;
 };
 
 type MapPoint = {
@@ -169,6 +173,8 @@ export default function OperationsCentrePage() {
   const [payload, setPayload] = useState<Payload>(emptyPayload);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionMessage, setActionMessage] = useState('');
+  const [transitioningJobId, setTransitioningJobId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [date, setDate] = useState('today');
@@ -203,6 +209,42 @@ export default function OperationsCentrePage() {
   }, [date, query, sort, status]);
 
   useEffect(() => { void loadOperations(); }, [loadOperations]);
+
+  const advanceJobStatus = useCallback(async (job: Job) => {
+    if (!job.nextStatus || !job.assignedDriverId || transitioningJobId) return;
+    setTransitioningJobId(job.id);
+    setActionMessage('');
+    const session = await supabase.auth.getSession();
+    const token = session.data.session?.access_token;
+    if (!token) {
+      setActionMessage('Session expired. Please refresh and sign in again.');
+      setTransitioningJobId(null);
+      return;
+    }
+
+    const response = await fetch(`/api/admin/jobs/${job.id}/transition`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        nextStatus: job.nextStatus,
+        expectedStatus: job.rawStatus,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({ error: 'Job status could not be updated.' })) as { error?: string };
+      setActionMessage(body.error ?? 'Job status could not be updated.');
+      setTransitioningJobId(null);
+      return;
+    }
+
+    setActionMessage(`Job ${job.shortId} moved to ${job.nextStatus.replaceAll('_', ' ')}.`);
+    setTransitioningJobId(null);
+    await loadOperations();
+  }, [loadOperations, transitioningJobId]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -258,6 +300,7 @@ export default function OperationsCentrePage() {
         </header>
 
         {(error || payload.errors.length > 0) && <section className="error-strip">{error || payload.errors.map((item) => item.message).join(' | ')}</section>}
+        {actionMessage && <section className="action-strip">{actionMessage}</section>}
 
         <section className="metric-grid">
           {metrics.map(([label, value, note, tone, Icon]) => (
@@ -302,7 +345,21 @@ export default function OperationsCentrePage() {
                   <div className="job-meta"><span>{job.driver}</span><span>{job.vehicle}</span><time>{job.start} / {job.eta}</time></div>
                   <div className="progress"><i style={{ width: `${job.progress}%` }} /></div>
                   <footer><span>{job.priority}</span><span>{job.bidCount} bid{job.bidCount === 1 ? '' : 's'}</span></footer>
-                </button>
+                {job.nextStatus && (
+                  <div className="job-inline-action">
+                    <span
+                      data-disabled={!job.assignedDriverId || transitioningJobId === job.id}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (!job.assignedDriverId || transitioningJobId === job.id) return;
+                        void advanceJobStatus(job);
+                      }}
+                    >
+                      {transitioningJobId === job.id ? 'Updating…' : job.nextStatusLabel}
+                    </span>
+                  </div>
+                )}
+              </button>
               ))}
             </div>
           </article>
@@ -371,6 +428,7 @@ export default function OperationsCentrePage() {
         .filter-row { margin-bottom: 12px; }
         .filter-row button.active { background: #2563eb; border-color: #6ea0ff; color: #fff; }
         .error-strip { border: 1px solid rgba(239,68,68,.32); background: rgba(239,68,68,.12); color: #ffb4b4; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+        .action-strip { border: 1px solid rgba(22,163,74,.32); background: rgba(22,163,74,.12); color: #9ef3bd; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
         .metric-grid { display: grid; grid-template-columns: repeat(6, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
         .metric, .panel { border: 1px solid rgba(148,163,184,.18); background: rgba(13,29,49,.78); border-radius: 8px; box-shadow: inset 0 1px 0 rgba(255,255,255,.035); }
         .metric { min-height: 92px; padding: 11px; display: flex; justify-content: space-between; gap: 10px; }
@@ -388,6 +446,8 @@ export default function OperationsCentrePage() {
         .job-head span { color: #6da5ff; font-size: .74rem; } .job-head b { font-size: .68rem; text-transform: uppercase; border-radius: 6px; padding: 4px 7px; background: rgba(148,163,184,.14); }
         .job-card > strong, .job-card > small, .job-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .job-meta { color: #aab8ca; font-size: .74rem; } .job-meta time { color: #dce8f6; white-space: nowrap; }
+        .job-inline-action span { min-height: 30px; border: 1px solid rgba(59,130,246,.45); background: rgba(37,99,235,.22); color: #dbeafe; border-radius: 6px; width: 100%; font-size: .72rem; font-weight: 700; cursor: pointer; display: grid; place-items: center; }
+        .job-inline-action span[data-disabled="true"] { opacity: .55; cursor: not-allowed; }
         .progress { height: 5px; border-radius: 999px; background: rgba(148,163,184,.18); overflow: hidden; } .progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2563eb, #7aa7ff); }
         .job-red .job-head b { color: #ff8b8b; background: rgba(239,68,68,.22); } .job-amber .job-head b { color: #ffc36a; background: rgba(245,158,11,.22); } .job-green .job-head b { color: #70df91; background: rgba(34,197,94,.2); }
         .map { min-height: 410px; position: relative; border: 1px solid rgba(148,163,184,.16); border-radius: 8px; overflow: hidden; background: linear-gradient(160deg, rgba(9,25,44,.96), rgba(9,36,46,.88)); }

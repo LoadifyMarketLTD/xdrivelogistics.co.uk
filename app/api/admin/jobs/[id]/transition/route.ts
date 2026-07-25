@@ -6,6 +6,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
+import { autoGenerateMarketplaceInvoice } from '../../../../_lib/autoGenerateMarketplaceInvoice';
 
 const bodySchema = z.object({
   nextStatus: z.enum([
@@ -174,6 +175,27 @@ export async function POST(
   });
   if (trackingError) {
     console.error('Job transition succeeded but tracking event insert failed:', trackingError.message);
+  }
+
+  if (
+    (parsed.data.nextStatus === 'delivered' || parsed.data.nextStatus === 'completed')
+    && typeof job.awarded_carrier_company_id === 'string'
+    && job.awarded_carrier_company_id
+  ) {
+    try {
+      await autoGenerateMarketplaceInvoice({
+        supabase: supabaseAdmin,
+        jobId: id,
+        supplierCompanyId: job.awarded_carrier_company_id,
+        actorUserId: authData.user.id,
+        idempotencyKey: `auto-pod-${id}`,
+      });
+    } catch (reason) {
+      console.error(
+        'Job transition succeeded but auto invoice generation failed:',
+        reason instanceof Error ? reason.message : reason
+      );
+    }
   }
 
   return respond(200, { success: true, job: updated });

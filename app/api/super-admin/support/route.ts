@@ -65,6 +65,13 @@ const createTicketSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
 });
 
+const updateTicketSchema = z.object({
+  section: z.literal('tickets'),
+  ticketId: z.string().uuid(),
+  action: z.enum(['investigating', 'resolve', 'close', 'reopen', 'add_note']),
+  note: z.string().trim().max(5000).optional(),
+});
+
 const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
   if (!supabaseAdmin || ids.length === 0) return new Map();
   const { data } = await supabaseAdmin.from('companies').select('id, name').in('id', ids);
@@ -206,6 +213,99 @@ export async function GET(request: NextRequest) {
   }
 
   return respond(400, { error: 'Invalid section. Use disputes, complaints, or tickets.' });
+}
+
+export async function PATCH(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
+
+  const owner = await verifyOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return respond(400, { error: 'Invalid JSON body.' });
+  }
+
+  const parsed = updateTicketSchema.safeParse(body);
+  if (!parsed.success) {
+    return respond(400, { error: 'Validation failed.', details: parsed.error.flatten() });
+  }
+
+  const { ticketId, action, note } = parsed.data;
+  const trimmedNote = note?.trim() ?? null;
+
+  const { data: existingTicket, error: existingError } = await supabaseAdmin
+    .from('support_tickets')
+    .select('id, status, resolution_note')
+    .eq('id', ticketId)
+    .maybeSingle();
+
+  if (existingError) return respond(500, { error: existingError.message });
+  if (!existingTicket) return respond(404, { error: 'Support ticket not found.' });
+
+  const currentStatus = existingTicket.status ?? 'open';
+  const nextStatus =
+    action === 'investigating'
+      ? 'investigating'
+      : action === 'resolve'
+        ? 'resolved'
+        : action === 'close'
+          ? 'closed'
+          : action === 'reopen'
+            ? 'open'
+            : currentStatus;
+
+  const payload: Record<string, unknown> = {
+    status: nextStatus,
+  };
+
+  if (action === 'resolve') {
+    payload.resolved_at = new Date().toISOString();
+    payload.closed_at = null;
+  } else if (action === 'close') {
+    payload.closed_at = new Date().toISOString();
+    if (currentStatus !== 'resolved') {
+      payload.resolved_at = new Date().toISOString();
+    }
+  } else if (action === 'reopen' || action === 'investigating') {
+    payload.resolved_at = null;
+    payload.closed_at = null;
+  }
+
+  if (trimmedNote) {
+    payload.resolution_note = trimmedNote;
+  } else if (action === 'reopen') {
+    payload.resolution_note = null;
+  }
+
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from('support_tickets')
+    .update(payload)
+    .eq('id', ticketId)
+    .select('id, status, resolution_note, resolved_at, closed_at, updated_at')
+    .maybeSingle();
+
+  if (updateError) return respond(500, { error: updateError.message });
+
+  await supabaseAdmin
+    .from('owner_audit_log')
+    .insert({
+      actor_user_id: owner.id,
+      target_company_id: null,
+      action_type: 'support_ticket_updated',
+      old_status: currentStatus,
+      new_status: nextStatus,
+      reason: trimmedNote ?? `Support ticket ${ticketId} updated via super-admin action '${action}'.`,
+      metadata: { ticket_id: ticketId, action },
+    })
+    .select('id')
+    .maybeSingle();
+
+  return respond(200, { ticket: updated });
 }
 
 export async function POST(request: NextRequest) {

@@ -1,8 +1,12 @@
 import { Buffer } from 'node:buffer';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from '../../../../../../../lib/server/invoicePdf';
-import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
-import { isDriverContext, requireDriver } from '../../../../mobile/_lib';
+import {
+  getBearerToken,
+  isSupabaseAdminConfigured,
+  supabaseAdmin,
+  supabaseValidator,
+} from '../../../../../_lib/supabaseAdmin';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
 
 export const runtime = 'nodejs';
@@ -40,29 +44,53 @@ const isMissingDeliverySchema = (
   );
 };
 
+type InvoiceSenderContext = {
+  userId: string;
+  companyId: string;
+};
+
+async function resolveInvoiceSender(request: NextRequest, invoiceId: string): Promise<InvoiceSenderContext | NextResponse> {
+  const token = getBearerToken(request);
+  if (!token) return respond(401, { error: 'Unauthorized.' });
+
+  const validator = supabaseValidator ?? supabaseAdmin;
+  const { data: authData, error: authError } = await validator!.auth.getUser(token);
+  if (authError || !authData.user) return respond(401, { error: 'Unauthorized.' });
+
+  const { data: invoice, error: invoiceError } = await supabaseAdmin!
+    .from('invoices')
+    .select('id, company_id')
+    .eq('id', invoiceId)
+    .maybeSingle();
+  if (invoiceError) return respond(500, { error: invoiceError.message });
+  if (!invoice || typeof invoice.company_id !== 'string') return respond(404, { error: 'Invoice not found.' });
+
+  const { data: membership, error: membershipError } = await supabaseAdmin!
+    .from('company_memberships')
+    .select('role_in_company')
+    .eq('company_id', invoice.company_id)
+    .eq('user_id', authData.user.id)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (membershipError) return respond(500, { error: membershipError.message });
+
+  const membershipRole = String(membership?.role_in_company ?? '').toLowerCase();
+  if (!['owner', 'admin', 'dispatcher', 'finance'].includes(membershipRole)) {
+    return respond(403, { error: 'Finance workspace role is required to send invoices.' });
+  }
+
+  return {
+    userId: authData.user.id,
+    companyId: invoice.company_id,
+  };
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
-  }
-
-  const driver = await requireDriver(request);
-  if (!isDriverContext(driver)) return driver;
-
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company')
-    .eq('company_id', driver.companyId)
-    .eq('user_id', driver.userId)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (membershipError) return respond(500, { error: membershipError.message });
-
-  const membershipRole = String(membership?.role_in_company ?? '').toLowerCase();
-  if (!['owner', 'admin'].includes(membershipRole)) {
-    return respond(403, { error: 'Company owner or admin access is required to send invoices.' });
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim() ?? '';
@@ -75,11 +103,14 @@ export async function POST(
   }
 
   const { id } = await params;
+  const sender = await resolveInvoiceSender(request, id);
+  if (sender instanceof NextResponse) return sender;
+
   const { data: invoice, error: fetchError } = await supabaseAdmin
     .from('invoices')
     .select('*')
     .eq('id', id)
-    .eq('company_id', driver.companyId)
+    .eq('company_id', sender.companyId)
     .maybeSingle();
   if (fetchError) return respond(500, { error: fetchError.message });
   if (!invoice) return respond(404, { error: 'Invoice not found.' });
@@ -133,7 +164,7 @@ export async function POST(
       updated_at: claimTime,
     })
     .eq('id', invoice.id)
-    .eq('company_id', driver.companyId)
+    .eq('company_id', sender.companyId)
     .eq('status', invoice.status)
     .in('delivery_state', ['idle', 'failed'])
     .select('*')
@@ -163,7 +194,7 @@ export async function POST(
         updated_at: new Date().toISOString(),
       })
       .eq('id', claimedInvoice.id)
-      .eq('company_id', driver.companyId)
+      .eq('company_id', sender.companyId)
       .eq('delivery_state', 'sending');
     return respond(status, { error: message, invoiceStatus: 'Draft' });
   };
@@ -201,7 +232,7 @@ export async function POST(
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
     .select('name, address_line1, address_line2, city, postcode, company_number, vat_number')
-    .eq('id', driver.companyId)
+    .eq('id', sender.companyId)
     .maybeSingle();
   if (companyError) return failDelivery(500, companyError.message);
   if (!company) return failDelivery(422, 'Invoice issuer company details are missing.');
@@ -254,7 +285,7 @@ export async function POST(
   }
 
   const fileName = `${cleanFileName(invoiceNumber)}.pdf`;
-  const storagePath = `${driver.companyId}/${claimedInvoice.id}/${fileName}`;
+  const storagePath = `${sender.companyId}/${claimedInvoice.id}/${fileName}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from('invoice-docs')
     .upload(storagePath, pdfBytes, {
@@ -278,21 +309,21 @@ export async function POST(
     file_url: storagePath,
     file_name: fileName,
     file_size_bytes: pdfBytes.byteLength,
-    uploaded_by: driver.userId,
+    uploaded_by: sender.userId,
   };
   if (existingDocument) {
     const { error } = await supabaseAdmin
       .from('invoice_documents')
       .update(documentValues)
       .eq('id', existingDocument.id)
-      .eq('company_id', driver.companyId);
+      .eq('company_id', sender.companyId);
     if (error) return failDelivery(500, error.message);
   } else {
     const { error } = await supabaseAdmin
       .from('invoice_documents')
       .insert({
         invoice_id: claimedInvoice.id,
-        company_id: driver.companyId,
+        company_id: sender.companyId,
         doc_type: 'invoice_pdf',
         ...documentValues,
       });
@@ -360,7 +391,7 @@ export async function POST(
     .update({
       status: toLegacyInvoiceStatusForDb('Sent'),
       submitted_at: attemptedAt,
-      submitted_by: driver.userId,
+      submitted_by: sender.userId,
       delivery_state: 'sent',
       delivery_provider: 'resend',
       delivery_message_id: emailPayload.id,
@@ -370,7 +401,7 @@ export async function POST(
       updated_at: attemptedAt,
     })
     .eq('id', claimedInvoice.id)
-    .eq('company_id', driver.companyId)
+    .eq('company_id', sender.companyId)
     .eq('delivery_state', 'sending')
     .select(
       'id, status, submitted_at, delivery_state, delivery_message_id, delivery_recipient_email'
