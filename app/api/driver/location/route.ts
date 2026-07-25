@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
-import { toPostgisPoint } from '../../../../lib/geoLocation';
 
 type LocationPayload = {
   lat?: number;
@@ -24,10 +23,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Resolve driver row from auth user
+  // Resolve driver row and company from auth user.
+  // company_id is intentionally nullable — individual drivers without a company are permitted.
   const { data: driverRow, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id')
+    .select('id, company_id')
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
@@ -53,14 +53,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid lat/lng values.' }, { status: 400 });
   }
 
-  const now = new Date().toISOString();
+  const heading =
+    typeof body.heading === 'number' && Number.isFinite(body.heading) ? body.heading : null;
+  const speedMph =
+    typeof body.speed_mph === 'number' && Number.isFinite(body.speed_mph) && body.speed_mph >= 0
+      ? body.speed_mph
+      : null;
 
   const { error: insertError } = await supabaseAdmin
     .from('driver_locations')
     .insert({
       driver_id: driverRow.id,
-      location: toPostgisPoint(lng, lat),
-      recorded_at: now,
+      company_id: driverRow.company_id ?? null,
+      lat,
+      lng,
+      heading,
+      speed_mph: speedMph,
+      recorded_at: new Date().toISOString(),
     });
 
   if (insertError) {

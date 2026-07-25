@@ -159,7 +159,7 @@ const storageObjectExists = async (path: string) => {
   if (!fileName || !folder) return false;
 
   const { data, error } = await supabaseAdmin!.storage
-    .from('pod-docs')
+    .from('pod-photos')
     .list(folder, { limit: 100, search: fileName });
   if (error) throw new Error(error.message);
   return (data ?? []).some((entry) => entry.name === fileName);

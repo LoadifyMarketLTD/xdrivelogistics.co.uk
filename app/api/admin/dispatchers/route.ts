@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
           user_id: userId,
           full_name: displayName,
           phone,
-          role: normalizeProfileRoleForStorage('company_staff') ?? 'company',
+          role: normalizeProfileRoleForStorage('company_staff') ?? 'company_staff',
           status: 'active',
           company_id: resolvedCompanyId,
           is_driver: false,
