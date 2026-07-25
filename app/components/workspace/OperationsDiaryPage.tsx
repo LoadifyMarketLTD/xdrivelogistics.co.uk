@@ -204,7 +204,7 @@ export default function OperationsDiaryPage() {
         description="Allocate approved drivers, filter real bookings and progress each job through one canonical status chain."
         actions={
           <>
-            <ActionButton tone="primary" onClick={() => router.push('/admin/post-load')}>Post load</ActionButton>
+            <ActionButton tone="primary" onClick={() => router.push('/admin/jobs')}>Post load</ActionButton>
             <ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton>
           </>
         }
