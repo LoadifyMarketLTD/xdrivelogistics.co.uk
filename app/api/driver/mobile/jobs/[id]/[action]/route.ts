@@ -131,10 +131,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (updateError) return respond(500, { error: updateError.message });
   await insertTrackingEvent(id, driver.userId, config.eventType, config.label);
+  const updatedJob = updated as unknown as MobileJobRow & { awarded_carrier_company_id?: string | null };
 
   if (action === 'delivered') {
-    const carrierCompanyId = typeof updated.awarded_carrier_company_id === 'string'
-      ? updated.awarded_carrier_company_id
+    const carrierCompanyId = typeof updatedJob.awarded_carrier_company_id === 'string'
+      ? updatedJob.awarded_carrier_company_id
       : null;
     if (carrierCompanyId) {
       try {
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
   }
 
-  return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
+  return respond(200, { ok: true, job: mapJob(updatedJob) });
 }
 
 const persistentPodPath = (
