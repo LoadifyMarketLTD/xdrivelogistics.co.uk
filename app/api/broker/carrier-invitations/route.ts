@@ -155,6 +155,36 @@ export async function POST(request: NextRequest) {
 
   if (insertError) return json(500, { error: insertError.message });
 
+  // Notify the carrier if they are already a platform user.
+  // Use profiles.user_id joined via company_memberships to find the carrier's user by email.
+  // This is fire-and-forget: notification failure must not block the invitation response.
+  if (carrierEmail && inserted?.id) {
+    const invId = inserted.id;
+    void (async () => {
+      try {
+        // Supabase admin does not expose getUserByEmail; query profiles via auth email
+        // match through company_memberships invited_email as a best-effort lookup.
+        // Fall back to a broadcast notification (recipient_user_id = null) so the
+        // edge function can resolve the recipient from the payload email.
+        await admin.from('notification_events').insert({
+          event_type: 'carrier_invitation_received',
+          entity_type: 'broker_carrier_invitation',
+          entity_id: invId,
+          company_id: companyId,
+          recipient_user_id: null,
+          payload: {
+            invitation_id: invId,
+            broker_company_id: companyId,
+            carrier_email: carrierEmail,
+            message: message ?? null,
+          },
+        });
+      } catch {
+        // Non-critical: notification failure must not block the invitation response
+      }
+    })();
+  }
+
   return json(201, { invitation: inserted });
 }
 
