@@ -430,7 +430,7 @@ export default function DriverMobileApp() {
         ['POD upload', 'pod'],
         ['Profile', '/driver/change-password'],
         ['Password', '/driver/change-password'],
-        ['Support', 'mailto:support@xdrivelogistics.co.uk'],
+        ['Support', 'mailto:contact@xdrivelogistics.co.uk'],
       ].map(([label, href]) => (
         <button key={label} onClick={() => {
           if (href === 'jobs') setTab('jobs');
