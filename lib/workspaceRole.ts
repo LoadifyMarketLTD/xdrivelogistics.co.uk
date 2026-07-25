@@ -162,6 +162,7 @@ const carrierNav: WorkspaceNavGroup[] = [
     { id: 'marketplace', label: 'Marketplace', href: '/admin/marketplace', icon: '▦', capability: 'loads.view.marketplace' },
     { id: 'quotes', label: 'My Quotes', href: '/admin/quotes', icon: '◫', capability: 'quotes.submit' },
     { id: 'won-work', label: 'Won Work', href: '/admin/bids', icon: '✓', capability: 'jobs.view' },
+    { id: 'broker-invitations', label: 'Broker Invitations', href: '/admin/broker-invitations', icon: '✉' },
   ] },
   { id: 'operations', label: 'Operations', items: [
     { id: 'operations', label: 'Operations Centre', href: '/admin/operations-centre', icon: 'OC', capability: 'jobs.dispatch' },
