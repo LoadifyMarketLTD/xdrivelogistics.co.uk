@@ -99,7 +99,7 @@ function isPlaceholderPage(content) {
   const normalized = content.toLowerCase();
   return normalized.includes('superadminmodulepage')
     || normalized.includes('coming soon')
-    || normalized.includes('placeholder')
+    || normalized.includes('placeholder data')
     || normalized.includes('mock data');
 }
 
