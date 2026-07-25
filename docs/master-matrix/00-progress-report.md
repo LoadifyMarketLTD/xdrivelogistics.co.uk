@@ -25,7 +25,9 @@
 **Notification architecture**: See `docs/master-matrix/05-notification-architecture-reconciliation.md`  
 **Skipped test ledger**: See `docs/master-matrix/06-skipped-test-ledger.md`  
 **Prior fix contradictions**: See `docs/master-matrix/07-prior-fix-contradiction-analysis.md`  
-**Migration validation**: See `docs/master-matrix/08-migration-validation.md`
+**Migration validation**: See `docs/master-matrix/08-migration-validation.md`  
+**Notification bridge live validation**: See `docs/master-matrix/09-notification-bridge-live-validation-ledger.md`  
+**Driver quotation live validation**: See `docs/master-matrix/10-driver-quotation-e2e-validation-ledger.md`
 
 ---
 
@@ -79,6 +81,7 @@
 | Evidence | android-native/data/ApiClient.kt:298, supabase/migrations/071 |
 | Risk | **LAUNCH BLOCKER** — Android drivers see zero notifications |
 | Safe remediation | Apply bridge migration 20260725160000 |
+| Closure gate | **IMPLEMENTED BUT NOT LIVE-VALIDATED** until runtime producer → bridge → notifications → Android proof exists |
 
 ### C2: Web /m/ Driver Notification Source
 
@@ -123,6 +126,7 @@
 | Workflows with zero authenticated E2E | 10 of 12 |
 | Workflows with static tests only | 8 |
 | Workflows with authenticated runtime tests | 2 (super-admin finance, super-admin support — skipped, need credentials) |
+| Driver quotation workflow closure status | **OPEN** — runtime E2E + live DB evidence required; do not mark CLOSED from static contracts |
 
 ### Skip breakdown by cause
 
@@ -207,6 +211,10 @@ WHERE nspname = 'public'
 3. Implement notification retry (P2)
 4. Add FCM push to Android native app (P2)
 5. Determine which mobile app is on driver devices
+
+See dedicated runtime evidence ledgers:
+- `docs/master-matrix/09-notification-bridge-live-validation-ledger.md`
+- `docs/master-matrix/10-driver-quotation-e2e-validation-ledger.md`
 
 ---
 

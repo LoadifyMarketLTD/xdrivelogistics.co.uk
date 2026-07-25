@@ -2,6 +2,7 @@
 
 **Generated**: 2026-07-25  
 **Classification**: LAUNCH BLOCKER — Android drivers receive zero operational notifications
+**Delivery status**: **IMPLEMENTED BUT NOT LIVE-VALIDATED** (not CLOSED until runtime evidence)
 
 ---
 
@@ -124,6 +125,8 @@ API endpoints
 | User inbox (Android/legacy) | `notifications` |
 
 The bridge trigger converts outbox rows into inbox rows automatically.
+
+> Closure rule: Trigger existence alone is insufficient. Android notifications stay **IMPLEMENTED BUT NOT LIVE-VALIDATED** until producer → bridge → notifications → Android runtime is proven with recipient-level evidence.
 
 ---
 
