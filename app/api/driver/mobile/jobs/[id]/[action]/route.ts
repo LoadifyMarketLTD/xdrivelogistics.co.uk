@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { autoGenerateMarketplaceInvoice } from '../../../../../_lib/autoGenerateMarketplaceInvoice';
 import {
   appendStatusHistory,
   hasPod,
@@ -130,6 +131,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (updateError) return respond(500, { error: updateError.message });
   await insertTrackingEvent(id, driver.userId, config.eventType, config.label);
+
+  if (action === 'delivered') {
+    const carrierCompanyId = typeof updated.awarded_carrier_company_id === 'string'
+      ? updated.awarded_carrier_company_id
+      : null;
+    if (carrierCompanyId) {
+      try {
+        await autoGenerateMarketplaceInvoice({
+          supabase: supabaseAdmin!,
+          jobId: id,
+          supplierCompanyId: carrierCompanyId,
+          actorUserId: driver.userId,
+          idempotencyKey: `auto-pod-${id}`,
+        });
+      } catch (reason) {
+        console.error(
+          'Driver status update succeeded but auto invoice generation failed:',
+          reason instanceof Error ? reason.message : reason
+        );
+      }
+    }
+  }
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }

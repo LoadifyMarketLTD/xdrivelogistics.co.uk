@@ -13,6 +13,17 @@ const liveStatuses = new Set(['allocated', 'awarded', 'on_my_way', 'on_site_pick
 const completeStatuses = new Set(['delivered', 'completed', 'invoiced', 'paid']);
 const delayedStatuses = new Set(['delayed', 'disputed', 'failed']);
 const pendingInvoiceStatuses = new Set(['Draft', 'Sent', 'Overdue', 'Disputed']);
+const nextTransition: Record<string, { status: string; label: string }> = {
+  awarded: { status: 'on_my_way', label: 'Start pickup route' },
+  allocated: { status: 'on_my_way', label: 'Start pickup route' },
+  on_my_way: { status: 'on_site_pickup', label: 'Arrived pickup' },
+  on_site_pickup: { status: 'loaded', label: 'Mark loaded' },
+  loaded: { status: 'in_transit', label: 'Start transit' },
+  collected: { status: 'in_transit', label: 'Start transit' },
+  in_transit: { status: 'on_site_delivery', label: 'Arrived delivery' },
+  on_site_delivery: { status: 'delivered', label: 'Mark delivered' },
+  delivered: { status: 'completed', label: 'Complete job' },
+};
 
 type JobRow = {
   id: string;
@@ -271,6 +282,8 @@ export async function GET(request: NextRequest) {
 
   const jobCards = activeJobs.slice(0, 80).map((job) => {
     const vehicle = job.assigned_driver_id ? vehicleByDriverId.get(job.assigned_driver_id) : null;
+    const currentStatus = norm(job.current_status ?? job.status);
+    const next = nextTransition[currentStatus] ?? null;
     return {
       id: job.id,
       shortId: job.id.slice(0, 8).toUpperCase(),
@@ -280,11 +293,15 @@ export async function GET(request: NextRequest) {
       eta: formatTime(job.delivery_datetime),
       driver: driversById.get(job.assigned_driver_id ?? '') ?? 'Unassigned',
       vehicle: vehicle?.reg_plate ? `${vehicle.type ?? 'Vehicle'} - ${vehicle.reg_plate}` : job.requested_vehicle_type ?? job.vehicle_type ?? 'Vehicle TBC',
-      progress: progressForStatus(job.current_status ?? job.status),
-      status: statusLabel(job.current_status ?? job.status),
-      tone: toneForStatus(job.current_status ?? job.status),
+      progress: progressForStatus(currentStatus),
+      status: statusLabel(currentStatus),
+      rawStatus: currentStatus,
+      tone: toneForStatus(currentStatus),
       bidCount: bidsByJob.get(job.id) ?? 0,
       priority: delayedStatuses.has(norm(job.status)) ? 'high' : podMissingJobs.some((row) => row.id === job.id) ? 'medium' : 'normal',
+      nextStatus: next?.status ?? null,
+      nextStatusLabel: next?.label ?? null,
+      assignedDriverId: job.assigned_driver_id,
     };
   });
 
