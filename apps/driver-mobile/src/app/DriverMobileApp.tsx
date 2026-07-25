@@ -854,8 +854,8 @@ function ProfileScreen({ resources, queue, onRefresh, onSignOut }: { resources: 
       </Panel>
       <Panel>
         <Text style={styles.infoLabel}>Vehicle</Text>
-        <Info label="Registration" value={stringField(vehicle.registration_number || vehicle.registration || vehicle.plate_number)} />
-        <Info label="Type" value={stringField(vehicle.vehicle_type || vehicle.body_type)} />
+        <Info label="Registration" value={stringField(vehicle.reg_plate || vehicle.registration_number || vehicle.registration || vehicle.plate_number)} />
+        <Info label="Type" value={stringField(vehicle.type || vehicle.vehicle_type || vehicle.body_type)} />
         <Info label="Status" value={stringField(vehicle.status, 'Assigned')} />
       </Panel>
       <Panel>
