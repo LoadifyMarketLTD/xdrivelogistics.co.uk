@@ -16,6 +16,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   accepted: { bg: '#d1fae5', text: '#065f46' },
   declined: { bg: '#fee2e2', text: '#991b1b' },
   converted: { bg: '#ede9fe', text: '#5b21b6' },
+  withdrawn: { bg: '#e2e8f0', text: '#475569' },
 };
 
 const QUOTE_TABS: Array<{ id: string; label: string; statuses: string[] }> = [
@@ -24,6 +25,7 @@ const QUOTE_TABS: Array<{ id: string; label: string; statuses: string[] }> = [
   { id: 'accepted', label: 'Accepted', statuses: ['accepted'] },
   { id: 'converted', label: 'Converted', statuses: ['converted'] },
   { id: 'rejected', label: 'Unsuccessful', statuses: ['declined'] },
+  { id: 'withdrawn', label: 'Withdrawn', statuses: ['withdrawn'] },
 ] as const;
 
 export default function QuotesPage() {
@@ -138,7 +140,18 @@ export default function QuotesPage() {
       .update({ status })
       .eq('id', quoteId)
       .eq('company_id', companyId);
-    if (!error) loadQuotes();
+    if (!error) {
+      setFlowMessage(`Quote moved to ${status}.`);
+      loadQuotes();
+    }
+  };
+
+  const handleWithdrawQuote = async (quoteId: string) => {
+    await handleUpdateStatus(quoteId, 'withdrawn');
+  };
+
+  const handleReviseQuote = async (quoteId: string) => {
+    await handleUpdateStatus(quoteId, 'draft');
   };
 
   const handleConvertToJob = async (quote: Quote) => {
@@ -361,6 +374,12 @@ export default function QuotesPage() {
                                     <button onClick={() => handleUpdateStatus(q.id, 'accepted')} style={actionBtn('#dcfce7', '#15803d')}>Accept</button>
                                     <button onClick={() => handleUpdateStatus(q.id, 'declined')} style={actionBtn('#fee2e2', '#991b1b')}>Decline</button>
                                   </>
+                                )}
+                                {q.status === 'sent' && (
+                                  <button onClick={() => void handleReviseQuote(q.id)} style={actionBtn('#fef3c7', '#92400e')}>Revise</button>
+                                )}
+                                {(q.status === 'draft' || q.status === 'sent' || q.status === 'accepted') && (
+                                  <button onClick={() => void handleWithdrawQuote(q.id)} style={actionBtn('#e2e8f0', '#475569')}>Withdraw</button>
                                 )}
                                 {q.status === 'accepted' && (
                                   <button onClick={() => handleConvertToJob(q)} disabled={convertingId === q.id} style={{ padding: '0.25rem 0.6rem', border: 'none', borderRadius: '5px', background: '#16a34a', color: '#fff', cursor: convertingId === q.id ? 'not-allowed' : 'pointer', fontSize: '0.73rem', fontWeight: 700 }}>
