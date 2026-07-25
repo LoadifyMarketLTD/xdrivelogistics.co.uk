@@ -144,7 +144,7 @@ export async function resolveDriverBidEligibility(
         ownCompanyJob,
         assigned,
         awarded,
-        hasProposedPrice: job?.is_fixed_price === true,
+        hasProposedPrice: proposedPriceGbp !== null,
         proposedPriceGbp,
       },
       hasActiveBid,

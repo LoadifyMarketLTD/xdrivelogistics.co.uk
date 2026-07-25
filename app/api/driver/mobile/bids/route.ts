@@ -18,8 +18,6 @@ export async function POST(request: NextRequest) {
   const message = typeof body?.message === 'string' ? body.message.trim() : '';
 
   if (!jobId) return respond(400, { error: 'Job id is required.' });
-  if (driver.driverStatus !== 'active') return respond(403, { error: 'Driver account is not active.' });
-  if (driver.appAccess !== true) return respond(403, { error: 'Driver app access has not been approved.' });
   if (driver.canCommercialBid !== true) return respond(403, { error: 'Your account type does not permit commercial bidding.' });
   if (driver.companyId && driver.companyStatus !== 'active') return respond(403, { error: 'Driver company workspace is not active.' });
   if (!driver.companyId && driver.driverType === 'company_driver') {

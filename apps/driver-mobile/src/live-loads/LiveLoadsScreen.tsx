@@ -157,7 +157,7 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
     } finally {
       setSubmitting(false);
     }
-  }, [quoteAmount, quoteJob, quoteMessage]);
+  }, [canCommercialBid, quoteAmount, quoteJob, quoteMessage]);
 
   const visible = jobs.filter((job) => !preferences.hiddenJobIds.includes(job.id));
   const displayed = feed === 'pinned'
