@@ -143,6 +143,14 @@ BEGIN
   ON CONFLICT (job_id) DO NOTHING
   RETURNING id INTO v_agreement_id;
 
+  IF v_agreement_id IS NULL THEN
+    SELECT id
+    INTO v_agreement_id
+    FROM public.job_commercial_agreements
+    WHERE job_id = v_job_id
+    LIMIT 1;
+  END IF;
+
   -- ── 8. Return canonical result ───────────────────────────────────────────────
   RETURN jsonb_build_object(
     'ok',                        true,

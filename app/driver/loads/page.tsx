@@ -375,9 +375,9 @@ export default function AvailableLoadsPage() {
             <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>Available Loads</h2>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#64748b' }}>
               {loading
-                ? 'Loading exchange boardâ€¦'
+                ? 'Loading exchange board…'
                 : `${filteredLoads.length} load${filteredLoads.length !== 1 ? 's' : ''} ready to review`}
-              {refreshing && ' Â· Refreshingâ€¦'}
+              {refreshing && ' · Refreshing…'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -392,7 +392,7 @@ export default function AvailableLoadsPage() {
               disabled={loading || refreshing}
               style={{ padding: '0.55rem 1rem', backgroundColor: '#1d4ed8', border: 'none', borderRadius: '8px', fontSize: '0.83rem', fontWeight: 600, cursor: loading || refreshing ? 'not-allowed' : 'pointer', color: '#fff', opacity: loading || refreshing ? 0.7 : 1 }}
             >
-              {refreshing ? 'Refreshingâ€¦' : 'Refresh'}
+              {refreshing ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
         </div>
@@ -422,11 +422,11 @@ export default function AvailableLoadsPage() {
         </div>
 
         {filtersPending && !loading && (
-          <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.75rem' }}>Applying filtersâ€¦</div>
+          <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.75rem' }}>Applying filters…</div>
         )}
 
         {loading ? (
-          <div style={{ ...card, color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading exchange loadsâ€¦</div>
+          <div style={{ ...card, color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading exchange loads…</div>
         ) : showNoExchangeLoads ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ“­</div>
@@ -538,13 +538,13 @@ export default function AvailableLoadsPage() {
                         step="0.01"
                         value={bidAmount}
                         onChange={(e) => setBidAmount(e.target.value)}
-                        placeholder="Your price (Â£)"
+                        placeholder="Your price (£)"
                         style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
                       />
                       <textarea
                         value={bidMessage}
                         onChange={(e) => setBidMessage(e.target.value)}
-                        placeholder="Optional message to shipperâ€¦"
+                        placeholder="Optional message to shipper…"
                         rows={2}
                         style={{ padding: '0.6rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.85rem', width: '100%', resize: 'vertical' }}
                       />
@@ -554,7 +554,7 @@ export default function AvailableLoadsPage() {
                           disabled={bidLoading || !bidAmount}
                           style={{ flex: 1, minWidth: '180px', padding: '0.6rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: bidLoading ? 'not-allowed' : 'pointer', opacity: bidLoading ? 0.6 : 1 }}
                         >
-                          {bidLoading ? 'Submittingâ€¦' : 'Submit Quote'}
+                          {bidLoading ? 'Submitting…' : 'Submit Quote'}
                         </button>
                         <button
                           onClick={() => {
@@ -595,7 +595,7 @@ export default function AvailableLoadsPage() {
                         </>
                       ) : (
                         <span style={{ fontSize: '0.82rem', color: '#6d28d9', fontWeight: 600 }}>
-                          Quote submitted: Â£{load.myBidAmount?.toFixed(2) ?? 'â€”'}
+                          Quote submitted: £{load.myBidAmount?.toFixed(2) ?? '—'}
                         </span>
                       )}
                       <button

@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver, respond } from '../_lib';
 
-const activeBidStatuses = ['submitted', 'accepted', 'awarded', 'approved'];
+const activeBidStatuses = ['submitted', 'accepted'];
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
