@@ -27,14 +27,13 @@ export async function POST(request: NextRequest) {
   }
   if (message.length > 1_000) return respond(400, { error: 'Quote message is too long.' });
 
-  const { eligibility, job, error: eligibilityError } = await resolveDriverBidEligibility(supabaseAdmin, driver, jobId).catch((error: unknown) => ({
-    eligibility: null,
-    job: null,
-    error: error instanceof Error ? error.message : 'Unable to evaluate bid eligibility.',
-  }));
-  if (!eligibility) {
-    return respond(500, { error: eligibilityError || 'Unable to evaluate bid eligibility.' });
+  let eligibilityResult: Awaited<ReturnType<typeof resolveDriverBidEligibility>>;
+  try {
+    eligibilityResult = await resolveDriverBidEligibility(supabaseAdmin, driver, jobId);
+  } catch (error) {
+    return respond(500, { error: error instanceof Error ? error.message : 'Unable to evaluate bid eligibility.' });
   }
+  const { eligibility, job } = eligibilityResult;
   if (!job) return respond(404, { error: 'Job not found.' });
 
   if (!eligibility.eligible) {

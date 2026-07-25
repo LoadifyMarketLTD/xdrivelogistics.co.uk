@@ -48,7 +48,7 @@ async function apiJson<T>(session: Session, path: string, options: { method?: 'G
     method: options.method ?? 'GET',
     headers: {
       Accept: 'application/json',
-      Authorization: `******
+      Authorization: 'Bearer ' + session.token,
       ...(options.method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
     },
     data: options.data,
