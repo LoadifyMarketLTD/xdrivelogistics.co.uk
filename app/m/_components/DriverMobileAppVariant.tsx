@@ -80,12 +80,14 @@ type Vehicle = {
   model: string | null;
 };
 
+// Notification rows are fetched from notification_events (the canonical outbox)
+// and shaped into this display type so the rest of the component is unchanged.
 type Notification = {
   id: string;
   title: string | null;
   body: string | null;
   type: string | null;
-  read_at: string | null;
+  read_at: string | null; // mapped from processed_at for display purposes
   created_at: string | null;
 };
 
@@ -393,13 +395,58 @@ export default function DriverMobileAppVariant({
       setDocs([...driverDocs, ...vehicleDocs]);
 
       if (user?.id) {
+        // Read from the canonical notification_events outbox (same source as web
+        // NotificationBell, Expo mobile, and admin ops-centre). Map to the
+        // Notification display type so the rest of this component is unchanged.
         const notificationsRes = await supabase
-          .from('notifications')
-          .select('id,title,body,type,read_at,created_at')
-          .eq('user_id', user.id)
+          .from('notification_events')
+          .select('id,event_type,entity_type,payload,status,processed_at,created_at')
+          .eq('recipient_user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(50);
-        setNotifications((notificationsRes.data || []) as Notification[]);
+        const eventTitleMap: Record<string, string> = {
+          job_assigned: 'Job assigned to you',
+          bid_accepted: 'Your bid was accepted',
+          pod_uploaded: 'POD uploaded — job delivered',
+          bid_rejected: 'Bid rejected',
+          invoice_dispute: 'Invoice dispute raised',
+          carrier_invited: 'Carrier network invitation',
+          carrier_accepted: 'Carrier accepted your invitation',
+          carrier_rejected: 'Carrier declined your invitation',
+          onboarding_submitted: 'Onboarding application submitted',
+          onboarding_approved: 'Your application has been approved',
+          onboarding_rejected: 'Application requires attention',
+        };
+        const deriveBody = (eventType: string, payload: Record<string, unknown> | null): string => {
+          const p = payload ?? {};
+          const pickup = typeof p.pickup_location === 'string' ? p.pickup_location : null;
+          const delivery = typeof p.delivery_location === 'string' ? p.delivery_location : null;
+          if (eventType === 'job_assigned' && pickup && delivery) return `${pickup} → ${delivery}`;
+          if (eventType === 'bid_accepted') {
+            const amount = p.bid_price_gbp ?? p.amount;
+            if (typeof amount === 'number') return `Accepted amount: £${amount.toFixed(2)}`;
+          }
+          if (eventType === 'pod_uploaded' && pickup && delivery) return `${pickup} → ${delivery}`;
+          if (typeof p.message === 'string') return p.message;
+          return 'Open the platform for details.';
+        };
+        const mapped: Notification[] = ((notificationsRes.data ?? []) as Array<{
+          id: string;
+          event_type: string;
+          entity_type: string;
+          payload: Record<string, unknown> | null;
+          status: string;
+          processed_at: string | null;
+          created_at: string;
+        }>).map((row) => ({
+          id: row.id,
+          title: eventTitleMap[row.event_type] ?? row.event_type.replace(/_/g, ' '),
+          body: deriveBody(row.event_type, row.payload),
+          type: row.event_type,
+          read_at: row.processed_at, // processed = acknowledged by edge function
+          created_at: row.created_at,
+        }));
+        setNotifications(mapped);
 
         const messagesRes = await supabase
           .from('messages')
