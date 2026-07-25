@@ -1,60 +1,117 @@
 -- ============================================================
--- Migration: broker_carrier_invitations
--- Purpose: Broker-to-carrier network invitations with status
---          tracking, revoke support, audit trail and RLS.
+-- Migration: broker_carrier_invitations – schema upgrade
+-- Purpose: Rename carrier_email → invited_email (if needed),
+--          enforce NOT NULL on invited_email and invited_by,
+--          add accepted_at / revoked_at audit timestamps,
+--          update status check to include 'expired',
+--          add unique active-invitation index per (broker, email),
+--          refresh RLS policies to use the canonical column name,
+--          and create any missing broker-side policies.
+--
+-- Idempotent: safe to run more than once, and safe whether
+--   • carrier_email (original schema) or invited_email (already
+--     renamed) is the current column name, and
+--   • the table was created fresh by this migration file or was
+--     already created by the 20260725130000 migration.
 -- ============================================================
 
--- ── Table ───────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS broker_carrier_invitations (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-  -- Broker company that issued the invitation
-  broker_company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-
-  -- Invited carrier identified by email.
-  -- A company_id is populated once the invitation is accepted.
-  invited_email     TEXT NOT NULL,
-  carrier_company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
-
-  -- Who issued the invitation (must be an active member of broker_company_id)
-  invited_by        UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
-
-  -- Workflow states: pending | accepted | revoked | expired
-  status            TEXT NOT NULL DEFAULT 'pending'
-                    CHECK (status IN ('pending', 'accepted', 'revoked', 'expired')),
-
-  -- Optional personalised message
-  message           TEXT,
-
-  -- Timestamps
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  accepted_at       TIMESTAMPTZ,
-  revoked_at        TIMESTAMPTZ,
-
-  -- Business rule: one active invitation per (broker, email) pair.
-  -- Revoked or expired invitations do not block a fresh invitation.
-  CONSTRAINT unique_active_broker_carrier_invitation
-    UNIQUE NULLS NOT DISTINCT (broker_company_id, invited_email, status)
+-- ── 0. Ensure the table exists (fresh-install guard) ────────
+-- If neither 20260725130000 nor a previous run of this file has
+-- created the table yet, create it now with the canonical schema.
+CREATE TABLE IF NOT EXISTS public.broker_carrier_invitations (
+  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  broker_company_id  UUID        NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  invited_email      TEXT        NOT NULL,
+  carrier_company_id UUID        REFERENCES public.companies(id) ON DELETE SET NULL,
+  invited_by         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+  status             TEXT        NOT NULL DEFAULT 'pending'
+                     CHECK (status IN ('pending', 'accepted', 'revoked', 'rejected', 'expired')),
+  message            TEXT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  accepted_at        TIMESTAMPTZ,
+  revoked_at         TIMESTAMPTZ
 );
 
-COMMENT ON TABLE broker_carrier_invitations IS
-  'Records broker-issued invitations to carrier companies to join the broker''s carrier network. '
-  'An invitation may be pending, accepted, revoked or expired. RLS enforces that only members '
-  'of the issuing broker company can see or modify their own invitations.';
+-- ── 1. Rename carrier_email → invited_email if needed ───────
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name   = 'broker_carrier_invitations'
+      AND column_name  = 'carrier_email'
+  ) THEN
+    ALTER TABLE public.broker_carrier_invitations
+      RENAME COLUMN carrier_email TO invited_email;
+  END IF;
+END $$;
 
--- ── Indexes ─────────────────────────────────────────────────
+-- ── 2. Enforce NOT NULL on invited_email ────────────────────
+-- Drop the old nullable-email target check (references carrier_email text)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname  = 'broker_carrier_inv_target_check'
+      AND conrelid = 'public.broker_carrier_invitations'::regclass
+  ) THEN
+    ALTER TABLE public.broker_carrier_invitations
+      DROP CONSTRAINT broker_carrier_inv_target_check;
+  END IF;
+END $$;
+
+ALTER TABLE public.broker_carrier_invitations
+  ALTER COLUMN invited_email SET NOT NULL;
+
+-- ── 3. Enforce NOT NULL on invited_by ───────────────────────
+ALTER TABLE public.broker_carrier_invitations
+  ALTER COLUMN invited_by SET NOT NULL;
+
+-- ── 4. Add audit timestamp columns if missing ───────────────
+ALTER TABLE public.broker_carrier_invitations
+  ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS revoked_at  TIMESTAMPTZ;
+
+-- ── 5. Update status check to include 'expired' ─────────────
+DO $$
+DECLARE c record;
+BEGIN
+  FOR c IN
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = 'public.broker_carrier_invitations'::regclass
+      AND contype  = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%status%'
+  LOOP
+    EXECUTE format(
+      'ALTER TABLE public.broker_carrier_invitations DROP CONSTRAINT %I',
+      c.conname
+    );
+  END LOOP;
+END $$;
+
+ALTER TABLE public.broker_carrier_invitations
+  ADD CONSTRAINT broker_carrier_inv_status_check
+  CHECK (status IN ('pending', 'accepted', 'revoked', 'rejected', 'expired'));
+
+-- ── 6. Indexes ───────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_bci_broker_company
-  ON broker_carrier_invitations (broker_company_id, status);
+  ON public.broker_carrier_invitations (broker_company_id, status);
 
 CREATE INDEX IF NOT EXISTS idx_bci_invited_email
-  ON broker_carrier_invitations (invited_email);
+  ON public.broker_carrier_invitations (invited_email);
 
 CREATE INDEX IF NOT EXISTS idx_bci_carrier_company
-  ON broker_carrier_invitations (carrier_company_id);
+  ON public.broker_carrier_invitations (carrier_company_id);
 
--- ── updated_at trigger ──────────────────────────────────────
-CREATE OR REPLACE FUNCTION set_broker_carrier_invitation_updated_at()
+-- One active/pending invitation per (broker, email) pair.
+DROP INDEX IF EXISTS unique_active_broker_carrier_invitation;
+CREATE UNIQUE INDEX IF NOT EXISTS unique_active_broker_carrier_invitation
+  ON public.broker_carrier_invitations (broker_company_id, lower(invited_email))
+  WHERE status = 'pending';
+
+-- ── 7. updated_at trigger ────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.set_broker_carrier_invitation_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
   NEW.updated_at = now();
@@ -62,69 +119,95 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_bci_updated_at ON broker_carrier_invitations;
+DROP TRIGGER IF EXISTS trg_bci_updated_at ON public.broker_carrier_invitations;
 CREATE TRIGGER trg_bci_updated_at
-  BEFORE UPDATE ON broker_carrier_invitations
-  FOR EACH ROW EXECUTE FUNCTION set_broker_carrier_invitation_updated_at();
+  BEFORE UPDATE ON public.broker_carrier_invitations
+  FOR EACH ROW EXECUTE FUNCTION public.set_broker_carrier_invitation_updated_at();
 
--- ── Row Level Security ───────────────────────────────────────
-ALTER TABLE broker_carrier_invitations ENABLE ROW LEVEL SECURITY;
+-- ── 8. RLS ───────────────────────────────────────────────────
+ALTER TABLE public.broker_carrier_invitations ENABLE ROW LEVEL SECURITY;
 
--- Broker members can read their own company's invitations
-CREATE POLICY bci_select_broker_member ON broker_carrier_invitations
-  FOR SELECT
+-- Refresh carrier SELECT policy with the canonical invited_email column.
+DROP POLICY IF EXISTS "broker_carrier_inv_carrier_select" ON public.broker_carrier_invitations;
+CREATE POLICY "broker_carrier_inv_carrier_select"
+  ON public.broker_carrier_invitations FOR SELECT TO authenticated
   USING (
-    broker_company_id IN (
-      SELECT company_id FROM company_memberships
-      WHERE user_id = auth.uid() AND status = 'active'
+    carrier_company_id = public.auth_company_id()
+    OR (
+      invited_email IS NOT NULL
+      AND auth.email() IS NOT NULL
+      AND lower(invited_email) = lower(auth.email())
     )
   );
 
--- Broker members can insert invitations for their own company
-CREATE POLICY bci_insert_broker_member ON broker_carrier_invitations
-  FOR INSERT
-  WITH CHECK (
-    broker_company_id IN (
-      SELECT company_id FROM company_memberships
-      WHERE user_id = auth.uid() AND status = 'active'
-    )
-    AND invited_by = auth.uid()
-    -- Prevent duplicate active/pending invitations for the same email
-    AND NOT EXISTS (
-      SELECT 1 FROM broker_carrier_invitations existing
-      WHERE existing.broker_company_id = broker_carrier_invitations.broker_company_id
-        AND existing.invited_email = lower(trim(broker_carrier_invitations.invited_email))
-        AND existing.status = 'pending'
-    )
-  );
+-- Replace legacy broker-side policies (from 20260725130000) with
+-- membership-based versions that use company_memberships directly.
+DROP POLICY IF EXISTS "broker_carrier_inv_select" ON public.broker_carrier_invitations;
+DROP POLICY IF EXISTS "broker_carrier_inv_insert" ON public.broker_carrier_invitations;
+DROP POLICY IF EXISTS "broker_carrier_inv_update" ON public.broker_carrier_invitations;
 
--- Only the issuing broker member can revoke (update) an invitation
-CREATE POLICY bci_update_broker_member ON broker_carrier_invitations
-  FOR UPDATE
-  USING (
-    broker_company_id IN (
-      SELECT company_id FROM company_memberships
-      WHERE user_id = auth.uid() AND status = 'active'
-    )
-  )
-  WITH CHECK (
-    broker_company_id IN (
-      SELECT company_id FROM company_memberships
-      WHERE user_id = auth.uid() AND status = 'active'
-    )
-  );
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'broker_carrier_invitations'
+    AND policyname = 'bci_select_broker_member'
+  ) THEN
+    CREATE POLICY bci_select_broker_member
+      ON public.broker_carrier_invitations FOR SELECT
+      USING (
+        broker_company_id IN (
+          SELECT company_id FROM public.company_memberships
+          WHERE user_id = auth.uid() AND status = 'active'
+        )
+      );
+  END IF;
+END $$;
 
--- Super-admin (service role) can read all — handled by supabaseAdmin bypass.
--- No public delete is permitted; status is set to 'revoked' instead.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'broker_carrier_invitations'
+    AND policyname = 'bci_insert_broker_member'
+  ) THEN
+    CREATE POLICY bci_insert_broker_member
+      ON public.broker_carrier_invitations FOR INSERT
+      WITH CHECK (
+        broker_company_id IN (
+          SELECT company_id FROM public.company_memberships
+          WHERE user_id = auth.uid() AND status = 'active'
+        )
+        AND invited_by = auth.uid()
+      );
+  END IF;
+END $$;
 
--- ── Grants ──────────────────────────────────────────────────
-GRANT SELECT, INSERT, UPDATE ON broker_carrier_invitations TO authenticated;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'broker_carrier_invitations'
+    AND policyname = 'bci_update_broker_member'
+  ) THEN
+    CREATE POLICY bci_update_broker_member
+      ON public.broker_carrier_invitations FOR UPDATE
+      USING (
+        broker_company_id IN (
+          SELECT company_id FROM public.company_memberships
+          WHERE user_id = auth.uid() AND status = 'active'
+        )
+      )
+      WITH CHECK (
+        broker_company_id IN (
+          SELECT company_id FROM public.company_memberships
+          WHERE user_id = auth.uid() AND status = 'active'
+        )
+      );
+  END IF;
+END $$;
 
--- ── Post-run verification ────────────────────────────────────
--- Run the following to confirm success:
---
--- SELECT table_name, row_security
--- FROM information_schema.tables
--- WHERE table_name = 'broker_carrier_invitations';
---
--- Expected: row_security = YES
+-- ── 9. Grants ────────────────────────────────────────────────
+GRANT SELECT, INSERT, UPDATE ON public.broker_carrier_invitations TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
