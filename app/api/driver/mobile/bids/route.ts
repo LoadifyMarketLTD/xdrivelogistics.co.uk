@@ -12,6 +12,9 @@ export async function POST(request: NextRequest) {
 
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
+  if (!driver.companyId) {
+    return respond(403, { error: 'Marketplace bidding requires an active company workspace.' });
+  }
 
   const body = await request.json().catch(() => null) as { jobId?: unknown; amount?: unknown; message?: unknown } | null;
   const jobId = typeof body?.jobId === 'string' ? body.jobId.trim() : '';

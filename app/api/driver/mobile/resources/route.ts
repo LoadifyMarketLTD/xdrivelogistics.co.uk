@@ -61,20 +61,22 @@ export async function GET(request: NextRequest) {
   if (jobsResult.error) return NextResponse.json({ error: jobsResult.error.message }, { status: 500 });
   const jobs = (jobsResult.data ?? []) as AnyRow[];
 
-  const companyIds = [...new Set([context.companyId, ...jobs.map((job) => String(job.company_id ?? '')).filter(Boolean)])];
+  const companyIds = [...new Set([context.companyId, ...jobs.map((job) => String(job.company_id ?? '')).filter(Boolean)].filter(Boolean))];
   const companiesResult = await supabaseAdmin!.from('companies').select('id,name,company_number,company_type').in('id', companyIds);
   if (companiesResult.error) return NextResponse.json({ error: companiesResult.error.message }, { status: 500 });
   const companies = new Map(((companiesResult.data ?? []) as AnyRow[]).map((company) => [String(company.id), company]));
   const jobsById = new Map(jobs.map((job) => [String(job.id), sanitizeQuoteJob(job, context.driverId, companies.get(String(job.company_id)))]));
 
-  const vehicleResult = await supabaseAdmin!
-    .from('vehicles')
-    .select('*')
-    .eq('assigned_driver_id', context.driverId)
-    .eq('company_id', context.companyId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const vehicleResult = context.companyId
+    ? await supabaseAdmin!
+        .from('vehicles')
+        .select('*')
+        .eq('assigned_driver_id', context.driverId)
+        .eq('company_id', context.companyId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null, error: null };
   if (vehicleResult.error) return NextResponse.json({ error: vehicleResult.error.message }, { status: 500 });
 
   const userResult = await supabaseAdmin!.auth.admin.getUserById(context.userId);
@@ -85,7 +87,7 @@ export async function GET(request: NextRequest) {
       email,
       phone: String(driver?.phone ?? ''),
       driver,
-      company: companies.get(context.companyId) ?? null,
+      company: context.companyId ? (companies.get(context.companyId) ?? null) : null,
       vehicle: (vehicleResult.data ?? null) as AnyRow | null,
       quotes: bids.map((bid) => ({ ...bid, job: jobsById.get(String(bid.job_id)) ?? null })),
       documents: documentsResult.data ?? [],
@@ -98,6 +100,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const context = await requireDriver(request);
   if (!isDriverContext(context)) return context;
+  if (!context.companyId) {
+    return NextResponse.json({ error: 'Driver document uploads require an active company workspace.' }, { status: 403 });
+  }
   const body = await request.json().catch(() => null) as AnyRow | null;
   if (!body || String(body.action ?? '') !== 'upload_document') {
     return NextResponse.json({ error: 'Unsupported action.' }, { status: 400 });

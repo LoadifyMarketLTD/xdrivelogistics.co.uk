@@ -222,12 +222,17 @@ export async function GET(request: NextRequest) {
   let query = supabaseAdmin
     .from('jobs')
     .select(nearbySelect)
-    .or(`exchange_visibility.eq.exchange,and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${driver.companyId})`)
+    .or(driver.companyId
+      ? `exchange_visibility.eq.exchange,and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${driver.companyId})`
+      : 'exchange_visibility.eq.exchange')
     .eq('status', 'posted')
     .is('awarded_carrier_company_id', null)
-    .neq('company_id', driver.companyId)
     .order('exchange_posted_at', { ascending: false })
     .limit(limit);
+
+  if (driver.companyId) {
+    query = query.neq('company_id', driver.companyId);
+  }
 
   if (search) {
     query = query.or(`pickup_location.ilike.%${search}%,pickup_postcode.ilike.%${search}%,delivery_location.ilike.%${search}%,delivery_postcode.ilike.%${search}%,vehicle_type.ilike.%${search}%,requested_vehicle_label.ilike.%${search}%`);
@@ -280,11 +285,13 @@ export async function GET(request: NextRequest) {
 
   const [driverAccess, companyAccess, vehicleAccess] = await Promise.all([
     supabaseAdmin.from('drivers').select('international_work_approved').eq('id', driver.driverId).maybeSingle(),
-    supabaseAdmin.from('companies').select('international_work_approved').eq('id', driver.companyId).maybeSingle(),
+    driver.companyId
+      ? supabaseAdmin.from('companies').select('international_work_approved').eq('id', driver.companyId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('vehicles').select('international_work_approved,type').eq('assigned_driver_id', driver.driverId).maybeSingle(),
   ]);
   const internationalApproved = driverAccess.data?.international_work_approved === true
-    && companyAccess.data?.international_work_approved === true
+    && (driver.companyId ? companyAccess.data?.international_work_approved === true : true)
     && vehicleAccess.data?.international_work_approved === true;
 
   const vehicleRank: Record<string, number> = { small_van: 1, van_small: 1, swb_van: 2, mwb_van: 3, lwb_van: 4, xlwb_van: 5, luton: 6, luton_tail_lift: 6, truck_3_5t: 7, truck_5t: 8, truck_7_5t: 9, truck_12t: 10, truck_18t: 11, truck_26t: 12 };
