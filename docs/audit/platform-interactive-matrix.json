@@ -22,14 +22,14 @@
     "sourceFile": "app/(marketing)/_components/LandingPage.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -102,57 +102,9 @@
     "sourceFile": "app/(marketing)/_components/LandingPage.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
-    "rls": false,
-    "audit": false,
-    "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
-  },
-  {
-    "role": "Public / unauthenticated",
-    "section": "register",
-    "element": "href /register",
-    "sourceFile": "app/(marketing)/_components/LandingPage.tsx",
-    "currentTarget": "/register",
-    "routeExists": true,
-    "pageReal": true,
-    "apiRpc": true,
-    "db": true,
-    "rls": false,
-    "audit": false,
-    "e2e": true,
-    "status": "DUPLICATE",
-    "fix": "Consolidate duplicate entry points to canonical workflow."
-  },
-  {
-    "role": "Public / unauthenticated",
-    "section": "login",
-    "element": "href /login",
-    "sourceFile": "app/(marketing)/_components/LandingPage.tsx",
-    "currentTarget": "/login",
-    "routeExists": true,
-    "pageReal": false,
-    "apiRpc": false,
-    "db": false,
-    "rls": false,
-    "audit": false,
-    "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
-  },
-  {
-    "role": "Public / unauthenticated",
-    "section": "register",
-    "element": "href /register",
-    "sourceFile": "app/(marketing)/_components/LandingPage.tsx",
-    "currentTarget": "/register",
-    "routeExists": true,
-    "pageReal": true,
-    "apiRpc": true,
-    "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
@@ -182,14 +134,30 @@
     "sourceFile": "app/(marketing)/_components/LandingPage.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
+  },
+  {
+    "role": "Public / unauthenticated",
+    "section": "register",
+    "element": "href /register",
+    "sourceFile": "app/(marketing)/_components/LandingPage.tsx",
+    "currentTarget": "/register",
+    "routeExists": true,
+    "pageReal": true,
+    "apiRpc": true,
+    "db": true,
+    "rls": false,
+    "audit": false,
+    "e2e": true,
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -214,14 +182,46 @@
     "sourceFile": "app/(marketing)/_components/LandingPage.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
+  },
+  {
+    "role": "Public / unauthenticated",
+    "section": "register",
+    "element": "href /register",
+    "sourceFile": "app/(marketing)/_components/LandingPage.tsx",
+    "currentTarget": "/register",
+    "routeExists": true,
+    "pageReal": true,
+    "apiRpc": true,
+    "db": true,
+    "rls": false,
+    "audit": false,
+    "e2e": true,
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
+  },
+  {
+    "role": "Public / unauthenticated",
+    "section": "login",
+    "element": "href /login",
+    "sourceFile": "app/(marketing)/_components/LandingPage.tsx",
+    "currentTarget": "/login",
+    "routeExists": true,
+    "pageReal": true,
+    "apiRpc": false,
+    "db": false,
+    "rls": false,
+    "audit": false,
+    "e2e": true,
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -246,14 +246,14 @@
     "sourceFile": "app/(marketing)/_components/sections/FinalCTA.tsx",
     "currentTarget": "/request-quote",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -278,14 +278,14 @@
     "sourceFile": "app/(marketing)/_components/sections/FinalCTA.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -294,14 +294,14 @@
     "sourceFile": "app/(marketing)/_components/sections/ForDrivers.tsx",
     "currentTarget": "/request-quote",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -326,14 +326,14 @@
     "sourceFile": "app/(marketing)/_components/sections/Hero.tsx",
     "currentTarget": "/request-quote",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -358,14 +358,14 @@
     "sourceFile": "app/(marketing)/_components/sections/Hero.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -390,14 +390,14 @@
     "sourceFile": "app/(marketing)/_components/sections/HeroSection.tsx",
     "currentTarget": "/request-quote",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -422,14 +422,14 @@
     "sourceFile": "app/(marketing)/_components/sections/LaunchSection.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -518,14 +518,14 @@
     "sourceFile": "app/(marketing)/_components/sections/MarketingHeader.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -550,14 +550,14 @@
     "sourceFile": "app/(marketing)/_components/sections/MobileDriverLanding.tsx",
     "currentTarget": "/request-quote",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -582,14 +582,14 @@
     "sourceFile": "app/(marketing)/_components/sections/MobileDriverLanding.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -598,57 +598,9 @@
     "sourceFile": "app/(marketing)/_components/sections/MobileDriverLanding.tsx",
     "currentTarget": "/request-quote",
     "routeExists": true,
-    "pageReal": false,
-    "apiRpc": true,
-    "db": false,
-    "rls": false,
-    "audit": false,
-    "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
-  },
-  {
-    "role": "Public / unauthenticated",
-    "section": "register",
-    "element": "href /register",
-    "sourceFile": "app/(marketing)/_components/sections/MobileDriverLanding.tsx",
-    "currentTarget": "/register",
-    "routeExists": true,
     "pageReal": true,
     "apiRpc": true,
-    "db": true,
-    "rls": false,
-    "audit": false,
-    "e2e": true,
-    "status": "DUPLICATE",
-    "fix": "Consolidate duplicate entry points to canonical workflow."
-  },
-  {
-    "role": "Public / unauthenticated",
-    "section": "login",
-    "element": "href /login",
-    "sourceFile": "app/(marketing)/_components/sections/MobileDriverLanding.tsx",
-    "currentTarget": "/login",
-    "routeExists": true,
-    "pageReal": false,
-    "apiRpc": false,
     "db": false,
-    "rls": false,
-    "audit": false,
-    "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
-  },
-  {
-    "role": "Public / unauthenticated",
-    "section": "register",
-    "element": "href /register",
-    "sourceFile": "app/(marketing)/_components/sections/MobileDriverLanding.tsx",
-    "currentTarget": "/register",
-    "routeExists": true,
-    "pageReal": true,
-    "apiRpc": true,
-    "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
@@ -678,14 +630,62 @@
     "sourceFile": "app/(marketing)/_components/sections/MobileDriverLanding.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
+  },
+  {
+    "role": "Public / unauthenticated",
+    "section": "register",
+    "element": "href /register",
+    "sourceFile": "app/(marketing)/_components/sections/MobileDriverLanding.tsx",
+    "currentTarget": "/register",
+    "routeExists": true,
+    "pageReal": true,
+    "apiRpc": true,
+    "db": true,
+    "rls": false,
+    "audit": false,
+    "e2e": true,
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
+  },
+  {
+    "role": "Public / unauthenticated",
+    "section": "register",
+    "element": "href /register",
+    "sourceFile": "app/(marketing)/_components/sections/MobileDriverLanding.tsx",
+    "currentTarget": "/register",
+    "routeExists": true,
+    "pageReal": true,
+    "apiRpc": true,
+    "db": true,
+    "rls": false,
+    "audit": false,
+    "e2e": true,
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
+  },
+  {
+    "role": "Public / unauthenticated",
+    "section": "login",
+    "element": "href /login",
+    "sourceFile": "app/(marketing)/_components/sections/MobileDriverLanding.tsx",
+    "currentTarget": "/login",
+    "routeExists": true,
+    "pageReal": true,
+    "apiRpc": false,
+    "db": false,
+    "rls": false,
+    "audit": false,
+    "e2e": true,
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -694,14 +694,14 @@
     "sourceFile": "app/(marketing)/_components/sections/Navbar.tsx",
     "currentTarget": "/request-quote",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -806,14 +806,14 @@
     "sourceFile": "app/admin/AdminWorkspaceModules.tsx",
     "currentTarget": "/admin/returns",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -822,14 +822,14 @@
     "sourceFile": "app/admin/AdminWorkspaceModules.tsx",
     "currentTarget": "/admin/disputes",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -854,14 +854,14 @@
     "sourceFile": "app/admin/invoices/[id]/page.tsx",
     "currentTarget": "/admin/invoices/${row.id}",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "PARTIAL",
+    "fix": "Complete API/DB/RLS/audit/E2E workflow chain."
   },
   {
     "role": "Admin / Operations",
@@ -870,14 +870,14 @@
     "sourceFile": "app/admin/invoices/[id]/page.tsx",
     "currentTarget": "/admin/invoices",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -886,14 +886,14 @@
     "sourceFile": "app/admin/invoices/new/page.tsx",
     "currentTarget": "/admin/invoices/${newId}",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "PARTIAL",
+    "fix": "Complete API/DB/RLS/audit/E2E workflow chain."
   },
   {
     "role": "Admin / Operations",
@@ -902,14 +902,14 @@
     "sourceFile": "app/admin/invoices/new/page.tsx",
     "currentTarget": "/admin/invoices",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -918,14 +918,14 @@
     "sourceFile": "app/admin/invoices/new/page.tsx",
     "currentTarget": "/admin/jobs",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -934,14 +934,14 @@
     "sourceFile": "app/admin/invoices/new/page.tsx",
     "currentTarget": "/admin/invoices",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -950,14 +950,14 @@
     "sourceFile": "app/admin/invoices/page.tsx",
     "currentTarget": "/admin/invoices/new",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -966,14 +966,14 @@
     "sourceFile": "app/admin/invoices/page.tsx",
     "currentTarget": "/admin/invoices/new",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -982,14 +982,14 @@
     "sourceFile": "app/admin/invoices/page.tsx",
     "currentTarget": "/admin/invoices/${invoice.id}",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -998,14 +998,14 @@
     "sourceFile": "app/admin/invoices/page.tsx",
     "currentTarget": "/admin/invoices/${invoice.id}",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1014,14 +1014,14 @@
     "sourceFile": "app/admin/invoices/page.tsx",
     "currentTarget": "/admin/invoices/${invoice.id}",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1030,14 +1030,14 @@
     "sourceFile": "app/admin/jobs/[id]/page.tsx",
     "currentTarget": "/admin/jobs",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1046,14 +1046,14 @@
     "sourceFile": "app/admin/jobs/[id]/page.tsx",
     "currentTarget": "/admin/invoices/new?${params.toString()}",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "PARTIAL",
+    "fix": "Complete API/DB/RLS/audit/E2E workflow chain."
   },
   {
     "role": "Admin / Operations",
@@ -1062,14 +1062,14 @@
     "sourceFile": "app/admin/jobs/[id]/page.tsx",
     "currentTarget": "/admin/jobs",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1078,14 +1078,14 @@
     "sourceFile": "app/admin/jobs/page.tsx",
     "currentTarget": "/admin/jobs/${job.id}",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1094,14 +1094,14 @@
     "sourceFile": "app/admin/operations-centre/page.tsx",
     "currentTarget": "/admin/jobs/${job.id}",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1110,14 +1110,14 @@
     "sourceFile": "app/admin/quotes/page.tsx",
     "currentTarget": "/admin/jobs/${jobData.id}",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "PARTIAL",
+    "fix": "Complete API/DB/RLS/audit/E2E workflow chain."
   },
   {
     "role": "Admin / Operations",
@@ -1142,14 +1142,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/marketplace",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1158,14 +1158,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/quotes",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1222,14 +1222,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/jobs",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1238,14 +1238,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/invoices",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1270,14 +1270,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/marketplace",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1286,14 +1286,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/jobs",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1302,14 +1302,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/quotes",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1334,14 +1334,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/operations-centre",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "PARTIAL",
+    "fix": "Complete API/DB/RLS/audit/E2E workflow chain."
   },
   {
     "role": "Admin / Operations",
@@ -1366,14 +1366,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/jobs",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1382,14 +1382,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/disputes",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1414,14 +1414,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/drivers",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "CLOSED",
+    "fix": "No fix required."
   },
   {
     "role": "Admin / Operations",
@@ -1430,14 +1430,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/vehicles",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1462,14 +1462,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/invoices",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1478,14 +1478,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/companies",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "PARTIAL",
+    "fix": "Complete API/DB/RLS/audit/E2E workflow chain."
   },
   {
     "role": "Admin / Operations",
@@ -1494,14 +1494,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/dispatchers",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "PARTIAL",
+    "fix": "Complete API/DB/RLS/audit/E2E workflow chain."
   },
   {
     "role": "Admin / Operations",
@@ -1510,14 +1510,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/settings",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "PARTIAL",
+    "fix": "Complete API/DB/RLS/audit/E2E workflow chain."
   },
   {
     "role": "Admin / Operations",
@@ -1526,14 +1526,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/marketplace",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1542,14 +1542,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/quotes",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1590,14 +1590,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/jobs",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1606,14 +1606,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/vehicles",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1622,14 +1622,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/returns",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1654,14 +1654,14 @@
     "sourceFile": "app/admin/workflowUi.tsx",
     "currentTarget": "/admin/invoices",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Broker",
@@ -1910,14 +1910,14 @@
     "sourceFile": "app/components/AuthContext.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -1974,14 +1974,14 @@
     "sourceFile": "app/components/workspace/OperationsDiaryPage.tsx",
     "currentTarget": "/admin/jobs/${job.id}",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -1990,14 +1990,14 @@
     "sourceFile": "app/components/workspace/RoleDashboards.tsx",
     "currentTarget": "/admin/marketplace",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -2038,14 +2038,14 @@
     "sourceFile": "app/components/workspace/RoleDashboards.tsx",
     "currentTarget": "/admin/jobs",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -2246,14 +2246,14 @@
     "sourceFile": "app/components/workspace/RoleDashboards.tsx",
     "currentTarget": "/admin/invoices",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Admin / Operations",
@@ -2310,14 +2310,14 @@
     "sourceFile": "app/contact/page.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Customer",
@@ -2598,14 +2598,14 @@
     "sourceFile": "app/driver/change-password/page.tsx",
     "currentTarget": "/admin/marketplace",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Driver Web",
@@ -2646,14 +2646,14 @@
     "sourceFile": "app/driver/finance/page.tsx",
     "currentTarget": "/driver/finance/invoices/${payload.invoice.id}",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "PARTIAL",
+    "fix": "Complete API/DB/RLS/audit/E2E workflow chain."
   },
   {
     "role": "Driver Web",
@@ -2662,14 +2662,14 @@
     "sourceFile": "app/driver/finance/page.tsx",
     "currentTarget": "/driver/finance/invoices/${invoice.id}",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "PARTIAL",
+    "fix": "Complete API/DB/RLS/audit/E2E workflow chain."
   },
   {
     "role": "Driver Web",
@@ -2742,14 +2742,14 @@
     "sourceFile": "app/driver/loads/page.tsx",
     "currentTarget": "/driver/loads/search",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Driver Web",
@@ -2758,14 +2758,14 @@
     "sourceFile": "app/driver/loads/page.tsx",
     "currentTarget": "/driver/loads/search",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Driver Web",
@@ -2838,14 +2838,14 @@
     "sourceFile": "app/driver/more/page.tsx",
     "currentTarget": "/driver/profile",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Driver Web",
@@ -2854,14 +2854,14 @@
     "sourceFile": "app/driver/more/page.tsx",
     "currentTarget": "/driver/change-password",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Driver Web",
@@ -2870,14 +2870,14 @@
     "sourceFile": "app/driver/more/page.tsx",
     "currentTarget": "/driver/profile",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Driver Web",
@@ -2886,14 +2886,14 @@
     "sourceFile": "app/driver/page.tsx",
     "currentTarget": "/driver/loads",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Driver Web",
@@ -2902,14 +2902,14 @@
     "sourceFile": "app/driver/page.tsx",
     "currentTarget": "/driver/availability",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "CLOSED",
+    "fix": "No fix required."
   },
   {
     "role": "Driver Web",
@@ -2966,14 +2966,14 @@
     "sourceFile": "app/driver/won-work/page.tsx",
     "currentTarget": "/driver/loads",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": true,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Driver Web",
@@ -3046,14 +3046,14 @@
     "sourceFile": "app/m/_components/DriverMobileApp.tsx",
     "currentTarget": "/driver/change-password",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Driver Web",
@@ -3062,14 +3062,14 @@
     "sourceFile": "app/m/_components/DriverMobileApp.tsx",
     "currentTarget": "/driver/change-password",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": true,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": false,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -3078,14 +3078,14 @@
     "sourceFile": "app/onboarding/[token]/page.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -3094,14 +3094,14 @@
     "sourceFile": "app/onboarding/_components/BrokerOnboarding.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Customer",
@@ -3126,14 +3126,14 @@
     "sourceFile": "app/onboarding/_components/CustomerOnboarding.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -3142,14 +3142,14 @@
     "sourceFile": "app/pending-approval/page.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Public / unauthenticated",
@@ -3174,14 +3174,14 @@
     "sourceFile": "app/register/page.tsx",
     "currentTarget": "/login",
     "routeExists": true,
-    "pageReal": false,
+    "pageReal": true,
     "apiRpc": false,
     "db": false,
     "rls": false,
     "audit": false,
     "e2e": true,
-    "status": "PLACEHOLDER",
-    "fix": "Replace placeholder/mock view with role workflow page."
+    "status": "DUPLICATE",
+    "fix": "Consolidate duplicate entry points to canonical workflow."
   },
   {
     "role": "Super Admin / Platform Owner",
