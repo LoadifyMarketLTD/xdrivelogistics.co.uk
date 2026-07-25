@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 const activeBidStatuses = ['submitted', 'accepted', 'awarded', 'approved'];
 
-type AdminClient = SupabaseClient<any, 'public', any>;
+type AdminClient = SupabaseClient;
 
 export type DriverBidContext = {
   userId: string;
