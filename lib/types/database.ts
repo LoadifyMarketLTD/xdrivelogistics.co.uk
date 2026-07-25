@@ -98,8 +98,8 @@ export interface OnboardingApplication {
   id: string;
   user_id: string;
   email: string;
-  account_type: 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver';
-  status: 'draft' | 'in_progress' | 'submitted' | 'under_review' | 'compliance_review' | 'admin_approval' | 'approved' | 'rejected' | 'request_changes';
+  account_type: 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'individual_driver' | 'owner_driver';
+  status: 'invited' | 'draft' | 'in_progress' | 'under_review' | 'approved' | 'rejected' | 'request_changes';
   current_step: string;
   completion_percentage: number;
   token_hash: string | null;
@@ -294,7 +294,7 @@ export interface JobBid {
   bid_price_gbp: number | null;
   currency: string;
   message: string | null;
-  status: string;
+  status: 'submitted' | 'accepted' | 'rejected' | 'withdrawn';
   created_at: string;
 }
 
