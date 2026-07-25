@@ -49,7 +49,7 @@
 | **Deep link** | AsyncStorage timestamp-based unread badge count | `xdrive://job`, `xdrive://notification`, `xdrive://documents`, `xdrive://profile` |
 
 **⚠️ LAUNCH BLOCKER**: Android reads `notifications` (no writers). All platform events go to `notification_events`. Android drivers see zero notifications.  
-**FIX**: Migration `20260725160000_notification_events_to_notifications_bridge.sql` adds a trigger that bridges `notification_events` inserts → `notifications` inserts when `recipient_user_id IS NOT NULL`.
+**FIX**: Migration `20260725161000_notification_events_to_notifications_bridge.sql` adds a trigger that bridges `notification_events` inserts → `notifications` inserts when `recipient_user_id IS NOT NULL`.
 
 ---
 

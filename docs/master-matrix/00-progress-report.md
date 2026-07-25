@@ -150,7 +150,7 @@
 | Field | Value |
 |---|---|
 | Issue | Android drivers see zero notifications |
-| File | `supabase/migrations/20260725160000_notification_events_to_notifications_bridge.sql` |
+| File | `supabase/migrations/20260725161000_notification_events_to_notifications_bridge.sql` |
 | Endpoint / DB object | Trigger `trg_bridge_notification_event_to_inbox` on `notification_events` |
 | Functions added | `fn_notification_event_title()`, `fn_notification_event_body()` |
 | Policies modified | `notifications`: replaced `notifications_all_member` with `notifications_recipient_select` + `notifications_service_role_all` |
@@ -175,7 +175,7 @@
 ### ⚠️ STOP — Manual SQL Application Required
 
 **Migration to apply**:
-- File: `supabase/migrations/20260725160000_notification_events_to_notifications_bridge.sql`
+- File: `supabase/migrations/20260725161000_notification_events_to_notifications_bridge.sql`
 - Content: Full SQL in that file
 - Purpose: Bridge `notification_events` → `notifications` for Android + fix RLS on notifications table
 - Expected result: `Success. No rows returned`

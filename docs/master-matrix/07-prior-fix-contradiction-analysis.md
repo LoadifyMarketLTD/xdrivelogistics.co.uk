@@ -104,7 +104,7 @@ This reads from `notifications` via Supabase REST. The `notifications` table has
 Android drivers see zero notifications. This is a P0 launch blocker.
 
 ### Fix applied in this PR
-Bridge trigger migration `20260725160000_notification_events_to_notifications_bridge.sql` (requires manual SQL application).
+Bridge trigger migration `20260725161000_notification_events_to_notifications_bridge.sql` (requires manual SQL application).
 
 ---
 

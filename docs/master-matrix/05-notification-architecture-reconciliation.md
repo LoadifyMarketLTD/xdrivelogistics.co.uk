@@ -132,7 +132,7 @@ The bridge trigger converts outbox rows into inbox rows automatically.
 
 ## 6. Bridge Trigger
 
-**Migration**: `20260725160000_notification_events_to_notifications_bridge.sql`
+**Migration**: `20260725161000_notification_events_to_notifications_bridge.sql`
 
 The trigger `trg_bridge_notification_event_to_inbox` fires AFTER INSERT on `notification_events`:
 - Skips broadcast rows (`recipient_user_id IS NULL`)
