@@ -67,7 +67,11 @@ WHERE driver_type IN ('individual_driver', 'owner_driver', 'subcontractor');
 
 CREATE UNIQUE INDEX IF NOT EXISTS job_bids_active_company_unique_idx
   ON public.job_bids (job_id, company_id)
-  WHERE status IN ('submitted', 'accepted', 'awarded', 'approved');
+  WHERE company_id IS NOT NULL AND status IN ('submitted', 'accepted', 'awarded', 'approved');
+
+CREATE UNIQUE INDEX IF NOT EXISTS job_bids_active_null_company_unique_idx
+  ON public.job_bids (job_id, bidder_user_id)
+  WHERE company_id IS NULL AND status IN ('submitted', 'accepted', 'awarded', 'approved');
 
 DROP POLICY IF EXISTS job_bids_exchange_insert ON public.job_bids;
 CREATE POLICY job_bids_exchange_insert
