@@ -14,25 +14,29 @@ SET LOCAL statement_timeout = '60s';
 -- ── 1. Add 'rejected' to the status constraint ────────────────────────────
 DO $$
 DECLARE
-  v_conname text;
+  c record;
 BEGIN
-  -- Find the inline status check (may be system-named)
-  SELECT conname INTO v_conname
-  FROM pg_constraint
-  WHERE conrelid = 'public.broker_carrier_invitations'::regclass
-    AND pg_get_constraintdef(oid) LIKE '%pending%accepted%revoked%'
-    AND contype = 'c'
-  ORDER BY oid
-  LIMIT 1;
+  -- Drop the canonical target constraint if it already exists
+  EXECUTE 'ALTER TABLE public.broker_carrier_invitations DROP CONSTRAINT IF EXISTS broker_carrier_inv_status_check';
 
-  IF v_conname IS NOT NULL THEN
+  -- Drop any remaining legacy status check constraints on this table
+  FOR c IN
+    SELECT conname
+    FROM pg_constraint
+    WHERE conrelid = 'public.broker_carrier_invitations'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%status%'
+      AND pg_get_constraintdef(oid) ILIKE '%pending%'
+      AND pg_get_constraintdef(oid) ILIKE '%accepted%'
+      AND pg_get_constraintdef(oid) ILIKE '%revoked%'
+  LOOP
     EXECUTE format(
       'ALTER TABLE public.broker_carrier_invitations DROP CONSTRAINT %I',
-      v_conname
+      c.conname
     );
-  END IF;
+  END LOOP;
 
-  -- Re-add with 'rejected' included
+  -- Recreate canonical constraint with 'rejected' included
   ALTER TABLE public.broker_carrier_invitations
     ADD CONSTRAINT broker_carrier_inv_status_check
     CHECK (status IN ('pending', 'accepted', 'revoked', 'rejected'));
@@ -51,6 +55,7 @@ USING (
   carrier_company_id = public.auth_company_id()
   OR (
     carrier_email IS NOT NULL
+    AND auth.email() IS NOT NULL
     AND lower(carrier_email) = lower(auth.email())
   )
 );
