@@ -53,9 +53,7 @@ test.describe('registration role contract (read-only)', () => {
     await page.goto('/register');
     await page.locator('#register-role').selectOption('owner_operator');
 
-    const workspaceChoice = page.locator(
-      'input[name="owner_driver_workspace"], select[name="owner_driver_workspace"], [data-testid="owner-driver-workspace-choice"]'
-    );
+    const workspaceChoice = page.getByTestId('owner-driver-workspace-choice');
     await expect(workspaceChoice).toBeVisible();
   });
 
