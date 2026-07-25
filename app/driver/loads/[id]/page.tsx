@@ -110,6 +110,20 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
   const userId = user?.id ?? null;
   const companyId = user?.companyId ?? null;
   const driverId = user?.driverId ?? null;
+  const driverType = user?.driverType ?? null;
+  const canCommercialBid = user?.canCommercialBid === true;
+  const driverStatus = String(user?.driverStatus ?? '').trim().toLowerCase();
+  const appAccess = user?.appAccess;
+  const driverSuspended = ['suspended', 'inactive', 'blocked', 'rejected'].includes(driverStatus);
+  const bidBlockedMessage = driverSuspended
+    ? 'Your driver account is suspended. Contact support to restore bidding access.'
+    : appAccess === false
+      ? 'Your compliance documents are missing or expired. Update them before submitting commercial bids.'
+      : driverType === 'company_driver' && !canCommercialBid
+        ? 'Your account type does not permit commercial bidding'
+        : !canCommercialBid
+          ? 'Commercial bidding is not enabled for your account.'
+          : null;
 
   const fetchLoad = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -163,7 +177,11 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
   }, [fetchLoad]);
 
   const handleBidSubmit = async () => {
-    if (!userId || !companyId || bidLoading) return;
+    if (!userId || bidLoading) return;
+    if (bidBlockedMessage) {
+      setError(bidBlockedMessage);
+      return;
+    }
     const amount = load?.is_fixed_price
       ? (load.budget_amount ?? 0)
       : parseFloat(bidAmount);
@@ -177,7 +195,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
 
     const { error: bidErr } = await supabase.from('job_bids').insert({
       job_id: id,
-      company_id: companyId,
+      company_id: companyId ?? null,
       bidder_user_id: userId,
       bidder_driver_id: driverId ?? null,
       bid_price_gbp: amount,
@@ -396,6 +414,10 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                         Message: {existingBid.message}
                       </div>
                     )}
+                  </div>
+                ) : bidBlockedMessage ? (
+                  <div style={{ backgroundColor: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '8px', padding: '0.85rem', color: '#92400e', fontSize: '0.84rem', fontWeight: 600 }}>
+                    {bidBlockedMessage}
                   </div>
                 ) : load.is_fixed_price ? (
                   <button

@@ -66,7 +66,7 @@ export interface CompanyMembership {
 
 export interface Driver {
   id: string;
-  company_id: string;
+  company_id: string | null;
   user_id: string | null;
   display_name: string;
   phone: string | null;
@@ -75,6 +75,8 @@ export interface Driver {
   availability_status: 'available' | 'busy' | 'offline' | null;
   login_pin: string | null;
   app_access: boolean;
+  driver_type: 'individual_driver' | 'owner_driver' | 'subcontractor' | 'company_driver';
+  can_commercial_bid: boolean;
   temporary_password_seq: number | null;
   must_change_password: boolean;
   temp_password_generated_at: string | null;

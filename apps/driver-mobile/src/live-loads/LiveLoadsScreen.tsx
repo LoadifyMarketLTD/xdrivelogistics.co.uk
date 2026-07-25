@@ -36,7 +36,7 @@ function SwipeCard({ job, pinned, onOpen, onQuote, onTogglePin, onHide }: { job:
   </View>;
 }
 
-export function LiveLoadsScreen() {
+export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boolean | null }) {
   const [feed, setFeed] = useState<Feed>('live');
   const [jobs, setJobs] = useState<LiveLoad[]>([]);
   const [preferences, setPreferences] = useState<MarketplacePreferences>(defaultPreferences);
@@ -56,13 +56,24 @@ export function LiveLoadsScreen() {
         fetchLiveLoads({ destinationMode: nextPreferences.destinationPriorityEnabled, radiusMiles: nextPreferences.destinationRadiusMiles }),
         fetchActiveQuotedJobIds(),
       ]);
-      setJobs(result.jobs.filter((job) => !quotedJobIds.has(job.id)));
+      setJobs(result.jobs
+        .filter((job) => !quotedJobIds.has(job.id))
+        .map((job) => {
+          if (canCommercialBid === false) {
+            return {
+              ...job,
+              canQuote: false,
+              quoteWarning: 'Your account type does not permit commercial bidding.',
+            };
+          }
+          return job;
+        }));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load live jobs.');
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [canCommercialBid]);
 
   useEffect(() => {
     let active = true;
@@ -102,6 +113,14 @@ export function LiveLoadsScreen() {
   })), [persistPreferences]);
 
   const openQuote = useCallback((job: LiveLoad) => {
+    if (canCommercialBid === false) {
+      setError('Your account type does not permit commercial bidding.');
+      return;
+    }
+    if (job.quoteWarning) {
+      setError(job.quoteWarning);
+      return;
+    }
     if (job.canQuote === false) {
       setError(job.quoteWarning || 'This load requires an eligibility check before quoting.');
       return;
@@ -109,13 +128,23 @@ export function LiveLoadsScreen() {
     setQuoteJob(job);
     setQuoteAmount('');
     setQuoteMessage('');
-  }, []);
+  }, [canCommercialBid]);
 
   const submitQuote = useCallback(async () => {
     if (!quoteJob) return;
-    const amount = Number(quoteAmount.replace(',', '.'));
+    if (canCommercialBid === false) {
+      setError('Your account type does not permit commercial bidding.');
+      return;
+    }
+    if (quoteJob.quoteWarning) {
+      setError(quoteJob.quoteWarning);
+      return;
+    }
+    const amount = quoteJob.isFixedPrice
+      ? Number(quoteJob.fixedPriceAmountGbp ?? 0)
+      : Number(quoteAmount.replace(',', '.'));
     if (!Number.isFinite(amount) || amount <= 0) {
-      setError('Enter a valid quote amount.');
+      setError(quoteJob.isFixedPrice ? 'This fixed-price load cannot be quoted right now.' : 'Enter a valid quote amount.');
       return;
     }
     setSubmitting(true);
@@ -149,7 +178,11 @@ export function LiveLoadsScreen() {
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {quoteJob ? <View style={styles.quotePanel}>
       <Text style={styles.quoteTitle}>{quoteJob.reference}: {quoteJob.pickupLocation} to {quoteJob.deliveryLocation}</Text>
-      <TextInput value={quoteAmount} onChangeText={setQuoteAmount} keyboardType="decimal-pad" placeholder="Quote amount (GBP)" placeholderTextColor="#6b7280" style={styles.input} />
+      {quoteJob.isFixedPrice ? (
+        <Text style={styles.fixedPriceLabel}>Fixed price: £{Number(quoteJob.fixedPriceAmountGbp ?? 0).toFixed(2)}</Text>
+      ) : (
+        <TextInput value={quoteAmount} onChangeText={setQuoteAmount} keyboardType="decimal-pad" placeholder="Quote amount (GBP)" placeholderTextColor="#6b7280" style={styles.input} />
+      )}
       <TextInput value={quoteMessage} onChangeText={setQuoteMessage} placeholder="Message to customer (optional)" placeholderTextColor="#6b7280" style={[styles.input, styles.messageInput]} multiline />
       <View style={styles.quoteActions}>
         <TouchableOpacity style={styles.cancelButton} onPress={() => setQuoteJob(null)} disabled={submitting}><Text style={styles.cancelText}>CANCEL</Text></TouchableOpacity>
@@ -178,6 +211,7 @@ const styles = StyleSheet.create({
   quoteTitle: { color: '#f8fafc', fontSize: 14, fontWeight: '800' },
   input: { minHeight: 48, color: '#f8fafc', backgroundColor: '#111827', borderColor: '#1f2937', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12 },
   messageInput: { minHeight: 76, paddingTop: 12, textAlignVertical: 'top' },
+  fixedPriceLabel: { color: '#f8fafc', fontWeight: '800', fontSize: 16 },
   quoteActions: { flexDirection: 'row', gap: 10 },
   cancelButton: { flex: 1, minHeight: 46, borderColor: '#334155', borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   cancelText: { color: '#cbd5e1', fontWeight: '900' },
