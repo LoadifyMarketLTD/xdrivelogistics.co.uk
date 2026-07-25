@@ -7,7 +7,7 @@ test.describe('Public pages', () => {
     await page.goto('/');
     await expect(page).toHaveTitle(/XDrive/i);
     // At least one visible CTA button
-    const cta = page.getByRole('link', { name: /join early access|request demo|get started|register|book/i }).first();
+    const cta = page.getByRole('link', { name: /request early access|request access|register|sign in/i }).first();
     await expect(cta).toBeVisible();
   });
 

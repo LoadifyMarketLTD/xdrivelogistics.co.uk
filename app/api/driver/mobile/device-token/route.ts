@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver, respond } from '../_lib';
+import { isExpoPushToken } from '@/lib/pushNotifications';
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
@@ -16,6 +17,9 @@ export async function POST(request: NextRequest) {
 
   const token = typeof body.token === 'string' ? body.token.trim() : '';
   if (!token) return respond(400, { error: 'token is required.' });
+  if (!isExpoPushToken(token)) {
+    return respond(400, { error: 'Only Expo push tokens are accepted by the mobile push provider.' });
+  }
 
   const { error } = await supabaseAdmin
     .from('drivers')

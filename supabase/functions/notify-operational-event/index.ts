@@ -7,11 +7,18 @@
  * Database Webhook or pg_cron request.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  buildExpoPushMessage,
+  isExpoPushToken,
+  parseExpoPushResponse,
+  type PushNotificationPayload,
+} from '../../../lib/pushNotifications.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://www.xdrivelogistics.co.uk').trim().replace(/\/$/, '');
 const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? '';
+const expoAccessToken = Deno.env.get('EXPO_ACCESS_TOKEN') ?? '';
 const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'no-reply@xdrivelogistics.co.uk';
 const webhookSecret = Deno.env.get('XDRIVE_NOTIFICATION_WEBHOOK_SECRET') ?? '';
 
@@ -114,6 +121,67 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
   return true;
 }
 
+async function getDriverPushTokens(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('drivers')
+    .select('id, device_token')
+    .eq('user_id', userId)
+    .eq('app_access', true);
+
+  if (error) throw error;
+  return ((data ?? []) as Array<{ device_token: string | null }>)
+    .map((row) => row.device_token?.trim() ?? '')
+    .filter((token) => isExpoPushToken(token));
+}
+
+async function invalidateDriverPushTokens(tokens: string[]) {
+  if (!tokens.length) return;
+  const { error } = await supabase
+    .from('drivers')
+    .update({ device_token: null })
+    .in('device_token', tokens);
+
+  if (error) {
+    console.error(`[notify] Failed to invalidate Expo push tokens: ${error.message}`);
+  }
+}
+
+async function sendPushToUser(userId: string, payload: PushNotificationPayload): Promise<boolean> {
+  const tokens = await getDriverPushTokens(userId);
+  if (!tokens.length) return true;
+
+  if (!expoAccessToken) {
+    console.warn('[notify] EXPO_ACCESS_TOKEN is not configured; skipping push delivery.');
+    return true;
+  }
+
+  const expoAuthorizationHeader = 'Bearer ' + expoAccessToken;
+  const response = await fetch('https://exp.host/--/api/v2/push/send', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: expoAuthorizationHeader,
+    },
+    body: JSON.stringify(tokens.map((token) => buildExpoPushMessage(token, payload))),
+  });
+
+  const responseBody = await response.json().catch(() => null);
+  if (!response.ok) {
+    console.error(`[notify] Expo push request failed: ${response.status}`);
+    return false;
+  }
+
+  const result = parseExpoPushResponse(responseBody, tokens);
+  if (result.invalidTokens.length > 0) {
+    await invalidateDriverPushTokens(result.invalidTokens);
+  }
+  if (!result.ok && result.error) {
+    console.error(`[notify] Expo push rejected notification: ${result.error}`);
+  }
+  return result.ok || !result.retryable;
+}
+
 async function emailCompanyOperators(
   companyId: string,
   subject: string,
@@ -143,15 +211,25 @@ async function handleJobAssigned(event: NotificationEvent) {
   const userId = typeof event.payload.driver_user_id === 'string' ? event.payload.driver_user_id : null;
   if (!userId) return true;
   const user = await getUserEmail(userId);
-  if (!user) return true;
   const jobIdRaw = String(event.payload.job_id ?? event.entity_id);
   const pickup = escapeHtml(event.payload.pickup_location ?? 'TBC');
   const delivery = escapeHtml(event.payload.delivery_location ?? 'TBC');
-  return sendEmail(
-    user.email,
-    'New Job Assigned - XDrive Logistics',
-    `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl(`/driver/jobs/${encodeURIComponent(jobIdRaw)}`))}">View job details</a></p><p>XDrive Logistics</p>`,
-  );
+  const appPath = `/driver/jobs/${encodeURIComponent(jobIdRaw)}`;
+  const [emailOk, pushOk] = await Promise.all([
+    user
+      ? sendEmail(
+          user.email,
+          'New Job Assigned - XDrive Logistics',
+          `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl(appPath))}">View job details</a></p><p>XDrive Logistics</p>`,
+        )
+      : Promise.resolve(true),
+    sendPushToUser(userId, {
+      title: 'New job assigned',
+      body: `${pickup} → ${delivery}`,
+      data: { path: appPath, jobId: jobIdRaw, eventType: event.event_type },
+    }),
+  ]);
+  return emailOk && pushOk;
 }
 
 async function handleBidAccepted(event: NotificationEvent) {
@@ -217,12 +295,21 @@ async function handleOnboardingApproved(event: NotificationEvent) {
   const userId = event.recipient_user_id ?? (event.payload.recipient_user_id as string | undefined);
   if (!userId) return true;
   const user = await getUserEmail(userId);
-  if (!user) return true;
-  return sendEmail(
-    user.email,
-    'Onboarding approved - XDrive Logistics',
-    `<h2>Your XDrive workspace is approved</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your onboarding has been approved. You can now sign in and use your workspace.</p><p><a href="${escapeHtml(buildAppUrl('/login'))}">Open XDrive</a></p><p>XDrive Logistics</p>`,
-  );
+  const [emailOk, pushOk] = await Promise.all([
+    user
+      ? sendEmail(
+          user.email,
+          'Onboarding approved - XDrive Logistics',
+          `<h2>Your XDrive workspace is approved</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your onboarding has been approved. You can now sign in and use your workspace.</p><p><a href="${escapeHtml(buildAppUrl('/login'))}">Open XDrive</a></p><p>XDrive Logistics</p>`,
+        )
+      : Promise.resolve(true),
+    sendPushToUser(userId, {
+      title: 'Onboarding approved',
+      body: 'Your XDrive workspace is ready to use.',
+      data: { path: '/login', eventType: event.event_type },
+    }),
+  ]);
+  return emailOk && pushOk;
 }
 
 async function handleInvoiceDisputed(event: NotificationEvent) {
@@ -250,12 +337,21 @@ async function handleInvoiceCreated(event: NotificationEvent) {
   const companyId = event.company_id ?? (event.payload.company_id as string | undefined);
   if (event.recipient_user_id) {
     const user = await getUserEmail(event.recipient_user_id);
-    if (!user) return true;
-    return sendEmail(
-      user.email,
-      'Invoice created - XDrive Logistics',
-      `<h2>Invoice created</h2><p>Hi ${escapeHtml(user.name)},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
-    );
+    const [emailOk, pushOk] = await Promise.all([
+      user
+        ? sendEmail(
+            user.email,
+            'Invoice created - XDrive Logistics',
+            `<h2>Invoice created</h2><p>Hi ${escapeHtml(user.name)},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+          )
+        : Promise.resolve(true),
+      sendPushToUser(event.recipient_user_id, {
+        title: 'Invoice created',
+        body: `Invoice ${invoiceNumber} is ready for review.`,
+        data: { path: '/driver/finance', invoiceNumber, eventType: event.event_type },
+      }),
+    ]);
+    return emailOk && pushOk;
   }
   if (!companyId) return true;
   return emailCompanyOperators(

@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['.next', 'node_modules', 'dist', 'apps/driver-mobile']),
+  globalIgnores(['.next', 'node_modules', 'dist', 'apps/driver-mobile', 'test-results', 'playwright-report']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

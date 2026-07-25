@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { parseDriverLocationPayload } from '../../../../lib/driverLocation';
 
 type LocationPayload = {
   lat?: number;
@@ -23,16 +24,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Resolve driver row and company from auth user.
-  // company_id is intentionally nullable — individual drivers without a company are permitted.
-  const { data: driverRow, error: driverError } = await supabaseAdmin
-    .from('drivers')
-    .select('id, company_id')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
+  const [{ data: driverRow, error: driverError }, { data: profileRow, error: profileError }] = await Promise.all([
+    supabaseAdmin
+      .from('drivers')
+      .select('id, company_id, app_access, status')
+      .eq('user_id', authData.user.id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('profiles')
+      .select('status')
+      .eq('user_id', authData.user.id)
+      .maybeSingle(),
+  ]);
 
-  if (driverError || !driverRow) {
+  if (driverError) {
+    return NextResponse.json({ error: driverError.message }, { status: 500 });
+  }
+  if (profileError) {
+    return NextResponse.json({ error: profileError.message }, { status: 500 });
+  }
+  if (!driverRow) {
     return NextResponse.json({ error: 'Driver record not found.' }, { status: 403 });
+  }
+  if (String(profileRow?.status ?? '').trim().toLowerCase() !== 'active') {
+    return NextResponse.json({ error: 'Driver profile is not active.' }, { status: 403 });
+  }
+  if (driverRow.app_access !== true) {
+    return NextResponse.json({ error: 'Driver app access has not been approved.' }, { status: 403 });
+  }
+  if (String(driverRow.status ?? '').trim().toLowerCase() !== 'active') {
+    return NextResponse.json({ error: 'Driver account is not active.' }, { status: 403 });
   }
 
   let body: LocationPayload;
@@ -42,23 +63,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
   }
 
-  const lat = typeof body.lat === 'number' ? body.lat : null;
-  const lng = typeof body.lng === 'number' ? body.lng : null;
-
-  if (lat === null || lng === null) {
-    return NextResponse.json({ error: 'lat and lng are required.' }, { status: 400 });
+  const parsed = parseDriverLocationPayload(body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return NextResponse.json({ error: issue?.message ?? 'Invalid driver location payload.' }, { status: 400 });
   }
 
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    return NextResponse.json({ error: 'Invalid lat/lng values.' }, { status: 400 });
-  }
-
-  const heading =
-    typeof body.heading === 'number' && Number.isFinite(body.heading) ? body.heading : null;
-  const speedMph =
-    typeof body.speed_mph === 'number' && Number.isFinite(body.speed_mph) && body.speed_mph >= 0
-      ? body.speed_mph
-      : null;
+  const { lat, lng, heading = null, speed_mph: speedMph = null } = parsed.data;
 
   const { error: insertError } = await supabaseAdmin
     .from('driver_locations')

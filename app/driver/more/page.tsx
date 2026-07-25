@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useRouter } from 'next/navigation';
 import { FileText, Headphones, Lock, ShieldCheck, UserCircle } from 'lucide-react';

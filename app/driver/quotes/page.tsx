@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';

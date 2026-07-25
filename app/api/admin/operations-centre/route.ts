@@ -1,8 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { hasCoordinates, type DriverLocationRow } from '../../../../lib/driverLocation';
 import { toCanonicalInvoiceStatusWithDueDate } from '../../../../lib/invoiceStatus';
-import { coordinatesFromLocation } from '../../../../lib/geoLocation';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim() || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || '';
@@ -40,7 +40,6 @@ type JobRow = {
 
 type DriverRow = { id: string; display_name: string | null; availability_status: string | null; status: string | null; company_id: string | null };
 type VehicleRow = { id: string; reg_plate: string | null; type: string | null; assigned_driver_id: string | null; company_id: string | null };
-type DriverLocationRow = { id: string; driver_id: string; location: unknown; recorded_at: string | null };
 type BidRow = { id: string; job_id: string; status: string | null; created_at: string | null };
 type NotificationRow = { id: string; event_type: string | null; entity_type: string | null; entity_id: string | null; payload: unknown; status: string | null; created_at: string | null };
 type TrackingRow = { id: string; job_id: string; event_type: string | null; message: string | null; created_at: string | null; created_by: string | null };
@@ -194,7 +193,9 @@ export async function GET(request: NextRequest) {
     client.from('jobs').select('id,status,current_status,assigned_driver_id,assigned_company_id,awarded_carrier_company_id,company_id,pickup_location,delivery_location,pickup_datetime,delivery_datetime,vehicle_type,requested_vehicle_type,budget_amount,delivery_photos,pod_photos,pod_generated,pod_required,status_history,updated_at,created_at').or(companyScope).order('updated_at', { ascending: false }).limit(limit),
     activeCompanyId ? client.from('drivers').select('id,display_name,availability_status,status,company_id').eq('company_id', activeCompanyId).limit(500) : client.from('drivers').select('id,display_name,availability_status,status,company_id').limit(500),
     activeCompanyId ? client.from('vehicles').select('id,reg_plate,type,assigned_driver_id,company_id').eq('company_id', activeCompanyId).limit(500) : client.from('vehicles').select('id,reg_plate,type,assigned_driver_id,company_id').limit(500),
-    client.from('driver_locations').select('id,driver_id,location,recorded_at').order('recorded_at', { ascending: false }).limit(300),
+    activeCompanyId
+      ? client.from('driver_locations').select('id,driver_id,company_id,lat,lng,heading,speed_mph,recorded_at').eq('company_id', activeCompanyId).order('recorded_at', { ascending: false }).limit(300)
+      : client.from('driver_locations').select('id,driver_id,company_id,lat,lng,heading,speed_mph,recorded_at').order('recorded_at', { ascending: false }).limit(300),
     client.from('job_bids').select('id,job_id,status,created_at').order('created_at', { ascending: false }).limit(500),
     activeCompanyId ? client.from('notification_events').select('id,event_type,entity_type,entity_id,payload,status,created_at').eq('company_id', activeCompanyId).order('created_at', { ascending: false }).limit(80) : client.from('notification_events').select('id,event_type,entity_type,entity_id,payload,status,created_at').order('created_at', { ascending: false }).limit(80),
     client.from('job_tracking_events').select('id,job_id,event_type,message,created_at,created_by').order('created_at', { ascending: false }).limit(120),
@@ -290,14 +291,13 @@ export async function GET(request: NextRequest) {
 
   const mapPoints = [
     ...Array.from(latestLocationByDriver.values()).map((location) => {
-      const coordinates = coordinatesFromLocation(location.location);
       return {
         id: location.id,
         kind: 'driver',
         driverId: location.driver_id,
         label: driversById.get(location.driver_id) ?? 'Driver',
-        lat: coordinates.lat,
-        lng: coordinates.lng,
+        lat: hasCoordinates(location) ? location.lat : null,
+        lng: hasCoordinates(location) ? location.lng : null,
         status: drivers.find((driver) => driver.id === location.driver_id)?.availability_status ?? 'unknown',
         updatedAt: location.recorded_at,
       };

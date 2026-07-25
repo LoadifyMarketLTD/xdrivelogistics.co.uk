@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
-import { coordinatesFromLocation } from '../../../../lib/geoLocation';
+import { hasCoordinates, type DriverLocationRow } from '../../../../lib/driverLocation';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
       driverIds.length > 0
         ? supabaseAdmin
             .from('driver_locations')
-            .select('driver_id, recorded_at, location')
+            .select('driver_id, company_id, lat, lng, heading, speed_mph, recorded_at')
             .in('driver_id', driverIds)
             .order('recorded_at', { ascending: false })
             .limit(driverIds.length * 3)
@@ -177,10 +177,13 @@ export async function GET(request: NextRequest) {
     if (compResult.error) return respond(500, { error: compResult.error.message });
 
     const latestLocByDriver = new Map<string, { recorded_at: string; lat: number | null; lng: number | null }>();
-    for (const loc of (locResult.data ?? []) as Array<{ driver_id: string; recorded_at: string; location: unknown }>) {
+    for (const loc of (locResult.data ?? []) as DriverLocationRow[]) {
       if (!latestLocByDriver.has(loc.driver_id)) {
-        const coordinates = coordinatesFromLocation(loc.location);
-        latestLocByDriver.set(loc.driver_id, { recorded_at: loc.recorded_at, lat: coordinates.lat, lng: coordinates.lng });
+        latestLocByDriver.set(loc.driver_id, {
+          recorded_at: loc.recorded_at ?? '',
+          lat: hasCoordinates(loc) ? loc.lat : null,
+          lng: hasCoordinates(loc) ? loc.lng : null,
+        });
       }
     }
 
@@ -255,7 +258,7 @@ export async function GET(request: NextRequest) {
   if (section === 'fleet-positions') {
     const { data: latestLocs, error: locsError } = await supabaseAdmin
       .from('driver_locations')
-      .select('id, driver_id, location, recorded_at')
+      .select('id, driver_id, company_id, lat, lng, heading, speed_mph, recorded_at')
       .order('recorded_at', { ascending: false })
       .limit(limit);
 
@@ -301,19 +304,18 @@ export async function GET(request: NextRequest) {
 
     return respond(200, {
       section,
-      rows: deduped.map((loc) => {
+      rows: (deduped as DriverLocationRow[]).map((loc) => {
         const drv = driverInfoById.get(loc.driver_id as string) ?? null;
-        const coordinates = coordinatesFromLocation((loc as { location: unknown }).location);
         return {
           id:                  loc.id,
           driver_id:           loc.driver_id,
           driver_name:         drv?.display_name ?? 'Unknown driver',
           availability_status: drv?.availability_status ?? 'offline',
           company_name:        drv?.company_id ? (companyNameById2.get(drv.company_id) ?? 'Unknown company') : 'Unknown company',
-          lat:                 coordinates.lat,
-          lng:                 coordinates.lng,
-          heading:             null,
-          speed_mph:           null,
+          lat:                 hasCoordinates(loc) ? loc.lat : null,
+          lng:                 hasCoordinates(loc) ? loc.lng : null,
+          heading:             typeof loc.heading === 'number' ? loc.heading : null,
+          speed_mph:           typeof loc.speed_mph === 'number' ? loc.speed_mph : null,
           recorded_at:         loc.recorded_at,
         };
       }),
