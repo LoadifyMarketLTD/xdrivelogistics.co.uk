@@ -107,7 +107,7 @@
 | 116_notify_invoice_created.sql | Yes | Invoice created trigger |
 | 20260721223500_scrub_notification_secrets.sql | Yes | Scrubs secrets from notification payloads |
 | 20260723222000_notification_recipient_isolation.sql | Yes | Tightens RLS to recipient-scoped |
-| 20260725160000_notification_events_to_notifications_bridge.sql | **PENDING** | Bridge trigger — apply next |
+| 20260725161000_notification_events_to_notifications_bridge.sql | **PENDING** | Bridge trigger — apply next |
 
 ---
 

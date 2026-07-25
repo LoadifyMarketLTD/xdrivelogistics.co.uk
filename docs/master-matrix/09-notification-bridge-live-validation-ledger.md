@@ -65,7 +65,7 @@ For closure, attach links to:
 
 ## Current Execution Notes
 
-- Bridge migration exists in repository: `supabase/migrations/20260725160000_notification_events_to_notifications_bridge.sql`.
+- Bridge migration exists in repository: `supabase/migrations/20260725161000_notification_events_to_notifications_bridge.sql`.
 - Local E2E baseline executed successfully after installing dependencies: **226 passed, 144 skipped, 0 failed**.
 - Super-admin notification runtime tests remain skipped without owner credentials and runtime server service-role configuration.
 
