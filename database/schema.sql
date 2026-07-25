@@ -417,7 +417,7 @@ ALTER TABLE public.return_journeys      ENABLE ROW LEVEL SECURITY;
 
 -- â”€â”€ Helper functions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE OR REPLACE FUNCTION public.is_company_member(cid uuid)
-RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.company_memberships
     WHERE company_id = cid AND user_id = auth.uid() AND status <> 'suspended'
@@ -425,7 +425,7 @@ RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION public.is_company_admin(cid uuid)
-RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.company_memberships
     WHERE company_id = cid AND user_id = auth.uid() AND status <> 'suspended'

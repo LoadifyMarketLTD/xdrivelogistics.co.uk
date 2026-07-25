@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from '../../../../../../../lib/server/invoicePdf';
+import { sanitizeDbError } from '../../../../../_lib/errorSanitizer';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver } from '../../../../mobile/_lib';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
@@ -58,7 +59,7 @@ export async function POST(
     .eq('user_id', driver.userId)
     .eq('status', 'active')
     .maybeSingle();
-  if (membershipError) return respond(500, { error: membershipError.message });
+  if (membershipError) return respond(500, { error: sanitizeDbError(membershipError) });
 
   const membershipRole = String(membership?.role_in_company ?? '').toLowerCase();
   if (!['owner', 'admin'].includes(membershipRole)) {
@@ -81,7 +82,7 @@ export async function POST(
     .eq('id', id)
     .eq('company_id', driver.companyId)
     .maybeSingle();
-  if (fetchError) return respond(500, { error: fetchError.message });
+  if (fetchError) return respond(500, { error: sanitizeDbError(fetchError) });
   if (!invoice) return respond(404, { error: 'Invoice not found.' });
 
   if (typeof invoice.delivery_state !== 'string') {
@@ -145,7 +146,7 @@ export async function POST(
         error: 'Invoice delivery is not enabled in the database yet. The invoice remains Draft.',
       });
     }
-    return respond(500, { error: claimError.message });
+    return respond(500, { error: sanitizeDbError(claimError) });
   }
   if (!claimedInvoice) {
     return respond(409, {
@@ -203,7 +204,7 @@ export async function POST(
     .select('name, address_line1, address_line2, city, postcode, company_number, vat_number')
     .eq('id', driver.companyId)
     .maybeSingle();
-  if (companyError) return failDelivery(500, companyError.message);
+  if (companyError) return failDelivery(500, sanitizeDbError(companyError));
   if (!company) return failDelivery(422, 'Invoice issuer company details are missing.');
 
   const companyName = cleanHeader(company.name);
@@ -272,7 +273,7 @@ export async function POST(
     .eq('invoice_id', claimedInvoice.id)
     .eq('doc_type', 'invoice_pdf')
     .maybeSingle();
-  if (existingDocumentError) return failDelivery(500, existingDocumentError.message);
+  if (existingDocumentError) return failDelivery(500, sanitizeDbError(existingDocumentError));
 
   const documentValues = {
     file_url: storagePath,
@@ -286,7 +287,7 @@ export async function POST(
       .update(documentValues)
       .eq('id', existingDocument.id)
       .eq('company_id', driver.companyId);
-    if (error) return failDelivery(500, error.message);
+    if (error) return failDelivery(500, sanitizeDbError(error));
   } else {
     const { error } = await supabaseAdmin
       .from('invoice_documents')
@@ -296,7 +297,7 @@ export async function POST(
         doc_type: 'invoice_pdf',
         ...documentValues,
       });
-    if (error) return failDelivery(500, error.message);
+    if (error) return failDelivery(500, sanitizeDbError(error));
   }
 
   const attemptedAt = new Date().toISOString();

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { sanitizeDbError } from '../../../../_lib/errorSanitizer';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -39,7 +40,7 @@ export async function GET(
     .eq('company_id', driver.companyId)
     .maybeSingle();
 
-  if (error) return respond(500, { error: error.message });
+  if (error) return respond(500, { error: sanitizeDbError(error) });
   if (!invoice) return respond(404, { error: 'Invoice not found.' });
 
   const [statusHistoryResult, paymentsResult, disputesResult, documentsResult] = await Promise.all([
@@ -68,28 +69,24 @@ export async function GET(
   if (statusHistoryResult.error) {
     return respond(500, {
       error: 'Failed to load invoice status history.',
-      details: statusHistoryResult.error.message,
     });
   }
 
   if (paymentsResult.error) {
     return respond(500, {
       error: 'Failed to load invoice payment history.',
-      details: paymentsResult.error.message,
     });
   }
 
   if (disputesResult.error) {
     return respond(500, {
       error: 'Failed to load invoice disputes.',
-      details: disputesResult.error.message,
     });
   }
 
   if (documentsResult.error) {
     return respond(500, {
       error: 'Failed to load invoice documents.',
-      details: documentsResult.error.message,
     });
   }
 
@@ -100,4 +97,12 @@ export async function GET(
     disputes: disputesResult.data ?? [],
     documents: documentsResult.data ?? [],
   });
+}
+
+export async function PATCH() {
+  return respond(405, { error: 'Invoices cannot be modified after creation.' });
+}
+
+export async function DELETE() {
+  return respond(405, { error: 'Invoices cannot be deleted.' });
 }

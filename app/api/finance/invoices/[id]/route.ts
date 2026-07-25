@@ -5,6 +5,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../_lib/supabaseAdmin';
+import { sanitizeDbError } from '../../../_lib/errorSanitizer';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -73,7 +74,7 @@ export async function GET(
     .select('company_id')
     .eq('user_id', authData.user.id)
     .eq('status', 'active');
-  if (membershipError) return respond(500, { error: membershipError.message });
+  if (membershipError) return respond(500, { error: sanitizeDbError(membershipError) });
   const companyIds = new Set((memberships ?? []).map((membership) => membership.company_id as string));
 
   const { id } = await params;
@@ -82,7 +83,7 @@ export async function GET(
     .select('*')
     .eq('id', id)
     .maybeSingle();
-  if (error) return respond(500, { error: error.message });
+  if (error) return respond(500, { error: sanitizeDbError(error) });
   if (!invoice) return respond(404, { error: 'Invoice not found.' });
 
   let jobOwnerCompanyId: string | null = null;
@@ -92,7 +93,7 @@ export async function GET(
       .select('company_id')
       .eq('id', invoice.job_id)
       .maybeSingle();
-    if (jobError) return respond(500, { error: jobError.message });
+    if (jobError) return respond(500, { error: sanitizeDbError(jobError) });
     jobOwnerCompanyId = typeof job?.company_id === 'string' ? job.company_id : null;
   }
 
@@ -136,7 +137,7 @@ export async function GET(
   ]);
 
   const firstError = statusHistory.error ?? payments.error ?? disputes.error ?? documents.error;
-  if (firstError) return respond(500, { error: firstError.message });
+  if (firstError) return respond(500, { error: sanitizeDbError(firstError) });
 
   const safeHistory = issuerAuthorised
     ? statusHistory.data ?? []

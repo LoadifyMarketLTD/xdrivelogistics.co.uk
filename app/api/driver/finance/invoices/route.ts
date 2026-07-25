@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import { sanitizeDbError } from '../../../_lib/errorSanitizer';
 import {
   buildInvoiceStatusSummary,
   toCanonicalInvoiceDisplayStatus,
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
   try {
     driver = await resolveDriver(request);
   } catch (reason) {
-    return respond(500, { error: reason instanceof Error ? reason.message : 'Finance access could not be verified.' });
+    return respond(500, { error: sanitizeDbError(reason, 'Finance access could not be verified.') });
   }
   if (!driver) return respond(401, { error: 'Unauthorized.' });
 
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { data, error } = await query;
-  if (error) return respond(500, { error: error.message });
+  if (error) return respond(500, { error: sanitizeDbError(error) });
 
   const rows = ((data ?? []) as Array<{
     status: string | null;
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
   try {
     driver = await resolveDriver(request);
   } catch (reason) {
-    return respond(500, { error: reason instanceof Error ? reason.message : 'Finance access could not be verified.' });
+    return respond(500, { error: sanitizeDbError(reason, 'Finance access could not be verified.') });
   }
   if (!driver) return respond(401, { error: 'Unauthorized.' });
   if (!driver.canManageFinance) {
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest) {
     .select('id, invoice_number, status')
     .single();
 
-  if (insertError) return respond(500, { error: insertError.message });
+  if (insertError) return respond(500, { error: sanitizeDbError(insertError) });
 
   return respond(201, {
     invoice: inserted
