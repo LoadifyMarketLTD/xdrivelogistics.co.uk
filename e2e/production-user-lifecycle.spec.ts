@@ -44,7 +44,7 @@ test.describe('registration role contract (read-only)', () => {
     await page.goto('/register');
     const accountType = page.locator('#register-role');
     await expect(accountType).toBeVisible();
-    await expect(accountType.locator('option')).toContainText([
+    await expect(accountType.locator('option')).toHaveText([
       /customer\s*\/\s*shipper/i,
       /transport broker/i,
       /fleet operator/i,

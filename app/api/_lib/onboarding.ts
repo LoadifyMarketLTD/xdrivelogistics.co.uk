@@ -162,8 +162,6 @@ export const resolveOnboardingAccountTypeFromMetadata = (
   for (const candidate of candidates) {
     if (typeof candidate !== 'string' || !candidate.trim()) continue;
     const normalized = normalizeOnboardingAccountType(candidate);
-    // Prevent client-supplied metadata from enabling the deprecated individual-driver onboarding flow.
-    if (normalized === 'individual_driver') continue;
     if (normalized) return normalized;
   }
 
