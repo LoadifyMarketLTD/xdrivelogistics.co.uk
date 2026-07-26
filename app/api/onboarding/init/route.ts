@@ -92,6 +92,19 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // When there is no existing onboarding row and the account type resolves to
+  // individual_driver from auth metadata, use the auth user's created_at date
+  // to enforce the legacy cutoff (the onboarding row does not yet exist so
+  // existing.created_at cannot be used).
+  if (!existing && accountType === 'individual_driver') {
+    if (!isLegacyIndividualDriverOnboardingApplication('individual_driver', authUser.created_at ?? null)) {
+      return json(409, {
+        error: 'Individual-driver onboarding is legacy-only and unavailable for new registrations.',
+        code: 'legacy_individual_driver_onboarding_locked',
+      });
+    }
+  }
+
   const normalizedExistingStatus = normalizeOnboardingStatus(existing?.status);
   const now = new Date();
   const tokenExpired = Boolean(
