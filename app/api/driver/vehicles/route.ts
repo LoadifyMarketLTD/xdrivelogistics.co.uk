@@ -36,6 +36,11 @@ const patchSchema = vehicleSchema.partial().extend({
   id: z.string().uuid(),
 });
 
+const deactivateSchema = z.object({
+  vehicleId: z.string().uuid(),
+  action: z.literal('deactivate'),
+});
+
 const resolveDriver = async (request: NextRequest) => {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return { error: json(503, { error: 'Service not configured.' }) };
@@ -55,8 +60,8 @@ const resolveDriver = async (request: NextRequest) => {
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
-  if (!driver) {
-    return { error: json(403, { error: 'Driver profile not found.' }) };
+  if (!driver || driver.status !== 'active') {
+    return { error: json(403, { error: 'Active driver profile required.' }) };
   }
 
   return { user: authData.user, driverId: driver.id, companyId: driver.company_id as string };
@@ -115,7 +120,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const resolved = await resolveDriver(request);
   if ('error' in resolved) return resolved.error;
-  const { companyId } = resolved;
+  const { companyId, driverId } = resolved;
   const admin = supabaseAdmin!;
 
   let body: unknown;
@@ -125,6 +130,33 @@ export async function PATCH(request: NextRequest) {
     return json(400, { error: 'Invalid JSON body.' });
   }
 
+  const deactivate = deactivateSchema.safeParse(body);
+  if (deactivate.success) {
+    const { data: vehicle } = await admin
+      .from('vehicles')
+      .select('id, company_id, assigned_driver_id, reg_plate')
+      .eq('id', deactivate.data.vehicleId)
+      .maybeSingle();
+
+    if (!vehicle) return json(404, { error: 'Vehicle not found.' });
+    if (vehicle.company_id !== companyId) {
+      return json(403, { error: 'Access denied — vehicle does not belong to your company.' });
+    }
+    if (vehicle.assigned_driver_id !== driverId) {
+      return json(403, { error: 'Forbidden — this vehicle is not assigned to you.' });
+    }
+
+    const { data: updated, error: updateError } = await admin
+      .from('vehicles')
+      .update({ assigned_driver_id: null })
+      .eq('id', deactivate.data.vehicleId)
+      .select('id, reg_plate, assigned_driver_id')
+      .maybeSingle();
+
+    if (updateError) return json(500, { error: updateError.message });
+    return json(200, { vehicle: updated, action: 'deactivated' });
+  }
+
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
     return json(400, { error: 'Validation failed.', details: parsed.error.flatten() });
@@ -132,7 +164,6 @@ export async function PATCH(request: NextRequest) {
 
   const { id: vehicleId, ...updateFields } = parsed.data;
 
-  // Verify ownership
   const { data: vehicle } = await admin
     .from('vehicles')
     .select('id, company_id')

@@ -66,7 +66,7 @@ export function CarrierDashboard() {
               formatDate(job.pickup_datetime),
               (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
               <StatusBadge key="status" value={job.current_status ?? job.status} />,
-              <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/jobs?job=${job.id}`)}>Open</ActionButton>,
+              <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open</ActionButton>,
             ])}
             empty={<EmptyState title="No jobs need attention" description="Won work and active jobs will appear here." />}
           />

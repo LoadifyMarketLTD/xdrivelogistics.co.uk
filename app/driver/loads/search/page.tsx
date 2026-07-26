@@ -167,7 +167,7 @@ export default function SearchLoadsPage() {
             eyebrow="Driver marketplace"
             title="Search Loads"
             description="Run a targeted search by route, postcode, vehicle, freight, budget or operational requirement."
-            actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/loads/saved')}>Saved loads</ActionButton>}
+            actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/loads')}>All loads</ActionButton>}
           />
           {error && <AlertBanner tone="danger">{error}</AlertBanner>}
 
