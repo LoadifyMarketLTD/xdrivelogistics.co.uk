@@ -7,16 +7,27 @@ export type QueuedAction = {
   id: string;
   /** Immutable identity of the authenticated driver who created this action. */
   ownerUserId: string;
+  /** Immutable. Set at enqueue time; never changed by lifecycle helpers. */
   jobId: string;
+  /** Immutable. Set at enqueue time; never changed by lifecycle helpers. */
   endpoint: string;
+  /** Immutable after enqueue. For POD submissions, must include a stable `podKey`. */
   payload?: Record<string, unknown>;
   status: QueuedActionStatus;
+  /** Immutable. Set at enqueue time; never changed by lifecycle helpers. */
   createdAt: string;
   lastError?: string;
   retryCount: number;
   lastAttemptAt?: string;
   nextRetryAt?: string;
 };
+
+/**
+ * Subset of QueuedAction fields that lifecycle helpers are permitted to patch.
+ * The immutable fields (id, ownerUserId, jobId, endpoint, payload, createdAt)
+ * are excluded to prevent accidental or malicious mutation of ownership or identity.
+ */
+export type QueuedActionMutablePatch = Partial<Pick<QueuedAction, 'status' | 'retryCount' | 'lastError' | 'lastAttemptAt' | 'nextRetryAt'>>;
 
 // Queue keys are scoped per authenticated user to prevent cross-account data leakage.
 // Each driver's pending actions are stored under their own Supabase user ID.
@@ -74,20 +85,38 @@ export async function saveQueue(userId: string, queue: QueuedAction[]) {
 }
 
 /**
- * Enqueue a driver action. If a pending or failed item already exists for the
+ * Enqueue a driver action.
+ *
+ * For non-POD status actions: if a pending or failed item already exists for the
  * same jobId + endpoint, it is superseded in place (same ID, reset retry count)
- * rather than creating a duplicate. This prevents repeated taps from flooding
- * the queue with identical work items.
+ * to prevent repeated taps from flooding the queue.
+ *
+ * For POD submissions (endpoint === 'pod'): supersede only when the incoming
+ * payload carries the same `podKey` as an existing pending/failed item. This
+ * allows retries of the same POD form to collapse into one queue entry while
+ * preventing a genuinely new POD submission (different form fill, different
+ * podKey) from silently overwriting an earlier unsynced submission.
+ * POD submissions without a podKey are never superseded.
  */
 export async function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 'ownerUserId' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError'>) {
   assertValidUserId(userId);
   const queue = await getQueue(userId);
 
-  // Find an existing pending/failed item for the same logical action to supersede.
-  const existingIndex = queue.findIndex(
-    (item) => item.jobId === action.jobId && item.endpoint === action.endpoint
-      && (item.status === 'pending' || item.status === 'failed'),
-  );
+  const isPod = action.endpoint === 'pod';
+  const incomingPodKey = isPod ? (action.payload?.podKey as string | undefined) : undefined;
+
+  // Find an existing pending/failed item to supersede.
+  // POD: match by jobId + endpoint + podKey (only when podKey is present and matches).
+  // Status actions: match by jobId + endpoint.
+  const existingIndex = queue.findIndex((item) => {
+    if (item.jobId !== action.jobId || item.endpoint !== action.endpoint) return false;
+    if (item.status !== 'pending' && item.status !== 'failed') return false;
+    if (isPod) {
+      const existingPodKey = item.payload?.podKey as string | undefined;
+      return Boolean(incomingPodKey) && incomingPodKey === existingPodKey;
+    }
+    return true;
+  });
 
   const queued: QueuedAction = {
     ...action,
@@ -126,10 +155,22 @@ export async function migrateLegacyQueue(userId: string): Promise<void> {
   await AsyncStorage.removeItem(LEGACY_QUEUE_KEY);
 }
 
-export async function updateQueueItem(userId: string, id: string, patch: Partial<QueuedAction>) {
+/**
+ * Applies a mutable patch to the queue item identified by `id`.
+ * Immutable fields (id, ownerUserId, jobId, endpoint, payload, createdAt) are
+ * stripped from the patch at runtime so they can never be overwritten, even if
+ * a caller constructs the patch object in JavaScript without TypeScript checks.
+ * Returns the queue unchanged when no item with `id` is found (silent no-op).
+ */
+export async function updateQueueItem(userId: string, id: string, patch: QueuedActionMutablePatch) {
   assertValidUserId(userId);
   const queue = await getQueue(userId);
-  const next = queue.map((item) => (item.id === id ? { ...item, ...patch } : item));
+  // Explicitly strip immutable fields in case the patch arrives via JS without type guards.
+  const { status, retryCount, lastError, lastAttemptAt, nextRetryAt } = patch;
+  const safePatch: QueuedActionMutablePatch = Object.fromEntries(
+    Object.entries({ status, retryCount, lastError, lastAttemptAt, nextRetryAt }).filter(([, v]) => v !== undefined),
+  ) as QueuedActionMutablePatch;
+  const next = queue.map((item) => (item.id === id ? { ...item, ...safePatch } : item));
   await saveQueue(userId, next);
   return next;
 }

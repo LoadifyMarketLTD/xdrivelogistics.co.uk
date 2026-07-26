@@ -718,6 +718,11 @@ function JobDetailScreen({ job, onPrimary }: { job: DriverJob; onPrimary: () => 
 
 function PodScreen({ job, token, userId, onSaved, onOfflineSaved, onQueued }: { job: DriverJob; token: string | null; userId: string | null; onSaved: (job?: DriverJob) => void; onOfflineSaved: () => void; onQueued: (queued: QueuedAction) => void }) {
   const signatureRef = useRef<SignatureViewRef | null>(null);
+  // Stable per-form-session idempotency key. Retries from the same PodScreen
+  // mount reuse this key so they supersede each other in the queue. A new mount
+  // (user navigates away and back) generates a new key, preventing a fresh
+  // submission from overwriting an earlier unsynced one.
+  const podKeyRef = useRef<string>(`pod-${job.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
   const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [documentUris, setDocumentUris] = useState<string[]>([]);
   const [recipientName, setRecipientName] = useState('');
@@ -748,7 +753,7 @@ function PodScreen({ job, token, userId, onSaved, onOfflineSaved, onQueued }: { 
       return;
     }
 
-    const payload = { photoUris, documentUris, recipientName, signatureData, notes };
+    const payload = { photoUris, documentUris, recipientName, signatureData, notes, podKey: podKeyRef.current };
     if (!userId) {
       Alert.alert('Session error', 'Driver session is not ready. Please sign in again.');
       return;
