@@ -15,17 +15,50 @@ CREATE TABLE IF NOT EXISTS public.broker_carrier_invitations (
   updated_at         timestamptz NOT NULL DEFAULT now()
 );
 
--- At least one of carrier_email or carrier_company_id must be provided
-ALTER TABLE public.broker_carrier_invitations
-  ADD CONSTRAINT broker_carrier_inv_target_check
-  CHECK (carrier_email IS NOT NULL OR carrier_company_id IS NOT NULL);
+-- At least one of carrier_email or carrier_company_id must be provided.
+-- Conditional: only applies when the carrier_email column exists.
+-- (A later migration may rename carrier_email → invited_email with a NOT NULL
+--  constraint that makes this check redundant.)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name   = 'broker_carrier_invitations'
+      AND column_name  = 'carrier_email'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname  = 'broker_carrier_inv_target_check'
+      AND conrelid = 'public.broker_carrier_invitations'::regclass
+  ) THEN
+    ALTER TABLE public.broker_carrier_invitations
+      ADD CONSTRAINT broker_carrier_inv_target_check
+      CHECK (carrier_email IS NOT NULL OR carrier_company_id IS NOT NULL);
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS broker_carrier_inv_broker_idx
   ON public.broker_carrier_invitations (broker_company_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS broker_carrier_inv_email_idx
-  ON public.broker_carrier_invitations (carrier_email)
-  WHERE carrier_email IS NOT NULL;
+-- Index on carrier_email only exists when that column is present.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name   = 'broker_carrier_invitations'
+      AND column_name  = 'carrier_email'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE schemaname = 'public'
+      AND tablename  = 'broker_carrier_invitations'
+      AND indexname  = 'broker_carrier_inv_email_idx'
+  ) THEN
+    EXECUTE 'CREATE INDEX broker_carrier_inv_email_idx
+               ON public.broker_carrier_invitations (carrier_email)
+               WHERE carrier_email IS NOT NULL';
+  END IF;
+END $$;
 
 -- Auto-update updated_at
 CREATE OR REPLACE FUNCTION public.touch_broker_carrier_inv_updated_at()

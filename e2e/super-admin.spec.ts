@@ -52,4 +52,20 @@ test.describe('Super Admin finance/notifications runtime validation', () => {
     expect(Array.isArray(body.rows)).toBeTruthy();
     expect(body.summary).toBeTruthy();
   });
+
+  test('governance actions navigate to canonical workflows', async ({ page }) => {
+    await page.goto('/super-admin');
+    await expect(page.getByRole('heading', { name: /xdrive owner console/i })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Review onboarding' }).click();
+    await expect(page).toHaveURL(/\/super-admin\/companies\/verification$/);
+
+    await page.goto('/super-admin');
+    await page.getByRole('button', { name: 'Review compliance' }).click();
+    await expect(page).toHaveURL(/\/super-admin\/companies\/compliance$/);
+
+    await page.goto('/super-admin');
+    await page.getByRole('button', { name: 'Review disputes' }).click();
+    await expect(page).toHaveURL(/\/super-admin\/operations\/disputes$/);
+  });
 });
