@@ -4,6 +4,7 @@ import { Component, useEffect, useState, type ComponentType, type ReactNode } fr
 import { Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { colors, spacing } from './src/ui/theme';
+import { fallbackApiBaseUrl, normalizeApiBaseUrl } from './src/utils/url';
 
 type DriverMobileAppComponent = ComponentType<Record<string, never>>;
 
@@ -26,22 +27,6 @@ type StartupErrorBoundaryState = {
 };
 
 const startupTimeoutMs = 15000;
-const fallbackApiBaseUrl = 'https://www.xdrivelogistics.co.uk';
-
-function normalizeApiBaseUrl(value: string | null | undefined) {
-  const normalized = value?.trim().replace(/\/+$/, '');
-  if (!normalized) return fallbackApiBaseUrl;
-
-  try {
-    const url = new URL(normalized);
-    if (url.hostname === 'xdrivelogistics.co.uk') {
-      url.hostname = 'www.xdrivelogistics.co.uk';
-    }
-    return url.toString().replace(/\/+$/, '');
-  } catch {
-    return fallbackApiBaseUrl;
-  }
-}
 
 export default function App() {
   const [DriverMobileApp, setDriverMobileApp] = useState<DriverMobileAppComponent | null>(null);

@@ -2,14 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
-import { isDriverContext, requireDriver } from '../_lib';
+import { isDriverContext, requireDriver, publicArea } from '../_lib';
 
 type AnyRow = Record<string, unknown>;
-
-function publicArea(postcode: unknown) {
-  const value = String(postcode ?? '').trim().toUpperCase();
-  return value ? `Approx. area · ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
-}
 
 function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null) {
   const privateDetailsRevealed = String(row.assigned_driver_id ?? '') === driverId

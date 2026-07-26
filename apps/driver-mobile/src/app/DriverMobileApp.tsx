@@ -738,12 +738,15 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
       <SecondaryButton label={photoUris.length > 0 ? `Photos (${photoUris.length}) – add more` : 'Add photo'} onPress={() => void addPhoto()} />
       <SecondaryButton label={documentUris.length > 0 ? `Documents (${documentUris.length}) – add more` : 'Add document'} onPress={() => void addDocument()} />
       <TextInput
-        placeholder="Recipient name"
+        placeholder="Recipient name (required)"
         placeholderTextColor={colors.muted}
         style={styles.input}
         value={recipientName}
         onChangeText={setRecipientName}
       />
+      {!recipientName.trim() ? (
+        <Text style={styles.subtle}>Recipient name is required to save POD.</Text>
+      ) : null}
       <TextInput
         placeholder="Notes (optional)"
         placeholderTextColor={colors.muted}

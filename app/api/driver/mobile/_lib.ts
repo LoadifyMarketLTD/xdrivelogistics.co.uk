@@ -39,6 +39,7 @@ export type MobileJobRow = {
   delivery_contact_phone: string | null;
   client_name: string | null;
   client_phone: string | null;
+  client_signature_name: string | null;
   load_details: string | null;
   special_requirements: string | null;
   access_restrictions: string | null;
@@ -150,6 +151,7 @@ export const jobSelect = [
   'delivery_contact_phone',
   'client_name',
   'client_phone',
+  'client_signature_name',
   'load_details',
   'special_requirements',
   'access_restrictions',
@@ -172,8 +174,26 @@ export function appendStatusHistory(existingHistory: unknown, entry: Record<stri
   return [entry];
 }
 
-export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' | 'delivery_signature_data' | 'pod_generated'>) {
-  return Boolean(job.pod_generated) || safeArray(job.delivery_photos).length > 0 || safeArray(job.pod_photos).length > 0 || Boolean(job.delivery_signature_data);
+/**
+ * Returns true when the job has POD evidence that meets the same completeness
+ * standard enforced by the admin panel's hasCompletePod check:
+ *   - pod_generated flag (set by a successful savePod call), OR
+ *   - at least one photo/document AND a signature AND a recipient name.
+ *
+ * NOTE: do not loosen this gate — the admin transition route requires the same
+ * standard before accepting a "delivered" transition.
+ */
+export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' | 'delivery_signature_data' | 'pod_generated' | 'client_signature_name'>) {
+  if (Boolean(job.pod_generated)) return true;
+  const hasPhotoOrDoc = safeArray(job.delivery_photos).length > 0 || safeArray(job.pod_photos).length > 0;
+  const hasSignature = Boolean(job.delivery_signature_data);
+  const hasRecipient = typeof job.client_signature_name === 'string' && job.client_signature_name.trim().length > 0;
+  return hasPhotoOrDoc && hasSignature && hasRecipient;
+}
+
+export function publicArea(postcode: unknown) {
+  const value = String(postcode ?? '').trim().toUpperCase();
+  return value ? `Approx. area · ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
 }
 
 export function toMoney(value: number | string | null | undefined) {

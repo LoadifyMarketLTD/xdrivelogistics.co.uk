@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { fallbackApiBaseUrl, normalizeApiBaseUrl } from '../utils/url';
+
 type SupabaseConfig = {
   supabaseUrl: string;
   supabaseAnonKey: string;
@@ -12,22 +14,6 @@ type SupabaseConfig = {
 const placeholderUrl = 'https://placeholder.supabase.co';
 const placeholderAnonKey = 'placeholder';
 const extra = Constants.expoConfig?.extra ?? {};
-const fallbackApiBaseUrl = 'https://www.xdrivelogistics.co.uk';
-
-function normalizeApiBaseUrl(value: string | null | undefined) {
-  const normalized = value?.trim().replace(/\/+$/, '');
-  if (!normalized) return fallbackApiBaseUrl;
-
-  try {
-    const url = new URL(normalized);
-    if (url.hostname === 'xdrivelogistics.co.uk') {
-      url.hostname = 'www.xdrivelogistics.co.uk';
-    }
-    return url.toString().replace(/\/+$/, '');
-  } catch {
-    return fallbackApiBaseUrl;
-  }
-}
 
 function isValidSupabaseUrl(value: string) {
   try {

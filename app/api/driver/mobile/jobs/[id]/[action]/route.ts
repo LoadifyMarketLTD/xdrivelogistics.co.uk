@@ -100,6 +100,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!config.allowedLifecycle.includes(lifecycle)) {
     return respond(409, { error: `Job cannot perform ${action} from ${lifecycle || 'unknown'} status.` });
   }
+
+  // Idempotency: if the job already has the target current_status, return success without re-applying.
+  if (String(job.current_status ?? '').toLowerCase() === config.currentStatus) {
+    return respond(200, { ok: true, job: mapJob(job) });
+  }
+
   if (config.requiresPod && job.pod_required !== false && !hasPod(job)) {
     return respond(409, { error: 'POD is required before marking this job delivered.' });
   }

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { sortSmartDestinationCandidates } from '../../../../../lib/smartDestinationPriority';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
-import { isDriverContext, requireDriver, respond } from '../_lib';
+import { isDriverContext, requireDriver, respond, publicArea } from '../_lib';
 
 type NearbyJobRow = {
   id: string;
@@ -99,11 +99,6 @@ function numberOrNull(value: unknown) {
 function companyInfo(companies: NearbyJobRow['companies']) {
   if (Array.isArray(companies)) return companies[0] ?? null;
   return companies ?? null;
-}
-
-function publicArea(postcode: unknown) {
-  const value = String(postcode ?? '').trim().toUpperCase();
-  return value ? `Approx. area · ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
 }
 
 function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
