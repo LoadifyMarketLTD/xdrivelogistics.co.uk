@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
   }
   if (
     existingAccountType === 'individual_driver' &&
+    existing &&
     !isLegacyIndividualDriverOnboardingApplication(existing.account_type, existing.created_at)
   ) {
     return json(409, {
