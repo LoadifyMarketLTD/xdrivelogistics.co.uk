@@ -6,7 +6,7 @@ export const respond = (status: number, payload: Record<string, unknown>) => Nex
 export type DriverContext = {
   userId: string;
   driverId: string;
-  companyId: string;
+  companyId: string | null;
 };
 
 export type MobileJobRow = {
@@ -90,19 +90,20 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
     return respond(403, { error: 'Driver account is not active.' });
   }
 
-  const companyId = typeof driverRow.company_id === 'string' ? driverRow.company_id.trim() : '';
-  if (!companyId) {
-    return respond(403, { error: 'Driver is not linked to an active company workspace.' });
-  }
+  const companyId = typeof driverRow.company_id === 'string' && driverRow.company_id.trim().length > 0
+    ? driverRow.company_id.trim()
+    : null;
 
-  const { data: companyRow, error: companyError } = await supabaseAdmin
-    .from('companies')
-    .select('status')
-    .eq('id', companyId)
-    .maybeSingle();
-  if (companyError) return respond(500, { error: companyError.message });
-  if (!companyRow || String(companyRow.status ?? '').trim().toLowerCase() !== 'active') {
-    return respond(403, { error: 'Driver company workspace is not active.' });
+  if (companyId) {
+    const { data: companyRow, error: companyError } = await supabaseAdmin
+      .from('companies')
+      .select('status')
+      .eq('id', companyId)
+      .maybeSingle();
+    if (companyError) return respond(500, { error: companyError.message });
+    if (!companyRow || String(companyRow.status ?? '').trim().toLowerCase() !== 'active') {
+      return respond(403, { error: 'Driver company workspace is not active.' });
+    }
   }
 
   return {
