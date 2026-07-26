@@ -138,8 +138,6 @@ export const resolveOnboardingAccountTypeFromMetadata = (
   appMetadata: Record<string, unknown> | null | undefined
 ): OnboardingAccountType | null => {
   // Requested/signup role is more specific than the legacy account_type field.
-  // This allows Individual Driver registrations created while account_type still
-  // carried owner_driver to enter the correct lightweight onboarding flow.
   const candidates = [
     userMetadata?.requested_role,
     userMetadata?.signup_type,
@@ -152,6 +150,7 @@ export const resolveOnboardingAccountTypeFromMetadata = (
   for (const candidate of candidates) {
     if (typeof candidate !== 'string' || !candidate.trim()) continue;
     const normalized = normalizeOnboardingAccountType(candidate);
+    if (normalized === 'individual_driver') continue;
     if (normalized) return normalized;
   }
 
