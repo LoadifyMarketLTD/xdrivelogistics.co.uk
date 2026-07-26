@@ -11,6 +11,9 @@
     "build:android:apk": "eas build --platform android --profile preview",
     "build:android:aab": "eas build --platform android --profile production"
   },
+  "overrides": {
+    "postcss": "8.5.18"
+  },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.1.2",
     "@supabase/supabase-js": "^2.97.0",
