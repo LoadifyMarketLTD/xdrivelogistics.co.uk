@@ -12,7 +12,7 @@ This automated suite uses [Playwright](https://playwright.dev/) to functionally 
 | `public.spec.ts` | Browser | None — always runs |
 | `role-workspace-capability-contract.spec.ts` | Pure unit | None — always runs |
 | `canonical-company-membership-contract.spec.ts` | Pure unit | None — always runs |
-| `individual-driver-onboarding-contract.spec.ts` | Pure unit | None — always runs |
+| `individual-driver-onboarding-contract.spec.ts` | Legacy unit (deprecated; historical accounts only) | None — always runs |
 | `invoice-lifecycle-contract.spec.ts` | Mixed | Authenticated section: `E2E_ADMIN_EMAIL` |
 | `quote-lifecycle-contract.spec.ts` | Mixed | Authenticated section: `E2E_ADMIN_EMAIL` |
 | `job-operations-contract.spec.ts` | Mixed | Authenticated section: `E2E_ADMIN_EMAIL` |
@@ -26,6 +26,8 @@ This automated suite uses [Playwright](https://playwright.dev/) to functionally 
 | `production-user-lifecycle.spec.ts` | Mixed | Read-only: none; Mutation: `PLAYWRIGHT_BASE_URL` + `E2E_ALLOW_PRODUCTION_MUTATION=true` |
 
 ---
+
+`individual-driver-onboarding-contract.spec.ts` is retained only as a legacy compatibility contract for historical accounts and should not be used to validate new registrations.
 
 ## Exact Skip Matrix — 58 Skipped Tests (29 unique × 2 browsers)
 
@@ -224,4 +226,3 @@ npx playwright test \
 - `e2e/` — Playwright config and all test specs
 - `e2e/test-results/` — Screenshots, reports, and traces
 - `e2e/README.md` — This file (skip matrix + coverage)
-

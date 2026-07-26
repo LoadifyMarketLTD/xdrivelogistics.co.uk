@@ -11,6 +11,7 @@ import {
   buildOnboardingUrl,
   generateOnboardingToken,
   hashOnboardingToken,
+  isLegacyIndividualDriverOnboardingApplication,
   normalizeOnboardingAccountType,
   normalizeOnboardingStatus,
   resolveOnboardingAccountTypeFromMetadata,
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existing, error: existingError } = await supabaseAdmin
     .from('onboarding_applications')
-    .select('id, status, account_type, token_hash, token_expires_at, token_activated_at')
+    .select('id, status, account_type, created_at, token_hash, token_expires_at, token_activated_at')
     .eq('user_id', authUser.id)
     .maybeSingle();
 
@@ -69,6 +70,16 @@ export async function POST(request: NextRequest) {
       code: 'unsupported_saved_account_type',
     });
   }
+  if (
+    existingAccountType === 'individual_driver' &&
+    existing &&
+    !isLegacyIndividualDriverOnboardingApplication(existing.account_type, existing.created_at)
+  ) {
+    return json(409, {
+      error: 'Individual-driver onboarding is legacy-only and unavailable for new registrations.',
+      code: 'legacy_individual_driver_onboarding_locked',
+    });
+  }
 
   // A valid saved onboarding selection is authoritative. Auth metadata is used
   // only to initialise a new application. Unknown values are never converted
@@ -79,6 +90,19 @@ export async function POST(request: NextRequest) {
       error: 'Account type is missing or unsupported. Select a valid account type during registration or contact XDrive support.',
       code: 'missing_or_unsupported_account_type',
     });
+  }
+
+  // When there is no existing onboarding row and the account type resolves to
+  // individual_driver from auth metadata, use the auth user's created_at date
+  // to enforce the legacy cutoff (the onboarding row does not yet exist so
+  // existing.created_at cannot be used).
+  if (!existing && accountType === 'individual_driver') {
+    if (!isLegacyIndividualDriverOnboardingApplication('individual_driver', authUser.created_at ?? null)) {
+      return json(409, {
+        error: 'Individual-driver onboarding is legacy-only and unavailable for new registrations.',
+        code: 'legacy_individual_driver_onboarding_locked',
+      });
+    }
   }
 
   const normalizedExistingStatus = normalizeOnboardingStatus(existing?.status);

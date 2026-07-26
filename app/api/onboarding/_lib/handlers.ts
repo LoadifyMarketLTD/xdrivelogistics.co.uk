@@ -111,8 +111,9 @@ const resolveApplicantPatchStatus = (
 export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options: {
   expectedAccountType: OnboardingAccountType;
   patchSchema: TPatchSchema;
+  validateApplication?: (application: Record<string, unknown>) => { status: number; body: Record<string, unknown> } | null;
 }) => {
-  const { expectedAccountType, patchSchema } = options;
+  const { expectedAccountType, patchSchema, validateApplication } = options;
 
   const GET = async (request: NextRequest) => {
     if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -132,6 +133,8 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
     if (!validateAccountType(app.account_type, expectedAccountType)) {
       return json(403, { error: 'Forbidden onboarding account type.' });
     }
+    const validationError = validateApplication?.(app as Record<string, unknown>);
+    if (validationError) return json(validationError.status, validationError.body);
 
     if (authUser && app.user_id !== authUser.id) return json(403, { error: 'Forbidden.' });
 
@@ -196,6 +199,8 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
     if (!validateAccountType(existing.account_type, expectedAccountType)) {
       return json(403, { error: 'Forbidden onboarding account type.' });
     }
+    const validationError = validateApplication?.(existing as Record<string, unknown>);
+    if (validationError) return json(validationError.status, validationError.body);
 
     const payloadPatch = patchData.payload ?? {};
 
