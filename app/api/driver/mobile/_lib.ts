@@ -202,14 +202,16 @@ export function toMoney(value: number | string | null | undefined) {
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(amount);
 }
 
+/**
+ * Returns the canonical job status for the mobile client.
+ * Prefers current_status (the driver workflow step) over the lifecycle status.
+ * No aliasing is applied — the value returned matches what is persisted in the
+ * database and what CanonicalJobStatus in the native app expects.
+ */
 export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'>) {
-  const current = String(job.current_status || job.status || 'awarded').toLowerCase();
-  if (current === 'on_my_way') return 'on_my_way_pickup';
-  if (current === 'on_site_pickup') return 'arrived_pickup';
-  if (current === 'on_site_delivery') return 'arrived_delivery';
-  if (current === 'in_transit') return 'on_my_way_delivery';
-  if (current === 'allocated') return 'awarded';
-  return current;
+  const current = String(job.current_status || '').toLowerCase().trim();
+  if (current) return current;
+  return String(job.status || 'awarded').toLowerCase().trim();
 }
 
 export function mapJob(row: MobileJobRow) {
