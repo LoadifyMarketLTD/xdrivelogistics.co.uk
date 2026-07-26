@@ -110,22 +110,21 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
   const userId = user?.id ?? null;
   const companyId = user?.companyId ?? null;
   const driverId = user?.driverId ?? null;
-  const driverType = user?.driverType ?? null;
   const canCommercialBid = user?.canCommercialBid === true;
   const driverStatus = String(user?.driverStatus ?? '').trim().toLowerCase();
   const appAccess = user?.appAccess;
   const driverSuspended = ['suspended', 'inactive', 'blocked', 'rejected'].includes(driverStatus);
+  // Both owner_driver and company_driver may bid on the marketplace.
+  // Bidding access is controlled independently via can_commercial_bid, not
+  // derived from driver_type alone.  See architecture decision in
+  // supabase/migrations/20260726060000_canonical_driver_type_architecture.sql
   const bidBlockedMessage = driverSuspended
     ? 'Your driver account is suspended. Contact support to restore bidding access.'
     : appAccess === false
       ? 'Your compliance documents are missing or expired. Update them before submitting commercial bids.'
-      : driverType === 'company_driver' && !companyId
-        ? 'Company drivers must be linked to an active company workspace before bidding.'
-        : driverType === 'company_driver' && !canCommercialBid
-          ? 'Your account type does not permit commercial bidding.'
-          : !canCommercialBid
-            ? 'Commercial bidding is not enabled for your account.'
-            : null;
+      : !canCommercialBid
+        ? 'Commercial bidding is not enabled for your account. Contact support to activate marketplace access.'
+        : null;
 
   const fetchLoad = useCallback(async () => {
     if (!isSupabaseConfigured) {
