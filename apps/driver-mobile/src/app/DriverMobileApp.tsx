@@ -218,13 +218,13 @@ export default function DriverMobileApp() {
     }
   }, []);
 
-  const flushQueue = useCallback(async (sessionToken: string, options: { force?: boolean } = {}) => {
+  const flushQueue = useCallback(async (sessionToken: string, userId: string, options: { force?: boolean } = {}) => {
     if (queueSyncInFlightRef.current) return;
     if (!(await isOnline())) return;
 
     queueSyncInFlightRef.current = true;
     try {
-      let nextQueue = await getQueue();
+      let nextQueue = await getQueue(userId);
       const readyItems = nextQueue.filter((item) => (options.force ? item.status !== 'synced' : isQueueItemReady(item)));
       if (readyItems.length === 0) {
         setQueue(nextQueue);
@@ -232,14 +232,14 @@ export default function DriverMobileApp() {
       }
 
       for (const item of readyItems) {
-        nextQueue = await markQueueItemSyncing(item.id);
+        nextQueue = await markQueueItemSyncing(userId, item.id);
         setQueue(nextQueue);
         try {
           if (item.endpoint === 'pod') await uploadPod(item.jobId, sessionToken, item.payload ?? {});
           else await postJobStatus(item.jobId, item.endpoint, sessionToken);
-          nextQueue = await markQueueItemSynced(item.id);
+          nextQueue = await markQueueItemSynced(userId, item.id);
         } catch (error) {
-          nextQueue = await markQueueItemFailed(item.id, error instanceof Error ? error.message : 'Sync failed.', item.retryCount);
+          nextQueue = await markQueueItemFailed(userId, item.id, error instanceof Error ? error.message : 'Sync failed.', item.retryCount);
         }
         setQueue(nextQueue);
       }
@@ -248,7 +248,7 @@ export default function DriverMobileApp() {
       await loadResources(sessionToken, { silent: true });
     } finally {
       queueSyncInFlightRef.current = false;
-      const latestQueue = await getQueue().catch(() => []);
+      const latestQueue = await getQueue(userId).catch(() => []);
       setQueue(latestQueue);
     }
   }, [loadJobs, loadResources, scope]);
@@ -290,17 +290,17 @@ export default function DriverMobileApp() {
 
         setToken(sessionToken);
         void saveSessionToken(sessionToken);
+        // Load the queue for this specific user only after auth is confirmed.
+        void getQueue(userId).then(setQueue).catch(() => setQueue([]));
         await loadJobs(sessionToken);
         void loadResources(sessionToken);
         void safeRegisterPushToken(sessionToken);
-        void flushQueue(sessionToken);
+        void flushQueue(sessionToken, userId);
       })
       .catch(() => {
         void clearSessionToken();
         setScreen('login');
       });
-
-    void getQueue().then(setQueue).catch(() => setQueue([]));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: unknown, session: { access_token?: string | null; user?: { id?: string | null } | null } | null) => {
       const nextToken = getAccessToken(session);
@@ -337,20 +337,20 @@ export default function DriverMobileApp() {
   }, [notificationsSeenKey, resources?.alerts, screen]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !authUserId) return;
     const subscription = Network.addNetworkStateListener((state) => {
       if (state.isConnected && state.isInternetReachable !== false) {
-        void flushQueue(token);
+        void flushQueue(token, authUserId);
       }
     });
     const intervalId = setInterval(() => {
-      void flushQueue(token);
+      void flushQueue(token, authUserId);
     }, 15_000);
     return () => {
       subscription.remove();
       clearInterval(intervalId);
     };
-  }, [flushQueue, token]);
+  }, [authUserId, flushQueue, token]);
 
   async function signIn(email: string, password: string) {
     if (!isSupabaseConfigured) {
@@ -391,15 +391,17 @@ export default function DriverMobileApp() {
       // SecureStore failure should not block sign-in.
     }
     void safeRegisterPushToken(accessToken);
+    void getQueue(userId).then(setQueue).catch(() => setQueue([]));
     await loadJobs(accessToken);
     void loadResources(accessToken);
-    void flushQueue(accessToken);
+    void flushQueue(accessToken, userId);
   }
 
   async function signOut() {
+    const departingUserId = authUserId;
     await supabase.auth.signOut();
     await clearSessionToken();
-    await saveQueue([]);
+    if (departingUserId) await saveQueue(departingUserId, []);
     setToken(null);
     setAuthUserId(null);
     setJob(null);
@@ -411,13 +413,14 @@ export default function DriverMobileApp() {
   }
 
   async function retryFailedQueueItems() {
+    if (!authUserId) return;
     const failedItems = queue.filter((item) => item.status === 'failed');
     for (const item of failedItems) {
-      await retryQueueItem(item.id);
+      await retryQueueItem(authUserId, item.id);
     }
-    const latestQueue = await getQueue();
+    const latestQueue = await getQueue(authUserId);
     setQueue(latestQueue);
-    if (token) await flushQueue(token, { force: true });
+    if (token) await flushQueue(token, authUserId, { force: true });
   }
 
   async function submitStatus() {
@@ -433,8 +436,8 @@ export default function DriverMobileApp() {
     }
 
     const apply = async () => {
-      if (!token || !(await isOnline())) {
-        const queued = await enqueueAction({ jobId: job.id, endpoint: nextStep.endpoint });
+      if (!token || !authUserId || !(await isOnline())) {
+        const queued = await enqueueAction(authUserId ?? '', { jobId: job.id, endpoint: nextStep.endpoint });
         setQueue((items) => [queued, ...items]);
         setJob((current) => (current ? { ...current, status: nextStep.status } : current));
         setMessage('Action saved offline. It will sync automatically when connectivity returns.');
@@ -451,7 +454,7 @@ export default function DriverMobileApp() {
           setScreen('pod');
           return;
         }
-        const queued = await enqueueAction({ jobId: job.id, endpoint: nextStep.endpoint });
+        const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
         setQueue((items) => [queued, ...items]);
         setMessage(text);
         setJob((current) => (current ? { ...current, status: nextStep.status } : current));
@@ -501,7 +504,7 @@ export default function DriverMobileApp() {
                 onDetail={() => setScreen('detail')}
                 onPod={() => setScreen('pod')}
                 onRetryFailed={() => void retryFailedQueueItems()}
-                onSyncNow={() => token && void flushQueue(token, { force: true })}
+                onSyncNow={() => token && authUserId && void flushQueue(token, authUserId, { force: true })}
               />
             )}
             {screen === 'active' && !job && !loading && <EmptyJobsScreen onRefresh={() => token && void loadJobs(token, scope, { navigate: false })} />}
@@ -524,6 +527,7 @@ export default function DriverMobileApp() {
               <PodScreen
                 job={job}
                 token={token}
+                userId={authUserId}
                 onSaved={(updatedJob) => {
                   if (updatedJob) setJob(updatedJob);
                   else setJob((current) => (current ? { ...current, podGenerated: true } : current));
@@ -679,7 +683,7 @@ function JobDetailScreen({ job, onPrimary }: { job: DriverJob; onPrimary: () => 
   );
 }
 
-function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: string | null; onSaved: (job?: DriverJob) => void; onQueued: (queued: QueuedAction) => void }) {
+function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; token: string | null; userId: string | null; onSaved: (job?: DriverJob) => void; onQueued: (queued: QueuedAction) => void }) {
   const signatureRef = useRef<SignatureViewRef | null>(null);
   const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [documentUris, setDocumentUris] = useState<string[]>([]);
@@ -712,8 +716,8 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
     }
 
     const payload = { photoUris, documentUris, recipientName, signatureData, notes };
-    if (!token || !(await isOnline())) {
-      const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
+    if (!token || !userId || !(await isOnline())) {
+      const queued = await enqueueAction(userId ?? '', { jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
       onSaved();
       return;
@@ -722,7 +726,7 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
       const response = await uploadPod(job.id, token, payload);
       onSaved('job' in response ? response.job as DriverJob : undefined);
     } catch {
-      const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
+      const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
       onSaved();
     }

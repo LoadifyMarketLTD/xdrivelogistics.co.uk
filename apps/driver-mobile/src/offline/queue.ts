@@ -16,7 +16,15 @@ export type QueuedAction = {
   nextRetryAt?: string;
 };
 
-const queueKey = 'xdrive.driver.offlineQueue';
+// Queue keys are scoped per authenticated user to prevent cross-account data leakage.
+// Each driver's pending actions are stored under their own Supabase user ID.
+// NOTE: Items persisted under the legacy global key 'xdrive.driver.offlineQueue' (before
+// this change) are not migrated. They will be ignored — replaying another account's actions
+// would be more harmful than losing unsynced items that will self-heal on next network sync.
+export function queueKeyForUser(userId: string): string {
+  return `xdrive.driver.offlineQueue:${userId}`;
+}
+
 const maxRetryDelayMs = 15 * 60 * 1000;
 const initialRetryDelayMs = 15 * 1000;
 
@@ -35,8 +43,8 @@ function normalizeQueueItem(item: Partial<QueuedAction>) {
   } satisfies QueuedAction;
 }
 
-export async function getQueue(): Promise<QueuedAction[]> {
-  const raw = await AsyncStorage.getItem(queueKey);
+export async function getQueue(userId: string): Promise<QueuedAction[]> {
+  const raw = await AsyncStorage.getItem(queueKeyForUser(userId));
   if (!raw) return [];
   try {
     return (JSON.parse(raw) as Partial<QueuedAction>[]).map(normalizeQueueItem).filter((item) => item.id && item.jobId && item.endpoint);
@@ -45,12 +53,12 @@ export async function getQueue(): Promise<QueuedAction[]> {
   }
 }
 
-export async function saveQueue(queue: QueuedAction[]) {
-  await AsyncStorage.setItem(queueKey, JSON.stringify(queue));
+export async function saveQueue(userId: string, queue: QueuedAction[]) {
+  await AsyncStorage.setItem(queueKeyForUser(userId), JSON.stringify(queue));
 }
 
-export async function enqueueAction(action: Omit<QueuedAction, 'id' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError'>) {
-  const queue = await getQueue();
+export async function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError'>) {
+  const queue = await getQueue(userId);
   const queued: QueuedAction = {
     ...action,
     id: `${action.jobId}-${action.endpoint}-${Date.now()}`,
@@ -58,14 +66,14 @@ export async function enqueueAction(action: Omit<QueuedAction, 'id' | 'status' |
     createdAt: new Date().toISOString(),
     retryCount: 0,
   };
-  await saveQueue([queued, ...queue]);
+  await saveQueue(userId, [queued, ...queue]);
   return queued;
 }
 
-export async function updateQueueItem(id: string, patch: Partial<QueuedAction>) {
-  const queue = await getQueue();
+export async function updateQueueItem(userId: string, id: string, patch: Partial<QueuedAction>) {
+  const queue = await getQueue(userId);
   const next = queue.map((item) => (item.id === id ? { ...item, ...patch } : item));
-  await saveQueue(next);
+  await saveQueue(userId, next);
   return next;
 }
 
@@ -80,15 +88,15 @@ export function isQueueItemReady(item: QueuedAction, now = Date.now()) {
   return Number.isNaN(retryAt) || retryAt <= now;
 }
 
-export async function markQueueItemSyncing(id: string) {
-  return updateQueueItem(id, {
+export async function markQueueItemSyncing(userId: string, id: string) {
+  return updateQueueItem(userId, id, {
     status: 'syncing',
     lastAttemptAt: new Date().toISOString(),
   });
 }
 
-export async function markQueueItemSynced(id: string) {
-  return updateQueueItem(id, {
+export async function markQueueItemSynced(userId: string, id: string) {
+  return updateQueueItem(userId, id, {
     status: 'synced',
     lastError: undefined,
     lastAttemptAt: new Date().toISOString(),
@@ -96,10 +104,10 @@ export async function markQueueItemSynced(id: string) {
   });
 }
 
-export async function markQueueItemFailed(id: string, lastError: string, previousRetryCount: number) {
+export async function markQueueItemFailed(userId: string, id: string, lastError: string, previousRetryCount: number) {
   const now = new Date();
   const retryCount = previousRetryCount + 1;
-  return updateQueueItem(id, {
+  return updateQueueItem(userId, id, {
     status: 'failed',
     retryCount,
     lastError,
@@ -108,8 +116,8 @@ export async function markQueueItemFailed(id: string, lastError: string, previou
   });
 }
 
-export async function retryQueueItem(id: string) {
-  return updateQueueItem(id, {
+export async function retryQueueItem(userId: string, id: string) {
+  return updateQueueItem(userId, id, {
     status: 'pending',
     nextRetryAt: undefined,
     lastError: undefined,
