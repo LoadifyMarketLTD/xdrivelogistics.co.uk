@@ -107,7 +107,7 @@ function publicArea(postcode: unknown) {
 }
 
 function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
-  const hasProposedPrice = row.is_fixed_price === true && row.budget_amount != null;
+  const hasProposedPrice = row.budget_amount != null && Number(row.budget_amount) > 0;
   const company = companyInfo(row.companies);
   return {
     id: row.id,

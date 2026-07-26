@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const activeBidStatuses = ['submitted', 'accepted', 'awarded', 'approved'];
+const activeBidStatuses = ['submitted', 'accepted'];
 
 type AdminClient = SupabaseClient;
 
@@ -120,7 +120,7 @@ export async function resolveDriverBidEligibility(
   if (awarded) denialReasons.push('job_already_awarded');
   if (hasActiveBid) denialReasons.push('active_bid_exists');
 
-  const proposedPriceGbp = job?.is_fixed_price === true ? toAmount(job.budget_amount) : null;
+  const proposedPriceGbp = toAmount(job?.budget_amount);
 
   return {
     job,
