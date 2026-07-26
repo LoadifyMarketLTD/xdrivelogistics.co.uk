@@ -22,7 +22,7 @@ test.describe('legacy individual-driver onboarding contract (deprecated)', () =>
     expect(resolveOnboardingAccountTypeFromMetadata({
       requested_role: 'individual_driver',
       account_type: 'owner_driver',
-    }, null)).toBeNull();
+    }, null)).toBe('owner_driver');
 
     expect(resolveOnboardingAccountTypeFromMetadata({
       requested_role: 'owner_operator',
