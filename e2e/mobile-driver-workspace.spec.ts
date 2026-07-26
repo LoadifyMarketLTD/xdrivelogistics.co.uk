@@ -29,9 +29,11 @@ test.describe('mobile driver workspace — static security contract', () => {
     expect(response?.status()).not.toBe(500);
   });
 
-  test('/m page redirects to /m/driver', async ({ page }) => {
-    await page.goto('/m');
-    await expect(page).toHaveURL(/\/(m\/driver|login)(\?|$)/);
+  test('/m is the native app deep-link landing page', async ({ page }) => {
+    const response = await page.goto('/m');
+    // /m now serves as the native-app landing page — it no longer redirects to /m/driver
+    expect(response?.status()).not.toBe(500);
+    await expect(page).toHaveURL(/\/m(\?|$)/);
   });
 
   test('mobile jobs API endpoint returns 401 or 503 without auth', async ({ request }) => {
@@ -43,6 +45,25 @@ test.describe('mobile driver workspace — static security contract', () => {
     const response = await request.get('/api/driver/mobile/config');
     expect([200, 503]).toContain(response.status());
   });
+
+  // Security contract: all /api/driver/mobile/* endpoints must reject unauthenticated requests.
+  const PROTECTED_ENDPOINTS: Array<{ method: 'GET' | 'POST'; path: string }> = [
+    { method: 'GET', path: '/api/driver/mobile/jobs' },
+    { method: 'GET', path: '/api/driver/mobile/jobs/00000000-0000-0000-0000-000000000000' },
+    { method: 'POST', path: '/api/driver/mobile/jobs/00000000-0000-0000-0000-000000000000/on-my-way-pickup' },
+    { method: 'POST', path: '/api/driver/mobile/jobs/00000000-0000-0000-0000-000000000000/pod' },
+    { method: 'POST', path: '/api/driver/mobile/bids' },
+    { method: 'GET', path: '/api/driver/mobile/resources' },
+    { method: 'POST', path: '/api/driver/mobile/device-token' },
+  ];
+
+  for (const { method, path } of PROTECTED_ENDPOINTS) {
+    test(`${method} ${path} returns 401 or 503 without auth`, async ({ request }) => {
+      const fn = method === 'POST' ? request.post.bind(request) : request.get.bind(request);
+      const response = await fn(path);
+      expect([401, 503], `Expected ${method} ${path} to reject unauthenticated, got ${response.status()}`).toContain(response.status());
+    });
+  }
 });
 
 // ─── Authenticated tests ──────────────────────────────────────────────────────
