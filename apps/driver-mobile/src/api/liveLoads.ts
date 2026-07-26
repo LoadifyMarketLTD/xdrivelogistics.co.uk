@@ -18,6 +18,8 @@ type ApiLoad = {
   destinationPriority?: boolean;
   distanceFromCurrentDeliveryMiles?: number | null;
   quoteWarning?: string | null;
+  hasProposedPrice?: boolean;
+  proposedPriceGbp?: number | null;
 };
 
 export type LiveLoadsResponse = {
@@ -54,6 +56,8 @@ export type LiveLoad = {
   directDeliveryRequired: boolean;
   destinationPriority: boolean;
   distanceFromCurrentDeliveryMiles?: number;
+  hasProposedPrice: boolean;
+  proposedPriceGbp?: number;
 };
 
 function money(amount: number | null, currency = 'GBP') {
@@ -85,6 +89,8 @@ function mapLiveLoad(load: ApiLoad): LiveLoad {
     directDeliveryRequired: load.directDeliveryRequired === true,
     destinationPriority: load.destinationPriority === true,
     distanceFromCurrentDeliveryMiles: load.distanceFromCurrentDeliveryMiles ?? undefined,
+    hasProposedPrice: load.hasProposedPrice === true,
+    proposedPriceGbp: typeof load.proposedPriceGbp === 'number' ? load.proposedPriceGbp : undefined,
   };
 }
 
@@ -120,7 +126,7 @@ export async function fetchActiveQuotedJobIds() {
   return new Set((data ?? []).map((row: { job_id: string }) => String(row.job_id)));
 }
 
-export async function submitLiveLoadQuote(jobId: string, amount: number, message?: string) {
+export async function submitLiveLoadQuote(jobId: string, amount: number | null, message?: string) {
   const token = await accessToken();
   const response = await fetch(`${getApiBaseUrl()}/api/driver/mobile/bids`, {
     method: 'POST',

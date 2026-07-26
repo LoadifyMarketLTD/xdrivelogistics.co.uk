@@ -36,7 +36,7 @@ function SwipeCard({ job, pinned, onOpen, onQuote, onTogglePin, onHide }: { job:
   </View>;
 }
 
-export function LiveLoadsScreen() {
+export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boolean | null }) {
   const [feed, setFeed] = useState<Feed>('live');
   const [jobs, setJobs] = useState<LiveLoad[]>([]);
   const [preferences, setPreferences] = useState<MarketplacePreferences>(defaultPreferences);
@@ -56,7 +56,18 @@ export function LiveLoadsScreen() {
         fetchLiveLoads({ destinationMode: nextPreferences.destinationPriorityEnabled, radiusMiles: nextPreferences.destinationRadiusMiles }),
         fetchActiveQuotedJobIds(),
       ]);
-      setJobs(result.jobs.filter((job) => !quotedJobIds.has(job.id)));
+      setJobs(result.jobs
+        .filter((job) => !quotedJobIds.has(job.id))
+        .map((job) => {
+          if (canCommercialBid === false) {
+            return {
+              ...job,
+              canQuote: false,
+              quoteWarning: 'Your account type does not permit commercial bidding.',
+            };
+          }
+          return job;
+        }));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load live jobs.');
     } finally {
