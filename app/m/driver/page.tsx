@@ -1,5 +1,5 @@
-import DriverMobileApp from '../_components/DriverMobileApp';
+import DriverMobileAppVariant from '../_components/DriverMobileAppVariant';
 
 export default function MobileDriverPage() {
-  return <DriverMobileApp />;
+  return <DriverMobileAppVariant />;
 }
