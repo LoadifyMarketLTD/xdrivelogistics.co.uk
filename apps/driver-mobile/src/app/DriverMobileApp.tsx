@@ -19,6 +19,7 @@ import {
   markQueueItemFailed,
   markQueueItemSynced,
   markQueueItemSyncing,
+  migrateLegacyQueue,
   retryQueueItem,
   type QueuedAction,
 } from '../offline/queue';
@@ -165,6 +166,7 @@ export default function DriverMobileApp() {
   const [resourcesLoading, setResourcesLoading] = useState(false);
   const [message, setMessage] = useState('');
   const queueSyncInFlightRef = useRef(false);
+  const authUserIdRef = useRef<string | null>(authUserId);
   const nextStep = useMemo(() => (job ? getNextStep(job.status) : undefined), [job]);
   const queueCounts = useMemo(() => getQueueCounts(queue), [queue]);
   const notificationsSeenKey = authUserId ? `xdrive.driver.notificationsSeen:${authUserId}` : null;
@@ -231,6 +233,17 @@ export default function DriverMobileApp() {
       }
 
       for (const item of readyItems) {
+        // Guard: abort immediately if the authenticated user has changed since this flush started.
+        if (authUserIdRef.current !== userId) break;
+
+        // Guard: reject items whose ownerUserId explicitly mismatches the flushing user.
+        // Items with ownerUserId === '' pre-date this field and are trusted by queue-key scope.
+        if (item.ownerUserId && item.ownerUserId !== userId) {
+          nextQueue = await markQueueItemFailed(userId, item.id, 'Owner mismatch: action belongs to a different driver account.', item.retryCount);
+          setQueue(nextQueue);
+          continue;
+        }
+
         nextQueue = await markQueueItemSyncing(userId, item.id);
         setQueue(nextQueue);
         try {
@@ -289,6 +302,8 @@ export default function DriverMobileApp() {
 
         setToken(sessionToken);
         void saveSessionToken(sessionToken);
+        // One-time migration of pre-isolation legacy queue items.
+        void migrateLegacyQueue(userId).catch(() => undefined);
         // Load the queue for this specific user only after auth is confirmed.
         void getQueue(userId).then(setQueue).catch(() => setQueue([]));
         await loadJobs(sessionToken);
@@ -351,6 +366,11 @@ export default function DriverMobileApp() {
     };
   }, [authUserId, flushQueue, token]);
 
+  // Keep the ref in sync with state so flushQueue can detect account switches mid-loop.
+  useEffect(() => {
+    authUserIdRef.current = authUserId;
+  }, [authUserId]);
+
   async function signIn(email: string, password: string) {
     if (!isSupabaseConfigured) {
       setMessage('Supabase mobile config is missing.');
@@ -384,12 +404,14 @@ export default function DriverMobileApp() {
 
     setToken(accessToken);
     setAuthUserId(userId);
+    authUserIdRef.current = userId;
     try {
       await saveSessionToken(accessToken);
     } catch {
       // SecureStore failure should not block sign-in.
     }
     void safeRegisterPushToken(accessToken);
+    void migrateLegacyQueue(userId).catch(() => undefined);
     void getQueue(userId).then(setQueue).catch(() => setQueue([]));
     await loadJobs(accessToken);
     void loadResources(accessToken);
@@ -532,6 +554,10 @@ export default function DriverMobileApp() {
                 onSaved={(updatedJob) => {
                   if (updatedJob) setJob(updatedJob);
                   else setJob((current) => (current ? { ...current, podGenerated: true } : current));
+                  setScreen('active');
+                }}
+                onOfflineSaved={() => {
+                  setMessage('POD evidence saved offline — will sync automatically when connected.');
                   setScreen('active');
                 }}
                 onQueued={(queued) => setQueue((items) => [queued, ...items])}
@@ -684,7 +710,7 @@ function JobDetailScreen({ job, onPrimary }: { job: DriverJob; onPrimary: () => 
   );
 }
 
-function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; token: string | null; userId: string | null; onSaved: (job?: DriverJob) => void; onQueued: (queued: QueuedAction) => void }) {
+function PodScreen({ job, token, userId, onSaved, onOfflineSaved, onQueued }: { job: DriverJob; token: string | null; userId: string | null; onSaved: (job?: DriverJob) => void; onOfflineSaved: () => void; onQueued: (queued: QueuedAction) => void }) {
   const signatureRef = useRef<SignatureViewRef | null>(null);
   const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [documentUris, setDocumentUris] = useState<string[]>([]);
@@ -724,7 +750,7 @@ function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; 
     if (!token || !(await isOnline())) {
       const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
-      onSaved();
+      onOfflineSaved();
       return;
     }
     try {
@@ -733,7 +759,7 @@ function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; 
     } catch {
       const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
-      onSaved();
+      onOfflineSaved();
     }
   }
 

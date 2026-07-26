@@ -5,6 +5,8 @@ import type { QueuedActionStatus } from '../jobs/types';
 
 export type QueuedAction = {
   id: string;
+  /** Immutable identity of the authenticated driver who created this action. */
+  ownerUserId: string;
   jobId: string;
   endpoint: string;
   payload?: Record<string, unknown>;
@@ -18,11 +20,12 @@ export type QueuedAction = {
 
 // Queue keys are scoped per authenticated user to prevent cross-account data leakage.
 // Each driver's pending actions are stored under their own Supabase user ID.
-// NOTE: Items persisted under the legacy global key 'xdrive.driver.offlineQueue' (before
-// this change) are not migrated. They will be ignored — replaying another account's actions
-// would be more harmful than losing unsynced items that will self-heal on next network sync.
+// Items from the pre-isolation legacy global key are handled by migrateLegacyQueue().
 
-function assertValidUserId(userId: string): void {
+/** Key used before per-user isolation was introduced. */
+const LEGACY_QUEUE_KEY = 'xdrive.driver.offlineQueue';
+
+export function assertValidUserId(userId: string): void {
   if (!userId || !userId.trim()) {
     throw new Error('Queue operation requires an authenticated user identity.');
   }
@@ -36,9 +39,10 @@ export function queueKeyForUser(userId: string): string {
 const maxRetryDelayMs = 15 * 60 * 1000;
 const initialRetryDelayMs = 15 * 1000;
 
-function normalizeQueueItem(item: Partial<QueuedAction>) {
+function normalizeQueueItem(item: Partial<QueuedAction>): QueuedAction {
   return {
     id: String(item.id ?? ''),
+    ownerUserId: typeof item.ownerUserId === 'string' ? item.ownerUserId : '',
     jobId: String(item.jobId ?? ''),
     endpoint: String(item.endpoint ?? ''),
     payload: item.payload,
@@ -48,7 +52,7 @@ function normalizeQueueItem(item: Partial<QueuedAction>) {
     retryCount: Number.isFinite(item.retryCount) ? Number(item.retryCount) : 0,
     lastAttemptAt: typeof item.lastAttemptAt === 'string' ? item.lastAttemptAt : undefined,
     nextRetryAt: typeof item.nextRetryAt === 'string' ? item.nextRetryAt : undefined,
-  } satisfies QueuedAction;
+  };
 }
 
 export async function getQueue(userId: string): Promise<QueuedAction[]> {
@@ -67,18 +71,73 @@ export async function saveQueue(userId: string, queue: QueuedAction[]) {
   await AsyncStorage.setItem(queueKeyForUser(userId), JSON.stringify(queue));
 }
 
-export async function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError'>) {
+/**
+ * Enqueue a driver action. If a pending or failed item already exists for the
+ * same jobId + endpoint, it is superseded in place (same ID, reset retry count)
+ * rather than creating a duplicate. This prevents repeated taps from flooding
+ * the queue with identical work items.
+ */
+export async function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 'ownerUserId' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError'>) {
   assertValidUserId(userId);
   const queue = await getQueue(userId);
+
+  // Find an existing pending/failed item for the same logical action to supersede.
+  const existingIndex = queue.findIndex(
+    (item) => item.jobId === action.jobId && item.endpoint === action.endpoint
+      && (item.status === 'pending' || item.status === 'failed'),
+  );
+
   const queued: QueuedAction = {
     ...action,
-    id: `${action.jobId}-${action.endpoint}-${Date.now()}`,
+    id: existingIndex >= 0 ? queue[existingIndex].id : `${action.jobId}-${action.endpoint}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    ownerUserId: userId,
     status: 'pending',
-    createdAt: new Date().toISOString(),
+    createdAt: existingIndex >= 0 ? queue[existingIndex].createdAt : new Date().toISOString(),
     retryCount: 0,
+    lastError: undefined,
+    lastAttemptAt: undefined,
+    nextRetryAt: undefined,
   };
-  await saveQueue(userId, [queued, ...queue]);
+
+  let nextQueue: QueuedAction[];
+  if (existingIndex >= 0) {
+    nextQueue = [...queue];
+    nextQueue[existingIndex] = queued;
+  } else {
+    nextQueue = [queued, ...queue];
+  }
+  await saveQueue(userId, nextQueue);
   return queued;
+}
+
+/**
+ * One-time migration of items stored under the pre-isolation global queue key.
+ * Stamps each recovered item with ownerUserId, merges into the user-scoped key,
+ * then removes the legacy key so this runs exactly once per device.
+ * Safe to call on every sign-in — it is a no-op when the legacy key is absent.
+ */
+export async function migrateLegacyQueue(userId: string): Promise<void> {
+  assertValidUserId(userId);
+  const raw = await AsyncStorage.getItem(LEGACY_QUEUE_KEY);
+  if (!raw) return;
+  try {
+    const legacyItems = (JSON.parse(raw) as Partial<QueuedAction>[])
+      .map(normalizeQueueItem)
+      .filter((item) => item.id && item.jobId && item.endpoint)
+      .map((item) => ({ ...item, ownerUserId: userId }));
+
+    if (legacyItems.length > 0) {
+      const existing = await getQueue(userId);
+      const existingIds = new Set(existing.map((item) => item.id));
+      const newItems = legacyItems.filter((item) => !existingIds.has(item.id));
+      if (newItems.length > 0) {
+        await saveQueue(userId, [...existing, ...newItems]);
+      }
+    }
+  } catch {
+    // Corrupted legacy data — safe to discard; key is still removed below.
+  }
+  await AsyncStorage.removeItem(LEGACY_QUEUE_KEY);
 }
 
 export async function updateQueueItem(userId: string, id: string, patch: Partial<QueuedAction>) {

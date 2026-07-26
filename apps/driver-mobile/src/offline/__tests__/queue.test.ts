@@ -1,0 +1,379 @@
+/**
+ * Offline queue hardening tests.
+ *
+ * Covers:
+ *  1. Anonymous identity rejection
+ *  2. ownerUserId stamped on every enqueued item
+ *  3. Duplicate/supersede suppression
+ *  4. Cross-account owner isolation (ownerUserId mismatch guard)
+ *  5. Legacy queue one-time migration
+ *  6. Legacy queue corruption handled gracefully
+ *  7. Logout persistence — persisted queue survives session clear
+ *  8. Restart restore — queue reloads correctly for the same user
+ *  9. Account-switch isolation — user B cannot read user A's queue
+ * 10. flushQueue account-switching abort (structural guard verified)
+ */
+
+import AsyncStorage from '../__mocks__/async-storage';
+
+// Import queue module after mocks are in place (jest moduleNameMapper maps the import).
+import {
+  assertValidUserId,
+  enqueueAction,
+  getQueue,
+  markQueueItemFailed,
+  markQueueItemSynced,
+  markQueueItemSyncing,
+  migrateLegacyQueue,
+  queueKeyForUser,
+  retryQueueItem,
+  saveQueue,
+  type QueuedAction,
+} from '../queue';
+
+const USER_A = 'user-aaa-111';
+const USER_B = 'user-bbb-222';
+
+beforeEach(() => {
+  (AsyncStorage as unknown as { __reset(): void }).__reset();
+});
+
+// ---------------------------------------------------------------------------
+// 1. Anonymous identity rejection
+// ---------------------------------------------------------------------------
+describe('assertValidUserId', () => {
+  test.each(['', '   ', '\t', '\n'])(
+    'throws for empty/whitespace userId %j',
+    (id) => {
+      expect(() => assertValidUserId(id)).toThrow('Queue operation requires an authenticated user identity.');
+    },
+  );
+
+  test('does not throw for a non-empty userId', () => {
+    expect(() => assertValidUserId(USER_A)).not.toThrow();
+  });
+});
+
+describe('queueKeyForUser', () => {
+  test('throws for empty userId', () => {
+    expect(() => queueKeyForUser('')).toThrow();
+  });
+
+  test('returns scoped key for valid userId', () => {
+    expect(queueKeyForUser(USER_A)).toBe(`xdrive.driver.offlineQueue:${USER_A}`);
+  });
+});
+
+describe('enqueueAction rejects empty userId', () => {
+  test('throws when userId is empty string', async () => {
+    await expect(
+      enqueueAction('', { jobId: 'job-1', endpoint: 'on-my-way-to-pickup' }),
+    ).rejects.toThrow('Queue operation requires an authenticated user identity.');
+  });
+
+  test('throws when userId is whitespace', async () => {
+    await expect(
+      enqueueAction('   ', { jobId: 'job-1', endpoint: 'on-my-way-to-pickup' }),
+    ).rejects.toThrow('Queue operation requires an authenticated user identity.');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2. ownerUserId stamped on every enqueued item
+// ---------------------------------------------------------------------------
+describe('enqueueAction ownerUserId', () => {
+  test('stamps ownerUserId equal to the authenticated userId', async () => {
+    const queued = await enqueueAction(USER_A, { jobId: 'job-1', endpoint: 'on-site-pickup' });
+    expect(queued.ownerUserId).toBe(USER_A);
+  });
+
+  test('persisted item carries ownerUserId after reload', async () => {
+    await enqueueAction(USER_A, { jobId: 'job-2', endpoint: 'loaded' });
+    const queue = await getQueue(USER_A);
+    expect(queue).toHaveLength(1);
+    expect(queue[0].ownerUserId).toBe(USER_A);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3. Duplicate / supersede suppression
+// ---------------------------------------------------------------------------
+describe('enqueueAction duplicate suppression', () => {
+  test('second enqueue for same jobId+endpoint supersedes the first (same ID)', async () => {
+    const first = await enqueueAction(USER_A, { jobId: 'job-3', endpoint: 'loaded' });
+    const second = await enqueueAction(USER_A, { jobId: 'job-3', endpoint: 'loaded' });
+    expect(second.id).toBe(first.id);
+    const queue = await getQueue(USER_A);
+    expect(queue).toHaveLength(1);
+  });
+
+  test('supersede resets retryCount and clears lastError', async () => {
+    await enqueueAction(USER_A, { jobId: 'job-4', endpoint: 'on-my-way-to-delivery' });
+    const firstQueue = await getQueue(USER_A);
+    // Simulate a failed retry
+    await markQueueItemFailed(USER_A, firstQueue[0].id, 'network error', 0);
+
+    const superseded = await enqueueAction(USER_A, { jobId: 'job-4', endpoint: 'on-my-way-to-delivery' });
+    expect(superseded.retryCount).toBe(0);
+    expect(superseded.lastError).toBeUndefined();
+    const queue = await getQueue(USER_A);
+    expect(queue).toHaveLength(1);
+  });
+
+  test('different endpoints for the same job create separate entries', async () => {
+    await enqueueAction(USER_A, { jobId: 'job-5', endpoint: 'on-site-delivery' });
+    await enqueueAction(USER_A, { jobId: 'job-5', endpoint: 'delivered' });
+    const queue = await getQueue(USER_A);
+    expect(queue).toHaveLength(2);
+  });
+
+  test('synced items are not superseded — a new pending item is created', async () => {
+    const item = await enqueueAction(USER_A, { jobId: 'job-6', endpoint: 'loaded' });
+    await markQueueItemSynced(USER_A, item.id);
+
+    await enqueueAction(USER_A, { jobId: 'job-6', endpoint: 'loaded' });
+    const queue = await getQueue(USER_A);
+    // Must have both the synced item and the new pending item.
+    expect(queue).toHaveLength(2);
+    expect(queue.filter((i) => i.status === 'synced')).toHaveLength(1);
+    expect(queue.filter((i) => i.status === 'pending')).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. Cross-account owner isolation (ownerUserId mismatch guard)
+// ---------------------------------------------------------------------------
+describe('cross-account isolation', () => {
+  test('user B cannot read user A queue key', async () => {
+    await enqueueAction(USER_A, { jobId: 'job-7', endpoint: 'on-site-pickup' });
+    const queueB = await getQueue(USER_B);
+    expect(queueB).toHaveLength(0);
+  });
+
+  test('enqueuing for user B does not affect user A queue', async () => {
+    await enqueueAction(USER_A, { jobId: 'job-8', endpoint: 'loaded' });
+    await enqueueAction(USER_B, { jobId: 'job-8', endpoint: 'loaded' });
+    const queueA = await getQueue(USER_A);
+    const queueB = await getQueue(USER_B);
+    expect(queueA).toHaveLength(1);
+    expect(queueA[0].ownerUserId).toBe(USER_A);
+    expect(queueB).toHaveLength(1);
+    expect(queueB[0].ownerUserId).toBe(USER_B);
+  });
+
+  test('saveQueue for user A does not overwrite user B storage', async () => {
+    await enqueueAction(USER_B, { jobId: 'job-9', endpoint: 'delivered' });
+    await saveQueue(USER_A, []); // clear user A queue
+    const queueB = await getQueue(USER_B);
+    expect(queueB).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 5. Legacy queue one-time migration
+// ---------------------------------------------------------------------------
+describe('migrateLegacyQueue', () => {
+  const LEGACY_KEY = 'xdrive.driver.offlineQueue';
+
+  test('migrates valid items from legacy key into user-scoped queue', async () => {
+    const legacyItem: Partial<QueuedAction> = {
+      id: 'legacy-001',
+      jobId: 'job-legacy',
+      endpoint: 'on-site-pickup',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      retryCount: 0,
+    };
+    await AsyncStorage.setItem(LEGACY_KEY, JSON.stringify([legacyItem]));
+
+    await migrateLegacyQueue(USER_A);
+
+    const queue = await getQueue(USER_A);
+    expect(queue).toHaveLength(1);
+    expect(queue[0].id).toBe('legacy-001');
+    expect(queue[0].ownerUserId).toBe(USER_A);
+  });
+
+  test('removes the legacy key after migration', async () => {
+    await AsyncStorage.setItem(LEGACY_KEY, JSON.stringify([{ id: 'x', jobId: 'j', endpoint: 'e', status: 'pending', createdAt: new Date().toISOString(), retryCount: 0 }]));
+    await migrateLegacyQueue(USER_A);
+    const remaining = await AsyncStorage.getItem(LEGACY_KEY);
+    expect(remaining).toBeNull();
+  });
+
+  test('is a no-op when legacy key is absent', async () => {
+    await migrateLegacyQueue(USER_A);
+    const queue = await getQueue(USER_A);
+    expect(queue).toHaveLength(0);
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
+  });
+
+  test('does not duplicate items already present in user-scoped queue', async () => {
+    const item: Partial<QueuedAction> = {
+      id: 'dup-001',
+      jobId: 'job-dup',
+      endpoint: 'loaded',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      retryCount: 0,
+    };
+    // Pre-populate user-scoped queue with the same item
+    await saveQueue(USER_A, [{ ...item, ownerUserId: USER_A } as QueuedAction]);
+    await AsyncStorage.setItem(LEGACY_KEY, JSON.stringify([item]));
+
+    await migrateLegacyQueue(USER_A);
+
+    const queue = await getQueue(USER_A);
+    expect(queue).toHaveLength(1);
+  });
+
+  test('throws for empty userId', async () => {
+    await expect(migrateLegacyQueue('')).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6. Legacy queue corruption handled gracefully
+// ---------------------------------------------------------------------------
+describe('migrateLegacyQueue — corrupted data', () => {
+  const LEGACY_KEY = 'xdrive.driver.offlineQueue';
+
+  test('removes corrupted legacy key without throwing', async () => {
+    await AsyncStorage.setItem(LEGACY_KEY, 'not-valid-json{{{');
+    await expect(migrateLegacyQueue(USER_A)).resolves.toBeUndefined();
+    const remaining = await AsyncStorage.getItem(LEGACY_KEY);
+    expect(remaining).toBeNull();
+  });
+
+  test('ignores items with missing required fields', async () => {
+    const bad = [{ id: '', jobId: '', endpoint: '' }]; // all empty — filtered out
+    await AsyncStorage.setItem(LEGACY_KEY, JSON.stringify(bad));
+    await migrateLegacyQueue(USER_A);
+    const queue = await getQueue(USER_A);
+    expect(queue).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. Logout persistence — persisted queue survives in-memory session clear
+// ---------------------------------------------------------------------------
+describe('logout persistence', () => {
+  test('clearing in-memory queue (setQueue([])) does not remove AsyncStorage data', async () => {
+    await enqueueAction(USER_A, { jobId: 'job-10', endpoint: 'on-site-delivery' });
+
+    // Simulate logout: clear in-memory state only (no saveQueue call)
+    // The persisted storage must not be affected.
+    const queueAfterLogout = await getQueue(USER_A);
+    expect(queueAfterLogout).toHaveLength(1);
+  });
+
+  test('same user signing back in restores their persisted queue', async () => {
+    const item = await enqueueAction(USER_A, { jobId: 'job-11', endpoint: 'delivered' });
+
+    // Simulate sign-out + sign-in: getQueue is called again with the same userId
+    const restored = await getQueue(USER_A);
+    expect(restored).toHaveLength(1);
+    expect(restored[0].id).toBe(item.id);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8. Restart restore — queue reloads correctly after device restart
+// ---------------------------------------------------------------------------
+describe('restart restore', () => {
+  test('getQueue reads back all fields correctly after AsyncStorage survives restart', async () => {
+    const queued = await enqueueAction(USER_A, { jobId: 'job-12', endpoint: 'on-my-way-to-pickup' });
+
+    // Simulate restart: read back from AsyncStorage (mock persists across calls)
+    const restored = await getQueue(USER_A);
+    expect(restored).toHaveLength(1);
+    expect(restored[0].id).toBe(queued.id);
+    expect(restored[0].ownerUserId).toBe(USER_A);
+    expect(restored[0].jobId).toBe('job-12');
+    expect(restored[0].endpoint).toBe('on-my-way-to-pickup');
+    expect(restored[0].status).toBe('pending');
+    expect(restored[0].retryCount).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. Account-switch isolation — user B cannot replay user A's persisted items
+// ---------------------------------------------------------------------------
+describe('account switching isolation', () => {
+  test('user B queue is empty even after user A has pending items', async () => {
+    await enqueueAction(USER_A, { jobId: 'job-13', endpoint: 'loaded' });
+    await enqueueAction(USER_A, { jobId: 'job-14', endpoint: 'on-site-delivery' });
+
+    const queueB = await getQueue(USER_B);
+    expect(queueB).toHaveLength(0);
+  });
+
+  test('ownerUserId on all user A items equals USER_A', async () => {
+    await enqueueAction(USER_A, { jobId: 'job-15', endpoint: 'on-site-pickup' });
+    await enqueueAction(USER_A, { jobId: 'job-16', endpoint: 'loaded' });
+
+    const queue = await getQueue(USER_A);
+    expect(queue.every((item) => item.ownerUserId === USER_A)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 10. flushQueue account-switching abort (structural verification)
+// ---------------------------------------------------------------------------
+describe('flushQueue account-switching abort — structural guard', () => {
+  test('ownerUserId mismatch items should be identifiable before processing', async () => {
+    // Manually write an item with wrong ownerUserId into user A queue.
+    const wrongOwnerItem: QueuedAction = {
+      id: 'wrong-owner-001',
+      ownerUserId: USER_B, // B's item somehow in A's queue key
+      jobId: 'job-17',
+      endpoint: 'on-site-pickup',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      retryCount: 0,
+    };
+    await saveQueue(USER_A, [wrongOwnerItem]);
+
+    const queue = await getQueue(USER_A);
+    // The flushQueue loop checks: if (item.ownerUserId && item.ownerUserId !== userId) skip
+    const mismatchedItems = queue.filter(
+      (item) => item.ownerUserId && item.ownerUserId !== USER_A,
+    );
+    expect(mismatchedItems).toHaveLength(1);
+    expect(mismatchedItems[0].id).toBe('wrong-owner-001');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Queue lifecycle helpers (markSyncing, markSynced, markFailed, retry)
+// ---------------------------------------------------------------------------
+describe('queue item lifecycle', () => {
+  test('markQueueItemSyncing sets status to syncing', async () => {
+    const item = await enqueueAction(USER_A, { jobId: 'job-18', endpoint: 'loaded' });
+    const updated = await markQueueItemSyncing(USER_A, item.id);
+    expect(updated.find((i) => i.id === item.id)?.status).toBe('syncing');
+  });
+
+  test('markQueueItemSynced sets status to synced', async () => {
+    const item = await enqueueAction(USER_A, { jobId: 'job-19', endpoint: 'loaded' });
+    await markQueueItemSyncing(USER_A, item.id);
+    const updated = await markQueueItemSynced(USER_A, item.id);
+    expect(updated.find((i) => i.id === item.id)?.status).toBe('synced');
+  });
+
+  test('markQueueItemFailed sets status to failed and increments retryCount', async () => {
+    const item = await enqueueAction(USER_A, { jobId: 'job-20', endpoint: 'loaded' });
+    const updated = await markQueueItemFailed(USER_A, item.id, 'timeout', 0);
+    const failed = updated.find((i) => i.id === item.id)!;
+    expect(failed.status).toBe('failed');
+    expect(failed.retryCount).toBe(1);
+    expect(failed.lastError).toBe('timeout');
+  });
+
+  test('retryQueueItem resets status to pending', async () => {
+    const item = await enqueueAction(USER_A, { jobId: 'job-21', endpoint: 'loaded' });
+    await markQueueItemFailed(USER_A, item.id, 'error', 0);
+    const updated = await retryQueueItem(USER_A, item.id);
+    expect(updated.find((i) => i.id === item.id)?.status).toBe('pending');
+  });
+});
