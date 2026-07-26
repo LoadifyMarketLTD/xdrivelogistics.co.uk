@@ -179,6 +179,11 @@ const isNetlifyPreviewHost = (host: string) =>
     host.includes('--')
   );
 
+const isMobileUserAgent = (ua: string | null | undefined): boolean => {
+  if (!ua) return false;
+  return /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(ua);
+};
+
 const isProtectedPath = (pathname: string) =>
   PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
@@ -377,6 +382,13 @@ export async function middleware(request: NextRequest) {
 
     if (auth.mustChangePassword && url.pathname !== DRIVER_CHANGE_PASSWORD_PATH) {
       return buildRedirect(request, DRIVER_CHANGE_PASSWORD_PATH);
+    }
+
+    if (url.pathname === DRIVER_PATH || url.pathname.startsWith('/driver/')) {
+      const ua = request.headers.get('user-agent');
+      if (isMobileUserAgent(ua)) {
+        return buildRedirect(request, '/m/driver');
+      }
     }
   }
 
