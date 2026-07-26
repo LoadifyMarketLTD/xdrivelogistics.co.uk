@@ -251,7 +251,7 @@ export function BrokerDisputesPage() {
 
 type CarrierInvitation = {
   id: string;
-  carrier_email: string | null;
+  invited_email: string | null;
   carrier_company_id: string | null;
   carrierCompanyName: string | null;
   status: string;
@@ -360,7 +360,7 @@ export function BrokerCarrierNetworkPage() {
       <DataTable
         columns={['Carrier email', 'Company', 'Message', 'Invited', 'Status', 'Action']}
         rows={invitations.map((inv) => [
-          inv.carrier_email ?? '—',
+          inv.invited_email ?? '—',
           inv.carrierCompanyName ?? (inv.carrier_company_id ? inv.carrier_company_id.slice(0, 8) : '—'),
           inv.message ?? '—',
           when(inv.created_at),

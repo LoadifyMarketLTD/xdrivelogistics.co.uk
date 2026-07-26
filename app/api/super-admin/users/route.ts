@@ -94,12 +94,12 @@ export async function GET(request: NextRequest) {
       return respond(200, { rows, total: rows.length, role: 'platform_admin' });
     }
 
-    // ── Company owners (owner role in company_members) ────────────────────────
+    // ── Company owners (owner role in company_memberships) ────────────────────────
     if (roleParam === 'owner') {
       const { data: members, error: membersErr } = await supabaseAdmin
-        .from('company_members')
-        .select('user_id, role, created_at, company_id, companies:company_id(name, status)')
-        .eq('role', 'owner')
+        .from('company_memberships')
+        .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)')
+        .eq('role_in_company', 'owner')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -107,28 +107,34 @@ export async function GET(request: NextRequest) {
 
       // Fetch profile emails
       const userIds = (members ?? []).map((m: Record<string, unknown>) => m.user_id as string).filter(Boolean);
-      let profileMap: Map<string, string> = new Map();
+      let profileMap: Map<string, { name: string; email: string }> = new Map();
       if (userIds.length > 0) {
         const { data: profiles } = await supabaseAdmin
           .from('profiles')
           .select('user_id, display_name, email')
           .in('user_id', userIds);
         profileMap = new Map(
-          (profiles ?? []).map((p: Record<string, unknown>) => [p.user_id as string, (p.email ?? p.display_name ?? '—') as string])
+          (profiles ?? []).map((p: Record<string, unknown>) => [
+            p.user_id as string,
+            { name: (p.display_name as string | null) ?? '—', email: (p.email as string | null) ?? '—' },
+          ])
         );
       }
 
-      const rows = (members ?? []).map((m: Record<string, unknown>) => ({
-        id: m.user_id,
-        user_id: m.user_id,
-        name: profileMap.get(m.user_id as string) ?? '—',
-        email: profileMap.get(m.user_id as string) ?? '—',
-        status: (m.companies as { status?: string } | null)?.status ?? '—',
-        role: 'company_owner',
-        company: (m.companies as { name?: string } | null)?.name ?? '—',
-        company_id: m.company_id,
-        created_at: m.created_at,
-      }));
+      const rows = (members ?? []).map((m: Record<string, unknown>) => {
+        const profile = profileMap.get(m.user_id as string);
+        return {
+          id: m.user_id,
+          user_id: m.user_id,
+          name: profile?.name ?? '—',
+          email: profile?.email ?? '—',
+          status: (m.companies as { status?: string } | null)?.status ?? '—',
+          role: 'company_owner',
+          company: (m.companies as { name?: string } | null)?.name ?? '—',
+          company_id: m.company_id,
+          created_at: m.created_at,
+        };
+      });
 
       return respond(200, { rows, total: rows.length, role: 'owner' });
     }
@@ -136,9 +142,9 @@ export async function GET(request: NextRequest) {
     // ── Customers ─────────────────────────────────────────────────────────────
     if (roleParam === 'customer') {
       const { data: members, error: membersErr } = await supabaseAdmin
-        .from('company_members')
-        .select('user_id, role, created_at, company_id, companies:company_id(name, status)')
-        .eq('role', 'customer')
+        .from('company_memberships')
+        .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)')
+        .eq('role_in_company', 'customer')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -180,9 +186,9 @@ export async function GET(request: NextRequest) {
     // ── Dispatchers ───────────────────────────────────────────────────────────
     if (roleParam === 'dispatcher') {
       const { data: members, error: membersErr } = await supabaseAdmin
-        .from('company_members')
-        .select('user_id, role, created_at, company_id, companies:company_id(name, status)')
-        .eq('role', 'dispatcher')
+        .from('company_memberships')
+        .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)')
+        .eq('role_in_company', 'dispatcher')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -226,9 +232,9 @@ export async function GET(request: NextRequest) {
       supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
       supabaseAdmin.from('profiles').select('user_id, role, created_at').order('created_at', { ascending: false }).limit(limit),
       supabaseAdmin
-        .from('company_members')
-        .select('user_id, role, company_id, companies:company_id(name)', { count: 'exact' })
-        .order('role')
+        .from('company_memberships')
+        .select('user_id, role_in_company, company_id, companies:company_id(name)', { count: 'exact' })
+        .order('role_in_company')
         .limit(limit),
     ]);
 
@@ -241,7 +247,7 @@ export async function GET(request: NextRequest) {
 
     const roleCounts: Record<string, number> = {};
     for (const m of members) {
-      const role = (m as Record<string, unknown>).role as string | null;
+      const role = (m as Record<string, unknown>).role_in_company as string | null;
       if (role) roleCounts[role] = (roleCounts[role] ?? 0) + 1;
     }
     for (const p of profiles) {
