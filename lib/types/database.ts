@@ -75,7 +75,7 @@ export interface Driver {
   availability_status: 'available' | 'busy' | 'offline' | null;
   login_pin: string | null;
   app_access: boolean;
-  driver_type: 'individual_driver' | 'owner_driver' | 'subcontractor' | 'company_driver';
+  driver_type: 'owner_driver' | 'company_driver';
   can_commercial_bid: boolean;
   temporary_password_seq: number | null;
   must_change_password: boolean;
