@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
   if (!isDriverContext(context)) return context;
 
   const [driverResult, bidsResult, documentsResult, invoicesResult, alertsResult] = await Promise.all([
-    supabaseAdmin!.from('drivers').select('id,display_name,phone,email,status,app_access').eq('id', context.driverId).maybeSingle(),
+    supabaseAdmin!.from('drivers').select('id,display_name,phone,email,status,app_access,driver_type,can_commercial_bid').eq('id', context.driverId).maybeSingle(),
     supabaseAdmin!.from('job_bids').select('id,job_id,company_id,bidder_user_id,bidder_driver_id,amount,bid_price_gbp,currency,message,status,created_at').or(`bidder_user_id.eq.${context.userId},bidder_driver_id.eq.${context.driverId}`).order('created_at', { ascending: false }).limit(100),
     supabaseAdmin!.from('driver_documents').select('id,driver_id,doc_type,status,expiry_date,rejection_reason,created_at').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
     supabaseAdmin!.from('invoices').select('id,company_id,job_id,commercial_agreement_id,buyer_company_id,supplier_company_id,invoice_number,status,payment_status,amount,due_date,created_at').eq('created_by', context.userId).order('created_at', { ascending: false }).limit(100),

@@ -67,16 +67,16 @@ UPDATE public.drivers
 SET can_commercial_bid = true
 WHERE driver_type IN ('individual_driver', 'owner_driver', 'subcontractor');
 
--- Broader uniqueness index for active bids (adds 'awarded' and 'approved' to the statuses already
--- covered by job_bids_active_company_job_unique from 20260725183000).
+-- Broader uniqueness index for active bids — only canonical statuses that the
+-- DB constraint actually permits: submitted | accepted.
 CREATE UNIQUE INDEX IF NOT EXISTS job_bids_active_company_unique_idx
   ON public.job_bids (job_id, company_id)
-  WHERE company_id IS NOT NULL AND status IN ('submitted', 'accepted', 'awarded', 'approved');
+  WHERE company_id IS NOT NULL AND status IN ('submitted', 'accepted');
 
 -- Prevent duplicate active bids for individual drivers (no company_id).
 CREATE UNIQUE INDEX IF NOT EXISTS job_bids_active_null_company_unique_idx
   ON public.job_bids (job_id, bidder_user_id)
-  WHERE company_id IS NULL AND status IN ('submitted', 'accepted', 'awarded', 'approved');
+  WHERE company_id IS NULL AND status IN ('submitted', 'accepted');
 
 DROP POLICY IF EXISTS job_bids_exchange_insert ON public.job_bids;
 CREATE POLICY job_bids_exchange_insert

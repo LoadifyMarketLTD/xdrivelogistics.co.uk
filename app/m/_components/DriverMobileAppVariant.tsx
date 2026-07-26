@@ -447,7 +447,9 @@ export default function DriverMobileAppVariant({
           title: eventTitleMap[row.event_type] ?? row.event_type.replace(/_/g, ' '),
           body: deriveBody(row.event_type, row.payload),
           type: row.event_type,
-          read_at: row.processed_at, // processed = acknowledged by edge function
+          // processed_at reflects edge-function delivery, not user read state.
+          // notification_events has no user-read timestamp; treat all as unread.
+          read_at: null,
           created_at: row.created_at,
         }));
         setNotifications(mapped);
