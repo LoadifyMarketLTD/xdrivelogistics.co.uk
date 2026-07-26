@@ -105,7 +105,7 @@ export const resolveWorkspaceRole = (user: WorkspaceUserLike | null | undefined)
   if (rawRole === 'fleet_operator' || rawRole === 'fleet_manager' || rawRole === 'fleet_admin') return 'fleet_manager';
   if (rawRole === 'dispatcher' || rawRole === 'operations_controller' || membershipRole === 'dispatcher') return 'dispatcher';
   if (rawRole === 'finance' || rawRole === 'accounting' || rawRole === 'accountant' || membershipRole === 'finance') return 'finance';
-  if (rawRole === 'compliance' || rawRole === 'compliance_manager') return 'compliance';
+  if (rawRole === 'compliance' || rawRole === 'compliance_manager' || membershipRole === 'compliance') return 'compliance';
   if (rawRole === 'viewer' || membershipRole === 'viewer') return 'viewer';
 
   if (membershipRole === 'owner') return 'company_owner';
