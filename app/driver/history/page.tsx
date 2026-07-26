@@ -53,7 +53,7 @@ const card: CSSProperties = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function JobHistoryPage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
   const [driverId, setDriverId] = useState('');
@@ -73,6 +73,8 @@ export default function JobHistoryPage() {
     }
 
     if (!normalizedDriverId) {
+      // Auth is still bootstrapping — stay in loading state silently.
+      if (authLoading) return;
       setError('Driver session not ready. Please wait and refresh.');
       setLoading(false);
       return;
@@ -99,7 +101,7 @@ export default function JobHistoryPage() {
       setEarnings({ total, delivered: rows.filter((j) => j.status === 'delivered').length });
     }
     setLoading(false);
-  }, [normalizedDriverId]);
+  }, [normalizedDriverId, authLoading]);
 
   useEffect(() => {
     if (typeof user?.driverId === 'string') setDriverId(user.driverId.trim());
