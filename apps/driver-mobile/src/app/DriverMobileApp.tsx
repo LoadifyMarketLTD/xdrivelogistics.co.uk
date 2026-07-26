@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
 import * as Network from 'expo-network';
+import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SignatureCanvas, { type SignatureViewRef } from 'react-native-signature-canvas';
 
-import { fetchJob, fetchJobs, postJobStatus, uploadPod } from '../api/jobs';
+import { fetchJob, fetchJobs, postJobStatus, submitQueuedBid, uploadPod } from '../api/jobs';
 import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
 import { isSupabaseConfigured, supabase } from '../auth/supabase';
@@ -25,7 +27,19 @@ import {
 } from '../offline/queue';
 import { colors, spacing } from '../ui/theme';
 
-type Screen = 'login' | 'liveLoads' | 'active' | 'jobs' | 'detail' | 'pod' | 'notifications' | 'profile';
+type Screen =
+  | 'login'
+  | 'liveLoads'
+  | 'active'
+  | 'jobs'
+  | 'detail'
+  | 'pod'
+  | 'notifications'
+  | 'profile'
+  | 'passwordChange'
+  | 'finance'
+  | 'availability'
+  | 'messages';
 
 type QueueCounts = Record<QueuedActionStatus, number>;
 
@@ -165,6 +179,8 @@ export default function DriverMobileApp() {
   const [loading, setLoading] = useState(false);
   const [resourcesLoading, setResourcesLoading] = useState(false);
   const [message, setMessage] = useState('');
+  // Pending deep-link job ID — stored until auth is established, then opened.
+  const pendingDeepLinkJobIdRef = useRef<string | null>(null);
   const queueSyncInFlightRef = useRef(false);
   const authUserIdRef = useRef<string | null>(authUserId);
   const nextStep = useMemo(() => (job ? getNextStep(job.status) : undefined), [job]);
@@ -193,10 +209,18 @@ export default function DriverMobileApp() {
           const refreshed = response.jobs.find((item) => item.id === current.id);
           if (refreshed) return refreshed;
         }
+        // MG-006: with multiple active jobs, don't auto-select — let the driver choose.
+        if (nextScope === 'active' && response.jobs.length > 1) return null;
         return response.jobs[0] ?? null;
       });
       if (options.navigate !== false) {
-        setScreen(response.jobs[0] ? 'active' : 'jobs');
+        if (nextScope === 'active' && response.jobs.length > 1) {
+          // Multiple active jobs: navigate to list and prompt the driver to select.
+          setScreen('jobs');
+          setMessage(`You have ${response.jobs.length} active jobs. Select the one you are working on.`);
+        } else {
+          setScreen(response.jobs[0] ? 'active' : 'jobs');
+        }
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Failed to load jobs.');
@@ -250,9 +274,14 @@ export default function DriverMobileApp() {
 
         try {
           if (item.endpoint === 'pod') await uploadPod(item.jobId, sessionToken, item.payload ?? {});
+          else if (item.endpoint === 'bid') await submitQueuedBid(item.jobId, sessionToken, item.payload ?? {});
           else await postJobStatus(item.jobId, item.endpoint, sessionToken);
+          // Guard before every storage write — user may have switched accounts
+          // while the network request was in flight.
+          if (!isOwnerStillActive()) break;
           nextQueue = await markQueueItemSynced(flushUserId, item.id);
         } catch (error) {
+          if (!isOwnerStillActive()) break;
           nextQueue = await markQueueItemFailed(flushUserId, item.id, error instanceof Error ? error.message : 'Sync failed.', item.retryCount);
         }
         if (isOwnerStillActive()) setQueue(nextQueue);
@@ -316,6 +345,14 @@ export default function DriverMobileApp() {
         void loadResources(sessionToken);
         void safeRegisterPushToken(sessionToken);
         void flushQueue(sessionToken, userId);
+
+        // MG-005: handle any deep-link job ID that arrived before auth completed.
+        if (pendingDeepLinkJobIdRef.current) {
+          void fetchJob(pendingDeepLinkJobIdRef.current, sessionToken)
+            .then((r) => { setJob(r.job); setScreen('detail'); })
+            .catch(() => undefined);
+          pendingDeepLinkJobIdRef.current = null;
+        }
       })
       .catch(() => {
         void clearSessionToken();
@@ -333,6 +370,44 @@ export default function DriverMobileApp() {
     });
     return () => subscription.unsubscribe();
   }, [flushQueue, loadJobs, loadResources]);
+
+  // MG-005: Deep-link routing via xdrivedriver:// scheme and web /jobs/ paths.
+  useEffect(() => {
+    function handleUrl(url: string) {
+      const match = url.match(/(?:xdrivedriver:\/\/job\/|\/jobs\/)([0-9a-f-]{32,36})/i);
+      if (!match) return;
+      const jobId = match[1];
+      if (token) {
+        void fetchJob(jobId, token).then((r) => { setJob(r.job); setScreen('detail'); }).catch(() => undefined);
+      } else {
+        pendingDeepLinkJobIdRef.current = jobId;
+      }
+    }
+
+    void Linking.getInitialURL().then((url: string | null) => { if (url) handleUrl(url); });
+    const linkingSub = Linking.addEventListener('url', ({ url }: { url: string }) => handleUrl(url));
+
+    // Push notification tap handler (foreground + background cold-start).
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+    const notifSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      const jobId = typeof data.job_id === 'string' ? data.job_id : typeof data.jobId === 'string' ? data.jobId : null;
+      if (jobId) handleUrl(`xdrivedriver://job/${jobId}`);
+    });
+
+    return () => {
+      linkingSub.remove();
+      notifSub.remove();
+    };
+  }, [token]);
 
   useEffect(() => {
     if (!notificationsSeenKey) {
@@ -422,6 +497,14 @@ export default function DriverMobileApp() {
     await loadJobs(accessToken);
     void loadResources(accessToken);
     void flushQueue(accessToken, userId);
+
+    // Handle any deep-link job ID that arrived before sign-in completed.
+    if (pendingDeepLinkJobIdRef.current) {
+      void fetchJob(pendingDeepLinkJobIdRef.current, accessToken)
+        .then((r) => { setJob(r.job); setScreen('detail'); })
+        .catch(() => undefined);
+      pendingDeepLinkJobIdRef.current = null;
+    }
   }
 
   async function signOut() {
@@ -519,7 +602,13 @@ export default function DriverMobileApp() {
           onNotifications={() => setScreen('notifications')}
           unreadNotificationCount={unreadNotificationCount}
         />
-        {screen === 'liveLoads' ? <LiveLoadsScreen canCommercialBid={driverCanCommercialBid} /> : (
+        {screen === 'liveLoads' ? (
+          <LiveLoadsScreen
+            canCommercialBid={driverCanCommercialBid}
+            authUserId={authUserId}
+            onQuoteQueued={(queued) => setQueue((items) => [queued, ...items])}
+          />
+        ) : (
           <ScrollView contentContainerStyle={styles.content}>
             {message ? <Text style={styles.message}>{message}</Text> : null}
             {(loading || resourcesLoading) && <Text style={styles.subtle}>Loading...</Text>}
@@ -582,7 +671,26 @@ export default function DriverMobileApp() {
                 queue={queue}
                 onRefresh={() => token && void loadResources(token)}
                 onSignOut={signOut}
+                onPasswordChange={() => setScreen('passwordChange')}
+                onFinance={() => setScreen('finance')}
+                onAvailability={() => setScreen('availability')}
+                onMessages={() => setScreen('messages')}
               />
+            )}
+            {screen === 'passwordChange' && (
+              <PasswordChangeScreen onBack={() => setScreen('profile')} />
+            )}
+            {screen === 'finance' && (
+              <FinanceScreen
+                invoices={resources?.invoices ?? []}
+                onBack={() => setScreen('profile')}
+              />
+            )}
+            {screen === 'availability' && (
+              <AvailabilityScreen onBack={() => setScreen('profile')} />
+            )}
+            {screen === 'messages' && (
+              <MessagesScreen onBack={() => setScreen('profile')} />
             )}
           </ScrollView>
         )}
@@ -880,7 +988,18 @@ function NotificationsScreen({ notifications, unreadCount, onOpenJob }: { notifi
   );
 }
 
-function ProfileScreen({ resources, queue, onRefresh, onSignOut }: { resources: DriverResources | null; queue: QueuedAction[]; onRefresh: () => void; onSignOut: () => void }) {
+function ProfileScreen({
+  resources, queue, onRefresh, onSignOut, onPasswordChange, onFinance, onAvailability, onMessages,
+}: {
+  resources: DriverResources | null;
+  queue: QueuedAction[];
+  onRefresh: () => void;
+  onSignOut: () => void;
+  onPasswordChange: () => void;
+  onFinance: () => void;
+  onAvailability: () => void;
+  onMessages: () => void;
+}) {
   const driver = toRecord(resources?.driver);
   const company = toRecord(resources?.company);
   const vehicle = toRecord(resources?.vehicle);
@@ -925,8 +1044,155 @@ function ProfileScreen({ resources, queue, onRefresh, onSignOut }: { resources: 
         <Info label="Synced" value={String(queueCounts.synced)} />
         <Info label="Failed" value={String(queueCounts.failed)} />
       </Panel>
+      <SecondaryButton label="Finance & invoices" onPress={onFinance} />
+      <SecondaryButton label="Availability" onPress={onAvailability} />
+      <SecondaryButton label="Messages" onPress={onMessages} />
+      <SecondaryButton label="Change password" onPress={onPasswordChange} />
       <SecondaryButton label="Refresh account data" onPress={onRefresh} />
       <SecondaryButton label="Sign out" onPress={onSignOut} />
+    </View>
+  );
+}
+
+function PasswordChangeScreen({ onBack }: { onBack: () => void }) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  async function changePassword() {
+    if (!newPassword.trim() || newPassword.length < 8) {
+      setMessage('New password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setMessage('Passwords do not match.');
+      return;
+    }
+    if (!currentPassword.trim()) {
+      setMessage('Enter your current password to confirm.');
+      return;
+    }
+    setLoading(true);
+    setMessage('');
+    try {
+      // Re-authenticate to confirm the current password before changing.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const email = sessionData.session?.user?.email?.trim() || '';
+      if (!email) throw new Error('Session expired. Please sign in again.');
+      const { error: reAuthError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+      if (reAuthError) throw new Error('Current password is incorrect.');
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) throw new Error(updateError.message);
+      setMessage('Password changed successfully.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to change password.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <View style={styles.stack}>
+      <Panel>
+        <Text style={styles.title}>Change Password</Text>
+        <Text style={styles.copy}>Enter your current password to confirm, then choose a new password.</Text>
+      </Panel>
+      {message ? <Text style={[styles.message, message.includes('success') && styles.successMessage]}>{message}</Text> : null}
+      <TextInput
+        placeholder="Current password"
+        placeholderTextColor={colors.muted}
+        secureTextEntry
+        style={styles.input}
+        value={currentPassword}
+        onChangeText={setCurrentPassword}
+      />
+      <TextInput
+        placeholder="New password (min. 8 characters)"
+        placeholderTextColor={colors.muted}
+        secureTextEntry
+        style={styles.input}
+        value={newPassword}
+        onChangeText={setNewPassword}
+      />
+      <TextInput
+        placeholder="Confirm new password"
+        placeholderTextColor={colors.muted}
+        secureTextEntry
+        style={styles.input}
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+      />
+      <PrimaryButton
+        label={loading ? 'Changing...' : 'Change password'}
+        onPress={() => void changePassword()}
+        disabled={loading || !currentPassword || !newPassword || !confirmPassword}
+      />
+      <SecondaryButton label="Back to profile" onPress={onBack} />
+    </View>
+  );
+}
+
+function FinanceScreen({ invoices, onBack }: { invoices: Array<Record<string, unknown>>; onBack: () => void }) {
+  return (
+    <View style={styles.stack}>
+      <Panel>
+        <Text style={styles.title}>Finance</Text>
+        <Text style={styles.copy}>Your invoices and payment records.</Text>
+      </Panel>
+      {invoices.length === 0 ? (
+        <Panel><Text style={styles.copy}>No invoices available.</Text></Panel>
+      ) : invoices.map((invoice, index) => {
+        const id = String(invoice.id ?? '').slice(0, 8).toUpperCase() || `INV-${index + 1}`;
+        const amount = invoice.amount_gbp ?? invoice.total_amount ?? invoice.amount;
+        const status = stringField(invoice.status, 'Pending');
+        const issuedAt = typeof invoice.created_at === 'string' ? formatDateTime(invoice.created_at) : 'Date TBC';
+        const ref = typeof invoice.invoice_number === 'string' ? invoice.invoice_number : id;
+        return (
+          <Panel key={String(invoice.id ?? index)}>
+            <View style={styles.financeRow}>
+              <Text style={styles.financeRef}>{ref}</Text>
+              <StatusPill
+                label={status}
+                tone={status.toLowerCase() === 'paid' ? 'success' : status.toLowerCase() === 'overdue' ? 'danger' : 'warning'}
+              />
+            </View>
+            <Info label="Amount" value={typeof amount === 'number' ? `£${amount.toFixed(2)}` : typeof amount === 'string' ? `£${amount}` : 'TBC'} />
+            <Info label="Issued" value={issuedAt} />
+          </Panel>
+        );
+      })}
+      <SecondaryButton label="Back to profile" onPress={onBack} />
+    </View>
+  );
+}
+
+function AvailabilityScreen({ onBack }: { onBack: () => void }) {
+  return (
+    <View style={styles.stack}>
+      <Panel>
+        <Text style={styles.title}>Availability</Text>
+        <Text style={styles.copy}>Manage your availability schedule here.</Text>
+        <Text style={styles.copy}>Full availability management will be available in a future update. Contact your dispatcher to update your availability.</Text>
+      </Panel>
+      <SecondaryButton label="Back to profile" onPress={onBack} />
+    </View>
+  );
+}
+
+function MessagesScreen({ onBack }: { onBack: () => void }) {
+  return (
+    <View style={styles.stack}>
+      <Panel>
+        <Text style={styles.title}>Messages</Text>
+        <Text style={styles.copy}>In-app messaging is not yet available in this version.</Text>
+        <Text style={styles.copy}>For urgent communications, please contact your dispatcher directly.</Text>
+      </Panel>
+      <SecondaryButton label="Back to profile" onPress={onBack} />
     </View>
   );
 }
@@ -1064,4 +1330,7 @@ const styles = StyleSheet.create({
   queueRowTitle: { color: colors.text, fontWeight: '700', textTransform: 'capitalize', flex: 1 },
   queueActions: { gap: spacing.sm },
   queueError: { color: colors.danger, fontWeight: '600' },
+  successMessage: { color: colors.success },
+  financeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
+  financeRef: { color: colors.text, fontSize: 16, fontWeight: '800', flex: 1 },
 });

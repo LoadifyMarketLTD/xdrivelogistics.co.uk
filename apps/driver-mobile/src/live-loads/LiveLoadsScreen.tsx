@@ -4,6 +4,7 @@ import { Alert, Animated, PanResponder, RefreshControl, ScrollView, StyleSheet, 
 import { fetchActiveQuotedJobIds, fetchLiveLoads, submitLiveLoadQuote, type LiveLoad } from '../api/liveLoads';
 import { supabase } from '../auth/supabase';
 import { loadMarketplacePreferences, saveMarketplacePreferences, type MarketplacePreferences } from '../jobs/marketplacePreferences';
+import { enqueueAction, isOnline, type QueuedAction } from '../offline/queue';
 import { LiveLoadCard } from './LiveLoadCard';
 
 type Feed = 'live' | 'pinned' | 'hidden';
@@ -36,7 +37,7 @@ function SwipeCard({ job, pinned, onOpen, onQuote, onTogglePin, onHide }: { job:
   </View>;
 }
 
-export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boolean | null }) {
+export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }: { canCommercialBid?: boolean | null; authUserId?: string | null; onQuoteQueued?: (queued: QueuedAction) => void }) {
   const [feed, setFeed] = useState<Feed>('live');
   const [jobs, setJobs] = useState<LiveLoad[]>([]);
   const [preferences, setPreferences] = useState<MarketplacePreferences>(defaultPreferences);
@@ -132,17 +133,60 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
     }
     setSubmitting(true);
     setError('');
+    // Attempt online submission first; fall back to offline queue when unavailable.
+    const online = await isOnline();
+    if (!online && authUserId) {
+      try {
+        const queued = await enqueueAction(authUserId, {
+          jobId: quoteJob.id,
+          endpoint: 'bid',
+          payload: { amount, message: quoteMessage },
+        });
+        setJobs((current) => current.filter((job) => job.id !== quoteJob.id));
+        setQuoteJob(null);
+        onQuoteQueued?.(queued);
+        Alert.alert('Quote queued', 'You are offline. Your quote will be submitted when connectivity is restored.');
+      } catch (queueError) {
+        setError(queueError instanceof Error ? queueError.message : 'Unable to queue this quote.');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
     try {
       await submitLiveLoadQuote(quoteJob.id, amount, quoteMessage);
       setJobs((current) => current.filter((job) => job.id !== quoteJob.id));
       setQuoteJob(null);
       Alert.alert('Quote sent', 'Your quote was submitted successfully.');
     } catch (quoteError) {
-      setError(quoteError instanceof Error ? quoteError.message : 'Unable to submit this quote.');
+      // If the online attempt fails due to a network error and authUserId is available, enqueue.
+      const isNetworkError = quoteError instanceof Error && (
+        quoteError.message.includes('network') ||
+        quoteError.message.includes('fetch') ||
+        quoteError.message.includes('timeout') ||
+        quoteError.message.includes('offline')
+      );
+      if (isNetworkError && authUserId) {
+        try {
+          const queued = await enqueueAction(authUserId, {
+            jobId: quoteJob.id,
+            endpoint: 'bid',
+            payload: { amount, message: quoteMessage },
+          });
+          setJobs((current) => current.filter((job) => job.id !== quoteJob.id));
+          setQuoteJob(null);
+          onQuoteQueued?.(queued);
+          Alert.alert('Quote queued', 'Network error. Your quote has been saved and will sync automatically.');
+        } catch (queueFallbackError) {
+          setError(queueFallbackError instanceof Error ? queueFallbackError.message : 'Unable to submit or queue this quote.');
+        }
+      } else {
+        setError(quoteError instanceof Error ? quoteError.message : 'Unable to submit this quote.');
+      }
     } finally {
       setSubmitting(false);
     }
-  }, [quoteAmount, quoteJob, quoteMessage]);
+  }, [authUserId, onQuoteQueued, quoteAmount, quoteJob, quoteMessage]);
 
   const visible = jobs.filter((job) => !preferences.hiddenJobIds.includes(job.id));
   const displayed = feed === 'pinned'

@@ -14,6 +14,19 @@ export async function postJobStatus(jobId: string, endpoint: string, token: stri
   return apiRequest<{ ok: true; job: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/${endpoint}`, { method: 'POST', token });
 }
 
+/** Submit a bid that was queued while offline. */
+export async function submitQueuedBid(jobId: string, token: string, payload: Record<string, unknown>) {
+  return apiRequest<{ ok: true }>('/api/driver/mobile/bids', {
+    method: 'POST',
+    token,
+    body: {
+      jobId,
+      amount: payload.amount,
+      message: typeof payload.message === 'string' ? payload.message : undefined,
+    },
+  });
+}
+
 function safeExtension(uri: string, fallback: string) {
   const clean = uri.split('?')[0]?.split('#')[0] ?? '';
   const last = clean.split('/').pop() ?? '';

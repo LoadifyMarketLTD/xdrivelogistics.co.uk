@@ -214,6 +214,14 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   if (!existing) return respond(404, { error: 'Job not found.' });
 
   const job = existing as unknown as MobileJobRow;
+
+  // Idempotency gate: if POD evidence was already successfully saved (pod_generated
+  // is true), return 200 immediately. This prevents offline-queue retries from
+  // appending duplicate photos, documents or signatures to an already-complete POD.
+  if (job.pod_generated === true) {
+    return respond(200, { ok: true, job: mapJob(job) });
+  }
+
   const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() : '';
   const rawSignature = typeof body.signatureData === 'string' ? body.signatureData.trim() : '';
   const rawPhotoUris = safeArray(body.photoUris);

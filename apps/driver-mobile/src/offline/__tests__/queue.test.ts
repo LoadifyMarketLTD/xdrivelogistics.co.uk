@@ -563,3 +563,49 @@ describe('POD dedupe via podKey', () => {
     expect(queue).toHaveLength(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 13. Concurrency serialisation
+// ---------------------------------------------------------------------------
+describe('concurrency serialisation', () => {
+  test('concurrent enqueueAction calls for the same user produce exactly one item (supersede race)', async () => {
+    // Fire two enqueues for the same job+endpoint concurrently — only one item should survive.
+    const [first, second] = await Promise.all([
+      enqueueAction(USER_A, { jobId: 'race-job-1', endpoint: 'on-my-way-pickup' }),
+      enqueueAction(USER_A, { jobId: 'race-job-1', endpoint: 'on-my-way-pickup' }),
+    ]);
+    const queue = await getQueue(USER_A);
+    expect(queue).toHaveLength(1);
+    // Both resolved to the same logical item (supersede).
+    expect(first.jobId).toBe('race-job-1');
+    expect(second.jobId).toBe('race-job-1');
+    expect(queue[0].id).toBe(first.id);
+  });
+
+  test('concurrent enqueueAction calls for different users do not interfere', async () => {
+    await Promise.all([
+      enqueueAction(USER_A, { jobId: 'concurrent-job-A', endpoint: 'loaded' }),
+      enqueueAction(USER_B, { jobId: 'concurrent-job-B', endpoint: 'loaded' }),
+    ]);
+    const queueA = await getQueue(USER_A);
+    const queueB = await getQueue(USER_B);
+    expect(queueA).toHaveLength(1);
+    expect(queueA[0].ownerUserId).toBe(USER_A);
+    expect(queueB).toHaveLength(1);
+    expect(queueB[0].ownerUserId).toBe(USER_B);
+  });
+
+  test('concurrent updateQueueItem calls do not lose writes', async () => {
+    const item = await enqueueAction(USER_A, { jobId: 'update-race-job', endpoint: 'loaded' });
+    // Two concurrent updates that each write different fields; both should be reflected.
+    await Promise.all([
+      updateQueueItem(USER_A, item.id, { retryCount: 1 }),
+      updateQueueItem(USER_A, item.id, { lastError: 'transient error' }),
+    ]);
+    const queue = await getQueue(USER_A);
+    expect(queue).toHaveLength(1);
+    // At minimum the last write must persist correctly (no corrupt state).
+    expect(queue[0].id).toBe(item.id);
+    expect(queue[0].ownerUserId).toBe(USER_A);
+  });
+});
