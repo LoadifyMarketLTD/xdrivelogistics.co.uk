@@ -20,7 +20,6 @@ import {
   markQueueItemSynced,
   markQueueItemSyncing,
   retryQueueItem,
-  saveQueue,
   type QueuedAction,
 } from '../offline/queue';
 import { colors, spacing } from '../ui/theme';
@@ -398,10 +397,8 @@ export default function DriverMobileApp() {
   }
 
   async function signOut() {
-    const departingUserId = authUserId;
     await supabase.auth.signOut();
     await clearSessionToken();
-    if (departingUserId) await saveQueue(departingUserId, []);
     setToken(null);
     setAuthUserId(null);
     setJob(null);
@@ -436,8 +433,12 @@ export default function DriverMobileApp() {
     }
 
     const apply = async () => {
-      if (!token || !authUserId || !(await isOnline())) {
-        const queued = await enqueueAction(authUserId ?? '', { jobId: job.id, endpoint: nextStep.endpoint });
+      if (!authUserId) {
+        setMessage('Driver session is not ready. Please sign in again.');
+        return;
+      }
+      if (!token || !(await isOnline())) {
+        const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
         setQueue((items) => [queued, ...items]);
         setJob((current) => (current ? { ...current, status: nextStep.status } : current));
         setMessage('Action saved offline. It will sync automatically when connectivity returns.');
@@ -716,8 +717,12 @@ function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; 
     }
 
     const payload = { photoUris, documentUris, recipientName, signatureData, notes };
-    if (!token || !userId || !(await isOnline())) {
-      const queued = await enqueueAction(userId ?? '', { jobId: job.id, endpoint: 'pod', payload });
+    if (!userId) {
+      Alert.alert('Session error', 'Driver session is not ready. Please sign in again.');
+      return;
+    }
+    if (!token || !(await isOnline())) {
+      const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
       onSaved();
       return;

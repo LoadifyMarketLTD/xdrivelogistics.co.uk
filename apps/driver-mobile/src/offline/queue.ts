@@ -21,7 +21,15 @@ export type QueuedAction = {
 // NOTE: Items persisted under the legacy global key 'xdrive.driver.offlineQueue' (before
 // this change) are not migrated. They will be ignored — replaying another account's actions
 // would be more harmful than losing unsynced items that will self-heal on next network sync.
+
+function assertValidUserId(userId: string): void {
+  if (!userId || !userId.trim()) {
+    throw new Error('Queue operation requires an authenticated user identity.');
+  }
+}
+
 export function queueKeyForUser(userId: string): string {
+  assertValidUserId(userId);
   return `xdrive.driver.offlineQueue:${userId}`;
 }
 
@@ -44,6 +52,7 @@ function normalizeQueueItem(item: Partial<QueuedAction>) {
 }
 
 export async function getQueue(userId: string): Promise<QueuedAction[]> {
+  assertValidUserId(userId);
   const raw = await AsyncStorage.getItem(queueKeyForUser(userId));
   if (!raw) return [];
   try {
@@ -54,10 +63,12 @@ export async function getQueue(userId: string): Promise<QueuedAction[]> {
 }
 
 export async function saveQueue(userId: string, queue: QueuedAction[]) {
+  assertValidUserId(userId);
   await AsyncStorage.setItem(queueKeyForUser(userId), JSON.stringify(queue));
 }
 
 export async function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError'>) {
+  assertValidUserId(userId);
   const queue = await getQueue(userId);
   const queued: QueuedAction = {
     ...action,
@@ -71,6 +82,7 @@ export async function enqueueAction(userId: string, action: Omit<QueuedAction, '
 }
 
 export async function updateQueueItem(userId: string, id: string, patch: Partial<QueuedAction>) {
+  assertValidUserId(userId);
   const queue = await getQueue(userId);
   const next = queue.map((item) => (item.id === id ? { ...item, ...patch } : item));
   await saveQueue(userId, next);
@@ -89,6 +101,7 @@ export function isQueueItemReady(item: QueuedAction, now = Date.now()) {
 }
 
 export async function markQueueItemSyncing(userId: string, id: string) {
+  assertValidUserId(userId);
   return updateQueueItem(userId, id, {
     status: 'syncing',
     lastAttemptAt: new Date().toISOString(),
@@ -96,6 +109,7 @@ export async function markQueueItemSyncing(userId: string, id: string) {
 }
 
 export async function markQueueItemSynced(userId: string, id: string) {
+  assertValidUserId(userId);
   return updateQueueItem(userId, id, {
     status: 'synced',
     lastError: undefined,
@@ -105,6 +119,7 @@ export async function markQueueItemSynced(userId: string, id: string) {
 }
 
 export async function markQueueItemFailed(userId: string, id: string, lastError: string, previousRetryCount: number) {
+  assertValidUserId(userId);
   const now = new Date();
   const retryCount = previousRetryCount + 1;
   return updateQueueItem(userId, id, {
@@ -117,6 +132,7 @@ export async function markQueueItemFailed(userId: string, id: string, lastError:
 }
 
 export async function retryQueueItem(userId: string, id: string) {
+  assertValidUserId(userId);
   return updateQueueItem(userId, id, {
     status: 'pending',
     nextRetryAt: undefined,
