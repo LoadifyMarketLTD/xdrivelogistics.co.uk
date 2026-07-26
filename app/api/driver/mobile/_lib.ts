@@ -7,6 +7,11 @@ export type DriverContext = {
   userId: string;
   driverId: string;
   companyId: string | null;
+  driverStatus: string;
+  appAccess: boolean;
+  driverType: string | null;
+  canCommercialBid: boolean;
+  companyStatus: string | null;
 };
 
 export type MobileJobRow = {
@@ -61,7 +66,7 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   const [{ data: driverRow, error: driverError }, { data: profileRow, error: profileError }] = await Promise.all([
     supabaseAdmin
       .from('drivers')
-      .select('id, company_id, user_id, app_access, status')
+      .select('id, company_id, user_id, app_access, status, driver_type, can_commercial_bid')
       .eq('user_id', authData.user.id)
       .maybeSingle(),
     supabaseAdmin
@@ -93,7 +98,7 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   const companyId = typeof driverRow.company_id === 'string' && driverRow.company_id.trim().length > 0
     ? driverRow.company_id.trim()
     : null;
-
+  let companyStatus: string | null = null;
   if (companyId) {
     const { data: companyRow, error: companyError } = await supabaseAdmin
       .from('companies')
@@ -101,15 +106,18 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
       .eq('id', companyId)
       .maybeSingle();
     if (companyError) return respond(500, { error: companyError.message });
-    if (!companyRow || String(companyRow.status ?? '').trim().toLowerCase() !== 'active') {
-      return respond(403, { error: 'Driver company workspace is not active.' });
-    }
+    companyStatus = String(companyRow?.status ?? '').trim().toLowerCase() || null;
   }
 
   return {
     userId: authData.user.id,
     driverId: String(driverRow.id),
     companyId,
+    driverStatus,
+    appAccess: driverRow.app_access === true,
+    driverType: typeof driverRow.driver_type === 'string' ? driverRow.driver_type : null,
+    canCommercialBid: driverRow.can_commercial_bid === true,
+    companyStatus,
   };
 }
 
