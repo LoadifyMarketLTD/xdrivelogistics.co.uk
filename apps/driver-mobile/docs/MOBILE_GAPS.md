@@ -1,63 +1,41 @@
-# XDrive Driver Mobile — Feature Gap Register
+# XDrive Driver Mobile — Native Gap Matrix
 
-This document is the canonical record of features present in the web Driver Workspace
-(`/driver`) that are not yet implemented in the native Expo application
-(`apps/driver-mobile`). It is maintained as the authoritative pre-implementation
-checklist for Phase 4 work.
+Audit baseline:
+- Branch: `copilot/transform-mobile-workspace-driver`
+- Commit: `27401185a045e2e014c943dfad1fb24491d7689b`
+- Scope: Native app under `apps/driver-mobile` vs required operational parity.
 
-**Architecture rule**: every gap feature must be implemented by calling an existing
-backend API endpoint or adding a new `/api/driver/mobile/*` endpoint that is also
-used by the web. Business logic must never be duplicated between web and native.
+## Native-vs-web and required-feature gaps
 
----
+| Gap ID | Feature | Current native state | Severity | Required API | Required screen/workflow | Required validation | Blocks APK release |
+|---|---|---|---|---|---|---|---|
+| MG-001 | Canonical lifecycle parity (`posted→...→delivered`) | Native aliases/collapses canonical states | P0 | `POST /api/driver/mobile/jobs/:id/:action` + lifecycle mapping helpers | Active Job + state engine | Full transition matrix with idempotency and invalid-transition tests | Yes |
+| MG-002 | Queue isolation per account | Global offline queue key shared across users | P0 | Queue persistence model (`AsyncStorage`) + sync worker | Offline queue subsystem | Multi-account switch with pending queue persistence tests | Yes |
+| MG-003 | Build pipeline correctness | `eas.json` schema invalid (`production.android.splits`) | P0 | EAS config | Build configuration | `npx eas-cli config`, preview build smoke test | Yes |
+| MG-004 | Offline quote submission | No offline quote queue/retry/idempotency | P1 | `POST /api/driver/mobile/bids` + client queue integration | Live Loads quote flow | Offline/online replay tests, duplicate suppression | Yes (operational continuity) |
+| MG-005 | Notification deep-link lifecycle | Token registration/list shell only; no tap routing | P1 | Notification payload contract + job fetch endpoint | Notifications + app entry routing | Foreground/background/cold-start deep-link tests | Yes |
+| MG-006 | Multi-active job handling | First-item assumption for active job state | P1 | Jobs listing endpoint + selection rules | Active Job / My Jobs | Multiple allocated jobs conflict tests | Yes |
+| MG-007 | Job detail operational completeness | Missing quantity/weight/dimensions/map/call/waiting-time fields | P1 | `GET /api/driver/mobile/jobs/:id` (add fields if absent) | Job Detail | Field completeness + authorization masking tests | Yes |
+| MG-008 | POD idempotent re-submit protection | Repeated submissions can append duplicate evidence | P1 | `POST /api/driver/mobile/jobs/:id/pod` | POD | Duplicate submission/idempotency contract tests | Yes |
+| MG-009 | Driver availability management | Not implemented in native | P2 | New `/api/driver/mobile/availability` | Profile/Availability screen | CRUD + schedule conflict validation | No |
+| MG-010 | Driver messages | Not implemented in native | P2 | New `/api/driver/mobile/messages` | Messages screen | Send/receive/read-state tests | No |
+| MG-011 | Finance detail workflows | Native shows invoice counts only | P2 | `/api/driver/finance/invoices*` | Finance screen(s) | Amount parity, status transitions, doc access tests | No |
+| MG-012 | Password change flow | Not implemented in current native UI | P2 | `/api/driver/password` | Profile > Security | Validation + re-auth and token continuity tests | No |
 
-## Auto-Invoice on Delivery — Intentional Asymmetry
+## Release-gate summary
 
-**Scope**: The mobile action route (`POST /api/driver/mobile/jobs/:id/delivered`)
-calls `autoGenerateMarketplaceInvoice` after a successful delivery status update.
-The admin/web transition route (`POST /api/admin/jobs/:id/transition`) does **not**
-call this function — invoice generation on the web is a manual step via
-`/driver/finance`.
+### Must close before APK release (P0/P1 release blockers)
+- MG-001, MG-002, MG-003, MG-004, MG-005, MG-006, MG-007, MG-008
 
-**Decision (recorded 2026-07-26)**: This is intentional for the initial native app
-release. The native app triggers automatic invoice generation as a convenience for
-owner-drivers operating without a dedicated admin. The web admin flow retains the
-manual step so that dispatchers and company admins can review before generating.
+### Can be scheduled post-initial release (P2)
+- MG-009, MG-010, MG-011, MG-012
 
-**Future alignment**: When the web driver workspace is updated to support
-fully-automated invoicing, `autoGenerateMarketplaceInvoice` should be called from a
-shared service function rather than from both routes independently.
+## Evidence references
+- `apps/driver-mobile/src/app/DriverMobileApp.tsx`
+- `apps/driver-mobile/src/jobs/statusFlow.ts`
+- `apps/driver-mobile/src/offline/queue.ts`
+- `apps/driver-mobile/src/live-loads/LiveLoadsScreen.tsx`
+- `app/api/driver/mobile/_lib.ts`
+- `app/api/driver/mobile/jobs/[id]/[action]/route.ts`
+- `apps/driver-mobile/eas.json`
 
----
-
-## Gap Register
-
-Priority guide:
-- **P0**: Blocks a driver from completing core operations end-to-end.
-- **P1**: Required for full driver self-service without falling back to web.
-- **P2**: Non-blocking quality/completeness improvement.
-
-| Gap ID | Feature | Web Route | Backend Endpoint Available | Priority | Notes |
-|---|---|---|---|---|---|
-| MG-001 | Document upload + expiry tracking | `/driver/documents` | `POST /api/driver/mobile/resources` (action=upload_document) | P1 | Backend ready. Native screen needed: list documents from `resources.documents`, upload via existing endpoint. |
-| MG-002 | Vehicle information (view) | `/driver/vehicles` | `GET /api/driver/mobile/resources` (`resources.vehicle`) | P1 | Read-only view available from resources endpoint. Vehicle registration/update requires `/api/driver/vehicles`. |
-| MG-003 | Finance — Invoice list + detail | `/driver/finance` | `/api/driver/finance/invoices` | P1 | Invoices are already returned in `resources.invoices`. A dedicated mobile endpoint for full detail/PDF access is needed. |
-| MG-004 | Finance — Generate invoice for delivered job | `/driver/finance` | `/api/driver/finance/jobs/:id/generate-invoice` | P1 | Manual invoice generation for non-marketplace jobs not yet surfaced in native. |
-| MG-005 | Availability calendar | `/driver/availability` | No mobile endpoint yet | P2 | Requires new `/api/driver/mobile/availability` endpoint. |
-| MG-006 | Messages | `/driver/messages` | No mobile endpoint yet | P2 | Requires new `/api/driver/mobile/messages` endpoint or reuse of existing messaging infra. |
-| MG-007 | Won-work board (accepted quotes) | `/driver/won-work` | Partial via `resources.quotes` | P2 | `resources.quotes` returns bids with status. A filtered view of accepted bids is achievable without a new endpoint. |
-| MG-008 | Returns marketplace (post-delivery IQ) | `/driver/returns` | Partial via `/api/driver/mobile/nearby-jobs?mode=destination` | P2 | The Return IQ feed already exists. A dedicated Returns screen in the native nav is missing. |
-| MG-009 | Advanced load search with filters | `/driver/loads/search` | Partial via `/api/driver/mobile/nearby-jobs?search=` | P2 | The nearby-jobs endpoint accepts a `search` param. A filter UI (vehicle type, region) is missing in native. |
-| MG-010 | Change password | `/driver/change-password` | `/api/driver/password` | P2 | Low risk — Supabase magic link / email reset is available as fallback. |
-
----
-
-## Implementation Rules for Phase 4
-
-Each gap feature must be delivered in a separate PR. Before opening a PR:
-
-1. Confirm the backend endpoint exists (or create one in `app/api/driver/mobile/`).
-2. The endpoint must pass through `requireDriver()` for auth/identity.
-3. The native screen must call only the mobile API endpoints — never query Supabase directly (except for auth bootstrapping via `src/auth/supabase.ts`).
-4. Add a contract test in `e2e/mobile-api-contract.spec.ts` for the new endpoint.
-5. Pass CI (`npm run typecheck && npm run lint && npm run build`) before requesting review.

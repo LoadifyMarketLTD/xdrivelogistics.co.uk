@@ -1,228 +1,355 @@
-# XDrive Driver Mobile — APK Functional Audit Workbook
+# XDrive Driver Mobile — Full Functional Audit Workbook
 
-This workbook operationalizes the complete functional APK audit requested for the Driver Mobile app, screen-by-screen and button-by-button.
+## Audit scope guard
+- PR #301 is **not** treated as complete in this audit.
+- Full app surface reviewed under `apps/driver-mobile` and mobile API routes.
+- Production data was **not** modified.
 
-## 1) Baseline definition (spec vs audited APK)
-
-### Audit metadata (must be filled before execution)
+## 1) Audit baseline
 
 | Field | Value |
 |---|---|
-| Audit ID |  |
-| Audited APK filename |  |
-| Audited build ID / hash |  |
-| Build date/time |  |
-| EAS profile used (preview/production) |  |
-| API base URL observed in app |  |
-| Environment (staging/production) |  |
-| Device model / Android version |  |
-| Auditor name |  |
-| Audit execution date |  |
+| Audit ID | DMA-2026-07-26-01 |
+| Branch | `copilot/transform-mobile-workspace-driver` |
+| Commit SHA | `27401185a045e2e014c943dfad1fb24491d7689b` |
+| App package | `co.uk.xdrivelogistics.driver` |
+| Deep link scheme | `xdrivedriver://` |
+| API base URL | `https://www.xdrivelogistics.co.uk` |
+| Supabase config source | Runtime `/api/driver/mobile/config` fallback to Expo env |
+| Build profile targets | `preview` (APK), `production` (AAB) |
+| Test environment | Sandbox CI shell + Playwright API contract tests |
+| Production mutation safety | No destructive production calls executed |
+| APK/build identifier | BLOCKED (EAS auth token unavailable in sandbox) |
 
-### Canonical MVP specification checkpoint
-
-Scope baseline for this audit (from app scope and current implementation):
-
-- Persistent driver login.
-- Active Job as default operational screen after authenticated load.
-- My Jobs with Active / Upcoming / Completed scopes.
-- Job Detail with operational fields.
-- Canonical status progression from awarded to delivered.
-- POD capture flow (photos/documents + metadata), with offline queue fallback.
-- Critical notification shell.
-- Offline queue skeleton for status/POD retry.
+### Baseline files reviewed
+- `apps/driver-mobile/README.md`
+- `apps/driver-mobile/docs/apk-functional-audit-workbook.md`
+- `apps/driver-mobile/app.config.ts`
+- `apps/driver-mobile/eas.json`
+- `apps/driver-mobile/package.json`
+- All files under `apps/driver-mobile/src`
 
 ---
 
-## 2) Screen-by-screen, button-by-button audit matrix
+## 2) Authentication audit
 
-Status legend: `OK`, `NOK`, `PARTIAL`, `N/T` (not tested)
-
-### Login
-
-| Screen | UI element / button | Preconditions | Expected result | Observed result | Status | Severity |
-|---|---|---|---|---|---|---|
-| Login | Email input | App opened, logged out | Accepts valid email format input |  | N/T |  |
-| Login | Password input | App opened, logged out | Accepts secure password input |  | N/T |  |
-| Login | `Sign in` button (disabled state) | Empty email or password | Button stays disabled |  | N/T |  |
-| Login | `Sign in` button (enabled state) | Email + password provided | Starts login and displays loading label |  | N/T |  |
-| Login | Driver-only role gate | Credentials for non-driver account | Access denied, session cleared, remains in login |  | N/T |  |
-
-### Global/Header + Navigation
-
-| Screen | UI element / button | Preconditions | Expected result | Observed result | Status | Severity |
-|---|---|---|---|---|---|---|
-| Header | `Alerts` | Authenticated | Opens Notifications screen |  | N/T |  |
-| Header | `Profile` | Authenticated | Opens Profile screen |  | N/T |  |
-| Bottom nav | `Loads` | Authenticated | Opens Live Loads screen |  | N/T |  |
-| Bottom nav | `Active` | Authenticated | Opens Active Job screen |  | N/T |  |
-| Bottom nav | `Jobs` | Authenticated | Opens Jobs list screen |  | N/T |  |
-| Bottom nav | `POD` | Authenticated + active job exists | Opens POD screen |  | N/T |  |
-| Bottom nav | `Profile` | Authenticated | Opens Profile screen |  | N/T |  |
-
-### Live Loads
-
-| Screen | UI element / button | Preconditions | Expected result | Observed result | Status | Severity |
-|---|---|---|---|---|---|---|
-| Live Loads | Feed tabs: `Live`, `Pinned`, `Hidden` | Authenticated | Changes feed and count labels correctly |  | N/T |  |
-| Live Loads | Pull-to-refresh | Authenticated | Reloads loads and clears stale list/error |  | N/T |  |
-| Live Loads | Card tap (`onOpen`) | Quote-eligible job | Opens quote panel pre-bound to selected job |  | N/T |  |
-| Live Loads | Card action `QUOTE` | Quote-eligible job | Opens quote panel |  | N/T |  |
-| Live Loads | Card action `CHECK ELIGIBILITY` (locked) | `canQuote=false` job | Action disabled + warning surfaced |  | N/T |  |
-| Live Loads | Swipe right (`PIN`/`UNPIN`) | Job visible in feed | Toggles pinned state in preferences |  | N/T |  |
-| Live Loads | Swipe left (`HIDE`) | Job visible in feed | Moves job to hidden feed |  | N/T |  |
-| Live Loads | Hidden card action `RESTORE` | Job in hidden feed | Returns job to visible feed |  | N/T |  |
-| Live Loads quote panel | `CANCEL` | Quote panel opened | Closes panel without submit |  | N/T |  |
-| Live Loads quote panel | `SUBMIT QUOTE` valid amount | Quote panel opened | Sends quote, removes job from live list, success alert |  | N/T |  |
-| Live Loads quote panel | `SUBMIT QUOTE` invalid amount | Quote panel opened, amount invalid | Rejects submit with validation error |  | N/T |  |
-
-### Active Job
-
-| Screen | UI element / button | Preconditions | Expected result | Observed result | Status | Severity |
-|---|---|---|---|---|---|---|
-| Active Job | Primary CTA (next status action) | Active job + next step exists | Confirms (when required) and submits status |  | N/T |  |
-| Active Job | Primary CTA when no next step + POD required | Job requires POD before delivery | Redirects to POD screen and shows message |  | N/T |  |
-| Active Job | `Job detail` | Active job exists | Opens Job Detail screen |  | N/T |  |
-| Active Job | `Capture POD` | Active job exists | Opens POD screen |  | N/T |  |
-| Active Job | Pending sync badge | Offline queued actions exist | Shows pending count state |  | N/T |  |
-
-### Jobs
-
-| Screen | UI element / button | Preconditions | Expected result | Observed result | Status | Severity |
-|---|---|---|---|---|---|---|
-| Jobs | Segmented: `active` | Jobs screen loaded | Loads active scope jobs |  | N/T |  |
-| Jobs | Segmented: `upcoming` | Jobs screen loaded | Loads upcoming scope jobs |  | N/T |  |
-| Jobs | Segmented: `completed` | Jobs screen loaded | Loads completed scope jobs |  | N/T |  |
-| Jobs | Job row tap | At least one job in scope | Opens Job Detail for selected job |  | N/T |  |
-| Jobs | Empty scope state | No jobs in selected scope | Shows "No jobs in this scope." message |  | N/T |  |
-
-### Job Detail
-
-| Screen | UI element / button | Preconditions | Expected result | Observed result | Status | Severity |
-|---|---|---|---|---|---|---|
-| Job Detail | Operational fields rendering | Job selected | Displays pickup/delivery/times/cargo/vehicle (+optional contact/phone) |  | N/T |  |
-| Job Detail | `Back to active` | Job detail opened | Returns to Active screen |  | N/T |  |
-
-### POD
-
-| Screen | UI element / button | Preconditions | Expected result | Observed result | Status | Severity |
-|---|---|---|---|---|---|---|
-| POD | `Add photo` | Camera permission granted | Captures photo and appends to POD payload |  | N/T |  |
-| POD | `Add photo` permission denied | Camera permission denied | Shows camera-required alert and prevents capture |  | N/T |  |
-| POD | `Add document` | File picker available | Selects and appends document URI |  | N/T |  |
-| POD | `Recipient name` input | POD screen open | Stores recipient name in payload |  | N/T |  |
-| POD | `Notes` input | POD screen open | Stores notes in payload |  | N/T |  |
-| POD | `Save POD` online | Valid auth token + internet | Uploads POD and returns to Active |  | N/T |  |
-| POD | `Save POD` offline | No token or no internet | Queues action and returns to Active |  | N/T |  |
-
-### Notifications
-
-| Screen | UI element / button | Preconditions | Expected result | Observed result | Status | Severity |
-|---|---|---|---|---|---|---|
-| Notifications | Informational panel | Notifications screen open | Shows current critical notifications shell copy |  | N/T |  |
-
-### Profile
-
-| Screen | UI element / button | Preconditions | Expected result | Observed result | Status | Severity |
-|---|---|---|---|---|---|---|
-| Profile | Session/app info panel | Profile screen open | Displays account/session metadata |  | N/T |  |
-| Profile | `Sign out` | Authenticated | Signs out, clears stored session + queue, returns to login |  | N/T |  |
+| Check | Result | Evidence |
+|---|---|---|
+| Startup with no saved session | PARTIAL | App starts at `screen='login'`; session clear path exists (`DriverMobileApp.tsx`). Not executed on device. |
+| Valid login | BLOCKED | Requires staged driver credentials + device runtime. |
+| Invalid password | PARTIAL | Supabase sign-in error surfaced to UI message (`signIn`). Not executed with real bad password. |
+| Non-driver rejection | PASS | Explicit profile role gate in `validateDriverRole`; signs out and blocks access. |
+| Missing profile handling | PASS | `validateDriverRole` returns null, access denied path enforced. |
+| Expired token handling | PARTIAL | API helpers throw expired-session errors; auth state listener resets login. Runtime not executed end-to-end. |
+| Persistent login after close/reopen | BLOCKED | SecureStore + Supabase persistence present; no device restart execution evidence. |
+| Session restoration | PARTIAL | Boot `supabase.auth.getSession()` path implemented. No device execution evidence. |
+| Logout | PARTIAL | `signOut()` clears session token + queue + local state. No runtime execution evidence. |
+| Auth loading state | PASS | `loading` state toggles and login button text/disabled state wired. |
+| Network failure during login + retry | PARTIAL | Error surfaced from Supabase; retry possible by pressing Sign in again. Not executed with forced offline toggle. |
+| Session isolation between users | FAIL | Offline queue key is global (`xdrive.driver.offlineQueue`) and not user-scoped; cross-account leakage risk. |
 
 ---
 
-## 3) Critical end-to-end flow execution checklist
+## 3) Screen-by-screen functional matrix
 
-For each flow, capture: video/screenshot evidence, API responses, and result classification (`PASS`, `FAIL`, `PARTIAL`).
+Legend: **PASS / FAIL / BLOCKED / NOT IMPLEMENTED / PARTIAL**
 
-| Flow ID | Flow | Test path | Evidence ref | Result |
-|---|---|---|---|---|
-| CF-01 | Driver auth + role gate | Login as driver; login as non-driver |  |  |
-| CF-02 | Session restore | Relaunch app with prior valid session |  |  |
-| CF-03 | Operational status progression | Awarded -> in_transit -> arrived -> delivered path |  |  |
-| CF-04 | POD dependency for delivery | Attempt delivery when POD required before upload |  |  |
-| CF-05 | POD full path | Add photo + document + recipient + notes + save |  |  |
-| CF-06 | Offline queue replay | Trigger status/POD offline, then reconnect and sync |  |  |
-| CF-07 | Live Loads interaction | Pin/hide/restore + submit quote + tab switching |  |  |
-| CF-08 | Sign-out and fresh sign-in | Sign out, verify cleanup, sign in again |  |  |
-
----
-
-## 4) Negative scenarios and edge-case checklist
-
-| Case ID | Scenario | Expected behavior | Observed behavior | Status | Severity |
+| Screen | Open/navigation | Loading/empty/error/retry | Controls & states | Back/keyboard/scroll/render | Result |
 |---|---|---|---|---|---|
-| NG-01 | No internet during status submit | Action queued, UI indicates pending sync |  | N/T |  |
-| NG-02 | No internet during POD save | POD queued, user returned safely to Active |  | N/T |  |
-| NG-03 | Reconnect after queued actions | Pending/failed actions reprocessed, status updated |  | N/T |  |
-| NG-04 | Invalid quote amount (`0`, negative, text) | Validation error, no API submit |  | N/T |  |
-| NG-05 | Expired/invalid token | Session reset or auth error flow without crash |  | N/T |  |
-| NG-06 | Camera permission denied | Alert shown; no crash; user stays in POD |  | N/T |  |
-| NG-07 | Document picker cancelled | No crash; no invalid payload writes |  | N/T |  |
-| NG-08 | No active job state | Active screen shows empty-state + refresh action |  | N/T |  |
-| NG-09 | API transient failure on status update | Fallback queue used + user feedback message |  | N/T |  |
-| NG-10 | API transient failure on quote submit | Error surfaced; no silent failure |  | N/T |  |
+| Login | Implemented | Loading + message states implemented | Disabled Sign in until inputs present | Keyboard/render not executed on device | PARTIAL |
+| Live Loads | Implemented via bottom nav | Pull-to-refresh + error + empty text implemented | Quote/pin/hide/restore controls implemented | Gestures/render/back not device-validated | PARTIAL |
+| Active Job | Implemented | Loading via parent + empty fallback screen | Primary transition + detail + POD + queue controls | Back/scroll/small-screen not executed | PARTIAL |
+| My Jobs | Implemented | Empty state implemented; refresh via scope change | Scope tabs + row open implemented | Back behavior not executed | PARTIAL |
+| Job Detail | Implemented | Renders with optional fields | Back-to-active button implemented | Small-screen/keyboard N/A not executed | PARTIAL |
+| POD | Implemented | Validation alerts + offline queue fallback implemented | Photo/doc/signature/recipient/notes/clear signature/save | Camera/file picker/signature runtime not executed on device | PARTIAL |
+| Notifications | Implemented | Empty and populated list states implemented | Open-related-job action only for job entity | Deep-link lifecycle not fully implemented | PARTIAL |
+| Profile | Implemented | Refresh + data panels + queue panel | Sign out present | Full dataset accuracy requires live staged data | PARTIAL |
+
+Critical blocker: no device/e2e native execution evidence for Android back behavior, keyboard overlap, accessibility traversal, and crash-free interaction loops.
 
 ---
 
-## 5) Navigation and state consistency checks
+## 4) Live Loads & quoting audit
 
-| Check ID | Verification point | Expected result | Observed result | Status |
-|---|---|---|---|---|
-| NV-01 | Header shortcuts route correctly | `Alerts` and `Profile` open expected screens |  | N/T |
-| NV-02 | Bottom nav state highlighting | Selected route highlighted consistently |  | N/T |
-| NV-03 | Screen transitions preserve selected job context | Job detail/POD opens for current selected job |  | N/T |
-| NV-04 | Loading states visible on network actions | User gets clear loading feedback |  | N/T |
-| NV-05 | Error/copy states are explicit and actionable | No silent failures; meaningful messaging |  | N/T |
-| NV-06 | Confirm dialogs on required actions | Confirmation appears for guarded status steps |  | N/T |
-
----
-
-## 6) Functional gap register (required output of audit)
-
-Classify every defect found during execution.
-
-| Gap ID | Category (Missing/Wrong behavior/UX improvement) | Related matrix item(s) | Repro steps | Expected | Actual | Severity | Business impact | Owner | Status |
-|---|---|---|---|---|---|---|---|---|---|
-| DM-AUD-001 |  |  |  |  |  |  |  |  | Open |
-| DM-AUD-002 |  |  |  |  |  |  |  |  | Open |
-| DM-AUD-003 |  |  |  |  |  |  |  |  | Open |
-
-Severity guide:
-- **Critical**: blocks core driver operations or data integrity.
-- **High**: major function works incorrectly, but temporary workaround exists.
-- **Medium**: function works with friction or partial inconsistency.
-- **Low**: cosmetic/minor UX issue with no operational risk.
+| Check | Result | Evidence |
+|---|---|---|
+| Authenticated source endpoint | PASS | `GET /api/driver/mobile/nearby-jobs` with bearer token from Supabase session. |
+| Display of pickup/delivery/date/vehicle/price | PARTIAL | Mapping exists; values depend on backend payload; no live fixture validation screenshots. |
+| Pin/hide/restore | PARTIAL | Local preference state + swipe handlers implemented; no runtime execution capture. |
+| Search/filters | FAIL | API supports `search`/`radius`/`mode`; native UI has no search/filter controls. |
+| Open correct job for quote | PARTIAL | Quote modal bound to selected job in component state. |
+| Fixed-price/proposed-price accept | PARTIAL | Proposed price prefill + accept button implemented. |
+| Free-form quote | PARTIAL | Amount + message submit implemented. |
+| Validation empty/zero/negative/invalid | PARTIAL | Numeric + `>0` client validation and server validation exist. |
+| Duplicate quote protection | PASS | Server returns 409 on existing active bid (and unique handling). |
+| Quote success confirmation | PASS | Success alert shown and job removed from current feed. |
+| API failure handling | PASS | Error message surfaced from response. |
+| Offline quote behavior | FAIL | No quote queue; submit directly depends on network/API. |
+| Quote state after restart | FAIL | No persisted pending quote state management. |
+| Accepted/rejected quote behavior | PARTIAL | Notifications/resources include bid states; no dedicated quote outcome workflow screen. |
+| Bidding permission enforcement | PASS | Server checks `can_commercial_bid`; UI also disables quote when false. |
 
 ---
 
-## 7) Closure criteria and remediation plan
+## 5) State-transition matrix (canonical vs native)
 
-### Exit criteria for the audit
+Canonical target: `posted → quoted → awarded → allocated → accepted → on_my_way_to_pickup → on_site_pickup → loaded → on_my_way_to_delivery → on_site_delivery → delivered`
 
-Audit can be marked complete only when:
+| Transition state | Native support | Result | Evidence |
+|---|---|---|---|
+| posted | Live loads only | PARTIAL | Seen in nearby-jobs marketplace feed, not job execution flow. |
+| quoted | Bid submission | PARTIAL | `/api/driver/mobile/bids` creates submitted bids. |
+| awarded | Job scopes/action precondition | PARTIAL | Jobs API includes awarded/allocated scopes. |
+| allocated | Mapped to mobile `awarded` | FAIL | Mapping collapses `allocated`→`awarded`; semantic loss. |
+| accepted | Explicit state/action | FAIL | No explicit accepted stage/action in native driver flow. |
+| on_my_way_to_pickup | via action `on-my-way-pickup` -> `current_status=on_my_way` | FAIL | Uses legacy `on_my_way`; not canonical `on_my_way_to_pickup` persisted. |
+| on_site_pickup | via `arrived-pickup` | PARTIAL | Stored as `on_site_pickup`; UI maps to `arrived_pickup`. |
+| loaded | via `loaded` | PASS | Action exists with lifecycle guard. |
+| on_my_way_to_delivery | via action sets `in_transit` | FAIL | Canonical name not persisted; mapped abstraction only. |
+| on_site_delivery | via `arrived-delivery` | PASS | Action exists with lifecycle guard. |
+| delivered | via `delivered` with POD gate | PASS | Server requires POD when required; idempotent check present. |
 
-1. All matrix items are executed or explicitly tagged `N/T` with reason.
-2. All critical flows (CF-01..CF-08) have evidence attached.
-3. All negative scenarios (NG-01..NG-10) are executed.
-4. **Zero open Critical/High defects** remain for MVP-critical flows.
-
-### Remediation backlog (priority order)
-
-| Backlog ID | Linked gap ID | Priority (P0/P1/P2) | Reason | Action owner | Target release |
-|---|---|---|---|---|---|
-| RM-001 |  | P0 |  |  |  |
-| RM-002 |  | P1 |  |  |  |
-| RM-003 |  | P2 |  |  |  |
-
-Priority guide:
-- **P0**: must-fix before release (critical/high operational risk).
-- **P1**: required for near-term quality/stability after P0 closure.
-- **P2**: non-blocking improvements.
+Additional lifecycle defects:
+- Client `statusFlow` omits explicit canonical names and relies on mapped aliases.
+- Invalid action names in e2e contract (`arrived-at-pickup`, `loading`) diverge from API implementation.
 
 ---
 
-## Audit execution notes
+## 6) Active Job + My Jobs audit
 
-- Prefer real APK execution on a physical Android device for final sign-off.
-- Capture evidence per failed or partial item (screenshot/video + API log excerpt).
-- Keep this workbook versioned in the repo for traceability between builds.
+| Check | Result | Evidence |
+|---|---|---|
+| Active job selection | PARTIAL | First job selected after fetch, current job refreshed by id if present. |
+| Upcoming/completed lists | PARTIAL | Scope tabs implemented; backend scope lists omit cancelled/declined/disputed handling in mobile UI. |
+| Cancelled/declined/disputed handling | FAIL | No dedicated native states/actions/messages for these outcomes. |
+| Accurate job counts | PARTIAL | Derived from API responses; no fixture verification. |
+| Refresh and stale removal | PARTIAL | Refetch updates list; no explicit stale reconciliation tests run. |
+| Multiple active/allocated jobs safety | FAIL | App assumes single active job (`job` state picks first result). |
+| Completed history access | PARTIAL | Completed scope exists; no runtime evidence with real data. |
+| Earnings accuracy | FAIL | No earnings totals screen in native app. |
+
+---
+
+## 7) Job detail audit
+
+| Field group | Result | Evidence |
+|---|---|---|
+| Collection/delivery addresses + times | PARTIAL | Rendered from mapped job fields. |
+| Contact + phone | PARTIAL | Conditional render when contact allowed/available; no click-to-call action. |
+| Load, quantity, weight, dimensions | FAIL | Quantity/weight/dimensions not exposed in Job Detail UI. |
+| Vehicle requirement + instructions + notes | PARTIAL | Vehicle + requirements text shown; missing structured fields. |
+| References and commercial amount | PARTIAL | Reference + price shown when available. |
+| Waiting-time information | NOT IMPLEMENTED | No waiting-time field in mobile UI. |
+| Map/navigation actions | NOT IMPLEMENTED | No map/deep navigation buttons in native job detail. |
+| Missing-field fallback | PASS | `stringField` fallbacks and TBC defaults present. |
+| Authorization-sensitive fields | PASS | Backend `sanitizeQuoteJob` masks private fields before allocation context. |
+
+---
+
+## 8) POD audit
+
+| Check | Result | Evidence |
+|---|---|---|
+| POD gate before delivery | PASS | Client and server both block delivered when POD required and missing. |
+| Photo capture | PARTIAL | Camera picker implemented; no device execution evidence. |
+| Existing photo/document select | PARTIAL | Document picker implemented; no execution evidence. |
+| Signature capture/clear/retry | PARTIAL | Signature canvas + clear action implemented; not runtime validated. |
+| Recipient name required | PASS | Client validation + server validation enforce requirement. |
+| Notes/timestamp/job association | PASS | Notes + timestamps + job-id-bound storage path enforced. |
+| Upload progress UI | FAIL | No upload progress indicator; only success/fallback flow. |
+| Upload failure + offline queue | PARTIAL | Failed upload queued as offline action; no explicit failed-item UI in POD screen itself. |
+| Retry after reconnection | PARTIAL | Global queue flush interval/network listener exists. |
+| Duplicate POD protection/idempotency | FAIL | No explicit idempotency token; repeated submissions can append more files. |
+| Restart with pending POD | PARTIAL | Queue persisted in AsyncStorage; not device-validated. |
+| Delivered without valid evidence prevention | PASS | Server validates evidence and persistent storage path checks. |
+| Cross-job POD attachment prevention | PASS | Server validates path prefix by job id + assigned driver ownership. |
+
+---
+
+## 9) Notifications audit
+
+| Check | Result | Evidence |
+|---|---|---|
+| Push-token registration | PARTIAL | Registration call exists; silently ignores errors. |
+| Permission denied behaviour | PASS | Returns null, no crash. |
+| Notification list + unread count | PARTIAL | Uses `resources.alerts` + local seen timestamp; no push listener ingestion. |
+| Mark seen | PARTIAL | Seen-at timestamp stored when opening Notifications screen. |
+| Event coverage (assigned/bid accepted/updated/cancelled/dispatcher/POD) | PARTIAL | Title mapping exists; dependent on backend event feed only. |
+| Deep links (cold/warm/background) | FAIL | No native notification tap/deep-link routing handlers. |
+| Invalid/deleted job notification handling | PARTIAL | Open job path handles 404 with message; no dedicated UX copy. |
+| Duplicate notification handling | FAIL | No dedupe key logic in client list rendering. |
+
+Current state summary: push implementation is a **partial shell** (token registration + list display), not full notification lifecycle handling.
+
+---
+
+## 10) Profile/account audit
+
+| Feature area | Result | Evidence |
+|---|---|---|
+| Identity/contact/company/vehicle snapshot | PARTIAL | Read-only panels via `/resources`. |
+| Documents + expiry | PARTIAL | Counts shown; no upload/manage UI in native profile. |
+| Availability | NOT IMPLEMENTED | No native availability controls/screen. |
+| Finance/invoices/earnings | PARTIAL | Invoice count only; no full finance workflow UI. |
+| Messages | NOT IMPLEMENTED | No native messages screen. |
+| Password change | NOT IMPLEMENTED | No native password-change flow in current app UI. |
+| Logout | PARTIAL | Implemented; runtime execution not captured in this sandbox audit. |
+
+---
+
+## 11) Offline/network matrix
+
+| Scenario | Result | Evidence |
+|---|---|---|
+| App launch offline | BLOCKED | Not device-executed. |
+| Login offline | PARTIAL | Depends on Supabase sign-in; error surfaces but no dedicated offline UX. |
+| Connection loss during API request | PARTIAL | Errors captured; some actions queued (status/POD) but not quote. |
+| Connection loss during status update | PARTIAL | Falls back to queue and optimistic status update. |
+| Connection loss during POD upload | PARTIAL | Falls back to queue. |
+| Queue persistence after restart | PARTIAL | AsyncStorage queue implemented; not executed on device restart. |
+| Automatic retry/backoff | PASS | Exponential backoff + interval/network-triggered flush implemented. |
+| Manual retry | PASS | Queue panel exposes Retry Failed + Sync now. |
+| Duplicate prevention | PARTIAL | Status idempotency server-side; queue item dedupe not enforced client-side. |
+| Partial upload recovery | FAIL | No resumable upload / chunk-level recovery logic. |
+| Corrupted queue entry handling | PARTIAL | Parser drops invalid entries and returns empty on JSON error. |
+| Queue isolation per driver | FAIL | Single global queue key (not user-scoped). |
+| Logout with pending queue | FAIL | Logout wipes entire queue globally, risking loss for shared-device account switches. |
+
+---
+
+## 12) Deep links and mobile-web integration
+
+| Check | Result | Evidence |
+|---|---|---|
+| `xdrivedriver://` scheme declared | PASS | `app.config.ts` scheme set. |
+| Android intent filter | PARTIAL | Wildcard https host filter present; custom scheme intent filter not explicitly declared in Android section. |
+| Open app from `/driver` and `/m` | PARTIAL | Web banner + `/m` page attempt `window.location = xdrivedriver://`. |
+| App-not-installed fallback | PASS | `/m` fallback to `/m/get-app`. |
+| Invalid deep link handling | FAIL | No native link parser/router error handling. |
+| Job-specific deep link | FAIL | No route-to-job implementation in native app. |
+| Notification deep link | FAIL | No notification tap routing implementation. |
+| Authenticated/unauthenticated restoration | FAIL | No deferred destination restore-after-login logic. |
+| Redirect loop prevention `/driver` `/m` native | PARTIAL | Basic links exist; no explicit loop guard logic evidenced. |
+| Desktop stays on `/driver` | PARTIAL | Banner only on mobile via prop; runtime browser matrix not executed. |
+| Non-driver exclusion from app invite | FAIL | `/m` open app prompt has no role gate before invitation. |
+
+---
+
+## 13) Security and authorization matrix
+
+| Control | Result | Evidence |
+|---|---|---|
+| No service-role key in mobile bundle | PASS | App uses anon key/runtime config only; service role remains server-side. |
+| Public Supabase config only | PASS | `/api/driver/mobile/config` returns anon public config only. |
+| Access token storage | PARTIAL | SecureStore + Supabase storage used; token also passed in memory. |
+| Tokens not logged | PARTIAL | No explicit token logs in reviewed files; full runtime logs not audited. |
+| Endpoint auth required | PASS | `requireDriver()` enforced across mobile API routes. |
+| Driver role validation server-side | PASS | `requireDriver` validates active profile/driver/app access. |
+| Job ownership enforced server-side | PASS | Job routes require `assigned_driver_id = driverId`. |
+| POD authorization server-side | PASS | `savePod` checks assignment and validates storage paths. |
+| Quote authorization server-side | PASS | `/bids` checks bidding permission and eligibility. |
+| Duplicate/rate protection | PARTIAL | Duplicate quote constraint + status idempotency present; explicit rate limiting absent. |
+| Cross-driver data access prevention | PASS | Assignment filters + auth context checks in API routes. |
+| Safe non-production destructive tests | PASS | No destructive live-prod tests executed in this audit. |
+
+---
+
+## 14) Technical validation run report
+
+| Validation item | Command | Result | Notes |
+|---|---|---|---|
+| Dependency installation (root) | `npm install` | PASS | Installed; reported 5 high vulnerabilities. |
+| Dependency installation (mobile) | `npm --prefix apps/driver-mobile install` | PASS | Installed; reported 13 vulnerabilities. |
+| TypeScript typecheck (mobile) | `npm --prefix apps/driver-mobile run typecheck` | PASS | Clean. |
+| TypeScript typecheck (repo) | `npm run typecheck` | FAIL | `e2e/mobile-api-contract.spec.ts` typing errors. |
+| ESLint | `npm run lint` | FAIL | 2 errors (`_lib.ts` Boolean cast, unused `request` var in e2e test). |
+| Unit tests | N/A | NOT IMPLEMENTED | No dedicated unit-test script in package scripts. |
+| API contract tests | `npm run test:e2e -- e2e/mobile-api-contract.spec.ts` | PARTIAL | 6 passed, 8 skipped; authenticated scenarios skipped (no creds). |
+| Native app tests | N/A | NOT IMPLEMENTED | No Android/iOS native automated test suite configured. |
+| Expo config validation | `npx expo config --type public` | PASS | Config resolves; shows permissions and env defaults. |
+| EAS config validation | `npx eas-cli config --platform android --profile preview` | FAIL | `eas.json` invalid: `build.production.android.splits` not allowed. |
+| Android APK build (script) | `npm --prefix apps/driver-mobile run build:android:apk` | FAIL | `eas` binary missing in local deps. |
+| Android APK build (direct) | `npx eas-cli build --platform android --profile preview --non-interactive` | BLOCKED | Requires Expo auth token/login. |
+| Security scanning | `codeql_checker` | Pending in this PR workflow | To be run after doc edits commit. |
+| Dependency vulnerability scan (root) | `npm audit --json` | FAIL | 5 high vulnerabilities (eslint/minimatch chain). |
+| Dependency vulnerability scan (mobile) | `npm audit --json` | FAIL | 13 vulns (12 moderate, 1 high; Expo chain + brace-expansion). |
+| Dead-code/unused-route review | `npm run audit:interactive` | PARTIAL | Report generated; many broken/partial routes across platform. |
+
+---
+
+## 15) Functional gap register (evidence-backed)
+
+| Gap ID | Function | Expected | Actual | Severity | Release impact | Evidence |
+|---|---|---|---|---|---|---|
+| DM-AUD-001 | Canonical lifecycle parity | Full canonical states and transitions preserved | Native collapses/aliases states (`allocated→awarded`, delivery path via `in_transit`) | Critical | Blocks APK release | `src/jobs/statusFlow.ts`, `app/api/driver/mobile/_lib.ts`, `.../jobs/[id]/[action]/route.ts` |
+| DM-AUD-002 | Queue isolation per driver | Offline queue isolated by authenticated user | Global queue key shared across users | Critical | Blocks APK release | `src/offline/queue.ts` |
+| DM-AUD-003 | Offline quote support | Quote action survives offline and retries safely | No quote queue/offline retry path | High | Blocks field operation continuity | `src/live-loads/LiveLoadsScreen.tsx`, `src/api/liveLoads.ts` |
+| DM-AUD-004 | Notification deep links | Job/event taps navigate correctly on cold/warm/background start | No notification deep-link handlers | High | Blocks operational responsiveness | `src/push/registerPushToken.ts`, `src/app/DriverMobileApp.tsx` |
+| DM-AUD-005 | EAS production profile validity | Config valid for build pipelines | `splits` schema invalid in `eas.json` | High | Blocks APK pipeline reliability | `apps/driver-mobile/eas.json`, `npx eas-cli config` output |
+| DM-AUD-006 | Multi-active-job safety | Deterministic handling of multiple allocated jobs | Single `job` state picks first result only | High | Risk to dispatch correctness | `src/app/DriverMobileApp.tsx` |
+| DM-AUD-007 | Job detail operational completeness | Quantity/weight/dimensions/map/call actions present | Missing multiple required operational fields/actions | Medium | Degrades driver execution quality | `src/app/DriverMobileApp.tsx` |
+| DM-AUD-008 | POD idempotent submission | Duplicate submits do not duplicate evidence writes | Re-submits can append additional files | Medium | Potential data duplication | `app/api/driver/mobile/jobs/[id]/[action]/route.ts` |
+| DM-AUD-009 | Native test coverage | Functional native test suite for key flows | None configured | Medium | Increases regression risk | `apps/driver-mobile/package.json` |
+| DM-AUD-010 | Authenticated contract execution in CI | API contract includes real auth path in audit env | 8 tests skipped due missing E2E creds | Medium | Evidence gap | `e2e/mobile-api-contract.spec.ts` run output |
+
+---
+
+## 16) P0/P1/P2 remediation backlog
+
+| Backlog ID | Priority | Defect(s) | Required remediation |
+|---|---|---|---|
+| RM-001 | P0 | DM-AUD-001 | Align native and mobile API status machine with canonical backend lifecycle; remove semantic collapsing and enforce valid transitions only. |
+| RM-002 | P0 | DM-AUD-002 | Scope offline queue keys per authenticated user and preserve per-user pending items across account switches. |
+| RM-003 | P0 | DM-AUD-005 | Fix `eas.json` schema (`production.android.splits`) and ensure reproducible preview APK build profile. |
+| RM-004 | P1 | DM-AUD-003 | Add offline quote queue with idempotent retry and duplicate suppression. |
+| RM-005 | P1 | DM-AUD-004 | Implement full push lifecycle: permission states, token lifecycle, foreground/background tap handlers, deep-link routing with auth restore. |
+| RM-006 | P1 | DM-AUD-006 | Implement safe multi-active-job handling and deterministic active-job selection strategy. |
+| RM-007 | P2 | DM-AUD-007 | Expand Job Detail with missing operational fields, map/navigation and call actions. |
+| RM-008 | P2 | DM-AUD-008 | Add POD idempotency keying and duplicate submission safeguards. |
+| RM-009 | P2 | DM-AUD-009/010 | Add native/UI automation and staged authenticated contract fixtures. |
+
+---
+
+## 17) Final audit verdict
+
+### What genuinely works
+- Driver-gated API authorization and assignment checks.
+- Core status actions endpoints (with lifecycle guards and POD gate for delivered).
+- Live-load quote submission with server duplicate protection.
+- Offline queue skeleton for status/POD with retry/backoff.
+
+### What is partial
+- Authentication/session resilience evidence (implemented, not fully device-executed).
+- Most screen behavior (implemented but lacking full runtime evidence matrix).
+- Push notifications (registration/list shell only).
+- Profile/resources coverage (read-heavy, limited actionability).
+
+### What is broken
+- Lifecycle canonical parity in native mapping/execution semantics.
+- Global queue isolation model.
+- EAS config/build readiness.
+- Repo typecheck/lint baseline failures relevant to mobile audit paths.
+
+### What is missing
+- Offline quoting.
+- Deep-link routing in native app.
+- Several required job detail operational fields/actions.
+- Native automated test suite and authenticated staged functional execution pack.
+
+### Defects blocking driver operations
+- Queue isolation + missing offline quote flow + lifecycle mismatches.
+
+### Defects blocking APK release
+- Lifecycle mismatch (P0), queue isolation (P0), invalid EAS profile/build readiness (P0), missing end-to-end runtime evidence for critical flows.
+
+### Remediation order
+1. RM-001
+2. RM-002
+3. RM-003
+4. RM-004
+5. RM-005
+6. RM-006
+7. RM-007
+8. RM-008
+9. RM-009
+
