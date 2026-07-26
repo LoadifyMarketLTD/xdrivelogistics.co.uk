@@ -18,12 +18,7 @@
       "distribution": "store",
       "autoIncrement": true,
       "android": {
-        "buildType": "app-bundle",
-        "splits": [
-          {
-            "language": "en"
-          }
-        ]
+        "buildType": "app-bundle"
       },
       "env": {
         "APP_ENV": "production",

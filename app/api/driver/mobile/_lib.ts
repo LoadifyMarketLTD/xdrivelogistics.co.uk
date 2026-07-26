@@ -184,7 +184,7 @@ export function appendStatusHistory(existingHistory: unknown, entry: Record<stri
  * standard before accepting a "delivered" transition.
  */
 export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' | 'delivery_signature_data' | 'pod_generated' | 'client_signature_name'>) {
-  if (Boolean(job.pod_generated)) return true;
+  if (job.pod_generated) return true;
   const hasPhotoOrDoc = safeArray(job.delivery_photos).length > 0 || safeArray(job.pod_photos).length > 0;
   const hasSignature = Boolean(job.delivery_signature_data);
   const hasRecipient = typeof job.client_signature_name === 'string' && job.client_signature_name.trim().length > 0;
