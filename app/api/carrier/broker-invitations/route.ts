@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   // Build OR filter: company match OR email match
   const orParts: string[] = [];
   if (callerCompanyId) orParts.push(`carrier_company_id.eq.${callerCompanyId}`);
-  if (callerEmail) orParts.push(`carrier_email.ilike.${callerEmail}`);
+  if (callerEmail) orParts.push(`invited_email.ilike.${callerEmail}`);
 
   if (orParts.length === 0) {
     return json(200, { invitations: [] });
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
   const { data: rows, error } = await admin
     .from('broker_carrier_invitations')
-    .select('id, broker_company_id, carrier_email, carrier_company_id, status, message, created_at, updated_at')
+    .select('id, broker_company_id, invited_email, carrier_company_id, status, message, created_at, updated_at')
     .or(orParts.join(','))
     .order('created_at', { ascending: false })
     .limit(100);

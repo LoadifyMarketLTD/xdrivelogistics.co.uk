@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
 
   const { data: rows, error } = await admin
     .from('broker_carrier_invitations')
-    .select('id, carrier_email, carrier_company_id, status, message, created_at, updated_at')
+    .select('id, invited_email, carrier_company_id, status, message, created_at, updated_at')
     .eq('broker_company_id', companyId)
     .order('created_at', { ascending: false })
     .limit(200);
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
     .eq('status', 'pending')
     .or(
       [
-        carrierEmail ? `carrier_email.eq.${carrierEmail}` : null,
+        carrierEmail ? `invited_email.eq.${carrierEmail}` : null,
         carrierCompanyId ? `carrier_company_id.eq.${carrierCompanyId}` : null,
       ]
         .filter(Boolean)
@@ -144,13 +144,13 @@ export async function POST(request: NextRequest) {
     .from('broker_carrier_invitations')
     .insert({
       broker_company_id: companyId,
-      carrier_email: carrierEmail ?? null,
+      invited_email: carrierEmail ?? null,
       carrier_company_id: carrierCompanyId ?? null,
       status: 'pending',
       message: message ?? null,
       invited_by: user.id,
     })
-    .select('id, carrier_email, carrier_company_id, status, message, created_at')
+    .select('id, invited_email, carrier_company_id, status, message, created_at')
     .maybeSingle();
 
   if (insertError) return json(500, { error: insertError.message });
