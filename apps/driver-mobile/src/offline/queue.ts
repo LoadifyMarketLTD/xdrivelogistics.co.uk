@@ -165,11 +165,19 @@ export async function migrateLegacyQueue(userId: string): Promise<void> {
 export async function updateQueueItem(userId: string, id: string, patch: QueuedActionMutablePatch) {
   assertValidUserId(userId);
   const queue = await getQueue(userId);
-  // Explicitly strip immutable fields in case the patch arrives via JS without type guards.
-  const { status, retryCount, lastError, lastAttemptAt, nextRetryAt } = patch;
-  const safePatch: QueuedActionMutablePatch = Object.fromEntries(
-    Object.entries({ status, retryCount, lastError, lastAttemptAt, nextRetryAt }).filter(([, v]) => v !== undefined),
-  ) as QueuedActionMutablePatch;
+  // Copy only the explicitly permitted mutable keys from the patch.
+  // Use hasOwnProperty to preserve the semantic difference between:
+  //   - key absent (do not change the field), and
+  //   - key present with undefined value (clear the field).
+  // Immutable fields (ownerUserId, id, jobId, endpoint, payload, createdAt) are
+  // never copied, even if a caller passes them via a JS runtime bypass.
+  const ALLOWED_KEYS = ['status', 'retryCount', 'lastError', 'lastAttemptAt', 'nextRetryAt'] as const;
+  const safePatch: Record<string, unknown> = {};
+  for (const key of ALLOWED_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(patch, key)) {
+      safePatch[key] = (patch as Record<string, unknown>)[key];
+    }
+  }
   const next = queue.map((item) => (item.id === id ? { ...item, ...safePatch } : item));
   await saveQueue(userId, next);
   return next;

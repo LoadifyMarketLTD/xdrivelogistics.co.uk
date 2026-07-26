@@ -412,16 +412,32 @@ describe('queue item lifecycle', () => {
 // 11. updateQueueItem — immutable field protection
 // ---------------------------------------------------------------------------
 describe('updateQueueItem immutable field protection', () => {
-  test('ownerUserId cannot be overwritten via patch', async () => {
-    const item = await enqueueAction(USER_A, { jobId: 'job-22', endpoint: 'loaded' });
-    // TypeScript would block this at compile time; cast to any to test runtime enforcement.
-    await updateQueueItem(USER_A, item.id, { status: 'syncing' } as never);
-    // Directly pass an object with ownerUserId via JS bypass.
+  test('runtime bypass cannot overwrite ownerUserId, id, jobId, endpoint, payload, or createdAt', async () => {
+    const payload = { recipientName: 'Original' };
+    const item = await enqueueAction(USER_A, { jobId: 'job-22', endpoint: 'loaded', payload });
+    // Bypass TypeScript and attempt to overwrite every immutable field at runtime.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await updateQueueItem(USER_A, item.id, {
+      ownerUserId: USER_B,
+      id: 'tampered',
+      jobId: 'tampered-job',
+      endpoint: 'tampered-endpoint',
+      payload: { tampered: true },
+      createdAt: '1970-01-01T00:00:00.000Z',
+    } as any);
     const queue = await getQueue(USER_A);
-    expect(queue[0].ownerUserId).toBe(USER_A);
+    // Item is still retrievable under USER_A's key (ownerUserId not changed).
+    const updated = queue.find((i) => i.id === item.id)!;
+    expect(updated).toBeDefined();
+    expect(updated.ownerUserId).toBe(USER_A);
+    expect(updated.id).toBe(item.id);
+    expect(updated.jobId).toBe('job-22');
+    expect(updated.endpoint).toBe('loaded');
+    expect(updated.payload).toEqual(payload);
+    expect(updated.createdAt).toBe(item.createdAt);
   });
 
-  test('id, jobId, endpoint, createdAt are preserved after update', async () => {
+  test('id, jobId, endpoint, createdAt are preserved after a normal status update', async () => {
     const item = await enqueueAction(USER_A, { jobId: 'job-23', endpoint: 'on-site-pickup' });
     await updateQueueItem(USER_A, item.id, { status: 'syncing' });
     const queue = await getQueue(USER_A);
@@ -450,6 +466,49 @@ describe('updateQueueItem immutable field protection', () => {
     // Queue is unchanged; the real item keeps its original status.
     expect(after.find((i) => i.id === item.id)?.status).toBe(before.find((i) => i.id === item.id)?.status);
     expect(after).toHaveLength(1);
+  });
+
+  test('markQueueItemSynced clears lastError and nextRetryAt', async () => {
+    const item = await enqueueAction(USER_A, { jobId: 'job-26', endpoint: 'loaded' });
+    // Simulate a failed attempt that sets lastError and nextRetryAt.
+    await markQueueItemFailed(USER_A, item.id, 'network error', 0);
+    const afterFail = (await getQueue(USER_A)).find((i) => i.id === item.id)!;
+    expect(afterFail.lastError).toBe('network error');
+    expect(afterFail.nextRetryAt).toBeDefined();
+    // Now mark as synced — both fields must be cleared.
+    await markQueueItemSynced(USER_A, item.id);
+    const afterSync = (await getQueue(USER_A)).find((i) => i.id === item.id)!;
+    expect(afterSync.status).toBe('synced');
+    expect(afterSync.lastError).toBeUndefined();
+    expect(afterSync.nextRetryAt).toBeUndefined();
+  });
+
+  test('retryQueueItem clears lastError and nextRetryAt', async () => {
+    const item = await enqueueAction(USER_A, { jobId: 'job-27', endpoint: 'loaded' });
+    await markQueueItemFailed(USER_A, item.id, 'timeout', 0);
+    const afterFail = (await getQueue(USER_A)).find((i) => i.id === item.id)!;
+    expect(afterFail.lastError).toBe('timeout');
+    expect(afterFail.nextRetryAt).toBeDefined();
+    // Manual retry must clear stale failure metadata.
+    await retryQueueItem(USER_A, item.id);
+    const afterRetry = (await getQueue(USER_A)).find((i) => i.id === item.id)!;
+    expect(afterRetry.status).toBe('pending');
+    expect(afterRetry.lastError).toBeUndefined();
+    expect(afterRetry.nextRetryAt).toBeUndefined();
+  });
+
+  test('omitted fields remain unchanged', async () => {
+    const item = await enqueueAction(USER_A, { jobId: 'job-28', endpoint: 'loaded' });
+    await markQueueItemFailed(USER_A, item.id, 'original error', 2);
+    const before = (await getQueue(USER_A)).find((i) => i.id === item.id)!;
+    // Patch only status — lastError, retryCount, lastAttemptAt, nextRetryAt must not change.
+    await updateQueueItem(USER_A, item.id, { status: 'syncing' });
+    const after = (await getQueue(USER_A)).find((i) => i.id === item.id)!;
+    expect(after.status).toBe('syncing');
+    expect(after.lastError).toBe(before.lastError);
+    expect(after.retryCount).toBe(before.retryCount);
+    expect(after.lastAttemptAt).toBe(before.lastAttemptAt);
+    expect(after.nextRetryAt).toBe(before.nextRetryAt);
   });
 });
 
