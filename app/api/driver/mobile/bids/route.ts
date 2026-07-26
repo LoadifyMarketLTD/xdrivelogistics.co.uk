@@ -20,9 +20,9 @@ export async function POST(request: NextRequest) {
   if (!jobId) return respond(400, { error: 'Job id is required.' });
   if (driver.canCommercialBid !== true) return respond(403, { error: 'Your account type does not permit commercial bidding.' });
   if (driver.companyId && driver.companyStatus !== 'active') return respond(403, { error: 'Driver company workspace is not active.' });
-  if (!driver.companyId && driver.driverType === 'company_driver') {
-    return respond(403, { error: 'Company drivers must be linked to an active company workspace before bidding.' });
-  }
+  // NOTE: Bidding access is gated exclusively by can_commercial_bid (canonical architecture).
+  // Do NOT add a block here based on driver_type alone — company_driver is a valid bidding entity.
+  // See supabase/migrations/20260726060000_canonical_driver_type_architecture.sql
   if (message.length > 1_000) return respond(400, { error: 'Quote message is too long.' });
 
   let eligibilityResult: Awaited<ReturnType<typeof resolveDriverBidEligibility>>;
