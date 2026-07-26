@@ -211,7 +211,7 @@ export default function DriverMobileAppVariant({
   initialQueueView = 'list',
   initialCommsView = 'quotes',
 }: Props) {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading: authLoading } = useAuth();
 
   const [tab, setTab] = useState<DriverTab>(initialTab);
   const [moreTab, setMoreTab] = useState<MoreTab>(initialMoreTab);
@@ -811,7 +811,7 @@ export default function DriverMobileAppVariant({
   const renderFlash = () => (flashMessage ? <div style={flashBanner}>{flashMessage}</div> : null);
 
   const renderTab = () => {
-    if (loading) {
+    if (authLoading || loading) {
       return renderSimpleList('JOB', ['Loading mobile workspace...']);
     }
 
