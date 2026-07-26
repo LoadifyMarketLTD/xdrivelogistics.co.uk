@@ -87,7 +87,7 @@ type Notification = {
   title: string | null;
   body: string | null;
   type: string | null;
-  read_at: string | null; // mapped from processed_at for display purposes
+  read_at: string | null; // always null — notification_events has no user-read timestamp
   created_at: string | null;
 };
 

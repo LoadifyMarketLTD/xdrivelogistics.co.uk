@@ -113,8 +113,11 @@ BEGIN
     ELSE 'request_changes'
   END;
 
+  -- Resolve company: prefer the stored company_id, then look up by creator.
+  -- owner_driver and individual_driver may legitimately have no company at
+  -- review time (self-employed applicants without a linked workspace).
   v_company_id := v_app.company_id;
-  IF v_company_id IS NULL AND v_app.account_type NOT IN ('owner_driver', 'individual_driver', 'customer_shipper') THEN
+  IF v_company_id IS NULL THEN
     SELECT c.id INTO v_company_id
     FROM public.companies c
     WHERE c.created_by = v_app.user_id
@@ -122,13 +125,40 @@ BEGIN
     LIMIT 1;
   END IF;
 
+  -- Activate the company and ensure owner membership for all non-owner-driver
+  -- account types that have a linked company (fleet_courier, broker_shipper,
+  -- customer_shipper, etc.).  owner_driver company activation is also performed
+  -- here so their sole-trader workspace is active before they access the app.
+  IF p_action = 'approve' AND v_company_id IS NOT NULL THEN
+    PERFORM public.set_company_status_governance(
+      p_actor_user_id,
+      v_company_id,
+      'company_approved',
+      'active',
+      COALESCE(NULLIF(trim(p_notes), ''), 'Onboarding approved')
+    );
+
+    INSERT INTO public.company_memberships
+      (company_id, user_id, invited_email, role_in_company, status, updated_at)
+    VALUES
+      (v_company_id, v_app.user_id, v_app.email, 'owner', 'active', now())
+    ON CONFLICT (company_id, user_id)
+    DO UPDATE SET invited_email   = EXCLUDED.invited_email,
+                  role_in_company = EXCLUDED.role_in_company,
+                  status          = 'active',
+                  updated_at      = now();
+  END IF;
+
+  -- Persist review outcome.  review_notes is the canonical column; the table
+  -- has no rejection_reason or bare notes column.
   UPDATE public.onboarding_applications
   SET status          = v_status,
       reviewed_by     = p_actor_user_id,
       reviewed_at     = now(),
-      rejection_reason = CASE WHEN p_action = 'reject' THEN p_notes ELSE rejection_reason END,
-      notes           = COALESCE(p_notes, notes),
+      review_notes    = COALESCE(p_notes, review_notes),
       company_id      = COALESCE(v_company_id, v_app.company_id),
+      current_step    = CASE WHEN v_status = 'approved' THEN 'workspace_unlocked' ELSE 'pending_review' END,
+      completion_percentage = CASE WHEN v_status = 'approved' THEN 100 ELSE completion_percentage END,
       last_activity_at = now()
   WHERE id = p_application_id;
 
@@ -195,6 +225,23 @@ BEGIN
       WHERE id = v_driver_id;
     END IF;
   END IF;
+
+  -- Emit notification so the applicant is informed of the review outcome.
+  INSERT INTO public.notification_events
+    (event_type, entity_type, entity_id, company_id, recipient_user_id, payload)
+  VALUES (
+    CASE WHEN v_status = 'approved' THEN 'onboarding_approved' ELSE 'onboarding_review_updated' END,
+    'onboarding_application',
+    p_application_id,
+    v_company_id,
+    v_app.user_id,
+    jsonb_build_object(
+      'onboarding_application_id', p_application_id,
+      'action', p_action,
+      'status', v_status,
+      'notes', p_notes
+    )
+  );
 
   RETURN QUERY
   SELECT
