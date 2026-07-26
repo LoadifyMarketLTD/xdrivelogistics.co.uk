@@ -76,6 +76,7 @@ export const ONBOARDING_STATUSES = [
   'request_changes',
 ] as const;
 export type OnboardingStatus = (typeof ONBOARDING_STATUSES)[number];
+export const INDIVIDUAL_DRIVER_ONBOARDING_LEGACY_CUTOFF_ISO = '2026-07-26T00:00:00.000Z';
 
 const LEGACY_ONBOARDING_STATUS_MAPPING: Record<string, OnboardingStatus> = {
   submitted: 'under_review',
@@ -131,6 +132,17 @@ export const normalizeOnboardingAccountType = (
   const value = (raw ?? '').toLowerCase().trim();
   if (!value) return null;
   return ONBOARDING_ACCOUNT_TYPE_ALIASES[value] ?? null;
+};
+
+export const isLegacyIndividualDriverOnboardingApplication = (
+  accountType: string | null | undefined,
+  createdAt: string | null | undefined
+) => {
+  if (normalizeOnboardingAccountType(accountType) !== 'individual_driver') return false;
+  if (!createdAt) return true;
+  const createdAtMs = Date.parse(createdAt);
+  if (Number.isNaN(createdAtMs)) return true;
+  return createdAtMs < Date.parse(INDIVIDUAL_DRIVER_ONBOARDING_LEGACY_CUTOFF_ISO);
 };
 
 export const resolveOnboardingAccountTypeFromMetadata = (

@@ -11,6 +11,7 @@ import {
   buildOnboardingUrl,
   generateOnboardingToken,
   hashOnboardingToken,
+  isLegacyIndividualDriverOnboardingApplication,
   normalizeOnboardingAccountType,
   normalizeOnboardingStatus,
   resolveOnboardingAccountTypeFromMetadata,
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existing, error: existingError } = await supabaseAdmin
     .from('onboarding_applications')
-    .select('id, status, account_type, token_hash, token_expires_at, token_activated_at')
+    .select('id, status, account_type, created_at, token_hash, token_expires_at, token_activated_at')
     .eq('user_id', authUser.id)
     .maybeSingle();
 
@@ -67,6 +68,15 @@ export async function POST(request: NextRequest) {
     return json(409, {
       error: 'The saved onboarding application has an unsupported account type. Contact XDrive support before continuing.',
       code: 'unsupported_saved_account_type',
+    });
+  }
+  if (
+    existingAccountType === 'individual_driver' &&
+    !isLegacyIndividualDriverOnboardingApplication(existing.account_type, existing.created_at)
+  ) {
+    return json(409, {
+      error: 'Individual-driver onboarding is legacy-only and unavailable for new registrations.',
+      code: 'legacy_individual_driver_onboarding_locked',
     });
   }
 

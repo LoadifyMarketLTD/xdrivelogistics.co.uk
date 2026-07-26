@@ -6,6 +6,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../_lib/supabaseAdmin';
+import { isLegacyIndividualDriverOnboardingApplication } from '../../../_lib/onboarding';
 import { individualDriverPayloadSchema } from '../../_lib/schemas';
 
 const json = (status: number, body: Record<string, unknown>) =>
@@ -33,6 +34,11 @@ export async function POST(request: NextRequest) {
   if (!application) return json(404, { error: 'Onboarding application not found.' });
   if (application.account_type !== 'individual_driver') {
     return json(403, { error: 'Forbidden onboarding account type.' });
+  }
+  if (!isLegacyIndividualDriverOnboardingApplication(application.account_type, application.created_at)) {
+    return json(403, {
+      error: 'Individual-driver onboarding is a legacy flow restricted to historical accounts.',
+    });
   }
 
   const parsed = individualDriverPayloadSchema.safeParse(application.payload ?? {});
