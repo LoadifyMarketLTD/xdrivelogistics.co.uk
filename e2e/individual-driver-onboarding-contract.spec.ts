@@ -10,19 +10,19 @@ import {
   ownerDriverPayloadSchema,
 } from '../app/api/onboarding/_lib/schemas';
 
-test.describe('individual driver onboarding contract', () => {
-  test('normalizes driver-only aliases without converting owner operators', () => {
+test.describe('legacy individual-driver onboarding contract (deprecated)', () => {
+  test('legacy aliases stay supported only for historical onboarding rows', () => {
     expect(normalizeOnboardingAccountType('individual_driver')).toBe('individual_driver');
     expect(normalizeOnboardingAccountType('driver_only')).toBe('individual_driver');
-    expect(normalizeOnboardingAccountType('fleet_driver')).toBe('individual_driver');
+    expect(normalizeOnboardingAccountType('fleet_driver')).toBe('fleet_courier');
     expect(normalizeOnboardingAccountType('owner_operator')).toBe('owner_driver');
   });
 
-  test('specific requested role overrides the legacy owner_driver account_type', () => {
+  test('new registrations never initialize into legacy individual-driver onboarding', () => {
     expect(resolveOnboardingAccountTypeFromMetadata({
       requested_role: 'individual_driver',
       account_type: 'owner_driver',
-    }, null)).toBe('individual_driver');
+    }, null)).toBeNull();
 
     expect(resolveOnboardingAccountTypeFromMetadata({
       requested_role: 'owner_operator',
