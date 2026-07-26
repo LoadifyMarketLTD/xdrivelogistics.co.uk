@@ -7,7 +7,7 @@
  * Authenticated tests run only when E2E_DRIVER_EMAIL and E2E_DRIVER_PASSWORD are set.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 
 // ─── Static endpoint shape tests ─────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ const RUN_AUTHED = Boolean(DRIVER_EMAIL && DRIVER_PASSWORD);
 
 // Helper: sign in via the web login form and return the auth cookies / storage state.
 async function signInAndGetToken(
-  request: Parameters<Parameters<typeof test>[1]>[0]['request'],
+  request: APIRequestContext,
 ): Promise<string | null> {
   // Retrieve Supabase config from the mobile config endpoint.
   const configRes = await request.get('/api/driver/mobile/config');
@@ -130,7 +130,7 @@ test.describe('mobile API — authenticated contract', () => {
   });
 
   test('POST /api/driver/mobile/jobs/:id/:action — idempotent retry returns 200', async ({
-    request,
+    request: _request,
   }) => {
     // This test verifies the server-side idempotency gate added in Phase 0.
     // It can only run if a real job ID is available — skip for now with a note.
