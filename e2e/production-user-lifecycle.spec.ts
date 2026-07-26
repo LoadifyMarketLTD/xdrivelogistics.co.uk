@@ -40,22 +40,23 @@ async function login(page: Page, email: string, password: string) {
 }
 
 test.describe('registration role contract (read-only)', () => {
-  test('registration exposes an individual driver path', async ({ page }) => {
+  test('registration exposes only supported public business account types', async ({ page }) => {
     await page.goto('/register');
     const accountType = page.locator('#register-role');
     await expect(accountType).toBeVisible();
-    await expect(accountType.locator('option')).toContainText([
-      /individual driver|driver only|courier driver/i,
+    await expect(accountType.locator('option')).toHaveText([
+      /customer\s*\/\s*shipper/i,
+      /transport broker/i,
+      /fleet operator/i,
+      /owner operator/i,
     ]);
+    await expect(accountType.locator('option')).not.toContainText([/individual driver|driver only|courier driver/i]);
   });
 
-  test('registration exposes owner-driver workspace choice', async ({ page }) => {
+  test('registration does not expose owner-driver workspace choice', async ({ page }) => {
     await page.goto('/register');
-    const accountType = page.locator('#register-role');
-    await expect(accountType.locator('option')).toContainText([/owner operator/i]);
-    await expect(
-      page.getByText(/owner operators can choose whether they need their own operations workspace/i)
-    ).toBeVisible();
+    await expect(page.getByText(/create and manage my own operations workspace/i)).toHaveCount(0);
+    await expect(page.getByText(/owner operators always receive an operations workspace/i)).toBeVisible();
   });
 
   test('public user cannot open protected dashboards', async ({ page }) => {
