@@ -300,6 +300,7 @@ Deno.serve(async (request) => {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${resendApiKey}`,
+    },
     body: JSON.stringify({
       from: fromEmail,
       to: userEmail,
