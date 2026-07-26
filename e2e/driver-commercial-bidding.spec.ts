@@ -105,25 +105,31 @@ test.describe('driver commercial bidding e2e', () => {
     expect(result.response.status()).toBe(403);
   });
 
-  test('company driver without can_commercial_bid -> UI and API are blocked', async ({ page }) => {
+  test('company driver with can_commercial_bid -> UI is not blocked and API accepts bid', async ({ page }) => {
+    // Architecture: company_driver is a valid bidding entity.  can_commercial_bid
+    // is an independent flag defaulting to TRUE for both owner_driver and
+    // company_driver.  This test verifies that a company driver can reach the
+    // bidding UI without a blocking message and that the API accepts their bid.
+    // See supabase/migrations/20260726060000_canonical_driver_type_architecture.sql
     const email = process.env.E2E_COMPANY_DRIVER_EMAIL ?? '';
     const password = process.env.E2E_COMPANY_DRIVER_PASSWORD ?? '';
     test.skip(!email || !password, 'Set E2E_COMPANY_DRIVER_EMAIL/PASSWORD.');
 
     const session = await driverSession(page, email, password);
-    const { response: nearbyResponse, payload: nearbyPayload } = await apiJson<{ jobs?: NearbyJob[] }>(session, '/api/driver/mobile/nearby-jobs?limit=50');
-    expect(nearbyResponse.status()).toBe(200);
-    const jobId = (nearbyPayload.jobs ?? [])[0]?.id ?? process.env.E2E_COMPANY_DRIVER_JOB_ID ?? '';
-    test.skip(!jobId, 'No load available for company-driver UI blocking assertion.');
+    const job = await firstQuoteableJob(session);
+    test.skip(!job, 'No quoteable jobs are currently available for company driver bidding assertion.');
 
-    await page.goto(`/driver/loads/${jobId}`);
-    await expect(page.getByText('Your account type does not permit commercial bidding')).toBeVisible({ timeout: 10_000 });
+    // Web UI: the blocking message must NOT appear for a company driver that has
+    // can_commercial_bid = true (the canonical default).
+    await page.goto(`/driver/loads/${job!.id}`);
+    await expect(page.getByText('Your account type does not permit commercial bidding')).not.toBeVisible({ timeout: 10_000 });
 
-    const result = await apiJson<{ error?: string }>(session, '/api/driver/mobile/bids', {
+    // API: bidding must succeed (201) or return 409 if a duplicate bid exists.
+    const result = await apiJson<{ success?: boolean; bidId?: string; error?: string }>(session, '/api/driver/mobile/bids', {
       method: 'POST',
-      data: { jobId, amount: 100 },
+      data: { jobId: job!.id, amount: Number(job!.proposedPriceGbp ?? 250), message: 'Company driver marketplace bid' },
     });
-    expect(result.response.status()).toBe(403);
+    expect([201, 409]).toContain(result.response.status());
   });
 
   test('duplicate bid -> second submit returns 409', async ({ page }) => {
