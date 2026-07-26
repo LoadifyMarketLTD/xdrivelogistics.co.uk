@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
 
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
+  if (!driver.companyId) return respond(403, { error: 'Bidding requires a company account. Individual drivers without a company cannot submit quotes.' });
 
   const body = await request.json().catch(() => null) as { jobId?: unknown; amount?: unknown; message?: unknown } | null;
   const jobId = typeof body?.jobId === 'string' ? body.jobId.trim() : '';

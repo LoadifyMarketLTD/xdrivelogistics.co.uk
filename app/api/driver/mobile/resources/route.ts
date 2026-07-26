@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
   if (jobsResult.error) return NextResponse.json({ error: jobsResult.error.message }, { status: 500 });
   const jobs = (jobsResult.data ?? []) as AnyRow[];
 
-  const companyIds = [...new Set([context.companyId, ...jobs.map((job) => String(job.company_id ?? '')).filter(Boolean)])];
+  const companyIds = [...new Set([...(context.companyId ? [context.companyId] : []), ...jobs.map((job) => String(job.company_id ?? '')).filter(Boolean)])];
   const companiesResult = await supabaseAdmin!.from('companies').select('id,name,company_number,company_type').in('id', companyIds);
   if (companiesResult.error) return NextResponse.json({ error: companiesResult.error.message }, { status: 500 });
   const companies = new Map(((companiesResult.data ?? []) as AnyRow[]).map((company) => [String(company.id), company]));
@@ -71,7 +71,6 @@ export async function GET(request: NextRequest) {
     .from('vehicles')
     .select('id,reg_plate,type,make,model')
     .eq('assigned_driver_id', context.driverId)
-    .eq('company_id', context.companyId)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -85,7 +84,7 @@ export async function GET(request: NextRequest) {
       email,
       phone: String(driver?.phone ?? ''),
       driver,
-      company: companies.get(context.companyId) ?? null,
+      company: context.companyId ? (companies.get(context.companyId) ?? null) : null,
       vehicle: (vehicleResult.data ?? null) as AnyRow | null,
       quotes: bids.map((bid) => ({ ...bid, job: jobsById.get(String(bid.job_id)) ?? null })),
       documents: documentsResult.data ?? [],
@@ -116,7 +115,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Document must be smaller than 10 MB.' }, { status: 400 });
   }
 
-  const path = `${context.companyId}/${context.driverId}/${randomUUID()}-${fileName}`;
+  const uploadFolder = context.companyId ?? context.driverId;
+  const path = `${uploadFolder}/${context.driverId}/${randomUUID()}-${fileName}`;
   const { error: storageError } = await supabaseAdmin!.storage.from('driver-docs').upload(path, bytes, { contentType: mimeType, upsert: false });
   if (storageError) return NextResponse.json({ error: storageError.message }, { status: 500 });
   const { error: documentError } = await supabaseAdmin!.from('driver_documents').insert({
