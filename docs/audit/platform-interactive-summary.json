@@ -1,18 +1,22 @@
 {
-  "total": 261,
+  "total": 282,
   "CLOSED": 2,
-  "PARTIAL": 44,
-  "BROKEN": 17,
-  "PLACEHOLDER": 9,
-  "DUPLICATE": 189,
+  "PARTIAL": 48,
+  "BROKEN": 10,
+  "PLACEHOLDER": 0,
+  "DUPLICATE": 222,
   "OBSOLETE": 0,
   "diagnostic": {
     "buttonWithoutHandlerCount": 5,
-    "linksWithoutPageCount": 17,
-    "duplicateRouteTargetsCount": 189,
-    "placeholderTargetsCount": 9,
+    "linksWithoutPageCount": 10,
+    "duplicateRouteTargetsCount": 222,
+    "placeholderTargetsCount": 0,
     "inaccessiblePagesCount": 70,
     "inaccessiblePages": [
+      {
+        "route": "/admin/broker-invitations",
+        "sourceFile": "app/admin/broker-invitations/page.tsx"
+      },
       {
         "route": "/admin/driver-availability",
         "sourceFile": "app/admin/driver-availability/page.tsx"
@@ -70,6 +74,10 @@
         "sourceFile": "app/broker/carrier-costs/page.tsx"
       },
       {
+        "route": "/broker/carrier-network",
+        "sourceFile": "app/broker/carrier-network/page.tsx"
+      },
+      {
         "route": "/broker/customer-invoices/[id]",
         "sourceFile": "app/broker/customer-invoices/[id]/page.tsx"
       },
@@ -104,6 +112,10 @@
       {
         "route": "/broker/settings",
         "sourceFile": "app/broker/settings/page.tsx"
+      },
+      {
+        "route": "/broker/team",
+        "sourceFile": "app/broker/team/page.tsx"
       },
       {
         "route": "/customer/awards",
@@ -146,6 +158,10 @@
         "sourceFile": "app/driver/jobs/[id]/page.tsx"
       },
       {
+        "route": "/driver/loads/[id]",
+        "sourceFile": "app/driver/loads/[id]/page.tsx"
+      },
+      {
         "route": "/driver/messages",
         "sourceFile": "app/driver/messages/page.tsx"
       },
@@ -156,10 +172,6 @@
       {
         "route": "/driver/notifications",
         "sourceFile": "app/driver/notifications/page.tsx"
-      },
-      {
-        "route": "/driver",
-        "sourceFile": "app/driver/page.tsx"
       },
       {
         "route": "/driver/quotes",
@@ -218,10 +230,6 @@
         "sourceFile": "app/m/jobs/page.tsx"
       },
       {
-        "route": "/m",
-        "sourceFile": "app/m/page.tsx"
-      },
-      {
         "route": "/onboarding/[token]",
         "sourceFile": "app/onboarding/[token]/page.tsx"
       },
@@ -248,6 +256,10 @@
       {
         "route": "/onboarding/fleet/resume",
         "sourceFile": "app/onboarding/fleet/resume/page.tsx"
+      },
+      {
+        "route": "/onboarding/individual-driver/[token]",
+        "sourceFile": "app/onboarding/individual-driver/[token]/page.tsx"
       },
       {
         "route": "/onboarding/individual-driver/resume",
@@ -278,18 +290,6 @@
         "sourceFile": "app/reset-password/page.tsx"
       },
       {
-        "route": "/super-admin/users/company-owners",
-        "sourceFile": "app/super-admin/users/company-owners/page.tsx"
-      },
-      {
-        "route": "/super-admin/users/customers",
-        "sourceFile": "app/super-admin/users/customers/page.tsx"
-      },
-      {
-        "route": "/super-admin/users/dispatchers",
-        "sourceFile": "app/super-admin/users/dispatchers/page.tsx"
-      },
-      {
         "route": "/support/feedback",
         "sourceFile": "app/support/feedback/page.tsx"
       }
@@ -297,21 +297,14 @@
     "brokenTargets": [
       "/admin/drivers?driver=${driver.id}",
       "/admin/diary?job=${job.id}",
-      "/admin/jobs?job=${job.id}",
       "/admin/vehicles?vehicle=${vehicle.id}",
-      "/admin/jobs?job=${job.id}",
       "/broker/compare-quotes?job=${job.id}",
       "/broker/loads?job=${job.id}",
       "/broker/loads?customer=${encodeURIComponent(customer.name)}",
       "/broker/compare-quotes?job=${job.id}",
       "/broker/jobs?job=${job.id}",
-      "/admin/post-load",
-      "/admin/jobs?job=${job.id}",
       "/admin/diary?job=${job.id}",
-      "/admin/drivers?driver=${driver.id}",
-      "/driver/loads/saved",
-      "/driver/loads/${load.id}",
-      "/favicon.svg"
+      "/admin/drivers?driver=${driver.id}"
     ],
     "duplicateTargets": [
       "/register",
@@ -359,8 +352,10 @@
       "/request-quote",
       "/register",
       "/admin/diary",
+      "/admin/jobs/${job.id}",
       "/admin/returns",
       "/admin/disputes",
+      "/admin/jobs/${job.id}",
       "/admin/invoices",
       "/admin/invoices",
       "/admin/jobs",
@@ -412,11 +407,13 @@
       "/login",
       "/register",
       "/driver/jobs",
+      "/admin/jobs",
       "/admin/jobs/${job.id}",
       "/admin/marketplace",
       "/admin/diary",
       "/admin/diary",
       "/admin/jobs",
+      "/admin/jobs/${job.id}",
       "/admin/fleet/assignments",
       "/admin/fleet/positions",
       "/admin/fleet/assignments",
@@ -443,6 +440,9 @@
       "/customer/jobs/${job.id}",
       "/customer/jobs/${j.id}",
       "/customer/jobs/${j.id}",
+      "/customer/quotes",
+      "/customer/invoices/${jobInvoice.id}",
+      "/customer/invoices/${jobInvoice.id}",
       "/admin/marketplace",
       "/driver/finance",
       "/driver/finance",
@@ -452,6 +452,7 @@
       "/driver/jobs/${job.id}",
       "/driver/loads/search",
       "/driver/loads/search",
+      "/driver/loads",
       "/driver/documents",
       "/driver/documents",
       "/driver/profile",
@@ -479,41 +480,56 @@
       "/super-admin/marketplace",
       "/super-admin/operations/disputes",
       "/super-admin/operations/jobs",
-      "/super-admin/companies",
-      "/super-admin/companies/approvals",
-      "/super-admin/finance/invoices",
-      "/super-admin/compliance/documents",
-      "/super-admin/settings/feature-flags",
-      "/super-admin/settings/audit-logs",
-      "/super-admin",
-      "/admin",
-      "/admin",
-      "/super-admin/marketplace",
-      "/super-admin/operations/jobs",
-      "/super-admin/companies",
-      "/super-admin/finance/invoices",
-      "/super-admin/compliance/documents",
-      "/super-admin/companies/approvals",
-      "/super-admin/health",
-      "/super-admin/companies/approvals",
-      "/super-admin/notifications",
-      "/super-admin/notifications",
-      "/super-admin/health",
-      "/super-admin/settings/audit-logs",
-      "/super-admin/settings/feature-flags",
-      "/super-admin/companies/approvals",
-      "/super-admin/operations/disputes"
-    ],
-    "placeholderTargets": [
+      "/super-admin/operations/completed-jobs",
       "/super-admin/users/drivers",
+      "/super-admin/companies",
+      "/super-admin/companies/approvals",
       "/super-admin/companies/active",
       "/super-admin/companies/verification",
       "/super-admin/companies/compliance",
-      "/super-admin/users",
+      "/super-admin/finance/invoices",
+      "/super-admin/compliance/documents",
+      "/super-admin/settings/global",
+      "/super-admin/settings/roles-permissions",
+      "/super-admin/settings/feature-flags",
+      "/super-admin/settings/audit-logs",
       "/super-admin/users/platform-admins",
+      "/super-admin",
+      "/admin",
+      "/admin",
+      "/super-admin/companies/approvals",
+      "/super-admin/marketplace",
+      "/super-admin/operations/jobs",
+      "/super-admin/companies",
       "/super-admin/users/drivers",
+      "/super-admin/finance/invoices",
+      "/super-admin/compliance/documents",
+      "/super-admin/companies/approvals",
+      "/super-admin/health",
+      "/super-admin/companies",
+      "/super-admin/companies/active",
+      "/super-admin/companies/approvals",
+      "/super-admin/marketplace",
+      "/super-admin/operations/completed-jobs",
+      "/super-admin/users/drivers",
+      "/super-admin/finance/invoices",
+      "/super-admin/finance/invoices",
+      "/super-admin/notifications",
+      "/super-admin/notifications",
+      "/super-admin/health",
+      "/super-admin/settings/audit-logs",
+      "/super-admin/settings/feature-flags",
+      "/super-admin/companies/approvals",
       "/super-admin/companies/verification",
-      "/super-admin/companies/compliance"
-    ]
+      "/super-admin/companies/compliance",
+      "/super-admin/operations/disputes",
+      "/super-admin/users/drivers",
+      "/super-admin/users/platform-admins",
+      "/super-admin/settings/roles-permissions",
+      "/super-admin/settings/audit-logs",
+      "/super-admin/settings/feature-flags",
+      "/super-admin/settings/global"
+    ],
+    "placeholderTargets": []
   }
 }
