@@ -60,7 +60,9 @@ export async function getQueue(userId: string): Promise<QueuedAction[]> {
   const raw = await AsyncStorage.getItem(queueKeyForUser(userId));
   if (!raw) return [];
   try {
-    return (JSON.parse(raw) as Partial<QueuedAction>[]).map(normalizeQueueItem).filter((item) => item.id && item.jobId && item.endpoint);
+    return (JSON.parse(raw) as Partial<QueuedAction>[])
+      .map(normalizeQueueItem)
+      .filter((item) => item.id && item.jobId && item.endpoint && item.ownerUserId === userId);
   } catch {
     return [];
   }
@@ -111,32 +113,16 @@ export async function enqueueAction(userId: string, action: Omit<QueuedAction, '
 }
 
 /**
- * One-time migration of items stored under the pre-isolation global queue key.
- * Stamps each recovered item with ownerUserId, merges into the user-scoped key,
- * then removes the legacy key so this runs exactly once per device.
- * Safe to call on every sign-in — it is a no-op when the legacy key is absent.
+ * One-time cleanup of the pre-isolation global queue key.
+ * Legacy items cannot be attributed to any account — they are discarded,
+ * never replayed under the current user. The key is removed so this runs
+ * exactly once per device. Safe to call on every sign-in: no-op when absent.
  */
 export async function migrateLegacyQueue(userId: string): Promise<void> {
   assertValidUserId(userId);
   const raw = await AsyncStorage.getItem(LEGACY_QUEUE_KEY);
   if (!raw) return;
-  try {
-    const legacyItems = (JSON.parse(raw) as Partial<QueuedAction>[])
-      .map(normalizeQueueItem)
-      .filter((item) => item.id && item.jobId && item.endpoint)
-      .map((item) => ({ ...item, ownerUserId: userId }));
-
-    if (legacyItems.length > 0) {
-      const existing = await getQueue(userId);
-      const existingIds = new Set(existing.map((item) => item.id));
-      const newItems = legacyItems.filter((item) => !existingIds.has(item.id));
-      if (newItems.length > 0) {
-        await saveQueue(userId, [...existing, ...newItems]);
-      }
-    }
-  } catch {
-    // Corrupted legacy data — safe to discard; key is still removed below.
-  }
+  // Ownership of legacy items cannot be proven — discard without replay.
   await AsyncStorage.removeItem(LEGACY_QUEUE_KEY);
 }
 

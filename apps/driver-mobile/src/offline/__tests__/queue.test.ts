@@ -6,12 +6,12 @@
  *  2. ownerUserId stamped on every enqueued item
  *  3. Duplicate/supersede suppression
  *  4. Cross-account owner isolation (ownerUserId mismatch guard)
- *  5. Legacy queue one-time migration
+ *  5. Legacy queue one-time cleanup — items discarded, never replayed
  *  6. Legacy queue corruption handled gracefully
  *  7. Logout persistence — persisted queue survives session clear
  *  8. Restart restore — queue reloads correctly for the same user
  *  9. Account-switch isolation — user B cannot read user A's queue
- * 10. flushQueue account-switching abort (structural guard verified)
+ * 10. getQueue ownerUserId enforcement + flushQueue account-switch protection
  */
 
 import AsyncStorage from '../__mocks__/async-storage';
@@ -170,12 +170,12 @@ describe('cross-account isolation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. Legacy queue one-time migration
+// 5. Legacy queue one-time cleanup — items are discarded, never replayed
 // ---------------------------------------------------------------------------
 describe('migrateLegacyQueue', () => {
   const LEGACY_KEY = 'xdrive.driver.offlineQueue';
 
-  test('migrates valid items from legacy key into user-scoped queue', async () => {
+  test('discards legacy items — does not add them to the user-scoped queue', async () => {
     const legacyItem: Partial<QueuedAction> = {
       id: 'legacy-001',
       jobId: 'job-legacy',
@@ -188,13 +188,12 @@ describe('migrateLegacyQueue', () => {
 
     await migrateLegacyQueue(USER_A);
 
+    // Ownership cannot be proven — legacy items must NOT appear in the user queue.
     const queue = await getQueue(USER_A);
-    expect(queue).toHaveLength(1);
-    expect(queue[0].id).toBe('legacy-001');
-    expect(queue[0].ownerUserId).toBe(USER_A);
+    expect(queue).toHaveLength(0);
   });
 
-  test('removes the legacy key after migration', async () => {
+  test('removes the legacy key after running', async () => {
     await AsyncStorage.setItem(LEGACY_KEY, JSON.stringify([{ id: 'x', jobId: 'j', endpoint: 'e', status: 'pending', createdAt: new Date().toISOString(), retryCount: 0 }]));
     await migrateLegacyQueue(USER_A);
     const remaining = await AsyncStorage.getItem(LEGACY_KEY);
@@ -208,23 +207,31 @@ describe('migrateLegacyQueue', () => {
     expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
   });
 
-  test('does not duplicate items already present in user-scoped queue', async () => {
-    const item: Partial<QueuedAction> = {
-      id: 'dup-001',
-      jobId: 'job-dup',
+  test('preserves existing user-scoped queue — only the legacy key is removed', async () => {
+    const existing: QueuedAction = {
+      id: 'existing-001',
+      ownerUserId: USER_A,
+      jobId: 'job-existing',
       endpoint: 'loaded',
       status: 'pending',
       createdAt: new Date().toISOString(),
       retryCount: 0,
     };
-    // Pre-populate user-scoped queue with the same item
-    await saveQueue(USER_A, [{ ...item, ownerUserId: USER_A } as QueuedAction]);
-    await AsyncStorage.setItem(LEGACY_KEY, JSON.stringify([item]));
+    await saveQueue(USER_A, [existing]);
+    await AsyncStorage.setItem(LEGACY_KEY, JSON.stringify([{ id: 'legacy-x', jobId: 'job-x', endpoint: 'on-site-pickup', status: 'pending', createdAt: new Date().toISOString(), retryCount: 0 }]));
 
     await migrateLegacyQueue(USER_A);
 
     const queue = await getQueue(USER_A);
     expect(queue).toHaveLength(1);
+    expect(queue[0].id).toBe('existing-001');
+  });
+
+  test('can be called multiple times safely — second call is a no-op', async () => {
+    await AsyncStorage.setItem(LEGACY_KEY, JSON.stringify([{ id: 'x', jobId: 'j', endpoint: 'e', status: 'pending', createdAt: new Date().toISOString(), retryCount: 0 }]));
+    await migrateLegacyQueue(USER_A);
+    await expect(migrateLegacyQueue(USER_A)).resolves.toBeUndefined();
+    expect(await AsyncStorage.getItem(LEGACY_KEY)).toBeNull();
   });
 
   test('throws for empty userId', async () => {
@@ -245,9 +252,8 @@ describe('migrateLegacyQueue — corrupted data', () => {
     expect(remaining).toBeNull();
   });
 
-  test('ignores items with missing required fields', async () => {
-    const bad = [{ id: '', jobId: '', endpoint: '' }]; // all empty — filtered out
-    await AsyncStorage.setItem(LEGACY_KEY, JSON.stringify(bad));
+  test('user queue remains empty after corrupted legacy key is cleaned up', async () => {
+    await AsyncStorage.setItem(LEGACY_KEY, 'corrupted');
     await migrateLegacyQueue(USER_A);
     const queue = await getQueue(USER_A);
     expect(queue).toHaveLength(0);
@@ -318,11 +324,11 @@ describe('account switching isolation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10. flushQueue account-switching abort (structural verification)
+// 10. getQueue ownerUserId enforcement + flushQueue account-switch protection
 // ---------------------------------------------------------------------------
-describe('flushQueue account-switching abort — structural guard', () => {
-  test('ownerUserId mismatch items should be identifiable before processing', async () => {
-    // Manually write an item with wrong ownerUserId into user A queue.
+describe('getQueue ownerUserId enforcement', () => {
+  test('drops items with ownerUserId !== userId (wrong owner stored in correct key)', async () => {
+    // Manually write an item with wrong ownerUserId into user A's key.
     const wrongOwnerItem: QueuedAction = {
       id: 'wrong-owner-001',
       ownerUserId: USER_B, // B's item somehow in A's queue key
@@ -334,13 +340,34 @@ describe('flushQueue account-switching abort — structural guard', () => {
     };
     await saveQueue(USER_A, [wrongOwnerItem]);
 
+    // getQueue must silently drop items whose ownerUserId does not match the
+    // requested userId — flushQueue therefore never receives them.
     const queue = await getQueue(USER_A);
-    // The flushQueue loop checks: if (item.ownerUserId && item.ownerUserId !== userId) skip
-    const mismatchedItems = queue.filter(
-      (item) => item.ownerUserId && item.ownerUserId !== USER_A,
-    );
-    expect(mismatchedItems).toHaveLength(1);
-    expect(mismatchedItems[0].id).toBe('wrong-owner-001');
+    expect(queue).toHaveLength(0);
+  });
+
+  test('drops items with empty ownerUserId (pre-field legacy items written directly)', async () => {
+    const ownerlessItem: QueuedAction = {
+      id: 'ownerless-001',
+      ownerUserId: '',
+      jobId: 'job-ownerless',
+      endpoint: 'loaded',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      retryCount: 0,
+    };
+    await saveQueue(USER_A, [ownerlessItem]);
+
+    const queue = await getQueue(USER_A);
+    expect(queue).toHaveLength(0);
+  });
+
+  test('returns correctly owned items unaffected by isolation filter', async () => {
+    const ownedItem = await enqueueAction(USER_A, { jobId: 'job-owned', endpoint: 'loaded' });
+    const queue = await getQueue(USER_A);
+    expect(queue).toHaveLength(1);
+    expect(queue[0].id).toBe(ownedItem.id);
+    expect(queue[0].ownerUserId).toBe(USER_A);
   });
 });
 

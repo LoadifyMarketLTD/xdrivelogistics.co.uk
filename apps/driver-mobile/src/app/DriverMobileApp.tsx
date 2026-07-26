@@ -223,45 +223,51 @@ export default function DriverMobileApp() {
     if (queueSyncInFlightRef.current) return;
     if (!(await isOnline())) return;
 
+    // Capture the flush identity at start. Any state mutation is aborted when
+    // the authenticated user changes mid-flush to prevent cross-account writes.
+    const flushUserId = userId;
+    const isOwnerStillActive = () => authUserIdRef.current === flushUserId;
+
     queueSyncInFlightRef.current = true;
     try {
-      let nextQueue = await getQueue(userId);
+      let nextQueue = await getQueue(flushUserId);
+      // getQueue already filters to ownerUserId === flushUserId; abort early if
+      // the authenticated user changed while the read was in flight.
+      if (!isOwnerStillActive()) return;
+
       const readyItems = nextQueue.filter((item) => (options.force ? item.status !== 'synced' : isQueueItemReady(item)));
       if (readyItems.length === 0) {
-        setQueue(nextQueue);
+        if (isOwnerStillActive()) setQueue(nextQueue);
         return;
       }
 
       for (const item of readyItems) {
-        // Guard: abort immediately if the authenticated user has changed since this flush started.
-        if (authUserIdRef.current !== userId) break;
+        if (!isOwnerStillActive()) break;
 
-        // Guard: reject items whose ownerUserId explicitly mismatches the flushing user.
-        // Items with ownerUserId === '' pre-date this field and are trusted by queue-key scope.
-        if (item.ownerUserId && item.ownerUserId !== userId) {
-          nextQueue = await markQueueItemFailed(userId, item.id, 'Owner mismatch: action belongs to a different driver account.', item.retryCount);
-          setQueue(nextQueue);
-          continue;
-        }
+        nextQueue = await markQueueItemSyncing(flushUserId, item.id);
+        if (isOwnerStillActive()) setQueue(nextQueue);
+        else break;
 
-        nextQueue = await markQueueItemSyncing(userId, item.id);
-        setQueue(nextQueue);
         try {
           if (item.endpoint === 'pod') await uploadPod(item.jobId, sessionToken, item.payload ?? {});
           else await postJobStatus(item.jobId, item.endpoint, sessionToken);
-          nextQueue = await markQueueItemSynced(userId, item.id);
+          nextQueue = await markQueueItemSynced(flushUserId, item.id);
         } catch (error) {
-          nextQueue = await markQueueItemFailed(userId, item.id, error instanceof Error ? error.message : 'Sync failed.', item.retryCount);
+          nextQueue = await markQueueItemFailed(flushUserId, item.id, error instanceof Error ? error.message : 'Sync failed.', item.retryCount);
         }
-        setQueue(nextQueue);
+        if (isOwnerStillActive()) setQueue(nextQueue);
       }
 
-      await loadJobs(sessionToken, scope, { navigate: false });
-      await loadResources(sessionToken, { silent: true });
+      if (isOwnerStillActive()) {
+        await loadJobs(sessionToken, scope, { navigate: false });
+        await loadResources(sessionToken, { silent: true });
+      }
     } finally {
       queueSyncInFlightRef.current = false;
-      const latestQueue = await getQueue(userId).catch(() => []);
-      setQueue(latestQueue);
+      if (isOwnerStillActive()) {
+        const latestQueue = await getQueue(flushUserId).catch(() => []);
+        setQueue(latestQueue);
+      }
     }
   }, [loadJobs, loadResources, scope]);
 
