@@ -82,6 +82,10 @@ function optionalString(value: unknown) {
   return text || undefined;
 }
 
+function optionalBoolean(value: unknown) {
+  return typeof value === 'boolean' ? value : null;
+}
+
 function formatDateTime(value?: string | null, fallback = 'Not available') {
   if (!value) return fallback;
   const date = new Date(value);
@@ -165,6 +169,7 @@ export default function DriverMobileApp() {
   const nextStep = useMemo(() => (job ? getNextStep(job.status) : undefined), [job]);
   const queueCounts = useMemo(() => getQueueCounts(queue), [queue]);
   const notificationsSeenKey = authUserId ? `xdrive.driver.notificationsSeen:${authUserId}` : null;
+  const driverCanCommercialBid = optionalBoolean(resources?.driver?.can_commercial_bid);
   const unreadNotificationCount = useMemo(() => {
     if (!resources?.alerts?.length) return 0;
     if (!notificationsSeenAt) return resources.alerts.length;
@@ -482,7 +487,7 @@ export default function DriverMobileApp() {
           onNotifications={() => setScreen('notifications')}
           unreadNotificationCount={unreadNotificationCount}
         />
-        {screen === 'liveLoads' ? <LiveLoadsScreen /> : (
+        {screen === 'liveLoads' ? <LiveLoadsScreen canCommercialBid={driverCanCommercialBid} /> : (
           <ScrollView contentContainerStyle={styles.content}>
             {message ? <Text style={styles.message}>{message}</Text> : null}
             {(loading || resourcesLoading) && <Text style={styles.subtle}>Loading...</Text>}
@@ -854,8 +859,8 @@ function ProfileScreen({ resources, queue, onRefresh, onSignOut }: { resources: 
       </Panel>
       <Panel>
         <Text style={styles.infoLabel}>Vehicle</Text>
-        <Info label="Registration" value={stringField(vehicle.registration_number || vehicle.registration || vehicle.plate_number)} />
-        <Info label="Type" value={stringField(vehicle.vehicle_type || vehicle.body_type)} />
+        <Info label="Registration" value={stringField(vehicle.reg_plate || vehicle.registration_number || vehicle.registration || vehicle.plate_number)} />
+        <Info label="Type" value={stringField(vehicle.type || vehicle.vehicle_type || vehicle.body_type)} />
         <Info label="Status" value={stringField(vehicle.status, 'Assigned')} />
       </Panel>
       <Panel>

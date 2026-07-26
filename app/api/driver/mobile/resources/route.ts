@@ -14,7 +14,7 @@ function publicArea(postcode: unknown) {
 function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null) {
   const privateDetailsRevealed = String(row.assigned_driver_id ?? '') === driverId
     && ['allocated', 'collected', 'in_transit', 'delivered'].includes(String(row.status ?? '').toLowerCase());
-  const fixedPriceVisible = row.is_fixed_price === true && Number(row.budget_amount ?? 0) > 0;
+  const proposedPriceVisible = Number(row.budget_amount ?? 0) > 0;
   return {
     ...row,
     public_reference: `XDL-${String(row.id ?? '').slice(0, 8).toUpperCase()}`,
@@ -31,7 +31,7 @@ function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null
     load_details: privateDetailsRevealed ? row.load_details : null,
     special_requirements: privateDetailsRevealed ? row.special_requirements : null,
     access_restrictions: privateDetailsRevealed ? row.access_restrictions : null,
-    budget_amount: fixedPriceVisible ? row.budget_amount : null,
+    budget_amount: proposedPriceVisible ? row.budget_amount : null,
     private_details_revealed: privateDetailsRevealed,
     can_update_lifecycle: privateDetailsRevealed && String(row.status ?? '').toLowerCase() !== 'delivered',
   };
@@ -42,10 +42,10 @@ export async function GET(request: NextRequest) {
   if (!isDriverContext(context)) return context;
 
   const [driverResult, bidsResult, documentsResult, invoicesResult, alertsResult] = await Promise.all([
-    supabaseAdmin!.from('drivers').select('*').eq('id', context.driverId).maybeSingle(),
-    supabaseAdmin!.from('job_bids').select('*').or(`bidder_user_id.eq.${context.userId},bidder_driver_id.eq.${context.driverId}`).order('created_at', { ascending: false }).limit(100),
-    supabaseAdmin!.from('driver_documents').select('*').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
-    supabaseAdmin!.from('invoices').select('*').eq('created_by', context.userId).order('created_at', { ascending: false }).limit(100),
+    supabaseAdmin!.from('drivers').select('id,display_name,phone,email,status,app_access,driver_type,can_commercial_bid').eq('id', context.driverId).maybeSingle(),
+    supabaseAdmin!.from('job_bids').select('id,job_id,company_id,bidder_user_id,bidder_driver_id,amount,bid_price_gbp,currency,message,status,created_at').or(`bidder_user_id.eq.${context.userId},bidder_driver_id.eq.${context.driverId}`).order('created_at', { ascending: false }).limit(100),
+    supabaseAdmin!.from('driver_documents').select('id,driver_id,doc_type,status,expiry_date,rejection_reason,created_at').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
+    supabaseAdmin!.from('invoices').select('id,company_id,job_id,commercial_agreement_id,buyer_company_id,supplier_company_id,invoice_number,status,payment_status,amount,due_date,created_at').eq('created_by', context.userId).order('created_at', { ascending: false }).limit(100),
     supabaseAdmin!.from('notification_events').select('id,event_type,entity_type,entity_id,payload,status,created_at').eq('recipient_user_id', context.userId).order('created_at', { ascending: false }).limit(100),
   ]);
 
@@ -56,12 +56,12 @@ export async function GET(request: NextRequest) {
   const bids = (bidsResult.data ?? []) as AnyRow[];
   const jobIds = [...new Set(bids.map((bid) => String(bid.job_id ?? '')).filter(Boolean))];
   const jobsResult = jobIds.length > 0
-    ? await supabaseAdmin!.from('jobs').select('*').in('id', jobIds)
+    ? await supabaseAdmin!.from('jobs').select('id,company_id,status,assigned_driver_id,pickup_location,pickup_postcode,delivery_location,delivery_postcode,collection_contact_name,collection_contact_phone,delivery_contact_name,delivery_contact_phone,client_name,client_phone,load_details,special_requirements,access_restrictions,budget_amount').in('id', jobIds)
     : { data: [], error: null };
   if (jobsResult.error) return NextResponse.json({ error: jobsResult.error.message }, { status: 500 });
   const jobs = (jobsResult.data ?? []) as AnyRow[];
 
-  const companyIds = [...new Set([context.companyId, ...jobs.map((job) => String(job.company_id ?? '')).filter(Boolean)])];
+  const companyIds = [...new Set([...(context.companyId ? [context.companyId] : []), ...jobs.map((job) => String(job.company_id ?? '')).filter(Boolean)])];
   const companiesResult = await supabaseAdmin!.from('companies').select('id,name,company_number,company_type').in('id', companyIds);
   if (companiesResult.error) return NextResponse.json({ error: companiesResult.error.message }, { status: 500 });
   const companies = new Map(((companiesResult.data ?? []) as AnyRow[]).map((company) => [String(company.id), company]));
@@ -69,9 +69,8 @@ export async function GET(request: NextRequest) {
 
   const vehicleResult = await supabaseAdmin!
     .from('vehicles')
-    .select('*')
+    .select('id,reg_plate,type,make,model')
     .eq('assigned_driver_id', context.driverId)
-    .eq('company_id', context.companyId)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -85,7 +84,7 @@ export async function GET(request: NextRequest) {
       email,
       phone: String(driver?.phone ?? ''),
       driver,
-      company: companies.get(context.companyId) ?? null,
+      company: context.companyId ? (companies.get(context.companyId) ?? null) : null,
       vehicle: (vehicleResult.data ?? null) as AnyRow | null,
       quotes: bids.map((bid) => ({ ...bid, job: jobsById.get(String(bid.job_id)) ?? null })),
       documents: documentsResult.data ?? [],
@@ -116,7 +115,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Document must be smaller than 10 MB.' }, { status: 400 });
   }
 
-  const path = `${context.companyId}/${context.driverId}/${randomUUID()}-${fileName}`;
+  const uploadFolder = context.companyId ?? context.driverId;
+  const path = `${uploadFolder}/${context.driverId}/${randomUUID()}-${fileName}`;
   const { error: storageError } = await supabaseAdmin!.storage.from('driver-docs').upload(path, bytes, { contentType: mimeType, upsert: false });
   if (storageError) return NextResponse.json({ error: storageError.message }, { status: 500 });
   const { error: documentError } = await supabaseAdmin!.from('driver_documents').insert({

@@ -97,8 +97,11 @@ const ONBOARDING_ACCOUNT_TYPE_ALIASES: Readonly<Record<string, OnboardingAccount
   driver_only: 'individual_driver',
   'driver-only': 'individual_driver',
   solo_driver: 'individual_driver',
-  company_driver: 'individual_driver',
-  fleet_driver: 'individual_driver',
+
+  // company_driver and fleet_driver describe drivers employed by a carrier.
+  // They belong to the fleet_courier onboarding flow (creates a company workspace).
+  company_driver: 'fleet_courier',
+  fleet_driver: 'fleet_courier',
 
   owner_driver: 'owner_driver',
   'owner-driver': 'owner_driver',

@@ -3,7 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
-import { FLEET_DOCUMENT_TYPES, OWNER_DRIVER_DOCUMENT_TYPES } from '../../_lib/onboarding';
+import {
+  BROKER_DOCUMENT_TYPES,
+  FLEET_DOCUMENT_TYPES,
+  INDIVIDUAL_DRIVER_DOCUMENT_TYPES,
+  OWNER_DRIVER_DOCUMENT_TYPES,
+} from '../../_lib/onboarding';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -18,6 +23,8 @@ const ALLOWED_MIME_TYPES = new Set([
 const sanitizeFilename = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, '_');
 const fleetDocTypeSchema = z.enum(FLEET_DOCUMENT_TYPES);
 const ownerDriverDocTypeSchema = z.enum(OWNER_DRIVER_DOCUMENT_TYPES);
+const brokerDocTypeSchema = z.enum(BROKER_DOCUMENT_TYPES);
+const individualDriverDocTypeSchema = z.enum(INDIVIDUAL_DRIVER_DOCUMENT_TYPES);
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -65,6 +72,8 @@ export async function POST(request: NextRequest) {
   const accountType = app.account_type as string;
   const parsedFleetDocType = accountType === 'fleet_courier' ? fleetDocTypeSchema.safeParse(docType) : null;
   const parsedOwnerDriverDocType = accountType === 'owner_driver' ? ownerDriverDocTypeSchema.safeParse(docType) : null;
+  const parsedBrokerDocType = accountType === 'broker_shipper' ? brokerDocTypeSchema.safeParse(docType) : null;
+  const parsedIndividualDriverDocType = accountType === 'individual_driver' ? individualDriverDocTypeSchema.safeParse(docType) : null;
 
   if (accountType === 'fleet_courier' && !parsedFleetDocType?.success) {
     return json(400, { error: 'Invalid fleet document type.' });
@@ -74,7 +83,20 @@ export async function POST(request: NextRequest) {
     return json(400, { error: 'Invalid owner driver document type.' });
   }
 
-  if (accountType !== 'fleet_courier' && accountType !== 'owner_driver') {
+  if (accountType === 'broker_shipper' && !parsedBrokerDocType?.success) {
+    return json(400, { error: 'Invalid broker document type.' });
+  }
+
+  if (accountType === 'individual_driver' && !parsedIndividualDriverDocType?.success) {
+    return json(400, { error: 'Invalid individual driver document type.' });
+  }
+
+  if (
+    accountType !== 'fleet_courier' &&
+    accountType !== 'owner_driver' &&
+    accountType !== 'broker_shipper' &&
+    accountType !== 'individual_driver'
+  ) {
     return json(400, { error: 'Document uploads are not supported for this onboarding account type.' });
   }
 
@@ -128,6 +150,48 @@ export async function POST(request: NextRequest) {
     }
   } else if (accountType === 'owner_driver') {
     const parsedDocType = parsedOwnerDriverDocType!;
+
+    const { error: documentError } = await supabaseAdmin.from('driver_identity_documents').insert({
+      onboarding_application_id: app.id,
+      doc_type: parsedDocType.data,
+      file_path: objectPath,
+      upload_status: 'uploaded',
+      verification_status: 'unverified',
+    });
+
+    if (documentError) {
+      await cleanupUploadedObject();
+      return json(500, { error: documentError.message });
+    }
+  } else if (accountType === 'broker_shipper') {
+    const parsedDocType = parsedBrokerDocType!;
+    const { data: company, error: companyError } = await supabaseAdmin
+      .from('companies')
+      .select('id')
+      .eq('created_by', authData.user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (companyError || !company?.id) {
+      await cleanupUploadedObject();
+      return json(409, { error: companyError?.message ?? 'Company workspace must exist before uploading broker documents.' });
+    }
+
+    const { error: documentError } = await supabaseAdmin.from('company_documents').insert({
+      company_id: company.id,
+      onboarding_application_id: app.id,
+      doc_type: parsedDocType.data,
+      file_path: objectPath,
+      status: 'pending',
+    });
+
+    if (documentError) {
+      await cleanupUploadedObject();
+      return json(500, { error: documentError.message });
+    }
+  } else if (accountType === 'individual_driver') {
+    const parsedDocType = parsedIndividualDriverDocType!;
 
     const { error: documentError } = await supabaseAdmin.from('driver_identity_documents').insert({
       onboarding_application_id: app.id,

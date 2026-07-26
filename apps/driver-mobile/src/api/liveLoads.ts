@@ -18,6 +18,8 @@ type ApiLoad = {
   destinationPriority?: boolean;
   distanceFromCurrentDeliveryMiles?: number | null;
   quoteWarning?: string | null;
+  hasProposedPrice?: boolean;
+  proposedPriceGbp?: number | null;
 };
 
 export type LiveLoadsResponse = {
@@ -42,6 +44,7 @@ export type LiveLoad = {
   cargoType: string;
   vehicleRequirement: string;
   price: string;
+  proposedPriceAmount: number | null;
   postingCompanyName?: string;
   postingCompanyMemberCode?: string;
   publicPricePublished: boolean;
@@ -53,6 +56,8 @@ export type LiveLoad = {
   directDeliveryRequired: boolean;
   destinationPriority: boolean;
   distanceFromCurrentDeliveryMiles?: number;
+  hasProposedPrice: boolean;
+  proposedPriceGbp?: number;
 };
 
 function money(amount: number | null, currency = 'GBP') {
@@ -72,6 +77,7 @@ function mapLiveLoad(load: ApiLoad): LiveLoad {
     cargoType: load.freightType || 'Freight not provided',
     vehicleRequirement: load.vehicleType || 'Vehicle required',
     price: priceVisible ? money(load.publicPrice.amount, load.publicPrice.currency || 'GBP') : '',
+    proposedPriceAmount: priceVisible ? (load.publicPrice.amount ?? null) : null,
     postingCompanyName: load.poster?.name || undefined,
     postingCompanyMemberCode: load.poster?.memberCode || undefined,
     publicPricePublished: priceVisible,
@@ -83,6 +89,8 @@ function mapLiveLoad(load: ApiLoad): LiveLoad {
     directDeliveryRequired: load.directDeliveryRequired === true,
     destinationPriority: load.destinationPriority === true,
     distanceFromCurrentDeliveryMiles: load.distanceFromCurrentDeliveryMiles ?? undefined,
+    hasProposedPrice: load.hasProposedPrice === true,
+    proposedPriceGbp: typeof load.proposedPriceGbp === 'number' ? load.proposedPriceGbp : undefined,
   };
 }
 
@@ -113,12 +121,12 @@ export async function fetchActiveQuotedJobIds() {
     .from('job_bids')
     .select('job_id')
     .eq('bidder_user_id', auth.user.id)
-    .in('status', ['submitted', 'accepted', 'awarded', 'approved']);
+    .in('status', ['submitted', 'accepted']);
   if (error) throw new Error(error.message);
   return new Set((data ?? []).map((row: { job_id: string }) => String(row.job_id)));
 }
 
-export async function submitLiveLoadQuote(jobId: string, amount: number, message?: string) {
+export async function submitLiveLoadQuote(jobId: string, amount: number | null, message?: string) {
   const token = await accessToken();
   const response = await fetch(`${getApiBaseUrl()}/api/driver/mobile/bids`, {
     method: 'POST',

@@ -123,7 +123,7 @@ type GlobalSettingDefinition = {
 const GLOBAL_SETTING_DEFINITIONS: GlobalSettingDefinition[] = [
   { key: 'platform_name', label: 'Platform Name', value: 'XDrive Logistics', type: 'text', category: 'Platform Identity' },
   { key: 'platform_domain', label: 'Primary Domain', value: 'xdrivelogistics.co.uk', type: 'text', category: 'Platform Identity' },
-  { key: 'support_email', label: 'Support Email', value: 'support@xdrivelogistics.co.uk', type: 'text', category: 'Platform Identity' },
+  { key: 'support_email', label: 'Support Email', value: 'contact@xdrivelogistics.co.uk', type: 'text', category: 'Platform Identity' },
   { key: 'default_currency', label: 'Default Currency', value: 'GBP', type: 'text', category: 'Platform Identity' },
   { key: 'default_timezone', label: 'Default Timezone', value: 'Europe/London', type: 'text', category: 'Platform Identity' },
   { key: 'min_bid_interval_minutes', label: 'Min Bid Interval (minutes)', value: '5', type: 'number', category: 'Marketplace Rules' },

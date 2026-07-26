@@ -24,7 +24,7 @@ const when = (value: string | null | undefined) =>
 type BrokerInvitation = {
   id: string;
   broker_company_id: string;
-  carrier_email: string | null;
+  invited_email: string | null;
   carrier_company_id: string | null;
   status: string;
   message: string | null;

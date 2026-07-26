@@ -191,6 +191,14 @@ export const resolveAuthoritativeRole = ({
   if (isDriver) return 'driver';
 
   if (membershipRole === 'owner' || membershipRole === 'admin') return 'company_admin';
+  if (
+    membershipRole === 'finance' ||
+    membershipRole === 'compliance' ||
+    normalizedProfileRole === 'finance' ||
+    normalizedProfileRole === 'compliance' ||
+    (fallbackRole ?? '').toLowerCase().trim() === 'finance' ||
+    (fallbackRole ?? '').toLowerCase().trim() === 'compliance'
+  ) return 'company_staff';
   if (membershipRole === 'dispatcher' || membershipRole === 'member') return 'company_staff';
   if (membershipRole === 'viewer') return 'customer';
   if (hasCreatedCompany) return creatorCompanyType === 'admin' ? 'company_admin' : 'company_staff';

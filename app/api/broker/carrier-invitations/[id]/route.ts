@@ -77,7 +77,7 @@ export async function PATCH(
   // Fetch the invitation
   const { data: inv } = await admin
     .from('broker_carrier_invitations')
-    .select('id, broker_company_id, carrier_company_id, carrier_email, status, invited_by')
+    .select('id, broker_company_id, carrier_company_id, invited_email, status, invited_by')
     .eq('id', invitationId)
     .maybeSingle();
 
@@ -86,8 +86,8 @@ export async function PATCH(
   // Verify this invitation is addressed to the caller
   const addressedByCompany = inv.carrier_company_id === callerCompanyId;
   const addressedByEmail =
-    inv.carrier_email !== null &&
-    inv.carrier_email.toLowerCase() === callerEmail;
+    inv.invited_email !== null &&
+    inv.invited_email.toLowerCase() === callerEmail;
 
   if (!addressedByCompany && !addressedByEmail) {
     return json(403, { error: 'This invitation is not addressed to your company.' });
@@ -129,7 +129,7 @@ export async function PATCH(
         invitation_id: invitationId,
         broker_company_id: inv.broker_company_id,
         carrier_company_id: callerCompanyId,
-        carrier_email: inv.carrier_email,
+        carrier_email: inv.invited_email,
         action,
         responded_by: authData.user.id,
       },

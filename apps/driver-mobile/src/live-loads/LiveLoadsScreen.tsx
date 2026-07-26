@@ -36,7 +36,7 @@ function SwipeCard({ job, pinned, onOpen, onQuote, onTogglePin, onHide }: { job:
   </View>;
 }
 
-export function LiveLoadsScreen() {
+export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boolean | null }) {
   const [feed, setFeed] = useState<Feed>('live');
   const [jobs, setJobs] = useState<LiveLoad[]>([]);
   const [preferences, setPreferences] = useState<MarketplacePreferences>(defaultPreferences);
@@ -56,7 +56,18 @@ export function LiveLoadsScreen() {
         fetchLiveLoads({ destinationMode: nextPreferences.destinationPriorityEnabled, radiusMiles: nextPreferences.destinationRadiusMiles }),
         fetchActiveQuotedJobIds(),
       ]);
-      setJobs(result.jobs.filter((job) => !quotedJobIds.has(job.id)));
+      setJobs(result.jobs
+        .filter((job) => !quotedJobIds.has(job.id))
+        .map((job) => {
+          if (canCommercialBid === false) {
+            return {
+              ...job,
+              canQuote: false,
+              quoteWarning: 'Your account type does not permit commercial bidding.',
+            };
+          }
+          return job;
+        }));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load live jobs.');
     } finally {
@@ -107,7 +118,8 @@ export function LiveLoadsScreen() {
       return;
     }
     setQuoteJob(job);
-    setQuoteAmount('');
+    // Pre-fill with proposed price if published so driver can accept or override
+    setQuoteAmount(job.proposedPriceAmount != null ? String(job.proposedPriceAmount) : '');
     setQuoteMessage('');
   }, []);
 
@@ -149,6 +161,14 @@ export function LiveLoadsScreen() {
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {quoteJob ? <View style={styles.quotePanel}>
       <Text style={styles.quoteTitle}>{quoteJob.reference}: {quoteJob.pickupLocation} to {quoteJob.deliveryLocation}</Text>
+      {quoteJob.publicPricePublished && quoteJob.proposedPriceAmount != null && (
+        <>
+          <Text style={styles.proposedPrice}>Proposed price: {quoteJob.price} — accept or enter your own</Text>
+          <TouchableOpacity style={styles.acceptButton} onPress={() => setQuoteAmount(String(quoteJob.proposedPriceAmount))} disabled={submitting}>
+            <Text style={styles.acceptButtonText}>ACCEPT PROPOSED ({quoteJob.price})</Text>
+          </TouchableOpacity>
+        </>
+      )}
       <TextInput value={quoteAmount} onChangeText={setQuoteAmount} keyboardType="decimal-pad" placeholder="Quote amount (GBP)" placeholderTextColor="#6b7280" style={styles.input} />
       <TextInput value={quoteMessage} onChangeText={setQuoteMessage} placeholder="Message to customer (optional)" placeholderTextColor="#6b7280" style={[styles.input, styles.messageInput]} multiline />
       <View style={styles.quoteActions}>
@@ -176,6 +196,9 @@ const styles = StyleSheet.create({
   error: { color: '#fca5a5', backgroundColor: '#3f151b', borderRadius: 10, padding: 10, fontWeight: '700' },
   quotePanel: { backgroundColor: '#0d1a24', borderColor: '#1f2937', borderWidth: 1, borderRadius: 14, padding: 12, gap: 10 },
   quoteTitle: { color: '#f8fafc', fontSize: 14, fontWeight: '800' },
+  proposedPrice: { color: '#4ade80', fontSize: 13, fontWeight: '700' },
+  acceptButton: { backgroundColor: '#14532d', borderColor: '#16a34a', borderWidth: 1, borderRadius: 10, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  acceptButtonText: { color: '#4ade80', fontWeight: '900', fontSize: 13, letterSpacing: 0.4 },
   input: { minHeight: 48, color: '#f8fafc', backgroundColor: '#111827', borderColor: '#1f2937', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12 },
   messageInput: { minHeight: 76, paddingTop: 12, textAlignVertical: 'top' },
   quoteActions: { flexDirection: 'row', gap: 10 },
