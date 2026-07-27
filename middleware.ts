@@ -383,13 +383,6 @@ export async function middleware(request: NextRequest) {
     if (auth.mustChangePassword && url.pathname !== DRIVER_CHANGE_PASSWORD_PATH) {
       return buildRedirect(request, DRIVER_CHANGE_PASSWORD_PATH);
     }
-
-    if (url.pathname === DRIVER_PATH || url.pathname.startsWith('/driver/')) {
-      const ua = request.headers.get('user-agent');
-      if (isMobileUserAgent(ua)) {
-        return buildRedirect(request, '/m/driver');
-      }
-    }
   }
 
   if (url.pathname === '/admin' && (auth.workspaceRole === 'driver' || auth.workspaceRole === 'owner_driver')) {
