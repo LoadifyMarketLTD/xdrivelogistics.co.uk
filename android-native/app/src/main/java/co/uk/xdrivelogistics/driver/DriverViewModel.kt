@@ -73,6 +73,8 @@ data class DriverUiState(
     val error: String = "",
     /** Job IDs for which POD evidence has been uploaded but not yet finalised by the server. */
     val pendingPodJobIds: Set<String> = emptySet(),
+    /** Job IDs whose POD submission has been blocked after too many failed finalisation attempts. */
+    val blockedPodJobIds: Set<String> = emptySet(),
 )
 
 data class DriverJobSyncState(
@@ -794,6 +796,14 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun recoverPendingPodUploads(session: DriverSession) {
         // New server-mediated submissions.
         for (rec in podSubmissionStore.pendingForOwner(session.userId)) {
+            // Surface blocked records in UI; do not silently delete or retry them.
+            if (rec.state == PodSubmissionStore.SubmissionState.BLOCKED) {
+                _uiState.value = _uiState.value.copy(
+                    blockedPodJobIds = _uiState.value.blockedPodJobIds + rec.jobId,
+                )
+                continue
+            }
+
             if (rec.state == PodSubmissionStore.SubmissionState.READY_TO_FINALISE &&
                 rec.recipientName.isNotBlank()
             ) {
@@ -826,22 +836,70 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         // Non-fatal: server confirmed; record will be retried but server is idempotent.
                     }
                 }
-                // On failure, leave record. Quarantine after MAX_ATTEMPTS.
+                // On failure, leave record. After MAX_ATTEMPTS, block (never silently delete).
                 val updated = podSubmissionStore.getForOwnerJob(session.userId, rec.jobId)
                 if ((updated?.attemptCount ?: 0) >= PodSubmissionStore.MAX_ATTEMPTS) {
                     try {
-                        podSubmissionStore.clearSubmission(session.userId, rec.jobId)
+                        podSubmissionStore.markBlocked(session.userId, rec.jobId)
                     } catch (e: PodStorageException) {
-                        // Best-effort quarantine clear.
+                        // Best-effort; record remains for next session.
                     }
+                    _uiState.value = _uiState.value.copy(
+                        blockedPodJobIds = _uiState.value.blockedPodJobIds + rec.jobId,
+                    )
+                }
+                continue
+            }
+
+            // For PENDING evidence (PENDING_UPLOAD or UPLOAD_INITIATED), re-upload from the
+            // durable local file if it still exists and its integrity can be verified.
+            for (ev in rec.evidence) {
+                if (ev.state != PodSubmissionStore.EvidenceState.PENDING_UPLOAD &&
+                    ev.state != PodSubmissionStore.EvidenceState.UPLOAD_INITIATED
+                ) continue
+
+                val localFile = java.io.File(ev.localUri)
+                if (!localFile.exists() || localFile.length() != ev.byteSize) continue
+
+                val bytes = try { localFile.readBytes() } catch (e: Exception) { continue }
+                val actualSha256 = computeSha256Hex(bytes)
+                if (actualSha256 != ev.sha256Hex) continue
+
+                // File verified; re-initiate upload (signed URL may have expired).
+                api.initPodEvidenceUpload(
+                    session = session,
+                    jobId = rec.jobId,
+                    podKey = rec.podKey,
+                    evidenceId = ev.evidenceId,
+                    fileName = "${ev.evidenceId}.${ev.mimeType.substringAfter('/')}",
+                    mimeType = ev.mimeType,
+                    byteSize = ev.byteSize,
+                    kind = ev.kind,
+                    sha256Hex = ev.sha256Hex,
+                    payloadFingerprint = rec.payloadFingerprint,
+                ).onSuccess { initResult ->
+                    try {
+                        podSubmissionStore.markEvidenceInitiated(session.userId, rec.jobId, ev.evidenceId)
+                    } catch (e: PodStorageException) { /* non-fatal */ }
+
+                    api.uploadEvidenceBytes(initResult.signedUrl, bytes, ev.mimeType)
+                        .onSuccess {
+                            try {
+                                podSubmissionStore.markEvidenceUploaded(
+                                    session.userId, rec.jobId, ev.evidenceId, initResult.path,
+                                )
+                            } catch (e: PodStorageException) { /* non-fatal */ }
+                        }
                 }
             }
-            // Jobs that have pending evidence (not yet collected recipient name) are surfaced
+
+            // Jobs that have all evidence uploaded (but no recipient name yet) are surfaced
             // in UI via pendingPodJobIds so the driver can complete the flow.
-            if (rec.state != PodSubmissionStore.SubmissionState.READY_TO_FINALISE ||
-                rec.recipientName.isBlank()
+            val refreshed = podSubmissionStore.getForOwnerJob(session.userId, rec.jobId) ?: rec
+            if (refreshed.state != PodSubmissionStore.SubmissionState.READY_TO_FINALISE ||
+                refreshed.recipientName.isBlank()
             ) {
-                val allUploaded = rec.evidence.all {
+                val allUploaded = refreshed.evidence.all {
                     it.state == PodSubmissionStore.EvidenceState.UPLOADED
                 }
                 if (allUploaded) {
@@ -898,9 +956,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     return@launch
                 }
 
-                // Compute payload fingerprint: SHA-256 of sorted paths + recipient name.
-                val fingerprintInput = (photoPaths + documentPaths).sorted().joinToString("|") +
-                    "|" + cleanName
+                // Compute canonical payload fingerprint from stable identifiers only.
+                // Uses podKey + sorted(evidenceId:sha256Hex) pairs + recipientName.
+                // Never derived from server-issued storage paths so recovery can reproduce it.
+                val evidencePairs = submission.evidence
+                    .sortedBy { it.evidenceId }
+                    .joinToString("|") { "${it.evidenceId}:${it.sha256Hex}" }
+                val fingerprintInput = "${submission.podKey}|$evidencePairs|$cleanName"
                 val fingerprint = computeSha256Hex(fingerprintInput.toByteArray())
 
                 // Persist the recipient name and fingerprint so crash recovery can retry.

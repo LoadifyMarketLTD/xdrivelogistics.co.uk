@@ -364,7 +364,7 @@ class PodSubmissionWorkflowTest {
     }
 
     @Test
-    fun `record at MAX_ATTEMPTS should be quarantined by caller`() {
+    fun `record at MAX_ATTEMPTS should be blocked by caller`() {
         val rec = submissionRecord().copy(attemptCount = PodSubmissionStore.MAX_ATTEMPTS)
         assertTrue(rec.attemptCount >= PodSubmissionStore.MAX_ATTEMPTS)
     }
@@ -412,5 +412,129 @@ class PodSubmissionWorkflowTest {
             "localUri must not be a cache path",
             ev.localUri.contains("/cache/"),
         )
+    }
+
+    // -------------------------------------------------------------------------
+    // 14. BLOCKED state — markBlocked and pendingForOwner surface it
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `markBlocked transitions submission to BLOCKED`() {
+        val store = makeStore()
+        store.recordSubmission(submissionRecord(ownerUserId = "user-a", jobId = "job-block"))
+
+        store.markBlocked("user-a", "job-block")
+
+        val rec = store.getForOwnerJob("user-a", "job-block")
+        assertNotNull(rec)
+        assertEquals(PodSubmissionStore.SubmissionState.BLOCKED, rec!!.state)
+    }
+
+    @Test
+    fun `BLOCKED record is returned by pendingForOwner`() {
+        val store = makeStore()
+        store.recordSubmission(submissionRecord(ownerUserId = "user-a", jobId = "job-block"))
+        store.markBlocked("user-a", "job-block")
+
+        val pending = store.pendingForOwner("user-a")
+        assertEquals(1, pending.size)
+        assertEquals(PodSubmissionStore.SubmissionState.BLOCKED, pending[0].state)
+    }
+
+    @Test
+    fun `BLOCKED record is NOT silently deleted after MAX_ATTEMPTS`() {
+        val store = makeStore()
+        val rec = submissionRecord(ownerUserId = "user-a", jobId = "job-max")
+            .copy(attemptCount = PodSubmissionStore.MAX_ATTEMPTS)
+        store.recordSubmission(rec)
+        store.markBlocked("user-a", "job-max")
+
+        // The record must still be present for manual inspection.
+        val found = store.getForOwnerJob("user-a", "job-max")
+        assertNotNull("BLOCKED record must be preserved, not deleted", found)
+        assertEquals(PodSubmissionStore.SubmissionState.BLOCKED, found!!.state)
+    }
+
+    // -------------------------------------------------------------------------
+    // 15. Canonical payload fingerprint uses stable identifiers, not storage paths
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `canonical fingerprint is deterministic from podKey + evidenceId-sha256 pairs + recipient`() {
+        val podKey = "pod-jobid001-userid01-nonce0001"
+        val ev = evidenceRecord()
+        val recipientName = "Alice"
+
+        val evidencePairs = listOf(ev).sortedBy { it.evidenceId }
+            .joinToString("|") { "${it.evidenceId}:${it.sha256Hex}" }
+        val input = "$podKey|$evidencePairs|$recipientName"
+
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(input.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+
+        assertEquals(64, digest.length)
+        assertTrue(digest.all { it.isDigit() || it in 'a'..'f' })
+
+        // Same inputs produce same fingerprint (deterministic).
+        val digest2 = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(input.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+        assertEquals(digest, digest2)
+    }
+
+    @Test
+    fun `canonical fingerprint does NOT use storage paths`() {
+        val ev = evidenceRecord(storagePath = "job-1/photos/ev-00000000-aaaaaaaaaaaaaaaa-test.jpg")
+
+        val podKey = "pod-jobid001-userid01-nonce0001"
+        val evidencePairs = listOf(ev).sortedBy { it.evidenceId }
+            .joinToString("|") { "${it.evidenceId}:${it.sha256Hex}" }
+        val canonicalInput = "$podKey|$evidencePairs|Alice"
+
+        assertFalse(
+            "Canonical fingerprint input must not contain storage paths",
+            canonicalInput.contains(ev.storagePath!!),
+        )
+        assertTrue(
+            "Canonical fingerprint input must contain evidenceId",
+            canonicalInput.contains(ev.evidenceId),
+        )
+        assertTrue(
+            "Canonical fingerprint input must contain sha256Hex",
+            canonicalInput.contains(ev.sha256Hex),
+        )
+    }
+
+    // -------------------------------------------------------------------------
+    // 16. Restart recovery — evidence metadata survives store round-trip
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `PENDING_UPLOAD evidence record survives store round-trip for recovery`() {
+        val store = makeStore()
+        val ev = evidenceRecord(
+            state = PodSubmissionStore.EvidenceState.PENDING_UPLOAD,
+            localUri = "/data/user/0/co.uk.xdrivelogistics.driver/files/pod/user-a/job-r/ev-00000000-aaaaaaaaaaaaaaaa.jpg",
+        )
+        store.recordSubmission(submissionRecord(jobId = "job-r", evidence = listOf(ev)))
+
+        val recovered = store.getForOwnerJob("user-a", "job-r")
+        assertNotNull(recovered)
+        val recoveredEv = recovered!!.evidence.first()
+        assertEquals(PodSubmissionStore.EvidenceState.PENDING_UPLOAD, recoveredEv.state)
+        assertEquals(ev.sha256Hex, recoveredEv.sha256Hex)
+        assertEquals(ev.byteSize, recoveredEv.byteSize)
+        assertEquals(ev.localUri, recoveredEv.localUri)
+    }
+
+    @Test
+    fun `UPLOAD_INITIATED evidence is preserved for recovery`() {
+        val store = makeStore()
+        val ev = evidenceRecord(state = PodSubmissionStore.EvidenceState.UPLOAD_INITIATED)
+        store.recordSubmission(submissionRecord(jobId = "job-initiated", evidence = listOf(ev)))
+
+        val recovered = store.getForOwnerJob("user-a", "job-initiated")!!
+        assertEquals(PodSubmissionStore.EvidenceState.UPLOAD_INITIATED, recovered.evidence.first().state)
     }
 }

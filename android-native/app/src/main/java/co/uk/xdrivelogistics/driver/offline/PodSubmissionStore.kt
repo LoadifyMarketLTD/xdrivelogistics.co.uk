@@ -135,6 +135,12 @@ class PodSubmissionStore internal constructor(
         PENDING,
         /** All evidence uploaded; server finalisation not yet confirmed. */
         READY_TO_FINALISE,
+        /**
+         * Finalisation has failed more than [MAX_ATTEMPTS] times. The record
+         * is preserved for manual inspection and must not be silently deleted.
+         * Surface this state in UI as a blocked/manual-retry error.
+         */
+        BLOCKED,
     }
 
     /**
@@ -166,10 +172,9 @@ class PodSubmissionStore internal constructor(
      * Full POD submission intent for one job.
      *
      * @param podKey             Stable idempotency key for this submission.
-     * @param payloadFingerprint Non-null hex fingerprint computed before the first
-     *                           network call (from podKey + evidenceId + sha256Hex).
-     *                           Updated at finalisation to include evidence paths +
-     *                           recipientName.  Must not be blank.
+     * @param payloadFingerprint Non-null hex fingerprint computed from stable identifiers:
+     *                           `podKey|ev1_id:ev1_sha256|...|recipientName`.
+     *                           Must not be blank. Never derived from server-issued storage paths.
      * @param ownerUserId        Account owner; never transferred or mutated.
      * @param driverId           Driver record ID.
      * @param jobId              Job being confirmed.
@@ -179,7 +184,7 @@ class PodSubmissionStore internal constructor(
      * @param evidence           One or more evidence records for this submission.
      * @param state              Overall submission phase.
      * @param recordedAt         Epoch millis when the intent was first recorded.
-     * @param attemptCount       Number of finalisation attempts (for quarantine logic).
+     * @param attemptCount       Number of finalisation attempts (for blocked-state logic).
      */
     data class PodSubmissionRecord(
         val podKey: String,
@@ -272,6 +277,22 @@ class PodSubmissionStore internal constructor(
         val existing = load(key) ?: return
         val committed = backend.putStringSync(key, gson.toJson(existing.copy(attemptCount = existing.attemptCount + 1)))
         if (!committed) throw PodStorageException.CommitFailed("incrementAttemptCount")
+    }
+
+    /**
+     * Transition the submission to [SubmissionState.BLOCKED] after too many failed
+     * finalisation attempts. The record is preserved for manual inspection and is
+     * surfaced in the UI as a blocked/manual-retry error. Never silently deleted.
+     *
+     * @throws PodStorageException.Unavailable  if encrypted storage is not available.
+     * @throws PodStorageException.CommitFailed if the synchronous disk write failed.
+     */
+    fun markBlocked(ownerUserId: String, jobId: String) {
+        requireStorage("markBlocked")
+        val key = prefKey(ownerUserId, jobId)
+        val existing = load(key) ?: return
+        val committed = backend.putStringSync(key, gson.toJson(existing.copy(state = SubmissionState.BLOCKED)))
+        if (!committed) throw PodStorageException.CommitFailed("markBlocked")
     }
 
     /**
