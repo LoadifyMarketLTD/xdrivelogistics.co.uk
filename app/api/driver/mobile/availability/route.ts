@@ -15,6 +15,14 @@ type PutBody = {
 
 const VALID_STATUS = ['available', 'busy', 'offline'] as const;
 const VALID_SLOTS = ['AM', 'PM', 'EVENING'] as const;
+const AVAILABILITY_SCHEMA_ERROR_CODES = new Set(['42P01', '42703']);
+
+function availabilitySchemaResponse(error: { code?: string; message: string }) {
+  if (error.code && AVAILABILITY_SCHEMA_ERROR_CODES.has(error.code)) {
+    return respond(503, { error: 'Availability schema is not installed on this environment yet.' });
+  }
+  return respond(500, { error: error.message });
+}
 
 /**
  * GET /api/driver/mobile/availability
@@ -39,8 +47,8 @@ export async function GET(request: NextRequest) {
       .order('day_of_week', { ascending: true }),
   ]);
 
-  if (driverResult.error) return respond(500, { error: driverResult.error.message });
-  if (slotsResult.error) return respond(500, { error: slotsResult.error.message });
+  if (driverResult.error) return availabilitySchemaResponse(driverResult.error);
+  if (slotsResult.error) return availabilitySchemaResponse(slotsResult.error);
 
   const availabilityStatus = String(driverResult.data?.availability_status ?? 'offline');
   const slots: AvailabilitySlot[] = (slotsResult.data ?? []).map((row: { day_of_week: unknown; slot: unknown; available: unknown }) => ({
@@ -101,7 +109,7 @@ export async function PUT(request: NextRequest) {
       .from('drivers')
       .update({ availability_status: newStatus })
       .eq('id', driver.driverId);
-    if (error) return respond(500, { error: error.message });
+    if (error) return availabilitySchemaResponse(error);
   }
 
   if (newSlots && newSlots.length > 0) {
@@ -115,7 +123,7 @@ export async function PUT(request: NextRequest) {
     const { error } = await supabaseAdmin
       .from('driver_availability_slots')
       .upsert(upsertRows, { onConflict: 'driver_id,day_of_week,slot' });
-    if (error) return respond(500, { error: error.message });
+    if (error) return availabilitySchemaResponse(error);
   }
 
   const [driverResult, slotsResult] = await Promise.all([
@@ -130,6 +138,8 @@ export async function PUT(request: NextRequest) {
       .eq('driver_id', driver.driverId)
       .order('day_of_week', { ascending: true }),
   ]);
+  if (driverResult.error) return availabilitySchemaResponse(driverResult.error);
+  if (slotsResult.error) return availabilitySchemaResponse(slotsResult.error);
 
   const updatedStatus = String(driverResult.data?.availability_status ?? 'offline');
   const updatedSlots: AvailabilitySlot[] = (slotsResult.data ?? []).map((row: { day_of_week: unknown; slot: unknown; available: unknown }) => ({

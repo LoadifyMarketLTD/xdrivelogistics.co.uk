@@ -51,6 +51,14 @@ const hasReachedOrPassedStep = (current: string, target: string): boolean => {
   return currentIndex >= targetIndex;
 };
 
+const TIMESTAMP_FIELDS_BY_STATUS: Partial<Record<(typeof CURRENT_STATUS_ORDER)[number], ActionIdempotencyConfig['timestampField']>> = {
+  on_my_way_to_pickup: 'on_my_way_at',
+  on_site_pickup: 'on_site_pickup_at',
+  loaded: 'loaded_at',
+  on_site_delivery: 'on_site_delivery_at',
+  delivered: 'delivered_at',
+};
+
 const statusHistoryIncludes = (history: unknown, target: string): boolean => {
   if (!Array.isArray(history)) return false;
   return history.some((entry) => {
@@ -59,15 +67,32 @@ const statusHistoryIncludes = (history: unknown, target: string): boolean => {
   });
 };
 
+const hasTimestampEvidenceFromTargetOrLater = (job: ActionIdempotencyJob, target: string): boolean => {
+  const targetIndex = CURRENT_STATUS_ORDER.indexOf(target as (typeof CURRENT_STATUS_ORDER)[number]);
+  if (targetIndex < 0) return false;
+
+  for (let i = targetIndex; i < CURRENT_STATUS_ORDER.length; i += 1) {
+    const status = CURRENT_STATUS_ORDER[i];
+    const field = TIMESTAMP_FIELDS_BY_STATUS[status];
+    if (field && hasNonEmptyString(job[field])) return true;
+  }
+  return false;
+};
+
 export function hasActionAlreadyApplied(
   job: ActionIdempotencyJob,
   config: ActionIdempotencyConfig
 ): boolean {
   const currentStatus = normalizedCurrentOrNull(job.current_status);
   if (currentStatus === config.currentStatus) return true;
-  if (currentStatus && hasReachedOrPassedStep(currentStatus, config.currentStatus)) return true;
   if (config.timestampField && hasNonEmptyString(job[config.timestampField])) return true;
   if (statusHistoryIncludes(job.status_history, config.currentStatus)) return true;
   if (config.currentStatus === 'delivered' && normalizeLifecycle(job.status) === 'delivered') return true;
+  if (currentStatus && hasReachedOrPassedStep(currentStatus, config.currentStatus)) {
+    // Corrupted/stale current_status alone is insufficient. Require additional
+    // server-side evidence that this target action really occurred.
+    return hasTimestampEvidenceFromTargetOrLater(job, config.currentStatus)
+      || statusHistoryIncludes(job.status_history, config.currentStatus);
+  }
   return false;
 }

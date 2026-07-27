@@ -127,6 +127,7 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
   const submitQuote = useCallback(async () => {
     if (!quoteJob) return;
     const amount = Number(quoteAmount.replace(',', '.'));
+    const bidKey = `bid-${quoteJob.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     if (!Number.isFinite(amount) || amount <= 0) {
       setError('Enter a valid quote amount.');
       return;
@@ -140,7 +141,7 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
         const queued = await enqueueAction(authUserId, {
           jobId: quoteJob.id,
           endpoint: 'bid',
-          payload: { amount, message: quoteMessage },
+          payload: { amount, message: quoteMessage, bidKey },
         });
         setJobs((current) => current.filter((job) => job.id !== quoteJob.id));
         setQuoteJob(null);
@@ -154,7 +155,7 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
       return;
     }
     try {
-      await submitLiveLoadQuote(quoteJob.id, amount, quoteMessage);
+      await submitLiveLoadQuote(quoteJob.id, amount, quoteMessage, bidKey);
       setJobs((current) => current.filter((job) => job.id !== quoteJob.id));
       setQuoteJob(null);
       Alert.alert('Quote sent', 'Your quote was submitted successfully.');
@@ -171,7 +172,7 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
           const queued = await enqueueAction(authUserId, {
             jobId: quoteJob.id,
             endpoint: 'bid',
-            payload: { amount, message: quoteMessage },
+            payload: { amount, message: quoteMessage, bidKey },
           });
           setJobs((current) => current.filter((job) => job.id !== quoteJob.id));
           setQuoteJob(null);

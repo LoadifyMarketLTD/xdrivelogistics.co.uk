@@ -23,6 +23,7 @@ export async function submitQueuedBid(jobId: string, token: string, payload: Rec
       jobId,
       amount: payload.amount,
       message: typeof payload.message === 'string' ? payload.message : undefined,
+      idempotencyKey: typeof payload.bidKey === 'string' ? payload.bidKey : undefined,
     },
   });
 }
@@ -89,6 +90,7 @@ export async function uploadPod(jobId: string, token: string, metadata: Record<s
     token,
     body: {
       ...metadata,
+      idempotencyKey: typeof metadata.podKey === 'string' ? metadata.podKey : undefined,
       photoUris,
       documentUris,
     },

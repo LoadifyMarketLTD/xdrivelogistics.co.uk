@@ -61,6 +61,7 @@ export type MobileJobRow = {
   job_distance_minutes: number | null;
   pod_required: boolean | null;
   pod_generated: boolean | null;
+  pod_submission_idempotency_key: string | null;
   on_my_way_at: string | null;
   on_site_pickup_at: string | null;
   loaded_at: string | null;
@@ -194,6 +195,7 @@ export const jobSelect = [
   'job_distance_minutes',
   'pod_required',
   'pod_generated',
+  'pod_submission_idempotency_key',
   'on_my_way_at',
   'on_site_pickup_at',
   'loaded_at',

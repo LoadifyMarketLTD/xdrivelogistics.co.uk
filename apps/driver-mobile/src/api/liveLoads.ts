@@ -126,7 +126,7 @@ export async function fetchActiveQuotedJobIds() {
   return new Set((data ?? []).map((row: { job_id: string }) => String(row.job_id)));
 }
 
-export async function submitLiveLoadQuote(jobId: string, amount: number | null, message?: string) {
+export async function submitLiveLoadQuote(jobId: string, amount: number | null, message?: string, idempotencyKey?: string) {
   const token = await accessToken();
   const response = await fetch(`${getApiBaseUrl()}/api/driver/mobile/bids`, {
     method: 'POST',
@@ -135,7 +135,7 @@ export async function submitLiveLoadQuote(jobId: string, amount: number | null, 
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ jobId, amount, message: message?.trim() || null }),
+    body: JSON.stringify({ jobId, amount, message: message?.trim() || null, idempotencyKey }),
   });
   const payload = await response.json().catch(() => ({})) as { error?: string };
   if (!response.ok) throw new Error(payload.error || `Unable to submit quote (HTTP ${response.status}).`);
