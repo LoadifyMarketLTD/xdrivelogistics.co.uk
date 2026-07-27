@@ -537,4 +537,104 @@ class PodSubmissionWorkflowTest {
         val recovered = store.getForOwnerJob("user-a", "job-initiated")!!
         assertEquals(PodSubmissionStore.EvidenceState.UPLOAD_INITIATED, recovered.evidence.first().state)
     }
+
+    // -------------------------------------------------------------------------
+    // 17. markEvidenceInitiated throws CommitFailed when backend fails
+    // -------------------------------------------------------------------------
+
+    @Test(expected = PodStorageException.CommitFailed::class)
+    fun `markEvidenceInitiated throws CommitFailed when backend commit returns false`() {
+        val backend = InMemoryPodStoreBackend()
+        val store = PodSubmissionStore(backend, true)
+        val evidenceId = "ev-00000000-aaaaaaaaaaaaaaaa"
+        // Record succeeds via the in-memory backend; then swap to a failing backend via a
+        // wrapper that fails all subsequent writes.
+        store.recordSubmission(submissionRecord(evidence = listOf(evidenceRecord(evidenceId = evidenceId))))
+
+        val failingBackend = object : PodStoreBackend {
+            override fun getString(key: String): String? = backend.getString(key)
+            override fun putStringSync(key: String, value: String): Boolean = false
+            override fun removeSync(key: String): Boolean = false
+            override fun allStrings(): Map<String, String> = backend.allStrings()
+        }
+        val failingStore = PodSubmissionStore(failingBackend, true)
+        // Seed the failing store with the record so it can find it.
+        backend.putStringSync(
+            "pod_sub_user-a_job-1",
+            com.google.gson.Gson().toJson(submissionRecord(evidence = listOf(evidenceRecord(evidenceId = evidenceId))))
+        )
+        failingStore.markEvidenceInitiated("user-a", "job-1", evidenceId)
+    }
+
+    // -------------------------------------------------------------------------
+    // 18. markEvidenceUploaded throws CommitFailed when backend fails
+    // -------------------------------------------------------------------------
+
+    @Test(expected = PodStorageException.CommitFailed::class)
+    fun `markEvidenceUploaded throws CommitFailed when backend commit returns false`() {
+        val backend = InMemoryPodStoreBackend()
+        val evidenceId = "ev-00000000-aaaaaaaaaaaaaaaa"
+        backend.putStringSync(
+            "pod_sub_user-a_job-1",
+            com.google.gson.Gson().toJson(submissionRecord(evidence = listOf(evidenceRecord(evidenceId = evidenceId))))
+        )
+        val failingBackend = object : PodStoreBackend {
+            override fun getString(key: String): String? = backend.getString(key)
+            override fun putStringSync(key: String, value: String): Boolean = false
+            override fun removeSync(key: String): Boolean = false
+            override fun allStrings(): Map<String, String> = backend.allStrings()
+        }
+        val store = PodSubmissionStore(failingBackend, true)
+        store.markEvidenceUploaded("user-a", "job-1", evidenceId, "job-1/photos/$evidenceId-test.jpg")
+    }
+
+    // -------------------------------------------------------------------------
+    // 19. Evidence appended to existing submission is persisted before upload
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `second evidence item is appended to existing submission record`() {
+        val store = makeStore()
+        val ev1 = evidenceRecord(
+            evidenceId = "ev-00000000-aaaaaaaaaaaaaaaa",
+            sha256 = "a".repeat(64),
+            localUri = "/data/user/0/co.uk.xdrivelogistics.driver/files/pod/user-a/job-1/ev-00000000-aaaaaaaaaaaaaaaa.jpg",
+        )
+        val original = submissionRecord(jobId = "job-1", evidence = listOf(ev1))
+        store.recordSubmission(original)
+
+        val ev2 = evidenceRecord(
+            evidenceId = "ev-00000000-bbbbbbbbbbbbbbbb",
+            sha256 = "b".repeat(64),
+            localUri = "/data/user/0/co.uk.xdrivelogistics.driver/files/pod/user-a/job-1/ev-00000000-bbbbbbbbbbbbbbbb.jpg",
+        )
+        val updatedEvidence = original.evidence.filter { it.evidenceId != ev2.evidenceId } + ev2
+        val updatedFp = "c".repeat(64)
+        store.recordSubmission(original.copy(evidence = updatedEvidence, payloadFingerprint = updatedFp))
+
+        val rec = store.getForOwnerJob("user-a", "job-1")
+        assertNotNull(rec)
+        assertEquals(2, rec!!.evidence.size)
+        assertTrue(rec.evidence.any { it.evidenceId == ev1.evidenceId })
+        assertTrue(rec.evidence.any { it.evidenceId == ev2.evidenceId })
+        assertEquals(updatedFp, rec.payloadFingerprint)
+    }
+
+    @Test
+    fun `appending evidence with same evidenceId replaces rather than duplicates`() {
+        val store = makeStore()
+        val evidenceId = "ev-00000000-aaaaaaaaaaaaaaaa"
+        val ev1 = evidenceRecord(evidenceId = evidenceId, sha256 = "a".repeat(64))
+        val original = submissionRecord(jobId = "job-1", evidence = listOf(ev1))
+        store.recordSubmission(original)
+
+        // Simulate deterministic replace: filter same ID then append new version.
+        val ev1Updated = ev1.copy(sha256Hex = "b".repeat(64))
+        val updatedEvidence = original.evidence.filter { it.evidenceId != evidenceId } + ev1Updated
+        store.recordSubmission(original.copy(evidence = updatedEvidence, payloadFingerprint = "d".repeat(64)))
+
+        val rec = store.getForOwnerJob("user-a", "job-1")!!
+        assertEquals(1, rec.evidence.size)
+        assertEquals("b".repeat(64), rec.evidence.first().sha256Hex)
+    }
 }

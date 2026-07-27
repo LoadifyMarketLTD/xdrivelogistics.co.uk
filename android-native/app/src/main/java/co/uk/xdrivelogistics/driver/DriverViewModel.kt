@@ -672,7 +672,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 kind = kind,
             )
             val existingRecord = podSubmissionStore.getForOwnerJob(session.userId, selectedJob.id)
+            val submissionFingerprint: String
             if (existingRecord == null) {
+                submissionFingerprint = initialFingerprint
                 try {
                     podSubmissionStore.recordSubmission(
                         PodSubmissionStore.PodSubmissionRecord(
@@ -695,6 +697,29 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     )
                     return@launch
                 }
+            } else {
+                // Append (or deterministically replace same evidenceId) into the existing record.
+                // Never upload evidence that is absent from the persisted submission.
+                val updatedEvidence = existingRecord.evidence.filter { it.evidenceId != evidenceId } + evidenceRecord
+                val updatedFingerprint = computeSha256Hex(
+                    (existingRecord.podKey + "|" +
+                        updatedEvidence.sortedBy { it.evidenceId }
+                            .joinToString("|") { "${it.evidenceId}:${it.sha256Hex}" } +
+                        "|" + existingRecord.recipientName).toByteArray()
+                )
+                submissionFingerprint = updatedFingerprint
+                try {
+                    podSubmissionStore.recordSubmission(
+                        existingRecord.copy(evidence = updatedEvidence, payloadFingerprint = updatedFingerprint)
+                    )
+                } catch (e: PodStorageException) {
+                    durableFile.delete()
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Failed to append evidence record: ${e.message}",
+                    )
+                    return@launch
+                }
             }
 
             // Phase 1: obtain server-issued signed upload URL.
@@ -708,7 +733,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 byteSize = bytes.size.toLong(),
                 kind = kind,
                 sha256Hex = sha256,
-                payloadFingerprint = initialFingerprint,
+                payloadFingerprint = submissionFingerprint,
             ).onFailure { error ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -719,7 +744,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 try {
                     podSubmissionStore.markEvidenceInitiated(session.userId, selectedJob.id, evidenceId)
                 } catch (e: PodStorageException) {
-                    // Non-fatal: continue upload — recovery will re-check state on restart.
+                    runCatching { podSubmissionStore.markBlocked(session.userId, selectedJob.id) }
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Failed to persist upload state. Evidence is safe; retry from the job.",
+                        blockedPodJobIds = _uiState.value.blockedPodJobIds + selectedJob.id,
+                    )
+                    return@launch
                 }
 
                 // Phase 2: upload bytes to the signed URL.
@@ -740,7 +771,15 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                                 initResult.path,
                             )
                         } catch (e: PodStorageException) {
-                            // Non-fatal: path will be missing from recovery record but upload succeeded.
+                            // Upload succeeded but state write failed — block for manual retry.
+                            // Recovery can safely re-init/re-upload with the same evidence ID and key.
+                            runCatching { podSubmissionStore.markBlocked(session.userId, selectedJob.id) }
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                error = "Evidence uploaded but state could not be saved. Manual retry required.",
+                                blockedPodJobIds = _uiState.value.blockedPodJobIds + selectedJob.id,
+                            )
+                            return@launch
                         }
 
                         if (isCollection) {
@@ -878,17 +917,30 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     sha256Hex = ev.sha256Hex,
                     payloadFingerprint = rec.payloadFingerprint,
                 ).onSuccess { initResult ->
-                    try {
+                    val initiatedOk = runCatching {
                         podSubmissionStore.markEvidenceInitiated(session.userId, rec.jobId, ev.evidenceId)
-                    } catch (e: PodStorageException) { /* non-fatal */ }
+                    }
+                    if (initiatedOk.isFailure) {
+                        runCatching { podSubmissionStore.markBlocked(session.userId, rec.jobId) }
+                        _uiState.value = _uiState.value.copy(
+                            blockedPodJobIds = _uiState.value.blockedPodJobIds + rec.jobId,
+                        )
+                        return@onSuccess
+                    }
 
                     api.uploadEvidenceBytes(initResult.signedUrl, bytes, ev.mimeType)
                         .onSuccess {
-                            try {
+                            val uploadedOk = runCatching {
                                 podSubmissionStore.markEvidenceUploaded(
                                     session.userId, rec.jobId, ev.evidenceId, initResult.path,
                                 )
-                            } catch (e: PodStorageException) { /* non-fatal */ }
+                            }
+                            if (uploadedOk.isFailure) {
+                                runCatching { podSubmissionStore.markBlocked(session.userId, rec.jobId) }
+                                _uiState.value = _uiState.value.copy(
+                                    blockedPodJobIds = _uiState.value.blockedPodJobIds + rec.jobId,
+                                )
+                            }
                         }
                 }
             }
