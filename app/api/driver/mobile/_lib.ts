@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import {
+  CANONICAL_DRIVER_OPERATIONAL_STATUSES,
+  mobileOperationalStatus,
+  normalizeDriverOperationalStatus,
+} from './_status';
 
 export const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -246,24 +251,15 @@ export function toMoney(value: number | string | null | undefined) {
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(amount);
 }
 
+export { CANONICAL_DRIVER_OPERATIONAL_STATUSES, normalizeDriverOperationalStatus };
+
 /**
  * Returns the canonical job status for the mobile client.
- * Prefers current_status (the driver workflow step) over the lifecycle status.
- * Legacy DB values written before the canonical rename are normalised here so
- * the client always receives the current canonical string:
- *   on_my_way   → on_my_way_to_pickup
- *   in_transit  → on_my_way_to_delivery
+ * Prefers current_status (driver operational state) over marketplace status.
+ * Legacy aliases are normalised to one canonical operational contract.
  */
 export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'>) {
-  const raw = String(job.current_status || '').toLowerCase().trim();
-  const current = raw === 'on_my_way' ? 'on_my_way_to_pickup'
-    : raw === 'in_transit' ? 'on_my_way_to_delivery'
-    : raw;
-  if (current) return current;
-  const fallback = String(job.status || 'awarded').toLowerCase().trim();
-  return fallback === 'on_my_way' ? 'on_my_way_to_pickup'
-    : fallback === 'in_transit' ? 'on_my_way_to_delivery'
-    : fallback;
+  return mobileOperationalStatus(job.current_status, job.status);
 }
 
 export function mapJob(row: MobileJobRow) {
@@ -274,6 +270,7 @@ export function mapJob(row: MobileJobRow) {
     id: row.id,
     reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
     status: mobileStatus(row),
+    marketplaceStatus: row.status,
     lifecycleStatus: row.status,
     pickupLocation: row.pickup_location || 'Pickup TBC',
     deliveryLocation: row.delivery_location || 'Delivery TBC',

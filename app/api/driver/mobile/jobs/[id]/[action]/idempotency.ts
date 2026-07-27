@@ -19,6 +19,10 @@ export type ActionIdempotencyJob = {
 };
 
 const CURRENT_STATUS_ORDER = [
+  'posted',
+  'quoted',
+  'awarded',
+  'allocated',
   'accepted',
   'on_my_way_to_pickup',
   'on_site_pickup',
@@ -30,8 +34,14 @@ const CURRENT_STATUS_ORDER = [
 
 export function normalizeCurrentStatus(value: unknown): string {
   const s = String(value ?? '').toLowerCase().trim();
+  if (s === 'assigned') return 'allocated';
   if (s === 'on_my_way') return 'on_my_way_to_pickup';
+  if (s === 'arrived_pickup') return 'on_site_pickup';
+  if (s === 'collected') return 'loaded';
   if (s === 'in_transit') return 'on_my_way_to_delivery';
+  if (s === 'on_route_delivery') return 'on_my_way_to_delivery';
+  if (s === 'arrived_delivery') return 'on_site_delivery';
+  if (s === 'completed' || s === 'invoiced' || s === 'paid') return 'delivered';
   return s;
 }
 
