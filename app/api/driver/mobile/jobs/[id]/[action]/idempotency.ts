@@ -1,5 +1,6 @@
 type StatusHistoryEntry = {
   status?: unknown;
+  lifecycle_status?: unknown;
 };
 
 export type ActionIdempotencyConfig = {
@@ -41,15 +42,12 @@ export function normalizeCurrentStatus(value: unknown): string {
   if (s === 'in_transit') return 'on_my_way_to_delivery';
   if (s === 'on_route_delivery') return 'on_my_way_to_delivery';
   if (s === 'arrived_delivery') return 'on_site_delivery';
-  if (s === 'completed' || s === 'invoiced' || s === 'paid') return 'delivered';
   return s;
 }
 
 export function normalizedCurrentOrNull(value: unknown): string | null {
   return normalizeCurrentStatus(value) || null;
 }
-
-const normalizeLifecycle = (value: unknown) => String(value ?? '').toLowerCase().trim();
 
 const hasNonEmptyString = (value: unknown): boolean =>
   typeof value === 'string' && value.trim().length > 0;
@@ -73,7 +71,11 @@ const statusHistoryIncludes = (history: unknown, target: string): boolean => {
   if (!Array.isArray(history)) return false;
   return history.some((entry) => {
     if (!entry || typeof entry !== 'object') return false;
-    return normalizeCurrentStatus((entry as StatusHistoryEntry).status) === target;
+    const e = entry as StatusHistoryEntry;
+    return (
+      normalizeCurrentStatus(e.lifecycle_status) === target ||
+      normalizeCurrentStatus(e.status) === target
+    );
   });
 };
 
@@ -97,7 +99,6 @@ export function hasActionAlreadyApplied(
   if (currentStatus === config.currentStatus) return true;
   if (config.timestampField && hasNonEmptyString(job[config.timestampField])) return true;
   if (statusHistoryIncludes(job.status_history, config.currentStatus)) return true;
-  if (config.currentStatus === 'delivered' && normalizeLifecycle(job.status) === 'delivered') return true;
   if (currentStatus && hasReachedOrPassedStep(currentStatus, config.currentStatus)) {
     // Corrupted/stale current_status alone is insufficient. Require additional
     // server-side evidence that this target action really occurred.
