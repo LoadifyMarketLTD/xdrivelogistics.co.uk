@@ -69,6 +69,8 @@ data class DriverUiState(
     val selectedJobId: String? = null,
     val jobSyncStates: Map<String, DriverJobSyncState> = emptyMap(),
     val availability: DriverAvailability? = null,
+    /** Non-null when the most recent availability load or refresh failed; null on success or before first load. */
+    val availabilityError: String? = null,
     val message: String = "",
     val error: String = "",
     /** Job IDs for which POD evidence has been uploaded but not yet finalised by the server. */
@@ -126,6 +128,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         jobs = emptyList(),
                         jobSyncStates = emptyMap(),
                         availability = null,
+                        availabilityError = null,
                         pendingPodJobIds = emptySet(),
                         blockedPodJobIds = emptySet(),
                         marketplaceSelectedJobId = null,
@@ -250,7 +253,12 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 val invoices = api.loadDriverInvoices(session, profile.companyId).getOrDefault(emptyList())
                 val nearbyDrivers = api.loadNearbyDrivers(session, profile.companyId).getOrDefault(emptyList())
                 val marketplaceJobs = api.loadNearbyMarketplaceJobs(session).getOrDefault(emptyList())
-                val availability = api.loadAvailability(session).getOrNull()
+                val availabilityResult = api.loadAvailability(session)
+                val loadedAvailability = availabilityResult.getOrNull()
+                val availabilityLoadError: String? = if (availabilityResult.isFailure) {
+                    availabilityResult.exceptionOrNull()?.friendlyDriverMessage("Availability could not be loaded.")
+                        ?: "Availability could not be loaded."
+                } else null
                 api.loadAssignedJobs(session, profile)
                     .onSuccess { jobs ->
                         val rememberedSelection = activeJobSelectionStore.readSelectedJobId(session.userId)
@@ -277,7 +285,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             jobSearchPreferences = preferences,
                             selectedJobId = selectedJobId,
                             jobSyncStates = jobSyncStatesForOwner(session.userId),
-                            availability = availability ?: _uiState.value.availability,
+                            availability = loadedAvailability ?: _uiState.value.availability,
+                            availabilityError = availabilityLoadError,
                         )
                     }
                     .onFailure { error ->
@@ -309,11 +318,16 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun refreshAndRetry(session: DriverSession) {
         api.refreshSession(session)
             .onSuccess { refreshed ->
+                // Guard: if current session is no longer this owner+token, discard the
+                // refreshed token. A stale A refresh must not overwrite B's session store.
+                if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
                 sessionStore.saveSession(refreshed)
                 _uiState.value = _uiState.value.copy(session = refreshed)
                 loadDriverDataWithSession(refreshed, allowRefresh = false)
             }
             .onFailure {
+                // Guard: do not clear B's session if A's token refresh failed after a switch.
+                if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
                 sessionStore.clear()
                 _uiState.value = DriverUiState(error = "Your session expired. Please sign in again.")
             }
@@ -1240,6 +1254,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
                         _uiState.value = _uiState.value.copy(
                             availability = updated,
+                            availabilityError = null,
                             message = "Availability set to ${newStatus.label}.",
                         )
                     }
@@ -1268,7 +1283,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             api.updateAvailabilitySlot(session, dayOfWeek, slot, available)
                 .onSuccess { updated ->
                     if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
-                        _uiState.value = _uiState.value.copy(availability = updated)
+                        _uiState.value = _uiState.value.copy(availability = updated, availabilityError = null)
                     }
                 }
                 .onFailure { error ->

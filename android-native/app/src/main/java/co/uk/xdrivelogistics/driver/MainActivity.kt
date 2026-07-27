@@ -2131,6 +2131,7 @@ private fun ProfileScreen(
         item {
             AvailabilityCard(
                 availability = state.availability,
+                availabilityError = state.availabilityError,
                 onSetStatus = onSetAvailabilityStatus,
                 onToggleSlot = onToggleAvailabilitySlot,
             )
@@ -2243,11 +2244,14 @@ private fun XDriveHeroMark() {
 @Composable
 private fun AvailabilityCard(
     availability: DriverAvailability?,
+    availabilityError: String?,
     onSetStatus: (DriverAvailabilityStatus) -> Unit,
     onToggleSlot: (Int, String, Boolean) -> Unit,
 ) {
     val statusOptions = DriverAvailabilityStatus.entries
-    val currentStatus = availability?.status ?: DriverAvailabilityStatus.OFFLINE
+    // Null availability means the server has not yet returned a confirmed status; do not
+    // highlight any option as active (OFFLINE must not appear active by default).
+    val currentStatus = availability?.status
     val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
     val slots = listOf("AM", "PM", "EVENING")
 
@@ -2259,10 +2263,11 @@ private fun AvailabilityCard(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             statusOptions.forEach { option ->
                 val isActive = option == currentStatus
-                val bgColor = when (option) {
-                    DriverAvailabilityStatus.AVAILABLE -> if (isActive) Success else Panel
-                    DriverAvailabilityStatus.BUSY -> if (isActive) Yellow else Panel
-                    DriverAvailabilityStatus.OFFLINE -> if (isActive) Danger else Panel
+                val bgColor = when {
+                    option == DriverAvailabilityStatus.AVAILABLE && isActive -> Success
+                    option == DriverAvailabilityStatus.BUSY && isActive -> Yellow
+                    option == DriverAvailabilityStatus.OFFLINE && isActive -> Danger
+                    else -> Panel
                 }
                 Button(
                     onClick = { onSetStatus(option) },
@@ -2280,9 +2285,17 @@ private fun AvailabilityCard(
         }
         if (availability == null) {
             Spacer(Modifier.height(8.dp))
-            Text("Loading availability…", color = TextSecondary, fontSize = 13.sp)
+            if (availabilityError != null) {
+                Text(availabilityError, color = Danger, fontSize = 13.sp)
+            } else {
+                Text("Loading availability…", color = TextSecondary, fontSize = 13.sp)
+            }
         } else {
             Spacer(Modifier.height(14.dp))
+            if (availabilityError != null) {
+                Text("⚠ $availabilityError", color = Yellow, fontSize = 12.sp)
+                Spacer(Modifier.height(6.dp))
+            }
             Text("Weekly Schedule", color = TextSecondary, fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 1.sp)
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth()) {

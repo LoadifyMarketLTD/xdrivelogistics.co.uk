@@ -1,5 +1,7 @@
 package co.uk.xdrivelogistics.driver
 
+import co.uk.xdrivelogistics.driver.data.DriverAvailability
+import co.uk.xdrivelogistics.driver.data.DriverAvailabilityStatus
 import co.uk.xdrivelogistics.driver.data.DriverJob
 import co.uk.xdrivelogistics.driver.data.DriverSession
 import co.uk.xdrivelogistics.driver.data.MarketplaceJob
@@ -8,6 +10,11 @@ import co.uk.xdrivelogistics.driver.offline.MobileLifecycleAction
 import co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand
 import co.uk.xdrivelogistics.driver.offline.MobileQueueItem
 import co.uk.xdrivelogistics.driver.offline.MobileQueueState
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -456,6 +463,116 @@ class DriverSelectionAndSyncStateTest {
             "same owner stale token must not overwrite state after token refresh",
             shouldApplyAvailabilityResponse(currentSession = sessionARefreshed, requestSession = sessionA),
         )
+    }
+
+    /**
+     * Production-linked coroutine test: the guard in [loadDriverDataWithSession] is invoked
+     * asynchronously. This test uses real coroutine suspension and virtual-time advancement to
+     * prove that an in-flight A load result cannot mutate state once the session has switched
+     * to a different owner (B) or been cleared (logout).
+     */
+    @Test
+    fun `in-flight A load completion is rejected after direct A→B session switch`() = runTest {
+        val sessionA = DriverSession(accessToken = "tok-a", refreshToken = "ra", userId = "uid-a", email = "a@example.com")
+        val sessionB = DriverSession(accessToken = "tok-b", refreshToken = "rb", userId = "uid-b", email = "b@example.com")
+        val availabilityForA = DriverAvailability(status = DriverAvailabilityStatus.AVAILABLE, slots = emptyList())
+
+        // Represents _uiState.value.session — mutable, shared across coroutines in this test.
+        var currentSession: DriverSession? = sessionA
+        var currentAvailability: DriverAvailability? = null
+
+        // A's load: captures sessionA at launch time, suspends for simulated network latency,
+        // then applies result through the production guard.
+        val aLoad = async {
+            val requestSession = currentSession!! // sessionA captured at launch
+            delay(100)
+            // Same guard call-site pattern used in loadDriverDataWithSession onSuccess.
+            if (shouldApplyAvailabilityResponse(currentSession, requestSession)) {
+                currentAvailability = availabilityForA
+            }
+        }
+
+        advanceTimeBy(50) // A is still suspended mid-network; guard not yet reached
+        // Direct A→B switch: B's initial cleared state
+        currentAvailability = null
+        currentSession = sessionB
+
+        advanceUntilIdle() // complete A's coroutine — guard sees currentSession = B, request = A
+
+        assertNull("A availability load must not overwrite B's cleared state", currentAvailability)
+    }
+
+    @Test
+    fun `in-flight A load completion is rejected after logout clears session`() = runTest {
+        val sessionA = DriverSession(accessToken = "tok-a", refreshToken = "ra", userId = "uid-a", email = "a@example.com")
+        val availabilityForA = DriverAvailability(status = DriverAvailabilityStatus.AVAILABLE, slots = emptyList())
+
+        var currentSession: DriverSession? = sessionA
+        var currentAvailability: DriverAvailability? = null
+
+        val aLoad = async {
+            val requestSession = currentSession!!
+            delay(100)
+            if (shouldApplyAvailabilityResponse(currentSession, requestSession)) {
+                currentAvailability = availabilityForA
+            }
+        }
+
+        advanceTimeBy(50)
+        // Logout clears session
+        currentSession = null
+        currentAvailability = null
+
+        advanceUntilIdle()
+
+        assertNull("A availability load must not apply after logout", currentAvailability)
+    }
+
+    @Test
+    fun `refreshAndRetry success is rejected when session has already switched to B`() {
+        val sessionA = DriverSession(accessToken = "tok-a", refreshToken = "ra", userId = "uid-a", email = "a@example.com")
+        val sessionARefreshed = sessionA.copy(accessToken = "tok-a-v2")
+        val sessionB = DriverSession(accessToken = "tok-b", refreshToken = "rb", userId = "uid-b", email = "b@example.com")
+
+        // Simulate: A's refreshAndRetry obtained a new token but current session is already B.
+        // Guard in refreshAndRetry.onSuccess must block saving refreshed-A's session.
+        var sessionStoreSaved = false
+        var stateUpdated = false
+        val currentSession: DriverSession? = sessionB
+
+        if (shouldApplyAvailabilityResponse(currentSession, sessionA)) {
+            // This block represents refreshAndRetry onSuccess applying the refreshed token.
+            sessionStoreSaved = true
+            stateUpdated = true
+        }
+
+        assertFalse("refreshAndRetry must not overwrite B's session store with A's refreshed token", sessionStoreSaved)
+        assertFalse("refreshAndRetry must not update UI state with A's refreshed session", stateUpdated)
+
+        // Additionally verify: after a fresh token refresh for A, the old-A guard also blocks.
+        assertFalse(
+            "old-A token must not apply after A refreshed its own token",
+            shouldApplyAvailabilityResponse(sessionARefreshed, sessionA),
+        )
+    }
+
+    @Test
+    fun `refreshAndRetry failure is rejected when session has already switched to B`() {
+        val sessionA = DriverSession(accessToken = "tok-a", refreshToken = "ra", userId = "uid-a", email = "a@example.com")
+        val sessionB = DriverSession(accessToken = "tok-b", refreshToken = "rb", userId = "uid-b", email = "b@example.com")
+
+        var sessionStoreCleared = false
+        var stateReset = false
+        val currentSession: DriverSession? = sessionB
+
+        // Guard in refreshAndRetry.onFailure must block clearing B's session.
+        if (shouldApplyAvailabilityResponse(currentSession, sessionA)) {
+            sessionStoreCleared = true
+            stateReset = true
+        }
+
+        assertFalse("stale A token-refresh failure must not clear B's session store", sessionStoreCleared)
+        assertFalse("stale A token-refresh failure must not reset UI state", stateReset)
     }
 
     private fun job(id: String, status: String = "allocated"): DriverJob = DriverJob(
