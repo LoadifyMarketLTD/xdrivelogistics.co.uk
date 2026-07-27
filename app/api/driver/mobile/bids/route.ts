@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import { resolveDriverBidEligibility } from '../../../driver/_lib/bidEligibility';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver, respond } from '../_lib';
+import { IDEMPOTENCY_CONFLICT_ERROR, isDeterministicBidReplay, type IncomingBidReplayIntent, type StoredBidReplayRow } from './idempotency';
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -37,16 +38,28 @@ export async function POST(request: NextRequest) {
   // See supabase/migrations/20260726060000_canonical_driver_type_architecture.sql
   if (message.length > 1_000) return respond(400, { error: 'Quote message is too long.' });
 
+  const incomingReplayIntent: IncomingBidReplayIntent = {
+    jobId,
+    bidderUserId: driver.userId,
+    bidderDriverId: driver.driverId,
+    amount: requestedAmount,
+    currency: 'GBP',
+    message,
+  };
+
   const { data: existingByKey, error: existingByKeyError } = await supabaseAdmin
     .from('job_bids')
-    .select('id,job_id')
+    .select('id,job_id,bidder_user_id,bidder_driver_id,amount,bid_price_gbp,currency,message')
     .eq('job_id', jobId)
     .eq('bidder_user_id', driver.userId)
     .eq('mobile_submission_idempotency_key', bidKey)
     .maybeSingle();
   if (existingByKeyError) return respond(500, { error: existingByKeyError.message });
   if (existingByKey) {
-    return respond(200, { success: true, bidId: existingByKey.id, jobId: existingByKey.job_id });
+    if (isDeterministicBidReplay(existingByKey as StoredBidReplayRow, incomingReplayIntent)) {
+      return respond(200, { success: true, bidId: existingByKey.id, jobId: existingByKey.job_id });
+    }
+    return respond(409, { error: IDEMPOTENCY_CONFLICT_ERROR });
   }
 
   let eligibilityResult: Awaited<ReturnType<typeof resolveDriverBidEligibility>>;
@@ -93,13 +106,18 @@ export async function POST(request: NextRequest) {
     if (insertError.code === '23505') {
       const { data: conflictBid, error: conflictError } = await supabaseAdmin
         .from('job_bids')
-        .select('id,job_id')
+        .select('id,job_id,bidder_user_id,bidder_driver_id,amount,bid_price_gbp,currency,message')
         .eq('job_id', jobId)
         .eq('bidder_user_id', driver.userId)
         .eq('mobile_submission_idempotency_key', bidKey)
         .maybeSingle();
       if (conflictError) return respond(500, { error: conflictError.message });
-      if (conflictBid) return respond(200, { success: true, bidId: conflictBid.id, jobId: conflictBid.job_id });
+      if (conflictBid) {
+        if (isDeterministicBidReplay(conflictBid as StoredBidReplayRow, incomingReplayIntent)) {
+          return respond(200, { success: true, bidId: conflictBid.id, jobId: conflictBid.job_id });
+        }
+        return respond(409, { error: IDEMPOTENCY_CONFLICT_ERROR });
+      }
     }
     if (insertError.code === '23505') return respond(409, { error: 'You already have an active quote for this job.' });
     return respond(500, { error: insertError.message });
