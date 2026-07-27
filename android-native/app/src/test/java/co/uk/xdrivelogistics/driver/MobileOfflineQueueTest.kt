@@ -10,15 +10,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MobileOfflineQueueTest {
-    private fun payload(endpoint: MobileMutationEndpoint, targetStatus: String): String {
-        return co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand.encode(endpoint.path, targetStatus)
-    }
+    private fun command(endpoint: MobileMutationEndpoint, targetStatus: String) =
+        co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand.fromEndpointAndStatus(endpoint.path, targetStatus)
+            ?: error("invalid test command")
+
+    private fun enqueue(
+        queue: MobileOfflineQueue,
+        ownerUserId: String,
+        driverId: String,
+        jobId: String,
+        endpoint: MobileMutationEndpoint,
+        targetStatus: String,
+        mutationKey: String,
+    ) = queue.enqueue(
+        ownerUserId = ownerUserId,
+        driverId = driverId,
+        jobId = jobId,
+        command = command(endpoint, targetStatus),
+        mutationKey = mutationKey,
+    )
 
     @Test
     fun `same job processes in fifo order`() {
         val queue = MobileOfflineQueue { 1_000L }
-        queue.enqueue("u1", "job-1", MobileMutationEndpoint.ACCEPT.path, payload(MobileMutationEndpoint.ACCEPT, "accepted"), "k1")
-        queue.enqueue("u1", "job-1", MobileMutationEndpoint.ON_MY_WAY_PICKUP.path, payload(MobileMutationEndpoint.ON_MY_WAY_PICKUP, "on_my_way_to_pickup"), "k2")
+        enqueue(queue, "u1", "d1", "job-1", MobileMutationEndpoint.ACCEPT, "accepted", "k1")
+        enqueue(queue, "u1", "d1", "job-1", MobileMutationEndpoint.ON_MY_WAY_PICKUP, "on_my_way_to_pickup", "k2")
 
         val first = queue.nextProcessable("u1", 5_000L)
         queue.markSynced(first!!.id)
@@ -31,9 +47,9 @@ class MobileOfflineQueueTest {
     @Test
     fun `permanent failure blocks later same-job actions while other job continues`() {
         val queue = MobileOfflineQueue { 1_000L }
-        val first = queue.enqueue("u1", "job-1", MobileMutationEndpoint.ACCEPT.path, payload(MobileMutationEndpoint.ACCEPT, "accepted"), "k1")
-        queue.enqueue("u1", "job-1", MobileMutationEndpoint.ON_MY_WAY_PICKUP.path, payload(MobileMutationEndpoint.ON_MY_WAY_PICKUP, "on_my_way_to_pickup"), "k2")
-        queue.enqueue("u1", "job-2", MobileMutationEndpoint.ACCEPT.path, payload(MobileMutationEndpoint.ACCEPT, "accepted"), "k3")
+        val first = enqueue(queue, "u1", "d1", "job-1", MobileMutationEndpoint.ACCEPT, "accepted", "k1")
+        enqueue(queue, "u1", "d1", "job-1", MobileMutationEndpoint.ON_MY_WAY_PICKUP, "on_my_way_to_pickup", "k2")
+        enqueue(queue, "u1", "d1", "job-2", MobileMutationEndpoint.ACCEPT, "accepted", "k3")
 
         queue.nextProcessable("u1", 5_000L)
         queue.markFailure(first.id, retryable = false, message = "409")
@@ -46,7 +62,7 @@ class MobileOfflineQueueTest {
     @Test
     fun `retryable failure keeps item pending`() {
         val queue = MobileOfflineQueue { 1_000L }
-        val item = queue.enqueue("u1", "job-1", MobileMutationEndpoint.ACCEPT.path, payload(MobileMutationEndpoint.ACCEPT, "accepted"), "k1")
+        val item = enqueue(queue, "u1", "d1", "job-1", MobileMutationEndpoint.ACCEPT, "accepted", "k1")
         queue.nextProcessable("u1", 5_000L)
         queue.markFailure(item.id, retryable = true, message = "timeout")
 
@@ -57,7 +73,7 @@ class MobileOfflineQueueTest {
     fun `lease recovery returns abandoned syncing item to pending`() {
         var now = 1_000L
         val queue = MobileOfflineQueue { now }
-        queue.enqueue("u1", "job-1", MobileMutationEndpoint.ACCEPT.path, payload(MobileMutationEndpoint.ACCEPT, "accepted"), "k1")
+        enqueue(queue, "u1", "d1", "job-1", MobileMutationEndpoint.ACCEPT, "accepted", "k1")
         val syncing = queue.nextProcessable("u1", leaseDurationMs = 100L)
         assertEquals(MobileQueueState.SYNCING, syncing?.state)
         now = 1_500L
@@ -69,8 +85,8 @@ class MobileOfflineQueueTest {
     @Test
     fun `account isolation prevents cross-account replay`() {
         val queue = MobileOfflineQueue { 1_000L }
-        queue.enqueue("u1", "job-1", MobileMutationEndpoint.ACCEPT.path, payload(MobileMutationEndpoint.ACCEPT, "accepted"), "k1")
-        queue.enqueue("u2", "job-2", MobileMutationEndpoint.ACCEPT.path, payload(MobileMutationEndpoint.ACCEPT, "accepted"), "k2")
+        enqueue(queue, "u1", "d1", "job-1", MobileMutationEndpoint.ACCEPT, "accepted", "k1")
+        enqueue(queue, "u2", "d2", "job-2", MobileMutationEndpoint.ACCEPT, "accepted", "k2")
 
         val firstForU2 = queue.nextProcessable("u2", 1_000L)
         assertEquals("u2", firstForU2?.ownerUserId)
@@ -80,44 +96,32 @@ class MobileOfflineQueueTest {
     @Test
     fun `dedupe collapses repeated taps`() {
         val queue = MobileOfflineQueue { 1_000L }
-        val first = queue.enqueue("u1", "job-1", MobileMutationEndpoint.ACCEPT.path, payload(MobileMutationEndpoint.ACCEPT, "accepted"), "same")
-        val second = queue.enqueue("u1", "job-1", MobileMutationEndpoint.ACCEPT.path, payload(MobileMutationEndpoint.ACCEPT, "accepted"), "same")
+        val first = enqueue(queue, "u1", "d1", "job-1", MobileMutationEndpoint.ACCEPT, "accepted", "same")
+        val second = enqueue(queue, "u1", "d1", "job-1", MobileMutationEndpoint.ACCEPT, "accepted", "same")
 
         assertEquals(first.id, second.id)
         assertEquals(1, queue.snapshot().size)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun `unknown endpoint is rejected`() {
-        val queue = MobileOfflineQueue { 1_000L }
-        queue.enqueue("u1", "job-1", "unknown-endpoint", "{}", "x")
-    }
-
     @Test
     fun `restore drops corrupt unknown endpoint records`() {
         val queue = MobileOfflineQueue { 1_000L }
+        val valid = enqueue(queue, "u1", "d1", "job-2", MobileMutationEndpoint.ACCEPT, "accepted", "d2")
         queue.restore(
             listOf(
                 MobileQueueItem(
                     id = "1",
                     ownerUserId = "u1",
+                    driverId = "d1",
                     jobId = "job-1",
-                    endpoint = "unknown-endpoint",
-                    payloadJson = payload(MobileMutationEndpoint.ACCEPT, "accepted"),
-                    dedupeKey = "d1",
+                    command = command(MobileMutationEndpoint.ACCEPT, "accepted"),
+                    mutationKey = "",
+                    payloadFingerprint = "invalid",
                     sequence = 1L,
+                    createdAtEpochMs = 1_000L,
                     updatedAtEpochMs = 1_000L,
                 ),
-                MobileQueueItem(
-                    id = "2",
-                    ownerUserId = "u1",
-                    jobId = "job-2",
-                    endpoint = MobileMutationEndpoint.ACCEPT.path,
-                    payloadJson = payload(MobileMutationEndpoint.ACCEPT, "accepted"),
-                    dedupeKey = "d2",
-                    sequence = 2L,
-                    updatedAtEpochMs = 1_000L,
-                ),
+                valid,
             )
         )
 
@@ -127,42 +131,63 @@ class MobileOfflineQueueTest {
         assertNull(queue.nextProcessable("u3", 1_000L))
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun `invalid endpoint status pairing is rejected`() {
-        val queue = MobileOfflineQueue { 1_000L }
-        queue.enqueue("u1", "job-1", MobileMutationEndpoint.ACCEPT.path, payload(MobileMutationEndpoint.ACCEPT, "loaded"), "x")
+        assertNull(
+            co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand.fromEndpointAndStatus(
+                MobileMutationEndpoint.ACCEPT.path,
+                "loaded",
+            )
+        )
     }
 
     @Test
     fun `restore quarantines endpoint payload mismatch`() {
         val queue = MobileOfflineQueue { 1_000L }
+        val valid = enqueue(queue, "u1", "d1", "job-2", MobileMutationEndpoint.ACCEPT, "accepted", "d2")
+        val tampered = enqueue(queue, "u1", "d1", "job-1", MobileMutationEndpoint.ACCEPT, "accepted", "d1").copy(
+            command = command(MobileMutationEndpoint.LOADED, "loaded"),
+        )
         queue.restore(
             listOf(
-                MobileQueueItem(
-                    id = "1",
-                    ownerUserId = "u1",
-                    jobId = "job-1",
-                    endpoint = MobileMutationEndpoint.ACCEPT.path,
-                    payloadJson = payload(MobileMutationEndpoint.LOADED, "loaded"),
-                    dedupeKey = "d1",
-                    sequence = 1L,
-                    updatedAtEpochMs = 1_000L,
-                ),
-                MobileQueueItem(
-                    id = "2",
-                    ownerUserId = "u1",
-                    jobId = "job-2",
-                    endpoint = MobileMutationEndpoint.ACCEPT.path,
-                    payloadJson = payload(MobileMutationEndpoint.ACCEPT, "accepted"),
-                    dedupeKey = "d2",
-                    sequence = 2L,
-                    updatedAtEpochMs = 1_000L,
-                ),
+                tampered,
+                valid,
             )
         )
 
         assertEquals(1, queue.snapshot().size)
         assertEquals("job-2", queue.snapshot().first().jobId)
         assertEquals("job-1", queue.quarantinedSnapshot().first().jobId)
+    }
+
+    @Test
+    fun `restore rejects unknown action command`() {
+        val queue = MobileOfflineQueue { 1_000L }
+        val valid = enqueue(queue, "u1", "d1", "job-2", MobileMutationEndpoint.ACCEPT, "accepted", "d2")
+        val unknownAction = valid.copy(
+            command = valid.command.copy(targetStatus = "unknown_status"),
+            payloadFingerprint = valid.payloadFingerprint,
+        )
+        queue.restore(listOf(unknownAction, valid))
+        assertEquals(1, queue.snapshot().size)
+        assertEquals(1, queue.quarantinedSnapshot().size)
+    }
+
+    @Test
+    fun `repeated restart keeps same pending commands stable`() {
+        val queue = MobileOfflineQueue { 1_000L }
+        enqueue(queue, "u1", "d1", "job-1", MobileMutationEndpoint.ACCEPT, "accepted", "d1")
+        enqueue(queue, "u1", "d1", "job-1", MobileMutationEndpoint.ON_MY_WAY_PICKUP, "on_my_way_to_pickup", "d2")
+        val snapshot = queue.snapshot()
+
+        queue.restore(snapshot)
+        val firstRestart = queue.snapshot()
+        queue.restore(firstRestart)
+        val secondRestart = queue.snapshot()
+
+        assertEquals(firstRestart, secondRestart)
+        assertEquals(2, secondRestart.size)
+        assertEquals(MobileMutationEndpoint.ACCEPT.path, secondRestart[0].endpoint)
+        assertEquals(MobileMutationEndpoint.ON_MY_WAY_PICKUP.path, secondRestart[1].endpoint)
     }
 }

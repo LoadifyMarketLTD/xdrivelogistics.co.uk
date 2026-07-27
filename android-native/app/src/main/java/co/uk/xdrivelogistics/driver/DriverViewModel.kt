@@ -217,6 +217,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun sendQuickNote(note: String, important: Boolean) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
+            val profile = _uiState.value.profile ?: run {
+                _uiState.value = _uiState.value.copy(error = "Driver profile is unavailable. Refresh and try again.")
+                return@launch
+            }
             val jobId = _uiState.value.selectedJobId
             if (jobId.isNullOrBlank()) {
                 _uiState.value = _uiState.value.copy(error = "Select a job first.")
@@ -368,13 +372,14 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 .onFailure { error ->
                     if (error is MobileApiException && error.retryable) {
                         val endpoint = DriverLifecycleTransitions.mobileActionFor(nextStatus)
-                        if (endpoint != null) {
+                        val command = endpoint?.let { MobileLifecycleCommand.fromEndpointAndStatus(it, nextStatus) }
+                        if (command != null) {
                             mutationQueue.enqueue(
                                 ownerUserId = session.userId,
+                                driverId = profile.driverId,
                                 jobId = jobId,
-                                endpoint = endpoint,
-                                payloadJson = MobileLifecycleCommand.encode(endpoint = endpoint, targetStatus = nextStatus),
-                                dedupeKey = "${session.userId}:$jobId:$nextStatus",
+                                command = command,
+                                mutationKey = "lifecycle:${session.userId}:${profile.driverId}:$jobId:${command.action.name}",
                             )
                             queueStore.saveAll(mutationQueue.snapshot())
                             _uiState.value = _uiState.value.copy(
@@ -396,17 +401,16 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         while (keepFlushing) {
             val item = mutationQueue.nextProcessable(ownerUserId = session.userId, leaseDurationMs = 45_000L)
                 ?: break
-            val command = MobileLifecycleCommand.decode(item.endpoint, item.payloadJson)
-            if (command == null) {
+            if (item.driverId != profile.driverId || item.ownerUserId != session.userId) {
                 mutationQueue.markFailure(
                     itemId = item.id,
                     retryable = false,
-                    message = "Invalid queued lifecycle payload for endpoint ${item.endpoint}.",
+                    message = "Queued item ownership mismatch.",
                 )
                 queueStore.saveAll(mutationQueue.snapshot())
                 continue
             }
-            val nextStatus = command.targetStatus
+            val nextStatus = item.command.targetStatus
             api.updateJobStatus(session, item.jobId, nextStatus)
                 .onSuccess {
                     mutationQueue.markSynced(item.id)
