@@ -20,6 +20,8 @@ import co.uk.xdrivelogistics.driver.jobs.DriverLifecycleTransitions
 import co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand
 import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueue
 import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueueStore
+import co.uk.xdrivelogistics.driver.offline.MobileQueueItem
+import co.uk.xdrivelogistics.driver.offline.MobileQueueState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,12 +56,20 @@ data class DriverUiState(
     val jobSearchPreferences: Map<String, String> = emptyMap(),
     val selectedTab: DriverTab = DriverTab.NEARBY,
     val selectedJobId: String? = null,
+    val jobSyncStates: Map<String, DriverJobSyncState> = emptyMap(),
     val message: String = "",
     val error: String = "",
 )
 
+data class DriverJobSyncState(
+    val state: MobileQueueState,
+    val targetStatus: String,
+    val lastError: String = "",
+)
+
 class DriverViewModel(application: Application) : AndroidViewModel(application) {
     private val sessionStore = SessionStore(application.applicationContext)
+    private val activeJobSelectionStore = ActiveJobSelectionStore(application.applicationContext)
     private val queueStore = MobileOfflineQueueStore(application.applicationContext)
     private val mutationQueue = MobileOfflineQueue()
     private val api = ApiClient(
@@ -138,6 +148,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 
     fun selectJob(jobId: String) {
         _uiState.value = _uiState.value.copy(selectedJobId = jobId)
+        _uiState.value.session?.let { session ->
+            activeJobSelectionStore.saveSelectedJobId(session.userId, jobId)
+        }
     }
 
     fun refreshDriverData() {
@@ -162,6 +175,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 val nearbyDrivers = api.loadNearbyDrivers(session, profile.companyId).getOrDefault(emptyList())
                 api.loadAssignedJobs(session, profile)
                     .onSuccess { jobs ->
+                        val rememberedSelection = activeJobSelectionStore.readSelectedJobId(session.userId)
+                        val selectedJobId = resolveSelectedJobId(
+                            currentSelectedJobId = _uiState.value.selectedJobId,
+                            rememberedSelectedJobId = rememberedSelection,
+                            jobs = jobs,
+                        )
+                        if (selectedJobId == null) activeJobSelectionStore.clearSelectedJobId(session.userId)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             session = session,
@@ -174,7 +194,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             invoices = invoices,
                             nearbyDrivers = nearbyDrivers,
                             jobSearchPreferences = preferences,
-                            selectedJobId = _uiState.value.selectedJobId ?: jobs.firstOrNull()?.id,
+                            selectedJobId = selectedJobId,
+                            jobSyncStates = jobSyncStatesForOwner(session.userId),
                         )
                     }
                     .onFailure { error ->
@@ -381,7 +402,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                                 command = command,
                                 mutationKey = "lifecycle:${session.userId}:${profile.driverId}:$jobId:${command.action.name}",
                             )
-                            queueStore.saveAll(mutationQueue.snapshot())
+                            persistQueueAndSyncState(session.userId)
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 message = "No stable connection. Action queued securely and will retry automatically.",
@@ -407,7 +428,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     retryable = false,
                     message = "Queued item ownership mismatch.",
                 )
-                queueStore.saveAll(mutationQueue.snapshot())
+                persistQueueAndSyncState(session.userId)
                 continue
             }
             val nextStatus = item.command.targetStatus
@@ -425,9 +446,17 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     )
                     if (retryable) keepFlushing = false
                 }
-            queueStore.saveAll(mutationQueue.snapshot())
+            persistQueueAndSyncState(session.userId)
         }
     }
+
+    private fun persistQueueAndSyncState(ownerUserId: String) {
+        queueStore.saveAll(mutationQueue.snapshot())
+        _uiState.value = _uiState.value.copy(jobSyncStates = jobSyncStatesForOwner(ownerUserId))
+    }
+
+    private fun jobSyncStatesForOwner(ownerUserId: String): Map<String, DriverJobSyncState> =
+        deriveJobSyncStates(ownerUserId, mutationQueue.snapshot())
 
     fun submitQuoteForSelectedJob(amountText: String, note: String) {
         viewModelScope.launch {
@@ -604,6 +633,39 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 }
+
+internal fun resolveSelectedJobId(
+    currentSelectedJobId: String?,
+    rememberedSelectedJobId: String?,
+    jobs: List<DriverJob>,
+): String? {
+    val available = jobs.map { it.id }.toSet()
+    return when {
+        !currentSelectedJobId.isNullOrBlank() && currentSelectedJobId in available -> currentSelectedJobId
+        !rememberedSelectedJobId.isNullOrBlank() && rememberedSelectedJobId in available -> rememberedSelectedJobId
+        else -> null
+    }
+}
+
+internal fun deriveJobSyncStates(
+    ownerUserId: String,
+    queueItems: List<MobileQueueItem>,
+): Map<String, DriverJobSyncState> =
+    queueItems
+        .filter { it.ownerUserId == ownerUserId }
+        .sortedBy { it.sequence }
+        .groupBy { it.jobId }
+        .mapNotNull { (jobId, items) ->
+            val nextUnsynced = items.firstOrNull { it.state != MobileQueueState.SYNCED }
+            nextUnsynced?.let {
+                jobId to DriverJobSyncState(
+                    state = it.state,
+                    targetStatus = it.command.targetStatus,
+                    lastError = it.lastError,
+                )
+            }
+        }
+        .toMap()
 
 private fun isValidTransition(currentRaw: String, next: String): Boolean {
     return DriverLifecycleTransitions.isValidTransition(currentRaw, next)

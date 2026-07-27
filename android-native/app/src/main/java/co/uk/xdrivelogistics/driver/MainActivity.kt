@@ -85,6 +85,7 @@ import co.uk.xdrivelogistics.driver.data.DriverJob
 import co.uk.xdrivelogistics.driver.data.DriverDocument
 import co.uk.xdrivelogistics.driver.data.DriverBid
 import co.uk.xdrivelogistics.driver.data.DriverNotification
+import co.uk.xdrivelogistics.driver.offline.MobileQueueState
 import com.google.android.gms.location.LocationServices
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -504,15 +505,16 @@ private fun DriverAppShell(
                 DriverTab.JOBS -> MyJobsScreen(state, onJobSelected, onTabChange, onMoveStatus, onSubmitQuote)
                 DriverTab.SMARTPAY -> SmartPayScreen(state)
                 DriverTab.ACTION -> ActionScreen(
-            state,
-            onSendNote,
-            onSubmitQuote,
-            onPickPodFile,
-            onCapturePodPhoto,
-            onConfirmDeliveryRecipient,
-            onMoveStatus,
-            onNavigateTo,
-        )
+                    state = state,
+                    onJobSelected = onJobSelected,
+                    onSendNote = onSendNote,
+                    onSubmitQuote = onSubmitQuote,
+                    onPickPodFile = onPickPodFile,
+                    onCapturePodPhoto = onCapturePodPhoto,
+                    onConfirmDeliveryRecipient = onConfirmDeliveryRecipient,
+                    onMoveStatus = onMoveStatus,
+                    onNavigateTo = onNavigateTo,
+                )
                 DriverTab.MESSAGES -> MessagesScreen(state, onSendNote, onMarkAlertRead, onDeleteAlert)
                 DriverTab.PROFILE -> ProfileScreen(state, onUpdatePassword, onLogout, onPickComplianceDocument, onSaveReturnJourney, onStartTracking, onStopTracking)
             }
@@ -1069,6 +1071,7 @@ private fun DriverBid.quoteStatusColor(): Color =
 @Composable
 private fun ActionScreen(
     state: DriverUiState,
+    onJobSelected: (String) -> Unit,
     onSendNote: (String, Boolean) -> Unit,
     onSubmitQuote: (String, String) -> Unit,
     onPickPodFile: () -> Unit,
@@ -1077,7 +1080,8 @@ private fun ActionScreen(
     onMoveStatus: (String) -> Unit,
     onNavigateTo: (String) -> Unit,
 ) {
-    val selected = state.jobs.firstOrNull { it.id == state.selectedJobId } ?: state.jobs.firstOrNull()
+    val selected = state.jobs.firstOrNull { it.id == state.selectedJobId }
+    val activeJobs = state.jobs.filter { !it.isPosted() && it.isActive() }
     var note by remember { mutableStateOf("") }
     var important by remember { mutableStateOf(false) }
     var detailTab by remember { mutableStateOf("Summary") }
@@ -1100,6 +1104,14 @@ private fun ActionScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
+            ActiveJobsSelectorCard(
+                jobs = activeJobs,
+                selectedJobId = state.selectedJobId,
+                syncStates = state.jobSyncStates,
+                onSelectJob = onJobSelected,
+            )
+        }
+        item {
             XDriveCard {
                 Text("Job Details", color = TextSecondary, fontSize = 13.sp)
                 Text(selected?.routeLabel() ?: "No job selected", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -1114,20 +1126,20 @@ private fun ActionScreen(
         }
         item { SegmentedTabs(listOf("Summary", "Stops", "Status", "POD"), detailTab) { detailTab = it } }
         if (selected == null) {
-            item { EmptyState("No job selected.", "Open a posted job from Nearby to view details or send a quote.") }
+            item { EmptyState("No job selected.", "Choose an active job from the selector to continue.") }
         } else {
             when (detailTab) {
                 "Summary" -> item { JobSummaryPanel(selected, onSubmitQuote) }
                 "Stops" -> item { JobStopsPanel(selected, onNavigateTo) }
-                "Status" -> item { JobStatusPanel(selected, onMoveStatus, onSubmitQuote) }
+                "Status" -> item { JobStatusPanel(selected, state.jobSyncStates[selected.id], onMoveStatus, onSubmitQuote) }
                 "POD" -> item {
-            PodPanel(
-                selected,
-                onCapturePodPhoto,
-                onPickPodFile,
-                onConfirmDeliveryRecipient,
-            )
-        }
+                    PodPanel(
+                        selected,
+                        onCapturePodPhoto,
+                        onPickPodFile,
+                        onConfirmDeliveryRecipient,
+                    )
+                }
             }
         }
         item {
@@ -1147,6 +1159,47 @@ private fun ActionScreen(
                         onSendNote(note, important)
                         note = ""
                         important = false
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActiveJobsSelectorCard(
+    jobs: List<DriverJob>,
+    selectedJobId: String?,
+    syncStates: Map<String, DriverJobSyncState>,
+    onSelectJob: (String) -> Unit,
+) {
+    XDriveCard {
+        Text("Active Jobs", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        if (jobs.isEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text("No active jobs available. Select a posted load from Nearby when work is awarded.", color = TextSecondary, fontSize = 13.sp)
+            return@XDriveCard
+        }
+        Spacer(Modifier.height(10.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(jobs, key = { it.id }) { job ->
+                val selected = job.id == selectedJobId
+                val localSync = syncStates[job.id]
+                Card(
+                    modifier = Modifier
+                        .width(240.dp)
+                        .clickable { onSelectJob(job.id) },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = if (selected) Blue.copy(alpha = 0.22f) else Navy2),
+                    border = BorderStroke(1.dp, if (selected) Yellow else Border),
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(job.routeLabel(), color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(job.pickupDatetime.marketplaceTime(), color = TextSecondary, fontSize = 12.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            BadgeText(job.statusLabel(), Blue)
+                            BadgeText(localSync?.state?.syncLabel() ?: "Synced", localSync?.state?.syncColor() ?: Success)
+                        }
                     }
                 }
             }
@@ -1480,7 +1533,12 @@ private fun QuoteBoxLight(onSubmitQuote: (String, String) -> Unit) {
 }
 
 @Composable
-private fun JobStatusPanel(job: DriverJob, onMoveStatus: (String) -> Unit, onSubmitQuote: (String, String) -> Unit) {
+private fun JobStatusPanel(
+    job: DriverJob,
+    localSyncState: DriverJobSyncState?,
+    onMoveStatus: (String) -> Unit,
+    onSubmitQuote: (String, String) -> Unit,
+) {
     XDriveCard {
         Text("Status History", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(Modifier.height(10.dp))
@@ -1489,6 +1547,20 @@ private fun JobStatusPanel(job: DriverJob, onMoveStatus: (String) -> Unit, onSub
             Spacer(Modifier.height(12.dp))
             QuoteBox(onSubmitQuote)
         } else {
+            Text("Server confirmed: ${job.statusLabel()}", color = TextSecondary, fontSize = 13.sp)
+            Text(
+                buildString {
+                    append("Local sync: ")
+                    append(localSyncState?.state?.syncLabel() ?: "Synced")
+                    if (localSyncState != null) append(" -> ${localSyncState.targetStatus.statusLabel()}")
+                },
+                color = if (localSyncState?.state == null) TextSecondary else localSyncState.state.syncColor(),
+                fontSize = 13.sp,
+            )
+            if (!localSyncState?.lastError.isNullOrBlank()) {
+                Text("Latest local sync error: ${localSyncState?.lastError}", color = Yellow, fontSize = 12.sp)
+            }
+            Spacer(Modifier.height(8.dp))
             StatusTimeline(job.driverStatusKey())
             Spacer(Modifier.height(12.dp))
             Button(
@@ -2681,6 +2753,22 @@ private fun DriverJob.nextActionLabel(): String = when (nextStatus()) {
 
 private fun DriverJob.canMoveNext(): Boolean =
     nextStatus().isNotBlank() && (nextStatus() != "delivered" || hasPod())
+
+private fun MobileQueueState.syncLabel(): String = when (this) {
+    MobileQueueState.PENDING -> "Pending"
+    MobileQueueState.SYNCING -> "Syncing"
+    MobileQueueState.BLOCKED -> "Blocked"
+    MobileQueueState.PERMANENT_FAILURE -> "Permanent Failure"
+    MobileQueueState.SYNCED -> "Synced"
+}
+
+private fun MobileQueueState.syncColor(): Color = when (this) {
+    MobileQueueState.PENDING -> Yellow
+    MobileQueueState.SYNCING -> Blue
+    MobileQueueState.BLOCKED,
+    MobileQueueState.PERMANENT_FAILURE -> Danger
+    MobileQueueState.SYNCED -> Success
+}
 
 private fun MainActivity.hasForegroundLocationPermission(): Boolean {
     val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
