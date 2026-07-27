@@ -429,7 +429,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                                 driverId = profile.driverId,
                                 jobId = jobId,
                                 command = command,
-                                mutationKey = "lifecycle:${session.userId}:${profile.driverId}:$jobId:${command.action.name}",
+                                mutationKey = "lifecycle:${session.userId}:${profile.driverId}:$jobId:${command.action?.name ?: nextStatus}",
                             )
                             persistQueueAndSyncState(session.userId)
                             _uiState.value = _uiState.value.copy(

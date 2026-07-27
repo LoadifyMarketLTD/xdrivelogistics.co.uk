@@ -111,35 +111,37 @@ data class MobileLifecycleCommand(
         null -> ""
     }
 
-    fun fingerprintFields(): List<String>? = when (inferredKind()) {
-        MobileMutationKind.LIFECYCLE -> {
-            val lifecycleAction = action ?: return null
-            val lifecycleTarget = targetStatus?.trim().orEmpty()
-            listOf(
-                MobileMutationKind.LIFECYCLE.name,
-                lifecycleAction.name,
-                lifecycleTarget,
-            )
+    fun fingerprintFields(): List<String>? {
+        return when (inferredKind()) {
+            MobileMutationKind.LIFECYCLE -> {
+                val lifecycleAction = action ?: return null
+                val lifecycleTarget = targetStatus?.trim().orEmpty()
+                listOf(
+                    MobileMutationKind.LIFECYCLE.name,
+                    lifecycleAction.name,
+                    lifecycleTarget,
+                )
+            }
+            MobileMutationKind.BID -> {
+                val bidPayload = bid ?: return null
+                listOf(
+                    MobileMutationKind.BID.name,
+                    java.math.BigDecimal.valueOf(bidPayload.amount).stripTrailingZeros().toPlainString(),
+                    bidPayload.currency.trim().uppercase(Locale.ROOT),
+                    bidPayload.message.trim(),
+                    bidPayload.bidKey.trim(),
+                )
+            }
+            MobileMutationKind.POD -> {
+                val podPayload = pod ?: return null
+                listOf(
+                    MobileMutationKind.POD.name,
+                    podPayload.evidencePath.trim(),
+                    podPayload.recipientName?.trim().orEmpty(),
+                )
+            }
+            null -> null
         }
-        MobileMutationKind.BID -> {
-            val bidPayload = bid ?: return null
-            listOf(
-                MobileMutationKind.BID.name,
-                java.math.BigDecimal.valueOf(bidPayload.amount).stripTrailingZeros().toPlainString(),
-                bidPayload.currency.trim().uppercase(Locale.ROOT),
-                bidPayload.message.trim(),
-                bidPayload.bidKey.trim(),
-            )
-        }
-        MobileMutationKind.POD -> {
-            val podPayload = pod ?: return null
-            listOf(
-                MobileMutationKind.POD.name,
-                podPayload.evidencePath.trim(),
-                podPayload.recipientName?.trim().orEmpty(),
-            )
-        }
-        null -> null
     }
 
     companion object {
