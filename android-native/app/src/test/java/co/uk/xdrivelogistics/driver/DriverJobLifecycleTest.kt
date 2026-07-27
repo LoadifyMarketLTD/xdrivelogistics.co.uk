@@ -9,11 +9,12 @@ import org.junit.Test
 
 class DriverJobLifecycleTest {
     @Test
-    fun `canonical chain includes in transit`() {
-        assertEquals("on_my_way", job("allocated").nextStatus())
-        assertEquals("on_my_way", job("awarded").nextStatus())
-        assertEquals("in_transit", job("loaded").nextStatus())
-        assertEquals("on_site_delivery", job("in_transit").nextStatus())
+    fun `canonical chain includes accepted and delivery transit`() {
+        assertEquals("accepted", job("allocated").nextStatus())
+        assertEquals("accepted", job("awarded").nextStatus())
+        assertEquals("on_my_way_to_pickup", job("accepted").nextStatus())
+        assertEquals("on_my_way_to_delivery", job("loaded").nextStatus())
+        assertEquals("on_site_delivery", job("on_my_way_to_delivery").nextStatus())
     }
 
     @Test
@@ -53,7 +54,7 @@ class DriverJobLifecycleTest {
 
     @Test
     fun `legacy aliases normalize without skipping a step`() {
-        assertEquals("in_transit", job("on_route_delivery").driverStatusKey())
+        assertEquals("on_my_way_to_delivery", job("on_route_delivery").driverStatusKey())
         assertEquals("on_site_delivery", job("arrived_delivery").driverStatusKey())
     }
 

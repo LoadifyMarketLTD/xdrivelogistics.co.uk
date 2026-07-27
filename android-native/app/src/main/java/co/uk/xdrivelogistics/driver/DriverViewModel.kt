@@ -12,8 +12,12 @@ import co.uk.xdrivelogistics.driver.data.DriverProfile
 import co.uk.xdrivelogistics.driver.data.DriverReturnJourney
 import co.uk.xdrivelogistics.driver.data.DriverInvoice
 import co.uk.xdrivelogistics.driver.data.DriverSession
+import co.uk.xdrivelogistics.driver.data.MobileApiHttpException
 import co.uk.xdrivelogistics.driver.data.NearbyDriver
 import co.uk.xdrivelogistics.driver.data.SessionStore
+import co.uk.xdrivelogistics.driver.jobs.DriverLifecycleTransitions
+import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueue
+import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueueStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,6 +58,8 @@ data class DriverUiState(
 
 class DriverViewModel(application: Application) : AndroidViewModel(application) {
     private val sessionStore = SessionStore(application.applicationContext)
+    private val queueStore = MobileOfflineQueueStore(application.applicationContext)
+    private val mutationQueue = MobileOfflineQueue()
     private val api = ApiClient(
         xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
         supabaseUrl = BuildConfig.SUPABASE_URL,
@@ -65,6 +71,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private var liveRefreshJob: kotlinx.coroutines.Job? = null
 
     init {
+        mutationQueue.restore(queueStore.readAll())
         viewModelScope.launch {
             sessionStore.session.collectLatest { persisted ->
                 if (persisted == null) {
@@ -142,6 +149,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun loadDriverDataWithSession(session: DriverSession, allowRefresh: Boolean) {
         api.resolveDriverProfile(session)
             .onSuccess { profile ->
+                flushQueuedLifecycleMutations(session, profile)
                 val documents = api.loadDriverDocuments(session, profile).getOrDefault(emptyList())
                 val preferences = api.loadJobSearchPreferences(session, profile.driverId).getOrDefault(emptyMap())
                 val bids = api.loadDriverBids(session, profile).getOrDefault(emptyList())
@@ -346,7 +354,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
 
-            api.updateJobStatus(session, profile.driverId, jobId, nextStatus)
+            api.updateJobStatus(session, jobId, nextStatus)
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -355,18 +363,58 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     refreshDriverData()
                 }
                 .onFailure { error ->
+                    if (error is MobileApiHttpException && error.retryable) {
+                        val endpoint = DriverLifecycleTransitions.mobileActionFor(nextStatus)
+                        if (endpoint != null) {
+                            mutationQueue.enqueue(
+                                ownerUserId = session.userId,
+                                jobId = jobId,
+                                endpoint = endpoint,
+                                payloadJson = nextStatus,
+                                dedupeKey = "${session.userId}:$jobId:$nextStatus",
+                            )
+                            queueStore.saveAll(mutationQueue.snapshot())
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                message = "No stable connection. Action queued securely and will retry automatically.",
+                            )
+                            return@onFailure
+                        }
+                    }
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = error.friendlyDriverMessage("Failed to update job status."),
                     )
                 }
+    }
+
+    private suspend fun flushQueuedLifecycleMutations(session: DriverSession, profile: DriverProfile) {
+        var keepFlushing = true
+        while (keepFlushing) {
+            val item = mutationQueue.nextProcessable(ownerUserId = session.userId, leaseDurationMs = 45_000L)
+                ?: break
+            val nextStatus = item.payloadJson
+            api.updateJobStatus(session, item.jobId, nextStatus)
+                .onSuccess {
+                    mutationQueue.markSynced(item.id)
+                    mutationQueue.pruneSynced(maxAgeMs = 7L * 24L * 60L * 60L * 1000L)
+                }
+                .onFailure { error ->
+                    val retryable = (error as? MobileApiHttpException)?.retryable == true
+                    mutationQueue.markFailure(
+                        itemId = item.id,
+                        retryable = retryable,
+                        message = error.message.orEmpty(),
+                    )
+                    if (retryable) keepFlushing = false
+                }
+            queueStore.saveAll(mutationQueue.snapshot())
         }
     }
 
     fun submitQuoteForSelectedJob(amountText: String, note: String) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-            val profile = _uiState.value.profile ?: return@launch
             val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
             if (selectedJob == null) {
                 _uiState.value = _uiState.value.copy(error = "Select a posted job first.")
@@ -383,7 +431,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.submitJobQuote(session, profile, selectedJob.id, amount, note.trim())
+            api.submitJobQuote(session, selectedJob.id, amount, note.trim())
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -541,28 +589,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 }
 
 private fun isValidTransition(currentRaw: String, next: String): Boolean {
-    val current = normalizeDriverStatus(currentRaw)
-    return when (next) {
-        "on_my_way" -> current in listOf("allocated", "awarded")
-        "on_site_pickup" -> current == "on_my_way"
-        "loaded" -> current == "on_site_pickup"
-        "in_transit" -> current == "loaded"
-        "on_site_delivery" -> current == "in_transit"
-        "delivered" -> current == "on_site_delivery"
-        "completed" -> current == "delivered"
-        else -> false
-    }
+    return DriverLifecycleTransitions.isValidTransition(currentRaw, next)
 }
-
-private fun normalizeDriverStatus(raw: String): String =
-    when (raw.lowercase().ifBlank { "assigned" }) {
-        "assigned", "accepted" -> "allocated"
-        "arrived_pickup" -> "on_site_pickup"
-        "collected" -> "loaded"
-        "on_route_delivery", "on_my_way_to_delivery" -> "in_transit"
-        "arrived_delivery" -> "on_site_delivery"
-        else -> raw.lowercase().ifBlank { "assigned" }
-    }
 
 private fun Throwable.isSessionError(): Boolean {
     val text = message.orEmpty().lowercase()

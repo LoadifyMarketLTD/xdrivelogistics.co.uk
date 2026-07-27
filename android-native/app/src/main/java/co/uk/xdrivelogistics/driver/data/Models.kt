@@ -1,5 +1,8 @@
 package co.uk.xdrivelogistics.driver.data
 
+import co.uk.xdrivelogistics.driver.jobs.DriverLifecycleTransitions
+import co.uk.xdrivelogistics.driver.jobs.CanonicalDriverLifecycleStatus
+
 data class DriverSession(
     val accessToken: String,
     val refreshToken: String,
@@ -44,20 +47,17 @@ data class DriverJob(
 ) {
     fun statusKey(): String = currentStatus.ifBlank { status }.lowercase()
 
-    fun driverStatusKey(): String = when (statusKey()) {
-        "assigned", "accepted" -> "allocated"
-        "arrived_pickup" -> "on_site_pickup"
-        "collected" -> "loaded"
-        "on_route_delivery", "on_my_way_to_delivery" -> "in_transit"
-        "arrived_delivery" -> "on_site_delivery"
-        else -> statusKey()
-    }
+    fun driverStatusKey(): String = CanonicalDriverLifecycleStatus
+        .fromRaw(statusKey())
+        ?.wireValue
+        ?: statusKey()
 
     fun isInProgress(): Boolean = driverStatusKey() in listOf(
-        "on_my_way",
+        "accepted",
+        "on_my_way_to_pickup",
         "on_site_pickup",
         "loaded",
-        "in_transit",
+        "on_my_way_to_delivery",
         "on_site_delivery",
         "in_progress",
     )
@@ -87,11 +87,12 @@ data class DriverJob(
 
     fun statusLabel(): String = when (driverStatusKey()) {
         "allocated" -> "Allocated"
+        "accepted" -> "Accepted"
         "awarded" -> "Awarded"
-        "on_my_way" -> "On My Way to Collection"
+        "on_my_way_to_pickup" -> "On My Way to Collection"
         "on_site_pickup" -> "Arrived at Collection"
         "loaded" -> "Loaded"
-        "in_transit" -> "On My Way to Delivery"
+        "on_my_way_to_delivery" -> "On My Way to Delivery"
         "on_site_delivery" -> "Arrived at Delivery"
         "delivered" -> "Delivered (POD)"
         "completed" -> "Completed"
@@ -100,25 +101,16 @@ data class DriverJob(
         }
     }
 
-    fun nextStatus(): String = when (driverStatusKey()) {
-        "allocated", "awarded" -> "on_my_way"
-        "on_my_way" -> "on_site_pickup"
-        "on_site_pickup" -> "loaded"
-        "loaded" -> "in_transit"
-        "in_transit" -> "on_site_delivery"
-        "on_site_delivery" -> "delivered"
-        "delivered" -> "completed"
-        else -> ""
-    }
+    fun nextStatus(): String = DriverLifecycleTransitions.nextStatus(driverStatusKey())?.wireValue.orEmpty()
 
     fun nextActionLabel(): String = when (nextStatus()) {
-        "on_my_way" -> "On My Way to Collection"
+        "accepted" -> "Accept Job"
+        "on_my_way_to_pickup" -> "On My Way to Collection"
         "on_site_pickup" -> "Arrived at Collection"
         "loaded" -> "Loaded / Collected"
-        "in_transit" -> "On My Way to Delivery"
+        "on_my_way_to_delivery" -> "On My Way to Delivery"
         "on_site_delivery" -> "Arrived at Delivery"
         "delivered" -> "Mark as Delivered"
-        "completed" -> "Complete Job"
         else -> "No further action"
     }
 

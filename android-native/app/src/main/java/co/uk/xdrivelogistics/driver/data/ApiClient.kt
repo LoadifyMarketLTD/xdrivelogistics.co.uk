@@ -3,9 +3,12 @@ package co.uk.xdrivelogistics.driver.data
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import co.uk.xdrivelogistics.driver.jobs.CanonicalDriverLifecycleStatus
+import co.uk.xdrivelogistics.driver.jobs.DriverLifecycleTransitions
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
 import kotlinx.coroutines.Dispatchers
@@ -13,12 +16,19 @@ import kotlinx.coroutines.withContext
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
+
+class MobileApiHttpException(
+    val statusCode: Int,
+    override val message: String,
+    val retryable: Boolean,
+) : IllegalStateException(message)
 
 class ApiClient(
     private val xdriveBaseUrl: String,
@@ -712,38 +722,23 @@ class ApiClient(
 
     suspend fun submitJobQuote(
         session: DriverSession,
-        profile: DriverProfile,
         jobId: String,
         amount: Double,
         message: String,
     ): Result<Unit> = networkResult {
+        require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
         val body = JsonObject().apply {
-            addProperty("job_id", jobId)
-            addProperty("company_id", profile.companyId)
-            addProperty("bidder_user_id", session.userId)
-            addProperty("bidder_driver_id", profile.driverId)
+            addProperty("jobId", jobId)
             addProperty("amount", amount)
-            addProperty("bid_price_gbp", amount)
-            addProperty("currency", "GBP")
-            addProperty("status", "submitted")
-            addProperty("message", message.ifBlank { "Submitted from XDrive Driver Android" })
+            addProperty("message", message.ifBlank { "Submitted from XDrive Driver Android" }.take(1_000))
+            addProperty("bidKey", stableSubmissionKey("bid", jobId, session.userId))
         }
-
-        val request = Request.Builder()
-            .url("${supabaseUrl.trimEnd('/')}/rest/v1/job_bids")
-            .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "Bearer ${session.accessToken}")
-            .addHeader("Content-Type", "application/json")
-            .addHeader("Prefer", "return=representation")
-            .post(gson.toJson(body).toRequestBody(jsonMediaType))
-            .build()
-
-        http.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                throw IllegalStateException(extractError(raw, "Failed to submit quote."))
-            }
-        }
+        postMobileMutation(
+            accessToken = session.accessToken,
+            path = "/api/driver/mobile/bids",
+            body = body,
+            fallbackMessage = "Failed to submit quote.",
+        )
     }
 
     suspend fun sendQuickNote(accessToken: String, jobId: String, note: String, important: Boolean): Result<Unit> = networkResult {
@@ -815,36 +810,23 @@ class ApiClient(
 
     suspend fun updateJobStatus(
         session: DriverSession,
-        driverId: String,
         jobId: String,
         nextStatus: String,
     ): Result<Unit> = networkResult {
+        require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
         val canonicalStatus = canonicalJobStatus(nextStatus)
-        val body = JsonObject().apply {
-            addProperty("p_driver_id", driverId)
-            addProperty("p_job_id", jobId)
-            addProperty("p_next_status", canonicalStatus)
-        }
-
-        val request = Request.Builder()
-            .url("${supabaseUrl.trimEnd('/')}/rest/v1/rpc/driver_update_job_status_atomic")
-            .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "Bearer ${session.accessToken}")
-            .addHeader("Content-Type", "application/json")
-            .post(gson.toJson(body).toRequestBody(jsonMediaType))
-            .build()
-
-        http.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                throw IllegalStateException(extractError(raw, "Failed to update job status."))
-            }
-
-            val result = runCatching { gson.fromJson(raw, JsonObject::class.java) }.getOrNull()
-            val ok = result?.get("ok")?.takeIf { !it.isJsonNull }?.asBoolean ?: false
-            if (!ok) {
-                throw IllegalStateException("Status update could not be applied for this assignment.")
-            }
+        val action = DriverLifecycleTransitions.mobileActionFor(canonicalStatus)
+            ?: throw IllegalStateException("Unsupported lifecycle transition target: $nextStatus")
+        val encodedJobId = URLEncoder.encode(jobId, StandardCharsets.UTF_8.toString())
+        val result = postMobileMutation(
+            accessToken = session.accessToken,
+            path = "/api/driver/mobile/jobs/$encodedJobId/$action",
+            body = JsonObject(),
+            fallbackMessage = "Failed to update job status.",
+        )
+        val ok = result?.get("ok")?.takeIf { !it.isJsonNull }?.asBoolean ?: false
+        if (!ok) {
+            throw IllegalStateException("Status update could not be applied for this assignment.")
         }
     }
 
@@ -976,6 +958,36 @@ class ApiClient(
         }.getOrElse { fallback }
     }
 
+    private fun postMobileMutation(
+        accessToken: String,
+        path: String,
+        body: JsonObject,
+        fallbackMessage: String,
+    ): JsonObject? {
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}$path")
+            .addHeader("Authorization", "Bearer $accessToken")
+            .addHeader("Content-Type", "application/json")
+            .post(gson.toJson(body).toRequestBody(jsonMediaType))
+            .build()
+        return http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw toMobileApiException(response, raw, fallbackMessage)
+            }
+            runCatching { gson.fromJson(raw, JsonObject::class.java) }.getOrNull()
+        }
+    }
+
+    private fun toMobileApiException(response: Response, rawBody: String, fallbackMessage: String): MobileApiHttpException {
+        val status = response.code
+        return MobileApiHttpException(
+            statusCode = status,
+            message = extractError(rawBody, fallbackMessage),
+            retryable = status == 429 || status == 408 || status in 500..599,
+        )
+    }
+
     private fun parseStringArray(array: JsonArray?): List<String> {
         if (array == null) return emptyList()
         val values = ArrayList<String>(array.size())
@@ -1081,15 +1093,10 @@ class ApiClient(
     private data class Coordinate(val latitude: Double, val longitude: Double)
 
     private fun canonicalJobStatus(driverStatus: String): String =
-        when (driverStatus.lowercase()) {
-            "accepted", "assigned" -> "allocated"
-            "arrived_pickup" -> "on_site_pickup"
-            "on_my_way_to_pickup" -> "on_my_way"
-            "loaded" -> "loaded"
-            "on_route_delivery", "on_my_way_to_delivery" -> "in_transit"
-            "arrived_delivery" -> "on_site_delivery"
-            "delivered" -> "delivered"
-            "completed" -> "completed"
-            else -> driverStatus
-        }
+        CanonicalDriverLifecycleStatus.fromRaw(driverStatus)?.wireValue ?: driverStatus.lowercase()
+
+    private fun stableSubmissionKey(prefix: String, jobId: String, userId: String): String {
+        val nonce = UUID.randomUUID().toString().replace("-", "").take(16)
+        return "${prefix}_${jobId.take(24)}_${userId.take(24)}_$nonce"
+    }
 }
