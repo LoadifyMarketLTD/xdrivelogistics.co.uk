@@ -254,12 +254,12 @@ export function toMoney(value: number | string | null | undefined) {
 export { CANONICAL_DRIVER_OPERATIONAL_STATUSES, normalizeDriverOperationalStatus };
 
 /**
- * Returns the canonical job status for the mobile client.
- * Prefers current_status (driver operational state) over marketplace status.
- * Legacy aliases are normalised to one canonical operational contract.
+ * Returns the canonical driver operational status for the mobile client.
+ * Derived from current_status only — marketplace status is never consulted.
+ * Returns null when current_status is absent or unrecognised (non-actionable).
  */
 export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'>) {
-  return mobileOperationalStatus(job.current_status, job.status);
+  return mobileOperationalStatus(job.current_status);
 }
 
 export function mapJob(row: MobileJobRow) {
