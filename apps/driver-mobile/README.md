@@ -1,8 +1,10 @@
-# XDrive Driver Mobile
+# XDrive Driver Preview (Expo/React Native)
 
-Native driver app scaffold for Android/iOS built with Expo React Native.
+This is the **preview** Expo/React Native driver app. It is for internal staging and testing only.
 
-This is not a mobile web page, PWA, or `/m` route. The target output is an installable Android APK/AAB and later an iOS build.
+**Canonical production Android application**: see `android-native/` (`co.uk.xdrivelogistics.driver`, Kotlin/Jetpack Compose).
+
+This app's Android package is `co.uk.xdrivelogistics.driver.preview` and it must never be published to the Play Store as `co.uk.xdrivelogistics.driver`.
 
 ## MVP Scope
 
@@ -36,10 +38,10 @@ npm run mobile:apk
 ## Expo / EAS Project
 
 - Organization: `xdrive-logistics-ltd`
-- Project: `XDrive Driver`
-- Slug: `xdrive-driver`
+- Project: `XDrive Driver Preview`
+- Slug: `xdrive-driver-preview`
 - Project ID: `c19b0bdf-567a-488e-b78f-d36b84f25c99`
-- Android package: `co.uk.xdrivelogistics.driver`
+- Android package: `co.uk.xdrivelogistics.driver.preview` (preview only — never the production package)
 
 ## EAS Build Profiles
 

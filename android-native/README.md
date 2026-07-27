@@ -1,6 +1,11 @@
-# XDrive Driver Native Android
+# XDrive Driver — Canonical Production Android Application
 
-This folder contains the native Android migration baseline for the XDrive Driver app.
+**Package**: `co.uk.xdrivelogistics.driver`  
+**Role**: This is the only canonical Android/Google Play production application for XDrive drivers.
+
+The Expo/React Native preview app (`apps/driver-mobile`, package `co.uk.xdrivelogistics.driver.preview`) is a separate staging/preview project and is not a production Android target.
+
+This folder contains the Kotlin/Jetpack Compose native Android application.
 
 ## Stack
 

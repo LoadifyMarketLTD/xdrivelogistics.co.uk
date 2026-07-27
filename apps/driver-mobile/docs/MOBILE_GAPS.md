@@ -1,9 +1,12 @@
-# XDrive Driver Mobile — Native Gap Matrix
+# XDrive Driver Preview (Expo) — Feature Gap Matrix
+
+> **Note**: This document tracks the preview Expo/React Native app (`apps/driver-mobile`, package `co.uk.xdrivelogistics.driver.preview`).
+> The canonical production Android application is the Kotlin/Jetpack Compose project under `android-native/` (package `co.uk.xdrivelogistics.driver`).
 
 Audit baseline:
 - Branch: `copilot/transform-mobile-workspace-driver`
 - Commit: `27401185a045e2e014c943dfad1fb24491d7689b`
-- Scope: Native app under `apps/driver-mobile` vs required operational parity.
+- Scope: Expo preview app under `apps/driver-mobile` vs required operational parity.
 
 ## Native-vs-web and required-feature gaps
 
