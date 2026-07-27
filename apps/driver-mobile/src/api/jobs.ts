@@ -18,7 +18,7 @@ export async function postJobStatus(jobId: string, endpoint: string, token: stri
 
 /** Submit a bid that was queued while offline. */
 export async function submitQueuedBid(jobId: string, token: string, payload: Record<string, unknown>) {
-  return apiRequest<{ ok: true }>('/api/driver/mobile/bids', {
+  return apiRequest<{ success: true; bidId: string; jobId: string }>('/api/driver/mobile/bids', {
     method: 'POST',
     token,
     body: {
