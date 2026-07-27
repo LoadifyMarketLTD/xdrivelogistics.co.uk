@@ -26,6 +26,11 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.tmp-login-mobile*.png
+apk_inspect.*
+brutal_apk_audit.*
+compare_apks.*
+apk_output.txt
 
 # local env files
 .env

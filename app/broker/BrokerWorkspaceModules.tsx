@@ -19,55 +19,144 @@ export function BrokerDashboard() {
     const accepted = data.bids.filter((bid) => bid.status === 'accepted');
     const customerRevenue = data.jobs.reduce((sum, job) => sum + Number(job.budget_amount ?? 0), 0);
     const carrierCost = accepted.reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
+    const awaitingAwardJobs = data.jobs.filter((job) => !job.awarded_carrier_company_id && submitted.some((bid) => bid.job_id === job.id));
+    const activeJobs = data.jobs.filter((job) => active.has(job.current_status ?? job.status));
+    const podPending = data.jobs.filter((job) => ['delivered', 'completed'].includes(job.status) && (job.delivery_photos?.length ?? 0) === 0);
+    const customerInvoices = data.invoices.filter((inv) => inv.buyer_company_id === data.companyId || inv.client_name);
+    const unpaidCustomerInvoices = customerInvoices.filter((inv) => inv.payment_status !== 'paid' && !['paid', 'Paid', 'cancelled', 'draft'].includes(inv.status));
+    const unpaidCustomerValue = unpaidCustomerInvoices.reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
+    const carrierObligations = data.invoices.filter((inv) => inv.company_id === data.companyId && !['paid', 'Paid'].includes(inv.status));
+    const carrierObligationValue = carrierObligations.reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
     return {
       draft: data.jobs.filter((job) => job.status === 'draft').length,
       open: data.jobs.filter((job) => ['posted', 'quoted'].includes(job.status)).length,
       quotes: submitted.length,
-      awaitingAward: data.jobs.filter((job) => !job.awarded_carrier_company_id && submitted.some((bid) => bid.job_id === job.id)).length,
-      active: data.jobs.filter((job) => active.has(job.current_status ?? job.status)).length,
-      pod: data.jobs.filter((job) => ['delivered', 'completed'].includes(job.status) && (job.delivery_photos?.length ?? 0) > 0).length,
+      awaitingAwardJobs,
+      activeJobs,
+      podPending,
       margin: customerRevenue - carrierCost,
       marginPct: customerRevenue > 0 ? ((customerRevenue - carrierCost) / customerRevenue) * 100 : 0,
+      customerRevenue,
+      carrierCost,
+      unpaidCustomerInvoices,
+      unpaidCustomerValue,
+      carrierObligations,
+      carrierObligationValue,
     };
-  }, [data.bids, data.jobs]);
+  }, [data]);
 
-  return <PageFrame>
-    <PageHeader eyebrow="Broker commercial desk" title="Broker Dashboard" description="Manage customer loads, source compliant carrier capacity, protect margin and control the job through POD and invoicing." actions={<><ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/broker/compare-quotes')}>Compare Quotes</ActionButton></>} />
-    {data.error && <AlertBanner>{data.error}</AlertBanner>}
-    <KpiGrid>
-      <KpiCard label="Draft loads" value={metrics.draft} detail="Not yet visible to carriers" />
-      <KpiCard label="Open loads" value={metrics.open} detail="Published for carrier pricing" tone="blue" />
-      <KpiCard label="Carrier quotes" value={metrics.quotes} detail="Commercial responses received" tone="purple" />
-      <KpiCard label="Awaiting award" value={metrics.awaitingAward} detail="Loads with selectable quotes" tone="orange" onClick={() => router.push('/broker/compare-quotes')} />
-      <KpiCard label="Active jobs" value={metrics.active} detail="Collections and deliveries in progress" tone="green" />
-      <KpiCard label="POD ready" value={metrics.pod} detail="Ready for review and invoicing" tone="navy" />
-      <KpiCard label="Gross margin" value={money(metrics.margin)} detail={`${metrics.marginPct.toFixed(1)}% across current loads`} tone={metrics.margin >= 0 ? 'green' : 'red'} />
-    </KpiGrid>
-    <TwoColumn>
-      <Panel title="Commercial decisions" description="Loads with quotes that need comparison or award." actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>All quotes</ActionButton>}>
-        <DataTable columns={['Customer load', 'Quotes', 'Customer price', 'Best cost', 'Margin', 'Action']} rows={data.jobs.filter((job) => data.bids.some((bid) => bid.job_id === job.id && bid.status === 'submitted')).slice(0, 8).map((job) => {
-          const quotes = data.bids.filter((bid) => bid.job_id === job.id && bid.status === 'submitted');
-          const costs = quotes.map((bid) => Number(bid.bid_price_gbp ?? bid.amount ?? 0)).filter((value) => value > 0);
-          const best = costs.length ? Math.min(...costs) : 0;
-          const revenue = Number(job.budget_amount ?? 0);
-          return [<strong key="route">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong>, quotes.length, money(revenue), money(best), money(revenue - best), <ActionButton key="action" tone="success" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Compare</ActionButton>];
-        })} empty={<EmptyState title="No loads awaiting a commercial decision" description="Published loads will appear when carriers submit quotes." />} />
-      </Panel>
-      <div style={{ display: 'grid', gap: '0.9rem' }}>
-        <Panel title="Operational exceptions" description="Jobs that need broker intervention before the customer is affected.">
-          <div style={{ display: 'grid', gap: '0.5rem' }}>
-            <button onClick={() => router.push('/broker/awards')} style={summaryButton}><span>Awaiting carrier award</span><strong>{metrics.awaitingAward}</strong></button>
-            <button onClick={() => router.push('/broker/jobs')} style={summaryButton}><span>Active jobs</span><strong>{metrics.active}</strong></button>
-            <button onClick={() => router.push('/broker/pod-review')} style={summaryButton}><span>POD awaiting review</span><strong>{metrics.pod}</strong></button>
-          </div>
+  return (
+    <PageFrame>
+      <PageHeader
+        eyebrow="Broker commercial desk"
+        title="Broker Dashboard"
+        description="Manage customer loads, source compliant carrier capacity, protect margin and control the job through POD and invoicing."
+        actions={<><ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/broker/compare-quotes')}>Compare Quotes</ActionButton></>}
+      />
+      {data.error && <AlertBanner>{data.error}</AlertBanner>}
+
+      <KpiGrid>
+        <KpiCard label="Draft loads" value={metrics.draft} detail="Not yet published" onClick={() => router.push('/broker/loads')} />
+        <KpiCard label="Open loads" value={metrics.open} detail="Published for carrier pricing" tone="blue" onClick={() => router.push('/broker/loads')} />
+        <KpiCard label="Carrier quotes" value={metrics.quotes} detail="Commercial responses received" tone="purple" onClick={() => router.push('/broker/bids')} />
+        <KpiCard label="Awaiting award" value={metrics.awaitingAwardJobs.length} detail="Your decision needed" tone="orange" onClick={() => router.push('/broker/compare-quotes')} />
+        <KpiCard label="Active jobs" value={metrics.activeJobs.length} detail="Collections and deliveries" tone="green" onClick={() => router.push('/broker/jobs')} />
+        <KpiCard label="POD missing" value={metrics.podPending.length} detail="Delivered without proof" tone={metrics.podPending.length ? 'red' : 'navy'} onClick={() => router.push('/broker/pod-review')} />
+        <KpiCard label="Gross margin" value={money(metrics.margin)} detail={`${metrics.marginPct.toFixed(1)}% margin`} tone={metrics.margin >= 0 ? 'green' : 'red'} onClick={() => router.push('/broker/margins')} />
+        <KpiCard label="Unpaid (customer)" value={metrics.unpaidCustomerInvoices.length} detail={money(metrics.unpaidCustomerValue)} tone={metrics.unpaidCustomerInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
+      </KpiGrid>
+
+      {metrics.awaitingAwardJobs.length > 0 && (
+        <Panel
+          title="Award decisions needed"
+          description="These loads have carrier quotes waiting. Select the best option and award before capacity moves elsewhere."
+          actions={<ActionButton tone="warning" onClick={() => router.push('/broker/compare-quotes')}>Compare all</ActionButton>}
+        >
+          <DataTable
+            columns={['Customer load', 'Route', 'Quotes', 'Customer price', 'Best carrier cost', 'Margin', 'Action']}
+            rows={metrics.awaitingAwardJobs.slice(0, 6).map((job) => {
+              const quotes = data.bids.filter((bid) => bid.job_id === job.id && bid.status === 'submitted');
+              const costs = quotes.map((b) => Number(b.bid_price_gbp ?? b.amount ?? 0)).filter((p) => p > 0);
+              const best = costs.length ? Math.min(...costs) : 0;
+              const revenue = Number(job.budget_amount ?? 0);
+              return [
+                job.client_name ?? 'Customer',
+                <strong key="route">{job.pickup_postcode ?? job.pickup_location} → {job.delivery_postcode ?? job.delivery_location}</strong>,
+                quotes.length,
+                money(revenue),
+                best > 0 ? money(best) : '—',
+                best > 0 && revenue > 0 ? money(revenue - best) : '—',
+                <ActionButton key="action" tone="success" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Compare &amp; award</ActionButton>,
+              ];
+            })}
+            empty={<EmptyState title="No loads awaiting award" />}
+          />
         </Panel>
-        <Panel title="Recent customer loads" description="Latest activity in the broker book.">
-          {data.jobs.slice(0, 5).map((job) => <button key={job.id} onClick={() => router.push(`/broker/loads?job=${job.id}`)} style={{ ...summaryButton, display: 'grid', gridTemplateColumns: '1fr auto', textAlign: 'left' }}><span><strong style={{ display: 'block' }}>{job.client_name ?? 'Customer load'}</strong><small style={{ color: '#64748b' }}>{job.pickup_postcode ?? job.pickup_location} → {job.delivery_postcode ?? job.delivery_location}</small></span><StatusBadge value={job.status} /></button>)}
-          {data.jobs.length === 0 && <EmptyState title="No customer loads" />}
+      )}
+
+      <TwoColumn>
+        <Panel
+          title="Active jobs"
+          description="Carrier-confirmed jobs in transit. Monitor for delays and exceptions before the customer is affected."
+          actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/jobs')}>All jobs</ActionButton>}
+        >
+          <DataTable
+            columns={['Route', 'Customer', 'Pickup', 'Status', 'POD', 'Action']}
+            rows={metrics.activeJobs.slice(0, 6).map((job) => [
+              <strong key="route">{job.pickup_postcode ?? job.pickup_location} → {job.delivery_postcode ?? job.delivery_location}</strong>,
+              job.client_name ?? '—',
+              when(job.pickup_datetime),
+              <StatusBadge key="status" value={job.current_status ?? job.status} />,
+              (job.delivery_photos?.length ?? 0) > 0
+                ? <StatusBadge key="pod" value="ready" tone="green" />
+                : <StatusBadge key="pod" value="pending" tone="orange" />,
+              <ActionButton key="action" tone="secondary" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Track</ActionButton>,
+            ])}
+            empty={<EmptyState title="No active jobs" description="Jobs appear here once a carrier is awarded and confirmed." />}
+          />
         </Panel>
-      </div>
-    </TwoColumn>
-  </PageFrame>;
+
+        <div style={{ display: 'grid', gap: '0.9rem' }}>
+          <Panel
+            title="Commercial summary"
+            description="Revenue, carrier cost and margin position across all active loads."
+          >
+            <div style={{ display: 'grid', gap: '0.55rem' }}>
+              {[
+                ['Customer revenue', money(metrics.customerRevenue), '#f0fdf4', '#166534'],
+                ['Carrier cost (awarded)', money(metrics.carrierCost), '#fff7ed', '#c2410c'],
+                ['Gross margin', money(metrics.margin), metrics.margin >= 0 ? '#f0fdf4' : '#fef2f2', metrics.margin >= 0 ? '#166534' : '#dc2626'],
+                ['Carrier obligations (invoices)', money(metrics.carrierObligationValue), '#eff6ff', '#1e40af'],
+                ['Outstanding customer invoices', money(metrics.unpaidCustomerValue), metrics.unpaidCustomerValue > 0 ? '#fff7ed' : '#f8fafc', metrics.unpaidCustomerValue > 0 ? '#c2410c' : '#64748b'],
+              ].map(([label, value, bg, color]) => (
+                <div key={String(label)} style={{ display: 'flex', justifyContent: 'space-between', background: String(bg), border: `1px solid ${String(color)}20`, borderRadius: '8px', padding: '0.62rem 0.75rem', fontSize: '0.76rem' }}>
+                  <span style={{ color: '#475569' }}>{label}</span>
+                  <strong style={{ color: String(color) }}>{value}</strong>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Recent customer loads" description="Latest activity in the broker book." actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/loads')}>All loads</ActionButton>}>
+            {data.jobs.slice(0, 5).map((job) => (
+              <button
+                key={job.id}
+                onClick={() => router.push(`/broker/loads?job=${job.id}`)}
+                style={{ ...summaryButton, display: 'grid', gridTemplateColumns: '1fr auto', textAlign: 'left' }}
+              >
+                <span>
+                  <strong style={{ display: 'block' }}>{job.client_name ?? 'Customer load'}</strong>
+                  <small style={{ color: '#64748b' }}>{job.pickup_postcode ?? job.pickup_location} → {job.delivery_postcode ?? job.delivery_location}</small>
+                </span>
+                <StatusBadge value={job.status} />
+              </button>
+            ))}
+            {data.jobs.length === 0 && <EmptyState title="No customer loads" />}
+          </Panel>
+        </div>
+      </TwoColumn>
+    </PageFrame>
+  );
 }
 
 const summaryButton = { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.62rem 0.68rem', background: '#f8fafc', color: '#0f172a', fontSize: '0.76rem', cursor: 'pointer' } as const;
