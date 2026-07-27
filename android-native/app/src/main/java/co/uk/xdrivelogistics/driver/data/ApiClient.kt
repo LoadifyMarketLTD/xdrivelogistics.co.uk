@@ -1285,51 +1285,51 @@ class ApiClient(
                     )
                 )
             }
+        }
+    }
 
-            private fun parseAvailability(json: JsonObject): DriverAvailability {
-                val status = DriverAvailabilityStatus.fromKey(json.string("availability_status").ifBlank { "offline" })
-                val rawSlots = buildList {
-                    val slotsArr = json.getAsJsonArray("slots") ?: JsonArray()
-                    for (i in 0 until slotsArr.size()) {
-                        val slotObject = slotsArr[i] as? JsonObject ?: continue
-                        add(
-                            DriverAvailabilitySlot(
-                                dayOfWeek = slotObject.get("day_of_week")?.asInt ?: -1,
-                                slot = slotObject.string("slot"),
-                                available = slotObject.get("available")?.asBoolean ?: false,
-                            )
-                        )
-                    }
-                }
-                return DriverAvailability(
-                    status = status,
-                    slots = normalizeAvailabilitySlots(rawSlots),
+    private fun parseAvailability(json: JsonObject): DriverAvailability {
+        val status = DriverAvailabilityStatus.fromKey(json.string("availability_status").ifBlank { "offline" })
+        val rawSlots = buildList {
+            val slotsArr = json.getAsJsonArray("slots") ?: JsonArray()
+            for (i in 0 until slotsArr.size()) {
+                val slotObject = slotsArr[i] as? JsonObject ?: continue
+                add(
+                    DriverAvailabilitySlot(
+                        dayOfWeek = slotObject.get("day_of_week")?.asInt ?: -1,
+                        slot = slotObject.string("slot"),
+                        available = slotObject.get("available")?.asBoolean ?: false,
+                    )
                 )
             }
         }
+        return DriverAvailability(
+            status = status,
+            slots = normalizeAvailabilitySlots(rawSlots),
+        )
+    }
 
-        private val availabilitySlotNames = listOf("AM", "PM", "EVENING")
+    private val availabilitySlotNames = listOf("AM", "PM", "EVENING")
 
-        internal fun normalizeAvailabilitySlots(rows: List<DriverAvailabilitySlot>): List<DriverAvailabilitySlot> {
-            val normalized = linkedMapOf<String, DriverAvailabilitySlot>()
-            for (day in 0..6) {
-                for (slot in availabilitySlotNames) {
-                    normalized["$day:$slot"] = DriverAvailabilitySlot(dayOfWeek = day, slot = slot, available = false)
-                }
+    internal fun normalizeAvailabilitySlots(rows: List<DriverAvailabilitySlot>): List<DriverAvailabilitySlot> {
+        val normalized = linkedMapOf<String, DriverAvailabilitySlot>()
+        for (day in 0..6) {
+            for (slot in availabilitySlotNames) {
+                normalized["$day:$slot"] = DriverAvailabilitySlot(dayOfWeek = day, slot = slot, available = false)
             }
-
-            for (slot in rows) {
-                if (slot.dayOfWeek !in 0..6) continue
-                val normalizedSlot = slot.slot.trim().uppercase(Locale.ROOT)
-                if (normalizedSlot !in availabilitySlotNames) continue
-                normalized["${slot.dayOfWeek}:$normalizedSlot"] = DriverAvailabilitySlot(
-                    dayOfWeek = slot.dayOfWeek,
-                    slot = normalizedSlot,
-                    available = slot.available,
-                )
-            }
-            return normalized.values.toList()
         }
+
+        for (slot in rows) {
+            if (slot.dayOfWeek !in 0..6) continue
+            val normalizedSlot = slot.slot.trim().uppercase(Locale.ROOT)
+            if (normalizedSlot !in availabilitySlotNames) continue
+            normalized["${slot.dayOfWeek}:$normalizedSlot"] = DriverAvailabilitySlot(
+                dayOfWeek = slot.dayOfWeek,
+                slot = normalizedSlot,
+                available = slot.available,
+            )
+        }
+        return normalized.values.toList()
     }
 
     private fun JsonObject.string(name: String): String {
