@@ -13,11 +13,12 @@ import {
   respond,
   safeArray,
 } from '../../../_lib';
+import { hasActionAlreadyApplied, normalizedCurrentOrNull } from './idempotency';
 
 type ActionConfig = {
   currentStatus: string;
   lifecycleStatus?: string;
-  timestampField?: string;
+  timestampField?: 'on_my_way_at' | 'on_site_pickup_at' | 'loaded_at' | 'on_site_delivery_at' | 'delivered_at';
   eventType: string;
   label: string;
   allowedLifecycle: string[];
@@ -115,34 +116,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const job = existing as unknown as MobileJobRow;
 
-  // Normalise legacy current_status aliases to their canonical equivalents so
-  // that idempotency detection works on jobs written by older code paths.
-  //   on_my_way   → on_my_way_to_pickup   (current_status only)
-  // Note: the lifecycle status field (job.status) uses a separate set of
-  // values (allocated, collected, in_transit, delivered) that do NOT need
-  // normalisation — they are the raw DB lifecycle stage values used by
-  // allowedLifecycle checks below.
-  function normalizeCurrentStatus(value: string): string {
-    const s = value.toLowerCase().trim();
-    if (s === 'on_my_way') return 'on_my_way_to_pickup';
-    if (s === 'in_transit') return 'on_my_way_to_delivery';
-    return s;
-  }
-
-  function normalizedCurrentOrNull(value: unknown): string | null {
-    const normalized = normalizeCurrentStatus(String(value ?? ''));
-    return normalized || null;
-  }
-
   // Idempotency FIRST — before lifecycle validation.
   // An offline-queue retry arrives after the transition has already been
   // applied.  At that point job.status may have advanced past the values in
   // allowedLifecycle, so the lifecycle check would return 409 instead of 200.
-  // Checking current_status (the granular driver step) first prevents that.
-  const currentStatus = normalizedCurrentOrNull(job.current_status);
-  if (currentStatus === config.currentStatus) {
+  // Check granular status/timestamps/history first to prevent false 409 rejects.
+  if (hasActionAlreadyApplied(job, config)) {
     return respond(200, { ok: true, job: mapJob(job) });
   }
+  const currentStatus = normalizedCurrentOrNull(job.current_status);
 
   // Enforce no-skip canonical current_status transition rules.
   if (!config.allowedCurrent.includes(currentStatus)) {

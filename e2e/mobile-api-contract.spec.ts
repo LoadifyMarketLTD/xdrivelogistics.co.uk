@@ -8,6 +8,31 @@
  */
 
 import { test, expect, type APIRequestContext } from '@playwright/test';
+import { hasActionAlreadyApplied } from '../app/api/driver/mobile/jobs/[id]/[action]/idempotency';
+
+test.describe('mobile API — idempotency helper contract', () => {
+  test('returns true for retries after lifecycle advancement', () => {
+    expect(hasActionAlreadyApplied({ current_status: 'on_my_way_to_pickup' }, { currentStatus: 'accepted' })).toBe(true);
+    expect(hasActionAlreadyApplied({ current_status: 'on_site_pickup' }, { currentStatus: 'on_my_way_to_pickup', timestampField: 'on_my_way_at' })).toBe(true);
+    expect(hasActionAlreadyApplied({ current_status: 'loaded' }, { currentStatus: 'on_site_pickup', timestampField: 'on_site_pickup_at' })).toBe(true);
+    expect(hasActionAlreadyApplied({ current_status: 'on_my_way_to_delivery' }, { currentStatus: 'loaded', timestampField: 'loaded_at' })).toBe(true);
+    expect(hasActionAlreadyApplied({ current_status: 'on_site_delivery' }, { currentStatus: 'on_my_way_to_delivery' })).toBe(true);
+    expect(hasActionAlreadyApplied({ current_status: 'delivered' }, { currentStatus: 'on_site_delivery', timestampField: 'on_site_delivery_at' })).toBe(true);
+  });
+
+  test('returns true when timestamps/history prove the action already ran', () => {
+    expect(hasActionAlreadyApplied({ current_status: null, on_my_way_at: '2026-01-01T00:00:00.000Z' }, { currentStatus: 'on_my_way_to_pickup', timestampField: 'on_my_way_at' })).toBe(true);
+    expect(hasActionAlreadyApplied({
+      current_status: null,
+      status_history: [{ status: 'on_my_way_to_delivery' }, { status: 'on_site_delivery' }],
+    }, { currentStatus: 'on_site_delivery', timestampField: 'on_site_delivery_at' })).toBe(true);
+    expect(hasActionAlreadyApplied({ current_status: null, status: 'delivered' }, { currentStatus: 'delivered', timestampField: 'delivered_at' })).toBe(true);
+  });
+
+  test('returns false when action has not been applied yet', () => {
+    expect(hasActionAlreadyApplied({ current_status: 'loaded' }, { currentStatus: 'delivered', timestampField: 'delivered_at' })).toBe(false);
+  });
+});
 
 // ─── Static endpoint shape tests ─────────────────────────────────────────────
 
@@ -261,4 +286,3 @@ test.describe('mobile API — authenticated contract', () => {
     expect(response.status()).not.toBe(409);
   });
 });
-
