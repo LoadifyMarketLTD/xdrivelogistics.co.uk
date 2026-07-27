@@ -259,6 +259,40 @@ class DriverSelectionAndSyncStateTest {
         assertNull("non-blank selection must pass the guard", noJobSelectedError("job-123"))
     }
 
+    // --- Task 4: resolveSelectedJob — production mutation resolver ---
+
+    @Test
+    fun `resolveSelectedJob returns null when selectedJobId is null`() {
+        // This is the same resolver called by moveSelectedJobTo, uploadPodForSelectedJob,
+        // and confirmDeliveryRecipientForSelectedJob when no job is selected.
+        val jobs = listOf(job("job-a"), job("job-b"))
+        assertNull(resolveSelectedJob(jobs, null))
+    }
+
+    @Test
+    fun `resolveSelectedJob returns null when selectedJobId is blank`() {
+        val jobs = listOf(job("job-a"), job("job-b"))
+        assertNull(resolveSelectedJob(jobs, ""))
+        assertNull(resolveSelectedJob(jobs, "   "))
+    }
+
+    @Test
+    fun `resolveSelectedJob with jobs A and B selected B returns B not A regardless of list order`() {
+        // Critical routing invariant: B is returned even when A is first in the list.
+        val jobA = job("job-a")
+        val jobB = job("job-b")
+        val result = resolveSelectedJob(listOf(jobA, jobB), "job-b")
+        assertEquals("job-b", result?.id)
+        // Explicitly assert A was not returned.
+        assertTrue("resolver must not return job-a when job-b is selected", result?.id != "job-a")
+    }
+
+    @Test
+    fun `resolveSelectedJob returns null when selectedJobId is not in jobs list`() {
+        val jobs = listOf(job("job-a"), job("job-b"))
+        assertNull(resolveSelectedJob(jobs, "job-gone"))
+    }
+
     private fun job(id: String, status: String = "allocated"): DriverJob = DriverJob(
         id = id,
         status = status,

@@ -397,17 +397,12 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             val profile = _uiState.value.profile ?: return@launch
-            val jobId = _uiState.value.selectedJobId
-            if (jobId.isNullOrBlank()) {
+            val selectedJob = resolveSelectedJob(_uiState.value.jobs, _uiState.value.selectedJobId)
+            if (selectedJob == null) {
                 _uiState.value = _uiState.value.copy(error = "Select a job first.")
                 return@launch
             }
-
-            val selectedJob = _uiState.value.jobs.firstOrNull { it.id == jobId }
-            if (selectedJob == null) {
-                _uiState.value = _uiState.value.copy(error = "Selected job was not found.")
-                return@launch
-            }
+            val jobId = selectedJob.id
 
             if (selectedJob.isPosted()) {
                 _uiState.value = _uiState.value.copy(
@@ -628,7 +623,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             val profile = _uiState.value.profile ?: return@launch
-            val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
+            val selectedJob = resolveSelectedJob(_uiState.value.jobs, _uiState.value.selectedJobId)
             if (selectedJob == null) {
                 _uiState.value = _uiState.value.copy(error = "Select a job first.")
                 return@launch
@@ -980,7 +975,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             val profile = _uiState.value.profile ?: return@launch
-            val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
+            val selectedJob = resolveSelectedJob(_uiState.value.jobs, _uiState.value.selectedJobId)
             if (selectedJob == null) {
                 _uiState.value = _uiState.value.copy(error = "Select a job first.")
                 return@launch
@@ -1227,6 +1222,16 @@ internal fun resolveSelectedJobId(
         !rememberedSelectedJobId.isNullOrBlank() && rememberedSelectedJobId in actionable -> rememberedSelectedJobId
         else -> null
     }
+}
+
+/**
+ * Returns the explicitly selected [DriverJob] from [jobs] whose ID equals [selectedJobId],
+ * or null when [selectedJobId] is null/blank or no match is found.
+ * Never falls back to the first job or any other implicit candidate.
+ */
+internal fun resolveSelectedJob(jobs: List<DriverJob>, selectedJobId: String?): DriverJob? {
+    if (selectedJobId.isNullOrBlank()) return null
+    return jobs.firstOrNull { it.id == selectedJobId }
 }
 
 /** Returns an error message when no job is selected, null when a valid selection is present. */

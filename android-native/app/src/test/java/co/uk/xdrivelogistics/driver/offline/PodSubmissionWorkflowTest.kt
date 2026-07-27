@@ -637,4 +637,38 @@ class PodSubmissionWorkflowTest {
         assertEquals(1, rec.evidence.size)
         assertEquals("b".repeat(64), rec.evidence.first().sha256Hex)
     }
+
+    // -------------------------------------------------------------------------
+    // 21. Two-job isolation: clearSubmission for job-b leaves job-a untouched
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `clearSubmission for job-b leaves job-a record untouched in reconstructed store`() {
+        val backend = InMemoryPodStoreBackend()
+        val store = PodSubmissionStore(backend, true)
+
+        val recA = submissionRecord(ownerUserId = "user-a", jobId = "job-a",
+            podKey = "pod-job-a", payloadFingerprint = "a".repeat(64))
+        val recB = submissionRecord(ownerUserId = "user-a", jobId = "job-b",
+            podKey = "pod-job-b", payloadFingerprint = "b".repeat(64))
+
+        store.recordSubmission(recA)
+        store.recordSubmission(recB)
+
+        // Finalise job-b — simulate successful server confirmation.
+        store.clearSubmission("user-a", "job-b")
+
+        // Reconstruct the store from the same backend (simulates app restart).
+        val rebuiltStore = PodSubmissionStore(backend, true)
+
+        val remaining = rebuiltStore.pendingForOwner("user-a")
+        assertEquals("only job-a must remain after job-b is cleared", 1, remaining.size)
+        assertEquals("job-a", remaining.first().jobId)
+
+        assertNotNull("job-a must still be readable", rebuiltStore.getForOwnerJob("user-a", "job-a"))
+        assertEquals(recA.podKey, rebuiltStore.getForOwnerJob("user-a", "job-a")!!.podKey)
+        assertEquals(recA.payloadFingerprint, rebuiltStore.getForOwnerJob("user-a", "job-a")!!.payloadFingerprint)
+
+        assertNull("job-b must be absent after clearSubmission", rebuiltStore.getForOwnerJob("user-a", "job-b"))
+    }
 }
