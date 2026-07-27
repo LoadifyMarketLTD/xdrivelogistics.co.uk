@@ -187,6 +187,10 @@ data class DriverInvoice(
     val currency: String,
     val clientName: String,
     val dueDate: String?,
+    val netAmount: Double? = null,
+    val vatAmount: Double? = null,
+    val paymentStatus: String? = null,
+    val issuedAt: String? = null,
 )
 
 data class NearbyDriver(

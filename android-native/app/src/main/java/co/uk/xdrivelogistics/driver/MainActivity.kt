@@ -1087,16 +1087,29 @@ private fun SmartPayScreen(state: DriverUiState) {
 
 @Composable
 private fun InvoiceCard(invoice: co.uk.xdrivelogistics.driver.data.DriverInvoice) {
+    val isPaid = invoice.paymentStatus?.contains("paid", true) == true ||
+        invoice.status.contains("paid", true)
     XDriveCard {
         Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.weight(1f)) {
                 Text(invoice.invoiceNumber, color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 17.sp)
                 Text(invoice.clientName.ifBlank { "Client TBC" }, color = TextSecondary, fontSize = 13.sp)
             }
-            BadgeText(invoice.status.ifBlank { "Draft" }, if (invoice.status.contains("paid", true)) Success else Yellow)
+            Column(horizontalAlignment = Alignment.End) {
+                BadgeText(
+                    invoice.paymentStatus?.replaceFirstChar { it.uppercase() }
+                        ?: invoice.status.ifBlank { "Draft" },
+                    if (isPaid) Success else Yellow,
+                )
+                invoice.issuedAt?.marketplaceTime()?.let { t ->
+                    Text(t, color = TextSecondary, fontSize = 11.sp)
+                }
+            }
         }
         Spacer(Modifier.height(10.dp))
-        InfoLine("Amount", invoice.amount?.let { "${invoice.currency} ${"%.2f".format(Locale.UK, it)}" } ?: "TBC")
+        InfoLine("Total", invoice.amount?.let { "${invoice.currency} ${"%.2f".format(Locale.UK, it)}" } ?: "TBC")
+        if (invoice.netAmount != null) InfoLine("Net", "${invoice.currency} ${"%.2f".format(Locale.UK, invoice.netAmount)}")
+        if (invoice.vatAmount != null) InfoLine("VAT", "${invoice.currency} ${"%.2f".format(Locale.UK, invoice.vatAmount)}")
         InfoLine("Due", invoice.dueDate ?: "TBC")
     }
 }
@@ -2132,8 +2145,8 @@ private fun ProfileScreen(
         item {
             XDriveCard {
                 Text("XDrive Pay", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                val pending = state.invoices.count { it.status.contains("pending", ignoreCase = true) || it.status.contains("submitted", ignoreCase = true) }
-                val paid = state.invoices.count { it.status.contains("paid", ignoreCase = true) }
+                val pending = state.invoices.count { it.paymentStatus?.contains("pending", true) == true || it.status.contains("pending", ignoreCase = true) || it.status.contains("submitted", ignoreCase = true) }
+                val paid = state.invoices.count { it.paymentStatus?.contains("paid", true) == true || it.status.contains("paid", ignoreCase = true) }
                 val overdue = state.invoices.count { it.status.contains("overdue", ignoreCase = true) }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     MiniQuoteMetric("Pending", pending.toString())
@@ -2147,9 +2160,10 @@ private fun ProfileScreen(
                     state.invoices.take(3).forEach { invoice ->
                         InfoLine(
                             invoice.invoiceNumber,
-                            listOf(invoice.status, invoice.amount?.let { "${invoice.currency} ${"%.2f".format(Locale.UK, it)}" }.orEmpty())
-                                .filter { it.isNotBlank() }
-                                .joinToString(" | ")
+                            listOf(
+                                invoice.paymentStatus?.replaceFirstChar { it.uppercase() } ?: invoice.status,
+                                invoice.amount?.let { "${invoice.currency} ${"%.2f".format(Locale.UK, it)}" }.orEmpty()
+                            ).filter { it.isNotBlank() }.joinToString(" | ")
                         )
                     }
                 }

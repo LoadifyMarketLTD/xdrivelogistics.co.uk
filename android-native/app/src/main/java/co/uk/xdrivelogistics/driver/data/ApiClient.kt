@@ -419,7 +419,7 @@ class ApiClient(
     suspend fun loadDriverInvoices(session: DriverSession, companyId: String): Result<List<DriverInvoice>> = networkResult {
         val encodedCompanyId = URLEncoder.encode(companyId, StandardCharsets.UTF_8.toString())
         val request = supabaseRequest(
-            "/rest/v1/invoices?select=id,invoice_number,status,total,amount,currency,client_name,due_date&company_id=eq.$encodedCompanyId&order=created_at.desc&limit=50",
+            "/rest/v1/invoices?select=id,invoice_number,status,payment_status,total,amount,net_amount,vat_amount,currency,client_name,due_date,created_at&company_id=eq.$encodedCompanyId&order=created_at.desc&limit=50",
             session.accessToken,
         )
         http.newCall(request).execute().use { response ->
@@ -429,6 +429,7 @@ class ApiClient(
             buildList {
                 for (index in 0 until rows.size()) {
                     val row = rows[index].asJsonObject
+                    val paymentStatus = row.nullableString("payment_status")
                     add(
                         DriverInvoice(
                             id = row.string("id"),
@@ -438,6 +439,10 @@ class ApiClient(
                             currency = row.string("currency").ifBlank { "GBP" },
                             clientName = row.string("client_name"),
                             dueDate = row.nullableString("due_date"),
+                            netAmount = row.doubleOrNull("net_amount"),
+                            vatAmount = row.doubleOrNull("vat_amount"),
+                            paymentStatus = paymentStatus,
+                            issuedAt = row.nullableString("created_at"),
                         )
                     )
                 }
