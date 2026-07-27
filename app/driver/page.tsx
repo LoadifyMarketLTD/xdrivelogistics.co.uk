@@ -31,7 +31,7 @@ type OwnerBid = {
     delivery_location: string | null;
     pickup_datetime: string | null;
     status: string;
-  } | null;
+  }[] | null;
 };
 
 const money = (value: number) =>
@@ -224,7 +224,8 @@ export default function DriverDashboard() {
             <DataTable
               columns={['Route', 'Your quote', 'Submitted', 'Result']}
               rows={myQuotes.slice(0, 6).map((bid) => {
-                const job = bid.jobs;
+                const ownerBid = bid as OwnerBid;
+                const job = Array.isArray(ownerBid.jobs) ? ownerBid.jobs[0] : ownerBid.jobs;
                 return [
                   <strong key="route">{job?.pickup_location ?? 'Collection'} → {job?.delivery_location ?? 'Delivery'}</strong>,
                   money(Number(bid.bid_price_gbp ?? 0)),
@@ -269,7 +270,7 @@ export default function DriverDashboard() {
                     </div>
                   );
                 })}
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/documents')} style={{ marginTop: '0.6rem' }}>Manage documents</ActionButton>
+                <div style={{ marginTop: '0.6rem' }}><ActionButton tone="secondary" onClick={() => router.push('/driver/documents')}>Manage documents</ActionButton></div>
               </Panel>
             )}
           </div>
