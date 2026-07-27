@@ -20,12 +20,14 @@ import co.uk.xdrivelogistics.driver.data.MobileApiHttpException
 import co.uk.xdrivelogistics.driver.data.NearbyDriver
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import co.uk.xdrivelogistics.driver.jobs.DriverLifecycleTransitions
+import co.uk.xdrivelogistics.driver.offline.ActiveJobSelectionStore
 import co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand
 import co.uk.xdrivelogistics.driver.offline.MobileMutationKind
 import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueue
 import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueueStore
 import co.uk.xdrivelogistics.driver.offline.MobileQueueItem
 import co.uk.xdrivelogistics.driver.offline.MobileQueueState
+import co.uk.xdrivelogistics.driver.offline.PodPendingStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +37,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 import java.util.Locale
+
 
 enum class DriverTab {
     NEARBY,
@@ -79,6 +82,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val sessionStore = SessionStore(application.applicationContext)
     private val activeJobSelectionStore = ActiveJobSelectionStore(application.applicationContext)
     private val queueStore = MobileOfflineQueueStore(application.applicationContext)
+    private val podPendingStore = PodPendingStore(application.applicationContext)
     private val mutationQueue = MobileOfflineQueue()
     private val api = ApiClient(
         xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
@@ -106,6 +110,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     error = "",
                 )
                 refreshDriverData()
+                recoverPendingPodUploads(persisted)
                 startLiveRefresh(persisted)
             }
         }
@@ -610,6 +615,23 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
 
+            // Write-ahead record before any network call so crash recovery can retry the patch phase.
+            val pendingKey = "pod_${session.userId}_${selectedJob.id}_${System.currentTimeMillis()}"
+            val safeName = fileName.ifBlank { "pod.jpg" }.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
+            val anticipatedPath = "driver-${profile.driverId}/${selectedJob.id}/${System.currentTimeMillis()}-$safeName"
+            val pendingRec = PodPendingStore.PodPendingRecord(
+                key = pendingKey,
+                ownerUserId = session.userId,
+                driverId = profile.driverId,
+                jobId = selectedJob.id,
+                storagePath = anticipatedPath,
+                needsCollectionProof = selectedJob.needsCollectionProof(),
+                existingDeliveryPhotos = selectedJob.deliveryPhotos,
+                existingPodPhotos = selectedJob.podPhotos,
+                recordedAt = System.currentTimeMillis(),
+            )
+            podPendingStore.record(pendingRec)
+
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
             api.uploadPodDocument(
                 session = session,
@@ -619,23 +641,52 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 mimeType = mimeType,
                 bytes = bytes,
             )
-                .onSuccess {
+                .onSuccess { actualPath ->
+                    // Clear write-ahead record now that both phases succeeded.
+                    podPendingStore.clear(pendingKey)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         message = if (selectedJob.needsCollectionProof()) {
-                    "Collection proof uploaded."
-                } else {
-                    "Delivery proof uploaded."
-                },
+                            "Collection proof uploaded."
+                        } else {
+                            "Delivery proof uploaded."
+                        },
                     )
                     refreshDriverData()
                 }
                 .onFailure { error ->
+                    podPendingStore.clear(pendingKey)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = error.friendlyDriverMessage("Failed to upload POD."),
                     )
                 }
+        }
+    }
+
+    /**
+     * On session restore, retry any POD patch-phase operations that were started
+     * but not confirmed before the previous app crash.
+     */
+    private suspend fun recoverPendingPodUploads(session: DriverSession) {
+        val pending = podPendingStore.pendingForOwner(session.userId)
+        if (pending.isEmpty()) return
+        for (rec in pending) {
+            podPendingStore.markAttempted(rec.key)
+            api.patchPodJobRecord(
+                session = session,
+                driverId = rec.driverId,
+                jobId = rec.jobId,
+                storagePath = rec.storagePath,
+                needsCollectionProof = rec.needsCollectionProof,
+                existingDeliveryPhotos = rec.existingDeliveryPhotos,
+                existingPodPhotos = rec.existingPodPhotos,
+            ).onSuccess {
+                podPendingStore.clear(rec.key)
+            }
+            // On failure, leave the record for the next session restart.
+            // After 5 attempts, quarantine to avoid infinite retry.
+            if ((rec.attemptCount + 1) >= 5) podPendingStore.clear(rec.key)
         }
     }
 

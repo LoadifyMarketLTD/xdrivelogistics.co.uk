@@ -1037,7 +1037,7 @@ class ApiClient(
         val uploadRequest = Request.Builder()
             .url("${supabaseUrl.trimEnd('/')}/storage/v1/object/pod-docs/$storagePath")
             .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "Bearer ${session.accessToken}")
+            .addHeader("Authorization", "******")
             .addHeader("x-upsert", "false")
             .post(bytes.toRequestBody(mimeType.toMediaType()))
             .build()
@@ -1049,24 +1049,52 @@ class ApiClient(
             }
         }
 
+        // File is now in storage. Patch the job record (phase 2 — crash-safe retry point).
+        patchPodJobRecord(
+            session = session,
+            driverId = driverId,
+            jobId = job.id,
+            storagePath = storagePath,
+            needsCollectionProof = job.needsCollectionProof(),
+            existingDeliveryPhotos = job.deliveryPhotos,
+            existingPodPhotos = job.podPhotos,
+        ).getOrThrow()
+
+        storagePath
+    }
+
+    /**
+     * Patch-only phase: update the job record after storage upload is confirmed.
+     * Extracted as a standalone method so it can be retried independently during crash
+     * recovery (PodPendingStore) without re-uploading the file.
+     */
+    suspend fun patchPodJobRecord(
+        session: DriverSession,
+        driverId: String,
+        jobId: String,
+        storagePath: String,
+        needsCollectionProof: Boolean,
+        existingDeliveryPhotos: List<String>,
+        existingPodPhotos: List<String>,
+    ): Result<Unit> = networkResult {
         val patchBody = JsonObject().apply {
-            if (job.needsCollectionProof()) {
+            if (needsCollectionProof) {
                 addProperty("collection_photo_url", storagePath)
             } else {
-                val nextDeliveryPhotos = (job.deliveryPhotos + storagePath).distinct()
-                val nextPodPhotos = (job.podPhotos + storagePath).distinct()
+                val nextDeliveryPhotos = (existingDeliveryPhotos + storagePath).distinct()
+                val nextPodPhotos = (existingPodPhotos + storagePath).distinct()
                 add("delivery_photos", gson.toJsonTree(nextDeliveryPhotos))
                 add("pod_photos", gson.toJsonTree(nextPodPhotos))
             }
             addProperty("updated_at", java.time.Instant.now().toString())
         }
 
-        val encodedJobId = URLEncoder.encode(job.id, StandardCharsets.UTF_8.toString())
+        val encodedJobId = URLEncoder.encode(jobId, StandardCharsets.UTF_8.toString())
         val encodedDriverId = URLEncoder.encode(driverId, StandardCharsets.UTF_8.toString())
         val patchRequest = Request.Builder()
             .url("${supabaseUrl.trimEnd('/')}/rest/v1/jobs?id=eq.$encodedJobId&assigned_driver_id=eq.$encodedDriverId")
             .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "Bearer ${session.accessToken}")
+            .addHeader("Authorization", "******")
             .addHeader("Content-Type", "application/json")
             .addHeader("Prefer", "return=representation")
             .patch(gson.toJson(patchBody).toRequestBody(jsonMediaType))
@@ -1078,10 +1106,7 @@ class ApiClient(
                 throw IllegalStateException(extractError(raw, "POD upload succeeded, but job update failed."))
             }
         }
-
-        storagePath
     }
-
     suspend fun confirmDeliveryRecipient(
         session: DriverSession,
         driverId: String,
