@@ -111,7 +111,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
     posterCompanyName: company?.name ?? null,
     pickup: {
       addressSummary: publicArea(row.pickup_postcode),
-      postcode: row.pickup_postcode || '',
+      postcode: publicArea(row.pickup_postcode),
       latitude: null,
       longitude: null,
       collectionFrom: row.pickup_datetime || row.pickup_time_slot || null,
@@ -119,7 +119,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
     },
     delivery: {
       addressSummary: publicArea(row.delivery_postcode),
-      postcode: row.delivery_postcode || '',
+      postcode: publicArea(row.delivery_postcode),
       latitude: null,
       longitude: null,
       deliveryFrom: row.delivery_datetime || row.delivery_time_slot || null,
