@@ -23,6 +23,12 @@ export type MobileJobRow = {
   awarded_carrier_company_id: string | null;
   pickup_location: string | null;
   delivery_location: string | null;
+  pickup_postcode: string | null;
+  delivery_postcode: string | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  delivery_lat: number | null;
+  delivery_lng: number | null;
   pickup_datetime: string | null;
   delivery_datetime: string | null;
   vehicle_type: string | null;
@@ -43,6 +49,16 @@ export type MobileJobRow = {
   load_details: string | null;
   special_requirements: string | null;
   access_restrictions: string | null;
+  pallets: number | null;
+  boxes: number | null;
+  bags: number | null;
+  items: number | null;
+  weight_kg: number | null;
+  length_cm: number | null;
+  width_cm: number | null;
+  height_cm: number | null;
+  job_distance_miles: number | null;
+  job_distance_minutes: number | null;
   pod_required: boolean | null;
   pod_generated: boolean | null;
   delivery_photos: string[] | null;
@@ -135,6 +151,12 @@ export const jobSelect = [
   'awarded_carrier_company_id',
   'pickup_location',
   'delivery_location',
+  'pickup_postcode',
+  'delivery_postcode',
+  'pickup_lat',
+  'pickup_lng',
+  'delivery_lat',
+  'delivery_lng',
   'pickup_datetime',
   'delivery_datetime',
   'vehicle_type',
@@ -155,6 +177,16 @@ export const jobSelect = [
   'load_details',
   'special_requirements',
   'access_restrictions',
+  'pallets',
+  'boxes',
+  'bags',
+  'items',
+  'weight_kg',
+  'length_cm',
+  'width_cm',
+  'height_cm',
+  'job_distance_miles',
+  'job_distance_minutes',
   'pod_required',
   'pod_generated',
   'delivery_photos',
@@ -205,18 +237,27 @@ export function toMoney(value: number | string | null | undefined) {
 /**
  * Returns the canonical job status for the mobile client.
  * Prefers current_status (the driver workflow step) over the lifecycle status.
- * No aliasing is applied — the value returned matches what is persisted in the
- * database and what CanonicalJobStatus in the native app expects.
+ * Legacy DB values written before the canonical rename are normalised here so
+ * the client always receives the current canonical string:
+ *   on_my_way   → on_my_way_to_pickup
+ *   in_transit  → on_my_way_to_delivery
  */
 export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'>) {
-  const current = String(job.current_status || '').toLowerCase().trim();
+  const raw = String(job.current_status || '').toLowerCase().trim();
+  const current = raw === 'on_my_way' ? 'on_my_way_to_pickup'
+    : raw === 'in_transit' ? 'on_my_way_to_delivery'
+    : raw;
   if (current) return current;
-  return String(job.status || 'awarded').toLowerCase().trim();
+  const fallback = String(job.status || 'awarded').toLowerCase().trim();
+  return fallback === 'on_my_way' ? 'on_my_way_to_pickup'
+    : fallback === 'in_transit' ? 'on_my_way_to_delivery'
+    : fallback;
 }
 
 export function mapJob(row: MobileJobRow) {
   const contactName = row.delivery_contact_name || row.collection_contact_name || row.client_name || undefined;
   const contactPhone = row.delivery_contact_phone || row.collection_contact_phone || row.client_phone || undefined;
+  const toOptionalNumber = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   return {
     id: row.id,
     reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
@@ -224,6 +265,8 @@ export function mapJob(row: MobileJobRow) {
     lifecycleStatus: row.status,
     pickupLocation: row.pickup_location || 'Pickup TBC',
     deliveryLocation: row.delivery_location || 'Delivery TBC',
+    pickupPostcode: row.pickup_postcode || null,
+    deliveryPostcode: row.delivery_postcode || null,
     pickupTime: row.pickup_datetime || 'Pickup time TBC',
     deliveryTime: row.delivery_datetime || 'Delivery time TBC',
     cargoType: row.requested_cargo_label || row.cargo_type || 'Cargo TBC',
@@ -235,7 +278,28 @@ export function mapJob(row: MobileJobRow) {
     contactAllowed: Boolean(contactPhone),
     contactName,
     contactPhone,
+    pickupContactName: row.collection_contact_name || null,
+    pickupContactPhone: row.collection_contact_phone || null,
+    deliveryContactName: row.delivery_contact_name || null,
+    deliveryContactPhone: row.delivery_contact_phone || null,
+    loadDetails: row.load_details || null,
+    specialRequirements: row.special_requirements || null,
+    accessRestrictions: row.access_restrictions || null,
     requirements: [row.load_details, row.special_requirements, row.access_restrictions].filter(Boolean).join('\n'),
+    pallets: toOptionalNumber(row.pallets),
+    boxes: toOptionalNumber(row.boxes),
+    bags: toOptionalNumber(row.bags),
+    items: toOptionalNumber(row.items),
+    weightKg: toOptionalNumber(row.weight_kg),
+    lengthCm: toOptionalNumber(row.length_cm),
+    widthCm: toOptionalNumber(row.width_cm),
+    heightCm: toOptionalNumber(row.height_cm),
+    distanceMiles: toOptionalNumber(row.job_distance_miles),
+    distanceMinutes: toOptionalNumber(row.job_distance_minutes),
+    pickupLat: toOptionalNumber(row.pickup_lat),
+    pickupLng: toOptionalNumber(row.pickup_lng),
+    deliveryLat: toOptionalNumber(row.delivery_lat),
+    deliveryLng: toOptionalNumber(row.delivery_lng),
     updatedAt: row.updated_at,
   };
 }
