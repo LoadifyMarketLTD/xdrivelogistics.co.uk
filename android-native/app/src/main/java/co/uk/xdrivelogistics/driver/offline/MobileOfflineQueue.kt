@@ -1,5 +1,7 @@
 package co.uk.xdrivelogistics.driver.offline
 
+import com.google.gson.Gson
+
 enum class MobileMutationEndpoint(val path: String) {
     ACCEPT("accept"),
     ON_MY_WAY_PICKUP("on-my-way-pickup"),
@@ -40,21 +42,69 @@ data class MobileQueueItem(
     val updatedAtEpochMs: Long,
 )
 
+data class MobileLifecycleCommand(
+    val endpoint: String,
+    val targetStatus: String,
+) {
+    companion object {
+        private val gson = Gson()
+        private val endpointToStatus = mapOf(
+            MobileMutationEndpoint.ACCEPT.path to "accepted",
+            MobileMutationEndpoint.ON_MY_WAY_PICKUP.path to "on_my_way_to_pickup",
+            MobileMutationEndpoint.ARRIVED_PICKUP.path to "on_site_pickup",
+            MobileMutationEndpoint.LOADED.path to "loaded",
+            MobileMutationEndpoint.ON_MY_WAY_DELIVERY.path to "on_my_way_to_delivery",
+            MobileMutationEndpoint.ARRIVED_DELIVERY.path to "on_site_delivery",
+            MobileMutationEndpoint.DELIVERED.path to "delivered",
+        )
+
+        fun encode(endpoint: String, targetStatus: String): String {
+            require(isAllowedPair(endpoint, targetStatus)) { "Queue lifecycle command is not allowed." }
+            return gson.toJson(MobileLifecycleCommand(endpoint = endpoint, targetStatus = targetStatus))
+        }
+
+        fun decode(endpoint: String, payloadJson: String): MobileLifecycleCommand? {
+            val payload = payloadJson.trim()
+            val parsed = runCatching {
+                if (payload.startsWith("{")) {
+                    gson.fromJson(payload, MobileLifecycleCommand::class.java)
+                } else {
+                    MobileLifecycleCommand(endpoint = endpoint, targetStatus = payload)
+                }
+            }.getOrNull() ?: return null
+
+            if (parsed.endpoint != endpoint) return null
+            if (!isAllowedPair(parsed.endpoint, parsed.targetStatus)) return null
+            return parsed
+        }
+
+        fun isAllowedPair(endpoint: String, targetStatus: String): Boolean {
+            return endpointToStatus[endpoint] == targetStatus
+        }
+    }
+}
+
 class MobileOfflineQueue(private val nowEpochMs: () -> Long = { System.currentTimeMillis() }) {
     private var nextSequence = 1L
     private val items = mutableListOf<MobileQueueItem>()
+    private val quarantined = mutableListOf<MobileQueueItem>()
 
     fun restore(restored: List<MobileQueueItem>) {
         items.clear()
-        items.addAll(
-            restored
-                .filter { MobileMutationEndpoint.fromPath(it.endpoint) != null }
-                .sortedBy { it.sequence }
-        )
+        quarantined.clear()
+        val valid = restored.filter { item ->
+            val endpointKnown = MobileMutationEndpoint.fromPath(item.endpoint) != null
+            val payloadValid = MobileLifecycleCommand.decode(item.endpoint, item.payloadJson) != null
+            val accepted = endpointKnown && payloadValid
+            if (!accepted) quarantined += item
+            accepted
+        }
+        items.addAll(valid.sortedBy { it.sequence })
         nextSequence = (items.maxOfOrNull { it.sequence } ?: 0L) + 1L
     }
 
     fun snapshot(): List<MobileQueueItem> = items.sortedBy { it.sequence }
+    fun quarantinedSnapshot(): List<MobileQueueItem> = quarantined.toList()
 
     fun enqueue(
         ownerUserId: String,
@@ -67,6 +117,7 @@ class MobileOfflineQueue(private val nowEpochMs: () -> Long = { System.currentTi
         require(jobId.isNotBlank()) { "Queue job id is required." }
         require(payloadJson.isNotBlank()) { "Queue payload is required." }
         require(MobileMutationEndpoint.fromPath(endpoint) != null) { "Queue endpoint is not allowed." }
+        require(MobileLifecycleCommand.decode(endpoint, payloadJson) != null) { "Queue lifecycle payload is invalid." }
 
         val duplicate = items.firstOrNull {
             it.ownerUserId == ownerUserId &&

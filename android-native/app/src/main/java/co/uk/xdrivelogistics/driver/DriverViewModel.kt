@@ -17,6 +17,7 @@ import co.uk.xdrivelogistics.driver.data.MobileApiHttpException
 import co.uk.xdrivelogistics.driver.data.NearbyDriver
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import co.uk.xdrivelogistics.driver.jobs.DriverLifecycleTransitions
+import co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand
 import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueue
 import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueueStore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,6 +74,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         mutationQueue.restore(queueStore.readAll())
+        queueStore.saveQuarantinedItems(mutationQueue.quarantinedSnapshot())
         viewModelScope.launch {
             sessionStore.session.collectLatest { persisted ->
                 if (persisted == null) {
@@ -371,7 +373,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                                 ownerUserId = session.userId,
                                 jobId = jobId,
                                 endpoint = endpoint,
-                                payloadJson = nextStatus,
+                                payloadJson = MobileLifecycleCommand.encode(endpoint = endpoint, targetStatus = nextStatus),
                                 dedupeKey = "${session.userId}:$jobId:$nextStatus",
                             )
                             queueStore.saveAll(mutationQueue.snapshot())
@@ -394,7 +396,17 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         while (keepFlushing) {
             val item = mutationQueue.nextProcessable(ownerUserId = session.userId, leaseDurationMs = 45_000L)
                 ?: break
-            val nextStatus = item.payloadJson
+            val command = MobileLifecycleCommand.decode(item.endpoint, item.payloadJson)
+            if (command == null) {
+                mutationQueue.markFailure(
+                    itemId = item.id,
+                    retryable = false,
+                    message = "Invalid queued lifecycle payload for endpoint ${item.endpoint}.",
+                )
+                queueStore.saveAll(mutationQueue.snapshot())
+                continue
+            }
+            val nextStatus = command.targetStatus
             api.updateJobStatus(session, item.jobId, nextStatus)
                 .onSuccess {
                     mutationQueue.markSynced(item.id)
