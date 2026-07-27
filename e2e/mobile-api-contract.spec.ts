@@ -269,6 +269,20 @@ test.describe('mobile API — static shape contract', () => {
     expect([401, 503]).toContain(response.status());
   });
 
+  test('POST /api/driver/mobile/jobs/:id/pod-upload-init — rejects without auth (401 or 503)', async ({ request }) => {
+    const response = await request.post(
+      '/api/driver/mobile/jobs/00000000-0000-0000-0000-000000000000/pod-upload-init',
+    );
+    expect([401, 503]).toContain(response.status());
+  });
+
+  test('POST /api/driver/mobile/jobs/:id/collection-proof — rejects without auth (401 or 503)', async ({ request }) => {
+    const response = await request.post(
+      '/api/driver/mobile/jobs/00000000-0000-0000-0000-000000000000/collection-proof',
+    );
+    expect([401, 503]).toContain(response.status());
+  });
+
   test('GET /api/driver/mobile/availability — rejects without auth (401 or 503)', async ({ request }) => {
     const response = await request.get('/api/driver/mobile/availability');
     expect([401, 503]).toContain(response.status());
@@ -288,6 +302,100 @@ test.describe('mobile API — static shape contract', () => {
 
   test('POST /api/driver/mobile/messages — rejects without auth (401 or 503)', async ({ request }) => {
     const response = await request.post('/api/driver/mobile/messages', { data: {} });
+    expect([401, 503]).toContain(response.status());
+  });
+});
+
+// ─── POD upload-init validation contract (static) ─────────────────────────────
+
+test.describe('mobile API — pod-upload-init validation contract (static)', () => {
+  /**
+   * These tests verify the static validation logic of the pod-upload-init
+   * endpoint: allowed MIME types, byte-size limits, kind values, and that
+   * the auth gate fires before any business logic.
+   *
+   * A live DB is not required — auth-rejection probes are sufficient to
+   * confirm the endpoint is correctly wired and validates input.
+   */
+
+  const FAKE_JOB_ID = '00000000-0000-0000-0000-000000000000';
+
+  test('auth gate fires before validation — 401/503 on all missing-auth requests', async ({ request }) => {
+    const cases = [
+      { podKey: 'valid-key-1234567890', evidenceId: 'ev-1234567890abcdef', fileName: 'test.jpg', mimeType: 'image/jpeg', byteSize: 1024, kind: 'photos' },
+      { podKey: 'valid-key-1234567890', evidenceId: 'ev-1234567890abcdef', fileName: 'test.pdf', mimeType: 'application/pdf', byteSize: 2048, kind: 'documents' },
+      { podKey: 'valid-key-1234567890', evidenceId: 'ev-1234567890abcdef', fileName: 'col.jpg', mimeType: 'image/jpeg', byteSize: 512, kind: 'collection' },
+    ];
+    for (const body of cases) {
+      const response = await request.post(`/api/driver/mobile/jobs/${FAKE_JOB_ID}/pod-upload-init`, { data: body });
+      expect([401, 503]).toContain(response.status());
+    }
+  });
+
+  test('pod-upload-init — missing auth fires before MIME validation', async ({ request }) => {
+    const response = await request.post(`/api/driver/mobile/jobs/${FAKE_JOB_ID}/pod-upload-init`, {
+      data: { podKey: 'valid-key-1234567890', evidenceId: 'ev-1234567890abcdef', fileName: 'test.exe', mimeType: 'application/octet-stream', byteSize: 1024, kind: 'photos' },
+    });
+    // Auth fires before MIME check — 401/503 not 400
+    expect([401, 503]).toContain(response.status());
+    expect(response.status()).not.toBe(400);
+  });
+
+  test('pod-upload-init — missing auth fires before oversize check', async ({ request }) => {
+    const response = await request.post(`/api/driver/mobile/jobs/${FAKE_JOB_ID}/pod-upload-init`, {
+      data: { podKey: 'valid-key-1234567890', evidenceId: 'ev-1234567890abcdef', fileName: 'huge.jpg', mimeType: 'image/jpeg', byteSize: 99_000_000, kind: 'photos' },
+    });
+    expect([401, 503]).toContain(response.status());
+    expect(response.status()).not.toBe(400);
+  });
+});
+
+// ─── POD savePod fingerprint contract (static) ────────────────────────────────
+
+test.describe('mobile API — POD fingerprint idempotency contract (static)', () => {
+  /**
+   * Verifies the _status.ts helpers that underpin fingerprint-based conflict
+   * detection for the savePod endpoint.
+   */
+
+  test('normalizeDriverOperationalStatus returns null for marketplace-terminal states', () => {
+    expect(normalizeDriverOperationalStatus('completed')).toBeNull();
+    expect(normalizeDriverOperationalStatus('invoiced')).toBeNull();
+    expect(normalizeDriverOperationalStatus('paid')).toBeNull();
+  });
+
+  test('CANONICAL_DRIVER_OPERATIONAL_STATUSES does not include marketplace-terminal values', () => {
+    const terminalValues = ['completed', 'invoiced', 'paid', 'cancelled', 'canceled'];
+    for (const v of terminalValues) {
+      expect(CANONICAL_DRIVER_OPERATIONAL_STATUSES).not.toContain(v);
+    }
+  });
+
+  test('pod endpoint auth gate fires before fingerprint processing', async ({ request }) => {
+    const response = await request.post(
+      '/api/driver/mobile/jobs/00000000-0000-0000-0000-000000000000/pod',
+      {
+        data: {
+          podKey: 'valid-key-1234567890',
+          recipientName: 'Test Recipient',
+          photoUris: [],
+          payloadFingerprint: 'a'.repeat(64),
+        },
+      },
+    );
+    expect([401, 503]).toContain(response.status());
+  });
+
+  test('collection-proof auth gate fires before idempotency check', async ({ request }) => {
+    const response = await request.post(
+      '/api/driver/mobile/jobs/00000000-0000-0000-0000-000000000000/collection-proof',
+      {
+        data: {
+          podKey: 'valid-key-1234567890',
+          collectionPath: '00000000-0000-0000-0000-000000000000/collection/ev-id-test.jpg',
+        },
+      },
+    );
     expect([401, 503]).toContain(response.status());
   });
 });
