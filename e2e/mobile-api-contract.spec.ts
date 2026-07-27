@@ -19,7 +19,7 @@ import { actions, validateLifecycleActionTransition } from '../app/api/driver/mo
 import {
   podUploadInitIdempotencyCheck,
   type UploadLedgerEntry,
-} from '../app/api/driver/mobile/jobs/[id]/pod-upload-init/route';
+} from '../app/api/driver/mobile/jobs/[id]/pod-upload-init/idempotency';
 
 test.describe('mobile API — idempotency helper contract', () => {
   test('returns true for retries after lifecycle advancement', () => {
