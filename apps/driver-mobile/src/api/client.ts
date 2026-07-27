@@ -5,7 +5,7 @@ import { fallbackApiBaseUrl, normalizeApiBaseUrl } from '../utils/url';
 
 type ApiOptions = {
   token?: string | null;
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
 };
 

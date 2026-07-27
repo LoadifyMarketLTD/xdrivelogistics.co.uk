@@ -7,6 +7,8 @@ import { Alert, Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, Te
 import SignatureCanvas, { type SignatureViewRef } from 'react-native-signature-canvas';
 
 import { fetchJob, fetchJobs, postJobStatus, submitQueuedBid, uploadPod } from '../api/jobs';
+import { fetchAvailability, updateAvailability, type AvailabilityStatus, type DriverAvailability } from '../api/availability';
+import { fetchMessages, markMessagesRead, type DriverMessage } from '../api/messages';
 import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
 import { isSupabaseConfigured, supabase } from '../auth/supabase';
@@ -687,10 +689,10 @@ export default function DriverMobileApp() {
               />
             )}
             {screen === 'availability' && (
-              <AvailabilityScreen onBack={() => setScreen('profile')} />
+              <AvailabilityScreen token={token} onBack={() => setScreen('profile')} />
             )}
             {screen === 'messages' && (
-              <MessagesScreen onBack={() => setScreen('profile')} />
+              <MessagesScreen token={token} onBack={() => setScreen('profile')} />
             )}
           </ScrollView>
         )}
@@ -1189,31 +1191,69 @@ function PasswordChangeScreen({ onBack }: { onBack: () => void }) {
 }
 
 function FinanceScreen({ invoices, onBack }: { invoices: Array<Record<string, unknown>>; onBack: () => void }) {
+  const totalOwed = invoices
+    .filter((inv) => String(inv.payment_status ?? inv.status ?? '').toLowerCase() !== 'paid')
+    .reduce((sum, inv) => {
+      const n = Number(inv.amount ?? inv.total_amount ?? 0);
+      return sum + (Number.isFinite(n) ? n : 0);
+    }, 0);
+  const paidCount = invoices.filter((inv) =>
+    String(inv.payment_status ?? '').toLowerCase() === 'paid' ||
+    String(inv.status ?? '').toLowerCase() === 'paid'
+  ).length;
+
   return (
     <View style={styles.stack}>
       <Panel>
         <Text style={styles.title}>Finance</Text>
         <Text style={styles.copy}>Your invoices and payment records.</Text>
       </Panel>
+      {invoices.length > 0 && (
+        <Panel>
+          <View style={styles.financeRow}>
+            <View>
+              <Text style={styles.infoLabel}>Outstanding</Text>
+              <Text style={styles.infoValue}>{totalOwed > 0 ? `£${totalOwed.toFixed(2)}` : '—'}</Text>
+            </View>
+            <View>
+              <Text style={styles.infoLabel}>Paid</Text>
+              <Text style={styles.infoValue}>{paidCount}</Text>
+            </View>
+            <View>
+              <Text style={styles.infoLabel}>Total</Text>
+              <Text style={styles.infoValue}>{invoices.length}</Text>
+            </View>
+          </View>
+        </Panel>
+      )}
       {invoices.length === 0 ? (
         <Panel><Text style={styles.copy}>No invoices available.</Text></Panel>
       ) : invoices.map((invoice, index) => {
         const id = String(invoice.id ?? '').slice(0, 8).toUpperCase() || `INV-${index + 1}`;
-        const amount = invoice.amount_gbp ?? invoice.total_amount ?? invoice.amount;
-        const status = stringField(invoice.status, 'Pending');
+        const amount = invoice.amount ?? invoice.total_amount ?? invoice.amount_gbp;
+        const netAmount = invoice.net_amount;
+        const vatAmount = invoice.vat_amount;
+        const paymentStatus = typeof invoice.payment_status === 'string' ? invoice.payment_status : null;
+        const status = paymentStatus === 'paid' ? 'Paid' : stringField(invoice.status as string, 'Pending');
         const issuedAt = typeof invoice.created_at === 'string' ? formatDateTime(invoice.created_at) : 'Date TBC';
+        const dueAt = typeof invoice.due_date === 'string' ? formatDateTime(invoice.due_date) : null;
         const ref = typeof invoice.invoice_number === 'string' ? invoice.invoice_number : id;
+        const statusToneValue = status.toLowerCase() === 'paid' ? 'success'
+          : status.toLowerCase() === 'overdue' ? 'danger'
+          : status.toLowerCase() === 'submitted' ? 'primary'
+          : 'warning';
         return (
           <Panel key={String(invoice.id ?? index)}>
             <View style={styles.financeRow}>
               <Text style={styles.financeRef}>{ref}</Text>
-              <StatusPill
-                label={status}
-                tone={status.toLowerCase() === 'paid' ? 'success' : status.toLowerCase() === 'overdue' ? 'danger' : 'warning'}
-              />
+              <StatusPill label={status} tone={statusToneValue as 'success' | 'danger' | 'primary' | 'warning'} />
             </View>
             <Info label="Amount" value={typeof amount === 'number' ? `£${amount.toFixed(2)}` : typeof amount === 'string' ? `£${amount}` : 'TBC'} />
+            {typeof netAmount === 'number' && typeof vatAmount === 'number' && (
+              <Text style={styles.subtle}>Net £{netAmount.toFixed(2)} + VAT £{vatAmount.toFixed(2)}</Text>
+            )}
             <Info label="Issued" value={issuedAt} />
+            {dueAt && <Info label="Due" value={dueAt} />}
           </Panel>
         );
       })}
@@ -1222,27 +1262,163 @@ function FinanceScreen({ invoices, onBack }: { invoices: Array<Record<string, un
   );
 }
 
-function AvailabilityScreen({ onBack }: { onBack: () => void }) {
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const SLOT_LABELS: Record<string, string> = { AM: 'Morning', PM: 'Afternoon', EVENING: 'Evening' };
+const STATUS_LABELS: Record<string, string> = { available: 'Available', busy: 'Busy', offline: 'Offline' };
+
+function AvailabilityScreen({ token, onBack }: { token: string | null; onBack: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [availability, setAvailability] = useState<DriverAvailability | null>(null);
+
+  useEffect(() => {
+    if (!token) { setLoading(false); return; }
+    setLoading(true);
+    fetchAvailability(token)
+      .then(setAvailability)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load availability.'))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  async function setStatus(newStatus: AvailabilityStatus) {
+    if (!token || saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await updateAvailability(token, { availability_status: newStatus });
+      setAvailability(updated);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to update status.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleSlot(dayOfWeek: number, slot: 'AM' | 'PM' | 'EVENING') {
+    if (!token || !availability || saving) return;
+    const existing = availability.slots.find((s) => s.day_of_week === dayOfWeek && s.slot === slot);
+    const newAvailable = !(existing?.available ?? false);
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await updateAvailability(token, {
+        slots: [{ day_of_week: dayOfWeek, slot, available: newAvailable }],
+      });
+      setAvailability(updated);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to update schedule.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const currentStatus = availability?.availability_status ?? 'offline';
+
   return (
     <View style={styles.stack}>
       <Panel>
         <Text style={styles.title}>Availability</Text>
-        <Text style={styles.copy}>Manage your availability schedule here.</Text>
-        <Text style={styles.copy}>Full availability management will be available in a future update. Contact your dispatcher to update your availability.</Text>
+        <Text style={styles.copy}>Set when you are available to accept new jobs.</Text>
+      </Panel>
+      {error ? <Panel><Text style={styles.message}>{error}</Text></Panel> : null}
+      <Panel>
+        <Text style={styles.infoLabel}>Current status</Text>
+        <View style={styles.availabilityStatusRow}>
+          {(['available', 'busy', 'offline'] as const).map((statusKey) => (
+            <TouchableOpacity
+              key={statusKey}
+              style={[styles.availabilityStatusBtn, currentStatus === statusKey && styles.availabilityStatusBtnActive]}
+              onPress={() => void setStatus(statusKey)}
+              disabled={saving || loading}
+            >
+              <Text style={[styles.availabilityStatusText, currentStatus === statusKey && styles.availabilityStatusTextActive]}>
+                {STATUS_LABELS[statusKey]}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </Panel>
+      <Panel>
+        <Text style={styles.infoLabel}>Weekly schedule</Text>
+        {loading ? (
+          <Text style={styles.copy}>Loading schedule...</Text>
+        ) : (
+          DAY_NAMES.map((dayName, dayIndex) => (
+            <View key={dayIndex} style={styles.availabilityDay}>
+              <Text style={styles.availabilityDayName}>{dayName}</Text>
+              <View style={styles.availabilitySlots}>
+                {(['AM', 'PM', 'EVENING'] as const).map((slotKey) => {
+                  const slotEntry = availability?.slots.find(
+                    (s) => s.day_of_week === dayIndex && s.slot === slotKey,
+                  );
+                  const isActive = slotEntry?.available ?? false;
+                  return (
+                    <TouchableOpacity
+                      key={slotKey}
+                      style={[styles.availabilitySlot, isActive && styles.availabilitySlotActive]}
+                      onPress={() => void toggleSlot(dayIndex, slotKey)}
+                      disabled={saving}
+                    >
+                      <Text style={[styles.availabilitySlotText, isActive && styles.availabilitySlotTextActive]}>
+                        {SLOT_LABELS[slotKey]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ))
+        )}
       </Panel>
       <SecondaryButton label="Back to profile" onPress={onBack} />
     </View>
   );
 }
 
-function MessagesScreen({ onBack }: { onBack: () => void }) {
+function MessagesScreen({ token, onBack }: { token: string | null; onBack: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [messages, setMessages] = useState<DriverMessage[]>([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!token) { setLoading(false); return; }
+    setLoading(true);
+    fetchMessages(token)
+      .then((res) => {
+        setMessages(res.messages);
+        void markMessagesRead(token).catch(() => undefined);
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load messages.'))
+      .finally(() => setLoading(false));
+  }, [token]);
+
   return (
     <View style={styles.stack}>
       <Panel>
         <Text style={styles.title}>Messages</Text>
-        <Text style={styles.copy}>In-app messaging is not yet available in this version.</Text>
-        <Text style={styles.copy}>For urgent communications, please contact your dispatcher directly.</Text>
+        <Text style={styles.copy}>Dispatcher updates and job notifications.</Text>
       </Panel>
+      {loading && <Panel><Text style={styles.copy}>Loading messages...</Text></Panel>}
+      {error ? <Panel><Text style={styles.message}>{error}</Text></Panel> : null}
+      {!loading && messages.length === 0 && !error && (
+        <Panel><Text style={styles.copy}>No messages yet.</Text></Panel>
+      )}
+      {messages.map((msg) => {
+        const title = msg.event_type.replace(/_/g, ' ');
+        const body = msg.text ?? 'No message content.';
+        return (
+          <Panel key={msg.id}>
+            <View style={styles.notificationHeader}>
+              <Text style={styles.notificationTitle}>{title}</Text>
+              {!msg.read && <StatusPill label="New" tone="primary" />}
+            </View>
+            <Text style={styles.copy}>{body}</Text>
+            {msg.job_ref ? <Text style={styles.subtle}>Job: {msg.job_ref}</Text> : null}
+            <Text style={styles.notificationMeta}>{formatRelativeTime(msg.created_at)}</Text>
+          </Panel>
+        );
+      })}
       <SecondaryButton label="Back to profile" onPress={onBack} />
     </View>
   );
@@ -1384,4 +1560,16 @@ const styles = StyleSheet.create({
   successMessage: { color: colors.success },
   financeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
   financeRef: { color: colors.text, fontSize: 16, fontWeight: '800', flex: 1 },
+  availabilityStatusRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', marginTop: spacing.xs },
+  availabilityStatusBtn: { flex: 1, minHeight: 44, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.panelSoft },
+  availabilityStatusBtnActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+  availabilityStatusText: { color: colors.muted, fontWeight: '700' },
+  availabilityStatusTextActive: { color: '#fff' },
+  availabilityDay: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
+  availabilityDayName: { color: colors.text, fontWeight: '700', width: 32 },
+  availabilitySlots: { flexDirection: 'row', gap: spacing.xs, flex: 1 },
+  availabilitySlot: { flex: 1, minHeight: 36, borderRadius: 6, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.panelSoft },
+  availabilitySlotActive: { borderColor: colors.success, backgroundColor: colors.success },
+  availabilitySlotText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+  availabilitySlotTextActive: { color: '#fff' },
 });
