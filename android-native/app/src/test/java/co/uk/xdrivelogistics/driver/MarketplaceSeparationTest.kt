@@ -1,6 +1,8 @@
 package co.uk.xdrivelogistics.driver
 
 import co.uk.xdrivelogistics.driver.data.DriverJob
+import co.uk.xdrivelogistics.driver.data.DriverAvailability
+import co.uk.xdrivelogistics.driver.data.DriverAvailabilityStatus
 import co.uk.xdrivelogistics.driver.data.MarketplaceJob
 import co.uk.xdrivelogistics.driver.data.MarketplacePublicPrice
 import org.junit.Assert.assertEquals
@@ -207,11 +209,16 @@ class MarketplaceSeparationTest {
             savedMarketplaceLoadIds = setOf("mp-2"),
             hiddenMarketplaceLoadIds = setOf("mp-3"),
             marketplaceJobs = listOf(mpJob("mp-1")),
+            availability = DriverAvailability(
+                status = DriverAvailabilityStatus.AVAILABLE,
+                slots = emptyList(),
+            ),
         )
         val after = state.copy(
             selectedJobId = null,
             jobs = emptyList(),
             jobSyncStates = emptyMap(),
+            availability = null,
             pendingPodJobIds = emptySet(),
             blockedPodJobIds = emptySet(),
             marketplaceSelectedJobId = null,
@@ -221,6 +228,7 @@ class MarketplaceSeparationTest {
         )
         assertNull(after.selectedJobId)
         assertNull(after.marketplaceSelectedJobId)
+        assertNull(after.availability)
         assertTrue(after.savedMarketplaceLoadIds.isEmpty())
         assertTrue(after.hiddenMarketplaceLoadIds.isEmpty())
         assertTrue(after.marketplaceJobs.isEmpty())

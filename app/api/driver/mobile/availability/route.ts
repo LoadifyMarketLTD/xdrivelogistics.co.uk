@@ -1,6 +1,11 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver, respond } from '../_lib';
+import {
+  normalizeAvailabilitySlots,
+  normalizeAvailabilityStatus,
+  validateAvailabilityPutBody,
+} from './contract';
 
 type AvailabilitySlot = {
   day_of_week: number;
@@ -13,8 +18,6 @@ type PutBody = {
   slots?: AvailabilitySlot[];
 };
 
-const VALID_STATUS = ['available', 'busy', 'offline'] as const;
-const VALID_SLOTS = ['AM', 'PM', 'EVENING'] as const;
 const AVAILABILITY_SCHEMA_ERROR_CODES = new Set(['42P01', '42703']);
 
 function availabilitySchemaResponse(error: { code?: string; message: string }) {
@@ -50,12 +53,8 @@ export async function GET(request: NextRequest) {
   if (driverResult.error) return availabilitySchemaResponse(driverResult.error);
   if (slotsResult.error) return availabilitySchemaResponse(slotsResult.error);
 
-  const availabilityStatus = String(driverResult.data?.availability_status ?? 'offline');
-  const slots: AvailabilitySlot[] = (slotsResult.data ?? []).map((row: { day_of_week: unknown; slot: unknown; available: unknown }) => ({
-    day_of_week: Number(row.day_of_week),
-    slot: String(row.slot) as AvailabilitySlot['slot'],
-    available: Boolean(row.available),
-  }));
+  const availabilityStatus = normalizeAvailabilityStatus(driverResult.data?.availability_status);
+  const slots: AvailabilitySlot[] = normalizeAvailabilitySlots(slotsResult.data ?? []);
 
   return respond(200, { availability_status: availabilityStatus, slots });
 }
@@ -76,33 +75,16 @@ export async function PUT(request: NextRequest) {
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
-  let body: PutBody;
+  let body: PutBody | unknown;
   try {
     body = (await request.json()) as PutBody;
   } catch {
     return respond(400, { error: 'Invalid JSON body.' });
   }
 
-  const { availability_status: newStatus, slots: newSlots } = body;
-
-  if (newStatus !== undefined && !(VALID_STATUS as readonly string[]).includes(newStatus)) {
-    return respond(400, { error: `availability_status must be one of: ${VALID_STATUS.join(', ')}.` });
-  }
-
-  if (newSlots !== undefined) {
-    if (!Array.isArray(newSlots)) return respond(400, { error: 'slots must be an array.' });
-    for (const s of newSlots) {
-      if (!Number.isInteger(s.day_of_week) || s.day_of_week < 0 || s.day_of_week > 6) {
-        return respond(400, { error: 'Each slot.day_of_week must be an integer 0–6.' });
-      }
-      if (!(VALID_SLOTS as readonly string[]).includes(s.slot)) {
-        return respond(400, { error: `Each slot.slot must be one of: ${VALID_SLOTS.join(', ')}.` });
-      }
-      if (typeof s.available !== 'boolean') {
-        return respond(400, { error: 'Each slot.available must be a boolean.' });
-      }
-    }
-  }
+  const validatedBody = validateAvailabilityPutBody(body);
+  if (!validatedBody.ok) return respond(400, { error: validatedBody.error });
+  const { availability_status: newStatus, slots: newSlots } = validatedBody.value;
 
   if (newStatus !== undefined) {
     const { error } = await supabaseAdmin
@@ -141,12 +123,8 @@ export async function PUT(request: NextRequest) {
   if (driverResult.error) return availabilitySchemaResponse(driverResult.error);
   if (slotsResult.error) return availabilitySchemaResponse(slotsResult.error);
 
-  const updatedStatus = String(driverResult.data?.availability_status ?? 'offline');
-  const updatedSlots: AvailabilitySlot[] = (slotsResult.data ?? []).map((row: { day_of_week: unknown; slot: unknown; available: unknown }) => ({
-    day_of_week: Number(row.day_of_week),
-    slot: String(row.slot) as AvailabilitySlot['slot'],
-    available: Boolean(row.available),
-  }));
+  const updatedStatus = normalizeAvailabilityStatus(driverResult.data?.availability_status);
+  const updatedSlots: AvailabilitySlot[] = normalizeAvailabilitySlots(slotsResult.data ?? []);
 
   return respond(200, { availability_status: updatedStatus, slots: updatedSlots });
 }

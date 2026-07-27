@@ -105,6 +105,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val _uiState = MutableStateFlow(DriverUiState())
     val uiState: StateFlow<DriverUiState> = _uiState.asStateFlow()
     private var liveRefreshJob: kotlinx.coroutines.Job? = null
+    private var availabilityMutationLock = AvailabilityMutationLock()
 
     init {
         mutationQueue.restore(queueStore.readAll())
@@ -124,6 +125,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         selectedJobId = null,
                         jobs = emptyList(),
                         jobSyncStates = emptyMap(),
+                        availability = null,
                         pendingPodJobIds = emptySet(),
                         blockedPodJobIds = emptySet(),
                         marketplaceSelectedJobId = null,
@@ -1222,35 +1224,57 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun setAvailabilityStatus(newStatus: DriverAvailabilityStatus) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
+            val (nextLock, statusAccepted) = claimAvailabilityStatusLock(availabilityMutationLock, newStatus)
+            if (!statusAccepted) {
+                _uiState.value = _uiState.value.copy(error = "Availability update already in progress.")
+                return@launch
+            }
+            availabilityMutationLock = nextLock
             _uiState.value = _uiState.value.copy(error = "", message = "")
             api.updateAvailabilityStatus(session, newStatus)
                 .onSuccess { updated ->
-                    _uiState.value = _uiState.value.copy(
-                        availability = updated,
-                        message = "Availability set to ${newStatus.label}.",
-                    )
+                    if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
+                        _uiState.value = _uiState.value.copy(
+                            availability = updated,
+                            message = "Availability set to ${newStatus.label}.",
+                        )
+                    }
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        error = error.friendlyDriverMessage("Failed to update availability."),
-                    )
+                    if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
+                        _uiState.value = _uiState.value.copy(
+                            error = error.friendlyDriverMessage("Failed to update availability."),
+                        )
+                    }
                 }
+            availabilityMutationLock = releaseAvailabilityStatusLock(availabilityMutationLock, newStatus)
         }
     }
 
     fun toggleAvailabilitySlot(dayOfWeek: Int, slot: String, available: Boolean) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
+            val (nextLock, slotAccepted) = claimAvailabilitySlotLock(availabilityMutationLock, dayOfWeek, slot)
+            if (!slotAccepted) {
+                _uiState.value = _uiState.value.copy(error = "Slot update already in progress.")
+                return@launch
+            }
+            availabilityMutationLock = nextLock
             _uiState.value = _uiState.value.copy(error = "", message = "")
             api.updateAvailabilitySlot(session, dayOfWeek, slot, available)
                 .onSuccess { updated ->
-                    _uiState.value = _uiState.value.copy(availability = updated)
+                    if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
+                        _uiState.value = _uiState.value.copy(availability = updated)
+                    }
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        error = error.friendlyDriverMessage("Failed to update slot."),
-                    )
+                    if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
+                        _uiState.value = _uiState.value.copy(
+                            error = error.friendlyDriverMessage("Failed to update slot."),
+                        )
+                    }
                 }
+            availabilityMutationLock = releaseAvailabilitySlotLock(availabilityMutationLock, dayOfWeek, slot)
         }
     }
 }
@@ -1282,6 +1306,49 @@ internal fun resolveSelectedJob(jobs: List<DriverJob>, selectedJobId: String?): 
 /** Returns an error message when no job is selected, null when a valid selection is present. */
 internal fun noJobSelectedError(selectedJobId: String?): String? =
     if (selectedJobId.isNullOrBlank()) "Select a job first." else null
+
+internal data class AvailabilityMutationLock(
+    val statusTarget: DriverAvailabilityStatus? = null,
+    val slotTargets: Set<String> = emptySet(),
+)
+
+internal fun claimAvailabilityStatusLock(
+    current: AvailabilityMutationLock,
+    newStatus: DriverAvailabilityStatus,
+): Pair<AvailabilityMutationLock, Boolean> {
+    if (current.statusTarget != null) return current to false
+    return current.copy(statusTarget = newStatus) to true
+}
+
+internal fun releaseAvailabilityStatusLock(
+    current: AvailabilityMutationLock,
+    completedStatus: DriverAvailabilityStatus,
+): AvailabilityMutationLock =
+    if (current.statusTarget == completedStatus) current.copy(statusTarget = null) else current
+
+internal fun claimAvailabilitySlotLock(
+    current: AvailabilityMutationLock,
+    dayOfWeek: Int,
+    slot: String,
+): Pair<AvailabilityMutationLock, Boolean> {
+    val key = availabilitySlotTargetKey(dayOfWeek, slot)
+    if (key in current.slotTargets) return current to false
+    return current.copy(slotTargets = current.slotTargets + key) to true
+}
+
+internal fun releaseAvailabilitySlotLock(
+    current: AvailabilityMutationLock,
+    dayOfWeek: Int,
+    slot: String,
+): AvailabilityMutationLock =
+    current.copy(slotTargets = current.slotTargets - availabilitySlotTargetKey(dayOfWeek, slot))
+
+internal fun availabilitySlotTargetKey(dayOfWeek: Int, slot: String): String =
+    "$dayOfWeek:${slot.trim().uppercase(Locale.ROOT)}"
+
+internal fun shouldApplyAvailabilityResponse(currentSession: DriverSession?, requestSession: DriverSession): Boolean =
+    currentSession?.userId == requestSession.userId &&
+        currentSession.accessToken == requestSession.accessToken
 
 /**
  * Returns the [MarketplaceJob] from [marketplaceJobs] whose ID equals [marketplaceSelectedJobId],

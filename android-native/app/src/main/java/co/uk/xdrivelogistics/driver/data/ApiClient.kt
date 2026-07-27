@@ -605,25 +605,7 @@ class ApiClient(
         http.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to load availability.")
-            val json = gson.fromJson(raw, JsonObject::class.java)
-            val statusKey = json.string("availability_status").ifBlank { "offline" }
-            val slotsArr = json.getAsJsonArray("slots") ?: JsonArray()
-            val slots = buildList {
-                for (i in 0 until slotsArr.size()) {
-                    val s = slotsArr[i].asJsonObject
-                    add(
-                        DriverAvailabilitySlot(
-                            dayOfWeek = s.get("day_of_week")?.asInt ?: 0,
-                            slot = s.string("slot"),
-                            available = s.get("available")?.asBoolean ?: false,
-                        )
-                    )
-                }
-            }
-            DriverAvailability(
-                status = DriverAvailabilityStatus.fromKey(statusKey),
-                slots = slots,
-            )
+            parseAvailability(gson.fromJson(raw, JsonObject::class.java))
         }
     }
 
@@ -642,22 +624,7 @@ class ApiClient(
         http.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to update availability.")
-            val json = gson.fromJson(raw, JsonObject::class.java)
-            val statusKey = json.string("availability_status").ifBlank { "offline" }
-            val slotsArr = json.getAsJsonArray("slots") ?: JsonArray()
-            val slots = buildList {
-                for (i in 0 until slotsArr.size()) {
-                    val s = slotsArr[i].asJsonObject
-                    add(
-                        DriverAvailabilitySlot(
-                            dayOfWeek = s.get("day_of_week")?.asInt ?: 0,
-                            slot = s.string("slot"),
-                            available = s.get("available")?.asBoolean ?: false,
-                        )
-                    )
-                }
-            }
-            DriverAvailability(status = DriverAvailabilityStatus.fromKey(statusKey), slots = slots)
+            parseAvailability(gson.fromJson(raw, JsonObject::class.java))
         }
     }
 
@@ -683,22 +650,7 @@ class ApiClient(
         http.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to update slot.")
-            val json = gson.fromJson(raw, JsonObject::class.java)
-            val statusKey = json.string("availability_status").ifBlank { "offline" }
-            val slotsArr = json.getAsJsonArray("slots") ?: JsonArray()
-            val slots = buildList {
-                for (i in 0 until slotsArr.size()) {
-                    val s = slotsArr[i].asJsonObject
-                    add(
-                        DriverAvailabilitySlot(
-                            dayOfWeek = s.get("day_of_week")?.asInt ?: 0,
-                            slot = s.string("slot"),
-                            available = s.get("available")?.asBoolean ?: false,
-                        )
-                    )
-                }
-            }
-            DriverAvailability(status = DriverAvailabilityStatus.fromKey(statusKey), slots = slots)
+            parseAvailability(gson.fromJson(raw, JsonObject::class.java))
         }
     }
 
@@ -1333,6 +1285,50 @@ class ApiClient(
                     )
                 )
             }
+
+            private fun parseAvailability(json: JsonObject): DriverAvailability {
+                val status = DriverAvailabilityStatus.fromKey(json.string("availability_status").ifBlank { "offline" })
+                val rawSlots = buildList {
+                    val slotsArr = json.getAsJsonArray("slots") ?: JsonArray()
+                    for (i in 0 until slotsArr.size()) {
+                        val slotObject = slotsArr[i] as? JsonObject ?: continue
+                        add(
+                            DriverAvailabilitySlot(
+                                dayOfWeek = slotObject.get("day_of_week")?.asInt ?: -1,
+                                slot = slotObject.string("slot"),
+                                available = slotObject.get("available")?.asBoolean ?: false,
+                            )
+                        )
+                    }
+                }
+                return DriverAvailability(
+                    status = status,
+                    slots = normalizeAvailabilitySlots(rawSlots),
+                )
+            }
+        }
+
+        private val availabilitySlotNames = listOf("AM", "PM", "EVENING")
+
+        internal fun normalizeAvailabilitySlots(rows: List<DriverAvailabilitySlot>): List<DriverAvailabilitySlot> {
+            val normalized = linkedMapOf<String, DriverAvailabilitySlot>()
+            for (day in 0..6) {
+                for (slot in availabilitySlotNames) {
+                    normalized["$day:$slot"] = DriverAvailabilitySlot(dayOfWeek = day, slot = slot, available = false)
+                }
+            }
+
+            for (slot in rows) {
+                if (slot.dayOfWeek !in 0..6) continue
+                val normalizedSlot = slot.slot.trim().uppercase(Locale.ROOT)
+                if (normalizedSlot !in availabilitySlotNames) continue
+                normalized["${slot.dayOfWeek}:$normalizedSlot"] = DriverAvailabilitySlot(
+                    dayOfWeek = slot.dayOfWeek,
+                    slot = normalizedSlot,
+                    available = slot.available,
+                )
+            }
+            return normalized.values.toList()
         }
     }
 

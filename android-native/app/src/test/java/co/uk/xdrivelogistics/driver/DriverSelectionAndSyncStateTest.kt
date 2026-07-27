@@ -1,6 +1,7 @@
 package co.uk.xdrivelogistics.driver
 
 import co.uk.xdrivelogistics.driver.data.DriverJob
+import co.uk.xdrivelogistics.driver.data.DriverSession
 import co.uk.xdrivelogistics.driver.data.MarketplaceJob
 import co.uk.xdrivelogistics.driver.data.MarketplacePublicPrice
 import co.uk.xdrivelogistics.driver.offline.MobileLifecycleAction
@@ -342,6 +343,72 @@ class DriverSelectionAndSyncStateTest {
         assertTrue(base != stableBidIntentKey("job-1", "owner-1", "driver-2", 250.0, "GBP", "Counter offer"))
         assertTrue(base != stableBidIntentKey("job-1", "owner-1", "driver-1", 251.0, "GBP", "Counter offer"))
         assertTrue(base != stableBidIntentKey("job-1", "owner-1", "driver-1", 250.0, "GBP", "Counter offer +"))
+    }
+
+    @Test
+    fun `availability status lock blocks overlapping status mutations`() {
+        val initial = AvailabilityMutationLock()
+        val (locked, firstAccepted) = claimAvailabilityStatusLock(
+            initial,
+            co.uk.xdrivelogistics.driver.data.DriverAvailabilityStatus.AVAILABLE,
+        )
+        assertTrue(firstAccepted)
+
+        val (_, duplicateAccepted) = claimAvailabilityStatusLock(
+            locked,
+            co.uk.xdrivelogistics.driver.data.DriverAvailabilityStatus.AVAILABLE,
+        )
+        assertFalse(duplicateAccepted)
+
+        val (_, conflictingAccepted) = claimAvailabilityStatusLock(
+            locked,
+            co.uk.xdrivelogistics.driver.data.DriverAvailabilityStatus.BUSY,
+        )
+        assertFalse(conflictingAccepted)
+
+        val released = releaseAvailabilityStatusLock(
+            locked,
+            co.uk.xdrivelogistics.driver.data.DriverAvailabilityStatus.AVAILABLE,
+        )
+        val (_, afterReleaseAccepted) = claimAvailabilityStatusLock(
+            released,
+            co.uk.xdrivelogistics.driver.data.DriverAvailabilityStatus.BUSY,
+        )
+        assertTrue(afterReleaseAccepted)
+    }
+
+    @Test
+    fun `availability slot lock blocks duplicate in-flight target and allows different target`() {
+        val initial = AvailabilityMutationLock()
+        val (locked, firstAccepted) = claimAvailabilitySlotLock(initial, 2, "AM")
+        assertTrue(firstAccepted)
+
+        val (_, duplicateAccepted) = claimAvailabilitySlotLock(locked, 2, "am")
+        assertFalse(duplicateAccepted)
+
+        val (_, differentTargetAccepted) = claimAvailabilitySlotLock(locked, 2, "PM")
+        assertTrue(differentTargetAccepted)
+
+        val released = releaseAvailabilitySlotLock(locked, 2, "AM")
+        val (_, retryAccepted) = claimAvailabilitySlotLock(released, 2, "AM")
+        assertTrue(retryAccepted)
+    }
+
+    @Test
+    fun `shouldApplyAvailabilityResponse enforces same owner and token session`() {
+        val requestSession = DriverSession(
+            accessToken = "access-a",
+            refreshToken = "refresh-a",
+            userId = "owner-a",
+            email = "a@example.com",
+        )
+        assertTrue(shouldApplyAvailabilityResponse(requestSession, requestSession))
+
+        val differentToken = requestSession.copy(accessToken = "access-b")
+        assertFalse(shouldApplyAvailabilityResponse(differentToken, requestSession))
+
+        val differentOwner = requestSession.copy(userId = "owner-b")
+        assertFalse(shouldApplyAvailabilityResponse(differentOwner, requestSession))
     }
 
     private fun job(id: String, status: String = "allocated"): DriverJob = DriverJob(
