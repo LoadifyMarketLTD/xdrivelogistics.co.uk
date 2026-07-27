@@ -18,7 +18,9 @@ type PutBody = {
   slots?: AvailabilitySlot[];
 };
 
-const AVAILABILITY_SCHEMA_ERROR_CODES = new Set(['42P01', '42703']);
+// PostgreSQL native codes for missing table/column, and PostgREST schema-cache codes for
+// when the schema cache hasn't yet refreshed after a migration (column/relationship not found).
+const AVAILABILITY_SCHEMA_ERROR_CODES = new Set(['42P01', '42703', 'PGRST204', 'PGRST200']);
 
 function availabilitySchemaResponse(error: { code?: string; message: string }) {
   if (error.code && AVAILABILITY_SCHEMA_ERROR_CODES.has(error.code)) {
