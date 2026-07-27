@@ -1166,12 +1166,13 @@ class ApiClient(
             .build()
     }
 
-    private suspend fun <T> networkResult(block: () -> T): Result<T> =
+    private suspend fun <T> networkResult(block: suspend () -> T): Result<T> =
         withContext(Dispatchers.IO) {
-            runCatching(block).fold(
-                onSuccess = { Result.success(it) },
-                onFailure = { Result.failure(MobileApiErrorClassifier.transportFailure(it)) },
-            )
+            try {
+                Result.success(block())
+            } catch (throwable: Throwable) {
+                Result.failure(MobileApiErrorClassifier.transportFailure(throwable))
+            }
         }
 
     private fun extractError(rawBody: String, fallback: String): String {

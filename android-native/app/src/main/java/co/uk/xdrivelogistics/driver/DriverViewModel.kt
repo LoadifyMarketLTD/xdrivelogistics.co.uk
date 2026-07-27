@@ -20,7 +20,6 @@ import co.uk.xdrivelogistics.driver.data.MobileApiHttpException
 import co.uk.xdrivelogistics.driver.data.NearbyDriver
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import co.uk.xdrivelogistics.driver.jobs.DriverLifecycleTransitions
-import co.uk.xdrivelogistics.driver.offline.ActiveJobSelectionStore
 import co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand
 import co.uk.xdrivelogistics.driver.offline.MobileMutationKind
 import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueue
