@@ -101,11 +101,12 @@ async function accessToken() {
   return token;
 }
 
-export async function fetchLiveLoads(options: { destinationMode?: boolean; radiusMiles?: 10 | 20 | 30 } = {}) {
+export async function fetchLiveLoads(options: { destinationMode?: boolean; radiusMiles?: 10 | 20 | 30; search?: string } = {}) {
   const token = await accessToken();
   const params = new URLSearchParams();
   if (options.destinationMode) params.set('mode', 'destination');
   if (options.radiusMiles) params.set('radius', String(options.radiusMiles));
+  if (options.search?.trim()) params.set('search', options.search.trim());
   const response = await fetch(`${getApiBaseUrl()}/api/driver/mobile/nearby-jobs?${params.toString()}`, {
     headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
   });

@@ -1137,7 +1137,7 @@ function ProfileScreen({
       </Panel>
       <SecondaryButton label="Finance & invoices" onPress={onFinance} />
       <SecondaryButton label="Availability" onPress={onAvailability} />
-      <SecondaryButton label="Messages" onPress={onMessages} />
+      <SecondaryButton label="Updates" onPress={onMessages} />
       <SecondaryButton label="Change password" onPress={onPasswordChange} />
       <SecondaryButton label="Refresh account data" onPress={onRefresh} />
       <SecondaryButton label="Sign out" onPress={onSignOut} />
@@ -1427,20 +1427,20 @@ function MessagesScreen({ token, onBack }: { token: string | null; onBack: () =>
         setMessages(res.messages);
         void markMessagesRead(token).catch(() => undefined);
       })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load messages.'))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load updates.'))
       .finally(() => setLoading(false));
   }, [token]);
 
   return (
     <View style={styles.stack}>
       <Panel>
-        <Text style={styles.title}>Messages</Text>
+        <Text style={styles.title}>Updates</Text>
         <Text style={styles.copy}>Dispatcher updates and job notifications.</Text>
       </Panel>
-      {loading && <Panel><Text style={styles.copy}>Loading messages...</Text></Panel>}
+      {loading && <Panel><Text style={styles.copy}>Loading updates...</Text></Panel>}
       {error ? <Panel><Text style={styles.message}>{error}</Text></Panel> : null}
       {!loading && messages.length === 0 && !error && (
-        <Panel><Text style={styles.copy}>No messages yet.</Text></Panel>
+        <Panel><Text style={styles.copy}>No updates yet.</Text></Panel>
       )}
       {messages.map((msg) => {
         const title = msg.event_type.replace(/_/g, ' ');

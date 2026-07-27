@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Animated, PanResponder, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { fetchActiveQuotedJobIds, fetchLiveLoads, submitLiveLoadQuote, type LiveLoad } from '../api/liveLoads';
@@ -48,13 +48,16 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
   const [quoteAmount, setQuoteAmount] = useState('');
   const [quoteMessage, setQuoteMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadJobs = useCallback(async (nextPreferences: MarketplacePreferences) => {
+  const loadJobs = useCallback(async (nextPreferences: MarketplacePreferences, search = '') => {
     setRefreshing(true);
     setError('');
     try {
       const [result, quotedJobIds] = await Promise.all([
-        fetchLiveLoads({ destinationMode: nextPreferences.destinationPriorityEnabled, radiusMiles: nextPreferences.destinationRadiusMiles }),
+        fetchLiveLoads({ destinationMode: nextPreferences.destinationPriorityEnabled, radiusMiles: nextPreferences.destinationRadiusMiles, search: search.trim() || undefined }),
         fetchActiveQuotedJobIds(),
       ]);
       setJobs(result.jobs
@@ -97,6 +100,26 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
       return next;
     });
   }, [accountEmail]);
+
+  const onSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      void loadJobs(preferences, text);
+    }, 400);
+  }, [loadJobs, preferences]);
+
+  const setRadius = useCallback((radius: 10 | 20 | 30) => {
+    const next = { ...preferences, destinationRadiusMiles: radius };
+    persistPreferences(() => next);
+    void loadJobs(next, searchQuery);
+  }, [loadJobs, persistPreferences, preferences, searchQuery]);
+
+  const toggleDestinationMode = useCallback(() => {
+    const next = { ...preferences, destinationPriorityEnabled: !preferences.destinationPriorityEnabled };
+    persistPreferences(() => next);
+    void loadJobs(next, searchQuery);
+  }, [loadJobs, persistPreferences, preferences, searchQuery]);
 
   const togglePin = useCallback((jobId: string) => persistPreferences((current) => ({
     ...current,
@@ -197,7 +220,39 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
       : visible;
 
   return <View style={styles.screen}>
-    <View><Text style={styles.title}>Live Loads</Text><Text style={styles.brand}>XDRIVE</Text></View>
+    <View style={styles.header}>
+      <View><Text style={styles.title}>Live Loads</Text><Text style={styles.brand}>XDRIVE</Text></View>
+      <TouchableOpacity style={styles.filterToggle} onPress={() => setShowFilters((v) => !v)}>
+        <Text style={styles.filterToggleText}>{showFilters ? '▲ Filters' : '▼ Filters'}</Text>
+      </TouchableOpacity>
+    </View>
+    {showFilters ? <View style={styles.filterBar}>
+      <TextInput
+        value={searchQuery}
+        onChangeText={onSearchChange}
+        placeholder="Search by location, postcode, cargo…"
+        placeholderTextColor="#6b7280"
+        style={styles.searchInput}
+        returnKeyType="search"
+        autoCorrect={false}
+        autoCapitalize="none"
+        clearButtonMode="while-editing"
+      />
+      <View style={styles.filterRow}>
+        <Text style={styles.filterLabel}>Radius:</Text>
+        <View style={styles.radiusGroup}>
+          {([10, 20, 30] as const).map((r) => (
+            <TouchableOpacity key={r} style={[styles.radiusBtn, preferences.destinationRadiusMiles === r && styles.radiusBtnActive]} onPress={() => setRadius(r)}>
+              <Text style={[styles.radiusBtnText, preferences.destinationRadiusMiles === r && styles.radiusBtnTextActive]}>{r} mi</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      <TouchableOpacity style={styles.modeToggle} onPress={toggleDestinationMode}>
+        <View style={[styles.modeToggleIndicator, preferences.destinationPriorityEnabled && styles.modeToggleOn]} />
+        <Text style={styles.filterLabel}>Destination priority {preferences.destinationPriorityEnabled ? 'ON' : 'OFF'}</Text>
+      </TouchableOpacity>
+    </View> : null}
     <View style={styles.tabs}>
       {([['live', `Live (${visible.length})`], ['pinned', `Pinned (${preferences.savedJobIds.length})`], ['hidden', `Hidden (${preferences.hiddenJobIds.length})`]] as Array<[Feed, string]>).map(([key, label]) => (
         <TouchableOpacity key={key} style={[styles.tab, feed === key && styles.activeTab]} onPress={() => setFeed(key)}><Text style={[styles.tabText, feed === key && styles.activeTabText]}>{label}</Text></TouchableOpacity>
@@ -221,7 +276,7 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
         <TouchableOpacity style={styles.submitButton} onPress={() => void submitQuote()} disabled={submitting}><Text style={styles.submitText}>{submitting ? 'SENDING...' : 'SUBMIT QUOTE'}</Text></TouchableOpacity>
       </View>
     </View> : null}
-    <ScrollView contentContainerStyle={styles.list} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadJobs(preferences)} tintColor="#ffc107" colors={['#ffc107']} />}>
+    <ScrollView contentContainerStyle={styles.list}     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadJobs(preferences, searchQuery)} tintColor="#ffc107" colors={['#ffc107']} />}>
       {displayed.length === 0 ? <Text style={styles.empty}>No loads in this section.</Text> : displayed.map((job) => feed === 'hidden'
         ? <LiveLoadCard key={job.id} job={job} action="RESTORE" onOpen={() => openQuote(job)} onAction={() => restore(job.id)} />
         : <SwipeCard key={job.id} job={job} pinned={preferences.savedJobIds.includes(job.id)} onOpen={() => openQuote(job)} onQuote={() => openQuote(job)} onTogglePin={() => togglePin(job.id)} onHide={() => hide(job.id)} />)}
@@ -231,8 +286,23 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#071018', paddingHorizontal: 16, paddingTop: 12, gap: 16 },
+  header: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   title: { color: '#f8fafc', fontSize: 28, fontWeight: '900' },
   brand: { color: '#ffc107', fontSize: 13, fontWeight: '900', letterSpacing: 2.4, marginTop: 2 },
+  filterToggle: { paddingVertical: 6, paddingHorizontal: 10, backgroundColor: '#0d1a24', borderColor: '#1f2937', borderWidth: 1, borderRadius: 10 },
+  filterToggleText: { color: '#9ca3af', fontWeight: '800', fontSize: 12 },
+  filterBar: { backgroundColor: '#0d1a24', borderColor: '#1f2937', borderWidth: 1, borderRadius: 14, padding: 12, gap: 10 },
+  searchInput: { minHeight: 44, color: '#f8fafc', backgroundColor: '#111827', borderColor: '#1f2937', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 14 },
+  filterRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  filterLabel: { color: '#9ca3af', fontWeight: '700', fontSize: 13 },
+  radiusGroup: { flexDirection: 'row', gap: 6 },
+  radiusBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#334155', backgroundColor: '#111827' },
+  radiusBtnActive: { backgroundColor: '#ffc107', borderColor: '#ffc107' },
+  radiusBtnText: { color: '#9ca3af', fontWeight: '800', fontSize: 13 },
+  radiusBtnTextActive: { color: '#111827' },
+  modeToggle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  modeToggleIndicator: { width: 36, height: 20, borderRadius: 10, backgroundColor: '#334155' },
+  modeToggleOn: { backgroundColor: '#ffc107' },
   tabs: { flexDirection: 'row', backgroundColor: '#0d1a24', borderColor: '#1f2937', borderWidth: 1, borderRadius: 16, padding: 4 },
   tab: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   activeTab: { backgroundColor: '#ffc107' },
