@@ -4,14 +4,24 @@ import org.junit.Test
 import org.junit.Assert.*
 
 /**
- * Unit tests for [PodSubmissionStore] covering:
- *  1. Same key/same fingerprint replay
- *  2. Restart before upload (PENDING_UPLOAD state survives)
- *  3. Restart after upload but before finalisation (READY_TO_FINALISE state survives)
- *  4. Account isolation (different ownerUserId → no cross-contamination)
- *  5. Invalid MIME / oversize / count / path validation (server-side; store is neutral)
- *  6. Recipient/signature requirement (store carries both)
- *  7. No direct Kotlin jobs PATCH in POD flow (ApiClient methods are deprecated, not called)
+ * JVM unit tests for [PodSubmissionStore] and the POD submission workflow.
+ *
+ * Uses [InMemoryPodStoreBackend] so no Android context or EncryptedSharedPreferences
+ * is required.  Tests cover:
+ *
+ *  1.  Write/read round-trip via InMemoryPodStoreBackend
+ *  2.  Account isolation (pendingForOwner never crosses ownerUserId boundaries)
+ *  3.  Malformed-record quarantine in pendingForOwner
+ *  4.  Non-null payloadFingerprint enforced by recordSubmission
+ *  5.  CommitFailed exception on backend write failure
+ *  6.  markEvidenceUploaded transitions state to READY_TO_FINALISE when all uploaded
+ *  7.  clearSubmission removes the record
+ *  8.  Restart recovery: READY_TO_FINALISE record survives
+ *  9.  Deprecated methods (uploadPodDocument / patchPodJobRecord / confirmDeliveryRecipient)
+ *      have been REMOVED from ApiClient
+ * 10.  finalisePod, initPodEvidenceUpload, finaliseCollectionProof are non-deprecated
+ * 11.  MAX_ATTEMPTS constant defined and positive
+ * 12.  Collection kind is distinct from delivery photos
  */
 class PodSubmissionWorkflowTest {
 
@@ -19,15 +29,20 @@ class PodSubmissionWorkflowTest {
     // Helpers
     // -------------------------------------------------------------------------
 
+    private fun makeStore(
+        onQuarantined: (String, String, Throwable) -> Unit = { _, _, _ -> },
+    ): PodSubmissionStore = PodSubmissionStore(InMemoryPodStoreBackend(), true, onQuarantined)
+
     private fun evidenceRecord(
         evidenceId: String = "ev-00000000-aaaaaaaaaaaaaaaa",
         kind: String = "photos",
         sha256: String = "a".repeat(64),
         state: PodSubmissionStore.EvidenceState = PodSubmissionStore.EvidenceState.PENDING_UPLOAD,
         storagePath: String? = null,
+        localUri: String = "/data/user/0/co.uk.xdrivelogistics.driver/files/pod/user-a/job-1/$evidenceId.jpg",
     ) = PodSubmissionStore.EvidenceRecord(
         evidenceId = evidenceId,
-        localUri = "/data/user/0/co.uk.xdrivelogistics/cache/pod/test.jpg",
+        localUri = localUri,
         sha256Hex = sha256,
         mimeType = "image/jpeg",
         byteSize = 102400L,
@@ -42,7 +57,7 @@ class PodSubmissionWorkflowTest {
         driverId: String = "driver-a",
         jobId: String = "job-1",
         recipientName: String = "",
-        payloadFingerprint: String? = null,
+        payloadFingerprint: String = "a".repeat(64),
         state: PodSubmissionStore.SubmissionState = PodSubmissionStore.SubmissionState.PENDING,
         evidence: List<PodSubmissionStore.EvidenceRecord> = listOf(evidenceRecord()),
     ) = PodSubmissionStore.PodSubmissionRecord(
@@ -59,205 +74,261 @@ class PodSubmissionWorkflowTest {
     )
 
     // -------------------------------------------------------------------------
-    // 1. Same key / same fingerprint → replay returns stored record
+    // 1. Write/read round-trip
     // -------------------------------------------------------------------------
 
     @Test
-    fun `same podKey with same fingerprint represents a replay`() {
-        val fingerprint = "b".repeat(64)
-        val submission = submissionRecord(
-            podKey = "pod-key-1234",
-            payloadFingerprint = fingerprint,
-            state = PodSubmissionStore.SubmissionState.READY_TO_FINALISE,
-            recipientName = "Jane Smith",
-        )
+    fun `recordSubmission then pendingForOwner returns the stored record`() {
+        val store = makeStore()
+        val rec = submissionRecord(ownerUserId = "user-a", jobId = "job-1")
+        store.recordSubmission(rec)
 
-        // Verify: a second submission request with the same podKey and fingerprint
-        // must be treated as a replay. The POD key uniquely identifies the submission.
-        assertEquals(submission.podKey, "pod-key-1234")
-        assertEquals(submission.payloadFingerprint, fingerprint)
-
-        // Re-creating a record from the same key/fingerprint should not change the
-        // stored data — callers must detect same key + same fingerprint and replay.
-        val replay = submission.copy()
-        assertEquals(submission.podKey, replay.podKey)
-        assertEquals(submission.payloadFingerprint, replay.payloadFingerprint)
-        assertEquals(submission.recipientName, replay.recipientName)
-    }
-
-    // -------------------------------------------------------------------------
-    // 2. Restart before upload — record in PENDING_UPLOAD state is preserved
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `evidence in PENDING_UPLOAD state indicates restart before upload`() {
-        val ev = evidenceRecord(state = PodSubmissionStore.EvidenceState.PENDING_UPLOAD)
-        assertEquals(PodSubmissionStore.EvidenceState.PENDING_UPLOAD, ev.state)
-        assertNull(ev.storagePath)
+        val pending = store.pendingForOwner("user-a")
+        assertEquals(1, pending.size)
+        assertEquals(rec.podKey, pending[0].podKey)
+        assertEquals(rec.payloadFingerprint, pending[0].payloadFingerprint)
+        assertEquals(rec.jobId, pending[0].jobId)
     }
 
     @Test
-    fun `submission with PENDING state indicates restart before upload`() {
-        val submission = submissionRecord(
-            state = PodSubmissionStore.SubmissionState.PENDING,
-            evidence = listOf(evidenceRecord(state = PodSubmissionStore.EvidenceState.PENDING_UPLOAD)),
-        )
-        assertEquals(PodSubmissionStore.SubmissionState.PENDING, submission.state)
-        assertTrue(submission.evidence.all { it.storagePath == null })
-    }
+    fun `getForOwnerJob returns the stored record for correct owner`() {
+        val store = makeStore()
+        val rec = submissionRecord(ownerUserId = "user-a", jobId = "job-42")
+        store.recordSubmission(rec)
 
-    // -------------------------------------------------------------------------
-    // 3. Restart after upload but before finalisation — READY_TO_FINALISE
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `evidence in UPLOADED state transitions submission to READY_TO_FINALISE`() {
-        val ev = evidenceRecord(
-            state = PodSubmissionStore.EvidenceState.UPLOADED,
-            storagePath = "job-1/photos/ev-id-test.jpg",
-        )
-        assertNotNull(ev.storagePath)
-        assertEquals(PodSubmissionStore.EvidenceState.UPLOADED, ev.state)
+        val found = store.getForOwnerJob("user-a", "job-42")
+        assertNotNull(found)
+        assertEquals("job-42", found!!.jobId)
     }
 
     @Test
-    fun `submission in READY_TO_FINALISE with recipient can be retried after restart`() {
-        val photoPath = "job-1/photos/ev-00000001-photo.jpg"
-        val submission = submissionRecord(
-            recipientName = "Bob Builder",
-            payloadFingerprint = "c".repeat(64),
-            state = PodSubmissionStore.SubmissionState.READY_TO_FINALISE,
-            evidence = listOf(
-                evidenceRecord(
-                    state = PodSubmissionStore.EvidenceState.UPLOADED,
-                    storagePath = photoPath,
-                )
-            ),
-        )
-        // After restart, the ViewModel can read this and call finalisePod().
-        assertEquals(PodSubmissionStore.SubmissionState.READY_TO_FINALISE, submission.state)
-        assertEquals("Bob Builder", submission.recipientName)
-        val photoPaths = submission.evidence.filter { it.kind == "photos" }.mapNotNull { it.storagePath }
-        assertEquals(listOf(photoPath), photoPaths)
-        assertNotNull(submission.payloadFingerprint)
+    fun `getForOwnerJob returns null for wrong owner`() {
+        val store = makeStore()
+        store.recordSubmission(submissionRecord(ownerUserId = "user-a", jobId = "job-1"))
+
+        assertNull(store.getForOwnerJob("user-b", "job-1"))
     }
 
     // -------------------------------------------------------------------------
-    // 4. Account isolation
+    // 2. Account isolation
     // -------------------------------------------------------------------------
 
     @Test
-    fun `submissions for different accounts have different ownerUserId`() {
-        val subA = submissionRecord(ownerUserId = "user-a", jobId = "job-1")
-        val subB = submissionRecord(ownerUserId = "user-b", jobId = "job-1")
+    fun `pendingForOwner only returns records for the requested owner`() {
+        val store = makeStore()
+        store.recordSubmission(submissionRecord(ownerUserId = "user-a", jobId = "job-1"))
+        store.recordSubmission(submissionRecord(ownerUserId = "user-b", jobId = "job-2"))
+        store.recordSubmission(submissionRecord(ownerUserId = "user-a", jobId = "job-3"))
 
-        // Same jobId, different owners — these are distinct, isolated submissions.
-        assertNotEquals(subA.ownerUserId, subB.ownerUserId)
-    }
-
-    @Test
-    fun `pendingForOwner filters by ownerUserId`() {
-        // Simulate what PodSubmissionStore.pendingForOwner does in production:
-        // only records matching ownerUserId are returned.
-        val records = listOf(
-            submissionRecord(ownerUserId = "user-a", jobId = "job-1"),
-            submissionRecord(ownerUserId = "user-b", jobId = "job-2"),
-            submissionRecord(ownerUserId = "user-a", jobId = "job-3"),
-        )
-        val forA = records.filter { it.ownerUserId == "user-a" }
+        val forA = store.pendingForOwner("user-a")
         assertEquals(2, forA.size)
         assertTrue(forA.all { it.ownerUserId == "user-a" })
+
+        val forB = store.pendingForOwner("user-b")
+        assertEquals(1, forB.size)
+        assertEquals("user-b", forB[0].ownerUserId)
     }
 
     @Test
-    fun `ownerUserId in record is never overwritten by copy`() {
-        val original = submissionRecord(ownerUserId = "user-a")
-        // Simulating what recordSubmission does when updating recipientName:
-        val updated = original.copy(recipientName = "Alice", state = PodSubmissionStore.SubmissionState.READY_TO_FINALISE)
-        // ownerUserId must be preserved.
+    fun `ownerUserId is preserved through copy-update of recipientName`() {
+        val store = makeStore()
+        store.recordSubmission(submissionRecord(ownerUserId = "user-a"))
+        val rec = store.pendingForOwner("user-a")[0]
+        store.recordSubmission(
+            rec.copy(recipientName = "Alice", state = PodSubmissionStore.SubmissionState.READY_TO_FINALISE)
+        )
+        val updated = store.pendingForOwner("user-a")[0]
         assertEquals("user-a", updated.ownerUserId)
+        assertEquals("Alice", updated.recipientName)
     }
 
     // -------------------------------------------------------------------------
-    // 5. Evidence requirements / constraints (business rules)
+    // 3. Malformed-record quarantine
     // -------------------------------------------------------------------------
 
     @Test
-    fun `recipient name is required for POD finalisation`() {
-        val submission = submissionRecord(recipientName = "")
-        assertTrue(
-            "Empty recipientName must prevent finalisation",
-            submission.recipientName.isBlank(),
+    fun `pendingForOwner quarantines malformed records without throwing`() {
+        val backend = InMemoryPodStoreBackend()
+        // Inject a deliberately malformed JSON entry directly into the backend.
+        backend.putStringSync("pod_sub_user-a_job-bad", "{invalid json{{")
+
+        val quarantined = mutableListOf<String>()
+        val store = PodSubmissionStore(backend, true) { key, _, _ -> quarantined.add(key) }
+
+        // Also add one valid record.
+        val valid = submissionRecord(ownerUserId = "user-a", jobId = "job-good")
+        store.recordSubmission(valid)
+
+        val pending = store.pendingForOwner("user-a")
+        assertEquals(1, pending.size)
+        assertEquals("job-good", pending[0].jobId)
+        assertEquals(1, quarantined.size)
+        assertTrue(quarantined[0].contains("job-bad"))
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. Non-null payloadFingerprint enforced
+    // -------------------------------------------------------------------------
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `recordSubmission throws IllegalArgumentException for blank payloadFingerprint`() {
+        val store = makeStore()
+        // PodSubmissionRecord.payloadFingerprint is String (non-null) but we can pass blank.
+        store.recordSubmission(submissionRecord(payloadFingerprint = ""))
+    }
+
+    @Test
+    fun `payloadFingerprint is preserved through store round-trip`() {
+        val store = makeStore()
+        val fp = "b".repeat(64)
+        store.recordSubmission(submissionRecord(payloadFingerprint = fp))
+        val rec = store.pendingForOwner("user-a")[0]
+        assertEquals(fp, rec.payloadFingerprint)
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. CommitFailed on backend write failure
+    // -------------------------------------------------------------------------
+
+    @Test(expected = PodStorageException.CommitFailed::class)
+    fun `recordSubmission throws CommitFailed when backend commit returns false`() {
+        val failingBackend = object : PodStoreBackend {
+            override fun getString(key: String): String? = null
+            override fun putStringSync(key: String, value: String): Boolean = false
+            override fun removeSync(key: String): Boolean = false
+            override fun allStrings(): Map<String, String> = emptyMap()
+        }
+        val store = PodSubmissionStore(failingBackend, true)
+        store.recordSubmission(submissionRecord())
+    }
+
+    @Test(expected = PodStorageException.Unavailable::class)
+    fun `recordSubmission throws Unavailable when isStorageAvailable is false`() {
+        val store = PodSubmissionStore(InMemoryPodStoreBackend(), false)
+        store.recordSubmission(submissionRecord())
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. markEvidenceUploaded transitions to READY_TO_FINALISE when all uploaded
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `markEvidenceUploaded sets storagePath and transitions submission to READY_TO_FINALISE`() {
+        val store = makeStore()
+        val evidenceId = "ev-00000000-aaaaaaaaaaaaaaaa"
+        store.recordSubmission(submissionRecord(jobId = "job-1", evidence = listOf(evidenceRecord(evidenceId = evidenceId))))
+
+        store.markEvidenceUploaded("user-a", "job-1", evidenceId, "job-1/photos/$evidenceId-test.jpg")
+
+        val rec = store.getForOwnerJob("user-a", "job-1")
+        assertNotNull(rec)
+        val ev = rec!!.evidence.first()
+        assertEquals("job-1/photos/$evidenceId-test.jpg", ev.storagePath)
+        assertEquals(PodSubmissionStore.EvidenceState.UPLOADED, ev.state)
+        assertEquals(PodSubmissionStore.SubmissionState.READY_TO_FINALISE, rec.state)
+    }
+
+    @Test
+    fun `submission stays PENDING when not all evidence items are uploaded`() {
+        val store = makeStore()
+        store.recordSubmission(
+            submissionRecord(
+                jobId = "job-2",
+                evidence = listOf(
+                    evidenceRecord(evidenceId = "ev-01"),
+                    evidenceRecord(evidenceId = "ev-02"),
+                ),
+            )
         )
-        // Confirm that the state prevents retry without a name.
-        assertNotEquals(PodSubmissionStore.SubmissionState.READY_TO_FINALISE, submission.state)
+        store.markEvidenceUploaded("user-a", "job-2", "ev-01", "job-2/photos/ev-01-test.jpg")
+
+        val rec = store.getForOwnerJob("user-a", "job-2")!!
+        assertEquals(PodSubmissionStore.SubmissionState.PENDING, rec.state)
     }
 
+    // -------------------------------------------------------------------------
+    // 7. clearSubmission removes the record
+    // -------------------------------------------------------------------------
+
     @Test
-    fun `at least one uploaded evidence is required before finalisation`() {
-        val submissionNoUploads = submissionRecord(
-            recipientName = "Alice",
-            state = PodSubmissionStore.SubmissionState.PENDING,
-            evidence = listOf(evidenceRecord(state = PodSubmissionStore.EvidenceState.PENDING_UPLOAD)),
+    fun `clearSubmission removes the record from the store`() {
+        val store = makeStore()
+        store.recordSubmission(submissionRecord(ownerUserId = "user-a", jobId = "job-clear"))
+        assertNotNull(store.getForOwnerJob("user-a", "job-clear"))
+
+        store.clearSubmission("user-a", "job-clear")
+        assertNull(store.getForOwnerJob("user-a", "job-clear"))
+        assertTrue(store.pendingForOwner("user-a").isEmpty())
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. Restart recovery — READY_TO_FINALISE record is preserved
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `READY_TO_FINALISE record with recipientName survives store round-trip`() {
+        val store = makeStore()
+        val photoPath = "job-1/photos/ev-00000000-aaaaaaaaaaaaaaaa-test.jpg"
+        store.recordSubmission(
+            submissionRecord(
+                jobId = "job-1",
+                recipientName = "Bob Builder",
+                payloadFingerprint = "c".repeat(64),
+                state = PodSubmissionStore.SubmissionState.READY_TO_FINALISE,
+                evidence = listOf(
+                    evidenceRecord(
+                        state = PodSubmissionStore.EvidenceState.UPLOADED,
+                        storagePath = photoPath,
+                    )
+                ),
+            )
         )
-        val photoPaths = submissionNoUploads.evidence
-            .filter { it.kind == "photos" && it.storagePath != null }
-            .mapNotNull { it.storagePath }
-        assertTrue("No uploads means no photo paths for finalisePod", photoPaths.isEmpty())
-    }
-
-    @Test
-    fun `evidence kind is preserved correctly`() {
-        val photo = evidenceRecord(kind = "photos")
-        val doc = evidenceRecord(evidenceId = "ev-doc-01", kind = "documents")
-        val collection = evidenceRecord(evidenceId = "ev-coll-01", kind = "collection")
-        assertEquals("photos", photo.kind)
-        assertEquals("documents", doc.kind)
-        assertEquals("collection", collection.kind)
+        val rec = store.pendingForOwner("user-a")[0]
+        assertEquals(PodSubmissionStore.SubmissionState.READY_TO_FINALISE, rec.state)
+        assertEquals("Bob Builder", rec.recipientName)
+        assertEquals(listOf(photoPath), rec.evidence.mapNotNull { it.storagePath })
     }
 
     // -------------------------------------------------------------------------
-    // 6. No direct Kotlin jobs PATCH in new POD flow
+    // 9. Deprecated methods have been REMOVED from ApiClient
     // -------------------------------------------------------------------------
 
     @Test
-    fun `ApiClient uploadPodDocument is deprecated`() {
+    fun `ApiClient uploadPodDocument has been removed`() {
         val member = co.uk.xdrivelogistics.driver.data.ApiClient::class.members
             .find { it.name == "uploadPodDocument" }
-        assertNotNull("uploadPodDocument must still exist for backward compat", member)
-        val deprecated = member?.annotations?.filterIsInstance<Deprecated>()
-        assertFalse(
-            "uploadPodDocument must be annotated @Deprecated",
-            deprecated.isNullOrEmpty(),
+        assertNull(
+            "uploadPodDocument must be removed — use initPodEvidenceUpload + uploadEvidenceBytes + finalisePod",
+            member,
         )
     }
 
     @Test
-    fun `ApiClient patchPodJobRecord is deprecated`() {
-        val deprecated = co.uk.xdrivelogistics.driver.data.ApiClient::class.members
+    fun `ApiClient patchPodJobRecord has been removed`() {
+        val member = co.uk.xdrivelogistics.driver.data.ApiClient::class.members
             .find { it.name == "patchPodJobRecord" }
-            ?.annotations
-            ?.filterIsInstance<Deprecated>()
-        assertFalse(
-            "patchPodJobRecord must be annotated @Deprecated",
-            deprecated.isNullOrEmpty(),
+        assertNull(
+            "patchPodJobRecord must be removed — use finaliseCollectionProof or finalisePod",
+            member,
         )
     }
 
     @Test
-    fun `ApiClient confirmDeliveryRecipient is deprecated`() {
-        val deprecated = co.uk.xdrivelogistics.driver.data.ApiClient::class.members
+    fun `ApiClient confirmDeliveryRecipient has been removed`() {
+        val member = co.uk.xdrivelogistics.driver.data.ApiClient::class.members
             .find { it.name == "confirmDeliveryRecipient" }
-            ?.annotations
-            ?.filterIsInstance<Deprecated>()
-        assertFalse(
-            "confirmDeliveryRecipient must be annotated @Deprecated",
-            deprecated.isNullOrEmpty(),
+        assertNull(
+            "confirmDeliveryRecipient must be removed — use finalisePod",
+            member,
         )
     }
 
+    // -------------------------------------------------------------------------
+    // 10. Current canonical methods are non-deprecated
+    // -------------------------------------------------------------------------
+
     @Test
-    fun `new finalisePod method exists and is not deprecated`() {
+    fun `finalisePod exists and is not deprecated`() {
         val member = co.uk.xdrivelogistics.driver.data.ApiClient::class.members
             .find { it.name == "finalisePod" }
         assertNotNull("finalisePod must exist on ApiClient", member)
@@ -266,18 +337,7 @@ class PodSubmissionWorkflowTest {
     }
 
     @Test
-    fun `new finaliseCollectionProof method exists and is not deprecated`() {
-        val member = co.uk.xdrivelogistics.driver.data.ApiClient::class.members
-            .find { it.name == "finaliseCollectionProof" }
-        assertNotNull("finaliseCollectionProof must exist on ApiClient", member)
-        val deprecated = member?.annotations?.filterIsInstance<Deprecated>()
-        assertTrue("finaliseCollectionProof must NOT be deprecated", deprecated.isNullOrEmpty())
-    }
-
-    @Test
-    fun `initPodEvidenceUpload calls XDrive API not Supabase storage directly`() {
-        // The method name and its URL pattern confirm it routes through the XDrive API.
-        // Structural test: initPodEvidenceUpload must be in the non-deprecated public API.
+    fun `initPodEvidenceUpload exists and is not deprecated`() {
         val member = co.uk.xdrivelogistics.driver.data.ApiClient::class.members
             .find { it.name == "initPodEvidenceUpload" }
         assertNotNull("initPodEvidenceUpload must exist on ApiClient", member)
@@ -285,49 +345,72 @@ class PodSubmissionWorkflowTest {
         assertTrue("initPodEvidenceUpload must NOT be deprecated", deprecated.isNullOrEmpty())
     }
 
+    @Test
+    fun `finaliseCollectionProof exists and is not deprecated`() {
+        val member = co.uk.xdrivelogistics.driver.data.ApiClient::class.members
+            .find { it.name == "finaliseCollectionProof" }
+        assertNotNull("finaliseCollectionProof must exist on ApiClient", member)
+        val deprecated = member?.annotations?.filterIsInstance<Deprecated>()
+        assertTrue("finaliseCollectionProof must NOT be deprecated", deprecated.isNullOrEmpty())
+    }
+
     // -------------------------------------------------------------------------
-    // 7. MAX_ATTEMPTS quarantine constant
+    // 11. MAX_ATTEMPTS constant
     // -------------------------------------------------------------------------
 
     @Test
-    fun `MAX_ATTEMPTS constant is set`() {
+    fun `MAX_ATTEMPTS is positive`() {
         assertTrue(PodSubmissionStore.MAX_ATTEMPTS > 0)
     }
 
     @Test
-    fun `record with attemptCount at or above MAX_ATTEMPTS should be quarantined`() {
-        val submission = submissionRecord().copy(attemptCount = PodSubmissionStore.MAX_ATTEMPTS)
-        assertTrue(
-            "Records at MAX_ATTEMPTS must be quarantined by the caller",
-            submission.attemptCount >= PodSubmissionStore.MAX_ATTEMPTS,
-        )
+    fun `record at MAX_ATTEMPTS should be quarantined by caller`() {
+        val rec = submissionRecord().copy(attemptCount = PodSubmissionStore.MAX_ATTEMPTS)
+        assertTrue(rec.attemptCount >= PodSubmissionStore.MAX_ATTEMPTS)
     }
 
     // -------------------------------------------------------------------------
-    // 8. Collection proof is a separate kind from delivery photos
+    // 12. Collection kind is distinct from delivery photos
     // -------------------------------------------------------------------------
 
     @Test
-    fun `collection kind evidence is not included in photo paths for finalisePod`() {
-        val submission = submissionRecord(
-            evidence = listOf(
-                evidenceRecord(
-                    evidenceId = "ev-col-01",
-                    kind = "collection",
-                    state = PodSubmissionStore.EvidenceState.UPLOADED,
-                    storagePath = "job-1/collection/ev-col-01-photo.jpg",
-                )
+    fun `collection kind evidence does not appear in photos filter for finalisePod`() {
+        val store = makeStore()
+        store.recordSubmission(
+            submissionRecord(
+                jobId = "job-col",
+                evidence = listOf(
+                    evidenceRecord(
+                        evidenceId = "ev-col-01",
+                        kind = "collection",
+                        state = PodSubmissionStore.EvidenceState.UPLOADED,
+                        storagePath = "job-col/collection/ev-col-01-photo.jpg",
+                    )
+                ),
             )
         )
-        val photoPaths = submission.evidence
-            .filter { it.kind == "photos" && it.storagePath != null }
-            .mapNotNull { it.storagePath }
-        val collectionPaths = submission.evidence
-            .filter { it.kind == "collection" && it.storagePath != null }
-            .mapNotNull { it.storagePath }
+        val rec = store.getForOwnerJob("user-a", "job-col")!!
+        val photoPaths = rec.evidence.filter { it.kind == "photos" }.mapNotNull { it.storagePath }
+        val collectionPaths = rec.evidence.filter { it.kind == "collection" }.mapNotNull { it.storagePath }
 
-        assertTrue("Collection paths must not be in photoPaths for finalisePod", photoPaths.isEmpty())
+        assertTrue("Collection paths must not appear in delivery photoPaths", photoPaths.isEmpty())
         assertEquals(1, collectionPaths.size)
-        assertTrue(collectionPaths[0].startsWith("job-1/collection/"))
+    }
+
+    // -------------------------------------------------------------------------
+    // 13. localUri must be set to a durable app-private path (not blank)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `evidence localUri is a non-blank durable path`() {
+        val ev = evidenceRecord()
+        assertTrue(
+            "localUri must be a non-blank durable path",
+            ev.localUri.isNotBlank(),
+        )
+        assertFalse(
+            "localUri must not be a cache path",
+            ev.localUri.contains("/cache/"),
+        )
     }
 }

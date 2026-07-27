@@ -172,14 +172,19 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     return respond(400, { error: 'A valid POD idempotency key is required.' });
   }
 
-  // Optional SHA-256 hex fingerprint of this submission's payload.
-  // Same key + same (or absent) fingerprint → replay 200.
+  // Required SHA-256 hex fingerprint of this submission's payload.
+  // Same key + same fingerprint → replay 200.
   // Same key + different fingerprint → 409 idempotency_conflict.
   const payloadFingerprint =
     typeof body.payloadFingerprint === 'string' &&
     /^[0-9a-f]{64}$/i.test(body.payloadFingerprint.trim())
       ? body.payloadFingerprint.trim().toLowerCase()
       : null;
+  if (!payloadFingerprint) {
+    return respond(400, {
+      error: 'A valid payloadFingerprint (64 lowercase hex characters) is required.',
+    });
+  }
 
   // Idempotency gate: completed POD can be replayed only with the same key.
   // A different key after completion is treated as a distinct submission and is rejected.
@@ -187,7 +192,6 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     if (job.pod_submission_idempotency_key && job.pod_submission_idempotency_key === podKey) {
       // Fingerprint conflict: same key but payload changed.
       if (
-        payloadFingerprint !== null &&
         job.pod_payload_fingerprint !== null &&
         job.pod_payload_fingerprint !== payloadFingerprint
       ) {
@@ -198,8 +202,9 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
       return respond(200, { ok: true, job: mapJob(job) });
     }
     if (!job.pod_submission_idempotency_key) {
-      // Legacy row saved before key persistence was introduced.
-      return respond(200, { ok: true, job: mapJob(job) });
+      // Legacy row saved before idempotency key persistence was introduced.
+      // Explicitly marked as legacyCompleted — not a normal finalisation path.
+      return respond(200, { ok: true, legacyCompleted: true, job: mapJob(job) });
     }
     return respond(409, { error: 'POD has already been submitted for this job.' });
   }
@@ -208,9 +213,8 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     return respond(409, { error: 'A different POD submission is already pending for this job.' });
   }
   if (job.pod_submission_idempotency_key === podKey) {
-    // In-progress replay: check fingerprint if provided.
+    // In-progress replay: check fingerprint conflict.
     if (
-      payloadFingerprint !== null &&
       job.pod_payload_fingerprint !== null &&
       job.pod_payload_fingerprint !== payloadFingerprint
     ) {
@@ -245,6 +249,22 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   }
   if (!rawSignature && photoPaths.length + documentPaths.length === 0) {
     return respond(400, { error: 'A recipient signature, POD photo or POD document is required.' });
+  }
+
+  // --- Ledger verification ---
+  // Verify every submitted path was server-issued via pod-upload-init and recorded in the ledger.
+  // This prevents arbitrary path injection — only paths authorised by a prior upload-init are accepted.
+  const uploadLedger = Array.isArray(job.pod_upload_ledger)
+    ? (job.pod_upload_ledger as Array<Record<string, unknown>>)
+    : [];
+  if (uploadLedger.length > 0 || photoPaths.length + documentPaths.length > 0) {
+    const ledgerPaths = new Set(uploadLedger.map((e) => e.path as string));
+    const unauthorisedPaths = [...photoPaths, ...documentPaths].filter((p) => !ledgerPaths.has(p));
+    if (unauthorisedPaths.length > 0) {
+      return respond(400, {
+        error: 'One or more POD evidence paths were not server-authorised via upload-init.',
+      });
+    }
   }
 
   try {

@@ -1074,6 +1074,8 @@ class ApiClient(
         mimeType: String,
         byteSize: Long,
         kind: String,
+        sha256Hex: String,
+        payloadFingerprint: String,
     ): Result<PodUploadInitResult> = networkResult {
         val requestBody = gson.toJson(
             mapOf(
@@ -1083,6 +1085,8 @@ class ApiClient(
                 "mimeType" to mimeType,
                 "byteSize" to byteSize,
                 "kind" to kind,
+                "sha256Hex" to sha256Hex,
+                "payloadFingerprint" to payloadFingerprint,
             )
         ).toRequestBody(jsonMediaType)
         val request = Request.Builder()
@@ -1193,17 +1197,17 @@ class ApiClient(
         photoPaths: List<String>,
         documentPaths: List<String>,
         notes: String? = null,
-        payloadFingerprint: String? = null,
+        payloadFingerprint: String,
     ): Result<Unit> = networkResult {
         val bodyMap = mutableMapOf<String, Any?>(
             "podKey" to podKey,
             "recipientName" to recipientName,
             "photoUris" to photoPaths,
             "documentUris" to documentPaths,
+            "payloadFingerprint" to payloadFingerprint,
         )
         if (!signatureDataUri.isNullOrBlank()) bodyMap["signatureData"] = signatureDataUri
         if (!notes.isNullOrBlank()) bodyMap["notes"] = notes
-        if (!payloadFingerprint.isNullOrBlank()) bodyMap["payloadFingerprint"] = payloadFingerprint
 
         val requestBody = gson.toJson(bodyMap).toRequestBody(jsonMediaType)
         val request = Request.Builder()
@@ -1217,157 +1221,6 @@ class ApiClient(
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
                 throw IllegalStateException(extractError(raw, "Failed to finalise POD submission."))
-            }
-        }
-    }
-
-    @Deprecated(
-        "Direct storage upload bypasses the authorised API boundary. " +
-            "Use initPodEvidenceUpload + uploadEvidenceBytes + finalisePod instead.",
-        level = DeprecationLevel.WARNING,
-    )
-    suspend fun uploadPodDocument(
-        session: DriverSession,
-        driverId: String,
-        job: DriverJob,
-        fileName: String,
-        mimeType: String,
-        bytes: ByteArray,
-    ): Result<String> = networkResult {
-        val safeName = fileName.ifBlank { "pod.jpg" }.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
-        val storagePath = "driver-$driverId/${job.id}/${System.currentTimeMillis()}-$safeName"
-
-        val uploadRequest = Request.Builder()
-            .url("${supabaseUrl.trimEnd('/')}/storage/v1/object/pod-docs/$storagePath")
-            .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "******")
-            .addHeader("x-upsert", "false")
-            .post(bytes.toRequestBody(mimeType.toMediaType()))
-            .build()
-
-        http.newCall(uploadRequest).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                throw IllegalStateException(extractError(raw, "Failed to upload POD document."))
-            }
-        }
-
-        // File is now in storage. Patch the job record (phase 2 — crash-safe retry point).
-        patchPodJobRecord(
-            session = session,
-            driverId = driverId,
-            jobId = job.id,
-            storagePath = storagePath,
-            needsCollectionProof = job.needsCollectionProof(),
-            existingDeliveryPhotos = job.deliveryPhotos,
-            existingPodPhotos = job.podPhotos,
-        ).getOrThrow()
-
-        storagePath
-    }
-
-    /**
-     * Patch-only phase: update the job record after storage upload is confirmed.
-     * Extracted as a standalone method so it can be retried independently during crash
-     * recovery (PodPendingStore) without re-uploading the file.
-     *
-     * @deprecated Direct jobs table PATCH bypasses the authorised API boundary.
-     * Use [finaliseCollectionProof] or [finalisePod] instead.
-     */
-    @Deprecated(
-        "Direct jobs table PATCH bypasses the authorised API boundary. " +
-            "Use finaliseCollectionProof or finalisePod instead.",
-        level = DeprecationLevel.WARNING,
-    )
-    suspend fun patchPodJobRecord(
-        session: DriverSession,
-        driverId: String,
-        jobId: String,
-        storagePath: String,
-        needsCollectionProof: Boolean,
-        existingDeliveryPhotos: List<String>,
-        existingPodPhotos: List<String>,
-    ): Result<Unit> = networkResult {
-        val patchBody = JsonObject().apply {
-            if (needsCollectionProof) {
-                addProperty("collection_photo_url", storagePath)
-            } else {
-                val nextDeliveryPhotos = (existingDeliveryPhotos + storagePath).distinct()
-                val nextPodPhotos = (existingPodPhotos + storagePath).distinct()
-                add("delivery_photos", gson.toJsonTree(nextDeliveryPhotos))
-                add("pod_photos", gson.toJsonTree(nextPodPhotos))
-            }
-            addProperty("updated_at", java.time.Instant.now().toString())
-        }
-
-        val encodedJobId = URLEncoder.encode(jobId, StandardCharsets.UTF_8.toString())
-        val encodedDriverId = URLEncoder.encode(driverId, StandardCharsets.UTF_8.toString())
-        val patchRequest = Request.Builder()
-            .url("${supabaseUrl.trimEnd('/')}/rest/v1/jobs?id=eq.$encodedJobId&assigned_driver_id=eq.$encodedDriverId")
-            .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "******")
-            .addHeader("Content-Type", "application/json")
-            .addHeader("Prefer", "return=representation")
-            .patch(gson.toJson(patchBody).toRequestBody(jsonMediaType))
-            .build()
-
-        http.newCall(patchRequest).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                throw IllegalStateException(extractError(raw, "POD upload succeeded, but job update failed."))
-            }
-        }
-    }
-
-    /**
-     * @deprecated Direct jobs table PATCH bypasses the authorised API boundary.
-     * Use [finalisePod] instead, which submits recipient, evidence paths, and the
-     * stable POD key through the authenticated /api/driver/mobile endpoint.
-     */
-    @Deprecated(
-        "Direct jobs table PATCH bypasses the authorised API boundary. " +
-            "Use finalisePod instead.",
-        level = DeprecationLevel.WARNING,
-    )
-    suspend fun confirmDeliveryRecipient(
-        session: DriverSession,
-        driverId: String,
-        job: DriverJob,
-        recipientName: String,
-    ): Result<Unit> = networkResult {
-        val evidencePath = (job.podPhotos + job.deliveryPhotos).lastOrNull()
-            ?: throw IllegalStateException("Upload the signed POD evidence first.")
-        val confirmation = JsonObject().apply {
-            addProperty("type", "signed_pod_evidence")
-            addProperty("evidence_path", evidencePath)
-            addProperty("recipient_name", recipientName)
-            addProperty("confirmed_at", java.time.Instant.now().toString())
-            addProperty("source", "xdrive_driver_android")
-        }
-        val patchBody = JsonObject().apply {
-            addProperty("client_signature_name", recipientName)
-            add("delivery_signature_data", confirmation)
-            addProperty("updated_at", java.time.Instant.now().toString())
-        }
-        val encodedJobId = URLEncoder.encode(job.id, StandardCharsets.UTF_8.toString())
-        val encodedDriverId = URLEncoder.encode(driverId, StandardCharsets.UTF_8.toString())
-        val request = Request.Builder()
-            .url("${supabaseUrl.trimEnd('/')}/rest/v1/jobs?id=eq.$encodedJobId&assigned_driver_id=eq.$encodedDriverId")
-            .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "Bearer ${session.accessToken}")
-            .addHeader("Content-Type", "application/json")
-            .addHeader("Prefer", "return=representation")
-            .patch(gson.toJson(patchBody).toRequestBody(jsonMediaType))
-            .build()
-
-        http.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                throw IllegalStateException(extractError(raw, "Failed to confirm delivery evidence."))
-            }
-            val rows = runCatching { gson.fromJson(raw, JsonArray::class.java) }.getOrNull()
-            if (rows == null || rows.size() == 0) {
-                throw IllegalStateException("Delivery evidence could not be linked to this assignment.")
             }
         }
     }
