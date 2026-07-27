@@ -803,7 +803,7 @@ class ApiClient(
     }
 
     suspend fun loadAssignedJobs(session: DriverSession, profile: DriverProfile): Result<List<DriverJob>> = networkResult {
-        val select = "id,status,current_status,pickup_location,delivery_location,pickup_datetime,delivery_datetime,client_name,client_phone,collection_contact_phone,delivery_contact_phone,vehicle_type,cargo_type,budget_amount,load_details,delivery_photos,pod_photos,collection_photo_url,delivery_signature_data,client_signature_name,pod_required,distance_miles,job_distance_miles,job_distance_minutes,pickup_postcode,delivery_postcode,pallets,weight_kg,special_requirements,access_restrictions"
+        val select = "id,status,current_status,pickup_location,delivery_location,pickup_datetime,delivery_datetime,client_name,client_phone,collection_contact_name,collection_contact_phone,delivery_contact_name,delivery_contact_phone,vehicle_type,cargo_type,budget_amount,load_details,delivery_photos,pod_photos,collection_photo_url,delivery_signature_data,client_signature_name,pod_required,distance_miles,job_distance_miles,job_distance_minutes,pickup_postcode,delivery_postcode,pallets,weight_kg,special_requirements,access_restrictions"
         val encodedDriverId = URLEncoder.encode(profile.driverId, StandardCharsets.UTF_8.toString())
         val encodedCompanyId = URLEncoder.encode(profile.companyId, StandardCharsets.UTF_8.toString())
         val query = "select=$select&or=(status.eq.posted,assigned_driver_id.eq.$encodedDriverId,assigned_company_id.eq.$encodedCompanyId,awarded_carrier_company_id.eq.$encodedCompanyId)&order=pickup_datetime.asc&limit=100"
@@ -864,6 +864,10 @@ class ApiClient(
                             specialRequirements = row.string("special_requirements"),
                             accessRestrictions = row.string("access_restrictions"),
                             estimatedDurationMinutes = row.get("job_distance_minutes")?.takeUnless { it.isJsonNull }?.let { runCatching { it.asInt }.getOrNull() },
+                            collectionContactName = row.nullableString("collection_contact_name"),
+                            collectionContactPhone = row.nullableString("collection_contact_phone"),
+                            deliveryContactName = row.nullableString("delivery_contact_name"),
+                            deliveryContactPhone = row.nullableString("delivery_contact_phone"),
                         )
                     )
                 }
@@ -1002,6 +1006,20 @@ class ApiClient(
         val ok = result?.get("ok")?.takeIf { !it.isJsonNull }?.asBoolean ?: false
         if (!ok) {
             throw IllegalStateException("Status update could not be applied for this assignment.")
+        }
+    }
+
+    suspend fun registerDeviceToken(session: DriverSession, token: String): Result<Unit> = networkResult {
+        require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
+        val body = gson.toJson(mapOf("token" to token)).toRequestBody(jsonMediaType)
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/device-token")
+            .addHeader("Authorization", "******")
+            .post(body)
+            .build()
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to register device token.")
         }
     }
 

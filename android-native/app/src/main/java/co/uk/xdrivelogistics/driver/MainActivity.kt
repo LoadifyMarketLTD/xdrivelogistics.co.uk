@@ -1302,10 +1302,14 @@ private fun JobSummaryPanel(job: DriverJob, onSubmitQuote: (String, String) -> U
         Text("Summary", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         InfoLine("Job Ref", job.id.take(12).uppercase())
         InfoLine("Customer", job.clientName.ifBlank { "Assigned by dispatch" })
-        InfoLine("Vehicle", "Linked to driver profile")
         InfoLine("Goods / Details", job.loadDetails.ifBlank { "No load details supplied." })
         InfoLine("Collection Time", job.pickupDatetime ?: "Not set")
         InfoLine("Delivery Time", job.deliveryDatetime ?: "Not set")
+        if (job.pallets != null && job.pallets > 0) InfoLine("Pallets", "${job.pallets}")
+        if (job.weightKg != null && job.weightKg > 0) InfoLine("Weight", "${job.weightKg.toInt()} kg")
+        if (job.estimatedDurationMinutes != null && job.estimatedDurationMinutes > 0) InfoLine("Est. Duration", "${job.estimatedDurationMinutes} min")
+        if (job.specialRequirements.isNotBlank()) InfoLine("Requirements", job.specialRequirements)
+        if (job.accessRestrictions.isNotBlank()) InfoLine("Access", job.accessRestrictions)
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             BadgeText(if (job.pickupDatetime != null) "Timed" else "Flexible", Blue)
@@ -1326,7 +1330,8 @@ private fun JobStopsPanel(job: DriverJob, onNavigateTo: (String) -> Unit) {
             title = "Collection",
             address = job.pickupLocation.ifBlank { "Collection address not supplied" },
             time = job.pickupDatetime ?: "Time not set",
-            contact = job.clientName.ifBlank { "Dispatch contact" },
+            contact = job.collectionContactName?.ifBlank { null } ?: job.clientName.ifBlank { "Dispatch contact" },
+            phone = job.collectionContactPhone?.ifBlank { null } ?: job.clientPhone.ifBlank { null },
             button = "Navigate Pickup",
             onNavigate = { if (job.pickupLocation.isNotBlank()) onNavigateTo(job.pickupLocation) },
         )
@@ -1335,7 +1340,8 @@ private fun JobStopsPanel(job: DriverJob, onNavigateTo: (String) -> Unit) {
             title = "Delivery",
             address = job.deliveryLocation.ifBlank { "Delivery address not supplied" },
             time = job.deliveryDatetime ?: "Time not set",
-            contact = "Recipient / site contact",
+            contact = job.deliveryContactName?.ifBlank { null } ?: "Recipient / site contact",
+            phone = job.deliveryContactPhone?.ifBlank { null },
             button = "Navigate Delivery",
             onNavigate = { if (job.deliveryLocation.isNotBlank()) onNavigateTo(job.deliveryLocation) },
         )
@@ -1349,6 +1355,7 @@ private fun StopCard(
     address: String,
     time: String,
     contact: String,
+    phone: String?,
     button: String,
     onNavigate: () -> Unit,
 ) {
@@ -1361,6 +1368,7 @@ private fun StopCard(
         InfoLine("Address", address)
         InfoLine("Time Window", time)
         InfoLine("Contact", contact)
+        if (!phone.isNullOrBlank()) InfoLine("Phone", phone)
         Spacer(Modifier.height(12.dp))
         Button(
             onClick = onNavigate,
@@ -1883,9 +1891,11 @@ private fun MessagesScreen(
 ) {
     var filter by remember { mutableStateOf("All") }
     var note by remember { mutableStateOf("") }
+    val dispatcherTypes = setOf("dispatcher_message", "dispatcher_update", "job_update", "dispatch")
     val visibleNotifications = state.notifications.filter { notification ->
         when (filter) {
             "Unread" -> notification.readAt.isNullOrBlank()
+            "Dispatcher" -> dispatcherTypes.any { notification.type.contains(it, ignoreCase = true) }
             "Important" -> notification.type.contains("important", ignoreCase = true) ||
                 notification.title.contains("urgent", ignoreCase = true) ||
                 notification.body.contains("urgent", ignoreCase = true)
@@ -1898,8 +1908,14 @@ private fun MessagesScreen(
             .padding(horizontal = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item { SegmentedTabs(listOf("All", "Unread", "Important"), filter) { filter = it } }
-        if (visibleNotifications.isEmpty()) {
+        item { SegmentedTabs(listOf("All", "Dispatcher", "Unread", "Important"), filter) { filter = it } }
+        if (filter == "Dispatcher" && visibleNotifications.isEmpty()) {
+            item {
+                XDriveCard {
+                    Text("Dispatcher updates and job notifications will appear here.", color = TextSecondary, fontSize = 13.sp)
+                }
+            }
+        } else if (visibleNotifications.isEmpty()) {
             item {
                 EmptyState(
                     "No notifications",

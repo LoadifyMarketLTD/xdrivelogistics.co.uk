@@ -336,6 +336,18 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * Register or refresh the FCM push notification device token.
+     * Call this after successfully acquiring a token from FirebaseMessaging.getInstance().token.
+     * Full FCM integration requires Firebase Messaging SDK and google-services.json in the project.
+     */
+    fun registerDeviceToken(token: String) {
+        viewModelScope.launch {
+            val session = _uiState.value.session ?: return@launch
+            api.registerDeviceToken(session, token)
+        }
+    }
+
     fun updatePassword(newPassword: String) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch

@@ -49,6 +49,10 @@ data class DriverJob(
     val specialRequirements: String = "",
     val accessRestrictions: String = "",
     val estimatedDurationMinutes: Int? = null,
+    val collectionContactName: String? = null,
+    val collectionContactPhone: String? = null,
+    val deliveryContactName: String? = null,
+    val deliveryContactPhone: String? = null,
 ) {
     fun statusKey(): String = currentStatus.ifBlank { status }.lowercase()
 
