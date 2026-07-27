@@ -9,7 +9,6 @@ import {
   jobSelect,
   mapJob,
   MobileJobRow,
-  normalizeDriverOperationalStatus,
   requireDriver,
   respond,
   safeArray,
@@ -48,8 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (hasActionAlreadyApplied(job, { currentStatus: config.toStatus, timestampField: config.timestampField })) {
     return respond(200, { ok: true, job: mapJob(job) });
   }
-  const currentStatus = normalizedCurrentOrNull(job.current_status)
-    ?? normalizeDriverOperationalStatus(job.status);
+  const currentStatus = normalizedCurrentOrNull(job.current_status);
 
   // Enforce strict adjacent canonical transition rules.
   const transitionCheck = validateLifecycleActionTransition(action, currentStatus);
