@@ -79,6 +79,24 @@ test.describe('mobile API — idempotency helper contract', () => {
         expected: 'on_site_delivery',
       });
     });
+
+    test('exhaustively rejects every action from every non-adjacent from-state', () => {
+      const allTestStatuses: (string | null)[] = [
+        ...CANONICAL_DRIVER_OPERATIONAL_STATUSES,
+        null,
+        'unknown_status',
+        'assigned',
+        'collected',
+        'in_transit',
+      ];
+      for (const [action, config] of Object.entries(actions)) {
+        for (const fromState of allTestStatuses) {
+          if (fromState === config.fromStatus) continue;
+          const result = validateLifecycleActionTransition(action, fromState);
+          expect(result.ok).toBe(false);
+        }
+      }
+    });
   });
 
   test.describe('mobile API — canonical status normalization contract', () => {
@@ -104,6 +122,24 @@ test.describe('mobile API — idempotency helper contract', () => {
       expect(normalizeDriverOperationalStatus('collected')).toBe('loaded');
       expect(normalizeDriverOperationalStatus('in_transit')).toBe('on_my_way_to_delivery');
       expect(normalizeDriverOperationalStatus('assigned')).toBe('allocated');
+    });
+
+    test('CANONICAL_DRIVER_OPERATIONAL_STATUSES contains no legacy aliases', () => {
+      const legacyAliases = [
+        'assigned', 'on_my_way', 'arrived_pickup', 'collected',
+        'in_transit', 'on_route_delivery', 'arrived_delivery',
+        'completed', 'invoiced', 'paid',
+      ];
+      for (const alias of legacyAliases) {
+        expect(CANONICAL_DRIVER_OPERATIONAL_STATUSES as readonly string[]).not.toContain(alias);
+      }
+    });
+
+    test('normalizeDriverOperationalStatus returns null for unknown values', () => {
+      expect(normalizeDriverOperationalStatus(null)).toBeNull();
+      expect(normalizeDriverOperationalStatus(undefined)).toBeNull();
+      expect(normalizeDriverOperationalStatus('unknown_status')).toBeNull();
+      expect(normalizeDriverOperationalStatus('')).toBeNull();
     });
   });
 
