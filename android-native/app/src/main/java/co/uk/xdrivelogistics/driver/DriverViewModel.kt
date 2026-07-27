@@ -75,6 +75,12 @@ data class DriverUiState(
     val pendingPodJobIds: Set<String> = emptySet(),
     /** Job IDs whose POD submission has been blocked after too many failed finalisation attempts. */
     val blockedPodJobIds: Set<String> = emptySet(),
+    /** The Live Loads marketplace job the user has selected for quoting/saving/hiding. Independent of operational selectedJobId. */
+    val marketplaceSelectedJobId: String? = null,
+    /** Marketplace job IDs the driver has saved (bookmarked) for later review. */
+    val savedMarketplaceLoadIds: Set<String> = emptySet(),
+    /** Marketplace job IDs the driver has hidden; filtered from the Live Loads list. */
+    val hiddenMarketplaceLoadIds: Set<String> = emptySet(),
 )
 
 data class DriverJobSyncState(
@@ -120,6 +126,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         jobSyncStates = emptyMap(),
                         pendingPodJobIds = emptySet(),
                         blockedPodJobIds = emptySet(),
+                        marketplaceSelectedJobId = null,
+                        marketplaceJobs = emptyList(),
+                        savedMarketplaceLoadIds = emptySet(),
+                        hiddenMarketplaceLoadIds = emptySet(),
                     )
                 }
 
@@ -183,6 +193,35 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         _uiState.value.session?.let { session ->
             activeJobSelectionStore.saveSelectedJobId(session.userId, jobId)
         }
+    }
+
+    /** Selects a Live Loads marketplace job for quoting/saving/hiding. Does not affect operational [selectedJobId]. */
+    fun selectMarketplaceLoad(jobId: String) {
+        _uiState.value = _uiState.value.copy(marketplaceSelectedJobId = jobId)
+    }
+
+    /** Clears the marketplace selection without affecting the operational job selection. */
+    fun clearMarketplaceSelection() {
+        _uiState.value = _uiState.value.copy(marketplaceSelectedJobId = null)
+    }
+
+    /** Saves a marketplace load to the driver's bookmarked list. */
+    fun saveMarketplaceLoad(jobId: String) {
+        _uiState.value = _uiState.value.copy(
+            savedMarketplaceLoadIds = _uiState.value.savedMarketplaceLoadIds + jobId,
+        )
+    }
+
+    /**
+     * Hides a marketplace load from the Live Loads list.
+     * If the hidden job was the current marketplace selection, the selection is cleared.
+     */
+    fun hideMarketplaceLoad(jobId: String) {
+        val currentSelection = _uiState.value.marketplaceSelectedJobId
+        _uiState.value = _uiState.value.copy(
+            hiddenMarketplaceLoadIds = _uiState.value.hiddenMarketplaceLoadIds + jobId,
+            marketplaceSelectedJobId = if (currentSelection == jobId) null else currentSelection,
+        )
     }
 
     fun refreshDriverData() {
@@ -278,14 +317,15 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 _uiState.value = _uiState.value.copy(error = "Driver profile is unavailable. Refresh and try again.")
                 return@launch
             }
-            val jobId = _uiState.value.selectedJobId
-            if (jobId.isNullOrBlank()) {
+            // Dispatch notes must only target operational assigned jobs, not marketplace loads.
+            val selectedJob = resolveSelectedJob(_uiState.value.jobs, _uiState.value.selectedJobId)
+            if (selectedJob == null) {
                 _uiState.value = _uiState.value.copy(error = "Select a job first.")
                 return@launch
             }
 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.sendQuickNote(session.accessToken, jobId, note.trim(), important)
+            api.sendQuickNote(session.accessToken, selectedJob.id, note.trim(), important)
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -542,19 +582,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             val profile = _uiState.value.profile ?: return@launch
-            val selectedJobId = _uiState.value.selectedJobId
-            val selectedJob = _uiState.value.jobs.firstOrNull { it.id == selectedJobId }
-            val marketplaceJob = _uiState.value.marketplaceJobs.firstOrNull { it.id == selectedJobId }
-            if (selectedJob == null && marketplaceJob == null) {
-                _uiState.value = _uiState.value.copy(error = "Select a posted job first.")
+            // Quote actions are Live Loads marketplace actions; resolve via marketplaceSelectedJobId only.
+            val marketplaceJob = resolveMarketplaceJob(_uiState.value.marketplaceJobs, _uiState.value.marketplaceSelectedJobId)
+            if (marketplaceJob == null) {
+                _uiState.value = _uiState.value.copy(error = "Select a Live Load first.")
                 return@launch
             }
-            val jobId = selectedJob?.id ?: marketplaceJob!!.id
-            if (selectedJob != null && selectedJob.status.lowercase() != "posted") {
-                _uiState.value = _uiState.value.copy(error = "Only posted jobs can be quoted.")
-                return@launch
-            }
-            if (marketplaceJob != null && !marketplaceJob.canQuote) {
+            if (!marketplaceJob.canQuote) {
                 _uiState.value = _uiState.value.copy(error = marketplaceJob.quoteWarning ?: "Your account does not permit bidding on this job.")
                 return@launch
             }
@@ -563,6 +597,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 _uiState.value = _uiState.value.copy(error = "Enter a valid quote amount.")
                 return@launch
             }
+            val jobId = marketplaceJob.id
             val normalizedMessage = note.trim().ifBlank { "Submitted from XDrive Driver Android" }.take(1_000)
             val currency = "GBP"
             val bidKey = stableBidIntentKey(
@@ -1237,6 +1272,19 @@ internal fun resolveSelectedJob(jobs: List<DriverJob>, selectedJobId: String?): 
 /** Returns an error message when no job is selected, null when a valid selection is present. */
 internal fun noJobSelectedError(selectedJobId: String?): String? =
     if (selectedJobId.isNullOrBlank()) "Select a job first." else null
+
+/**
+ * Returns the [MarketplaceJob] from [marketplaceJobs] whose ID equals [marketplaceSelectedJobId],
+ * or null when [marketplaceSelectedJobId] is null/blank or no match is found.
+ * Keeps marketplace selection strictly separate from the operational job selection.
+ */
+internal fun resolveMarketplaceJob(
+    marketplaceJobs: List<MarketplaceJob>,
+    marketplaceSelectedJobId: String?,
+): MarketplaceJob? {
+    if (marketplaceSelectedJobId.isNullOrBlank()) return null
+    return marketplaceJobs.firstOrNull { it.id == marketplaceSelectedJobId }
+}
 
 /** Returns true when a session owner change requires owner-scoped UI state to be reset. */
 internal fun ownerChanged(previousOwnerId: String?, newOwnerId: String): Boolean =
