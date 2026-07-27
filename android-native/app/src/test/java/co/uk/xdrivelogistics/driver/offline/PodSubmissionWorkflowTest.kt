@@ -222,15 +222,10 @@ class PodSubmissionWorkflowTest {
 
     @Test
     fun `ApiClient uploadPodDocument is deprecated`() {
-        // Verify the @Deprecated annotation is present on the method signature.
-        val method = co.uk.xdrivelogistics.driver.data.ApiClient::class.java.methods
+        val member = co.uk.xdrivelogistics.driver.data.ApiClient::class.members
             .find { it.name == "uploadPodDocument" }
-        assertNotNull("uploadPodDocument must still exist for backward compat", method)
-
-        val deprecated = co.uk.xdrivelogistics.driver.data.ApiClient::class.members
-            .find { it.name == "uploadPodDocument" }
-            ?.annotations
-            ?.filterIsInstance<Deprecated>()
+        assertNotNull("uploadPodDocument must still exist for backward compat", member)
+        val deprecated = member?.annotations?.filterIsInstance<Deprecated>()
         assertFalse(
             "uploadPodDocument must be annotated @Deprecated",
             deprecated.isNullOrEmpty(),
