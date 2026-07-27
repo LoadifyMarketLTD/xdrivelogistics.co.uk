@@ -25,13 +25,19 @@ type ActionConfig = {
 };
 
 const actions: Record<string, ActionConfig> = {
+  accept: {
+    currentStatus: 'accepted',
+    eventType: 'note',
+    label: 'Job accepted by driver',
+    allowedLifecycle: ['awarded', 'allocated'],
+  },
   'on-my-way-pickup': {
-    currentStatus: 'on_my_way',
+    currentStatus: 'on_my_way_to_pickup',
     lifecycleStatus: 'allocated',
     timestampField: 'on_my_way_at',
     eventType: 'driver_en_route',
     label: 'On my way to pickup',
-    allowedLifecycle: ['awarded', 'allocated'],
+    allowedLifecycle: ['awarded', 'allocated', 'accepted'],
   },
   'arrived-pickup': {
     currentStatus: 'on_site_pickup',
@@ -39,7 +45,7 @@ const actions: Record<string, ActionConfig> = {
     timestampField: 'on_site_pickup_at',
     eventType: 'arrived_pickup',
     label: 'Arrived at pickup',
-    allowedLifecycle: ['awarded', 'allocated'],
+    allowedLifecycle: ['awarded', 'allocated', 'accepted'],
   },
   loaded: {
     currentStatus: 'loaded',
@@ -47,10 +53,10 @@ const actions: Record<string, ActionConfig> = {
     timestampField: 'loaded_at',
     eventType: 'collected',
     label: 'Loaded / collected',
-    allowedLifecycle: ['allocated'],
+    allowedLifecycle: ['allocated', 'accepted'],
   },
   'on-my-way-delivery': {
-    currentStatus: 'in_transit',
+    currentStatus: 'on_my_way_to_delivery',
     lifecycleStatus: 'in_transit',
     eventType: 'in_transit',
     label: 'On my way to delivery',

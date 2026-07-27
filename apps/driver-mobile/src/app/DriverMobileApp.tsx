@@ -801,24 +801,75 @@ function JobsScreen({ scope, onScope, jobs, onOpen }: { scope: JobScope; onScope
 }
 
 function JobDetailScreen({ job, onPrimary }: { job: DriverJob; onPrimary: () => void }) {
+  const cargoQuantity = [
+    job.pallets != null ? `${job.pallets} pallets` : '',
+    job.boxes != null ? `${job.boxes} boxes` : '',
+    job.bags != null ? `${job.bags} bags` : '',
+    job.items != null ? `${job.items} items` : '',
+  ].filter(Boolean).join(', ');
+
+  const dimensions = [
+    job.lengthCm != null ? `${job.lengthCm}L` : '',
+    job.widthCm != null ? `${job.widthCm}W` : '',
+    job.heightCm != null ? `${job.heightCm}H` : '',
+  ].filter(Boolean).join(' × ');
+
   return (
     <View style={styles.stack}>
       <Panel>
         <Text style={styles.title}>{job.reference}</Text>
+        <Info label="Status" value={job.status.replace(/_/g, ' ')} />
         <Info label="Lifecycle" value={stringField(job.lifecycleStatus, 'In progress')} />
+      </Panel>
+      <Panel>
+        <Text style={styles.infoLabel}>Route</Text>
         <Info label="Pickup" value={job.pickupLocation} />
+        {job.pickupPostcode ? <Info label="Pickup postcode" value={job.pickupPostcode} /> : null}
         <Info label="Delivery" value={job.deliveryLocation} />
+        {job.deliveryPostcode ? <Info label="Delivery postcode" value={job.deliveryPostcode} /> : null}
         <Info label="Pickup time" value={job.pickupTime} />
         <Info label="Delivery time" value={job.deliveryTime} />
-        <Info label="Cargo" value={job.cargoType} />
+        {job.distanceMiles != null ? <Info label="Distance" value={`${job.distanceMiles} mi`} /> : null}
+        {job.distanceMinutes != null ? <Info label="Est. drive time" value={`${job.distanceMinutes} min`} /> : null}
+      </Panel>
+      <Panel>
+        <Text style={styles.infoLabel}>Cargo</Text>
+        <Info label="Type" value={job.cargoType} />
         <Info label="Vehicle" value={job.vehicleRequirement} />
+        {cargoQuantity ? <Info label="Quantity" value={cargoQuantity} /> : null}
+        {job.weightKg != null ? <Info label="Weight" value={`${job.weightKg} kg`} /> : null}
+        {dimensions ? <Info label="Dimensions (cm)" value={dimensions} /> : null}
+        {job.loadDetails ? <Info label="Load details" value={job.loadDetails} /> : null}
+        {job.specialRequirements ? <Info label="Special requirements" value={job.specialRequirements} /> : null}
+        {job.accessRestrictions ? <Info label="Access restrictions" value={job.accessRestrictions} /> : null}
+      </Panel>
+      <Panel>
+        <Text style={styles.infoLabel}>Delivery & POD</Text>
+        <Info label="Price" value={job.price} />
         <Info label="POD" value={job.podGenerated ? 'Captured' : job.podRequired ? 'Required before delivery' : 'Not required'} />
-        {job.price ? <Info label="Price" value={job.price} /> : null}
-        {job.requirements ? <Info label="Requirements" value={job.requirements} /> : null}
-        {job.contactAllowed && job.contactName ? <Info label="Contact" value={job.contactName} /> : null}
-        {job.contactAllowed && job.contactPhone ? <Info label="Phone" value={job.contactPhone} /> : null}
         {job.updatedAt ? <Info label="Last updated" value={formatDateTime(job.updatedAt)} /> : null}
       </Panel>
+      {job.contactAllowed && (job.pickupContactName || job.pickupContactPhone) ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Pickup contact</Text>
+          {job.pickupContactName ? <Info label="Name" value={job.pickupContactName} /> : null}
+          {job.pickupContactPhone ? <Info label="Phone" value={job.pickupContactPhone} /> : null}
+        </Panel>
+      ) : null}
+      {job.contactAllowed && (job.deliveryContactName || job.deliveryContactPhone) ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Delivery contact</Text>
+          {job.deliveryContactName ? <Info label="Name" value={job.deliveryContactName} /> : null}
+          {job.deliveryContactPhone ? <Info label="Phone" value={job.deliveryContactPhone} /> : null}
+        </Panel>
+      ) : null}
+      {job.contactAllowed && !job.pickupContactName && !job.deliveryContactName && job.contactName ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Contact</Text>
+          <Info label="Name" value={job.contactName} />
+          {job.contactPhone ? <Info label="Phone" value={job.contactPhone} /> : null}
+        </Panel>
+      ) : null}
       <PrimaryButton label="Back to active" onPress={onPrimary} />
     </View>
   );
