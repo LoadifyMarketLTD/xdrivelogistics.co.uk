@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver, respond } from '../_lib';
 
 type AvailabilitySlot = {
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
   if (slotsResult.error) return respond(500, { error: slotsResult.error.message });
 
   const availabilityStatus = String(driverResult.data?.availability_status ?? 'offline');
-  const slots: AvailabilitySlot[] = (slotsResult.data ?? []).map((row) => ({
+  const slots: AvailabilitySlot[] = (slotsResult.data ?? []).map((row: { day_of_week: unknown; slot: unknown; available: unknown }) => ({
     day_of_week: Number(row.day_of_week),
     slot: String(row.slot) as AvailabilitySlot['slot'],
     available: Boolean(row.available),
@@ -132,7 +132,7 @@ export async function PUT(request: NextRequest) {
   ]);
 
   const updatedStatus = String(driverResult.data?.availability_status ?? 'offline');
-  const updatedSlots: AvailabilitySlot[] = (slotsResult.data ?? []).map((row) => ({
+  const updatedSlots: AvailabilitySlot[] = (slotsResult.data ?? []).map((row: { day_of_week: unknown; slot: unknown; available: unknown }) => ({
     day_of_week: Number(row.day_of_week),
     slot: String(row.slot) as AvailabilitySlot['slot'],
     available: Boolean(row.available),
