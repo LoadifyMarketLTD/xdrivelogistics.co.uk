@@ -12,6 +12,7 @@ import co.uk.xdrivelogistics.driver.data.DriverProfile
 import co.uk.xdrivelogistics.driver.data.DriverReturnJourney
 import co.uk.xdrivelogistics.driver.data.DriverInvoice
 import co.uk.xdrivelogistics.driver.data.DriverSession
+import co.uk.xdrivelogistics.driver.data.MarketplaceJob
 import co.uk.xdrivelogistics.driver.data.MobileApiException
 import co.uk.xdrivelogistics.driver.data.MobileApiHttpException
 import co.uk.xdrivelogistics.driver.data.NearbyDriver
@@ -50,6 +51,7 @@ data class DriverUiState(
     val session: DriverSession? = null,
     val profile: DriverProfile? = null,
     val jobs: List<DriverJob> = emptyList(),
+    val marketplaceJobs: List<MarketplaceJob> = emptyList(),
     val documents: List<DriverDocument> = emptyList(),
     val bids: List<DriverBid> = emptyList(),
     val notifications: List<DriverNotification> = emptyList(),
@@ -176,6 +178,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 val returnJourney = api.loadReturnJourney(session, profile.driverId).getOrNull()
                 val invoices = api.loadDriverInvoices(session, profile.companyId).getOrDefault(emptyList())
                 val nearbyDrivers = api.loadNearbyDrivers(session, profile.companyId).getOrDefault(emptyList())
+                val marketplaceJobs = api.loadNearbyMarketplaceJobs(session).getOrDefault(emptyList())
                 api.loadAssignedJobs(session, profile)
                     .onSuccess { jobs ->
                         val rememberedSelection = activeJobSelectionStore.readSelectedJobId(session.userId)
@@ -190,6 +193,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             session = session,
                             profile = profile,
                             jobs = jobs,
+                            marketplaceJobs = marketplaceJobs,
                             documents = documents,
                             bids = bids,
                             notifications = notifications,
@@ -502,13 +506,20 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             val profile = _uiState.value.profile ?: return@launch
-            val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
-            if (selectedJob == null) {
+            val selectedJobId = _uiState.value.selectedJobId
+            val selectedJob = _uiState.value.jobs.firstOrNull { it.id == selectedJobId }
+            val marketplaceJob = _uiState.value.marketplaceJobs.firstOrNull { it.id == selectedJobId }
+            if (selectedJob == null && marketplaceJob == null) {
                 _uiState.value = _uiState.value.copy(error = "Select a posted job first.")
                 return@launch
             }
-            if (selectedJob.status.lowercase() != "posted") {
+            val jobId = selectedJob?.id ?: marketplaceJob!!.id
+            if (selectedJob != null && selectedJob.status.lowercase() != "posted") {
                 _uiState.value = _uiState.value.copy(error = "Only posted jobs can be quoted.")
+                return@launch
+            }
+            if (marketplaceJob != null && !marketplaceJob.canQuote) {
+                _uiState.value = _uiState.value.copy(error = marketplaceJob.quoteWarning ?: "Your account does not permit bidding on this job.")
                 return@launch
             }
             val amount = amountText.trim().toDoubleOrNull()
@@ -519,7 +530,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             val normalizedMessage = note.trim().ifBlank { "Submitted from XDrive Driver Android" }.take(1_000)
             val currency = "GBP"
             val bidKey = stableBidIntentKey(
-                jobId = selectedJob.id,
+                jobId = jobId,
                 ownerUserId = session.userId,
                 driverId = profile.driverId,
                 amount = amount,
@@ -536,7 +547,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
             api.submitJobQuote(
                 session = session,
-                jobId = selectedJob.id,
+                jobId = jobId,
                 amount = amount,
                 message = normalizedMessage,
                 bidKey = bidKey,
@@ -553,9 +564,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         mutationQueue.enqueue(
                             ownerUserId = session.userId,
                             driverId = profile.driverId,
-                            jobId = selectedJob.id,
+                            jobId = jobId,
                             command = bidCommand,
-                            mutationKey = "bid:${session.userId}:${selectedJob.id}:$bidKey",
+                            mutationKey = "bid:${session.userId}:${jobId}:$bidKey",
                         )
                         persistQueueAndSyncState(session.userId)
                         _uiState.value = _uiState.value.copy(

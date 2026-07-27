@@ -44,6 +44,11 @@ data class DriverJob(
     val deliverySignatureData: String? = null,
     val clientSignatureName: String = "",
     val podRequired: Boolean = true,
+    val pallets: Int? = null,
+    val weightKg: Double? = null,
+    val specialRequirements: String = "",
+    val accessRestrictions: String = "",
+    val estimatedDurationMinutes: Int? = null,
 ) {
     fun statusKey(): String = currentStatus.ifBlank { status }.lowercase()
 
@@ -193,3 +198,60 @@ data class DriverPreferences(
     val notifyTracked: Boolean = false,
     val emailNotifications: Boolean = false,
 )
+
+data class MarketplacePublicPrice(
+    val visible: Boolean,
+    val amount: Double?,
+    val currency: String?,
+)
+
+data class MarketplaceJob(
+    val id: String,
+    val publicReference: String,
+    val posterCompanyName: String?,
+    val pickupAddressSummary: String,
+    val pickupPostcode: String,
+    val pickupCollectionFrom: String?,
+    val deliveryAddressSummary: String,
+    val deliveryPostcode: String,
+    val deliveryFrom: String?,
+    val vehicleType: String?,
+    val pallets: Int?,
+    val weightKg: Double?,
+    val freightType: String?,
+    val journeyDistanceMiles: Double?,
+    val distanceToPickupMiles: Double?,
+    val distanceFromCurrentDeliveryMiles: Double?,
+    val publicPrice: MarketplacePublicPrice,
+    val hasProposedPrice: Boolean,
+    val proposedPriceGbp: Double?,
+    val canQuote: Boolean,
+    val canSave: Boolean,
+    val quoteWarning: String?,
+    val destinationPriority: Boolean,
+    val internationalEligibilityRequired: Boolean,
+) {
+    fun distanceSortKey(): Double =
+        distanceFromCurrentDeliveryMiles ?: distanceToPickupMiles ?: journeyDistanceMiles ?: Double.MAX_VALUE
+
+    fun shortDistanceLabel(): String {
+        val d = distanceFromCurrentDeliveryMiles ?: distanceToPickupMiles ?: journeyDistanceMiles
+        return if (d != null) "%.1f mi".format(d) else ""
+    }
+
+    fun vehicleLabel(): String = vehicleType?.split('_')
+        ?.joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+        ?: ""
+
+    fun cargoSummary(): String = buildString {
+        if (!freightType.isNullOrBlank()) append(freightType)
+        if (pallets != null && pallets > 0) {
+            if (isNotEmpty()) append(" • ")
+            append("$pallets pal")
+        }
+        if (weightKg != null && weightKg > 0) {
+            if (isNotEmpty()) append(" • ")
+            append("${weightKg.toInt()} kg")
+        }
+    }
+}

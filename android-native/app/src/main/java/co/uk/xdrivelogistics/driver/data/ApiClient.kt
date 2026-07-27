@@ -523,6 +523,73 @@ class ApiClient(
         }
     }
 
+    suspend fun loadNearbyMarketplaceJobs(
+        session: DriverSession,
+        search: String = "",
+        radiusMiles: Int = 20,
+        limit: Int = 100,
+    ): Result<List<MarketplaceJob>> = networkResult {
+        require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
+        val params = buildList {
+            add("mode=destination")
+            add("radius=$radiusMiles")
+            add("limit=$limit")
+            if (search.isNotBlank()) add("search=${URLEncoder.encode(search.trim(), StandardCharsets.UTF_8.toString())}")
+        }.joinToString("&")
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/nearby-jobs?$params")
+            .addHeader("Authorization", "******")
+            .get()
+            .build()
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to load marketplace jobs.")
+            val json = gson.fromJson(raw, JsonObject::class.java)
+            val jobs = json.getAsJsonArray("jobs") ?: JsonArray()
+            buildList {
+                for (i in 0 until jobs.size()) {
+                    val job = jobs[i].asJsonObject
+                    val pickup = job.getAsJsonObject("pickup")
+                    val delivery = job.getAsJsonObject("delivery")
+                    val priceObj = job.getAsJsonObject("publicPrice")
+                    val priceVisible = priceObj?.get("visible")?.asBoolean ?: false
+                    add(
+                        MarketplaceJob(
+                            id = job.string("id"),
+                            publicReference = job.string("publicReference"),
+                            posterCompanyName = job.nullableString("posterCompanyName"),
+                            pickupAddressSummary = pickup?.string("addressSummary").orEmpty(),
+                            pickupPostcode = pickup?.string("postcode").orEmpty(),
+                            pickupCollectionFrom = pickup?.nullableString("collectionFrom"),
+                            deliveryAddressSummary = delivery?.string("addressSummary").orEmpty(),
+                            deliveryPostcode = delivery?.string("postcode").orEmpty(),
+                            deliveryFrom = delivery?.nullableString("deliveryFrom"),
+                            vehicleType = job.nullableString("vehicleType"),
+                            pallets = job.get("pallets")?.takeUnless { it.isJsonNull }?.let { runCatching { it.asInt }.getOrNull() },
+                            weightKg = job.doubleOrNull("weightKg"),
+                            freightType = job.nullableString("freightType"),
+                            journeyDistanceMiles = job.doubleOrNull("journeyDistanceMiles"),
+                            distanceToPickupMiles = job.doubleOrNull("distanceToPickupMiles"),
+                            distanceFromCurrentDeliveryMiles = job.doubleOrNull("distanceFromCurrentDeliveryMiles"),
+                            publicPrice = MarketplacePublicPrice(
+                                visible = priceVisible,
+                                amount = if (priceVisible) priceObj?.doubleOrNull("amount") else null,
+                                currency = if (priceVisible) priceObj?.nullableString("currency") else null,
+                            ),
+                            hasProposedPrice = job.get("hasProposedPrice")?.asBoolean ?: false,
+                            proposedPriceGbp = job.doubleOrNull("proposedPriceGbp"),
+                            canQuote = job.get("canQuote")?.asBoolean ?: true,
+                            canSave = job.get("canSave")?.asBoolean ?: true,
+                            quoteWarning = job.nullableString("quoteWarning"),
+                            destinationPriority = job.get("destinationPriority")?.asBoolean ?: false,
+                            internationalEligibilityRequired = job.get("internationalEligibilityRequired")?.asBoolean ?: false,
+                        )
+                    )
+                }
+            }
+        }
+    }
+
     suspend fun setJobSearchPreference(
         session: DriverSession,
         driverId: String,
@@ -629,7 +696,7 @@ class ApiClient(
     }
 
     suspend fun loadAssignedJobs(session: DriverSession, profile: DriverProfile): Result<List<DriverJob>> = networkResult {
-        val select = "id,status,current_status,pickup_location,delivery_location,pickup_datetime,delivery_datetime,client_name,client_phone,collection_contact_phone,delivery_contact_phone,vehicle_type,cargo_type,budget_amount,load_details,delivery_photos,pod_photos,collection_photo_url,delivery_signature_data,client_signature_name,pod_required,distance_miles,job_distance_miles,pickup_postcode,delivery_postcode"
+        val select = "id,status,current_status,pickup_location,delivery_location,pickup_datetime,delivery_datetime,client_name,client_phone,collection_contact_phone,delivery_contact_phone,vehicle_type,cargo_type,budget_amount,load_details,delivery_photos,pod_photos,collection_photo_url,delivery_signature_data,client_signature_name,pod_required,distance_miles,job_distance_miles,job_distance_minutes,pickup_postcode,delivery_postcode,pallets,weight_kg,special_requirements,access_restrictions"
         val encodedDriverId = URLEncoder.encode(profile.driverId, StandardCharsets.UTF_8.toString())
         val encodedCompanyId = URLEncoder.encode(profile.companyId, StandardCharsets.UTF_8.toString())
         val query = "select=$select&or=(status.eq.posted,assigned_driver_id.eq.$encodedDriverId,assigned_company_id.eq.$encodedCompanyId,awarded_carrier_company_id.eq.$encodedCompanyId)&order=pickup_datetime.asc&limit=100"
@@ -685,6 +752,11 @@ class ApiClient(
                                 ?.takeUnless { it.isJsonNull }
                                 ?.asBoolean
                                 ?: true,
+                            pallets = row.get("pallets")?.takeUnless { it.isJsonNull }?.let { runCatching { it.asInt }.getOrNull() },
+                            weightKg = row.doubleOrNull("weight_kg"),
+                            specialRequirements = row.string("special_requirements"),
+                            accessRestrictions = row.string("access_restrictions"),
+                            estimatedDurationMinutes = row.get("job_distance_minutes")?.takeUnless { it.isJsonNull }?.let { runCatching { it.asInt }.getOrNull() },
                         )
                     )
                 }

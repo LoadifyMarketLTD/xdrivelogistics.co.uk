@@ -85,6 +85,7 @@ import co.uk.xdrivelogistics.driver.data.DriverJob
 import co.uk.xdrivelogistics.driver.data.DriverDocument
 import co.uk.xdrivelogistics.driver.data.DriverBid
 import co.uk.xdrivelogistics.driver.data.DriverNotification
+import co.uk.xdrivelogistics.driver.data.MarketplaceJob
 import co.uk.xdrivelogistics.driver.offline.MobileQueueState
 import com.google.android.gms.location.LocationServices
 import java.io.ByteArrayOutputStream
@@ -638,55 +639,50 @@ private fun NearbyJobsScreen(
     var freightFilter by remember { mutableStateOf("") }
     var dateFilter by remember { mutableStateOf("") }
     var memberFilter by remember { mutableStateOf("") }
+
     val activeDeliveryJob = state.jobs.firstOrNull {
         !it.isPosted() && it.isActive() && it.deliveryPostcode.isNotBlank()
     }
-    val postedJobs = state.jobs.filter { it.isPosted() }
-    val deliveryZoneJobs = if (activeDeliveryJob != null) {
-        postedJobs
-            .filter { (it.pickupDistanceFromActiveDeliveryMiles ?: Double.MAX_VALUE) <= 20.0 }
-            .sortedBy { it.pickupDistanceFromActiveDeliveryMiles ?: Double.MAX_VALUE }
-    } else {
-        postedJobs.sortedWith(
-            compareBy<DriverJob> { it.pickupDistanceFromActiveDeliveryMiles ?: Double.MAX_VALUE }
-                .thenBy { it.pickupDatetime.orEmpty() }
-        )
-    }
+    val bidJobIds = state.bids.map { it.jobId }.toSet()
+    val marketplaceJobs = state.marketplaceJobs
     val radiusMiles = radius.toDoubleOrNull()
-    val boxedJobs = deliveryZoneJobs.filter { job ->
+
+    val boxedJobs = marketplaceJobs.filter { job ->
         val pref = state.jobSearchPreferences[job.id]
         when (box) {
             "Saved" -> pref == "saved"
             "Deleted" -> pref == "deleted"
-            else -> pref != "deleted"
+            else -> pref != "deleted" && job.id !in bidJobIds
         }
     }.filter { job ->
-        radiusMiles == null || (job.pickupDistanceFromActiveDeliveryMiles ?: job.distanceMiles ?: 0.0) <= radiusMiles
+        radiusMiles == null || job.distanceSortKey() <= radiusMiles
     }.filter { job ->
-        vehicleFilter.isBlank() || job.vehicleType.contains(vehicleFilter.trim(), ignoreCase = true) || job.vehicleLabel().contains(vehicleFilter.trim(), ignoreCase = true)
+        vehicleFilter.isBlank() || job.vehicleType.orEmpty().contains(vehicleFilter.trim(), ignoreCase = true)
     }.filter { job ->
-        freightFilter.isBlank() || job.cargoType.contains(freightFilter.trim(), ignoreCase = true) || job.loadDetails.contains(freightFilter.trim(), ignoreCase = true)
+        freightFilter.isBlank() || job.freightType.orEmpty().contains(freightFilter.trim(), ignoreCase = true)
     }.filter { job ->
-        dateFilter.isBlank() || job.pickupDatetime.orEmpty().contains(dateFilter.trim(), ignoreCase = true)
+        dateFilter.isBlank() || job.pickupCollectionFrom.orEmpty().contains(dateFilter.trim(), ignoreCase = true)
     }.filter { job ->
-        memberFilter.isBlank() || job.clientName.contains(memberFilter.trim(), ignoreCase = true) || job.id.contains(memberFilter.trim(), ignoreCase = true)
+        memberFilter.isBlank() ||
+            job.posterCompanyName.orEmpty().contains(memberFilter.trim(), ignoreCase = true) ||
+            job.id.contains(memberFilter.trim(), ignoreCase = true)
     }
     val searched = boxedJobs.filter {
         val needle = query.trim().lowercase()
         needle.isBlank() ||
             it.id.lowercase().contains(needle) ||
-            it.clientName.lowercase().contains(needle) ||
+            it.publicReference.lowercase().contains(needle) ||
             it.pickupPostcode.lowercase().contains(needle) ||
             it.deliveryPostcode.lowercase().contains(needle) ||
-            it.pickupLocation.lowercase().contains(needle) ||
-            it.deliveryLocation.lowercase().contains(needle) ||
-            it.loadDetails.lowercase().contains(needle)
+            it.pickupAddressSummary.lowercase().contains(needle) ||
+            it.deliveryAddressSummary.lowercase().contains(needle) ||
+            it.freightType.orEmpty().lowercase().contains(needle)
     }
     val filtered = when (sort) {
-        "Newest" -> searched.sortedByDescending { it.pickupDatetime.orEmpty() }
-        "Highest Value" -> searched.sortedByDescending { it.budgetAmount ?: 0.0 }
-        "Best Match" -> searched.sortedWith(compareByDescending<DriverJob> { it.vehicleType.isNotBlank() }.thenBy { it.pickupDistanceFromActiveDeliveryMiles ?: it.distanceMiles ?: Double.MAX_VALUE })
-        else -> searched.sortedBy { it.pickupDistanceFromActiveDeliveryMiles ?: it.distanceMiles ?: Double.MAX_VALUE }
+        "Newest" -> searched.sortedByDescending { it.pickupCollectionFrom.orEmpty() }
+        "Highest Value" -> searched.sortedByDescending { it.proposedPriceGbp ?: 0.0 }
+        "Priority" -> searched.sortedWith(compareByDescending<MarketplaceJob> { it.destinationPriority }.thenBy { it.distanceSortKey() })
+        else -> searched.sortedBy { it.distanceSortKey() }
     }
 
     LazyColumn(
@@ -697,32 +693,30 @@ private fun NearbyJobsScreen(
     ) {
         item {
             XDriveCard {
-                Text("Nearby Jobs", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 22.sp)
+                Text("Live Loads", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 22.sp)
                 Text(
                     if (activeDeliveryJob != null) {
-                        "${filtered.size} jobs within 20 miles of ${activeDeliveryJob.deliveryPostcode}"
+                        "${filtered.size} loads near ${activeDeliveryJob.deliveryPostcode.take(4).trim()}"
                     } else {
-                        "${filtered.size} posted jobs available"
+                        "${filtered.size} loads available"
                     },
                     color = TextSecondary,
                     fontSize = 13.sp,
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    BadgeText(if (activeDeliveryJob != null) "Delivery zone" else "All posted", Yellow)
-                    BadgeText("20 miles", Blue)
-                    BadgeText("Backload search", Success)
+                    if (activeDeliveryJob != null) BadgeText("Backload", Yellow)
+                    BadgeText("${radius}mi radius", Blue)
+                    BadgeText("Live", Success)
                 }
             }
         }
-        item {
-            XDriveCard {
-                Text("Who's Nearby", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 18.sp)
-                Text("${state.nearbyDrivers.size} tracked drivers", color = TextSecondary, fontSize = 13.sp)
-                Spacer(Modifier.height(10.dp))
-                if (state.nearbyDrivers.isEmpty()) {
-                    Text("No live driver locations yet.", color = TextSecondary, fontSize = 13.sp)
-                } else {
+        if (state.nearbyDrivers.isNotEmpty()) {
+            item {
+                XDriveCard {
+                    Text("Who's Nearby", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 18.sp)
+                    Text("${state.nearbyDrivers.size} tracked drivers", color = TextSecondary, fontSize = 13.sp)
+                    Spacer(Modifier.height(10.dp))
                     state.nearbyDrivers.take(5).forEach { nearby ->
                         InfoLine(
                             nearby.driverName,
@@ -740,11 +734,11 @@ private fun NearbyJobsScreen(
             SegmentedTabs(listOf("Inbox", "Saved", "Deleted"), box) { box = it }
         }
         item {
-            XDriveTextField(query, { query = it }, "Search jobs", "Find")
+            XDriveTextField(query, { query = it }, "Search loads", "Find")
         }
         item {
             XDriveCard {
-                Text("Search Filters", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Filters", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     Box(Modifier.weight(1f)) { XDriveTextField(radius, { radius = it }, "Radius miles", "Mi", keyboardType = KeyboardType.Number) }
@@ -756,7 +750,7 @@ private fun NearbyJobsScreen(
                     Box(Modifier.weight(1f)) { XDriveTextField(dateFilter, { dateFilter = it }, "Date", "Date") }
                 }
                 Spacer(Modifier.height(10.dp))
-                XDriveTextField(memberFilter, { memberFilter = it }, "Member name / ID", "ID")
+                XDriveTextField(memberFilter, { memberFilter = it }, "Member / ID", "ID")
                 Spacer(Modifier.height(10.dp))
                 Button(
                     onClick = {
@@ -774,38 +768,122 @@ private fun NearbyJobsScreen(
             }
         }
         item {
-            SegmentedTabs(listOf("Nearest", "Best Match", "Newest", "Highest Value"), sort) { sort = it }
+            SegmentedTabs(listOf("Nearest", "Priority", "Newest", "Highest Value"), sort) { sort = it }
         }
         if (filtered.isEmpty()) {
             item {
                 EmptyState(
-                    "No nearby jobs.",
+                    "No loads found.",
                     if (activeDeliveryJob != null) {
-                        "No posted pickup jobs found within 20 miles of ${activeDeliveryJob.deliveryPostcode}."
+                        "No matching loads within ${radius} miles of the current delivery postcode."
                     } else {
-                        "Take a job first and the app will search around its delivery postcode."
+                        "Adjust filters or refresh to see available loads."
                     },
                 )
             }
         }
         items(filtered, key = { it.id }) { job ->
-            JobCard(
+            MarketplaceJobCard(
                 job = job,
-                selected = state.selectedJobId == job.id,
-                onClick = {
+                alreadyBid = job.id in bidJobIds,
+                preferenceState = state.jobSearchPreferences[job.id],
+                onTap = {
                     onJobSelected(job.id)
                     onTabChange(DriverTab.ACTION)
                 },
-                onMoveStatus = {},
-                onSubmitQuote = { _, _ -> },
                 onSave = { onJobPreference(job.id, "saved") },
                 onHide = { onJobPreference(job.id, "deleted") },
                 onRestore = { onJobPreference(job.id, null) },
-                preferenceState = state.jobSearchPreferences[job.id],
             )
         }
     }
 }
+
+@Composable
+private fun MarketplaceJobCard(
+    job: MarketplaceJob,
+    alreadyBid: Boolean,
+    preferenceState: String?,
+    onTap: () -> Unit,
+    onSave: () -> Unit,
+    onHide: () -> Unit,
+    onRestore: () -> Unit,
+) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (job.destinationPriority) Color(0xFF0A1E3D) else Panel,
+        ),
+        border = if (job.destinationPriority) BorderStroke(1.dp, Blue) else BorderStroke(1.dp, Border),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onTap),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(job.publicReference, color = TextSecondary, fontSize = 11.sp)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "${job.pickupAddressSummary} → ${job.deliveryAddressSummary}",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                    )
+                }
+                if (job.hasProposedPrice && job.proposedPriceGbp != null) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("£%.2f".format(job.proposedPriceGbp), color = Yellow, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                        Text("proposed", color = TextSecondary, fontSize = 10.sp)
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                if (job.destinationPriority) BadgeText("Priority", Blue)
+                if (alreadyBid) BadgeText("Bid sent", Success)
+                if (!job.canQuote) BadgeText("Ineligible", Danger)
+                if (job.vehicleType != null) BadgeText(job.vehicleLabel(), Border)
+            }
+            val cargo = job.cargoSummary()
+            if (cargo.isNotBlank() || job.shortDistanceLabel().isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    if (cargo.isNotBlank()) InfoLine("Freight", cargo)
+                    if (job.shortDistanceLabel().isNotBlank()) InfoLine("Distance", job.shortDistanceLabel())
+                }
+            }
+            job.pickupCollectionFrom?.let { time ->
+                val label = time.marketplaceTime()
+                if (label.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text("Collection: $label", color = TextSecondary, fontSize = 12.sp)
+                }
+            }
+            if (!job.canQuote && job.quoteWarning != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(job.quoteWarning, color = Danger, fontSize = 11.sp)
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                when (preferenceState) {
+                    "saved" -> ButtonSmall("Restore") { onRestore() }
+                    "deleted" -> ButtonSmall("Restore") { onRestore() }
+                    else -> {
+                        ButtonSmall("Save") { onSave() }
+                        ButtonSmall("Hide") { onHide() }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 
 @Composable
 private fun MyJobsScreen(
@@ -1081,18 +1159,23 @@ private fun ActionScreen(
     onNavigateTo: (String) -> Unit,
 ) {
     val selected = state.jobs.firstOrNull { it.id == state.selectedJobId }
+    val marketplaceJob = state.marketplaceJobs.firstOrNull { it.id == state.selectedJobId }
     val activeJobs = state.jobs.filter { !it.isPosted() && it.isActive() }
     var note by remember { mutableStateOf("") }
     var important by remember { mutableStateOf(false) }
     var detailTab by remember { mutableStateOf("Summary") }
 
-    if (selected?.isPosted() == true) {
+    if (selected?.isPosted() == true || (selected == null && marketplaceJob != null)) {
         PostedJobDetailScreen(
             job = selected,
+            marketplaceJob = marketplaceJob,
             statusMessage = state.message,
             errorMessage = state.error,
             onSubmitQuote = onSubmitQuote,
-            onSendMessage = { onSendNote("Message requested for ${selected.id.take(8).uppercase()}", true) },
+            onSendMessage = {
+                val ref = (selected?.id ?: marketplaceJob?.id ?: "").take(8).uppercase()
+                onSendNote("Message requested for $ref", true)
+            },
         )
         return
     }
@@ -1284,12 +1367,16 @@ private fun StopCard(
 
 @Composable
 private fun PostedJobDetailScreen(
-    job: DriverJob,
+    job: DriverJob?,
+    marketplaceJob: MarketplaceJob?,
     statusMessage: String,
     errorMessage: String,
     onSubmitQuote: (String, String) -> Unit,
     onSendMessage: () -> Unit,
 ) {
+    val ref = job?.id?.take(8)?.uppercase() ?: marketplaceJob?.publicReference ?: "LOAD"
+    val canQuote = marketplaceJob?.canQuote ?: true
+    val quoteWarning = marketplaceJob?.quoteWarning
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -1300,7 +1387,7 @@ private fun PostedJobDetailScreen(
     ) {
         item {
             Text(
-                "Load ID ${job.id.take(8).uppercase()}",
+                "Load $ref",
                 color = Color(0xFF303344),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
@@ -1321,44 +1408,96 @@ private fun PostedJobDetailScreen(
             }
         }
 
-        item {
-            LightDetailCard {
-                Text(job.marketplaceTitle(), color = Color(0xFF303344), fontWeight = FontWeight.Black, fontSize = 20.sp)
-                Spacer(Modifier.height(6.dp))
-                Text(job.marketplaceMeta(), color = Color(0xFF6C6F7D), fontSize = 14.sp)
-                Spacer(Modifier.height(12.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(job.marketplaceBadges()) { badge ->
-                        PostedBadge(badge.label, badge.color, badge.textColor)
+        if (job != null) {
+            item {
+                LightDetailCard {
+                    Text(job.marketplaceTitle(), color = Color(0xFF303344), fontWeight = FontWeight.Black, fontSize = 20.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text(job.marketplaceMeta(), color = Color(0xFF6C6F7D), fontSize = 14.sp)
+                    Spacer(Modifier.height(12.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(job.marketplaceBadges()) { badge ->
+                            PostedBadge(badge.label, badge.color, badge.textColor)
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    PostedRouteBox(job)
+                }
+            }
+            item {
+                LightDetailCard {
+                    DetailRow("V", "VEHICLE", job.vehicleLabel())
+                    Spacer(Modifier.height(18.dp))
+                    DetailRow("M", "DISTANCE", job.distanceLabel())
+                    if (job.pallets != null && job.pallets > 0) {
+                        Spacer(Modifier.height(12.dp))
+                        DetailRow("P", "PALLETS", "${job.pallets}")
+                    }
+                    if (job.weightKg != null && job.weightKg > 0) {
+                        Spacer(Modifier.height(12.dp))
+                        DetailRow("W", "WEIGHT", "${job.weightKg.toInt()} kg")
+                    }
+                    if (job.estimatedDurationMinutes != null && job.estimatedDurationMinutes > 0) {
+                        Spacer(Modifier.height(12.dp))
+                        DetailRow("T", "DURATION", "${job.estimatedDurationMinutes} min")
+                    }
+                    if (job.specialRequirements.isNotBlank()) {
+                        Spacer(Modifier.height(12.dp))
+                        DetailRow("!", "REQUIREMENTS", job.specialRequirements)
+                    }
+                    if (job.accessRestrictions.isNotBlank()) {
+                        Spacer(Modifier.height(12.dp))
+                        DetailRow("A", "ACCESS", job.accessRestrictions)
                     }
                 }
-                Spacer(Modifier.height(14.dp))
-                PostedRouteBox(job)
             }
-        }
-
-        item {
-            LightDetailCard {
-                DetailRow(
-                    icon = "V",
-                    label = "VEHICLE",
-                    value = job.vehicleLabel(),
-                )
-                Spacer(Modifier.height(18.dp))
-                DetailRow(
-                    icon = "M",
-                    label = "DISTANCE",
-                    value = job.distanceLabel(),
-                )
+        } else if (marketplaceJob != null) {
+            item {
+                LightDetailCard {
+                    Text(
+                        "${marketplaceJob.pickupAddressSummary} → ${marketplaceJob.deliveryAddressSummary}",
+                        color = Color(0xFF303344),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 18.sp,
+                    )
+                    marketplaceJob.pickupCollectionFrom?.let {
+                        Spacer(Modifier.height(6.dp))
+                        Text("Collection: ${it.marketplaceTime()}", color = Color(0xFF6C6F7D), fontSize = 13.sp)
+                    }
+                    if (marketplaceJob.vehicleType != null || marketplaceJob.freightType != null || marketplaceJob.pallets != null) {
+                        Spacer(Modifier.height(10.dp))
+                        if (marketplaceJob.vehicleType != null) DetailRow("V", "VEHICLE", marketplaceJob.vehicleLabel())
+                        val cargo = marketplaceJob.cargoSummary()
+                        if (cargo.isNotBlank()) {
+                            Spacer(Modifier.height(10.dp))
+                            DetailRow("F", "FREIGHT", cargo)
+                        }
+                        if (marketplaceJob.journeyDistanceMiles != null) {
+                            Spacer(Modifier.height(10.dp))
+                            DetailRow("M", "DISTANCE", "%.1f mi".format(marketplaceJob.journeyDistanceMiles))
+                        }
+                    }
+                    if (marketplaceJob.destinationPriority) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            BadgeText("Priority backload", Color(0xFF0057D9))
+                            marketplaceJob.distanceFromCurrentDeliveryMiles?.let { d ->
+                                BadgeText("%.1f mi away".format(d), Color(0xFF24324D))
+                            }
+                        }
+                    }
+                }
             }
         }
 
         item {
             LightDetailCard(contentPadding = 14.dp) {
-                DetailRow("C", "CUSTOMER", job.marketplaceTitle())
-                Spacer(Modifier.height(12.dp))
-                DetailRow("P", "PHONE", job.phoneLabel())
-                Spacer(Modifier.height(12.dp))
+                val companyName = job?.clientName?.ifBlank { null }
+                    ?: marketplaceJob?.posterCompanyName
+                if (!companyName.isNullOrBlank()) {
+                    DetailRow("C", "POSTED BY", companyName)
+                    Spacer(Modifier.height(12.dp))
+                }
                 Button(
                     onClick = onSendMessage,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4C9BE8), contentColor = Color.White),
@@ -1366,7 +1505,7 @@ private fun PostedJobDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                ) { Text("Message", fontWeight = FontWeight.Black, fontSize = 15.sp) }
+                ) { Text("Message Dispatcher", fontWeight = FontWeight.Black, fontSize = 15.sp) }
             }
         }
 
@@ -1380,26 +1519,18 @@ private fun PostedJobDetailScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                 }
-                QuoteBoxLight(onSubmitQuote)
-            }
-        }
-
-        item {
-            LightDetailCard {
-                Text("Feedback", color = Color(0xFF303344), fontWeight = FontWeight.Black, fontSize = 19.sp)
-                Text("Past 90 days", color = Color(0xFF6C6F7D), fontSize = 13.sp)
-                Spacer(Modifier.height(12.dp))
-                Box(Modifier.fillMaxWidth().height(2.dp).background(Color(0xFF4C9BE8)))
-                Spacer(Modifier.height(12.dp))
-                FeedbackLine("Payment", "0", "0", "0")
-                FeedbackLine("Delivery", "0", "0", "0")
-                Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = {},
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4C9BE8), contentColor = Color.White),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("All Feedback", fontWeight = FontWeight.Black) }
+                if (!canQuote && !quoteWarning.isNullOrBlank()) {
+                    QuoteStatusBanner(
+                        title = "Bidding unavailable",
+                        body = quoteWarning,
+                        isError = true,
+                    )
+                } else {
+                    QuoteBoxLight(
+                        proposedPriceGbp = marketplaceJob?.proposedPriceGbp,
+                        onSubmitQuote = onSubmitQuote,
+                    )
+                }
             }
         }
 
@@ -1472,64 +1603,92 @@ private fun FeedbackLine(label: String, positive: String, neutral: String, negat
 }
 
 @Composable
-private fun QuoteBoxLight(onSubmitQuote: (String, String) -> Unit) {
+private fun QuoteBoxLight(
+    proposedPriceGbp: Double?,
+    onSubmitQuote: (String, String) -> Unit,
+) {
     var amount by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
+    var showCustom by remember { mutableStateOf(false) }
     val fieldText = Color(0xFF202231)
     val fieldLabel = Color(0xFF7B7D8A)
     val fieldBorder = Color(0xFF8E919B)
     val fieldFocus = Color(0xFF4D9BE8)
     Text("Submit quote", color = Color(0xFF303344), fontWeight = FontWeight.Black, fontSize = 19.sp)
     Spacer(Modifier.height(6.dp))
-    OutlinedTextField(
-        value = amount,
-        onValueChange = { amount = it },
-        label = { Text("Amount GBP") },
-        prefix = { Text("GBP", color = Success, fontWeight = FontWeight.Black) },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = fieldText,
-            unfocusedTextColor = fieldText,
-            focusedLabelColor = fieldLabel,
-            unfocusedLabelColor = fieldLabel,
-            focusedBorderColor = fieldFocus,
-            unfocusedBorderColor = fieldBorder,
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
-            cursorColor = fieldFocus,
-        ),
-    )
-    Spacer(Modifier.height(6.dp))
-    OutlinedTextField(
-        value = message,
-        onValueChange = { message = it },
-        label = { Text("Message to dispatcher") },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = fieldText,
-            unfocusedTextColor = fieldText,
-            focusedLabelColor = fieldLabel,
-            unfocusedLabelColor = fieldLabel,
-            focusedBorderColor = fieldFocus,
-            unfocusedBorderColor = fieldBorder,
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
-            cursorColor = fieldFocus,
-        ),
-    )
-    Spacer(Modifier.height(8.dp))
-    Button(
-        onClick = { onSubmitQuote(amount, message) },
-        enabled = amount.toDoubleOrNull()?.let { it > 0.0 } == true,
-        modifier = Modifier.fillMaxWidth().height(48.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Color(0xFF111217)),
-        shape = RoundedCornerShape(999.dp),
-    ) { Text("Submit Quote", fontWeight = FontWeight.Black) }
+    if (proposedPriceGbp != null && proposedPriceGbp > 0.0 && !showCustom) {
+        Button(
+            onClick = { onSubmitQuote("%.2f".format(proposedPriceGbp), "") },
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF116B34), contentColor = Color.White),
+            shape = RoundedCornerShape(999.dp),
+        ) { Text("Accept £${"%.2f".format(proposedPriceGbp)}", fontWeight = FontWeight.Black, fontSize = 16.sp) }
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { showCustom = true },
+            modifier = Modifier.fillMaxWidth().height(44.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF0F3F8), contentColor = Color(0xFF303344)),
+            shape = RoundedCornerShape(999.dp),
+        ) { Text("Enter different amount", fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
+    } else {
+        if (proposedPriceGbp != null && proposedPriceGbp > 0.0) {
+            OutlinedButton(
+                onClick = { showCustom = false },
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                shape = RoundedCornerShape(999.dp),
+            ) { Text("← Back to proposed price", fontSize = 13.sp) }
+            Spacer(Modifier.height(8.dp))
+        }
+        OutlinedTextField(
+            value = amount,
+            onValueChange = { amount = it },
+            label = { Text("Amount GBP") },
+            prefix = { Text("GBP", color = Success, fontWeight = FontWeight.Black) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = fieldText,
+                unfocusedTextColor = fieldText,
+                focusedLabelColor = fieldLabel,
+                unfocusedLabelColor = fieldLabel,
+                focusedBorderColor = fieldFocus,
+                unfocusedBorderColor = fieldBorder,
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                cursorColor = fieldFocus,
+            ),
+        )
+        Spacer(Modifier.height(6.dp))
+        OutlinedTextField(
+            value = message,
+            onValueChange = { message = it },
+            label = { Text("Message to dispatcher") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = fieldText,
+                unfocusedTextColor = fieldText,
+                focusedLabelColor = fieldLabel,
+                unfocusedLabelColor = fieldLabel,
+                focusedBorderColor = fieldFocus,
+                unfocusedBorderColor = fieldBorder,
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                cursorColor = fieldFocus,
+            ),
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { onSubmitQuote(amount, message) },
+            enabled = amount.toDoubleOrNull()?.let { it > 0.0 } == true,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Color(0xFF111217)),
+            shape = RoundedCornerShape(999.dp),
+        ) { Text("Submit Quote", fontWeight = FontWeight.Black) }
+    }
 }
 
 @Composable
