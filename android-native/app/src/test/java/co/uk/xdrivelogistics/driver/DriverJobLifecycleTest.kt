@@ -85,7 +85,29 @@ class DriverJobLifecycleTest {
         assertEquals("accepted", explicit.nextStatus())
     }
 
-    private fun job(
+    @Test
+    fun `unknown or empty operational status is non-actionable`() {
+        // A job with no recognised current_status must never advance the lifecycle.
+        val unknownStatus = job("")
+        assertEquals("", unknownStatus.driverStatusKey())
+        assertEquals("", unknownStatus.nextStatus())
+        assertFalse(unknownStatus.canMoveNext())
+    }
+
+    @Test
+    fun `marketplace-terminal statuses are not operational driver states`() {
+        // 'completed', 'invoiced', 'paid' are marketplace-terminal and must not
+        // be treated as equivalent to the operational 'delivered' state.
+        for (terminalStatus in listOf("completed", "invoiced", "paid")) {
+            val j = job(terminalStatus)
+            // fromRaw must not recognise these as canonical operational statuses.
+            assertEquals("", j.driverStatusKey())
+            assertEquals("", j.nextStatus())
+            assertFalse(j.canMoveNext())
+        }
+    }
+
+    
         status: String,
         collectionPhotoUrl: String? = null,
         deliveryPhotos: List<String> = emptyList(),

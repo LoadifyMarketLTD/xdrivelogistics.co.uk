@@ -13,6 +13,7 @@ import {
   CANONICAL_DRIVER_OPERATIONAL_STATUSES,
   mobileOperationalStatus,
   normalizeDriverOperationalStatus,
+  legacyBootstrapOperationalStatus,
 } from '../app/api/driver/mobile/_status';
 import { actions, validateLifecycleActionTransition } from '../app/api/driver/mobile/jobs/[id]/[action]/lifecycle';
 
@@ -102,20 +103,52 @@ test.describe('mobile API — idempotency helper contract', () => {
   test.describe('mobile API — canonical status normalization contract', () => {
     test('canonical operational field always resolves to allowed canonical values', () => {
       const aliasSamples = [
-        { current_status: 'assigned', status: 'assigned', expected: 'allocated' },
-        { current_status: 'on_my_way', status: 'allocated', expected: 'on_my_way_to_pickup' },
-        { current_status: 'arrived_pickup', status: 'allocated', expected: 'on_site_pickup' },
-        { current_status: 'collected', status: 'collected', expected: 'loaded' },
-        { current_status: 'in_transit', status: 'in_transit', expected: 'on_my_way_to_delivery' },
-        { current_status: 'arrived_delivery', status: 'arrived_delivery', expected: 'on_site_delivery' },
-        { current_status: null, status: 'completed', expected: 'delivered' },
+        { current_status: 'assigned', expected: 'allocated' },
+        { current_status: 'on_my_way', expected: 'on_my_way_to_pickup' },
+        { current_status: 'arrived_pickup', expected: 'on_site_pickup' },
+        { current_status: 'collected', expected: 'loaded' },
+        { current_status: 'in_transit', expected: 'on_my_way_to_delivery' },
+        { current_status: 'arrived_delivery', expected: 'on_site_delivery' },
       ] as const;
 
       for (const sample of aliasSamples) {
-        const normalized = mobileOperationalStatus(sample.current_status, sample.status);
+        const normalized = mobileOperationalStatus(sample.current_status);
         expect(normalized).toBe(sample.expected);
-        expect(CANONICAL_DRIVER_OPERATIONAL_STATUSES.includes(normalized)).toBe(true);
+        expect(CANONICAL_DRIVER_OPERATIONAL_STATUSES.includes(normalized!)).toBe(true);
       }
+    });
+
+    test('mobileOperationalStatus returns null for absent or unknown current_status', () => {
+      expect(mobileOperationalStatus(null)).toBeNull();
+      expect(mobileOperationalStatus(undefined)).toBeNull();
+      expect(mobileOperationalStatus('')).toBeNull();
+      expect(mobileOperationalStatus('unknown_status')).toBeNull();
+    });
+
+    test('mobileOperationalStatus never falls back to marketplace-terminal states', () => {
+      // Marketplace-terminal states must never coerce into operational 'delivered'.
+      expect(mobileOperationalStatus('completed')).toBeNull();
+      expect(mobileOperationalStatus('invoiced')).toBeNull();
+      expect(mobileOperationalStatus('paid')).toBeNull();
+    });
+
+    test('mobileOperationalStatus does not consult marketplace status — only current_status', () => {
+      // Even if marketplace status is 'completed', a null current_status is non-actionable.
+      // The two-arg fallback pattern is explicitly rejected.
+      expect(mobileOperationalStatus(null)).toBeNull();
+    });
+
+    test('legacyBootstrapOperationalStatus resolves operational aliases but never marketplace-terminal states', () => {
+      expect(legacyBootstrapOperationalStatus('allocated')).toBe('allocated');
+      expect(legacyBootstrapOperationalStatus('assigned')).toBe('allocated');
+      expect(legacyBootstrapOperationalStatus('accepted')).toBe('accepted');
+      expect(legacyBootstrapOperationalStatus('collected')).toBe('loaded');
+      expect(legacyBootstrapOperationalStatus('in_transit')).toBe('on_my_way_to_delivery');
+      // Marketplace-terminal states must return null from the legacy bootstrap too.
+      expect(legacyBootstrapOperationalStatus('completed')).toBeNull();
+      expect(legacyBootstrapOperationalStatus('invoiced')).toBeNull();
+      expect(legacyBootstrapOperationalStatus('paid')).toBeNull();
+      expect(legacyBootstrapOperationalStatus(null)).toBeNull();
     });
 
     test('normalizeDriverOperationalStatus never returns legacy aliases', () => {

@@ -833,10 +833,7 @@ class ApiClient(
                         ?: row.string("load_details").extractLoadField("distance")?.toDoubleOrNull()
                         ?: estimateDistanceMiles(pickupPostcode, deliveryPostcode)
                     val marketplaceStatus = row.string("status")
-                    val operationalStatus = canonicalOperationalStatus(
-                        currentStatus = row.nullableString("current_status"),
-                        marketplaceStatus = marketplaceStatus,
-                    )
+                    val operationalStatus = canonicalOperationalStatus(row.nullableString("current_status"))
                     add(
                         DriverJob(
                             id = row.string("id"),
@@ -1347,10 +1344,14 @@ class ApiClient(
     private fun canonicalJobStatus(driverStatus: String): String =
         CanonicalDriverLifecycleStatus.fromRaw(driverStatus)?.wireValue ?: driverStatus.lowercase()
 
-    private fun canonicalOperationalStatus(currentStatus: String?, marketplaceStatus: String?): String =
-        CanonicalDriverLifecycleStatus.fromRaw(currentStatus)?.wireValue
-            ?: CanonicalDriverLifecycleStatus.fromRaw(marketplaceStatus)?.wireValue
-            ?: CanonicalDriverLifecycleStatus.AWARDED.wireValue
+    /**
+     * Returns the canonical driver operational status from the stored current_status field only.
+     * Returns empty string when current_status is absent or unrecognised — the job is
+     * explicitly non-actionable. Marketplace status is never consulted as a fallback, and
+     * there is no default value: 'awarded' must not be silently imposed on unresolved records.
+     */
+    private fun canonicalOperationalStatus(currentStatus: String?): String =
+        CanonicalDriverLifecycleStatus.fromRaw(currentStatus)?.wireValue ?: ""
 
     private fun stableSubmissionKey(prefix: String, jobId: String, userId: String): String {
         val nonce = UUID.randomUUID().toString().replace("-", "").take(16)
