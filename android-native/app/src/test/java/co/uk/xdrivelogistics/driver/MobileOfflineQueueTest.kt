@@ -5,6 +5,7 @@ import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueue
 import co.uk.xdrivelogistics.driver.offline.MobileQueueItem
 import co.uk.xdrivelogistics.driver.offline.MobileQueueState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -273,6 +274,70 @@ class MobileOfflineQueueTest {
 
         assertEquals(MobileMutationEndpoint.BID.path, queued.endpoint)
         assertEquals("bid_submitted", queued.command.syncTargetLabel())
+    }
+
+    @Test
+    fun `same owner job and bid key retry collapses to one queued bid command`() {
+        val queue = MobileOfflineQueue { 1_000L }
+        val bidCommand = co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand.createBid(
+            amount = 120.0,
+            currency = "GBP",
+            message = "Offer",
+            bidKey = "bid-k1",
+        )
+        val first = queue.enqueue(
+            ownerUserId = "owner-a",
+            driverId = "driver-a",
+            jobId = "job-a",
+            command = bidCommand,
+            mutationKey = "bid:owner-a:job-a:bid-k1",
+        )
+        val retry = queue.enqueue(
+            ownerUserId = "owner-a",
+            driverId = "driver-a",
+            jobId = "job-a",
+            command = bidCommand,
+            mutationKey = "bid:owner-a:job-a:bid-k1",
+        )
+
+        assertEquals(first.id, retry.id)
+        assertEquals(1, queue.snapshot().size)
+    }
+
+    @Test
+    fun `bid dedupe does not collapse across owner or job scope`() {
+        val queue = MobileOfflineQueue { 1_000L }
+        val bidCommand = co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand.createBid(
+            amount = 120.0,
+            currency = "GBP",
+            message = "Offer",
+            bidKey = "bid-k1",
+        )
+        val ownerAJobA = queue.enqueue(
+            ownerUserId = "owner-a",
+            driverId = "driver-a",
+            jobId = "job-a",
+            command = bidCommand,
+            mutationKey = "bid:owner-a:job-a:bid-k1",
+        )
+        val ownerBJobA = queue.enqueue(
+            ownerUserId = "owner-b",
+            driverId = "driver-b",
+            jobId = "job-a",
+            command = bidCommand,
+            mutationKey = "bid:owner-b:job-a:bid-k1",
+        )
+        val ownerAJobB = queue.enqueue(
+            ownerUserId = "owner-a",
+            driverId = "driver-a",
+            jobId = "job-b",
+            command = bidCommand,
+            mutationKey = "bid:owner-a:job-b:bid-k1",
+        )
+
+        assertNotEquals(ownerAJobA.id, ownerBJobA.id)
+        assertNotEquals(ownerAJobA.id, ownerAJobB.id)
+        assertEquals(3, queue.snapshot().size)
     }
 
     @Test

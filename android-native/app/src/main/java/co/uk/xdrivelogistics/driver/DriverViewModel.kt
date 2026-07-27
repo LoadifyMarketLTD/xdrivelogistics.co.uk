@@ -586,7 +586,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             val session = _uiState.value.session ?: return@launch
             val profile = _uiState.value.profile ?: return@launch
             // Quote actions are Live Loads marketplace actions; resolve via marketplaceSelectedJobId only.
-            val marketplaceJob = resolveMarketplaceJob(_uiState.value.marketplaceJobs, _uiState.value.marketplaceSelectedJobId)
+            val marketplaceJob = resolveQuoteTargetMarketplaceJob(
+                marketplaceJobs = _uiState.value.marketplaceJobs,
+                marketplaceSelectedJobId = _uiState.value.marketplaceSelectedJobId,
+            )
             if (marketplaceJob == null) {
                 _uiState.value = _uiState.value.copy(error = "Select a Live Load first.")
                 return@launch
@@ -1292,6 +1295,11 @@ internal fun resolveMarketplaceJob(
     if (marketplaceSelectedJobId.isNullOrBlank()) return null
     return marketplaceJobs.firstOrNull { it.id == marketplaceSelectedJobId }
 }
+
+internal fun resolveQuoteTargetMarketplaceJob(
+    marketplaceJobs: List<MarketplaceJob>,
+    marketplaceSelectedJobId: String?,
+): MarketplaceJob? = resolveMarketplaceJob(marketplaceJobs, marketplaceSelectedJobId)
 
 internal data class ActionScreenTargets(
     val operationalJob: DriverJob?,

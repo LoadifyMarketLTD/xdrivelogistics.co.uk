@@ -116,6 +116,35 @@ class MarketplaceSeparationTest {
         assertNull(targets.marketplaceJob)
     }
 
+    @Test
+    fun `quote target resolves explicitly selected marketplace load B not A regardless of list order`() {
+        val mpA = mpJob("mp-a")
+        val mpB = mpJob("mp-b")
+        val selectedJobId = "op-a"
+        val firstOrder = resolveQuoteTargetMarketplaceJob(
+            marketplaceJobs = listOf(mpA, mpB),
+            marketplaceSelectedJobId = "mp-b",
+        )
+        val secondOrder = resolveQuoteTargetMarketplaceJob(
+            marketplaceJobs = listOf(mpB, mpA),
+            marketplaceSelectedJobId = "mp-b",
+        )
+        assertEquals("op-a", selectedJobId)
+        assertEquals("mp-b", firstOrder?.id)
+        assertEquals("mp-b", secondOrder?.id)
+        assertFalse(firstOrder?.id == "mp-a")
+        assertFalse(secondOrder?.id == "mp-a")
+    }
+
+    @Test
+    fun `quote target resolver returns null when no explicit marketplace selection exists`() {
+        val target = resolveQuoteTargetMarketplaceJob(
+            marketplaceJobs = listOf(mpJob("mp-a"), mpJob("mp-b")),
+            marketplaceSelectedJobId = null,
+        )
+        assertNull(target)
+    }
+
     // ---- save/hide state ----
 
     @Test
