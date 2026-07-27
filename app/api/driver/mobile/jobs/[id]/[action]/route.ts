@@ -9,89 +9,13 @@ import {
   jobSelect,
   mapJob,
   MobileJobRow,
+  normalizeDriverOperationalStatus,
   requireDriver,
   respond,
   safeArray,
 } from '../../../_lib';
 import { hasActionAlreadyApplied, normalizedCurrentOrNull } from './idempotency';
-
-type ActionConfig = {
-  currentStatus: string;
-  lifecycleStatus?: string;
-  timestampField?: 'on_my_way_at' | 'on_site_pickup_at' | 'loaded_at' | 'on_site_delivery_at' | 'delivered_at';
-  eventType: string;
-  label: string;
-  allowedLifecycle: string[];
-  /**
-   * Canonical current_status values allowed as transition entry points.
-   * Null means "no current_status set yet".
-   */
-  allowedCurrent: Array<string | null>;
-  requiresPod?: boolean;
-};
-
-const actions: Record<string, ActionConfig> = {
-  accept: {
-    currentStatus: 'accepted',
-    eventType: 'note',
-    label: 'Job accepted by driver',
-    allowedLifecycle: ['awarded', 'allocated'],
-    allowedCurrent: [null, 'awarded', 'allocated'],
-  },
-  'on-my-way-pickup': {
-    currentStatus: 'on_my_way_to_pickup',
-    lifecycleStatus: 'allocated',
-    timestampField: 'on_my_way_at',
-    eventType: 'driver_en_route',
-    label: 'On my way to pickup',
-    allowedLifecycle: ['awarded', 'allocated', 'accepted'],
-    allowedCurrent: ['accepted'],
-  },
-  'arrived-pickup': {
-    currentStatus: 'on_site_pickup',
-    lifecycleStatus: 'allocated',
-    timestampField: 'on_site_pickup_at',
-    eventType: 'arrived_pickup',
-    label: 'Arrived at pickup',
-    allowedLifecycle: ['awarded', 'allocated', 'accepted'],
-    allowedCurrent: ['on_my_way_to_pickup'],
-  },
-  loaded: {
-    currentStatus: 'loaded',
-    lifecycleStatus: 'collected',
-    timestampField: 'loaded_at',
-    eventType: 'collected',
-    label: 'Loaded / collected',
-    allowedLifecycle: ['allocated', 'accepted'],
-    allowedCurrent: ['on_site_pickup'],
-  },
-  'on-my-way-delivery': {
-    currentStatus: 'on_my_way_to_delivery',
-    lifecycleStatus: 'in_transit',
-    eventType: 'in_transit',
-    label: 'On my way to delivery',
-    allowedLifecycle: ['collected'],
-    allowedCurrent: ['loaded'],
-  },
-  'arrived-delivery': {
-    currentStatus: 'on_site_delivery',
-    timestampField: 'on_site_delivery_at',
-    eventType: 'arrived_delivery',
-    label: 'Arrived at delivery',
-    allowedLifecycle: ['in_transit'],
-    allowedCurrent: ['on_my_way_to_delivery'],
-  },
-  delivered: {
-    currentStatus: 'delivered',
-    lifecycleStatus: 'delivered',
-    timestampField: 'delivered_at',
-    eventType: 'delivered',
-    label: 'Delivered',
-    allowedLifecycle: ['in_transit'],
-    allowedCurrent: ['on_site_delivery'],
-    requiresPod: true,
-  },
-};
+import { actions, validateLifecycleActionTransition } from './lifecycle';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; action: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
@@ -121,22 +45,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // applied.  At that point job.status may have advanced past the values in
   // allowedLifecycle, so the lifecycle check would return 409 instead of 200.
   // Check granular status/timestamps/history first to prevent false 409 rejects.
-  if (hasActionAlreadyApplied(job, config)) {
+  if (hasActionAlreadyApplied(job, { currentStatus: config.toStatus, timestampField: config.timestampField })) {
     return respond(200, { ok: true, job: mapJob(job) });
   }
-  const currentStatus = normalizedCurrentOrNull(job.current_status);
+  const currentStatus = normalizedCurrentOrNull(job.current_status)
+    ?? normalizeDriverOperationalStatus(job.status);
 
-  // Enforce no-skip canonical current_status transition rules.
-  if (!config.allowedCurrent.includes(currentStatus)) {
+  // Enforce strict adjacent canonical transition rules.
+  const transitionCheck = validateLifecycleActionTransition(action, currentStatus);
+  if (!transitionCheck.ok) {
     return respond(409, {
       error: `Job cannot perform ${action} from ${currentStatus ?? 'unset'} current status.`,
     });
-  }
-
-  // Lifecycle validation: only now reject disallowed transitions.
-  const lifecycle = String(job.status ?? '').toLowerCase().trim();
-  if (!config.allowedLifecycle.includes(lifecycle)) {
-    return respond(409, { error: `Job cannot perform ${action} from ${lifecycle || 'unknown'} status.` });
   }
 
   if (config.requiresPod && job.pod_required !== false && !hasPod(job)) {
@@ -145,19 +65,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const now = new Date().toISOString();
   const updatePayload: Record<string, unknown> = {
-    current_status: config.currentStatus,
+    current_status: config.toStatus,
+    status: config.toStatus,
     status_updated_at: now,
     updated_at: now,
     status_history: appendStatusHistory(job.status_history, {
-      status: config.currentStatus,
-      lifecycle_status: config.lifecycleStatus ?? job.status,
+      status: config.toStatus,
+      lifecycle_status: config.toStatus,
       label: config.label,
       timestamp: now,
       actor_user_id: driver.userId,
       source: 'driver_mobile',
     }),
   };
-  if (config.lifecycleStatus) updatePayload.status = config.lifecycleStatus;
   if (config.timestampField) updatePayload[config.timestampField] = now;
 
   const { data: updated, error: updateError } = await supabaseAdmin

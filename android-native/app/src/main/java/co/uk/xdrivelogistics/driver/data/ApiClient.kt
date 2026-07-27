@@ -832,11 +832,16 @@ class ApiClient(
                         ?: row.doubleOrNull("job_distance_miles")
                         ?: row.string("load_details").extractLoadField("distance")?.toDoubleOrNull()
                         ?: estimateDistanceMiles(pickupPostcode, deliveryPostcode)
+                    val marketplaceStatus = row.string("status")
+                    val operationalStatus = canonicalOperationalStatus(
+                        currentStatus = row.nullableString("current_status"),
+                        marketplaceStatus = marketplaceStatus,
+                    )
                     add(
                         DriverJob(
                             id = row.string("id"),
-                            status = row.string("status"),
-                            currentStatus = row.string("current_status"),
+                            status = marketplaceStatus,
+                            currentStatus = operationalStatus,
                             pickupLocation = row.string("pickup_location"),
                             deliveryLocation = row.string("delivery_location"),
                             pickupDatetime = row.nullableString("pickup_datetime"),
@@ -1341,6 +1346,11 @@ class ApiClient(
 
     private fun canonicalJobStatus(driverStatus: String): String =
         CanonicalDriverLifecycleStatus.fromRaw(driverStatus)?.wireValue ?: driverStatus.lowercase()
+
+    private fun canonicalOperationalStatus(currentStatus: String?, marketplaceStatus: String?): String =
+        CanonicalDriverLifecycleStatus.fromRaw(currentStatus)?.wireValue
+            ?: CanonicalDriverLifecycleStatus.fromRaw(marketplaceStatus)?.wireValue
+            ?: CanonicalDriverLifecycleStatus.AWARDED.wireValue
 
     private fun stableSubmissionKey(prefix: String, jobId: String, userId: String): String {
         val nonce = UUID.randomUUID().toString().replace("-", "").take(16)

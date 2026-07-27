@@ -54,12 +54,12 @@ data class DriverJob(
     val deliveryContactName: String? = null,
     val deliveryContactPhone: String? = null,
 ) {
-    fun statusKey(): String = currentStatus.ifBlank { status }.lowercase()
+    fun statusKey(): String = currentStatus.lowercase().trim()
 
     fun driverStatusKey(): String = CanonicalDriverLifecycleStatus
         .fromRaw(statusKey())
         ?.wireValue
-        ?: statusKey()
+        ?: ""
 
     fun isInProgress(): Boolean = driverStatusKey() in listOf(
         "accepted",

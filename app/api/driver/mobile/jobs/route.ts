@@ -3,7 +3,7 @@ import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabase
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond } from '../_lib';
 
 const scopes: Record<string, string[]> = {
-  active: ['awarded', 'allocated', 'collected', 'in_transit'],
+  active: ['awarded', 'allocated', 'accepted', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'on_my_way_to_delivery', 'on_site_delivery', 'collected', 'in_transit'],
   upcoming: ['awarded', 'allocated'],
   completed: ['delivered', 'invoiced', 'paid'],
 };

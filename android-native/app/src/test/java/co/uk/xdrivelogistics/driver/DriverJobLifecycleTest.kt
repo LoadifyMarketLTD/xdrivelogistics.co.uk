@@ -64,6 +64,27 @@ class DriverJobLifecycleTest {
         assertEquals("on_site_delivery", job("arrived_delivery").driverStatusKey())
     }
 
+    @Test
+    fun `operational status comes from explicit current status only`() {
+        val explicit = DriverJob(
+            id = "job-1",
+            status = "awarded",
+            currentStatus = "allocated",
+            pickupLocation = "Blackburn",
+            deliveryLocation = "London",
+            pickupDatetime = null,
+            deliveryDatetime = null,
+            clientName = "Client",
+            clientPhone = "",
+            vehicleType = "Luton",
+            cargoType = "Pallets",
+            budgetAmount = null,
+            loadDetails = "",
+        )
+        assertEquals("allocated", explicit.driverStatusKey())
+        assertEquals("accepted", explicit.nextStatus())
+    }
+
     private fun job(
         status: String,
         collectionPhotoUrl: String? = null,

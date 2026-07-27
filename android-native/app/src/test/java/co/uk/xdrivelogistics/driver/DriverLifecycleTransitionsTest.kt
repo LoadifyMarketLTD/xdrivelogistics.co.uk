@@ -8,13 +8,47 @@ import org.junit.Test
 
 class DriverLifecycleTransitionsTest {
     @Test
-    fun `transition guard enforces exact canonical sequence`() {
-        assertTrue(DriverLifecycleTransitions.isValidTransition("allocated", "accepted"))
-        assertTrue(DriverLifecycleTransitions.isValidTransition("accepted", "on_my_way_to_pickup"))
-        assertTrue(DriverLifecycleTransitions.isValidTransition("loaded", "on_my_way_to_delivery"))
+    fun `transition guard allows only adjacent canonical moves`() {
+        val sequence = listOf(
+            "posted",
+            "quoted",
+            "awarded",
+            "allocated",
+            "accepted",
+            "on_my_way_to_pickup",
+            "on_site_pickup",
+            "loaded",
+            "on_my_way_to_delivery",
+            "on_site_delivery",
+            "delivered",
+        )
+
+        for (index in 0 until sequence.lastIndex) {
+            val current = sequence[index]
+            val next = sequence[index + 1]
+            val expected = current !in setOf("posted", "quoted", "awarded")
+            assertEquals(
+                "Unexpected transition validation for $current -> $next",
+                expected,
+                DriverLifecycleTransitions.isValidTransition(current, next),
+            )
+        }
+
+        // Explicit regression: no awarded -> accepted skip.
         assertFalse(DriverLifecycleTransitions.isValidTransition("awarded", "accepted"))
-        assertFalse(DriverLifecycleTransitions.isValidTransition("allocated", "on_my_way_to_pickup"))
-        assertFalse(DriverLifecycleTransitions.isValidTransition("on_site_pickup", "on_site_delivery"))
+
+        // Every non-adjacent transition must be rejected.
+        for (fromIndex in sequence.indices) {
+            for (toIndex in sequence.indices) {
+                val from = sequence[fromIndex]
+                val to = sequence[toIndex]
+                if (toIndex == fromIndex + 1 && from !in setOf("posted", "quoted", "awarded")) continue
+                assertFalse(
+                    "Skip/invalid transition should be rejected: $from -> $to",
+                    DriverLifecycleTransitions.isValidTransition(from, to),
+                )
+            }
+        }
     }
 
     @Test

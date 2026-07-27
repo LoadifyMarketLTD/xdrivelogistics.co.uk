@@ -9,6 +9,12 @@
 
 import { test, expect, type APIRequestContext } from '@playwright/test';
 import { hasActionAlreadyApplied } from '../app/api/driver/mobile/jobs/[id]/[action]/idempotency';
+import {
+  CANONICAL_DRIVER_OPERATIONAL_STATUSES,
+  mobileOperationalStatus,
+  normalizeDriverOperationalStatus,
+} from '../app/api/driver/mobile/_status';
+import { actions, validateLifecycleActionTransition } from '../app/api/driver/mobile/jobs/[id]/[action]/lifecycle';
 
 test.describe('mobile API — idempotency helper contract', () => {
   test('returns true for retries after lifecycle advancement', () => {
@@ -36,6 +42,69 @@ test.describe('mobile API — idempotency helper contract', () => {
       current_status: 'delivered',
       on_site_delivery_at: '2026-01-01T00:20:00.000Z',
     }, { currentStatus: 'on_site_delivery', timestampField: 'on_site_delivery_at' })).toBe(true);
+  });
+
+  test.describe('mobile API — canonical lifecycle transition matrix', () => {
+    const adjacentActionChain = [
+      { from: 'allocated', action: 'accept', to: 'accepted' },
+      { from: 'accepted', action: 'on-my-way-pickup', to: 'on_my_way_to_pickup' },
+      { from: 'on_my_way_to_pickup', action: 'arrived-pickup', to: 'on_site_pickup' },
+      { from: 'on_site_pickup', action: 'loaded', to: 'loaded' },
+      { from: 'loaded', action: 'on-my-way-delivery', to: 'on_my_way_to_delivery' },
+      { from: 'on_my_way_to_delivery', action: 'arrived-delivery', to: 'on_site_delivery' },
+      { from: 'on_site_delivery', action: 'delivered', to: 'delivered' },
+    ] as const;
+
+    test('allows each adjacent transition only', () => {
+      for (const step of adjacentActionChain) {
+        expect(validateLifecycleActionTransition(step.action, step.from).ok).toBe(true);
+        expect(actions[step.action]?.toStatus).toBe(step.to);
+      }
+    });
+
+    test('rejects awarded or unset accept transition', () => {
+      expect(validateLifecycleActionTransition('accept', 'awarded').ok).toBe(false);
+      expect(validateLifecycleActionTransition('accept', null).ok).toBe(false);
+    });
+
+    test('rejects lifecycle skips with deterministic invalid-state guard', () => {
+      expect(validateLifecycleActionTransition('on-my-way-delivery', 'accepted')).toMatchObject({
+        ok: false,
+        reason: 'invalid_from_state',
+        expected: 'loaded',
+      });
+      expect(validateLifecycleActionTransition('delivered', 'loaded')).toMatchObject({
+        ok: false,
+        reason: 'invalid_from_state',
+        expected: 'on_site_delivery',
+      });
+    });
+  });
+
+  test.describe('mobile API — canonical status normalization contract', () => {
+    test('canonical operational field always resolves to allowed canonical values', () => {
+      const aliasSamples = [
+        { current_status: 'assigned', status: 'assigned', expected: 'allocated' },
+        { current_status: 'on_my_way', status: 'allocated', expected: 'on_my_way_to_pickup' },
+        { current_status: 'arrived_pickup', status: 'allocated', expected: 'on_site_pickup' },
+        { current_status: 'collected', status: 'collected', expected: 'loaded' },
+        { current_status: 'in_transit', status: 'in_transit', expected: 'on_my_way_to_delivery' },
+        { current_status: 'arrived_delivery', status: 'arrived_delivery', expected: 'on_site_delivery' },
+        { current_status: null, status: 'completed', expected: 'delivered' },
+      ] as const;
+
+      for (const sample of aliasSamples) {
+        const normalized = mobileOperationalStatus(sample.current_status, sample.status);
+        expect(normalized).toBe(sample.expected);
+        expect(CANONICAL_DRIVER_OPERATIONAL_STATUSES.includes(normalized)).toBe(true);
+      }
+    });
+
+    test('normalizeDriverOperationalStatus never returns legacy aliases', () => {
+      expect(normalizeDriverOperationalStatus('collected')).toBe('loaded');
+      expect(normalizeDriverOperationalStatus('in_transit')).toBe('on_my_way_to_delivery');
+      expect(normalizeDriverOperationalStatus('assigned')).toBe('allocated');
+    });
   });
 
   test('returns true when timestamps/history prove the action already ran', () => {
