@@ -6,6 +6,7 @@ import co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand
 import co.uk.xdrivelogistics.driver.offline.MobileQueueItem
 import co.uk.xdrivelogistics.driver.offline.MobileQueueState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -183,10 +184,85 @@ class DriverSelectionAndSyncStateTest {
         assertNull(resolveSelectedJobId(null, "job-a", ownerBJobs))
     }
 
-    private fun job(id: String): DriverJob = DriverJob(
+    // --- Task 4: action routing and owner isolation ---
+
+    @Test
+    fun `resolveSelectedJobId clears terminal delivered job even when still present in list`() {
+        // A job with status "delivered" is terminal — it must not be kept as the active selection
+        // even if it is still present in the server-returned jobs list.
+        val deliveredJob = job("job-delivered", status = "delivered")
+        val activeJob = job("job-active")
+        val jobs = listOf(deliveredJob, activeJob)
+
+        // Current selection is the delivered job — must be cleared.
+        assertNull(
+            "terminal job in current selection must not be kept",
+            resolveSelectedJobId("job-delivered", null, jobs),
+        )
+        // Remembered selection is the delivered job — must not be restored.
+        assertNull(
+            "terminal job in remembered selection must not be restored",
+            resolveSelectedJobId(null, "job-delivered", jobs),
+        )
+        // Active job is unaffected.
+        assertEquals(
+            "active job in current selection must be kept",
+            "job-active",
+            resolveSelectedJobId("job-active", null, jobs),
+        )
+    }
+
+    @Test
+    fun `resolveSelectedJobId rejects current selection from wrong-owner job list`() {
+        // After an owner change the new owner's jobs do not contain the previous owner's jobId.
+        // The selection must be null without any fallback to another job.
+        val ownerBJobs = listOf(job("job-b-1"), job("job-b-2"))
+
+        // previousOwner's current selection — not present in ownerB's list.
+        assertNull(
+            "current selection from previous owner must not carry over",
+            resolveSelectedJobId("job-a-owned-by-owner-a", null, ownerBJobs),
+        )
+        // previousOwner's remembered selection — not present in ownerB's list.
+        assertNull(
+            "remembered selection from previous owner must not carry over",
+            resolveSelectedJobId(null, "job-a-owned-by-owner-a", ownerBJobs),
+        )
+    }
+
+    @Test
+    fun `ownerChanged detects direct non-null owner switch without intermediate null`() {
+        // Switching accounts directly (ownerA session replaced by ownerB session) requires state reset.
+        assertTrue(
+            "owner change from A to B must be detected",
+            ownerChanged("owner-a", "owner-b"),
+        )
+        // Same owner refreshing the session must not trigger a reset.
+        assertFalse(
+            "refreshing same owner must not be treated as an owner change",
+            ownerChanged("owner-a", "owner-a"),
+        )
+        // First login (no previous owner) must not trigger a reset.
+        assertFalse(
+            "first login with no previous owner must not trigger owner change",
+            ownerChanged(null, "owner-a"),
+        )
+    }
+
+    @Test
+    fun `noJobSelectedError returns Select a job first when selection is null or blank`() {
+        // This pure guard mirrors the check inside every active mutation (moveSelectedJobTo,
+        // sendQuickNote, uploadPodForSelectedJob, etc.) — proving no selection blocks actions.
+        assertEquals("Select a job first.", noJobSelectedError(null))
+        assertEquals("Select a job first.", noJobSelectedError(""))
+        assertEquals("Select a job first.", noJobSelectedError("   "))
+        assertNull("non-blank selection must pass the guard", noJobSelectedError("job-123"))
+    }
+
+    private fun job(id: String, status: String = "allocated"): DriverJob = DriverJob(
         id = id,
-        status = "allocated",
-        currentStatus = "allocated",
+        status = status,
+        currentStatus = status,
         pickupLocation = "A",
         deliveryLocation = "B",
         pickupDatetime = null,

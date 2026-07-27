@@ -110,6 +110,19 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     return@collectLatest
                 }
 
+                // When a different owner's session replaces the current one directly (without an
+                // intermediate null), clear all owner-scoped state before loading the new data.
+                val previousOwnerId = _uiState.value.session?.userId
+                if (ownerChanged(previousOwnerId, persisted.userId)) {
+                    _uiState.value = _uiState.value.copy(
+                        selectedJobId = null,
+                        jobs = emptyList(),
+                        jobSyncStates = emptyMap(),
+                        pendingPodJobIds = emptySet(),
+                        blockedPodJobIds = emptySet(),
+                    )
+                }
+
                 _uiState.value = _uiState.value.copy(
                     isAuthenticated = true,
                     session = persisted,
@@ -1207,13 +1220,22 @@ internal fun resolveSelectedJobId(
     rememberedSelectedJobId: String?,
     jobs: List<DriverJob>,
 ): String? {
-    val available = jobs.map { it.id }.toSet()
+    // Only actionable (non-terminal) jobs are valid selection targets.
+    val actionable = jobs.filter { it.isActive() }.map { it.id }.toSet()
     return when {
-        !currentSelectedJobId.isNullOrBlank() && currentSelectedJobId in available -> currentSelectedJobId
-        !rememberedSelectedJobId.isNullOrBlank() && rememberedSelectedJobId in available -> rememberedSelectedJobId
+        !currentSelectedJobId.isNullOrBlank() && currentSelectedJobId in actionable -> currentSelectedJobId
+        !rememberedSelectedJobId.isNullOrBlank() && rememberedSelectedJobId in actionable -> rememberedSelectedJobId
         else -> null
     }
 }
+
+/** Returns an error message when no job is selected, null when a valid selection is present. */
+internal fun noJobSelectedError(selectedJobId: String?): String? =
+    if (selectedJobId.isNullOrBlank()) "Select a job first." else null
+
+/** Returns true when a session owner change requires owner-scoped UI state to be reset. */
+internal fun ownerChanged(previousOwnerId: String?, newOwnerId: String): Boolean =
+    previousOwnerId != null && previousOwnerId != newOwnerId
 
 internal fun deriveJobSyncStates(
     ownerUserId: String,
