@@ -12,18 +12,42 @@ export async function POST(request: NextRequest) {
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
-  const body = await request.json().catch(() => null) as { jobId?: unknown; amount?: unknown; message?: unknown } | null;
+  const body = await request.json().catch(() => null) as {
+    jobId?: unknown;
+    amount?: unknown;
+    message?: unknown;
+    idempotencyKey?: unknown;
+    bidKey?: unknown;
+  } | null;
   const jobId = typeof body?.jobId === 'string' ? body.jobId.trim() : '';
   const requestedAmount = Number(body?.amount);
   const message = typeof body?.message === 'string' ? body.message.trim() : '';
+  const bidKey = typeof body?.bidKey === 'string'
+    ? body.bidKey.trim()
+    : typeof body?.idempotencyKey === 'string'
+      ? body.idempotencyKey.trim()
+      : '';
 
   if (!jobId) return respond(400, { error: 'Job id is required.' });
+  if (!/^[A-Za-z0-9:_-]{8,120}$/.test(bidKey)) return respond(400, { error: 'A valid bid idempotency key is required.' });
   if (driver.canCommercialBid !== true) return respond(403, { error: 'Your account type does not permit commercial bidding.' });
   if (driver.companyId && driver.companyStatus !== 'active') return respond(403, { error: 'Driver company workspace is not active.' });
   // NOTE: Bidding access is gated exclusively by can_commercial_bid (canonical architecture).
   // Do NOT add a block here based on driver_type alone — company_driver is a valid bidding entity.
   // See supabase/migrations/20260726060000_canonical_driver_type_architecture.sql
   if (message.length > 1_000) return respond(400, { error: 'Quote message is too long.' });
+
+  const { data: existingByKey, error: existingByKeyError } = await supabaseAdmin
+    .from('job_bids')
+    .select('id,job_id')
+    .eq('job_id', jobId)
+    .eq('bidder_user_id', driver.userId)
+    .eq('mobile_submission_idempotency_key', bidKey)
+    .maybeSingle();
+  if (existingByKeyError) return respond(500, { error: existingByKeyError.message });
+  if (existingByKey) {
+    return respond(200, { success: true, bidId: existingByKey.id, jobId: existingByKey.job_id });
+  }
 
   let eligibilityResult: Awaited<ReturnType<typeof resolveDriverBidEligibility>>;
   try {
@@ -60,11 +84,23 @@ export async function POST(request: NextRequest) {
       amount,
       currency: 'GBP',
       message: message || null,
+      mobile_submission_idempotency_key: bidKey,
       status: 'submitted',
     })
     .select('id')
     .single();
   if (insertError) {
+    if (insertError.code === '23505') {
+      const { data: conflictBid, error: conflictError } = await supabaseAdmin
+        .from('job_bids')
+        .select('id,job_id')
+        .eq('job_id', jobId)
+        .eq('bidder_user_id', driver.userId)
+        .eq('mobile_submission_idempotency_key', bidKey)
+        .maybeSingle();
+      if (conflictError) return respond(500, { error: conflictError.message });
+      if (conflictBid) return respond(200, { success: true, bidId: conflictBid.id, jobId: conflictBid.job_id });
+    }
     if (insertError.code === '23505') return respond(409, { error: 'You already have an active quote for this job.' });
     return respond(500, { error: insertError.message });
   }

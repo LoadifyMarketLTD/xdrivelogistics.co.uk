@@ -247,11 +247,32 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   if (!existing) return respond(404, { error: 'Job not found.' });
 
   const job = existing as unknown as MobileJobRow;
+  const podKey = typeof body.podKey === 'string'
+    ? body.podKey.trim()
+    : typeof body.idempotencyKey === 'string'
+      ? body.idempotencyKey.trim()
+      : '';
+  if (!/^[A-Za-z0-9:_-]{8,120}$/.test(podKey)) {
+    return respond(400, { error: 'A valid POD idempotency key is required.' });
+  }
 
-  // Idempotency gate: if POD evidence was already successfully saved (pod_generated
-  // is true), return 200 immediately. This prevents offline-queue retries from
-  // appending duplicate photos, documents or signatures to an already-complete POD.
+  // Idempotency gate: completed POD can be replayed only with the same key.
+  // A different key after completion is treated as a distinct submission and is rejected.
   if (job.pod_generated === true) {
+    if (job.pod_submission_idempotency_key && job.pod_submission_idempotency_key === podKey) {
+      return respond(200, { ok: true, job: mapJob(job) });
+    }
+    if (!job.pod_submission_idempotency_key) {
+      // Legacy row saved before key persistence was introduced.
+      return respond(200, { ok: true, job: mapJob(job) });
+    }
+    return respond(409, { error: 'POD has already been submitted for this job.' });
+  }
+
+  if (job.pod_submission_idempotency_key && job.pod_submission_idempotency_key !== podKey) {
+    return respond(409, { error: 'A different POD submission is already pending for this job.' });
+  }
+  if (job.pod_submission_idempotency_key === podKey) {
     return respond(200, { ok: true, job: mapJob(job) });
   }
 
@@ -320,14 +341,19 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
         : null,
       pod_generated: true,
       pod_generated_at: now,
+      pod_submission_idempotency_key: podKey,
       updated_at: now,
     })
     .eq('id', jobId)
     .eq('assigned_driver_id', driverId)
+    .or(`pod_submission_idempotency_key.is.null,pod_submission_idempotency_key.eq.${podKey}`)
     .select(jobSelect)
-    .single();
+    .maybeSingle();
 
   if (updateError) return respond(500, { error: updateError.message });
+  if (!updated) {
+    return respond(409, { error: 'A different POD submission is already being processed for this job.' });
+  }
   await insertTrackingEvent(jobId, userId, 'note', 'Persistent POD evidence uploaded');
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
