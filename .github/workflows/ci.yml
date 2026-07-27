@@ -78,11 +78,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
 
-      - name: Run stable public smoke tests
+      - name: Run stable public smoke tests (chromium)
         run: npx playwright test e2e/ci-public-smoke.spec.ts --project=chromium
+
+      - name: Run stable public smoke tests (mobile-safari)
+        run: npx playwright test e2e/ci-public-smoke.spec.ts --project=mobile-safari
 
   expo-driver-typecheck:
     name: Expo Driver Typecheck
@@ -101,7 +104,7 @@ jobs:
 
       - name: Install Expo driver dependencies
         working-directory: apps/driver-mobile
-        run: npm install --ignore-scripts --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Typecheck Expo driver
         working-directory: apps/driver-mobile
@@ -122,7 +125,7 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: javascript-typescript, actions
+          languages: ${{ (hashFiles('android-native/**/*.kt') != '' || hashFiles('android-native/**/*.kts') != '') && 'javascript-typescript,actions,java-kotlin' || 'javascript-typescript,actions' }}
           queries: security-extended
           build-mode: none
 
@@ -137,5 +140,3 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:javascript-typescript"

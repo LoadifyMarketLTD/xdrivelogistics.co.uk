@@ -1,9 +1,7 @@
 name: Validate Supabase Staging
 
 on:
-  push:
-    branches:
-      - audit/production-e2e-user-lifecycle
+  pull_request:
     paths:
       - 'supabase/**'
       - '.github/workflows/validate-supabase-staging.yml'
