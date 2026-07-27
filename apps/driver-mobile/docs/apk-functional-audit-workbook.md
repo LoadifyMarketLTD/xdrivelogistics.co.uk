@@ -1,5 +1,7 @@
 # XDrive Driver Mobile — Full Functional Audit Workbook
 
+> Scope note: this workbook audits the Expo preview app under `apps/driver-mobile` (`co.uk.xdrivelogistics.driver.preview`), not the canonical production Android app under `android-native/` (`co.uk.xdrivelogistics.driver`).
+
 ## Audit scope guard
 - PR #301 is **not** treated as complete in this audit.
 - Full app surface reviewed under `apps/driver-mobile` and mobile API routes.
@@ -12,7 +14,7 @@
 | Audit ID | DMA-2026-07-26-01 |
 | Branch | `copilot/transform-mobile-workspace-driver` |
 | Commit SHA | `27401185a045e2e014c943dfad1fb24491d7689b` |
-| App package | `co.uk.xdrivelogistics.driver` |
+| App package | `co.uk.xdrivelogistics.driver.preview` |
 | Deep link scheme | `xdrivedriver://` |
 | API base URL | `https://www.xdrivelogistics.co.uk` |
 | Supabase config source | Runtime `/api/driver/mobile/config` fallback to Expo env |
@@ -352,4 +354,3 @@ Current state summary: push implementation is a **partial shell** (token registr
 7. RM-007
 8. RM-008
 9. RM-009
-

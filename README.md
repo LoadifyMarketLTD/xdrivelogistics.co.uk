@@ -38,9 +38,9 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Driver Mobile Routing
 
-- `apps/driver-mobile` is the canonical mobile experience (Expo React Native).
-- Legacy web routes under `app/m/` are deprecated and kept only as transitional fallback screens.
-- New mobile feature work should target `apps/driver-mobile`, not `app/m/`.
+- `android-native/` is the canonical production Android application (`co.uk.xdrivelogistics.driver`, Kotlin/Jetpack Compose).
+- `apps/driver-mobile` is a preview/reference client (`co.uk.xdrivelogistics.driver.preview`, Expo React Native).
+- Routes under `app/m/` are launcher/fallback screens and must not become a second operational mobile product.
 
 ## Project Structure
 
