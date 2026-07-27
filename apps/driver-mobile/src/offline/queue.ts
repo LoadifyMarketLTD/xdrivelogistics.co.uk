@@ -7,6 +7,8 @@ export type QueuedAction = {
   id: string;
   /** Immutable identity of the authenticated driver who created this action. */
   ownerUserId: string;
+  /** Immutable FIFO ordering key for persisted queue replay. */
+  sequence: number;
   /** Immutable. Set at enqueue time; never changed by lifecycle helpers. */
   jobId: string;
   /** Immutable. Set at enqueue time; never changed by lifecycle helpers. */
@@ -24,7 +26,7 @@ export type QueuedAction = {
 
 /**
  * Subset of QueuedAction fields that lifecycle helpers are permitted to patch.
- * The immutable fields (id, ownerUserId, jobId, endpoint, payload, createdAt)
+ * The immutable fields (id, ownerUserId, sequence, jobId, endpoint, payload, createdAt)
  * are excluded to prevent accidental or malicious mutation of ownership or identity.
  */
 export type QueuedActionMutablePatch = Partial<Pick<QueuedAction, 'status' | 'retryCount' | 'lastError' | 'lastAttemptAt' | 'nextRetryAt'>>;
@@ -65,10 +67,41 @@ function withQueueLock<T>(userId: string, fn: () => Promise<T>): Promise<T> {
 const maxRetryDelayMs = 15 * 60 * 1000;
 const initialRetryDelayMs = 15 * 1000;
 
-function normalizeQueueItem(item: Partial<QueuedAction>): QueuedAction {
+const queueSequenceScale = 1000;
+
+function parseCreatedAtMs(createdAt: unknown): number {
+  if (typeof createdAt !== 'string') return 0;
+  const parsed = new Date(createdAt).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function legacySequenceForItem(item: Partial<QueuedAction>, index: number, total: number): number {
+  return parseCreatedAtMs(item.createdAt) * queueSequenceScale + Math.max(0, total - index - 1);
+}
+
+function nextQueueSequence(queue: QueuedAction[]): number {
+  const maxSequence = queue.reduce((max, item) => Math.max(max, Number.isFinite(item.sequence) ? item.sequence : 0), 0);
+  return Math.max(Date.now() * queueSequenceScale, maxSequence + 1);
+}
+
+export function sortQueuedActions(queue: QueuedAction[]): QueuedAction[] {
+  return [...queue].sort((left, right) => {
+    const leftSequence = Number.isFinite(left.sequence) ? left.sequence : parseCreatedAtMs(left.createdAt) * queueSequenceScale;
+    const rightSequence = Number.isFinite(right.sequence) ? right.sequence : parseCreatedAtMs(right.createdAt) * queueSequenceScale;
+    if (leftSequence !== rightSequence) return leftSequence - rightSequence;
+    if (left.createdAt !== right.createdAt) return left.createdAt.localeCompare(right.createdAt);
+    return left.id.localeCompare(right.id);
+  });
+}
+
+function normalizeQueueItem(item: Partial<QueuedAction>, index: number, total: number): QueuedAction {
+  const normalizedSequence = Number.isFinite(item.sequence)
+    ? Number(item.sequence)
+    : legacySequenceForItem(item, index, total);
   return {
     id: String(item.id ?? ''),
     ownerUserId: typeof item.ownerUserId === 'string' ? item.ownerUserId : '',
+    sequence: normalizedSequence,
     jobId: String(item.jobId ?? ''),
     endpoint: String(item.endpoint ?? ''),
     payload: item.payload,
@@ -86,9 +119,11 @@ export async function getQueue(userId: string): Promise<QueuedAction[]> {
   const raw = await AsyncStorage.getItem(queueKeyForUser(userId));
   if (!raw) return [];
   try {
-    return (JSON.parse(raw) as Partial<QueuedAction>[])
-      .map(normalizeQueueItem)
-      .filter((item) => item.id && item.jobId && item.endpoint && item.ownerUserId === userId);
+    return sortQueuedActions(
+      (JSON.parse(raw) as Partial<QueuedAction>[])
+        .map((item, index, items) => normalizeQueueItem(item, index, items.length))
+        .filter((item) => item.id && item.jobId && item.endpoint && item.ownerUserId === userId),
+    );
   } catch {
     return [];
   }
@@ -96,11 +131,11 @@ export async function getQueue(userId: string): Promise<QueuedAction[]> {
 
 export async function saveQueue(userId: string, queue: QueuedAction[]) {
   assertValidUserId(userId);
-  await AsyncStorage.setItem(queueKeyForUser(userId), JSON.stringify(queue));
+  await AsyncStorage.setItem(queueKeyForUser(userId), JSON.stringify(sortQueuedActions(queue)));
 }
 
 export function mergeQueuedAction(queue: QueuedAction[], queued: QueuedAction) {
-  return [queued, ...queue.filter((item) => item.id !== queued.id)];
+  return sortQueuedActions([queued, ...queue.filter((item) => item.id !== queued.id)]);
 }
 
 /**
@@ -123,7 +158,7 @@ export function mergeQueuedAction(queue: QueuedAction[], queued: QueuedAction) {
  * For bid submissions (endpoint === 'bid'): same dedup as status actions —
  * only one pending/failed bid per jobId is kept.
  */
-export function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 'ownerUserId' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError'>): Promise<QueuedAction> {
+export function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 'ownerUserId' | 'sequence' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError'>): Promise<QueuedAction> {
   try {
     assertValidUserId(userId);
   } catch (error) {
@@ -152,6 +187,7 @@ export function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 
       ...action,
       id: existingIndex >= 0 ? queue[existingIndex].id : `${action.jobId}-${action.endpoint}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       ownerUserId: userId,
+      sequence: existingIndex >= 0 ? queue[existingIndex].sequence : nextQueueSequence(queue),
       status: 'pending',
       createdAt: existingIndex >= 0 ? queue[existingIndex].createdAt : new Date().toISOString(),
       retryCount: 0,
@@ -165,7 +201,7 @@ export function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 
       nextQueue = [...queue];
       nextQueue[existingIndex] = queued;
     } else {
-      nextQueue = [queued, ...queue];
+      nextQueue = [...queue, queued];
     }
     await saveQueue(userId, nextQueue);
     return queued;
@@ -190,7 +226,7 @@ export async function migrateLegacyQueue(userId: string): Promise<void> {
  * Applies a mutable patch to the queue item identified by `id`.
  * All updateQueueItem calls are serialized per user via withQueueLock to prevent
  * concurrent read-modify-write races.
- * Immutable fields (id, ownerUserId, jobId, endpoint, payload, createdAt) are
+ * Immutable fields (id, ownerUserId, sequence, jobId, endpoint, payload, createdAt) are
  * stripped from the patch at runtime so they can never be overwritten, even if
  * a caller constructs the patch object in JavaScript without TypeScript checks.
  * Returns the queue unchanged when no item with `id` is found (silent no-op).
@@ -207,7 +243,7 @@ export function updateQueueItem(userId: string, id: string, patch: QueuedActionM
     // Use hasOwnProperty to preserve the semantic difference between:
     //   - key absent (do not change the field), and
     //   - key present with undefined value (clear the field).
-    // Immutable fields (ownerUserId, id, jobId, endpoint, payload, createdAt) are
+    // Immutable fields (ownerUserId, id, sequence, jobId, endpoint, payload, createdAt) are
     // never copied, even if a caller passes them via a JS runtime bypass.
     const ALLOWED_KEYS = ['status', 'retryCount', 'lastError', 'lastAttemptAt', 'nextRetryAt'] as const;
     const safePatch: Record<string, unknown> = {};
@@ -231,6 +267,21 @@ export function isQueueItemReady(item: QueuedAction, now = Date.now()) {
   if (!item.nextRetryAt) return true;
   const retryAt = new Date(item.nextRetryAt).getTime();
   return Number.isNaN(retryAt) || retryAt <= now;
+}
+
+export function getNextProcessableQueueItem(queue: QueuedAction[], options: { force?: boolean; now?: number } = {}): QueuedAction | undefined {
+  const orderedQueue = sortQueuedActions(queue);
+  const blockedJobs = new Set<string>();
+  const now = options.now ?? Date.now();
+
+  for (const item of orderedQueue) {
+    if (blockedJobs.has(item.jobId)) continue;
+    const isReady = options.force ? item.status !== 'synced' : isQueueItemReady(item, now);
+    if (isReady) return item;
+    if (item.status !== 'synced') blockedJobs.add(item.jobId);
+  }
+
+  return undefined;
 }
 
 export async function markQueueItemSyncing(userId: string, id: string) {

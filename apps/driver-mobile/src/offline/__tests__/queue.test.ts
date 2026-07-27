@@ -22,6 +22,7 @@ import AsyncStorage from '../__mocks__/async-storage';
 import {
   assertValidUserId,
   enqueueAction,
+  getNextProcessableQueueItem,
   getQueue,
   markQueueItemFailed,
   markQueueItemSynced,
@@ -152,6 +153,89 @@ describe('enqueueAction duplicate suppression', () => {
   });
 });
 
+describe('queue ordering and per-job dependencies', () => {
+  test('stores same-job actions in FIFO order using immutable sequence values', async () => {
+    const accept = await enqueueAction(USER_A, { jobId: 'job-fifo', endpoint: 'accept' });
+    const onMyWay = await enqueueAction(USER_A, { jobId: 'job-fifo', endpoint: 'on-my-way-pickup' });
+    const arrived = await enqueueAction(USER_A, { jobId: 'job-fifo', endpoint: 'arrived-pickup' });
+    const loaded = await enqueueAction(USER_A, { jobId: 'job-fifo', endpoint: 'loaded' });
+
+    const queue = await getQueue(USER_A);
+
+    expect(queue.map((item) => item.endpoint)).toEqual(['accept', 'on-my-way-pickup', 'arrived-pickup', 'loaded']);
+    expect(queue.map((item) => item.sequence)).toEqual([
+      accept.sequence,
+      onMyWay.sequence,
+      arrived.sequence,
+      loaded.sequence,
+    ]);
+  });
+
+  test('mergeQueuedAction preserves FIFO sequence ordering in memory', async () => {
+    const accept = await enqueueAction(USER_A, { jobId: 'job-merge-order', endpoint: 'accept' });
+    const loaded = await enqueueAction(USER_A, { jobId: 'job-merge-order', endpoint: 'loaded' });
+
+    const visible = mergeQueuedAction([loaded], accept);
+
+    expect(visible.map((item) => item.endpoint)).toEqual(['accept', 'loaded']);
+  });
+
+  test('later same-job actions stay blocked until the earlier action becomes terminal', async () => {
+    const accept = await enqueueAction(USER_A, { jobId: 'job-blocked', endpoint: 'accept' });
+    await enqueueAction(USER_A, { jobId: 'job-blocked', endpoint: 'on-my-way-pickup' });
+    await markQueueItemFailed(USER_A, accept.id, 'network', 0);
+
+    const queue = await getQueue(USER_A);
+
+    expect(getNextProcessableQueueItem(queue)).toBeUndefined();
+    expect(getNextProcessableQueueItem(queue, { force: true })?.endpoint).toBe('accept');
+  });
+
+  test('a blocked job does not prevent another job from syncing', async () => {
+    const blocked = await enqueueAction(USER_A, { jobId: 'job-a', endpoint: 'accept' });
+    await enqueueAction(USER_A, { jobId: 'job-a', endpoint: 'loaded' });
+    await enqueueAction(USER_A, { jobId: 'job-b', endpoint: 'accept' });
+    await markQueueItemFailed(USER_A, blocked.id, 'network', 0);
+
+    const queue = await getQueue(USER_A);
+
+    expect(getNextProcessableQueueItem(queue)?.jobId).toBe('job-b');
+  });
+
+  test('legacy unsequenced items are normalized back into chronological order', async () => {
+    const createdAt = new Date('2026-07-27T08:00:00.000Z').toISOString();
+    await saveQueue(USER_A, [
+      {
+        id: 'legacy-newer',
+        ownerUserId: USER_A,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        sequence: undefined as any,
+        jobId: 'job-legacy',
+        endpoint: 'loaded',
+        status: 'pending',
+        createdAt: new Date('2026-07-27T08:00:01.000Z').toISOString(),
+        retryCount: 0,
+      },
+      {
+        id: 'legacy-older',
+        ownerUserId: USER_A,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        sequence: undefined as any,
+        jobId: 'job-legacy',
+        endpoint: 'accept',
+        status: 'pending',
+        createdAt,
+        retryCount: 0,
+      },
+    ]);
+
+    const queue = await getQueue(USER_A);
+
+    expect(queue.map((item) => item.endpoint)).toEqual(['accept', 'loaded']);
+    expect(queue[0].sequence).toBeLessThan(queue[1].sequence);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 4. Cross-account owner isolation (ownerUserId mismatch guard)
 // ---------------------------------------------------------------------------
@@ -223,6 +307,7 @@ describe('migrateLegacyQueue', () => {
     const existing: QueuedAction = {
       id: 'existing-001',
       ownerUserId: USER_A,
+      sequence: 1,
       jobId: 'job-existing',
       endpoint: 'loaded',
       status: 'pending',
@@ -344,6 +429,7 @@ describe('getQueue ownerUserId enforcement', () => {
     const wrongOwnerItem: QueuedAction = {
       id: 'wrong-owner-001',
       ownerUserId: USER_B, // B's item somehow in A's queue key
+      sequence: 1,
       jobId: 'job-17',
       endpoint: 'on-site-pickup',
       status: 'pending',
@@ -362,6 +448,7 @@ describe('getQueue ownerUserId enforcement', () => {
     const ownerlessItem: QueuedAction = {
       id: 'ownerless-001',
       ownerUserId: '',
+      sequence: 1,
       jobId: 'job-ownerless',
       endpoint: 'loaded',
       status: 'pending',
@@ -421,7 +508,7 @@ describe('queue item lifecycle', () => {
 // 11. updateQueueItem — immutable field protection
 // ---------------------------------------------------------------------------
 describe('updateQueueItem immutable field protection', () => {
-  test('runtime bypass cannot overwrite ownerUserId, id, jobId, endpoint, payload, or createdAt', async () => {
+  test('runtime bypass cannot overwrite ownerUserId, id, sequence, jobId, endpoint, payload, or createdAt', async () => {
     const payload = { recipientName: 'Original' };
     const item = await enqueueAction(USER_A, { jobId: 'job-22', endpoint: 'loaded', payload });
     // Bypass TypeScript and attempt to overwrite every immutable field at runtime.
@@ -429,6 +516,7 @@ describe('updateQueueItem immutable field protection', () => {
     await updateQueueItem(USER_A, item.id, {
       ownerUserId: USER_B,
       id: 'tampered',
+      sequence: 999999,
       jobId: 'tampered-job',
       endpoint: 'tampered-endpoint',
       payload: { tampered: true },
@@ -440,6 +528,7 @@ describe('updateQueueItem immutable field protection', () => {
     expect(updated).toBeDefined();
     expect(updated.ownerUserId).toBe(USER_A);
     expect(updated.id).toBe(item.id);
+    expect(updated.sequence).toBe(item.sequence);
     expect(updated.jobId).toBe('job-22');
     expect(updated.endpoint).toBe('loaded');
     expect(updated.payload).toEqual(payload);
@@ -452,6 +541,7 @@ describe('updateQueueItem immutable field protection', () => {
     const queue = await getQueue(USER_A);
     const updated = queue.find((i) => i.id === item.id)!;
     expect(updated.id).toBe(item.id);
+    expect(updated.sequence).toBe(item.sequence);
     expect(updated.jobId).toBe('job-23');
     expect(updated.endpoint).toBe('on-site-pickup');
     expect(updated.createdAt).toBe(item.createdAt);

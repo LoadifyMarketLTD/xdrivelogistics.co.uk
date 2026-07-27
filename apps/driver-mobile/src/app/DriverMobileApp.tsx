@@ -20,9 +20,9 @@ import { LiveLoadsScreen } from '../live-loads/LiveLoadsScreen';
 import {
   enqueueAction,
   getQueue,
+  getNextProcessableQueueItem,
   isOnline,
   mergeQueuedAction,
-  isQueueItemReady,
   markQueueItemFailed,
   markQueueItemSynced,
   markQueueItemSyncing,
@@ -259,18 +259,27 @@ export default function DriverMobileApp() {
 
     queueSyncInFlightRef.current = true;
     try {
+      const blockedJobIds = new Set<string>();
       let nextQueue = await getQueue(flushUserId);
       // getQueue already filters to ownerUserId === flushUserId; abort early if
       // the authenticated user changed while the read was in flight.
       if (!isOwnerStillActive()) return;
 
-      const readyItems = nextQueue.filter((item) => (options.force ? item.status !== 'synced' : isQueueItemReady(item)));
-      if (readyItems.length === 0) {
+      const firstReadyItem = getNextProcessableQueueItem(
+        nextQueue.filter((item) => !blockedJobIds.has(item.jobId)),
+        options,
+      );
+      if (!firstReadyItem) {
         if (isOwnerStillActive()) setQueue(nextQueue);
         return;
       }
 
-      for (const item of readyItems) {
+      while (true) {
+        const item = getNextProcessableQueueItem(
+          nextQueue.filter((queuedItem) => !blockedJobIds.has(queuedItem.jobId)),
+          options,
+        );
+        if (!item) break;
         if (!isOwnerStillActive()) break;
 
         nextQueue = await markQueueItemSyncing(flushUserId, item.id);
@@ -288,6 +297,7 @@ export default function DriverMobileApp() {
         } catch (error) {
           if (!isOwnerStillActive()) break;
           nextQueue = await markQueueItemFailed(flushUserId, item.id, error instanceof Error ? error.message : 'Sync failed.', item.retryCount);
+          blockedJobIds.add(item.jobId);
         }
         if (isOwnerStillActive()) setQueue(nextQueue);
       }
