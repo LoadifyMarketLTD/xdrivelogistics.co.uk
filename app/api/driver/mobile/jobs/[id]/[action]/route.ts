@@ -21,6 +21,11 @@ type ActionConfig = {
   eventType: string;
   label: string;
   allowedLifecycle: string[];
+  /**
+   * Canonical current_status values allowed as transition entry points.
+   * Null means "no current_status set yet".
+   */
+  allowedCurrent: Array<string | null>;
   requiresPod?: boolean;
 };
 
@@ -30,6 +35,7 @@ const actions: Record<string, ActionConfig> = {
     eventType: 'note',
     label: 'Job accepted by driver',
     allowedLifecycle: ['awarded', 'allocated'],
+    allowedCurrent: [null, 'awarded', 'allocated'],
   },
   'on-my-way-pickup': {
     currentStatus: 'on_my_way_to_pickup',
@@ -38,6 +44,7 @@ const actions: Record<string, ActionConfig> = {
     eventType: 'driver_en_route',
     label: 'On my way to pickup',
     allowedLifecycle: ['awarded', 'allocated', 'accepted'],
+    allowedCurrent: ['accepted'],
   },
   'arrived-pickup': {
     currentStatus: 'on_site_pickup',
@@ -46,6 +53,7 @@ const actions: Record<string, ActionConfig> = {
     eventType: 'arrived_pickup',
     label: 'Arrived at pickup',
     allowedLifecycle: ['awarded', 'allocated', 'accepted'],
+    allowedCurrent: ['on_my_way_to_pickup'],
   },
   loaded: {
     currentStatus: 'loaded',
@@ -54,6 +62,7 @@ const actions: Record<string, ActionConfig> = {
     eventType: 'collected',
     label: 'Loaded / collected',
     allowedLifecycle: ['allocated', 'accepted'],
+    allowedCurrent: ['on_site_pickup'],
   },
   'on-my-way-delivery': {
     currentStatus: 'on_my_way_to_delivery',
@@ -61,6 +70,7 @@ const actions: Record<string, ActionConfig> = {
     eventType: 'in_transit',
     label: 'On my way to delivery',
     allowedLifecycle: ['collected'],
+    allowedCurrent: ['loaded'],
   },
   'arrived-delivery': {
     currentStatus: 'on_site_delivery',
@@ -68,6 +78,7 @@ const actions: Record<string, ActionConfig> = {
     eventType: 'arrived_delivery',
     label: 'Arrived at delivery',
     allowedLifecycle: ['in_transit'],
+    allowedCurrent: ['on_my_way_to_delivery'],
   },
   delivered: {
     currentStatus: 'delivered',
@@ -76,6 +87,7 @@ const actions: Record<string, ActionConfig> = {
     eventType: 'delivered',
     label: 'Delivered',
     allowedLifecycle: ['in_transit'],
+    allowedCurrent: ['on_site_delivery'],
     requiresPod: true,
   },
 };
@@ -113,7 +125,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   function normalizeCurrentStatus(value: string): string {
     const s = value.toLowerCase().trim();
     if (s === 'on_my_way') return 'on_my_way_to_pickup';
+    if (s === 'in_transit') return 'on_my_way_to_delivery';
     return s;
+  }
+
+  function normalizedCurrentOrNull(value: unknown): string | null {
+    const normalized = normalizeCurrentStatus(String(value ?? ''));
+    return normalized || null;
   }
 
   // Idempotency FIRST — before lifecycle validation.
@@ -121,8 +139,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // applied.  At that point job.status may have advanced past the values in
   // allowedLifecycle, so the lifecycle check would return 409 instead of 200.
   // Checking current_status (the granular driver step) first prevents that.
-  if (normalizeCurrentStatus(String(job.current_status ?? '')) === config.currentStatus) {
+  const currentStatus = normalizedCurrentOrNull(job.current_status);
+  if (currentStatus === config.currentStatus) {
     return respond(200, { ok: true, job: mapJob(job) });
+  }
+
+  // Enforce no-skip canonical current_status transition rules.
+  if (!config.allowedCurrent.includes(currentStatus)) {
+    return respond(409, {
+      error: `Job cannot perform ${action} from ${currentStatus ?? 'unset'} current status.`,
+    });
   }
 
   // Lifecycle validation: only now reject disallowed transitions.
