@@ -640,7 +640,11 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             driverId = profile.driverId,
                             jobId = jobId,
                             command = bidCommand,
-                            mutationKey = "bid:${session.userId}:${jobId}:$bidKey",
+                            mutationKey = bidMutationKey(
+                                ownerUserId = session.userId,
+                                jobId = jobId,
+                                bidKey = bidKey,
+                            ),
                         )
                         persistQueueAndSyncState(session.userId)
                         _uiState.value = _uiState.value.copy(
@@ -1368,7 +1372,7 @@ private fun Throwable.friendlyDriverMessage(fallback: String): String {
     }
 }
 
-private fun stableBidIntentKey(
+internal fun stableBidIntentKey(
     jobId: String,
     ownerUserId: String,
     driverId: String,
@@ -1389,6 +1393,9 @@ private fun stableBidIntentKey(
         .joinToString("") { "%02x".format(it) }
     return "bid_$digest"
 }
+
+internal fun bidMutationKey(ownerUserId: String, jobId: String, bidKey: String): String =
+    "bid:${ownerUserId.trim()}:${jobId.trim()}:${bidKey.trim()}"
 
 /**
  * Compute the lowercase hex SHA-256 digest of [bytes].

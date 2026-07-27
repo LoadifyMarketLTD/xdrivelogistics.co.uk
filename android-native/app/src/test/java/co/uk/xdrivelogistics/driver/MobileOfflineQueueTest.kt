@@ -104,6 +104,69 @@ class MobileOfflineQueueTest {
     }
 
     @Test
+    fun `same owner job and bid intent collapses to one queued command`() {
+        val queue = MobileOfflineQueue { 1_000L }
+        val bidCommand = co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand.createBid(
+            amount = 120.0,
+            currency = "GBP",
+            message = "Offer",
+            bidKey = "bid-k1",
+        )
+        val mutationKey = bidMutationKey(ownerUserId = "u1", jobId = "job-1", bidKey = "bid-k1")
+        val first = queue.enqueue(
+            ownerUserId = "u1",
+            driverId = "d1",
+            jobId = "job-1",
+            command = bidCommand,
+            mutationKey = mutationKey,
+        )
+        val second = queue.enqueue(
+            ownerUserId = "u1",
+            driverId = "d1",
+            jobId = "job-1",
+            command = bidCommand,
+            mutationKey = mutationKey,
+        )
+
+        assertEquals(first.id, second.id)
+        assertEquals(1, queue.snapshot().size)
+    }
+
+    @Test
+    fun `different owner or job cannot collapse bid queue commands across scope`() {
+        val queue = MobileOfflineQueue { 1_000L }
+        val bidCommand = co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand.createBid(
+            amount = 120.0,
+            currency = "GBP",
+            message = "Offer",
+            bidKey = "bid-k1",
+        )
+        queue.enqueue(
+            ownerUserId = "u1",
+            driverId = "d1",
+            jobId = "job-1",
+            command = bidCommand,
+            mutationKey = bidMutationKey("u1", "job-1", "bid-k1"),
+        )
+        queue.enqueue(
+            ownerUserId = "u1",
+            driverId = "d1",
+            jobId = "job-2",
+            command = bidCommand,
+            mutationKey = bidMutationKey("u1", "job-2", "bid-k1"),
+        )
+        queue.enqueue(
+            ownerUserId = "u2",
+            driverId = "d2",
+            jobId = "job-1",
+            command = bidCommand,
+            mutationKey = bidMutationKey("u2", "job-1", "bid-k1"),
+        )
+
+        assertEquals(3, queue.snapshot().size)
+    }
+
+    @Test
     fun `restore drops corrupt unknown endpoint records`() {
         val queue = MobileOfflineQueue { 1_000L }
         val valid = enqueue(queue, "u1", "d1", "job-2", MobileMutationEndpoint.ACCEPT, "accepted", "d2")

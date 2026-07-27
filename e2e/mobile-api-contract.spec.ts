@@ -20,6 +20,8 @@ import {
   podUploadInitIdempotencyCheck,
   type UploadLedgerEntry,
 } from '../app/api/driver/mobile/jobs/[id]/pod-upload-init/idempotency';
+import { isDeterministicBidReplay, type IncomingBidReplayIntent, type StoredBidReplayRow } from '../app/api/driver/mobile/bids/idempotency';
+import { mapNearbyJob, type NearbyJobRow } from '../app/api/driver/mobile/nearby-jobs/serializer';
 
 test.describe('mobile API — idempotency helper contract', () => {
   test('returns true for retries after lifecycle advancement', () => {
@@ -307,6 +309,130 @@ test.describe('mobile API — static shape contract', () => {
   test('POST /api/driver/mobile/messages — rejects without auth (401 or 503)', async ({ request }) => {
     const response = await request.post('/api/driver/mobile/messages', { data: {} });
     expect([401, 503]).toContain(response.status());
+  });
+});
+
+test.describe('mobile API — static bid idempotency contract', () => {
+  const replayRow = (overrides: Partial<StoredBidReplayRow> = {}): StoredBidReplayRow => ({
+    id: 'bid-1',
+    job_id: 'job-1',
+    bidder_user_id: 'user-1',
+    bidder_driver_id: 'driver-1',
+    amount: 250,
+    bid_price_gbp: 250,
+    currency: 'GBP',
+    message: 'Counter offer',
+    ...overrides,
+  });
+
+  const replayIntent = (overrides: Partial<IncomingBidReplayIntent> = {}): IncomingBidReplayIntent => ({
+    jobId: 'job-1',
+    bidderUserId: 'user-1',
+    bidderDriverId: 'driver-1',
+    amount: 250,
+    currency: 'gbp',
+    message: 'Counter offer',
+    ...overrides,
+  });
+
+  test('same key payload replay stays deterministic', () => {
+    expect(isDeterministicBidReplay(replayRow(), replayIntent())).toBe(true);
+  });
+
+  test('same key with any material payload or identity change becomes idempotency conflict', () => {
+    expect(isDeterministicBidReplay(replayRow(), replayIntent({ amount: 251 }))).toBe(false);
+    expect(isDeterministicBidReplay(replayRow(), replayIntent({ message: 'Different message' }))).toBe(false);
+    expect(isDeterministicBidReplay(replayRow(), replayIntent({ bidderDriverId: 'driver-2' }))).toBe(false);
+  });
+});
+
+test.describe('mobile API — nearby serializer masking contract (static fixture)', () => {
+  test('serializer emits only public marketplace fields with masked postcodes and null coordinates', () => {
+    const source: NearbyJobRow = {
+      id: '12345678-1234-1234-1234-123456789abc',
+      company_id: 'company-a',
+      status: 'posted',
+      exchange_visibility: 'exchange',
+      awarded_carrier_company_id: null,
+      assigned_company_id: 'assigned-company',
+      assigned_driver_id: 'assigned-driver',
+      direct_invite_company_id: null,
+      pickup_location: '10 Downing Street, London',
+      pickup_postcode: 'SW1A 2AA',
+      pickup_lat: 51.5034,
+      pickup_lng: -0.1276,
+      pickup_datetime: '2026-01-01T09:00:00.000Z',
+      pickup_time_slot: null,
+      delivery_location: '1 Market Street, Manchester',
+      delivery_postcode: 'M1 1AE',
+      delivery_lat: 53.4794,
+      delivery_lng: -2.2453,
+      delivery_datetime: '2026-01-01T13:00:00.000Z',
+      delivery_time_slot: null,
+      pickup_country_code: 'GB',
+      delivery_country_code: 'GB',
+      service_mode: 'standard',
+      direct_delivery_required: false,
+      vehicle_type: 'luton',
+      requested_vehicle_type: 'luton',
+      requested_vehicle_label: 'Luton Van',
+      cargo_type: 'pallets',
+      requested_cargo_label: 'Pallets',
+      pallets: 10,
+      weight_kg: 1200,
+      budget_amount: 425,
+      currency: 'GBP',
+      is_fixed_price: true,
+      load_details: 'Fragile high-value cargo with exact private details',
+      special_requirements: 'Private gate code',
+      access_restrictions: 'Internal security route',
+      job_distance_miles: 220.4,
+      job_distance_minutes: 260,
+      distance_to_pickup_miles: 12.8,
+      exchange_posted_at: '2026-01-01T08:00:00.000Z',
+      companies: { name: 'Private Client Ltd', company_number: '12345678' },
+    };
+    const sourceWithPrivate = {
+      ...source,
+      client_phone: '07000000000',
+      delivery_contact_phone: '07111111111',
+      internal_notes: 'Do not expose',
+      pod_photos: ['private.jpg'],
+      delivery_signature_data: 'base64',
+      assigned_driver_id: source.assigned_driver_id,
+      pickup_location: source.pickup_location,
+      delivery_location: source.delivery_location,
+    } as NearbyJobRow & Record<string, unknown>;
+    const serialized = mapNearbyJob(sourceWithPrivate);
+
+    expect(serialized.pickup.addressSummary).toBe('Approx. area · SW1A');
+    expect(serialized.pickup.postcode).toBe('Approx. area · SW1A');
+    expect(serialized.pickup.latitude).toBeNull();
+    expect(serialized.pickup.longitude).toBeNull();
+    expect(serialized.delivery.addressSummary).toBe('Approx. area · M1');
+    expect(serialized.delivery.postcode).toBe('Approx. area · M1');
+    expect(serialized.delivery.latitude).toBeNull();
+    expect(serialized.delivery.longitude).toBeNull();
+
+    const json = JSON.stringify(serialized);
+    for (const forbiddenField of [
+      'client_phone',
+      'delivery_contact_phone',
+      'internal_notes',
+      'pod_photos',
+      'delivery_signature_data',
+      'assigned_driver_id',
+      'pickup_location',
+      'delivery_location',
+      'SW1A 2AA',
+      'M1 1AE',
+      '51.5034',
+      '-0.1276',
+      '53.4794',
+      '-2.2453',
+    ]) {
+      expect(json).not.toContain(forbiddenField);
+    }
   });
 });
 

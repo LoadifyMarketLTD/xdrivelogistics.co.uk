@@ -1,6 +1,8 @@
 package co.uk.xdrivelogistics.driver
 
 import co.uk.xdrivelogistics.driver.data.DriverJob
+import co.uk.xdrivelogistics.driver.data.MarketplaceJob
+import co.uk.xdrivelogistics.driver.data.MarketplacePublicPrice
 import co.uk.xdrivelogistics.driver.offline.MobileLifecycleAction
 import co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand
 import co.uk.xdrivelogistics.driver.offline.MobileQueueItem
@@ -293,6 +295,55 @@ class DriverSelectionAndSyncStateTest {
         assertNull(resolveSelectedJob(jobs, "job-gone"))
     }
 
+    @Test
+    fun `quote target keeps explicit marketplace selection B regardless operational list order`() {
+        val targetsAFirst = resolveActionScreenTargets(
+            jobs = listOf(job("op-a"), job("op-z")),
+            selectedJobId = "op-a",
+            marketplaceJobs = listOf(marketplaceJob("mp-a"), marketplaceJob("mp-b")),
+            marketplaceSelectedJobId = "mp-b",
+        )
+        assertNull(targetsAFirst.operationalJob)
+        assertEquals("mp-b", targetsAFirst.marketplaceJob?.id)
+
+        val targetsBFirst = resolveActionScreenTargets(
+            jobs = listOf(job("op-z"), job("op-a")),
+            selectedJobId = "op-a",
+            marketplaceJobs = listOf(marketplaceJob("mp-b"), marketplaceJob("mp-a")),
+            marketplaceSelectedJobId = "mp-b",
+        )
+        assertNull(targetsBFirst.operationalJob)
+        assertEquals("mp-b", targetsBFirst.marketplaceJob?.id)
+        assertTrue("marketplace B must never resolve as operational A", targetsBFirst.marketplaceJob?.id != "op-a")
+    }
+
+    @Test
+    fun `stableBidIntentKey is deterministic for normalized payload and changes across scope fields`() {
+        val base = stableBidIntentKey(
+            jobId = "job-1",
+            ownerUserId = "owner-1",
+            driverId = "driver-1",
+            amount = 250.0,
+            currency = "gbp",
+            message = " Counter offer ",
+        )
+        val normalizedEquivalent = stableBidIntentKey(
+            jobId = "job-1",
+            ownerUserId = "owner-1",
+            driverId = "driver-1",
+            amount = 250.00,
+            currency = "GBP",
+            message = "Counter offer",
+        )
+        assertEquals(base, normalizedEquivalent)
+
+        assertTrue(base != stableBidIntentKey("job-2", "owner-1", "driver-1", 250.0, "GBP", "Counter offer"))
+        assertTrue(base != stableBidIntentKey("job-1", "owner-2", "driver-1", 250.0, "GBP", "Counter offer"))
+        assertTrue(base != stableBidIntentKey("job-1", "owner-1", "driver-2", 250.0, "GBP", "Counter offer"))
+        assertTrue(base != stableBidIntentKey("job-1", "owner-1", "driver-1", 251.0, "GBP", "Counter offer"))
+        assertTrue(base != stableBidIntentKey("job-1", "owner-1", "driver-1", 250.0, "GBP", "Counter offer +"))
+    }
+
     private fun job(id: String, status: String = "allocated"): DriverJob = DriverJob(
         id = id,
         status = status,
@@ -307,6 +358,33 @@ class DriverSelectionAndSyncStateTest {
         cargoType = "",
         budgetAmount = null,
         loadDetails = "",
+    )
+
+    private fun marketplaceJob(id: String): MarketplaceJob = MarketplaceJob(
+        id = id,
+        publicReference = "XDL-${id.take(8).uppercase()}",
+        posterCompanyName = null,
+        pickupAddressSummary = "SW1",
+        pickupPostcode = "SW1",
+        pickupCollectionFrom = null,
+        deliveryAddressSummary = "E1",
+        deliveryPostcode = "E1",
+        deliveryFrom = null,
+        vehicleType = "luton_van",
+        pallets = null,
+        weightKg = null,
+        freightType = null,
+        journeyDistanceMiles = null,
+        distanceToPickupMiles = null,
+        distanceFromCurrentDeliveryMiles = null,
+        publicPrice = MarketplacePublicPrice(visible = false, amount = null, currency = null),
+        hasProposedPrice = false,
+        proposedPriceGbp = null,
+        canQuote = true,
+        canSave = true,
+        quoteWarning = null,
+        destinationPriority = false,
+        internationalEligibilityRequired = false,
     )
 
     private fun queueItem(
