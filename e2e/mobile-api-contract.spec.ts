@@ -16,6 +16,10 @@ import {
   legacyBootstrapOperationalStatus,
 } from '../app/api/driver/mobile/_status';
 import { actions, validateLifecycleActionTransition } from '../app/api/driver/mobile/jobs/[id]/[action]/lifecycle';
+import {
+  podUploadInitIdempotencyCheck,
+  type UploadLedgerEntry,
+} from '../app/api/driver/mobile/jobs/[id]/pod-upload-init/route';
 
 test.describe('mobile API — idempotency helper contract', () => {
   test('returns true for retries after lifecycle advancement', () => {
@@ -347,6 +351,170 @@ test.describe('mobile API — pod-upload-init validation contract (static)', () 
     });
     expect([401, 503]).toContain(response.status());
     expect(response.status()).not.toBe(400);
+  });
+});
+
+// ─── POD savePod fingerprint contract (static) ────────────────────────────────
+
+// ─── pod-upload-init idempotency contract (static) ────────────────────────────
+
+test.describe('mobile API — pod-upload-init idempotency contract (static)', () => {
+  /**
+   * Verifies the podUploadInitIdempotencyCheck helper that gates restart-recovery
+   * retries.  No live DB required — pure unit tests on the exported function.
+   */
+
+  const BASE_ENTRY: UploadLedgerEntry = {
+    evidenceId: 'ev-abcdef1234567890',
+    podKey: 'pod-key-xyzxyzxyz',
+    payloadFingerprint: 'a'.repeat(64),
+    path: 'job-1/photos/ev-abcdef1234567890-photo.jpg',
+    sha256Hex: 'b'.repeat(64),
+    byteSize: 2048,
+    mimeType: 'image/jpeg',
+    kind: 'photos',
+    issuedAt: '2026-01-01T00:00:00.000Z',
+  };
+
+  test('returns new for an empty ledger', () => {
+    const result = podUploadInitIdempotencyCheck([], {
+      evidenceId: BASE_ENTRY.evidenceId,
+      podKey: BASE_ENTRY.podKey,
+      sha256Hex: BASE_ENTRY.sha256Hex,
+      byteSize: BASE_ENTRY.byteSize,
+      mimeType: BASE_ENTRY.mimeType,
+      kind: BASE_ENTRY.kind,
+    });
+    expect(result.status).toBe('new');
+  });
+
+  test('returns new for an unknown evidenceId', () => {
+    const result = podUploadInitIdempotencyCheck([BASE_ENTRY], {
+      evidenceId: 'ev-different-0000000',
+      podKey: BASE_ENTRY.podKey,
+      sha256Hex: BASE_ENTRY.sha256Hex,
+      byteSize: BASE_ENTRY.byteSize,
+      mimeType: BASE_ENTRY.mimeType,
+      kind: BASE_ENTRY.kind,
+    });
+    expect(result.status).toBe('new');
+  });
+
+  test('same evidenceId and stable metadata returns match with existing entry', () => {
+    const result = podUploadInitIdempotencyCheck([BASE_ENTRY], {
+      evidenceId: BASE_ENTRY.evidenceId,
+      podKey: BASE_ENTRY.podKey,
+      sha256Hex: BASE_ENTRY.sha256Hex,
+      byteSize: BASE_ENTRY.byteSize,
+      mimeType: BASE_ENTRY.mimeType,
+      kind: BASE_ENTRY.kind,
+    });
+    expect(result.status).toBe('match');
+    if (result.status === 'match') {
+      // The existing canonical path is returned — caller must reuse this path
+      // and must not append a second ledger entry.
+      expect(result.existingEntry.path).toBe(BASE_ENTRY.path);
+      // File name is excluded from identity — retry does not need the original name.
+    }
+  });
+
+  test('same evidenceId with different podKey returns conflict', () => {
+    const result = podUploadInitIdempotencyCheck([BASE_ENTRY], {
+      evidenceId: BASE_ENTRY.evidenceId,
+      podKey: 'pod-key-DIFFERENT000',
+      sha256Hex: BASE_ENTRY.sha256Hex,
+      byteSize: BASE_ENTRY.byteSize,
+      mimeType: BASE_ENTRY.mimeType,
+      kind: BASE_ENTRY.kind,
+    });
+    expect(result.status).toBe('conflict');
+  });
+
+  test('same evidenceId with different sha256Hex returns conflict', () => {
+    const result = podUploadInitIdempotencyCheck([BASE_ENTRY], {
+      evidenceId: BASE_ENTRY.evidenceId,
+      podKey: BASE_ENTRY.podKey,
+      sha256Hex: 'c'.repeat(64),
+      byteSize: BASE_ENTRY.byteSize,
+      mimeType: BASE_ENTRY.mimeType,
+      kind: BASE_ENTRY.kind,
+    });
+    expect(result.status).toBe('conflict');
+  });
+
+  test('same evidenceId with different byteSize returns conflict', () => {
+    const result = podUploadInitIdempotencyCheck([BASE_ENTRY], {
+      evidenceId: BASE_ENTRY.evidenceId,
+      podKey: BASE_ENTRY.podKey,
+      sha256Hex: BASE_ENTRY.sha256Hex,
+      byteSize: BASE_ENTRY.byteSize + 1,
+      mimeType: BASE_ENTRY.mimeType,
+      kind: BASE_ENTRY.kind,
+    });
+    expect(result.status).toBe('conflict');
+  });
+
+  test('same evidenceId with different mimeType returns conflict', () => {
+    const result = podUploadInitIdempotencyCheck([BASE_ENTRY], {
+      evidenceId: BASE_ENTRY.evidenceId,
+      podKey: BASE_ENTRY.podKey,
+      sha256Hex: BASE_ENTRY.sha256Hex,
+      byteSize: BASE_ENTRY.byteSize,
+      mimeType: 'application/pdf',
+      kind: BASE_ENTRY.kind,
+    });
+    expect(result.status).toBe('conflict');
+  });
+
+  test('same evidenceId with different kind returns conflict', () => {
+    const result = podUploadInitIdempotencyCheck([BASE_ENTRY], {
+      evidenceId: BASE_ENTRY.evidenceId,
+      podKey: BASE_ENTRY.podKey,
+      sha256Hex: BASE_ENTRY.sha256Hex,
+      byteSize: BASE_ENTRY.byteSize,
+      mimeType: BASE_ENTRY.mimeType,
+      kind: 'documents',
+    });
+    expect(result.status).toBe('conflict');
+  });
+
+  test('match succeeds even when file name differs from original (name is not an identity field)', () => {
+    // A retry after process death may use a different reconstructed file name;
+    // the original path must still be returned via match.
+    const result = podUploadInitIdempotencyCheck([BASE_ENTRY], {
+      evidenceId: BASE_ENTRY.evidenceId,
+      podKey: BASE_ENTRY.podKey,
+      sha256Hex: BASE_ENTRY.sha256Hex,
+      byteSize: BASE_ENTRY.byteSize,
+      mimeType: BASE_ENTRY.mimeType,
+      kind: BASE_ENTRY.kind,
+      // Note: fileName is not part of UploadInitRequest — this confirms by omission.
+    });
+    expect(result.status).toBe('match');
+    if (result.status === 'match') {
+      expect(result.existingEntry.path).toBe(BASE_ENTRY.path);
+    }
+  });
+
+  test('pod-upload-init auth gate fires before idempotency check (HTTP)', async ({ request }) => {
+    // Without auth credentials the server must return 401/503 before any
+    // idempotency or ledger logic runs.
+    const response = await request.post(
+      '/api/driver/mobile/jobs/00000000-0000-0000-0000-000000000000/pod-upload-init',
+      {
+        data: {
+          podKey: 'valid-key-1234567890',
+          evidenceId: 'ev-1234567890abcdef',
+          fileName: 'photo.jpg',
+          mimeType: 'image/jpeg',
+          byteSize: 1024,
+          kind: 'photos',
+          sha256Hex: 'b'.repeat(64),
+          payloadFingerprint: 'a'.repeat(64),
+        },
+      },
+    );
+    expect([401, 503]).toContain(response.status());
   });
 });
 

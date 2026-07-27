@@ -21,7 +21,7 @@ const ALLOWED_MIME_TYPES = new Set([
 /** Allowed evidence kinds. */
 const ALLOWED_KINDS = new Set(['photos', 'documents', 'collection']);
 
-interface UploadLedgerEntry {
+export interface UploadLedgerEntry {
   evidenceId: string;
   podKey: string;
   payloadFingerprint: string;
@@ -31,6 +31,49 @@ interface UploadLedgerEntry {
   mimeType: string;
   kind: string;
   issuedAt: string;
+}
+
+/** Stable metadata fields used for idempotency comparison. */
+export interface UploadInitRequest {
+  evidenceId: string;
+  podKey: string;
+  sha256Hex: string;
+  byteSize: number;
+  mimeType: string;
+  kind: string;
+}
+
+export type PodUploadInitIdempotency =
+  | { status: 'new' }
+  | { status: 'match'; existingEntry: UploadLedgerEntry }
+  | { status: 'conflict' };
+
+/**
+ * Determines whether an upload-init request is new, an idempotent retry for an
+ * existing ledger entry, or a conflict (same evidenceId, different stable metadata).
+ *
+ * The stable identity fields are: evidenceId, podKey, sha256Hex, byteSize,
+ * mimeType, and kind. The reconstructed file name is intentionally excluded so
+ * that a retry after process death does not need to reproduce the original name.
+ */
+export function podUploadInitIdempotencyCheck(
+  existingLedger: UploadLedgerEntry[],
+  req: UploadInitRequest,
+): PodUploadInitIdempotency {
+  const existingEntry = existingLedger.find((e) => e.evidenceId === req.evidenceId);
+  if (!existingEntry) return { status: 'new' };
+
+  if (
+    existingEntry.podKey === req.podKey &&
+    existingEntry.sha256Hex === req.sha256Hex &&
+    existingEntry.byteSize === req.byteSize &&
+    existingEntry.mimeType === req.mimeType &&
+    existingEntry.kind === req.kind
+  ) {
+    return { status: 'match', existingEntry };
+  }
+
+  return { status: 'conflict' };
 }
 
 /**
@@ -150,12 +193,47 @@ export async function POST(
     ? (job.pod_upload_ledger as UploadLedgerEntry[])
     : [];
 
-  // Reject duplicate evidenceId (same file already initiated for this job).
-  if (existingLedger.some((e) => e.evidenceId === evidenceId)) {
-    return respond(409, { error: 'This evidence ID has already been issued for this job.' });
+  // Idempotency check: same evidenceId may be re-submitted during restart recovery.
+  const idempotencyResult = podUploadInitIdempotencyCheck(existingLedger, {
+    evidenceId,
+    podKey,
+    sha256Hex,
+    byteSize,
+    mimeType,
+    kind,
+  });
+
+  if (idempotencyResult.status === 'match') {
+    // Idempotent retry: re-issue a fresh signed URL for the existing canonical path.
+    // upsert:true allows the client to re-upload if the previous attempt was
+    // interrupted after upload-init but before the bytes were fully transferred.
+    const { data: reSigned, error: reSignError } = await supabaseAdmin.storage
+      .from('pod-photos')
+      .createSignedUploadUrl(idempotencyResult.existingEntry.path, { upsert: true });
+
+    if (reSignError) {
+      return respond(503, {
+        error: `Storage upload URL could not be reissued: ${reSignError.message}`,
+      });
+    }
+
+    return respond(200, {
+      path: idempotencyResult.existingEntry.path,
+      signedUrl: reSigned.signedUrl,
+      token: reSigned.token,
+      expiresIn: 600,
+    });
   }
 
-  // Enforce per-podKey ledger cap.
+  if (idempotencyResult.status === 'conflict') {
+    // Same evidenceId reused with different stable metadata or a different podKey.
+    return respond(409, {
+      error: 'idempotency_conflict',
+      details: 'Evidence ID reused with different stable metadata or podKey.',
+    });
+  }
+
+  // Enforce per-podKey ledger cap (only for genuinely new entries).
   const podKeyEntries = existingLedger.filter((e) => e.podKey === podKey);
   if (podKeyEntries.length >= MAX_LEDGER_ENTRIES_PER_POD_KEY) {
     return respond(409, {
