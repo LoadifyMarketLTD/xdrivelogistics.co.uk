@@ -18,6 +18,7 @@ import co.uk.xdrivelogistics.driver.data.NearbyDriver
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import co.uk.xdrivelogistics.driver.jobs.DriverLifecycleTransitions
 import co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand
+import co.uk.xdrivelogistics.driver.offline.MobileMutationKind
 import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueue
 import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueueStore
 import co.uk.xdrivelogistics.driver.offline.MobileQueueItem
@@ -29,6 +30,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.security.MessageDigest
+import java.util.Locale
 
 enum class DriverTab {
     NEARBY,
@@ -165,7 +168,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun loadDriverDataWithSession(session: DriverSession, allowRefresh: Boolean) {
         api.resolveDriverProfile(session)
             .onSuccess { profile ->
-                flushQueuedLifecycleMutations(session, profile)
+                flushQueuedMutations(session, profile)
                 val documents = api.loadDriverDocuments(session, profile).getOrDefault(emptyList())
                 val preferences = api.loadJobSearchPreferences(session, profile.driverId).getOrDefault(emptyMap())
                 val bids = api.loadDriverBids(session, profile).getOrDefault(emptyList())
@@ -418,7 +421,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private suspend fun flushQueuedLifecycleMutations(session: DriverSession, profile: DriverProfile) {
+    private suspend fun flushQueuedMutations(session: DriverSession, profile: DriverProfile) {
         var keepFlushing = true
         while (keepFlushing) {
             val item = mutationQueue.nextProcessable(ownerUserId = session.userId, leaseDurationMs = 45_000L)
@@ -432,21 +435,57 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 persistQueueAndSyncState(session.userId)
                 continue
             }
-            val nextStatus = item.command.targetStatus
-            api.updateJobStatus(session, item.jobId, nextStatus)
-                .onSuccess {
-                    mutationQueue.markSynced(item.id)
-                    mutationQueue.pruneSynced(maxAgeMs = 7L * 24L * 60L * 60L * 1000L)
+            when (item.command.inferredKind()) {
+                MobileMutationKind.LIFECYCLE -> {
+                    val nextStatus = item.command.targetStatus.orEmpty()
+                    api.updateJobStatus(session, item.jobId, nextStatus)
+                        .onSuccess {
+                            mutationQueue.markSynced(item.id)
+                            mutationQueue.pruneSynced(maxAgeMs = 7L * 24L * 60L * 60L * 1000L)
+                        }
+                        .onFailure { error ->
+                            val retryable = (error as? MobileApiException)?.retryable == true
+                            mutationQueue.markFailure(
+                                itemId = item.id,
+                                retryable = retryable,
+                                message = error.message.orEmpty(),
+                            )
+                            if (retryable) keepFlushing = false
+                        }
                 }
-                .onFailure { error ->
-                    val retryable = (error as? MobileApiException)?.retryable == true
-                    mutationQueue.markFailure(
-                        itemId = item.id,
-                        retryable = retryable,
-                        message = error.message.orEmpty(),
-                    )
-                    if (retryable) keepFlushing = false
+                MobileMutationKind.BID -> {
+                    val bid = item.command.bid
+                    if (bid == null) {
+                        mutationQueue.markFailure(item.id, retryable = false, message = "Queued bid payload is missing.")
+                    } else {
+                        api.submitJobQuote(
+                            session = session,
+                            jobId = item.jobId,
+                            amount = bid.amount,
+                            message = bid.message,
+                            bidKey = bid.bidKey,
+                        ).onSuccess {
+                            mutationQueue.markSynced(item.id)
+                            mutationQueue.pruneSynced(maxAgeMs = 7L * 24L * 60L * 60L * 1000L)
+                        }.onFailure { error ->
+                            val retryable = (error as? MobileApiException)?.retryable == true
+                            mutationQueue.markFailure(
+                                itemId = item.id,
+                                retryable = retryable,
+                                message = error.message.orEmpty(),
+                            )
+                            if (retryable) keepFlushing = false
+                        }
+                    }
                 }
+                MobileMutationKind.POD,
+                null,
+                -> mutationQueue.markFailure(
+                    itemId = item.id,
+                    retryable = false,
+                    message = "Queued command type is not replayable in this build.",
+                )
+            }
             persistQueueAndSyncState(session.userId)
         }
     }
@@ -462,6 +501,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun submitQuoteForSelectedJob(amountText: String, note: String) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
+            val profile = _uiState.value.profile ?: return@launch
             val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
             if (selectedJob == null) {
                 _uiState.value = _uiState.value.copy(error = "Select a posted job first.")
@@ -476,9 +516,31 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 _uiState.value = _uiState.value.copy(error = "Enter a valid quote amount.")
                 return@launch
             }
+            val normalizedMessage = note.trim().ifBlank { "Submitted from XDrive Driver Android" }.take(1_000)
+            val currency = "GBP"
+            val bidKey = stableBidIntentKey(
+                jobId = selectedJob.id,
+                ownerUserId = session.userId,
+                driverId = profile.driverId,
+                amount = amount,
+                currency = currency,
+                message = normalizedMessage,
+            )
+            val bidCommand = MobileLifecycleCommand.createBid(
+                amount = amount,
+                currency = currency,
+                message = normalizedMessage,
+                bidKey = bidKey,
+            )
 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.submitJobQuote(session, selectedJob.id, amount, note.trim())
+            api.submitJobQuote(
+                session = session,
+                jobId = selectedJob.id,
+                amount = amount,
+                message = normalizedMessage,
+                bidKey = bidKey,
+            )
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -487,6 +549,21 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     refreshDriverData()
                 }
                 .onFailure { error ->
+                    if (error is MobileApiException && error.retryable) {
+                        mutationQueue.enqueue(
+                            ownerUserId = session.userId,
+                            driverId = profile.driverId,
+                            jobId = selectedJob.id,
+                            command = bidCommand,
+                            mutationKey = "bid:${session.userId}:${selectedJob.id}:$bidKey",
+                        )
+                        persistQueueAndSyncState(session.userId)
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            message = "No stable connection. Quote queued securely and will retry automatically.",
+                        )
+                        return@onFailure
+                    }
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = error.friendlyDriverMessage("Failed to submit quote."),
@@ -661,7 +738,7 @@ internal fun deriveJobSyncStates(
             nextUnsynced?.let {
                 jobId to DriverJobSyncState(
                     state = it.state,
-                    targetStatus = it.command.targetStatus,
+                    targetStatus = it.command.syncTargetLabel(),
                     lastError = it.lastError,
                 )
             }
@@ -700,4 +777,26 @@ private fun Throwable.friendlyDriverMessage(fallback: String): String {
         text.isNotBlank() -> text
         else -> fallback
     }
+}
+
+private fun stableBidIntentKey(
+    jobId: String,
+    ownerUserId: String,
+    driverId: String,
+    amount: Double,
+    currency: String,
+    message: String,
+): String {
+    val canonicalPayload = listOf(
+        jobId.trim(),
+        ownerUserId.trim(),
+        driverId.trim(),
+        java.math.BigDecimal.valueOf(amount).stripTrailingZeros().toPlainString(),
+        currency.trim().uppercase(Locale.ROOT),
+        message.trim(),
+    ).joinToString("|")
+    val digest = MessageDigest.getInstance("SHA-256")
+        .digest(canonicalPayload.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+    return "bid_$digest"
 }

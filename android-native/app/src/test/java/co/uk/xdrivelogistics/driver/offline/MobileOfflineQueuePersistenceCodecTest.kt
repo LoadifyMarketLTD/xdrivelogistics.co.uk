@@ -54,6 +54,28 @@ class MobileOfflineQueuePersistenceCodecTest {
     }
 
     @Test
+    fun `parseItems restores bid queue command snapshot`() {
+        val queue = MobileOfflineQueue { 1_000L }
+        queue.enqueue(
+            ownerUserId = "u1",
+            driverId = "d1",
+            jobId = "job-2",
+            command = MobileLifecycleCommand.createBid(
+                amount = 55.0,
+                currency = "GBP",
+                message = "Offer",
+                bidKey = "bid-k1",
+            ),
+            mutationKey = "k-bid",
+        )
+        val json = codec.toJson(queue.snapshot())
+        val restored = codec.parseItems(json)
+
+        assertNotNull(restored)
+        assertEquals(MobileMutationEndpoint.BID.path, restored!!.first().endpoint)
+    }
+
+    @Test
     fun `restore quarantines malformed legacy record without crashing`() {
         val malformedLegacyJson = """
             [

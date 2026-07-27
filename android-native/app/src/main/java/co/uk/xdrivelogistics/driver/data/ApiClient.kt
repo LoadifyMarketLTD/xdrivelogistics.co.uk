@@ -719,13 +719,15 @@ class ApiClient(
         jobId: String,
         amount: Double,
         message: String,
+        bidKey: String? = null,
     ): Result<Unit> = networkResult {
         require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
+        val normalizedMessage = message.ifBlank { "Submitted from XDrive Driver Android" }.take(1_000)
         val body = JsonObject().apply {
             addProperty("jobId", jobId)
             addProperty("amount", amount)
-            addProperty("message", message.ifBlank { "Submitted from XDrive Driver Android" }.take(1_000))
-            addProperty("bidKey", stableSubmissionKey("bid", jobId, session.userId))
+            addProperty("message", normalizedMessage)
+            addProperty("bidKey", bidKey?.trim()?.takeIf { it.isNotBlank() } ?: stableSubmissionKey("bid", jobId, session.userId))
         }
         postMobileMutation(
             accessToken = session.accessToken,

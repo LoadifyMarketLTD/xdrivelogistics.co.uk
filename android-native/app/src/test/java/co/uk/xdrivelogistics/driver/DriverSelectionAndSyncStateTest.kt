@@ -51,6 +51,38 @@ class DriverSelectionAndSyncStateTest {
         assertEquals("accepted", state["job-1"]?.targetStatus)
     }
 
+    @Test
+    fun `deriveJobSyncStates surfaces bid sync target label`() {
+        val owner = "user-a"
+        val bidItem = MobileQueueItem(
+            id = "b1",
+            ownerUserId = owner,
+            driverId = "driver",
+            jobId = "job-bid",
+            command = MobileLifecycleCommand.createBid(
+                amount = 99.0,
+                currency = "GBP",
+                message = "Offer",
+                bidKey = "bid-k1",
+            ),
+            mutationKey = "mk1",
+            payloadFingerprint = "fp1",
+            sequence = 1,
+            createdAtEpochMs = 1,
+            state = MobileQueueState.PENDING,
+            attempts = 0,
+            lastError = "",
+            leaseExpiresAtEpochMs = null,
+            updatedAtEpochMs = 1,
+        )
+        val state = deriveJobSyncStates(
+            ownerUserId = owner,
+            queueItems = listOf(bidItem),
+        )
+
+        assertEquals("bid_submitted", state["job-bid"]?.targetStatus)
+    }
+
     private fun job(id: String): DriverJob = DriverJob(
         id = id,
         status = "allocated",

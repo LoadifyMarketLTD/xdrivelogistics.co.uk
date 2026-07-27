@@ -190,4 +190,51 @@ class MobileOfflineQueueTest {
         assertEquals(MobileMutationEndpoint.ACCEPT.path, secondRestart[0].endpoint)
         assertEquals(MobileMutationEndpoint.ON_MY_WAY_PICKUP.path, secondRestart[1].endpoint)
     }
+
+    @Test
+    fun `bid command validates payload and endpoint`() {
+        val queue = MobileOfflineQueue { 1_000L }
+        val bidCommand = co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand.createBid(
+            amount = 120.0,
+            currency = "gbp",
+            message = " Counter offer ",
+            bidKey = "bid-1",
+        )
+        val queued = queue.enqueue(
+            ownerUserId = "u1",
+            driverId = "d1",
+            jobId = "job-1",
+            command = bidCommand,
+            mutationKey = "bid-key",
+        )
+
+        assertEquals(MobileMutationEndpoint.BID.path, queued.endpoint)
+        assertEquals("bid_submitted", queued.command.syncTargetLabel())
+    }
+
+    @Test
+    fun `restore quarantines malformed bid payload`() {
+        val queue = MobileOfflineQueue { 1_000L }
+        val valid = queue.enqueue(
+            ownerUserId = "u1",
+            driverId = "d1",
+            jobId = "job-1",
+            command = co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand.createBid(
+                amount = 100.0,
+                currency = "GBP",
+                message = "Offer",
+                bidKey = "bid-k1",
+            ),
+            mutationKey = "k1",
+        )
+        val tampered = valid.copy(
+            command = valid.command.copy(
+                bid = valid.command.bid?.copy(amount = -1.0),
+            )
+        )
+        queue.restore(listOf(tampered, valid))
+
+        assertEquals(1, queue.snapshot().size)
+        assertEquals(1, queue.quarantinedSnapshot().size)
+    }
 }

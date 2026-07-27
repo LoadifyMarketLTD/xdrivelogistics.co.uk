@@ -1,6 +1,7 @@
 package co.uk.xdrivelogistics.driver.offline
 
 import java.security.MessageDigest
+import java.util.Locale
 
 enum class MobileMutationEndpoint(val path: String) {
     ACCEPT("accept"),
@@ -27,6 +28,24 @@ enum class MobileQueueState {
     PERMANENT_FAILURE,
 }
 
+enum class MobileMutationKind {
+    LIFECYCLE,
+    BID,
+    POD,
+}
+
+data class MobileBidPayload(
+    val amount: Double,
+    val currency: String,
+    val message: String,
+    val bidKey: String,
+)
+
+data class MobilePodPayload(
+    val evidencePath: String,
+    val recipientName: String? = null,
+)
+
 data class MobileQueueItem(
     val id: String,
     val ownerUserId: String,
@@ -44,7 +63,7 @@ data class MobileQueueItem(
     val updatedAtEpochMs: Long,
 ) {
     val endpoint: String
-        get() = command.action.endpointPath
+        get() = command.endpointPath().orEmpty()
 }
 
 enum class MobileLifecycleAction(val endpointPath: String, val targetStatus: String) {
@@ -64,15 +83,95 @@ enum class MobileLifecycleAction(val endpointPath: String, val targetStatus: Str
 }
 
 data class MobileLifecycleCommand(
-    val action: MobileLifecycleAction,
-    val targetStatus: String,
+    val kind: MobileMutationKind? = null,
+    val action: MobileLifecycleAction? = null,
+    val targetStatus: String? = null,
+    val bid: MobileBidPayload? = null,
+    val pod: MobilePodPayload? = null,
 ) {
+    fun inferredKind(): MobileMutationKind? = when {
+        kind != null -> kind
+        action != null -> MobileMutationKind.LIFECYCLE
+        bid != null -> MobileMutationKind.BID
+        pod != null -> MobileMutationKind.POD
+        else -> null
+    }
+
+    fun endpointPath(): String? = when (inferredKind()) {
+        MobileMutationKind.LIFECYCLE -> action?.endpointPath
+        MobileMutationKind.BID -> MobileMutationEndpoint.BID.path
+        MobileMutationKind.POD -> MobileMutationEndpoint.POD.path
+        null -> null
+    }
+
+    fun syncTargetLabel(): String = when (inferredKind()) {
+        MobileMutationKind.LIFECYCLE -> targetStatus.orEmpty()
+        MobileMutationKind.BID -> "bid_submitted"
+        MobileMutationKind.POD -> "pod_submitted"
+        null -> ""
+    }
+
+    fun fingerprintFields(): List<String>? = when (inferredKind()) {
+        MobileMutationKind.LIFECYCLE -> {
+            val lifecycleAction = action ?: return null
+            val lifecycleTarget = targetStatus?.trim().orEmpty()
+            listOf(
+                MobileMutationKind.LIFECYCLE.name,
+                lifecycleAction.name,
+                lifecycleTarget,
+            )
+        }
+        MobileMutationKind.BID -> {
+            val bidPayload = bid ?: return null
+            listOf(
+                MobileMutationKind.BID.name,
+                java.math.BigDecimal.valueOf(bidPayload.amount).stripTrailingZeros().toPlainString(),
+                bidPayload.currency.trim().uppercase(Locale.ROOT),
+                bidPayload.message.trim(),
+                bidPayload.bidKey.trim(),
+            )
+        }
+        MobileMutationKind.POD -> {
+            val podPayload = pod ?: return null
+            listOf(
+                MobileMutationKind.POD.name,
+                podPayload.evidencePath.trim(),
+                podPayload.recipientName?.trim().orEmpty(),
+            )
+        }
+        null -> null
+    }
+
     companion object {
         fun create(action: MobileLifecycleAction, targetStatus: String): MobileLifecycleCommand {
             require(action.targetStatus == targetStatus) { "Queue lifecycle command is not allowed." }
             return MobileLifecycleCommand(
+                kind = MobileMutationKind.LIFECYCLE,
                 action = action,
                 targetStatus = targetStatus,
+            )
+        }
+
+        fun createBid(
+            amount: Double,
+            currency: String,
+            message: String,
+            bidKey: String,
+        ): MobileLifecycleCommand {
+            require(amount > 0.0) { "Queue bid amount must be positive." }
+            val normalizedCurrency = currency.trim().uppercase(Locale.ROOT)
+            require(normalizedCurrency.length == 3) { "Queue bid currency must be ISO-4217." }
+            val normalizedKey = bidKey.trim()
+            require(normalizedKey.isNotBlank()) { "Queue bid key is required." }
+            val normalizedMessage = message.trim().ifBlank { "Submitted from XDrive Driver Android" }.take(1_000)
+            return MobileLifecycleCommand(
+                kind = MobileMutationKind.BID,
+                bid = MobileBidPayload(
+                    amount = amount,
+                    currency = normalizedCurrency,
+                    message = normalizedMessage,
+                    bidKey = normalizedKey,
+                ),
             )
         }
 
@@ -83,8 +182,25 @@ data class MobileLifecycleCommand(
 
         fun isValid(command: MobileLifecycleCommand?): Boolean {
             if (command == null) return false
-            return command.action.targetStatus == command.targetStatus
+            return when (command.inferredKind()) {
+                MobileMutationKind.LIFECYCLE -> {
+                    val lifecycleAction = command.action ?: return false
+                    lifecycleAction.targetStatus == command.targetStatus
+                }
+                MobileMutationKind.BID -> {
+                    val bidPayload = command.bid ?: return false
+                    bidPayload.amount > 0.0 &&
+                        bidPayload.currency.trim().length == 3 &&
+                        bidPayload.bidKey.trim().isNotBlank()
+                }
+                MobileMutationKind.POD -> {
+                    val podPayload = command.pod ?: return false
+                    podPayload.evidencePath.trim().isNotBlank()
+                }
+                null -> false
+            }
         }
+
     }
 }
 
@@ -119,7 +235,7 @@ class MobileOfflineQueue(private val nowEpochMs: () -> Long = { System.currentTi
         require(driverId.isNotBlank()) { "Queue driver id is required." }
         require(jobId.isNotBlank()) { "Queue job id is required." }
         require(mutationKey.isNotBlank()) { "Queue mutation key is required." }
-        require(MobileLifecycleCommand.isValid(command)) { "Queue lifecycle payload is invalid." }
+        require(MobileLifecycleCommand.isValid(command)) { "Queue mutation payload is invalid." }
 
         val duplicate = items.firstOrNull {
             it.ownerUserId == ownerUserId &&
@@ -257,14 +373,13 @@ class MobileOfflineQueue(private val nowEpochMs: () -> Long = { System.currentTi
         command: MobileLifecycleCommand,
         mutationKey: String,
     ): String {
-        val canonicalPayload = listOf(
+        val commandFields = command.fingerprintFields() ?: error("Queue command fingerprint is invalid.")
+        val canonicalPayload = (listOf(
             ownerUserId.trim(),
             driverId.trim(),
             jobId.trim(),
-            command.action.name,
-            command.targetStatus.trim(),
             mutationKey.trim(),
-        ).joinToString("|")
+        ) + commandFields).joinToString("|")
         val bytes = MessageDigest.getInstance("SHA-256").digest(canonicalPayload.toByteArray(Charsets.UTF_8))
         return bytes.joinToString("") { "%02x".format(it) }
     }
