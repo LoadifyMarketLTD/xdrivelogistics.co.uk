@@ -107,7 +107,7 @@ class DriverJobLifecycleTest {
         }
     }
 
-    
+    private fun job(
         status: String,
         collectionPhotoUrl: String? = null,
         deliveryPhotos: List<String> = emptyList(),
