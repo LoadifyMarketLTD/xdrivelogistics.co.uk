@@ -5,6 +5,9 @@ import { isDriverContext, requireDriver, respond } from '../../../_lib';
 /** Maximum evidence file size in bytes (10 MiB). */
 const MAX_EVIDENCE_BYTES = 10 * 1024 * 1024;
 
+/** Maximum number of ledger entries per podKey. */
+const MAX_LEDGER_ENTRIES_PER_POD_KEY = 10;
+
 /** Allowed MIME types for POD evidence. */
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
@@ -18,6 +21,18 @@ const ALLOWED_MIME_TYPES = new Set([
 /** Allowed evidence kinds. */
 const ALLOWED_KINDS = new Set(['photos', 'documents', 'collection']);
 
+interface UploadLedgerEntry {
+  evidenceId: string;
+  podKey: string;
+  payloadFingerprint: string;
+  path: string;
+  sha256Hex: string;
+  byteSize: number;
+  mimeType: string;
+  kind: string;
+  issuedAt: string;
+}
+
 /**
  * POST /api/driver/mobile/jobs/{jobId}/pod-upload-init
  *
@@ -27,7 +42,12 @@ const ALLOWED_KINDS = new Set(['photos', 'documents', 'collection']);
  *   - MIME type, byte size, and evidence count are validated server-side;
  *   - the storage path is deterministic (jobId/kind/evidenceId-safeName),
  *     not random-timestamp-based;
- *   - the signed upload URL carries a server-controlled expiry.
+ *   - the signed upload URL carries a server-controlled expiry;
+ *   - the authorised upload is recorded in the job's pod_upload_ledger so that
+ *     savePod can verify all finalised paths were legitimately server-issued.
+ *
+ * Required fields: podKey, evidenceId, fileName, mimeType, byteSize, kind,
+ *                  sha256Hex (64 hex), payloadFingerprint (64 hex).
  *
  * After receiving the signed URL and canonical path, the client:
  *   1. Uploads the evidence bytes directly to the signed URL (standard PUT).
@@ -89,10 +109,29 @@ export async function POST(
     return respond(400, { error: "Evidence kind must be 'photos', 'documents', or 'collection'." });
   }
 
-  // --- Validate driver assignment ---
+  const sha256Hex =
+    typeof body.sha256Hex === 'string' && /^[0-9a-f]{64}$/i.test(body.sha256Hex.trim())
+      ? body.sha256Hex.trim().toLowerCase()
+      : null;
+  if (!sha256Hex) {
+    return respond(400, { error: 'A valid sha256Hex (64 lowercase hex characters) is required.' });
+  }
+
+  const payloadFingerprint =
+    typeof body.payloadFingerprint === 'string' &&
+    /^[0-9a-f]{64}$/i.test(body.payloadFingerprint.trim())
+      ? body.payloadFingerprint.trim().toLowerCase()
+      : null;
+  if (!payloadFingerprint) {
+    return respond(400, {
+      error: 'A valid payloadFingerprint (64 lowercase hex characters) is required.',
+    });
+  }
+
+  // --- Validate driver assignment and read existing ledger ---
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, assigned_driver_id, pod_generated')
+    .select('id, assigned_driver_id, pod_generated, pod_upload_ledger')
     .eq('id', jobId)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
@@ -104,6 +143,24 @@ export async function POST(
   // Collection proofs are always allowed until the job is delivered.
   if (kind !== 'collection' && job.pod_generated === true) {
     return respond(409, { error: 'POD has already been finalised for this job.' });
+  }
+
+  // --- Ledger checks ---
+  const existingLedger: UploadLedgerEntry[] = Array.isArray(job.pod_upload_ledger)
+    ? (job.pod_upload_ledger as UploadLedgerEntry[])
+    : [];
+
+  // Reject duplicate evidenceId (same file already initiated for this job).
+  if (existingLedger.some((e) => e.evidenceId === evidenceId)) {
+    return respond(409, { error: 'This evidence ID has already been issued for this job.' });
+  }
+
+  // Enforce per-podKey ledger cap.
+  const podKeyEntries = existingLedger.filter((e) => e.podKey === podKey);
+  if (podKeyEntries.length >= MAX_LEDGER_ENTRIES_PER_POD_KEY) {
+    return respond(409, {
+      error: `Maximum of ${MAX_LEDGER_ENTRIES_PER_POD_KEY} evidence uploads are allowed per submission.`,
+    });
   }
 
   // --- Build canonical storage path ---
@@ -121,6 +178,32 @@ export async function POST(
     });
   }
 
+  // --- Append to upload ledger atomically ---
+  const newEntry: UploadLedgerEntry = {
+    evidenceId,
+    podKey,
+    payloadFingerprint,
+    path,
+    sha256Hex,
+    byteSize,
+    mimeType,
+    kind,
+    issuedAt: new Date().toISOString(),
+  };
+  const updatedLedger = [...existingLedger, newEntry];
+
+  const { error: ledgerError } = await supabaseAdmin
+    .from('jobs')
+    .update({ pod_upload_ledger: updatedLedger })
+    .eq('id', jobId)
+    .eq('assigned_driver_id', driver.driverId);
+
+  if (ledgerError) {
+    return respond(503, {
+      error: `Failed to record upload authorisation: ${ledgerError.message}`,
+    });
+  }
+
   return respond(200, {
     path,
     signedUrl: signed.signedUrl,
@@ -128,3 +211,4 @@ export async function POST(
     expiresIn: 600, // seconds — 10-minute upload window
   });
 }
+

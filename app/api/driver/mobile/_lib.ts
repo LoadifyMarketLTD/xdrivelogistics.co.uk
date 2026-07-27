@@ -79,6 +79,7 @@ export type MobileJobRow = {
   pod_photos: string[] | null;
   delivery_signature_data: unknown;
   status_history: unknown;
+  pod_upload_ledger: unknown[] | null;
   updated_at: string | null;
   created_at: string | null;
 };
@@ -216,6 +217,7 @@ export const jobSelect = [
   'pod_photos',
   'delivery_signature_data',
   'status_history',
+  'pod_upload_ledger',
   'updated_at',
   'created_at',
 ].join(',');
