@@ -7,6 +7,7 @@ import co.uk.xdrivelogistics.driver.offline.MobileQueueItem
 import co.uk.xdrivelogistics.driver.offline.MobileQueueState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DriverSelectionAndSyncStateTest {
@@ -81,6 +82,105 @@ class DriverSelectionAndSyncStateTest {
         )
 
         assertEquals("bid_submitted", state["job-bid"]?.targetStatus)
+    }
+
+    // --- Task 4: multiple active jobs and explicit action scoping ---
+
+    @Test
+    fun `multiple active jobs coexist and each is independently selectable`() {
+        val jobs = listOf(job("job-a"), job("job-b"), job("job-c"))
+        assertEquals("job-a", resolveSelectedJobId("job-a", null, jobs))
+        assertEquals("job-b", resolveSelectedJobId("job-b", null, jobs))
+        assertEquals("job-c", resolveSelectedJobId("job-c", null, jobs))
+    }
+
+    @Test
+    fun `resolveSelectedJobId with no selection and multiple jobs returns null`() {
+        val jobs = listOf(job("job-a"), job("job-b"))
+        // Neither current nor remembered selection — no implicit fallback to first job.
+        assertNull(resolveSelectedJobId(null, null, jobs))
+    }
+
+    @Test
+    fun `resolveSelectedJobId selects job-b even when job-a is first in list`() {
+        val jobs = listOf(job("job-a"), job("job-b"))
+        val selected = resolveSelectedJobId("job-b", null, jobs)
+        assertEquals("job-b", selected)
+    }
+
+    @Test
+    fun `resolveSelectedJobId restores remembered selection only while job is still present`() {
+        val jobs = listOf(job("job-a"), job("job-b"))
+        // Job is still present — restore remembered selection.
+        assertEquals("job-b", resolveSelectedJobId(null, "job-b", jobs))
+        // Job has been removed from the server list — clear without selecting another.
+        assertNull(resolveSelectedJobId(null, "job-gone", jobs))
+    }
+
+    @Test
+    fun `resolveSelectedJobId clears stale selection without auto-selecting another job`() {
+        val jobs = listOf(job("job-a"), job("job-b"))
+        // Current selection is stale (job no longer in list); no remembered fallback.
+        assertNull(resolveSelectedJobId("job-gone", null, jobs))
+        // Both current and remembered are stale — no auto-select of any job from the list.
+        assertNull(resolveSelectedJobId("job-gone", "job-also-gone", jobs))
+    }
+
+    @Test
+    fun `deriveJobSyncStates shows two concurrent jobs with independent sync states`() {
+        val owner = "user-a"
+        val state = deriveJobSyncStates(
+            ownerUserId = owner,
+            queueItems = listOf(
+                queueItem("1", owner, "job-a", 1, MobileQueueState.PENDING, "accepted"),
+                queueItem("2", owner, "job-b", 2, MobileQueueState.BLOCKED, "on_my_way_to_pickup"),
+            ),
+        )
+        // Both jobs surface with their own independent state.
+        assertEquals(2, state.size)
+        assertEquals(MobileQueueState.PENDING, state["job-a"]?.state)
+        assertEquals("accepted", state["job-a"]?.targetStatus)
+        assertEquals(MobileQueueState.BLOCKED, state["job-b"]?.state)
+        assertEquals("on_my_way_to_pickup", state["job-b"]?.targetStatus)
+    }
+
+    @Test
+    fun `deriveJobSyncStates excludes all items belonging to a different account`() {
+        val ownerA = "user-a"
+        val ownerB = "user-b"
+        // ownerB has a pending action; when queried for ownerA the result must be empty.
+        val state = deriveJobSyncStates(
+            ownerUserId = ownerA,
+            queueItems = listOf(
+                queueItem("1", ownerB, "job-x", 1, MobileQueueState.PENDING, "accepted"),
+            ),
+        )
+        assertTrue("Previous account's queue must not be visible after switch", state.isEmpty())
+    }
+
+    @Test
+    fun `switching selection from job-a to job-b preserves job-a sync state independently`() {
+        val owner = "user-a"
+        val state = deriveJobSyncStates(
+            ownerUserId = owner,
+            queueItems = listOf(
+                queueItem("1", owner, "job-a", 1, MobileQueueState.PENDING, "accepted"),
+                queueItem("2", owner, "job-b", 2, MobileQueueState.PENDING, "on_my_way_to_pickup"),
+            ),
+        )
+        // Selecting job-b (simulated by reading the map for job-b) must not alter job-a.
+        assertEquals(MobileQueueState.PENDING, state["job-a"]?.state)
+        assertEquals("accepted", state["job-a"]?.targetStatus)
+        assertEquals(MobileQueueState.PENDING, state["job-b"]?.state)
+        assertEquals("on_my_way_to_pickup", state["job-b"]?.targetStatus)
+    }
+
+    @Test
+    fun `resolveSelectedJobId for new account owner does not restore previous owner remembered selection`() {
+        // job-a was remembered for ownerA but the session is now ownerB who has job-b.
+        val ownerBJobs = listOf(job("job-b"))
+        // remembered = "job-a" (previous owner's job, not present in ownerB's list).
+        assertNull(resolveSelectedJobId(null, "job-a", ownerBJobs))
     }
 
     private fun job(id: String): DriverJob = DriverJob(
