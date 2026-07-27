@@ -67,6 +67,9 @@ export type MobileJobRow = {
   pod_required: boolean | null;
   pod_generated: boolean | null;
   pod_submission_idempotency_key: string | null;
+  pod_payload_fingerprint: string | null;
+  collection_photo_url: string | null;
+  collection_proof_idempotency_key: string | null;
   on_my_way_at: string | null;
   on_site_pickup_at: string | null;
   loaded_at: string | null;
@@ -201,6 +204,9 @@ export const jobSelect = [
   'pod_required',
   'pod_generated',
   'pod_submission_idempotency_key',
+  'pod_payload_fingerprint',
+  'collection_photo_url',
+  'collection_proof_idempotency_key',
   'on_my_way_at',
   'on_site_pickup_at',
   'loaded_at',
@@ -284,6 +290,7 @@ export function mapJob(row: MobileJobRow) {
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
     podRequired: row.pod_required !== false,
     podGenerated: hasPod(row),
+    collectionPhotoUrl: row.collection_photo_url ?? null,
     contactAllowed: Boolean(contactPhone),
     contactName,
     contactPhone,

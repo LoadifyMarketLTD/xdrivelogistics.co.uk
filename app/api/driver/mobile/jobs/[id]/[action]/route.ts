@@ -172,10 +172,29 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     return respond(400, { error: 'A valid POD idempotency key is required.' });
   }
 
+  // Optional SHA-256 hex fingerprint of this submission's payload.
+  // Same key + same (or absent) fingerprint → replay 200.
+  // Same key + different fingerprint → 409 idempotency_conflict.
+  const payloadFingerprint =
+    typeof body.payloadFingerprint === 'string' &&
+    /^[0-9a-f]{64}$/i.test(body.payloadFingerprint.trim())
+      ? body.payloadFingerprint.trim().toLowerCase()
+      : null;
+
   // Idempotency gate: completed POD can be replayed only with the same key.
   // A different key after completion is treated as a distinct submission and is rejected.
   if (job.pod_generated === true) {
     if (job.pod_submission_idempotency_key && job.pod_submission_idempotency_key === podKey) {
+      // Fingerprint conflict: same key but payload changed.
+      if (
+        payloadFingerprint !== null &&
+        job.pod_payload_fingerprint !== null &&
+        job.pod_payload_fingerprint !== payloadFingerprint
+      ) {
+        return respond(409, {
+          error: 'idempotency_conflict: POD key already used with a different payload.',
+        });
+      }
       return respond(200, { ok: true, job: mapJob(job) });
     }
     if (!job.pod_submission_idempotency_key) {
@@ -189,6 +208,16 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     return respond(409, { error: 'A different POD submission is already pending for this job.' });
   }
   if (job.pod_submission_idempotency_key === podKey) {
+    // In-progress replay: check fingerprint if provided.
+    if (
+      payloadFingerprint !== null &&
+      job.pod_payload_fingerprint !== null &&
+      job.pod_payload_fingerprint !== payloadFingerprint
+    ) {
+      return respond(409, {
+        error: 'idempotency_conflict: POD key already used with a different payload.',
+      });
+    }
     return respond(200, { ok: true, job: mapJob(job) });
   }
 
@@ -258,6 +287,7 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
       pod_generated: true,
       pod_generated_at: now,
       pod_submission_idempotency_key: podKey,
+      pod_payload_fingerprint: payloadFingerprint,
       updated_at: now,
     })
     .eq('id', jobId)

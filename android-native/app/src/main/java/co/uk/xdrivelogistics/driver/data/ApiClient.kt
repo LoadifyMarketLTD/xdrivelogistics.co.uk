@@ -808,7 +808,7 @@ class ApiClient(
     }
 
     suspend fun loadAssignedJobs(session: DriverSession, profile: DriverProfile): Result<List<DriverJob>> = networkResult {
-        val select = "id,status,current_status,pickup_location,delivery_location,pickup_datetime,delivery_datetime,client_name,client_phone,collection_contact_name,collection_contact_phone,delivery_contact_name,delivery_contact_phone,vehicle_type,cargo_type,budget_amount,load_details,delivery_photos,pod_photos,collection_photo_url,delivery_signature_data,client_signature_name,pod_required,distance_miles,job_distance_miles,job_distance_minutes,pickup_postcode,delivery_postcode,pallets,weight_kg,special_requirements,access_restrictions"
+        val select = "id,status,current_status,pickup_location,delivery_location,pickup_datetime,delivery_datetime,client_name,client_phone,collection_contact_name,collection_contact_phone,delivery_contact_name,delivery_contact_phone,vehicle_type,cargo_type,budget_amount,load_details,delivery_photos,pod_photos,collection_photo_url,delivery_signature_data,client_signature_name,pod_required,pod_generated,distance_miles,job_distance_miles,job_distance_minutes,pickup_postcode,delivery_postcode,pallets,weight_kg,special_requirements,access_restrictions"
         val encodedDriverId = URLEncoder.encode(profile.driverId, StandardCharsets.UTF_8.toString())
         val encodedCompanyId = URLEncoder.encode(profile.companyId, StandardCharsets.UTF_8.toString())
         val query = "select=$select&or=(status.eq.posted,assigned_driver_id.eq.$encodedDriverId,assigned_company_id.eq.$encodedCompanyId,awarded_carrier_company_id.eq.$encodedCompanyId)&order=pickup_datetime.asc&limit=100"
@@ -866,6 +866,10 @@ class ApiClient(
                                 ?.takeUnless { it.isJsonNull }
                                 ?.asBoolean
                                 ?: true,
+                            podGenerated = row.get("pod_generated")
+                                ?.takeUnless { it.isJsonNull }
+                                ?.asBoolean
+                                ?: false,
                             pallets = row.get("pallets")?.takeUnless { it.isJsonNull }?.let { runCatching { it.asInt }.getOrNull() },
                             weightKg = row.doubleOrNull("weight_kg"),
                             specialRequirements = row.string("special_requirements"),
@@ -1030,6 +1034,198 @@ class ApiClient(
         }
     }
 
+    // =========================================================================
+    // Server-mediated POD workflow (Task 3)
+    // =========================================================================
+
+    /**
+     * Result returned by [initPodEvidenceUpload].
+     *
+     * @param path      Canonical storage path (e.g. "{jobId}/photos/{evidenceId}-file.jpg").
+     *                  Use as the `photoUris` / `documentUris` / `collectionPath` value
+     *                  in the finalisation call.
+     * @param signedUrl Pre-signed PUT URL that the client uses to upload the bytes.
+     * @param token     Upload token (may be required by the storage client SDK).
+     * @param expiresIn Seconds until the signed URL expires.
+     */
+    data class PodUploadInitResult(
+        val path: String,
+        val signedUrl: String,
+        val token: String,
+        val expiresIn: Int,
+    )
+
+    /**
+     * Request a server-issued signed upload URL for one piece of POD evidence.
+     *
+     * The server validates driver assignment ownership, MIME type, byte size, and
+     * returns a deterministic canonical storage path. Call this before uploading
+     * any evidence bytes and before modifying any local state.
+     *
+     * @param kind  "photos" for delivery evidence, "documents" for doc evidence,
+     *              "collection" for collection-phase proof.
+     */
+    suspend fun initPodEvidenceUpload(
+        session: DriverSession,
+        jobId: String,
+        podKey: String,
+        evidenceId: String,
+        fileName: String,
+        mimeType: String,
+        byteSize: Long,
+        kind: String,
+    ): Result<PodUploadInitResult> = networkResult {
+        val requestBody = gson.toJson(
+            mapOf(
+                "podKey" to podKey,
+                "evidenceId" to evidenceId,
+                "fileName" to fileName,
+                "mimeType" to mimeType,
+                "byteSize" to byteSize,
+                "kind" to kind,
+            )
+        ).toRequestBody(jsonMediaType)
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/jobs/$jobId/pod-upload-init")
+            .addHeader("Authorization", "******")
+            .addHeader("Content-Type", "application/json")
+            .post(requestBody)
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw IllegalStateException(extractError(raw, "Failed to initialise evidence upload."))
+            }
+            val json = gson.fromJson(raw, JsonObject::class.java)
+            PodUploadInitResult(
+                path = json.get("path")?.asString
+                    ?: throw IllegalStateException("Upload init response missing 'path'."),
+                signedUrl = json.get("signedUrl")?.asString
+                    ?: throw IllegalStateException("Upload init response missing 'signedUrl'."),
+                token = json.get("token")?.asString.orEmpty(),
+                expiresIn = json.get("expiresIn")?.asInt ?: 600,
+            )
+        }
+    }
+
+    /**
+     * Upload evidence bytes directly to a Supabase Storage signed URL.
+     *
+     * This is a plain HTTP PUT — no XDrive auth header is needed because the
+     * signed URL already encodes the server-issued permission grant.
+     */
+    suspend fun uploadEvidenceBytes(
+        signedUrl: String,
+        bytes: ByteArray,
+        mimeType: String,
+    ): Result<Unit> = networkResult {
+        val request = Request.Builder()
+            .url(signedUrl)
+            .addHeader("Content-Type", mimeType)
+            .put(bytes.toRequestBody(mimeType.toMediaType()))
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw IllegalStateException(extractError(raw, "Evidence upload failed."))
+            }
+        }
+    }
+
+    /**
+     * Finalise a collection proof by submitting the canonical storage path to the
+     * server. The server validates assignment ownership, verifies the file exists
+     * in storage, and sets `collection_photo_url` atomically.
+     *
+     * Idempotent: the same [podKey] replays as success.
+     */
+    suspend fun finaliseCollectionProof(
+        session: DriverSession,
+        jobId: String,
+        podKey: String,
+        collectionPath: String,
+    ): Result<Unit> = networkResult {
+        val requestBody = gson.toJson(
+            mapOf("podKey" to podKey, "collectionPath" to collectionPath)
+        ).toRequestBody(jsonMediaType)
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/jobs/$jobId/collection-proof")
+            .addHeader("Authorization", "******")
+            .addHeader("Content-Type", "application/json")
+            .post(requestBody)
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw IllegalStateException(extractError(raw, "Failed to submit collection proof."))
+            }
+        }
+    }
+
+    /**
+     * Finalise a delivery POD by submitting all evidence, recipient name, and
+     * optional signature to the server's POD endpoint.
+     *
+     * The server validates assignment ownership, evidence file existence in
+     * storage, the recipient name requirement, and the stable submission key.
+     *
+     * Idempotent: same [podKey] + same [payloadFingerprint] replays as 200.
+     * Same [podKey] + different [payloadFingerprint] returns 409 (conflict).
+     *
+     * @param podKey              Stable idempotency key for this submission.
+     * @param recipientName       Name of the person who received the delivery.
+     * @param signatureDataUri    Optional base64 image data URI of a drawn signature.
+     * @param photoPaths          Canonical storage paths for delivery photos.
+     * @param documentPaths       Canonical storage paths for POD documents.
+     * @param notes               Optional delivery notes.
+     * @param payloadFingerprint  Hex SHA-256 of the payload for conflict detection.
+     * @return Updated [DriverJob] on success.
+     */
+    suspend fun finalisePod(
+        session: DriverSession,
+        jobId: String,
+        podKey: String,
+        recipientName: String,
+        signatureDataUri: String?,
+        photoPaths: List<String>,
+        documentPaths: List<String>,
+        notes: String? = null,
+        payloadFingerprint: String? = null,
+    ): Result<Unit> = networkResult {
+        val bodyMap = mutableMapOf<String, Any?>(
+            "podKey" to podKey,
+            "recipientName" to recipientName,
+            "photoUris" to photoPaths,
+            "documentUris" to documentPaths,
+        )
+        if (!signatureDataUri.isNullOrBlank()) bodyMap["signatureData"] = signatureDataUri
+        if (!notes.isNullOrBlank()) bodyMap["notes"] = notes
+        if (!payloadFingerprint.isNullOrBlank()) bodyMap["payloadFingerprint"] = payloadFingerprint
+
+        val requestBody = gson.toJson(bodyMap).toRequestBody(jsonMediaType)
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/jobs/$jobId/pod")
+            .addHeader("Authorization", "******")
+            .addHeader("Content-Type", "application/json")
+            .post(requestBody)
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw IllegalStateException(extractError(raw, "Failed to finalise POD submission."))
+            }
+        }
+    }
+
+    @Deprecated(
+        "Direct storage upload bypasses the authorised API boundary. " +
+            "Use initPodEvidenceUpload + uploadEvidenceBytes + finalisePod instead.",
+        level = DeprecationLevel.WARNING,
+    )
     suspend fun uploadPodDocument(
         session: DriverSession,
         driverId: String,
@@ -1074,7 +1270,15 @@ class ApiClient(
      * Patch-only phase: update the job record after storage upload is confirmed.
      * Extracted as a standalone method so it can be retried independently during crash
      * recovery (PodPendingStore) without re-uploading the file.
+     *
+     * @deprecated Direct jobs table PATCH bypasses the authorised API boundary.
+     * Use [finaliseCollectionProof] or [finalisePod] instead.
      */
+    @Deprecated(
+        "Direct jobs table PATCH bypasses the authorised API boundary. " +
+            "Use finaliseCollectionProof or finalisePod instead.",
+        level = DeprecationLevel.WARNING,
+    )
     suspend fun patchPodJobRecord(
         session: DriverSession,
         driverId: String,
@@ -1114,6 +1318,17 @@ class ApiClient(
             }
         }
     }
+
+    /**
+     * @deprecated Direct jobs table PATCH bypasses the authorised API boundary.
+     * Use [finalisePod] instead, which submits recipient, evidence paths, and the
+     * stable POD key through the authenticated /api/driver/mobile endpoint.
+     */
+    @Deprecated(
+        "Direct jobs table PATCH bypasses the authorised API boundary. " +
+            "Use finalisePod instead.",
+        level = DeprecationLevel.WARNING,
+    )
     suspend fun confirmDeliveryRecipient(
         session: DriverSession,
         driverId: String,

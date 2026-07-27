@@ -44,6 +44,8 @@ data class DriverJob(
     val deliverySignatureData: String? = null,
     val clientSignatureName: String = "",
     val podRequired: Boolean = true,
+    /** True when the server has confirmed a complete POD submission via the mobile API. */
+    val podGenerated: Boolean = false,
     val pallets: Int? = null,
     val weightKg: Double? = null,
     val specialRequirements: String = "",
@@ -80,11 +82,11 @@ data class DriverJob(
         "paid",
     )
 
-    fun hasPod(): Boolean = deliveryPhotos.isNotEmpty() || podPhotos.isNotEmpty()
+    fun hasPod(): Boolean = podGenerated || deliveryPhotos.isNotEmpty() || podPhotos.isNotEmpty()
 
     fun hasCollectionProof(): Boolean = !collectionPhotoUrl.isNullOrBlank()
 
-    fun hasDeliveryConfirmation(): Boolean = !podRequired || (
+    fun hasDeliveryConfirmation(): Boolean = !podRequired || podGenerated || (
         hasPod() &&
             !deliverySignatureData.isNullOrBlank() &&
             clientSignatureName.isNotBlank()
@@ -129,6 +131,7 @@ data class DriverJob(
         "loaded" -> if (hasCollectionProof()) null else "Take or upload a collection photo before marking the job Loaded."
         "delivered" -> when {
             !podRequired -> null
+            podGenerated -> null  // server-confirmed POD evidence is complete
             !hasPod() -> "Upload a signed POD or delivery photo before marking the job Delivered."
             clientSignatureName.isBlank() -> "Enter and save the recipient name before marking the job Delivered."
             deliverySignatureData.isNullOrBlank() -> "Confirm the signed POD evidence before marking the job Delivered."

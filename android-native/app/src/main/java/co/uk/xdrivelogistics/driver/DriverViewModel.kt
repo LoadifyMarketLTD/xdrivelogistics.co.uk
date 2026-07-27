@@ -27,6 +27,7 @@ import co.uk.xdrivelogistics.driver.offline.MobileOfflineQueueStore
 import co.uk.xdrivelogistics.driver.offline.MobileQueueItem
 import co.uk.xdrivelogistics.driver.offline.MobileQueueState
 import co.uk.xdrivelogistics.driver.offline.PodPendingStore
+import co.uk.xdrivelogistics.driver.offline.PodSubmissionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -69,6 +70,8 @@ data class DriverUiState(
     val availability: DriverAvailability? = null,
     val message: String = "",
     val error: String = "",
+    /** Job IDs for which POD evidence has been uploaded but not yet finalised by the server. */
+    val pendingPodJobIds: Set<String> = emptySet(),
 )
 
 data class DriverJobSyncState(
@@ -82,6 +85,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val activeJobSelectionStore = ActiveJobSelectionStore(application.applicationContext)
     private val queueStore = MobileOfflineQueueStore(application.applicationContext)
     private val podPendingStore = PodPendingStore(application.applicationContext)
+    private val podSubmissionStore = PodSubmissionStore(application.applicationContext)
     private val mutationQueue = MobileOfflineQueue()
     private val api = ApiClient(
         xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
@@ -614,78 +618,176 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
 
-            // Write-ahead record before any network call so crash recovery can retry the patch phase.
-            val pendingKey = "pod_${session.userId}_${selectedJob.id}_${System.currentTimeMillis()}"
-            val safeName = fileName.ifBlank { "pod.jpg" }.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
-            val anticipatedPath = "driver-${profile.driverId}/${selectedJob.id}/${System.currentTimeMillis()}-$safeName"
-            val pendingRec = PodPendingStore.PodPendingRecord(
-                key = pendingKey,
-                ownerUserId = session.userId,
-                driverId = profile.driverId,
-                jobId = selectedJob.id,
-                storagePath = anticipatedPath,
-                needsCollectionProof = selectedJob.needsCollectionProof(),
-                existingDeliveryPhotos = selectedJob.deliveryPhotos,
-                existingPodPhotos = selectedJob.podPhotos,
-                recordedAt = System.currentTimeMillis(),
-            )
-            podPendingStore.record(pendingRec)
-
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.uploadPodDocument(
-                session = session,
-                driverId = profile.driverId,
-                job = selectedJob,
-                fileName = fileName,
+
+            val isCollection = selectedJob.needsCollectionProof()
+            val kind = if (isCollection) "collection" else "photos"
+            val safeName = fileName.ifBlank { "pod.jpg" }.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
+
+            // Generate stable per-evidence identifiers before any network call.
+            val nonce = java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+            val evidenceId = "ev-${session.userId.take(8)}-$nonce"
+            val podKey = podSubmissionStore.getForOwnerJob(session.userId, selectedJob.id)?.podKey
+                ?: "pod-${selectedJob.id.take(8)}-${session.userId.take(8)}-$nonce"
+
+            // Compute SHA-256 fingerprint for idempotency conflict detection.
+            val sha256 = computeSha256Hex(bytes)
+
+            // Record the evidence intent before any network call (crash safety).
+            val evidenceRecord = PodSubmissionStore.EvidenceRecord(
+                evidenceId = evidenceId,
+                localUri = "",   // no persistent URI at this stage — bytes held in memory
+                sha256Hex = sha256,
                 mimeType = mimeType,
-                bytes = bytes,
+                byteSize = bytes.size.toLong(),
+                kind = kind,
             )
-                .onSuccess { actualPath ->
-                    // Clear write-ahead record now that both phases succeeded.
-                    podPendingStore.clear(pendingKey)
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        message = if (selectedJob.needsCollectionProof()) {
-                            "Collection proof uploaded."
+            val existingRecord = podSubmissionStore.getForOwnerJob(session.userId, selectedJob.id)
+            if (existingRecord == null) {
+                podSubmissionStore.recordSubmission(
+                    PodSubmissionStore.PodSubmissionRecord(
+                        podKey = podKey,
+                        payloadFingerprint = null,
+                        ownerUserId = session.userId,
+                        driverId = profile.driverId,
+                        jobId = selectedJob.id,
+                        recipientName = "",
+                        signatureDataUri = null,
+                        notes = null,
+                        evidence = listOf(evidenceRecord),
+                    )
+                )
+            }
+
+            // Phase 1: obtain server-issued signed upload URL.
+            api.initPodEvidenceUpload(
+                session = session,
+                jobId = selectedJob.id,
+                podKey = podKey,
+                evidenceId = evidenceId,
+                fileName = safeName,
+                mimeType = mimeType,
+                byteSize = bytes.size.toLong(),
+                kind = kind,
+            ).onFailure { error ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = error.friendlyDriverMessage("Failed to initialise evidence upload."),
+                )
+                return@launch
+            }.onSuccess { initResult ->
+                podSubmissionStore.markEvidenceInitiated(session.userId, selectedJob.id, evidenceId)
+
+                // Phase 2: upload bytes to the signed URL.
+                api.uploadEvidenceBytes(initResult.signedUrl, bytes, mimeType)
+                    .onFailure { error ->
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = error.friendlyDriverMessage("Failed to upload evidence."),
+                        )
+                        return@launch
+                    }
+                    .onSuccess {
+                        podSubmissionStore.markEvidenceUploaded(
+                            session.userId,
+                            selectedJob.id,
+                            evidenceId,
+                            initResult.path,
+                        )
+
+                        if (isCollection) {
+                            // Phase 3 (collection): finalise immediately — no recipient step.
+                            api.finaliseCollectionProof(
+                                session = session,
+                                jobId = selectedJob.id,
+                                podKey = podKey,
+                                collectionPath = initResult.path,
+                            ).onSuccess {
+                                podSubmissionStore.clearSubmission(session.userId, selectedJob.id)
+                                _uiState.value = _uiState.value.copy(
+                                    isLoading = false,
+                                    message = "Collection proof uploaded.",
+                                )
+                                refreshDriverData()
+                            }.onFailure { error ->
+                                _uiState.value = _uiState.value.copy(
+                                    isLoading = false,
+                                    error = error.friendlyDriverMessage("Failed to submit collection proof."),
+                                )
+                            }
                         } else {
-                            "Delivery proof uploaded."
-                        },
-                    )
-                    refreshDriverData()
-                }
-                .onFailure { error ->
-                    podPendingStore.clear(pendingKey)
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.friendlyDriverMessage("Failed to upload POD."),
-                    )
-                }
+                            // Phase 3 (delivery): wait for recipient confirmation.
+                            val newPending = _uiState.value.pendingPodJobIds + selectedJob.id
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                message = "Evidence uploaded. Enter recipient name to confirm POD.",
+                                pendingPodJobIds = newPending,
+                            )
+                        }
+                    }
+            }
         }
     }
 
     /**
-     * On session restore, retry any POD patch-phase operations that were started
-     * but not confirmed before the previous app crash.
+     * Resume any in-progress POD submissions that were interrupted by an app crash
+     * or killed-process restart. Called once per session restore.
+     *
+     * For records in READY_TO_FINALISE state (upload succeeded, server call not confirmed),
+     * retries [finalisePod]. Records in PENDING state (upload not confirmed) are left
+     * for the user to re-trigger; after [PodSubmissionStore.MAX_ATTEMPTS] finalisation
+     * failures the record is quarantined.
+     *
+     * Legacy [PodPendingStore] records from the old direct-PATCH workflow are also
+     * retried for backward compatibility during the transition period.
      */
     private suspend fun recoverPendingPodUploads(session: DriverSession) {
-        val pending = podPendingStore.pendingForOwner(session.userId)
-        if (pending.isEmpty()) return
-        for (rec in pending) {
-            podPendingStore.markAttempted(rec.key)
-            api.patchPodJobRecord(
-                session = session,
-                driverId = rec.driverId,
-                jobId = rec.jobId,
-                storagePath = rec.storagePath,
-                needsCollectionProof = rec.needsCollectionProof,
-                existingDeliveryPhotos = rec.existingDeliveryPhotos,
-                existingPodPhotos = rec.existingPodPhotos,
-            ).onSuccess {
-                podPendingStore.clear(rec.key)
+        // New server-mediated submissions.
+        for (rec in podSubmissionStore.pendingForOwner(session.userId)) {
+            if (rec.state == PodSubmissionStore.SubmissionState.READY_TO_FINALISE &&
+                rec.recipientName.isNotBlank()
+            ) {
+                podSubmissionStore.incrementAttemptCount(session.userId, rec.jobId)
+                val photoPaths = rec.evidence
+                    .filter { it.kind == "photos" && it.storagePath != null }
+                    .mapNotNull { it.storagePath }
+                val documentPaths = rec.evidence
+                    .filter { it.kind == "documents" && it.storagePath != null }
+                    .mapNotNull { it.storagePath }
+
+                api.finalisePod(
+                    session = session,
+                    jobId = rec.jobId,
+                    podKey = rec.podKey,
+                    recipientName = rec.recipientName,
+                    signatureDataUri = rec.signatureDataUri,
+                    photoPaths = photoPaths,
+                    documentPaths = documentPaths,
+                    notes = rec.notes,
+                    payloadFingerprint = rec.payloadFingerprint,
+                ).onSuccess {
+                    podSubmissionStore.clearSubmission(session.userId, rec.jobId)
+                }
+                // On failure, leave record. Quarantine after MAX_ATTEMPTS.
+                val updated = podSubmissionStore.getForOwnerJob(session.userId, rec.jobId)
+                if ((updated?.attemptCount ?: 0) >= PodSubmissionStore.MAX_ATTEMPTS) {
+                    podSubmissionStore.clearSubmission(session.userId, rec.jobId)
+                }
             }
-            // On failure, leave the record for the next session restart.
-            // After 5 attempts, quarantine to avoid infinite retry.
-            if ((rec.attemptCount + 1) >= 5) podPendingStore.clear(rec.key)
+            // Jobs that have pending evidence (not yet collected recipient name) are surfaced
+            // in UI via pendingPodJobIds so the driver can complete the flow.
+            if (rec.state != PodSubmissionStore.SubmissionState.READY_TO_FINALISE ||
+                rec.recipientName.isBlank()
+            ) {
+                val allUploaded = rec.evidence.all {
+                    it.state == PodSubmissionStore.EvidenceState.UPLOADED
+                }
+                if (allUploaded) {
+                    _uiState.value = _uiState.value.copy(
+                        pendingPodJobIds = _uiState.value.pendingPodJobIds + rec.jobId,
+                    )
+                }
+            }
         }
     }
 
@@ -698,10 +800,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 _uiState.value = _uiState.value.copy(error = "Select a job first.")
                 return@launch
             }
-            if (!selectedJob.hasPod()) {
+
+            val hasPendingEvidence = selectedJob.id in _uiState.value.pendingPodJobIds
+            if (!hasPendingEvidence && !selectedJob.hasPod()) {
                 _uiState.value = _uiState.value.copy(error = "Upload the signed POD evidence before confirming the recipient.")
                 return@launch
             }
+
             val cleanName = recipientName.trim()
             if (cleanName.isBlank()) {
                 _uiState.value = _uiState.value.copy(error = "Enter the recipient name.")
@@ -709,20 +814,99 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.confirmDeliveryRecipient(session, profile.driverId, selectedJob, cleanName)
-                .onSuccess {
+
+            // Obtain the pending submission record so we can call finalisePod with the
+            // evidence paths and the stable podKey.
+            val submission = podSubmissionStore.getForOwnerJob(session.userId, selectedJob.id)
+
+            if (submission != null) {
+                // New server-mediated path.
+                val photoPaths = submission.evidence
+                    .filter { it.kind == "photos" && it.storagePath != null }
+                    .mapNotNull { it.storagePath }
+                val documentPaths = submission.evidence
+                    .filter { it.kind == "documents" && it.storagePath != null }
+                    .mapNotNull { it.storagePath }
+
+                if (photoPaths.isEmpty() && documentPaths.isEmpty()) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "No uploaded evidence found. Re-upload the POD photo.",
+                    )
+                    return@launch
+                }
+
+                // Compute payload fingerprint: SHA-256 of sorted paths + recipient name.
+                val fingerprintInput = (photoPaths + documentPaths).sorted().joinToString("|") +
+                    "|" + cleanName
+                val fingerprint = computeSha256Hex(fingerprintInput.toByteArray())
+
+                // Persist the recipient name and fingerprint so crash recovery can retry.
+                podSubmissionStore.recordSubmission(
+                    submission.copy(
+                        recipientName = cleanName,
+                        payloadFingerprint = fingerprint,
+                        state = PodSubmissionStore.SubmissionState.READY_TO_FINALISE,
+                    )
+                )
+
+                api.finalisePod(
+                    session = session,
+                    jobId = selectedJob.id,
+                    podKey = submission.podKey,
+                    recipientName = cleanName,
+                    signatureDataUri = submission.signatureDataUri,
+                    photoPaths = photoPaths,
+                    documentPaths = documentPaths,
+                    notes = submission.notes,
+                    payloadFingerprint = fingerprint,
+                ).onSuccess {
+                    podSubmissionStore.clearSubmission(session.userId, selectedJob.id)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         message = "Recipient and signed POD evidence confirmed.",
+                        pendingPodJobIds = _uiState.value.pendingPodJobIds - selectedJob.id,
                     )
                     refreshDriverData()
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = error.friendlyDriverMessage("Failed to confirm delivery evidence."),
                     )
                 }
+            } else if (selectedJob.hasPod()) {
+                // Fallback: job already has server-confirmed POD (podGenerated=true or photos set).
+                // The server's /pod endpoint is idempotent; submitting existing photo paths with a
+                // new key is safe for legacy jobs that were confirmed through the old direct-PATCH path.
+                val nonce = java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+                val fallbackKey = "pod-legacy-${selectedJob.id.take(8)}-$nonce"
+                api.finalisePod(
+                    session = session,
+                    jobId = selectedJob.id,
+                    podKey = fallbackKey,
+                    recipientName = cleanName,
+                    signatureDataUri = null,
+                    photoPaths = selectedJob.deliveryPhotos,
+                    documentPaths = selectedJob.podPhotos,
+                ).onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        message = "Recipient and signed POD evidence confirmed.",
+                        pendingPodJobIds = _uiState.value.pendingPodJobIds - selectedJob.id,
+                    )
+                    refreshDriverData()
+                }.onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = error.friendlyDriverMessage("Failed to confirm delivery evidence."),
+                    )
+                }
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "No POD evidence found. Upload the signed photo first.",
+                )
+            }
         }
     }
 
@@ -913,3 +1097,12 @@ private fun stableBidIntentKey(
         .joinToString("") { "%02x".format(it) }
     return "bid_$digest"
 }
+
+/**
+ * Compute the lowercase hex SHA-256 digest of [bytes].
+ * Used for POD payload fingerprinting and evidence integrity checks.
+ */
+private fun computeSha256Hex(bytes: ByteArray): String =
+    MessageDigest.getInstance("SHA-256")
+        .digest(bytes)
+        .joinToString("") { "%02x".format(it) }

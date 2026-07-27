@@ -1280,6 +1280,7 @@ private fun ActionScreen(
                         onCapturePodPhoto,
                         onPickPodFile,
                         onConfirmDeliveryRecipient,
+                        hasPendingEvidence = selected.id in state.pendingPodJobIds,
                     )
                 }
             }
@@ -1812,6 +1813,7 @@ private fun PodPanel(
     onCapturePodPhoto: () -> Unit,
     onPickPodFile: () -> Unit,
     onConfirmDeliveryRecipient: (String) -> Unit,
+    hasPendingEvidence: Boolean = false,
 ) {
     val collectionStage = job.needsCollectionProof()
     var recipientName by remember(job.id, job.clientSignatureName) {
@@ -1886,7 +1888,7 @@ private fun PodPanel(
             Spacer(Modifier.height(10.dp))
             Button(
                 onClick = { onConfirmDeliveryRecipient(recipientName) },
-                enabled = recipientName.isNotBlank() && job.hasPod(),
+                enabled = recipientName.isNotBlank() && (job.hasPod() || hasPendingEvidence),
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Success, contentColor = Navy),
                 shape = RoundedCornerShape(14.dp),
@@ -3006,8 +3008,6 @@ private fun DriverJob.isInProgress(): Boolean =
     driverStatusKey() in listOf("on_my_way", "on_site_pickup", "loaded", "on_site_delivery", "in_progress")
 
 private fun DriverJob.isActive(): Boolean = driverStatusKey() !in listOf("delivered", "completed", "cancelled", "canceled")
-
-private fun DriverJob.hasPod(): Boolean = podPhotos.isNotEmpty() || deliveryPhotos.isNotEmpty()
 
 private fun DriverJob.isPosted(): Boolean = driverStatusKey() == "posted"
 
