@@ -260,6 +260,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             jobs = jobs,
                         )
                         if (selectedJobId == null) activeJobSelectionStore.clearSelectedJobId(session.userId)
+                        // Guard: discard stale responses from a previous owner's session.
+                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             session = session,
@@ -279,6 +281,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         )
                     }
                     .onFailure { error ->
+                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
                         if (allowRefresh && error.isSessionError()) {
                             refreshAndRetry(session)
                         } else {
@@ -291,6 +294,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     }
             }
             .onFailure { error ->
+                if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
                 if (allowRefresh && error.isSessionError()) {
                     refreshAndRetry(session)
                 } else {

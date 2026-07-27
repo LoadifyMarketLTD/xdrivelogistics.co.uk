@@ -411,6 +411,53 @@ class DriverSelectionAndSyncStateTest {
         assertFalse(shouldApplyAvailabilityResponse(differentOwner, requestSession))
     }
 
+    @Test
+    fun `stale owner-A load response is rejected when current session has switched to B`() {
+        // Simulates: owner A started a full data load (loadDriverDataWithSession with sessionA),
+        // the UI switched directly to owner B (collectLatest fired, state cleared for B),
+        // then A's slow response arrives. The production guard used in loadDriverDataWithSession
+        // must reject the write so B's cleared availability and state remain intact.
+        val sessionA = DriverSession(
+            accessToken = "token-a",
+            refreshToken = "refresh-a",
+            userId = "user-a",
+            email = "a@example.com",
+        )
+        val sessionB = DriverSession(
+            accessToken = "token-b",
+            refreshToken = "refresh-b",
+            userId = "user-b",
+            email = "b@example.com",
+        )
+
+        // After switch to B: current state holds sessionB.
+        // A's load response arrives with requestSession = sessionA → must be rejected.
+        assertFalse(
+            "stale A response must not be applied after switch to B",
+            shouldApplyAvailabilityResponse(currentSession = sessionB, requestSession = sessionA),
+        )
+
+        // B's own load response: same owner and same token → must be accepted.
+        assertTrue(
+            "B own response must be accepted",
+            shouldApplyAvailabilityResponse(currentSession = sessionB, requestSession = sessionB),
+        )
+
+        // A's session refreshed a new token while B is current → also rejected (different owner).
+        val sessionARefreshed = sessionA.copy(accessToken = "token-a-v2")
+        assertFalse(
+            "A refreshed token must not overwrite B state",
+            shouldApplyAvailabilityResponse(currentSession = sessionB, requestSession = sessionARefreshed),
+        )
+
+        // Same owner A refreshed token: different access token even though same userId → rejected.
+        // Ensures an old-token A response cannot slip through after a token refresh.
+        assertFalse(
+            "same owner stale token must not overwrite state after token refresh",
+            shouldApplyAvailabilityResponse(currentSession = sessionARefreshed, requestSession = sessionA),
+        )
+    }
+
     private fun job(id: String, status: String = "allocated"): DriverJob = DriverJob(
         id = id,
         status = status,
