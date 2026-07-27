@@ -415,6 +415,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         error = error.friendlyDriverMessage("Failed to update job status."),
                     )
                 }
+        }
     }
 
     private suspend fun flushQueuedLifecycleMutations(session: DriverSession, profile: DriverProfile) {
