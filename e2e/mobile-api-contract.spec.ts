@@ -22,6 +22,11 @@ import {
 } from '../app/api/driver/mobile/jobs/[id]/pod-upload-init/idempotency';
 import { isDeterministicBidReplay, type IncomingBidReplayIntent, type StoredBidReplayRow } from '../app/api/driver/mobile/bids/idempotency';
 import { mapNearbyJob, type NearbyJobRow } from '../app/api/driver/mobile/nearby-jobs/serializer';
+import {
+  normalizeAvailabilitySlots,
+  normalizeAvailabilityStatus,
+  validateAvailabilityPutBody,
+} from '../app/api/driver/mobile/availability/contract';
 
 test.describe('mobile API — idempotency helper contract', () => {
   test('returns true for retries after lifecycle advancement', () => {
@@ -216,6 +221,50 @@ test.describe('mobile API — idempotency helper contract', () => {
   test('returns false for later current_status without proof in corrupted records', () => {
     expect(hasActionAlreadyApplied({ current_status: 'on_site_pickup' }, { currentStatus: 'on_my_way_to_pickup', timestampField: 'on_my_way_at' })).toBe(false);
     expect(hasActionAlreadyApplied({ current_status: 'delivered', status: 'allocated' }, { currentStatus: 'loaded', timestampField: 'loaded_at' })).toBe(false);
+  });
+});
+
+test.describe('mobile API — availability contract helper', () => {
+  test('normalizes sparse slot rows to deterministic 7x3 grid', () => {
+    const normalized = normalizeAvailabilitySlots([
+      { day_of_week: 0, slot: 'AM', available: true },
+      { day_of_week: 6, slot: 'EVENING', available: true },
+    ]);
+    expect(normalized).toHaveLength(21);
+    expect(normalized[0]).toEqual({ day_of_week: 0, slot: 'AM', available: true });
+    expect(normalized[1]).toEqual({ day_of_week: 0, slot: 'PM', available: false });
+    expect(normalized[2]).toEqual({ day_of_week: 0, slot: 'EVENING', available: false });
+    expect(normalized[normalized.length - 1]).toEqual({ day_of_week: 6, slot: 'EVENING', available: true });
+  });
+
+  test('normalizes status to exactly available busy offline', () => {
+    expect(normalizeAvailabilityStatus('available')).toBe('available');
+    expect(normalizeAvailabilityStatus('busy')).toBe('busy');
+    expect(normalizeAvailabilityStatus('offline')).toBe('offline');
+    expect(normalizeAvailabilityStatus('holiday')).toBe('offline');
+  });
+
+  test('rejects invalid status day slot and malformed body deterministically', () => {
+    expect(validateAvailabilityPutBody('invalid-json-shape')).toEqual({
+      ok: false,
+      error: 'Body must be a JSON object.',
+    });
+    expect(validateAvailabilityPutBody({ availability_status: 'on_holiday' })).toEqual({
+      ok: false,
+      error: 'availability_status must be one of: available, busy, offline.',
+    });
+    expect(validateAvailabilityPutBody({ slots: [{ day_of_week: 7, slot: 'AM', available: true }] })).toEqual({
+      ok: false,
+      error: 'Each slot.day_of_week must be an integer 0–6.',
+    });
+    expect(validateAvailabilityPutBody({ slots: [{ day_of_week: 1, slot: 'NIGHT', available: true }] })).toEqual({
+      ok: false,
+      error: 'Each slot.slot must be one of: AM, PM, EVENING.',
+    });
+    expect(validateAvailabilityPutBody({ slots: [{ day_of_week: 1, slot: 'AM', available: 'yes' }] })).toEqual({
+      ok: false,
+      error: 'Each slot.available must be a boolean.',
+    });
   });
 });
 
