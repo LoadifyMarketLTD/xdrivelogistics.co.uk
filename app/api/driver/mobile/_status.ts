@@ -40,21 +40,9 @@ const DRIVER_OPERATIONAL_ALIASES: Record<string, CanonicalOperationalStatus> = {
   delivered: 'delivered',
 };
 
-/**
- * Full alias map including marketplace-terminal states, used only by
- * normalizeDriverOperationalStatus for backward-compatible read normalisation.
- * Must never be used to determine the active driver operational status.
- */
-const DRIVER_STATUS_ALIASES: Record<string, CanonicalOperationalStatus> = {
-  ...DRIVER_OPERATIONAL_ALIASES,
-  completed: 'delivered',
-  invoiced: 'delivered',
-  paid: 'delivered',
-};
-
 export function normalizeDriverOperationalStatus(value: unknown): CanonicalOperationalStatus | null {
   const raw = String(value ?? '').toLowerCase().trim();
-  return DRIVER_STATUS_ALIASES[raw] ?? null;
+  return DRIVER_OPERATIONAL_ALIASES[raw] ?? null;
 }
 
 /**

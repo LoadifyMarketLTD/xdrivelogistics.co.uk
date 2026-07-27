@@ -64,16 +64,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const now = new Date().toISOString();
   const updatePayload: Record<string, unknown> = {
     current_status: config.toStatus,
-    status: config.toStatus,
     status_updated_at: now,
     updated_at: now,
     status_history: appendStatusHistory(job.status_history, {
-      status: config.toStatus,
       lifecycle_status: config.toStatus,
       label: config.label,
       timestamp: now,
       actor_user_id: driver.userId,
-      source: 'driver_mobile',
+      source: 'driver_operational',
     }),
   };
   if (config.timestampField) updatePayload[config.timestampField] = now;

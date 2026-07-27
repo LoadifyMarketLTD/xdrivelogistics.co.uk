@@ -157,6 +157,13 @@ test.describe('mobile API — idempotency helper contract', () => {
       expect(normalizeDriverOperationalStatus('assigned')).toBe('allocated');
     });
 
+    test('normalizeDriverOperationalStatus returns null for marketplace-terminal states', () => {
+      // Marketplace-terminal states must never resolve to an operational status.
+      expect(normalizeDriverOperationalStatus('completed')).toBeNull();
+      expect(normalizeDriverOperationalStatus('invoiced')).toBeNull();
+      expect(normalizeDriverOperationalStatus('paid')).toBeNull();
+    });
+
     test('CANONICAL_DRIVER_OPERATIONAL_STATUSES contains no legacy aliases', () => {
       const legacyAliases = [
         'assigned', 'on_my_way', 'arrived_pickup', 'collected',
@@ -182,7 +189,18 @@ test.describe('mobile API — idempotency helper contract', () => {
       current_status: null,
       status_history: [{ status: 'on_my_way_to_delivery' }, { status: 'on_site_delivery' }],
     }, { currentStatus: 'on_site_delivery', timestampField: 'on_site_delivery_at' })).toBe(true);
-    expect(hasActionAlreadyApplied({ current_status: null, status: 'delivered' }, { currentStatus: 'delivered', timestampField: 'delivered_at' })).toBe(true);
+    // New-format history entries use lifecycle_status; verify they are detected correctly.
+    expect(hasActionAlreadyApplied({
+      current_status: null,
+      status_history: [{ lifecycle_status: 'on_my_way_to_delivery' }, { lifecycle_status: 'on_site_delivery' }],
+    }, { currentStatus: 'on_site_delivery', timestampField: 'on_site_delivery_at' })).toBe(true);
+  });
+
+  test('marketplace status field is not consulted for delivered idempotency detection', () => {
+    // job.status (marketplace) is never written to by driver operational actions.
+    // A null current_status with only job.status='delivered' must NOT be treated as
+    // already-applied — this would wrongly gate a retry from a non-operational row.
+    expect(hasActionAlreadyApplied({ current_status: null, status: 'delivered' }, { currentStatus: 'delivered', timestampField: 'delivered_at' })).toBe(false);
   });
 
   test('returns false when action has not been applied yet', () => {
@@ -198,6 +216,21 @@ test.describe('mobile API — idempotency helper contract', () => {
 // ─── Static endpoint shape tests ─────────────────────────────────────────────
 
 test.describe('mobile API — static shape contract', () => {
+  test('driver lifecycle actions only update current_status, not marketplace status', () => {
+    // Contract: no action config value maps to the jobs.status field.
+    // The route must only write canonical operational values to current_status.
+    for (const [, config] of Object.entries(actions)) {
+      expect(CANONICAL_DRIVER_OPERATIONAL_STATUSES as readonly string[]).toContain(config.fromStatus);
+      expect(CANONICAL_DRIVER_OPERATIONAL_STATUSES as readonly string[]).toContain(config.toStatus);
+    }
+    // Verify all toStatus values are canonical — none are marketplace values.
+    const marketplaceOnlyValues = ['completed', 'invoiced', 'paid', 'allocated', 'posted', 'quoted', 'awarded'];
+    const actionToStatuses = Object.values(actions).map((c) => c.toStatus);
+    for (const s of actionToStatuses) {
+      expect(marketplaceOnlyValues).not.toContain(s);
+    }
+  });
+
   test('GET /api/driver/mobile/config returns expected shape or 503', async ({ request }) => {
     const response = await request.get('/api/driver/mobile/config');
     expect([200, 503]).toContain(response.status());
