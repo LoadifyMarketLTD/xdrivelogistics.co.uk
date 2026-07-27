@@ -2,9 +2,6 @@ package co.uk.xdrivelogistics.driver.offline
 
 import org.junit.Test
 import org.junit.Assert.*
-import org.mockito.kotlin.*
-import android.content.Context
-import android.content.SharedPreferences
 
 /**
  * Unit tests for [PodSubmissionStore] covering:
