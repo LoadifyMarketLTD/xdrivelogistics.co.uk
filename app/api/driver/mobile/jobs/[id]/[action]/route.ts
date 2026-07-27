@@ -102,14 +102,33 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!existing) return respond(404, { error: 'Job not found.' });
 
   const job = existing as unknown as MobileJobRow;
-  const lifecycle = String(job.status ?? '').toLowerCase();
-  if (!config.allowedLifecycle.includes(lifecycle)) {
-    return respond(409, { error: `Job cannot perform ${action} from ${lifecycle || 'unknown'} status.` });
+
+  // Normalise legacy current_status aliases to their canonical equivalents so
+  // that idempotency detection works on jobs written by older code paths.
+  //   on_my_way   → on_my_way_to_pickup   (current_status only)
+  // Note: the lifecycle status field (job.status) uses a separate set of
+  // values (allocated, collected, in_transit, delivered) that do NOT need
+  // normalisation — they are the raw DB lifecycle stage values used by
+  // allowedLifecycle checks below.
+  function normalizeCurrentStatus(value: string): string {
+    const s = value.toLowerCase().trim();
+    if (s === 'on_my_way') return 'on_my_way_to_pickup';
+    return s;
   }
 
-  // Idempotency: if the job already has the target current_status, return success without re-applying.
-  if (String(job.current_status ?? '').toLowerCase() === config.currentStatus) {
+  // Idempotency FIRST — before lifecycle validation.
+  // An offline-queue retry arrives after the transition has already been
+  // applied.  At that point job.status may have advanced past the values in
+  // allowedLifecycle, so the lifecycle check would return 409 instead of 200.
+  // Checking current_status (the granular driver step) first prevents that.
+  if (normalizeCurrentStatus(String(job.current_status ?? '')) === config.currentStatus) {
     return respond(200, { ok: true, job: mapJob(job) });
+  }
+
+  // Lifecycle validation: only now reject disallowed transitions.
+  const lifecycle = String(job.status ?? '').toLowerCase().trim();
+  if (!config.allowedLifecycle.includes(lifecycle)) {
+    return respond(409, { error: `Job cannot perform ${action} from ${lifecycle || 'unknown'} status.` });
   }
 
   if (config.requiresPod && job.pod_required !== false && !hasPod(job)) {
