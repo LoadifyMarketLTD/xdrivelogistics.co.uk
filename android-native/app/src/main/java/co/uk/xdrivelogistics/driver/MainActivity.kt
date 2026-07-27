@@ -82,6 +82,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
 import co.uk.xdrivelogistics.driver.data.DriverJob
+import co.uk.xdrivelogistics.driver.data.DriverAvailability
+import co.uk.xdrivelogistics.driver.data.DriverAvailabilityStatus
+import co.uk.xdrivelogistics.driver.data.DriverAvailabilitySlot
 import co.uk.xdrivelogistics.driver.data.DriverDocument
 import co.uk.xdrivelogistics.driver.data.DriverBid
 import co.uk.xdrivelogistics.driver.data.DriverNotification
@@ -321,6 +324,8 @@ class MainActivity : ComponentActivity() {
                                 val encoded = Uri.encode(destination)
                                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$encoded")))
                             },
+                            onSetAvailabilityStatus = viewModel::setAvailabilityStatus,
+                            onToggleAvailabilitySlot = viewModel::toggleAvailabilitySlot,
                         )
                     }
                 }
@@ -483,8 +488,9 @@ private fun DriverAppShell(
     onPickComplianceDocument: (ComplianceDocOption) -> Unit,
     onCapturePodPhoto: () -> Unit,
     onNavigateTo: (String) -> Unit,
+    onSetAvailabilityStatus: (DriverAvailabilityStatus) -> Unit,
+    onToggleAvailabilitySlot: (Int, String, Boolean) -> Unit,
 ) {
-    var availability by remember { mutableStateOf("Available") }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -517,7 +523,7 @@ private fun DriverAppShell(
                     onNavigateTo = onNavigateTo,
                 )
                 DriverTab.MESSAGES -> MessagesScreen(state, onSendNote, onMarkAlertRead, onDeleteAlert)
-                DriverTab.PROFILE -> ProfileScreen(state, onUpdatePassword, onLogout, onPickComplianceDocument, onSaveReturnJourney, onStartTracking, onStopTracking)
+                DriverTab.PROFILE -> ProfileScreen(state, onUpdatePassword, onLogout, onPickComplianceDocument, onSaveReturnJourney, onStartTracking, onStopTracking, onSetAvailabilityStatus, onToggleAvailabilitySlot)
             }
         }
 
@@ -1975,6 +1981,8 @@ private fun ProfileScreen(
     onSaveReturnJourney: (String, String, String) -> Unit,
     onStartTracking: () -> Unit,
     onStopTracking: () -> Unit,
+    onSetAvailabilityStatus: (DriverAvailabilityStatus) -> Unit,
+    onToggleAvailabilitySlot: (Int, String, Boolean) -> Unit,
 ) {
     var password by remember { mutableStateOf("") }
     var journeyFrom by remember(state.returnJourney?.id) { mutableStateOf(state.returnJourney?.fromLocation.orEmpty()) }
@@ -2038,6 +2046,13 @@ private fun ProfileScreen(
                     ) { Text("Stop", fontWeight = FontWeight.Bold) }
                 }
             }
+        }
+        item {
+            AvailabilityCard(
+                availability = state.availability,
+                onSetStatus = onSetAvailabilityStatus,
+                onToggleSlot = onToggleAvailabilitySlot,
+            )
         }
         item {
             XDriveCard {
@@ -2140,6 +2155,95 @@ private fun XDriveHeroMark() {
             }
         }
         Text("Delivering today. Driving tomorrow.", color = TextPrimary, fontSize = 15.sp)
+    }
+}
+
+@Composable
+private fun AvailabilityCard(
+    availability: DriverAvailability?,
+    onSetStatus: (DriverAvailabilityStatus) -> Unit,
+    onToggleSlot: (Int, String, Boolean) -> Unit,
+) {
+    val statusOptions = DriverAvailabilityStatus.entries
+    val currentStatus = availability?.status ?: DriverAvailabilityStatus.OFFLINE
+    val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    val slots = listOf("AM", "PM", "EVENING")
+
+    XDriveCard {
+        Text("Availability", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 18.sp)
+        Spacer(Modifier.height(4.dp))
+        Text("Set your working status and weekly schedule.", color = TextSecondary, fontSize = 13.sp)
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            statusOptions.forEach { option ->
+                val isActive = option == currentStatus
+                val bgColor = when (option) {
+                    DriverAvailabilityStatus.AVAILABLE -> if (isActive) Success else Panel
+                    DriverAvailabilityStatus.BUSY -> if (isActive) Yellow else Panel
+                    DriverAvailabilityStatus.OFFLINE -> if (isActive) Danger else Panel
+                }
+                Button(
+                    onClick = { onSetStatus(option) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = bgColor,
+                        contentColor = if (isActive) Navy else TextSecondary,
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                ) {
+                    Text(option.label, fontWeight = if (isActive) FontWeight.Black else FontWeight.Normal, fontSize = 12.sp)
+                }
+            }
+        }
+        if (availability == null) {
+            Spacer(Modifier.height(8.dp))
+            Text("Loading availability…", color = TextSecondary, fontSize = 13.sp)
+        } else {
+            Spacer(Modifier.height(14.dp))
+            Text("Weekly Schedule", color = TextSecondary, fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 1.sp)
+            Spacer(Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Spacer(Modifier.width(42.dp))
+                slots.forEach { slotName ->
+                    Text(
+                        slotName,
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+            days.forEachIndexed { dayIndex, dayName ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(dayName, color = TextPrimary, fontSize = 13.sp, modifier = Modifier.width(42.dp))
+                    slots.forEach { slotName ->
+                        val isOn = availability.slots.any { it.dayOfWeek == dayIndex && it.slot == slotName && it.available }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(2.dp)
+                                .height(28.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (isOn) Success else Panel)
+                                .clickable { onToggleSlot(dayIndex, slotName, !isOn) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                if (isOn) "✓" else "–",
+                                color = if (isOn) Navy else TextSecondary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

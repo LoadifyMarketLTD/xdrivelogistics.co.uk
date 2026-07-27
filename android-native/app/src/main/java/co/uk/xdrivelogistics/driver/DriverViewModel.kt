@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import co.uk.xdrivelogistics.driver.data.ApiClient
+import co.uk.xdrivelogistics.driver.data.DriverAvailability
+import co.uk.xdrivelogistics.driver.data.DriverAvailabilityStatus
 import co.uk.xdrivelogistics.driver.data.DriverBid
 import co.uk.xdrivelogistics.driver.data.DriverDocument
 import co.uk.xdrivelogistics.driver.data.DriverJob
@@ -62,6 +64,7 @@ data class DriverUiState(
     val selectedTab: DriverTab = DriverTab.NEARBY,
     val selectedJobId: String? = null,
     val jobSyncStates: Map<String, DriverJobSyncState> = emptyMap(),
+    val availability: DriverAvailability? = null,
     val message: String = "",
     val error: String = "",
 )
@@ -179,6 +182,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 val invoices = api.loadDriverInvoices(session, profile.companyId).getOrDefault(emptyList())
                 val nearbyDrivers = api.loadNearbyDrivers(session, profile.companyId).getOrDefault(emptyList())
                 val marketplaceJobs = api.loadNearbyMarketplaceJobs(session).getOrDefault(emptyList())
+                val availability = api.loadAvailability(session).getOrNull()
                 api.loadAssignedJobs(session, profile)
                     .onSuccess { jobs ->
                         val rememberedSelection = activeJobSelectionStore.readSelectedJobId(session.userId)
@@ -203,6 +207,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             jobSearchPreferences = preferences,
                             selectedJobId = selectedJobId,
                             jobSyncStates = jobSyncStatesForOwner(session.userId),
+                            availability = availability ?: _uiState.value.availability,
                         )
                     }
                     .onFailure { error ->
@@ -717,6 +722,41 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = error.friendlyDriverMessage("Failed to update job preference."),
+                    )
+                }
+        }
+    }
+
+    fun setAvailabilityStatus(newStatus: DriverAvailabilityStatus) {
+        viewModelScope.launch {
+            val session = _uiState.value.session ?: return@launch
+            _uiState.value = _uiState.value.copy(error = "", message = "")
+            api.updateAvailabilityStatus(session, newStatus)
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        availability = updated,
+                        message = "Availability set to ${newStatus.label}.",
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        error = error.friendlyDriverMessage("Failed to update availability."),
+                    )
+                }
+        }
+    }
+
+    fun toggleAvailabilitySlot(dayOfWeek: Int, slot: String, available: Boolean) {
+        viewModelScope.launch {
+            val session = _uiState.value.session ?: return@launch
+            _uiState.value = _uiState.value.copy(error = "", message = "")
+            api.updateAvailabilitySlot(session, dayOfWeek, slot, available)
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(availability = updated)
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        error = error.friendlyDriverMessage("Failed to update slot."),
                     )
                 }
         }

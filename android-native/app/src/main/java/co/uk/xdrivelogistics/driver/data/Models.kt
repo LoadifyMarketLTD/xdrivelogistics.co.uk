@@ -199,6 +199,28 @@ data class DriverPreferences(
     val emailNotifications: Boolean = false,
 )
 
+enum class DriverAvailabilityStatus(val key: String, val label: String) {
+    AVAILABLE("available", "Available"),
+    BUSY("busy", "Busy"),
+    OFFLINE("offline", "Offline");
+
+    companion object {
+        fun fromKey(key: String): DriverAvailabilityStatus =
+            entries.firstOrNull { it.key == key } ?: OFFLINE
+    }
+}
+
+data class DriverAvailabilitySlot(
+    val dayOfWeek: Int,
+    val slot: String,
+    val available: Boolean,
+)
+
+data class DriverAvailability(
+    val status: DriverAvailabilityStatus,
+    val slots: List<DriverAvailabilitySlot>,
+)
+
 data class MarketplacePublicPrice(
     val visible: Boolean,
     val amount: Double?,

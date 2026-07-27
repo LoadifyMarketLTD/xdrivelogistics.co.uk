@@ -590,6 +590,113 @@ class ApiClient(
         }
     }
 
+    suspend fun loadAvailability(session: DriverSession): Result<DriverAvailability> = networkResult {
+        require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/availability")
+            .addHeader("Authorization", "******")
+            .get()
+            .build()
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to load availability.")
+            val json = gson.fromJson(raw, JsonObject::class.java)
+            val statusKey = json.string("availability_status").ifBlank { "offline" }
+            val slotsArr = json.getAsJsonArray("slots") ?: JsonArray()
+            val slots = buildList {
+                for (i in 0 until slotsArr.size()) {
+                    val s = slotsArr[i].asJsonObject
+                    add(
+                        DriverAvailabilitySlot(
+                            dayOfWeek = s.get("day_of_week")?.asInt ?: 0,
+                            slot = s.string("slot"),
+                            available = s.get("available")?.asBoolean ?: false,
+                        )
+                    )
+                }
+            }
+            DriverAvailability(
+                status = DriverAvailabilityStatus.fromKey(statusKey),
+                slots = slots,
+            )
+        }
+    }
+
+    suspend fun updateAvailabilityStatus(
+        session: DriverSession,
+        newStatus: DriverAvailabilityStatus,
+    ): Result<DriverAvailability> = networkResult {
+        require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
+        val body = gson.toJson(mapOf("availability_status" to newStatus.key))
+            .toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/availability")
+            .addHeader("Authorization", "******")
+            .put(body)
+            .build()
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to update availability.")
+            val json = gson.fromJson(raw, JsonObject::class.java)
+            val statusKey = json.string("availability_status").ifBlank { "offline" }
+            val slotsArr = json.getAsJsonArray("slots") ?: JsonArray()
+            val slots = buildList {
+                for (i in 0 until slotsArr.size()) {
+                    val s = slotsArr[i].asJsonObject
+                    add(
+                        DriverAvailabilitySlot(
+                            dayOfWeek = s.get("day_of_week")?.asInt ?: 0,
+                            slot = s.string("slot"),
+                            available = s.get("available")?.asBoolean ?: false,
+                        )
+                    )
+                }
+            }
+            DriverAvailability(status = DriverAvailabilityStatus.fromKey(statusKey), slots = slots)
+        }
+    }
+
+    suspend fun updateAvailabilitySlot(
+        session: DriverSession,
+        dayOfWeek: Int,
+        slot: String,
+        available: Boolean,
+    ): Result<DriverAvailability> = networkResult {
+        require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
+        val body = gson.toJson(
+            mapOf(
+                "slots" to listOf(
+                    mapOf("day_of_week" to dayOfWeek, "slot" to slot, "available" to available)
+                )
+            )
+        ).toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/availability")
+            .addHeader("Authorization", "******")
+            .put(body)
+            .build()
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to update slot.")
+            val json = gson.fromJson(raw, JsonObject::class.java)
+            val statusKey = json.string("availability_status").ifBlank { "offline" }
+            val slotsArr = json.getAsJsonArray("slots") ?: JsonArray()
+            val slots = buildList {
+                for (i in 0 until slotsArr.size()) {
+                    val s = slotsArr[i].asJsonObject
+                    add(
+                        DriverAvailabilitySlot(
+                            dayOfWeek = s.get("day_of_week")?.asInt ?: 0,
+                            slot = s.string("slot"),
+                            available = s.get("available")?.asBoolean ?: false,
+                        )
+                    )
+                }
+            }
+            DriverAvailability(status = DriverAvailabilityStatus.fromKey(statusKey), slots = slots)
+        }
+    }
+
     suspend fun setJobSearchPreference(
         session: DriverSession,
         driverId: String,
