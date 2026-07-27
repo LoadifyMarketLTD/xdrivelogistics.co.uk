@@ -647,7 +647,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 podSubmissionStore.recordSubmission(
                     PodSubmissionStore.PodSubmissionRecord(
                         podKey = podKey,
-                        payloadFingerprint = null,
+                        payloadFingerprint = sha256,
                         ownerUserId = session.userId,
                         driverId = profile.driverId,
                         jobId = selectedJob.id,
