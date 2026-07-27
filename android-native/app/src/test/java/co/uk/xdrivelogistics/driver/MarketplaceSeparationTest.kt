@@ -92,6 +92,30 @@ class MarketplaceSeparationTest {
         assertEquals("op-job-2", result?.id)
     }
 
+    @Test
+    fun `resolveActionScreenTargets prefers explicit marketplace selection over remembered operational selection`() {
+        val targets = resolveActionScreenTargets(
+            jobs = listOf(opJob("op-a")),
+            selectedJobId = "op-a",
+            marketplaceJobs = listOf(mpJob("mp-b")),
+            marketplaceSelectedJobId = "mp-b",
+        )
+        assertNull(targets.operationalJob)
+        assertEquals("mp-b", targets.marketplaceJob?.id)
+    }
+
+    @Test
+    fun `resolveActionScreenTargets returns operational selection when no marketplace selection exists`() {
+        val targets = resolveActionScreenTargets(
+            jobs = listOf(opJob("op-a")),
+            selectedJobId = "op-a",
+            marketplaceJobs = listOf(mpJob("mp-b")),
+            marketplaceSelectedJobId = null,
+        )
+        assertEquals("op-a", targets.operationalJob?.id)
+        assertNull(targets.marketplaceJob)
+    }
+
     // ---- save/hide state ----
 
     @Test

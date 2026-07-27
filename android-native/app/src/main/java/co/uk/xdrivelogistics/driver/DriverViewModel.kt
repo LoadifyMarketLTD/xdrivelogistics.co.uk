@@ -189,7 +189,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun selectJob(jobId: String) {
-        _uiState.value = _uiState.value.copy(selectedJobId = jobId)
+        _uiState.value = _uiState.value.copy(
+            selectedJobId = jobId,
+            marketplaceSelectedJobId = null,
+        )
         _uiState.value.session?.let { session ->
             activeJobSelectionStore.saveSelectedJobId(session.userId, jobId)
         }
@@ -1284,6 +1287,27 @@ internal fun resolveMarketplaceJob(
 ): MarketplaceJob? {
     if (marketplaceSelectedJobId.isNullOrBlank()) return null
     return marketplaceJobs.firstOrNull { it.id == marketplaceSelectedJobId }
+}
+
+internal data class ActionScreenTargets(
+    val operationalJob: DriverJob?,
+    val marketplaceJob: MarketplaceJob?,
+)
+
+internal fun resolveActionScreenTargets(
+    jobs: List<DriverJob>,
+    selectedJobId: String?,
+    marketplaceJobs: List<MarketplaceJob>,
+    marketplaceSelectedJobId: String?,
+): ActionScreenTargets {
+    val marketplaceJob = resolveMarketplaceJob(marketplaceJobs, marketplaceSelectedJobId)
+    if (marketplaceJob != null) {
+        return ActionScreenTargets(operationalJob = null, marketplaceJob = marketplaceJob)
+    }
+    return ActionScreenTargets(
+        operationalJob = resolveSelectedJob(jobs, selectedJobId),
+        marketplaceJob = null,
+    )
 }
 
 /** Returns true when a session owner change requires owner-scoped UI state to be reset. */

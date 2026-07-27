@@ -1219,14 +1219,20 @@ private fun ActionScreen(
     onMoveStatus: (String) -> Unit,
     onNavigateTo: (String) -> Unit,
 ) {
-    val selected = state.jobs.firstOrNull { it.id == state.selectedJobId }
-    val marketplaceJob = state.marketplaceJobs.firstOrNull { it.id == state.marketplaceSelectedJobId }
+    val actionTargets = resolveActionScreenTargets(
+        jobs = state.jobs,
+        selectedJobId = state.selectedJobId,
+        marketplaceJobs = state.marketplaceJobs,
+        marketplaceSelectedJobId = state.marketplaceSelectedJobId,
+    )
+    val selected = actionTargets.operationalJob
+    val marketplaceJob = actionTargets.marketplaceJob
     val activeJobs = state.jobs.filter { !it.isPosted() && it.isActive() }
     var note by remember { mutableStateOf("") }
     var important by remember { mutableStateOf(false) }
     var detailTab by remember { mutableStateOf("Summary") }
 
-    if (selected?.isPosted() == true || (selected == null && marketplaceJob != null)) {
+    if (selected?.isPosted() == true || marketplaceJob != null) {
         PostedJobDetailScreen(
             job = selected,
             marketplaceJob = marketplaceJob,
@@ -1442,7 +1448,7 @@ private fun PostedJobDetailScreen(
     statusMessage: String,
     errorMessage: String,
     onSubmitQuote: (String, String) -> Unit,
-    onSendMessage: () -> Unit,
+    onSendMessage: (() -> Unit)?,
 ) {
     val ref = job?.id?.take(8)?.uppercase() ?: marketplaceJob?.publicReference ?: "LOAD"
     val canQuote = marketplaceJob?.canQuote ?: true
@@ -1568,14 +1574,16 @@ private fun PostedJobDetailScreen(
                     DetailRow("C", "POSTED BY", companyName)
                     Spacer(Modifier.height(12.dp))
                 }
-                Button(
-                    onClick = onSendMessage,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4C9BE8), contentColor = Color.White),
-                    shape = RoundedCornerShape(999.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                ) { Text("Message Dispatcher", fontWeight = FontWeight.Black, fontSize = 15.sp) }
+                if (job != null && onSendMessage != null) {
+                    Button(
+                        onClick = onSendMessage,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4C9BE8), contentColor = Color.White),
+                        shape = RoundedCornerShape(999.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                    ) { Text("Message Dispatcher", fontWeight = FontWeight.Black, fontSize = 15.sp) }
+                }
             }
         }
 

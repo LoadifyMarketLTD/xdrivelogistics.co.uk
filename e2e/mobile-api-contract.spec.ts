@@ -662,6 +662,48 @@ test.describe('mobile API — authenticated contract', () => {
     }
   });
 
+  test('GET /api/driver/mobile/nearby-jobs masks pre-award location details and omits private fields', async ({ request }) => {
+    test.skip(!token, 'Auth token unavailable');
+    const response = await request.get('/api/driver/mobile/nearby-jobs', {
+      headers: { Authorization: ['Bearer', token].join(' ') },
+    });
+    expect([200, 503]).toContain(response.status());
+    if (response.status() === 200) {
+      const body = await response.json();
+      const jobs = Array.isArray(body.jobs) ? body.jobs : [];
+      for (const job of jobs) {
+        expect(typeof job?.pickup?.addressSummary).toBe('string');
+        expect(typeof job?.delivery?.addressSummary).toBe('string');
+        expect(job?.pickup?.postcode).toBe(job?.pickup?.addressSummary);
+        expect(job?.delivery?.postcode).toBe(job?.delivery?.addressSummary);
+
+        const pickupPostcode = String(job?.pickup?.postcode ?? '');
+        const deliveryPostcode = String(job?.delivery?.postcode ?? '');
+        const ukFullPostcodePattern = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i;
+        expect(pickupPostcode).not.toMatch(ukFullPostcodePattern);
+        expect(deliveryPostcode).not.toMatch(ukFullPostcodePattern);
+
+        const json = JSON.stringify(job);
+        for (const forbiddenField of [
+          'client_phone',
+          'clientPhone',
+          'delivery_contact_phone',
+          'deliveryContactPhone',
+          'collection_contact_phone',
+          'collectionContactPhone',
+          'internal_notes',
+          'internalNotes',
+          'pod_photos',
+          'delivery_photos',
+          'delivery_signature_data',
+          'pod_upload_ledger',
+        ]) {
+          expect(json).not.toContain(forbiddenField);
+        }
+      }
+    }
+  });
+
   test('GET /api/driver/mobile/jobs returns object with jobs array', async ({ request }) => {
     test.skip(!token, 'Auth token unavailable');
     const response = await request.get('/api/driver/mobile/jobs', {
