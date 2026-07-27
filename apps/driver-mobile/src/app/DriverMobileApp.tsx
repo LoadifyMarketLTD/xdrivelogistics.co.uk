@@ -12,6 +12,7 @@ import { fetchMessages, markMessagesRead, type DriverMessage } from '../api/mess
 import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
 import { isSupabaseConfigured, supabase } from '../auth/supabase';
+import { isPodCompleteForSubmission } from '../jobs/podValidation';
 import { getNextStep } from '../jobs/statusFlow';
 import type { DriverJob, JobScope, QueuedActionStatus } from '../jobs/types';
 import { LiveLoadsScreen } from '../live-loads/LiveLoadsScreen';
@@ -889,6 +890,7 @@ function PodScreen({ job, token, userId, onSaved, onOfflineSaved, onQueued }: { 
   const [recipientName, setRecipientName] = useState('');
   const [signatureData, setSignatureData] = useState('');
   const [notes, setNotes] = useState('');
+  const isPodComplete = isPodCompleteForSubmission({ recipientName, signatureData, photoUris, documentUris, podGenerated: job.podGenerated });
 
   async function addPhoto() {
     const ImagePicker = await import('expo-image-picker');
@@ -905,12 +907,8 @@ function PodScreen({ job, token, userId, onSaved, onOfflineSaved, onQueued }: { 
   }
 
   async function savePod() {
-    if (!recipientName.trim()) {
-      Alert.alert('Recipient required', 'Enter the recipient name before saving POD.');
-      return;
-    }
-    if (photoUris.length === 0 && documentUris.length === 0 && !signatureData.trim()) {
-      Alert.alert('Evidence required', 'Capture a signature, photo or document before saving POD.');
+    if (!isPodComplete) {
+      Alert.alert('Complete POD required', 'POD requires recipient name, recipient signature, and at least one photo or document.');
       return;
     }
 
@@ -951,8 +949,8 @@ function PodScreen({ job, token, userId, onSaved, onOfflineSaved, onQueued }: { 
         value={recipientName}
         onChangeText={setRecipientName}
       />
-      {!recipientName.trim() ? (
-        <Text style={styles.subtle}>Recipient name is required to save POD.</Text>
+      {!isPodComplete ? (
+        <Text style={styles.subtle}>POD requires recipient name, signature, and a photo or document.</Text>
       ) : null}
       <TextInput
         placeholder="Notes (optional)"
