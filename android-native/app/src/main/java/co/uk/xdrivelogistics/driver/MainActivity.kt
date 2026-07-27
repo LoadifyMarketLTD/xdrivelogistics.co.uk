@@ -267,6 +267,7 @@ class MainActivity : ComponentActivity() {
                             state = state,
                             onTabChange = viewModel::changeTab,
                             onJobSelected = viewModel::selectJob,
+                            onMarketplaceJobSelected = viewModel::selectMarketplaceLoad,
                             onLogout = viewModel::logout,
                             onRefresh = viewModel::refreshDriverData,
                             onSendNote = viewModel::sendQuickNote,
@@ -510,6 +511,7 @@ private fun DriverAppShell(
     state: DriverUiState,
     onTabChange: (DriverTab) -> Unit,
     onJobSelected: (String) -> Unit,
+    onMarketplaceJobSelected: (String) -> Unit,
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
     onSendNote: (String, Boolean) -> Unit,
@@ -546,7 +548,7 @@ private fun DriverAppShell(
 
         Box(modifier = Modifier.weight(1f)) {
             when (state.selectedTab) {
-                DriverTab.NEARBY -> NearbyJobsScreen(state, onJobSelected, onTabChange, onJobPreference)
+                DriverTab.NEARBY -> NearbyJobsScreen(state, onMarketplaceJobSelected, onTabChange, onJobPreference)
                 DriverTab.QUOTES -> MyQuotesScreen(state)
                 DriverTab.BOOKINGS -> BookingsScreen(state, onJobSelected, onTabChange)
                 DriverTab.JOBS -> MyJobsScreen(state, onJobSelected, onTabChange, onMoveStatus, onSubmitQuote)
@@ -673,7 +675,7 @@ private fun DashboardScreen(
 @Composable
 private fun NearbyJobsScreen(
     state: DriverUiState,
-    onJobSelected: (String) -> Unit,
+    onMarketplaceJobSelected: (String) -> Unit,
     onTabChange: (DriverTab) -> Unit,
     onJobPreference: (String, String?) -> Unit,
 ) {
@@ -834,7 +836,7 @@ private fun NearbyJobsScreen(
                 alreadyBid = job.id in bidJobIds,
                 preferenceState = state.jobSearchPreferences[job.id],
                 onTap = {
-                    onJobSelected(job.id)
+                    onMarketplaceJobSelected(job.id)
                     onTabChange(DriverTab.ACTION)
                 },
                 onSave = { onJobPreference(job.id, "saved") },
@@ -1218,7 +1220,7 @@ private fun ActionScreen(
     onNavigateTo: (String) -> Unit,
 ) {
     val selected = state.jobs.firstOrNull { it.id == state.selectedJobId }
-    val marketplaceJob = state.marketplaceJobs.firstOrNull { it.id == state.selectedJobId }
+    val marketplaceJob = state.marketplaceJobs.firstOrNull { it.id == state.marketplaceSelectedJobId }
     val activeJobs = state.jobs.filter { !it.isPosted() && it.isActive() }
     var note by remember { mutableStateOf("") }
     var important by remember { mutableStateOf(false) }

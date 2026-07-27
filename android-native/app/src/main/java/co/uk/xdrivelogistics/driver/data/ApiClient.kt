@@ -811,7 +811,7 @@ class ApiClient(
         val select = "id,status,current_status,pickup_location,delivery_location,pickup_datetime,delivery_datetime,client_name,client_phone,collection_contact_name,collection_contact_phone,delivery_contact_name,delivery_contact_phone,vehicle_type,cargo_type,budget_amount,load_details,delivery_photos,pod_photos,collection_photo_url,delivery_signature_data,client_signature_name,pod_required,pod_generated,distance_miles,job_distance_miles,job_distance_minutes,pickup_postcode,delivery_postcode,pallets,weight_kg,special_requirements,access_restrictions"
         val encodedDriverId = URLEncoder.encode(profile.driverId, StandardCharsets.UTF_8.toString())
         val encodedCompanyId = URLEncoder.encode(profile.companyId, StandardCharsets.UTF_8.toString())
-        val query = "select=$select&or=(status.eq.posted,assigned_driver_id.eq.$encodedDriverId,assigned_company_id.eq.$encodedCompanyId,awarded_carrier_company_id.eq.$encodedCompanyId)&order=pickup_datetime.asc&limit=100"
+        val query = "select=$select&or=(assigned_driver_id.eq.$encodedDriverId,assigned_company_id.eq.$encodedCompanyId,awarded_carrier_company_id.eq.$encodedCompanyId)&order=pickup_datetime.asc&limit=100"
         val request = supabaseRequest("/rest/v1/jobs?$query", session.accessToken)
 
         http.newCall(request).execute().use { response ->
