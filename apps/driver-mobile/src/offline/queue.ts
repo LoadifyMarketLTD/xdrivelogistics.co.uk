@@ -99,6 +99,10 @@ export async function saveQueue(userId: string, queue: QueuedAction[]) {
   await AsyncStorage.setItem(queueKeyForUser(userId), JSON.stringify(queue));
 }
 
+export function mergeQueuedAction(queue: QueuedAction[], queued: QueuedAction) {
+  return [queued, ...queue.filter((item) => item.id !== queued.id)];
+}
+
 /**
  * Enqueue a driver action.
  *

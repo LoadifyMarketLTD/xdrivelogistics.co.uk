@@ -13,6 +13,7 @@ import { fetchDriverResources, type DriverAlert, type DriverResources } from '..
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
 import { isSupabaseConfigured, supabase } from '../auth/supabase';
 import { isPodCompleteForSubmission } from '../jobs/podValidation';
+import { makeQueuedPodPayloadDurable } from '../jobs/podEvidence';
 import { getNextStep } from '../jobs/statusFlow';
 import type { DriverJob, JobScope, QueuedActionStatus } from '../jobs/types';
 import { LiveLoadsScreen } from '../live-loads/LiveLoadsScreen';
@@ -20,6 +21,7 @@ import {
   enqueueAction,
   getQueue,
   isOnline,
+  mergeQueuedAction,
   isQueueItemReady,
   markQueueItemFailed,
   markQueueItemSynced,
@@ -553,7 +555,7 @@ export default function DriverMobileApp() {
       }
       if (!token || !(await isOnline())) {
         const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
-        setQueue((items) => [queued, ...items]);
+        setQueue((items) => mergeQueuedAction(items, queued));
         setJob((current) => (current ? { ...current, status: nextStep.status } : current));
         setMessage('Action saved offline. It will sync automatically when connectivity returns.');
         return;
@@ -570,7 +572,7 @@ export default function DriverMobileApp() {
           return;
         }
         const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
-        setQueue((items) => [queued, ...items]);
+        setQueue((items) => mergeQueuedAction(items, queued));
         setMessage(text);
         setJob((current) => (current ? { ...current, status: nextStep.status } : current));
       }
@@ -609,7 +611,7 @@ export default function DriverMobileApp() {
           <LiveLoadsScreen
             canCommercialBid={driverCanCommercialBid}
             authUserId={authUserId}
-            onQuoteQueued={(queued) => setQueue((items) => [queued, ...items])}
+            onQuoteQueued={(queued) => setQueue((items) => mergeQueuedAction(items, queued))}
           />
         ) : (
           <ScrollView contentContainerStyle={styles.content}>
@@ -658,7 +660,7 @@ export default function DriverMobileApp() {
                   setMessage('POD evidence saved offline — will sync automatically when connected.');
                   setScreen('active');
                 }}
-                onQueued={(queued) => setQueue((items) => [queued, ...items])}
+                onQueued={(queued) => setQueue((items) => mergeQueuedAction(items, queued))}
               />
             )}
             {screen === 'notifications' && (
@@ -890,7 +892,8 @@ function PodScreen({ job, token, userId, onSaved, onOfflineSaved, onQueued }: { 
   const [recipientName, setRecipientName] = useState('');
   const [signatureData, setSignatureData] = useState('');
   const [notes, setNotes] = useState('');
-  const isPodComplete = isPodCompleteForSubmission({ recipientName, signatureData, photoUris, documentUris, podGenerated: job.podGenerated });
+  const isPodComplete = isPodCompleteForSubmission({ recipientName, signatureData, photoUris, documentUris });
+  const podAlreadySubmitted = job.podGenerated === true;
 
   async function addPhoto() {
     const ImagePicker = await import('expo-image-picker');
@@ -907,6 +910,10 @@ function PodScreen({ job, token, userId, onSaved, onOfflineSaved, onQueued }: { 
   }
 
   async function savePod() {
+    if (podAlreadySubmitted) {
+      Alert.alert('POD already submitted', 'This job already has confirmed POD on the server. New mobile submissions are disabled.');
+      return;
+    }
     if (!isPodComplete) {
       Alert.alert('Complete POD required', 'POD requires recipient name, recipient signature, and at least one photo or document.');
       return;
@@ -918,19 +925,42 @@ function PodScreen({ job, token, userId, onSaved, onOfflineSaved, onQueued }: { 
       return;
     }
     if (!token || !(await isOnline())) {
-      const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload });
-      onQueued(queued);
-      onOfflineSaved();
+      try {
+        const durablePayload = await makeQueuedPodPayloadDurable(userId, job.id, payload);
+        const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload: durablePayload });
+        onQueued(queued);
+        onOfflineSaved();
+      } catch (error) {
+        Alert.alert('Unable to save POD offline', error instanceof Error ? error.message : 'Please try again.');
+      }
       return;
     }
     try {
       const response = await uploadPod(job.id, token, payload);
       onSaved('job' in response ? response.job as DriverJob : undefined);
     } catch {
-      const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload });
-      onQueued(queued);
-      onOfflineSaved();
+      try {
+        const durablePayload = await makeQueuedPodPayloadDurable(userId, job.id, payload);
+        const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload: durablePayload });
+        onQueued(queued);
+        onOfflineSaved();
+      } catch (error) {
+        Alert.alert('Unable to save POD offline', error instanceof Error ? error.message : 'Please try again.');
+      }
     }
+  }
+
+  if (podAlreadySubmitted) {
+    return (
+      <View style={styles.stack}>
+        <Panel>
+          <Text style={styles.title}>Proof of Delivery</Text>
+          <Text style={styles.subtle}>{job.reference}</Text>
+          <Text style={styles.copy}>POD is already confirmed for this job. The mobile form is locked to prevent empty or duplicate resubmission.</Text>
+        </Panel>
+        <PrimaryButton label="POD already submitted" onPress={() => undefined} disabled />
+      </View>
+    );
   }
 
   return (

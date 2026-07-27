@@ -26,6 +26,7 @@ import {
   markQueueItemFailed,
   markQueueItemSynced,
   markQueueItemSyncing,
+  mergeQueuedAction,
   migrateLegacyQueue,
   queueKeyForUser,
   retryQueueItem,
@@ -140,6 +141,14 @@ describe('enqueueAction duplicate suppression', () => {
     expect(queue).toHaveLength(2);
     expect(queue.filter((i) => i.status === 'synced')).toHaveLength(1);
     expect(queue.filter((i) => i.status === 'pending')).toHaveLength(1);
+  });
+
+  test('mergeQueuedAction replaces matching in-memory row by ID', async () => {
+    const first = await enqueueAction(USER_A, { jobId: 'job-6b', endpoint: 'loaded' });
+    const superseded = await enqueueAction(USER_A, { jobId: 'job-6b', endpoint: 'loaded' });
+    const visible = mergeQueuedAction([superseded, first], superseded);
+    expect(visible).toHaveLength(1);
+    expect(visible[0].id).toBe(first.id);
   });
 });
 

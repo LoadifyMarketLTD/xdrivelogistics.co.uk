@@ -3,7 +3,6 @@ export type PodDraft = {
   signatureData: string;
   photoUris: string[];
   documentUris: string[];
-  podGenerated?: boolean | null;
 };
 
 function hasAsset(items: string[]) {
@@ -11,7 +10,6 @@ function hasAsset(items: string[]) {
 }
 
 export function isPodCompleteForSubmission(draft: PodDraft) {
-  if (draft.podGenerated) return true;
   const hasRecipient = draft.recipientName.trim().length > 0;
   const hasSignature = draft.signatureData.trim().length > 0;
   const hasPhotoOrDocument = hasAsset(draft.photoUris) || hasAsset(draft.documentUris);

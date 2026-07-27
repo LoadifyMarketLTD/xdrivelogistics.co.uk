@@ -50,15 +50,14 @@ describe('isPodCompleteForSubmission', () => {
     ).toBe(true);
   });
 
-  test('accepts incomplete form when POD already generated on server', () => {
+  test('rejects incomplete form even when POD already exists on the server', () => {
     expect(
       isPodCompleteForSubmission({
         recipientName: '',
         signatureData: '',
         photoUris: [],
         documentUris: [],
-        podGenerated: true,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 });
