@@ -19,31 +19,165 @@ const isCustomerVisibleInvoice = (invoice: { status: string; amount?: number | n
 };
 
 export function CustomerDashboard() {
-  const router = useRouter(); const data = useCompanyWorkspaceData();
-  const metrics = useMemo(() => ({
-    draft: data.jobs.filter((job) => job.status === 'draft').length,
-    open: data.jobs.filter((job) => ['posted', 'quoted'].includes(job.status)).length,
-    quotes: data.bids.filter((bid) => bid.status === 'submitted').length,
-    awarded: data.jobs.filter((job) => Boolean(job.awarded_carrier_company_id) || ['awarded', 'allocated'].includes(job.status)).length,
-    active: data.jobs.filter((job) => active.has(job.current_status ?? job.status)).length,
-    delayed: data.jobs.filter((job) => active.has(job.current_status ?? job.status) && job.delivery_datetime && new Date(job.delivery_datetime).getTime() < Date.now()).length,
-    pod: data.jobs.filter((job) => (job.delivery_photos?.length ?? 0) > 0).length,
-    unpaid: data.invoices.filter((invoice) => invoice.buyer_company_id === data.companyId && isCustomerVisibleInvoice(invoice) && invoice.payment_status !== 'paid' && !['paid', 'Paid'].includes(invoice.status)).length,
-  }), [data]);
-  return <PageFrame>
-    <PageHeader eyebrow="Customer transport" title="Customer Dashboard" description="Post transport requirements, compare carrier quotes, track delivery milestones and retrieve POD and invoices." actions={<><ActionButton tone="warning" onClick={() => router.push('/customer/post-load')}>Post Load</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/deliveries')}>Track Deliveries</ActionButton></>} />
-    {data.error && <AlertBanner>{data.error}</AlertBanner>}
-    <KpiGrid><KpiCard label="Draft loads" value={metrics.draft}/><KpiCard label="Open loads" value={metrics.open} tone="blue"/><KpiCard label="Quotes received" value={metrics.quotes} tone="purple" onClick={() => router.push('/customer/quotes')}/><KpiCard label="Awarded" value={metrics.awarded} tone="orange"/><KpiCard label="Active deliveries" value={metrics.active} tone="green"/><KpiCard label="Delayed" value={metrics.delayed} tone="red"/><KpiCard label="POD ready" value={metrics.pod} tone="navy"/><KpiCard label="Unpaid invoices" value={metrics.unpaid} tone="orange"/></KpiGrid>
-    <TwoColumn>
-      <Panel title="Transport requiring attention" description="Quotes to decide, active deliveries and delays are shown first." actions={<ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>All loads</ActionButton>}>
-        <DataTable columns={['Route','Pickup','Status','Quotes','Action']} rows={data.jobs.filter((job) => !['completed','paid','cancelled'].includes(job.status)).slice(0,10).map((job) => [<strong key="route">{job.pickup_postcode ?? job.pickup_location} → {job.delivery_postcode ?? job.delivery_location}</strong>, when(job.pickup_datetime), <StatusBadge key="status" value={job.current_status ?? job.status}/>, data.bids.filter((bid) => bid.job_id === job.id && bid.status === 'submitted').length, <ActionButton key="action" tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>View</ActionButton>])} empty={<EmptyState title="No loads need attention" action={<ActionButton tone="warning" onClick={() => router.push('/customer/post-load')}>Post a load</ActionButton>}/>} />
+  const router = useRouter();
+  const data = useCompanyWorkspaceData();
+
+  const metrics = useMemo(() => {
+    const awaitingAward = data.jobs.filter(
+      (job) => !job.awarded_carrier_company_id && data.bids.some((bid) => bid.job_id === job.id && bid.status === 'submitted')
+    );
+    const activeDeliveries = data.jobs.filter((job) => active.has(job.current_status ?? job.status));
+    const delayed = activeDeliveries.filter((job) => job.delivery_datetime && new Date(job.delivery_datetime).getTime() < Date.now());
+    const customerInvoices = data.invoices.filter((inv) => inv.buyer_company_id === data.companyId && isCustomerVisibleInvoice(inv));
+    const unpaidInvoices = customerInvoices.filter((inv) => inv.payment_status !== 'paid' && !['paid', 'Paid'].includes(inv.status));
+    const unpaidValue = unpaidInvoices.reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
+    return {
+      draft: data.jobs.filter((j) => j.status === 'draft').length,
+      open: data.jobs.filter((j) => ['posted', 'quoted'].includes(j.status)).length,
+      quotesReceived: data.bids.filter((b) => b.status === 'submitted').length,
+      awaitingAward,
+      awarded: data.jobs.filter((j) => Boolean(j.awarded_carrier_company_id) || ['awarded', 'allocated'].includes(j.status)).length,
+      activeDeliveries,
+      delayed,
+      pod: data.jobs.filter((j) => (j.delivery_photos?.length ?? 0) > 0).length,
+      unpaidInvoices,
+      unpaidValue,
+    };
+  }, [data]);
+
+  return (
+    <PageFrame>
+      <PageHeader
+        eyebrow="Customer transport"
+        title="Customer Dashboard"
+        description="Post transport requirements, compare carrier quotes, track delivery milestones and retrieve POD and invoices."
+        actions={<><ActionButton tone="warning" onClick={() => router.push('/customer/post-load')}>Post Load</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/deliveries')}>Track Deliveries</ActionButton></>}
+      />
+      {data.error && <AlertBanner>{data.error}</AlertBanner>}
+
+      <KpiGrid>
+        <KpiCard label="Draft loads" value={metrics.draft} detail="Not yet published" onClick={() => router.push('/customer/loads')} />
+        <KpiCard label="Open loads" value={metrics.open} detail="Awaiting carrier quotes" tone="blue" onClick={() => router.push('/customer/loads')} />
+        <KpiCard label="Quotes received" value={metrics.quotesReceived} detail="Ready to compare" tone="purple" onClick={() => router.push('/customer/quotes')} />
+        <KpiCard label="Awaiting award" value={metrics.awaitingAward.length} detail="Your decision needed" tone="orange" onClick={() => router.push('/customer/quotes')} />
+        <KpiCard label="Active deliveries" value={metrics.activeDeliveries.length} detail="In transit now" tone="green" onClick={() => router.push('/customer/deliveries')} />
+        <KpiCard label="Delayed" value={metrics.delayed.length} detail="Past delivery window" tone="red" onClick={() => router.push('/customer/deliveries')} />
+        <KpiCard label="POD ready" value={metrics.pod} detail="Proof of delivery available" tone="navy" onClick={() => router.push('/customer/documents')} />
+        <KpiCard label="Unpaid invoices" value={metrics.unpaidInvoices.length} detail={metrics.unpaidValue > 0 ? money(metrics.unpaidValue) : 'None outstanding'} tone={metrics.unpaidInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/customer/invoices')} />
+      </KpiGrid>
+
+      {metrics.awaitingAward.length > 0 && (
+        <Panel
+          title="Action required — awaiting your award decision"
+          description="These loads have carrier quotes ready. Review prices and award before quotes expire."
+          actions={<ActionButton tone="warning" onClick={() => router.push('/customer/quotes')}>Review all quotes</ActionButton>}
+        >
+          <DataTable
+            columns={['Route', 'Pickup', 'Quotes received', 'Best price', 'Action']}
+            rows={metrics.awaitingAward.slice(0, 6).map((job) => {
+              const jobQuotes = data.bids.filter((b) => b.job_id === job.id && b.status === 'submitted');
+              const prices = jobQuotes.map((b) => Number(b.bid_price_gbp ?? b.amount ?? 0)).filter((p) => p > 0);
+              return [
+                <strong key="route">{job.pickup_postcode ?? job.pickup_location} → {job.delivery_postcode ?? job.delivery_location}</strong>,
+                when(job.pickup_datetime),
+                jobQuotes.length,
+                prices.length ? money(Math.min(...prices)) : 'No price',
+                <ActionButton key="action" tone="success" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Compare &amp; award</ActionButton>,
+              ];
+            })}
+            empty={<EmptyState title="No loads awaiting award" />}
+          />
+        </Panel>
+      )}
+
+      <TwoColumn>
+        <Panel
+          title="Active deliveries"
+          description="Live transport — track progress, identify delays and access POD when ready."
+          actions={<ActionButton tone="secondary" onClick={() => router.push('/customer/deliveries')}>All deliveries</ActionButton>}
+        >
+          <DataTable
+            columns={['Route', 'Pickup', 'Delivery window', 'Status', 'Action']}
+            rows={metrics.activeDeliveries.slice(0, 6).map((job) => [
+              <strong key="route">{job.pickup_postcode ?? job.pickup_location} → {job.delivery_postcode ?? job.delivery_location}</strong>,
+              when(job.pickup_datetime),
+              when(job.delivery_datetime),
+              <StatusBadge key="status" value={job.current_status ?? job.status} tone={metrics.delayed.includes(job) ? 'red' : undefined} />,
+              <ActionButton key="action" tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Track</ActionButton>,
+            ])}
+            empty={<EmptyState title="No active deliveries" description="Active deliveries appear here once a carrier accepts and starts a job." />}
+          />
+        </Panel>
+
+        <div style={{ display: 'grid', gap: '0.9rem' }}>
+          <Panel
+            title="Outstanding invoices"
+            description="Invoices addressed to your company that are pending payment."
+            actions={<ActionButton tone="secondary" onClick={() => router.push('/customer/invoices')}>All invoices</ActionButton>}
+          >
+            {metrics.unpaidInvoices.length > 0 ? (
+              <>
+                {metrics.unpaidInvoices.slice(0, 4).map((inv) => (
+                  <button
+                    key={inv.id}
+                    onClick={() => router.push(`/customer/invoices/${inv.id}`)}
+                    style={quickButton}
+                  >
+                    <span>
+                      <strong style={{ display: 'block' }}>{inv.invoice_number ?? inv.id.slice(0, 8).toUpperCase()}</strong>
+                      <small style={{ color: '#64748b' }}>{inv.due_date ? `Due ${when(inv.due_date)}` : 'No due date'}</small>
+                    </span>
+                    <span style={{ textAlign: 'right' }}>
+                      <strong style={{ display: 'block', color: '#dc2626' }}>{money(Number(inv.amount ?? 0), inv.currency ?? 'GBP')}</strong>
+                      <StatusBadge value={inv.payment_status ?? inv.status} />
+                    </span>
+                  </button>
+                ))}
+              </>
+            ) : (
+              <EmptyState title="No outstanding invoices" description="All invoices are paid or none have been issued yet." />
+            )}
+          </Panel>
+
+          <Panel title="Quick actions">
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {([
+                ['Post a new load', '/customer/post-load'],
+                ['Review carrier quotes', '/customer/quotes'],
+                ['Track active deliveries', '/customer/deliveries'],
+                ['Download POD', '/customer/documents'],
+                ['View all invoices', '/customer/invoices'],
+                ['Team & settings', '/customer/settings'],
+              ] as const).map(([label, href]) => (
+                <button key={href} onClick={() => router.push(href)} style={quickButton}>
+                  <span>{label}</span><span>→</span>
+                </button>
+              ))}
+            </div>
+          </Panel>
+        </div>
+      </TwoColumn>
+
+      <Panel
+        title="Recent transport activity"
+        description="All your loads — sorted by most recent update."
+        actions={<ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>View all loads</ActionButton>}
+      >
+        <DataTable
+          columns={['Reference', 'Route', 'Pickup', 'Status', 'Quotes', 'Action']}
+          rows={data.jobs.slice(0, 8).map((job) => [
+            job.id.slice(0, 8).toUpperCase(),
+            <strong key="route">{job.pickup_postcode ?? job.pickup_location} → {job.delivery_postcode ?? job.delivery_location}</strong>,
+            when(job.pickup_datetime),
+            <StatusBadge key="status" value={job.current_status ?? job.status} />,
+            data.bids.filter((b) => b.job_id === job.id && b.status === 'submitted').length,
+            <ActionButton key="action" tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open</ActionButton>,
+          ])}
+          empty={<EmptyState title="No transport activity yet" action={<ActionButton tone="warning" onClick={() => router.push('/customer/post-load')}>Post your first load</ActionButton>} />}
+        />
       </Panel>
-      <div style={{display:'grid',gap:'0.9rem'}}>
-        <Panel title="Quick actions"><div style={{display:'grid',gap:'0.5rem'}}>{[['Post a new load','/customer/post-load'],['Review carrier quotes','/customer/quotes'],['Track active deliveries','/customer/deliveries'],['Download POD','/customer/documents'],['View invoices','/customer/invoices']].map(([label,href]) => <button key={href} onClick={() => router.push(href)} style={quickButton}><span>{label}</span><span>→</span></button>)}</div></Panel>
-        <Panel title="Recent updates">{data.jobs.slice(0,5).map((job) => <button key={job.id} onClick={() => router.push(`/customer/jobs/${job.id}`)} style={quickButton}><span><strong style={{display:'block'}}>{job.pickup_postcode ?? 'Collection'} → {job.delivery_postcode ?? 'Delivery'}</strong><small style={{color:'#64748b'}}>{when(job.updated_at)}</small></span><StatusBadge value={job.current_status ?? job.status}/></button>)}{data.jobs.length===0&&<EmptyState title="No recent transport activity"/>}</Panel>
-      </div>
-    </TwoColumn>
-  </PageFrame>;
+    </PageFrame>
+  );
 }
 const quickButton = {width:'100%',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'0.6rem',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'0.62rem 0.68rem',background:'#f8fafc',color:'#0f172a',fontSize:'0.76rem',cursor:'pointer',textAlign:'left'} as const;
 

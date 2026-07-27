@@ -56,26 +56,21 @@ export default function JobHistoryPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [driverId, setDriverId] = useState('');
+  const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
+
   const [jobs, setJobs] = useState<HistoryJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const normalizedDriverId = driverId.trim();
 
   // Totals
   const [earnings, setEarnings] = useState({ total: 0, delivered: 0 });
 
   const fetchHistory = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      setLoading(false);
+    if (!isSupabaseConfigured || authLoading) {
       return;
     }
-
-    if (!normalizedDriverId) {
-      // Auth is still bootstrapping — stay in loading state silently.
-      if (authLoading) return;
-      setError('Driver session not ready. Please wait and refresh.');
+    if (!driverId) {
       setLoading(false);
       return;
     }
@@ -85,7 +80,7 @@ export default function JobHistoryPage() {
     const { data, error: fetchError } = await supabase
       .from('jobs')
       .select('id, status, pickup_location, delivery_location, collection_window_start, delivery_window_start, deadline_at, budget_amount, updated_at, created_at, delivery_photos')
-      .eq('assigned_driver_id', normalizedDriverId)
+      .eq('assigned_driver_id', driverId)
       .in('status', ['delivered', 'cancelled', 'disputed', 'driver_declined'])
       .order('updated_at', { ascending: false })
       .limit(200);
@@ -101,11 +96,7 @@ export default function JobHistoryPage() {
       setEarnings({ total, delivered: rows.filter((j) => j.status === 'delivered').length });
     }
     setLoading(false);
-  }, [normalizedDriverId, authLoading]);
-
-  useEffect(() => {
-    if (typeof user?.driverId === 'string') setDriverId(user.driverId.trim());
-  }, [user?.driverId]);
+  }, [driverId, authLoading]);
 
   useEffect(() => {
     void fetchHistory();

@@ -78,11 +78,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
 
-      - name: Run stable public smoke tests
+      - name: Run stable public smoke tests (chromium)
         run: npx playwright test e2e/ci-public-smoke.spec.ts --project=chromium
+
+      - name: Run stable public smoke tests (mobile-safari)
+        run: npx playwright test e2e/ci-public-smoke.spec.ts --project=mobile-safari
 
   expo-driver-typecheck:
     name: Expo Driver Typecheck
@@ -101,41 +104,65 @@ jobs:
 
       - name: Install Expo driver dependencies
         working-directory: apps/driver-mobile
-        run: npm install --ignore-scripts --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Typecheck Expo driver
         working-directory: apps/driver-mobile
         run: npm run typecheck
 
   codeql:
-    name: CodeQL Security Scan
+    name: CodeQL Security Scan (${{ matrix.language }})
     runs-on: ubuntu-latest
     permissions:
       security-events: write
       actions: read
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: "javascript-typescript,actions"
+            build-mode: none
+          - language: "java-kotlin"
+            build-mode: autobuild
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Set up Java
+        if: matrix.language == 'java-kotlin'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        if: matrix.language == 'java-kotlin'
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+
+      - name: Install Android SDK 35
+        if: matrix.language == 'java-kotlin'
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: javascript-typescript, actions
+          languages: ${{ matrix.language }}
           queries: security-extended
-          build-mode: none
+          build-mode: ${{ matrix.build-mode }}
 
       - name: Set up Node.js
+        if: matrix.language != 'java-kotlin'
         uses: actions/setup-node@v5
         with:
           node-version: "20"
           cache: "npm"
 
       - name: Install dependencies
+        if: matrix.language != 'java-kotlin'
         run: npm ci
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:javascript-typescript"
