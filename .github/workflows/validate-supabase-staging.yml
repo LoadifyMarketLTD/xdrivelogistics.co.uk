@@ -1,7 +1,9 @@
 name: Validate Supabase Staging
 
 on:
-  pull_request:
+  push:
+    branches:
+      - main
     paths:
       - 'supabase/**'
       - '.github/workflows/validate-supabase-staging.yml'
