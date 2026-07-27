@@ -5,7 +5,6 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 
 /**
  * Durable, per-account store for in-progress server-mediated POD submissions.
@@ -217,7 +216,7 @@ class PodSubmissionStore(context: Context) {
         val raw = if (keyOrValue.startsWith("pod_sub_")) prefs.getString(keyOrValue, null) else keyOrValue
         return raw?.let {
             runCatching {
-                gson.fromJson(it, object : TypeToken<PodSubmissionRecord>() {}.type)
+                gson.fromJson(it, PodSubmissionRecord::class.java)
             }.getOrNull()
         }
     }
