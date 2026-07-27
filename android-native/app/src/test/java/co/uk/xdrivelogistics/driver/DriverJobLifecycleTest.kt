@@ -11,10 +11,16 @@ class DriverJobLifecycleTest {
     @Test
     fun `canonical chain includes accepted and delivery transit`() {
         assertEquals("accepted", job("allocated").nextStatus())
-        assertEquals("accepted", job("awarded").nextStatus())
         assertEquals("on_my_way_to_pickup", job("accepted").nextStatus())
         assertEquals("on_my_way_to_delivery", job("loaded").nextStatus())
         assertEquals("on_site_delivery", job("on_my_way_to_delivery").nextStatus())
+    }
+
+    @Test
+    fun `pre-allocation statuses do not advance lifecycle`() {
+        assertEquals("", job("posted").nextStatus())
+        assertEquals("", job("quoted").nextStatus())
+        assertEquals("", job("awarded").nextStatus())
     }
 
     @Test

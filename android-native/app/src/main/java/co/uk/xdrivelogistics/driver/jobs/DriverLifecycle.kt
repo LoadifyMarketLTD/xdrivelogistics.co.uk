@@ -1,6 +1,9 @@
 package co.uk.xdrivelogistics.driver.jobs
 
 enum class CanonicalDriverLifecycleStatus(val wireValue: String) {
+    POSTED("posted"),
+    QUOTED("quoted"),
+    AWARDED("awarded"),
     ALLOCATED("allocated"),
     ACCEPTED("accepted"),
     ON_MY_WAY_TO_PICKUP("on_my_way_to_pickup"),
@@ -14,7 +17,10 @@ enum class CanonicalDriverLifecycleStatus(val wireValue: String) {
     companion object {
         fun fromRaw(raw: String?): CanonicalDriverLifecycleStatus? =
             when (raw.orEmpty().trim().lowercase()) {
-                "allocated", "assigned", "awarded" -> ALLOCATED
+                "posted" -> POSTED
+                "quoted" -> QUOTED
+                "awarded" -> AWARDED
+                "allocated", "assigned" -> ALLOCATED
                 "accepted" -> ACCEPTED
                 "on_my_way_to_pickup", "on_my_way" -> ON_MY_WAY_TO_PICKUP
                 "on_site_pickup", "arrived_pickup" -> ON_SITE_PICKUP
@@ -30,6 +36,9 @@ enum class CanonicalDriverLifecycleStatus(val wireValue: String) {
 object DriverLifecycleTransitions {
     fun nextStatus(currentRaw: String): CanonicalDriverLifecycleStatus? =
         when (CanonicalDriverLifecycleStatus.fromRaw(currentRaw)) {
+            CanonicalDriverLifecycleStatus.POSTED,
+            CanonicalDriverLifecycleStatus.QUOTED,
+            CanonicalDriverLifecycleStatus.AWARDED -> null
             CanonicalDriverLifecycleStatus.ALLOCATED -> CanonicalDriverLifecycleStatus.ACCEPTED
             CanonicalDriverLifecycleStatus.ACCEPTED -> CanonicalDriverLifecycleStatus.ON_MY_WAY_TO_PICKUP
             CanonicalDriverLifecycleStatus.ON_MY_WAY_TO_PICKUP -> CanonicalDriverLifecycleStatus.ON_SITE_PICKUP
@@ -54,6 +63,10 @@ object DriverLifecycleTransitions {
             CanonicalDriverLifecycleStatus.ON_MY_WAY_TO_DELIVERY -> "on-my-way-delivery"
             CanonicalDriverLifecycleStatus.ON_SITE_DELIVERY -> "arrived-delivery"
             CanonicalDriverLifecycleStatus.DELIVERED -> "delivered"
-            CanonicalDriverLifecycleStatus.ALLOCATED, null -> null
+            CanonicalDriverLifecycleStatus.POSTED,
+            CanonicalDriverLifecycleStatus.QUOTED,
+            CanonicalDriverLifecycleStatus.AWARDED,
+            CanonicalDriverLifecycleStatus.ALLOCATED,
+            null -> null
         }
 }

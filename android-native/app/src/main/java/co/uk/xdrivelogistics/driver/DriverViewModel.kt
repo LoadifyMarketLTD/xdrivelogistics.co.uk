@@ -12,6 +12,7 @@ import co.uk.xdrivelogistics.driver.data.DriverProfile
 import co.uk.xdrivelogistics.driver.data.DriverReturnJourney
 import co.uk.xdrivelogistics.driver.data.DriverInvoice
 import co.uk.xdrivelogistics.driver.data.DriverSession
+import co.uk.xdrivelogistics.driver.data.MobileApiException
 import co.uk.xdrivelogistics.driver.data.MobileApiHttpException
 import co.uk.xdrivelogistics.driver.data.NearbyDriver
 import co.uk.xdrivelogistics.driver.data.SessionStore
@@ -363,7 +364,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     refreshDriverData()
                 }
                 .onFailure { error ->
-                    if (error is MobileApiHttpException && error.retryable) {
+                    if (error is MobileApiException && error.retryable) {
                         val endpoint = DriverLifecycleTransitions.mobileActionFor(nextStatus)
                         if (endpoint != null) {
                             mutationQueue.enqueue(
@@ -400,7 +401,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     mutationQueue.pruneSynced(maxAgeMs = 7L * 24L * 60L * 60L * 1000L)
                 }
                 .onFailure { error ->
-                    val retryable = (error as? MobileApiHttpException)?.retryable == true
+                    val retryable = (error as? MobileApiException)?.retryable == true
                     mutationQueue.markFailure(
                         itemId = item.id,
                         retryable = retryable,
@@ -593,6 +594,7 @@ private fun isValidTransition(currentRaw: String, next: String): Boolean {
 }
 
 private fun Throwable.isSessionError(): Boolean {
+    if (this is MobileApiHttpException) return statusCode == 401
     val text = message.orEmpty().lowercase()
     return "jwt" in text ||
         "token" in text ||
@@ -605,6 +607,7 @@ private fun Throwable.friendlySessionMessage(): String? =
     if (isSessionError()) "Your session expired. Please sign in again." else null
 
 private fun Throwable.friendlyDriverMessage(fallback: String): String {
+    if (this is MobileApiException) return safeUserMessage.ifBlank { fallback }
     val text = message.orEmpty()
     val lower = text.lowercase()
     return when {

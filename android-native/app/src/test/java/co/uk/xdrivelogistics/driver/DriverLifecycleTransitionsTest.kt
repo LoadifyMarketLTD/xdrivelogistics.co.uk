@@ -12,6 +12,7 @@ class DriverLifecycleTransitionsTest {
         assertTrue(DriverLifecycleTransitions.isValidTransition("allocated", "accepted"))
         assertTrue(DriverLifecycleTransitions.isValidTransition("accepted", "on_my_way_to_pickup"))
         assertTrue(DriverLifecycleTransitions.isValidTransition("loaded", "on_my_way_to_delivery"))
+        assertFalse(DriverLifecycleTransitions.isValidTransition("awarded", "accepted"))
         assertFalse(DriverLifecycleTransitions.isValidTransition("allocated", "on_my_way_to_pickup"))
         assertFalse(DriverLifecycleTransitions.isValidTransition("on_site_pickup", "on_site_delivery"))
     }

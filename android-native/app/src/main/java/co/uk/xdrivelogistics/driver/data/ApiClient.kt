@@ -24,12 +24,6 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-class MobileApiHttpException(
-    val statusCode: Int,
-    override val message: String,
-    val retryable: Boolean,
-) : IllegalStateException(message)
-
 class ApiClient(
     private val xdriveBaseUrl: String,
     private val supabaseUrl: String,
@@ -945,7 +939,10 @@ class ApiClient(
 
     private suspend fun <T> networkResult(block: () -> T): Result<T> =
         withContext(Dispatchers.IO) {
-            runCatching(block)
+            runCatching(block).fold(
+                onSuccess = { Result.success(it) },
+                onFailure = { Result.failure(MobileApiErrorClassifier.transportFailure(it)) },
+            )
         }
 
     private fun extractError(rawBody: String, fallback: String): String {
@@ -956,6 +953,16 @@ class ApiClient(
                 ?: json.get("message")?.asString
                 ?: fallback
         }.getOrElse { fallback }
+    }
+
+    private fun extractErrorCode(rawBody: String): String? {
+        if (rawBody.isBlank()) return null
+        return runCatching {
+            val json = gson.fromJson(rawBody, JsonObject::class.java)
+            json.get("code")?.asString
+                ?: json.get("error_code")?.asString
+                ?: json.get("errorCode")?.asString
+        }.getOrNull()
     }
 
     private fun postMobileMutation(
@@ -980,11 +987,21 @@ class ApiClient(
     }
 
     private fun toMobileApiException(response: Response, rawBody: String, fallbackMessage: String): MobileApiHttpException {
-        val status = response.code
-        return MobileApiHttpException(
-            statusCode = status,
-            message = extractError(rawBody, fallbackMessage),
-            retryable = status == 429 || status == 408 || status in 500..599,
+        val serverMessage = extractError(rawBody, fallbackMessage)
+        val mutationId = response.header("X-Request-Id")
+            ?: response.header("x-request-id")
+            ?: response.header("X-Correlation-Id")
+            ?: response.header("x-correlation-id")
+            ?: response.header("X-Mutation-Id")
+            ?: response.header("x-mutation-id")
+        val retryAfter = response.header("Retry-After") ?: response.header("retry-after")
+        return MobileApiErrorClassifier.httpFailure(
+            statusCode = response.code,
+            fallbackMessage = fallbackMessage,
+            serverMessage = serverMessage,
+            errorCode = extractErrorCode(rawBody),
+            mutationId = mutationId,
+            retryAfterRaw = retryAfter,
         )
     }
 
