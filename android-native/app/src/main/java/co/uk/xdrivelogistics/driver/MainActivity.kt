@@ -253,6 +253,27 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Standalone notification permission launcher: requests POST_NOTIFICATIONS
+                // independently of location so a driver who never starts tracking still receives
+                // push notifications. Denial is silent — login and all other operations proceed.
+                val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestPermission()
+                ) { /* result is informational only; no blocking on denial */ }
+
+                // Request POST_NOTIFICATIONS once per authenticated session, independently of
+                // location or tracking flow. Pre-Android-13 devices do not need this request.
+                LaunchedEffect(state.isAuthenticated) {
+                    if (state.isAuthenticated &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(
+                            this@MainActivity,
+                            Manifest.permission.POST_NOTIFICATIONS,
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+
                 LaunchedEffect(state.error, state.message, state.selectedTab) {
                     if (state.selectedTab != DriverTab.ACTION) {
                         if (state.error.isNotBlank()) snackbarHostState.showSnackbar(state.error.toDriverSafeError())
@@ -309,7 +330,7 @@ class MainActivity : ComponentActivity() {
                                         if (location != null) viewModel.sendLocation(location.latitude, location.longitude)
                                     }
                                 } else {
-                                    locationPermissionLauncher.launch(trackingRuntimePermissions(includeNotifications = false))
+                                    locationPermissionLauncher.launch(trackingRuntimePermissions())
                                 }
                             },
                             onPickPodFile = {
@@ -3197,14 +3218,11 @@ private fun MainActivity.hasForegroundLocationPermission(): Boolean {
     return fine || coarse
 }
 
-private fun MainActivity.trackingRuntimePermissions(includeNotifications: Boolean = true): Array<String> =
-    buildList {
-        add(Manifest.permission.ACCESS_FINE_LOCATION)
-        add(Manifest.permission.ACCESS_COARSE_LOCATION)
-        if (includeNotifications && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }.toTypedArray()
+private fun MainActivity.trackingRuntimePermissions(): Array<String> =
+    arrayOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION,
+    )
 
 private fun MainActivity.createPodPhotoUri(): Uri {
     val podDir = File(cacheDir, "pod").apply { mkdirs() }

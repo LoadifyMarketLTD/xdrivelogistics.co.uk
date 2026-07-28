@@ -40,6 +40,12 @@ CREATE INDEX IF NOT EXISTS idx_driver_device_tokens_driver_active
   WHERE revoked_at IS NULL;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.driver_device_tokens TO service_role;
-GRANT SELECT ON public.driver_device_tokens TO authenticated;
+-- Authenticated clients must not directly enumerate device tokens; all reads and
+-- mutations are performed via service-role server API routes only.
+REVOKE ALL ON public.driver_device_tokens FROM authenticated;
+
+-- Row-level security enforced: no authenticated policy is intentionally defined.
+-- The service_role bypass ensures server-side operations remain unaffected.
+ALTER TABLE public.driver_device_tokens ENABLE ROW LEVEL SECURITY;
 
 NOTIFY pgrst, 'reload schema';

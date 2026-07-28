@@ -107,6 +107,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val queueStore = MobileOfflineQueueStore(application.applicationContext)
     private val podPendingStore = PodPendingStore(application.applicationContext)
     private val podSubmissionStore = PodSubmissionStore(application.applicationContext)
+    /** Durable store for a pending FCM unregister that must survive process death. */
+    private val pendingUnregisterStore = PendingUnregisterStore(application.applicationContext)
     private val mutationQueue = MobileOfflineQueue()
     private val api = ApiClient(
         xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
@@ -132,9 +134,6 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private var registeredDeviceTokenOwnerId: String? = null
     /** Last successfully registered token for the current owner. */
     private var registeredDeviceTokenValue: String? = null
-    /** Logout-time unregister to retry next time the same owner authenticates. */
-    private var pendingDeviceTokenUnregisterOwnerId: String? = null
-    private var pendingDeviceTokenUnregisterValue: String? = null
 
     init {
         mutationQueue.restore(queueStore.readAll())
@@ -219,8 +218,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 true
             }
             if (!unregisterSucceeded && session != null && !token.isNullOrBlank()) {
-                pendingDeviceTokenUnregisterOwnerId = session.userId
-                pendingDeviceTokenUnregisterValue = token
+                pendingUnregisterStore.save(session.userId, token)
             }
             clearOwnerScopedMessageRequestGuards()
             clearOwnerScopedDeviceTokenState()
@@ -735,15 +733,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private suspend fun flushPendingDeviceTokenUnregisterIfNeeded(session: DriverSession) {
-        val ownerId = pendingDeviceTokenUnregisterOwnerId
-        val token = pendingDeviceTokenUnregisterValue?.trim().orEmpty()
-        if (ownerId != session.userId || token.isBlank()) return
+        val pending = pendingUnregisterStore.read() ?: return
+        if (pending.ownerId != session.userId || pending.token.isBlank()) return
         if (!deviceTokenInFlight.acquire(session)) return
         try {
-            if (unregisterDeviceTokenWithSingleRefreshRetry(session, token)) {
-                pendingDeviceTokenUnregisterOwnerId = null
-                pendingDeviceTokenUnregisterValue = null
-                if (registeredDeviceTokenOwnerId == session.userId && registeredDeviceTokenValue == token) {
+            if (unregisterDeviceTokenWithSingleRefreshRetry(session, pending.token)) {
+                pendingUnregisterStore.clear()
+                if (registeredDeviceTokenOwnerId == session.userId && registeredDeviceTokenValue == pending.token) {
                     registeredDeviceTokenOwnerId = null
                     registeredDeviceTokenValue = null
                 }
