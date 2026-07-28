@@ -61,7 +61,7 @@ data class DriverJob(
     fun driverStatusKey(): String = CanonicalDriverLifecycleStatus
         .fromRaw(statusKey())
         ?.wireValue
-        ?: ""
+        ?: statusKey()
 
     fun isInProgress(): Boolean = driverStatusKey() in listOf(
         "accepted",
