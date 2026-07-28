@@ -81,6 +81,14 @@ There is no fallback default for null/empty/unknown types.
 - denies disabled/not-permitted workspace selection
 - denies URL manipulation/path traversal with `malformed_route`
 
+Middleware hardening requirements are now enforced server-side:
+
+- Protected routes fail closed when DB-backed auth context is unavailable (no metadata-only fallback authorization).
+- `user_metadata` is non-authoritative for owner-driver workspace and execution-mode privileges.
+- Active company context is resolved from authenticated membership rows via `resolveActiveCompanyContext`.
+- Membership role, company id, and company status are bound to the same selected active membership record.
+- Multiple active memberships without trusted selected-company context are denied (`active_company_required` path).
+
 ### Shared `/driver` surface contract
 
 `/driver` is a shared driver surface used by both employed fleet drivers and owner-drivers.
