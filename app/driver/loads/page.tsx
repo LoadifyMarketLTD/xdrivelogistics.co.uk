@@ -429,7 +429,7 @@ export default function AvailableLoadsPage() {
           <div style={{ ...card, color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading exchange loads…</div>
         ) : showNoExchangeLoads ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ“­</div>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>No exchange loads available right now</div>
             <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.9rem' }}>
               Try refreshing in a moment or use the search page when new loads are posted.
@@ -443,7 +443,7 @@ export default function AvailableLoadsPage() {
           </div>
         ) : showNoFilteredLoads ? (
           <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ“‹</div>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>No loads match your active filters</div>
             <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.9rem' }}>
               Broaden the vehicle, date, postcode, or cargo filters to see more live loads.

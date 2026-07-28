@@ -207,7 +207,7 @@ export default function AdminDisputesPage() {
         {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.8rem 0.9rem', marginBottom: '0.8rem', fontSize: '0.84rem', fontWeight: 600 }}>{error}</div>}
 
         {loading ? (
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '2rem', textAlign: 'center', color: '#64748b' }}>Loading disputesâ€¦</div>
+          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '2rem', textAlign: 'center', color: '#64748b' }}>Loading disputes…</div>
         ) : filtered.length === 0 ? (
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1.2rem', color: '#64748b' }}>No disputes found for the selected status.</div>
         ) : (
@@ -229,7 +229,7 @@ export default function AdminDisputesPage() {
                       return (
                         <tr key={dispute.id} style={{ borderBottom: index < paginatedDisputes.length - 1 ? '1px solid #f1f5f9' : 'none', background: active ? '#eff6ff' : '#fff' }}>
                           <td style={{ padding: '0.75rem' }}>
-                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.86rem' }}>{dispute.jobs?.pickup_location ?? 'â€”'} â†’ {dispute.jobs?.delivery_location ?? 'â€”'}</div>
+                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.86rem' }}>{dispute.jobs?.pickup_location ?? '—'} → {dispute.jobs?.delivery_location ?? '—'}</div>
                             <div style={{ marginTop: '0.15rem', color: '#94a3b8', fontSize: '0.74rem' }}>Job #{dispute.job_id.slice(0, 8)}</div>
                           </td>
                           <td style={{ padding: '0.75rem' }}>
@@ -250,7 +250,7 @@ export default function AdminDisputesPage() {
               {filtered.length > DISPUTES_PER_PAGE && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', padding: '0.6rem 0.75rem', fontSize: '0.78rem', color: '#64748b' }}>
                   <span>
-                    Showing {safeDisputePage * DISPUTES_PER_PAGE + 1}â€“{Math.min((safeDisputePage + 1) * DISPUTES_PER_PAGE, filtered.length)} of {filtered.length}
+                    Showing {safeDisputePage * DISPUTES_PER_PAGE + 1}–{Math.min((safeDisputePage + 1) * DISPUTES_PER_PAGE, filtered.length)} of {filtered.length}
                   </span>
                   <div style={{ display: 'flex', gap: '0.4rem' }}>
                     <button
@@ -284,18 +284,18 @@ export default function AdminDisputesPage() {
                 </div>
                 <div>
                   <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Job status</div>
-                  <div style={{ color: '#334155', fontSize: '0.84rem' }}>{selectedDispute.jobs?.status ?? 'â€”'}</div>
+                  <div style={{ color: '#334155', fontSize: '0.84rem' }}>{selectedDispute.jobs?.status ?? '—'}</div>
                 </div>
                 <div>
                   <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Pickup / Delivery</div>
                   <div style={{ color: '#334155', fontSize: '0.84rem' }}>
-                    {selectedDispute.jobs?.pickup_location ?? 'â€”'} â†’ {selectedDispute.jobs?.delivery_location ?? 'â€”'}
+                    {selectedDispute.jobs?.pickup_location ?? '—'} → {selectedDispute.jobs?.delivery_location ?? '—'}
                   </div>
                   <div style={{ marginTop: '0.2rem', color: '#64748b', fontSize: '0.8rem' }}>
-                    {selectedDispute.jobs?.pickup_datetime ? `Pickup: ${new Date(selectedDispute.jobs.pickup_datetime).toLocaleString('en-GB')}` : 'Pickup: â€”'}
+                    {selectedDispute.jobs?.pickup_datetime ? `Pickup: ${new Date(selectedDispute.jobs.pickup_datetime).toLocaleString('en-GB')}` : 'Pickup: —'}
                   </div>
                   <div style={{ color: '#64748b', fontSize: '0.8rem' }}>
-                    {selectedDispute.jobs?.delivery_datetime ? `Delivery: ${new Date(selectedDispute.jobs.delivery_datetime).toLocaleString('en-GB')}` : 'Delivery: â€”'}
+                    {selectedDispute.jobs?.delivery_datetime ? `Delivery: ${new Date(selectedDispute.jobs.delivery_datetime).toLocaleString('en-GB')}` : 'Delivery: —'}
                   </div>
                 </div>
                 <div>
@@ -313,9 +313,9 @@ export default function AdminDisputesPage() {
                   Raised at {new Date(selectedDispute.created_at).toLocaleString('en-GB')}
                 </div>
 
-                {/* â”€â”€ Resolution Panel â”€â”€ */}
+                {/* ── Resolution Panel ── */}
                 <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '0.9rem' }}>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#374151', marginBottom: '0.65rem' }}>âš–ï¸ Update / Resolve Dispute</div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#374151', marginBottom: '0.65rem' }}>⚖️ Update / Resolve Dispute</div>
 
                   {saveError && (
                     <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '7px', padding: '0.55rem 0.75rem', marginBottom: '0.65rem', color: '#dc2626', fontSize: '0.82rem' }}>
@@ -324,7 +324,7 @@ export default function AdminDisputesPage() {
                   )}
                   {saveSuccess && (
                     <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: '7px', padding: '0.55rem 0.75rem', marginBottom: '0.65rem', color: '#14532d', fontWeight: 600, fontSize: '0.82rem' }}>
-                      âœ… {saveSuccess}
+                      ✅ {saveSuccess}
                     </div>
                   )}
 
@@ -347,7 +347,7 @@ export default function AdminDisputesPage() {
                       <textarea
                         value={resolveNote}
                         onChange={e => setResolveNote(e.target.value)}
-                        placeholder="Describe the outcome, investigation findings, or reason for closureâ€¦"
+                        placeholder="Describe the outcome, investigation findings, or reason for closure…"
                         rows={4}
                         style={{ ...inputStyle, resize: 'vertical', minHeight: '80px' }}
                       />
@@ -357,7 +357,7 @@ export default function AdminDisputesPage() {
                       disabled={saving}
                       style={{ padding: '0.6rem', background: saving ? '#93c5fd' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: '0.86rem' }}
                     >
-                      {saving ? 'Savingâ€¦' : 'Save Resolution'}
+                      {saving ? 'Saving…' : 'Save Resolution'}
                     </button>
                   </div>
                 </div>
