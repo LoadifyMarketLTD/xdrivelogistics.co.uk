@@ -4,9 +4,16 @@ export type ProtectedRouteRequirement = {
   prefix: string;
   workspace: BusinessWorkspace;
   anyOf?: readonly string[];
+  exact?: boolean;
 };
 
-export const PROTECTED_ROUTE_PREFIXES = ['/admin', '/broker', '/customer', '/driver'] as const;
+export const PROTECTED_ROUTE_PREFIXES = [
+  '/admin',
+  '/broker',
+  '/customer',
+  '/driver',
+  '/super-admin',
+] as const;
 
 export const PROTECTED_ROUTE_REQUIREMENTS: readonly ProtectedRouteRequirement[] = [
   { prefix: '/admin/fleet/assignments', workspace: 'carrier_fleet', anyOf: ['jobs.allocate'] },
@@ -36,7 +43,7 @@ export const PROTECTED_ROUTE_REQUIREMENTS: readonly ProtectedRouteRequirement[] 
   { prefix: '/admin/returns', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
   { prefix: '/admin/dispatchers', workspace: 'carrier_fleet', anyOf: ['company.members.manage'] },
   { prefix: '/admin/settings', workspace: 'carrier_fleet', anyOf: ['settings.manage'] },
-  { prefix: '/admin', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
+  { prefix: '/admin', workspace: 'carrier_fleet', anyOf: ['jobs.view'], exact: true },
 
   { prefix: '/broker/customers', workspace: 'broker', anyOf: ['company.manage'] },
   { prefix: '/broker/post-load', workspace: 'broker', anyOf: ['loads.create'] },
@@ -51,7 +58,7 @@ export const PROTECTED_ROUTE_REQUIREMENTS: readonly ProtectedRouteRequirement[] 
   { prefix: '/broker/carrier-costs', workspace: 'broker', anyOf: ['invoices.carrier.manage'] },
   { prefix: '/broker/disputes', workspace: 'broker', anyOf: ['incidents.manage'] },
   { prefix: '/broker/settings', workspace: 'broker', anyOf: ['settings.manage'] },
-  { prefix: '/broker', workspace: 'broker', anyOf: ['loads.view.own'] },
+  { prefix: '/broker', workspace: 'broker', anyOf: ['loads.view.own'], exact: true },
 
   { prefix: '/customer/post-load', workspace: 'shipper', anyOf: ['loads.create'] },
   { prefix: '/customer/loads', workspace: 'shipper', anyOf: ['loads.view.own'] },
@@ -63,7 +70,7 @@ export const PROTECTED_ROUTE_REQUIREMENTS: readonly ProtectedRouteRequirement[] 
   { prefix: '/customer/invoices', workspace: 'shipper', anyOf: ['invoices.customer.manage'] },
   { prefix: '/customer/team', workspace: 'shipper', anyOf: ['settings.manage'] },
   { prefix: '/customer/settings', workspace: 'shipper', anyOf: ['settings.manage'] },
-  { prefix: '/customer', workspace: 'shipper', anyOf: ['loads.view.own'] },
+  { prefix: '/customer', workspace: 'shipper', anyOf: ['loads.view.own'], exact: true },
 
   { prefix: '/driver/change-password', workspace: 'owner_operator' },
   { prefix: '/driver/loads', workspace: 'owner_operator', anyOf: ['loads.view.marketplace'] },
@@ -78,7 +85,7 @@ export const PROTECTED_ROUTE_REQUIREMENTS: readonly ProtectedRouteRequirement[] 
   { prefix: '/driver/documents', workspace: 'owner_operator', anyOf: ['documents.own.manage'] },
   { prefix: '/driver/messages', workspace: 'owner_operator' },
   { prefix: '/driver/profile', workspace: 'owner_operator' },
-  { prefix: '/driver', workspace: 'owner_operator' },
+  { prefix: '/driver', workspace: 'owner_operator', exact: true },
 ];
 
 export const cleanPathname = (pathname: string): string => {
@@ -86,8 +93,8 @@ export const cleanPathname = (pathname: string): string => {
   return clean.replace(/\/{2,}/g, '/');
 };
 
-const pathMatches = (pathname: string, prefix: string) =>
-  pathname === prefix || pathname.startsWith(`${prefix}/`);
+const pathMatches = (pathname: string, prefix: string, exact = false) =>
+  exact ? pathname === prefix : pathname === prefix || pathname.startsWith(`${prefix}/`);
 
 export const isProtectedRoute = (pathname: string): boolean =>
   PROTECTED_ROUTE_PREFIXES.some((prefix) => pathMatches(pathname, prefix));
@@ -98,7 +105,7 @@ export const getProtectedRouteRequirement = (
   const clean = cleanPathname(pathname);
   let best: ProtectedRouteRequirement | null = null;
   for (const requirement of PROTECTED_ROUTE_REQUIREMENTS) {
-    if (pathMatches(clean, requirement.prefix)) {
+    if (pathMatches(clean, requirement.prefix, requirement.exact)) {
       if (!best || requirement.prefix.length > best.prefix.length) {
         best = requirement;
       }
