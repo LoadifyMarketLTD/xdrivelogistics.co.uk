@@ -21,6 +21,7 @@ import {
 
 const activeStatuses = new Set(['awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
 const terminalStatuses = new Set(['delivered', 'completed', 'cancelled', 'paid']);
+const exceptionStatuses = new Set(['cancelled', 'failed', 'exception', 'disputed', 'collection_failed', 'delivery_failed', 'damaged', 'breakdown']);
 const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
 const formatDate = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
 const daysUntil = (value: string | null | undefined) => value ? Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000) : null;
@@ -35,9 +36,13 @@ export function CarrierDashboard() {
     const unallocated = data.jobs.filter((job) => ['awarded', 'posted'].includes(job.status) && !job.assigned_driver_id).length;
     const active = data.jobs.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length;
     const podPending = data.jobs.filter((job) => ['delivered', 'completed'].includes(job.status) && (job.delivery_photos?.length ?? 0) === 0).length;
-    const overdueInvoices = data.invoices.filter((invoice) => invoice.due_date && new Date(invoice.due_date).getTime() < Date.now() && !['paid', 'Paid'].includes(invoice.status) && invoice.payment_status !== 'paid').length;
+    const carrierInvoices = data.invoices.filter((inv) => inv.company_id === data.companyId);
+    const overdueInvoices = carrierInvoices.filter((invoice) => invoice.due_date && new Date(invoice.due_date).getTime() < Date.now() && !['paid', 'Paid'].includes(invoice.status) && invoice.payment_status !== 'paid').length;
     const acceptedRevenue = data.bids.filter((bid) => jobIds.has(bid.job_id) && bid.status === 'accepted').reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
-    return { submittedQuotes, won, unallocated, active, podPending, overdueInvoices, acceptedRevenue };
+    const invoicedValue = carrierInvoices.filter((inv) => !['draft', 'pending', 'cancelled'].includes(String(inv.status).toLowerCase())).reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
+    const paidValue = carrierInvoices.filter((inv) => ['paid', 'Paid'].includes(inv.status) || inv.payment_status === 'paid').reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
+    const exceptionJobs = data.jobs.filter((job) => exceptionStatuses.has(job.current_status ?? job.status));
+    return { submittedQuotes, won, unallocated, active, podPending, overdueInvoices, acceptedRevenue, invoicedValue, paidValue, exceptionJobs };
   }, [data]);
 
   return (
@@ -50,15 +55,22 @@ export function CarrierDashboard() {
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
       <KpiGrid>
-        <KpiCard label="Quotes submitted" value={metrics.submittedQuotes} detail="Awaiting a commercial decision" />
-        <KpiCard label="Won work" value={metrics.won} detail="Accepted carrier quotes" tone="green" />
-        <KpiCard label="Awaiting allocation" value={metrics.unallocated} detail="Jobs requiring driver and vehicle" tone="orange" onClick={() => router.push('/admin/diary')} />
-        <KpiCard label="Active jobs" value={metrics.active} detail="Collections and deliveries in progress" tone="purple" />
-        <KpiCard label="POD outstanding" value={metrics.podPending} detail="Delivered jobs missing proof" tone="red" />
-        <KpiCard label="Overdue invoices" value={metrics.overdueInvoices} detail={`${money(metrics.acceptedRevenue)} won work value`} tone="navy" />
+        <KpiCard label="Quotes submitted" value={metrics.submittedQuotes} detail="Awaiting a commercial decision" onClick={() => router.push('/admin/quotes')} />
+        <KpiCard label="Won work" value={metrics.won} detail="Accepted carrier quotes" tone="green" onClick={() => router.push('/admin/bids')} />
+        <KpiCard label="Awaiting allocation" value={metrics.unallocated} detail="Jobs requiring driver and vehicle" tone="orange" onClick={() => router.push('/admin/fleet/assignments')} />
+        <KpiCard label="Active jobs" value={metrics.active} detail="Collections and deliveries in progress" tone="purple" onClick={() => router.push('/admin/fleet/active-jobs')} />
+        <KpiCard label="POD outstanding" value={metrics.podPending} detail="Delivered jobs missing proof" tone="red" onClick={() => router.push('/admin/documents?view=pod')} />
+        <KpiCard label="Overdue invoices" value={metrics.overdueInvoices} detail="Past due date" tone={metrics.overdueInvoices ? 'red' : 'navy'} onClick={() => router.push('/admin/invoices')} />
+        <KpiCard label="Exceptions" value={metrics.exceptionJobs.length} detail="Failed or disputed jobs" tone={metrics.exceptionJobs.length ? 'red' : 'green'} onClick={() => router.push('/admin/incidents')} />
+        <KpiCard label="Won work value" value={money(metrics.acceptedRevenue)} detail="Accepted bid total" tone="navy" />
       </KpiGrid>
+
       <TwoColumn>
-        <Panel title="Jobs requiring attention" description="Unallocated, active and POD-pending work is prioritised before general reporting." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>All jobs</ActionButton>}>
+        <Panel
+          title="Jobs requiring attention"
+          description="Unallocated, active and POD-pending work is prioritised before general reporting."
+          actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>All jobs</ActionButton>}
+        >
           <DataTable
             columns={['Route', 'Pickup', 'Vehicle', 'Status', 'Action']}
             rows={data.jobs.filter((job) => !terminalStatuses.has(job.status)).slice(0, 8).map((job) => [
@@ -75,24 +87,49 @@ export function CarrierDashboard() {
           <Panel title="Resource readiness" description="Live capacity from your company roster.">
             <div style={{ display: 'grid', gap: '0.58rem' }}>
               {[
-                ['Available drivers', data.drivers.filter((driver) => driver.availability_status === 'available').length, '/admin/drivers'],
-                ['Busy drivers', data.drivers.filter((driver) => driver.availability_status === 'busy').length, '/admin/drivers'],
-                ['Vehicles', data.vehicles.length, '/admin/vehicles'],
-                ['Unassigned vehicles', data.vehicles.filter((vehicle) => !vehicle.assigned_driver_id).length, '/admin/vehicles'],
-              ].map(([label, value, href]) => <button key={String(label)} onClick={() => router.push(String(href))} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontWeight: 750 }}><span>{label}</span><strong>{value}</strong></button>)}
+                ['Available drivers', data.drivers.filter((d) => d.availability_status === 'available').length, '/admin/drivers'],
+                ['Busy drivers', data.drivers.filter((d) => d.availability_status === 'busy').length, '/admin/drivers'],
+                ['Total vehicles', data.vehicles.length, '/admin/vehicles'],
+                ['Unassigned vehicles', data.vehicles.filter((v) => !v.assigned_driver_id).length, '/admin/vehicles'],
+              ].map(([label, value, href]) => (
+                <button key={String(label)} onClick={() => router.push(String(href))} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontWeight: 750 }}>
+                  <span>{label}</span><strong>{value}</strong>
+                </button>
+              ))}
             </div>
           </Panel>
-          <Panel title="Compliance alerts" description="Documents expiring within 30 days.">
-            {data.driverDocuments.concat(data.vehicleDocuments).filter((document) => { const days = daysUntil(document.expiry_date); return days !== null && days <= 30; }).slice(0, 5).map((document) => (
-              <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.6rem', padding: '0.55rem 0', borderBottom: '1px solid #eef2f6', fontSize: '0.76rem' }}>
-                <span>{document.doc_type?.replace(/_/g, ' ') ?? 'Document'}</span>
-                <StatusBadge value={document.expiry_date ? `${daysUntil(document.expiry_date)} days` : 'missing'} tone="orange" />
+          <Panel title="Compliance alerts" description="Documents expiring within 30 days." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents/expiry')}>View all</ActionButton>}>
+            {data.driverDocuments.concat(data.vehicleDocuments).filter((doc) => { const d = daysUntil(doc.expiry_date); return d !== null && d <= 30; }).slice(0, 5).map((doc) => (
+              <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.6rem', padding: '0.55rem 0', borderBottom: '1px solid #eef2f6', fontSize: '0.76rem' }}>
+                <span>{doc.doc_type?.replace(/_/g, ' ') ?? 'Document'}</span>
+                <StatusBadge value={doc.expiry_date ? `${daysUntil(doc.expiry_date)} days` : 'missing'} tone="orange" />
               </div>
             ))}
-            {data.driverDocuments.concat(data.vehicleDocuments).filter((document) => { const days = daysUntil(document.expiry_date); return days !== null && days <= 30; }).length === 0 && <EmptyState title="No expiry alerts" description="No driver or vehicle document expires within 30 days." />}
+            {data.driverDocuments.concat(data.vehicleDocuments).filter((doc) => { const d = daysUntil(doc.expiry_date); return d !== null && d <= 30; }).length === 0 && <EmptyState title="No expiry alerts" description="No driver or vehicle document expires within 30 days." />}
           </Panel>
         </div>
       </TwoColumn>
+
+      <Panel
+        title="Revenue & finance overview"
+        description="Financial position based on accepted bids, raised invoices and payment receipts."
+        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/invoices')}>Finance</ActionButton>}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.7rem' }}>
+          {[
+            ['Won work value', money(metrics.acceptedRevenue), 'Accepted bids total', '#f0fdf4', '#166534'],
+            ['Invoiced', money(metrics.invoicedValue), 'Raised to customers', '#eff6ff', '#1e40af'],
+            ['Paid', money(metrics.paidValue), 'Received payments', '#faf5ff', '#6b21a8'],
+            ['Outstanding', money(Math.max(0, metrics.invoicedValue - metrics.paidValue)), 'Awaiting payment', metrics.invoicedValue - metrics.paidValue > 0 ? '#fff7ed' : '#f0fdf4', metrics.invoicedValue - metrics.paidValue > 0 ? '#c2410c' : '#166534'],
+          ].map(([label, value, detail, bg, color]) => (
+            <div key={String(label)} style={{ background: String(bg), border: `1px solid ${String(color)}20`, borderRadius: '10px', padding: '0.9rem 1rem' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+              <div style={{ fontSize: '1.35rem', fontWeight: 800, color: String(color), marginTop: '0.2rem' }}>{value}</div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.15rem' }}>{detail}</div>
+            </div>
+          ))}
+        </div>
+      </Panel>
     </PageFrame>
   );
 }
@@ -111,29 +148,40 @@ export function FleetDashboard() {
     const timestamp = location?.recorded_at ?? location?.updated_at;
     return !timestamp || Date.now() - new Date(timestamp).getTime() > 20 * 60_000;
   }).length;
-  const expiring = data.driverDocuments.concat(data.vehicleDocuments).filter((document) => { const days = daysUntil(document.expiry_date); return days !== null && days <= 30; }).length;
-  const unassignedJobs = data.jobs.filter((job) => ['posted', 'awarded'].includes(job.status) && !job.assigned_driver_id).length;
-  const activeJobs = data.jobs.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length;
+  const expiring = data.driverDocuments.concat(data.vehicleDocuments).filter((doc) => { const d = daysUntil(doc.expiry_date); return d !== null && d <= 30; }).length;
+  const unassignedJobs = data.jobs.filter((job) => ['posted', 'awarded'].includes(job.status) && !job.assigned_driver_id);
+  const activeJobs = data.jobs.filter((job) => activeStatuses.has(job.current_status ?? job.status));
+  const exceptionJobs = data.jobs.filter((job) => exceptionStatuses.has(job.current_status ?? job.status));
 
   return (
     <PageFrame>
-      <PageHeader eyebrow="Fleet operations" title="Fleet Dashboard" description="Capacity, assignments, live positions, maintenance and compliance—ordered by operational urgency." actions={<><ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Allocate Work</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton></>} />
+      <PageHeader
+        eyebrow="Fleet operations"
+        title="Fleet Dashboard"
+        description="Capacity, assignments, live positions, maintenance and compliance—ordered by operational urgency."
+        actions={<><ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Allocate Work</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton></>}
+      />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
       <KpiGrid>
-        <KpiCard label="Available drivers" value={data.drivers.filter((driver) => driver.availability_status === 'available').length} tone="green" detail="Ready for allocation" />
-        <KpiCard label="Busy drivers" value={data.drivers.filter((driver) => driver.availability_status === 'busy').length} tone="purple" detail="Assigned or on a job" />
-        <KpiCard label="Offline drivers" value={data.drivers.filter((driver) => !driver.availability_status || driver.availability_status === 'offline').length} tone="navy" detail="Not available now" />
-        <KpiCard label="Available vehicles" value={data.vehicles.filter((vehicle) => !vehicle.assigned_driver_id).length} tone="blue" detail={`${data.vehicles.length} total vehicles`} />
-        <KpiCard label="Unassigned jobs" value={unassignedJobs} tone="orange" detail="Driver and vehicle required" onClick={() => router.push('/admin/fleet/assignments')} />
-        <KpiCard label="Active jobs" value={activeJobs} tone="green" detail="Collections and deliveries" />
-        <KpiCard label="Expiry alerts" value={expiring} tone="red" detail="Due within 30 days" onClick={() => router.push('/admin/documents/expiry')} />
-        <KpiCard label="Stale positions" value={staleDrivers} tone="red" detail="No location within 20 minutes" onClick={() => router.push('/admin/fleet/positions')} />
+        <KpiCard label="Available drivers" value={data.drivers.filter((d) => d.availability_status === 'available').length} tone="green" detail="Ready for allocation" onClick={() => router.push('/admin/drivers')} />
+        <KpiCard label="Busy drivers" value={data.drivers.filter((d) => d.availability_status === 'busy').length} tone="purple" detail="Assigned or on a job" onClick={() => router.push('/admin/drivers')} />
+        <KpiCard label="Offline drivers" value={data.drivers.filter((d) => !d.availability_status || d.availability_status === 'offline').length} tone="navy" detail="Not available now" onClick={() => router.push('/admin/driver-availability')} />
+        <KpiCard label="Available vehicles" value={data.vehicles.filter((v) => !v.assigned_driver_id).length} tone="blue" detail={`${data.vehicles.length} total vehicles`} onClick={() => router.push('/admin/vehicles')} />
+        <KpiCard label="Unassigned jobs" value={unassignedJobs.length} tone="orange" detail="Driver and vehicle required" onClick={() => router.push('/admin/fleet/assignments')} />
+        <KpiCard label="Active jobs" value={activeJobs.length} tone="green" detail="Collections and deliveries" onClick={() => router.push('/admin/fleet/active-jobs')} />
+        <KpiCard label="Expiry alerts" value={expiring} tone={expiring ? 'red' : 'green'} detail="Due within 30 days" onClick={() => router.push('/admin/documents/expiry')} />
+        <KpiCard label="Exceptions" value={exceptionJobs.length} tone={exceptionJobs.length ? 'red' : 'green'} detail="Failed or disputed jobs" onClick={() => router.push('/admin/incidents')} />
       </KpiGrid>
+
       <TwoColumn>
-        <Panel title="Jobs requiring allocation" description="Only work that cannot progress without a resource decision." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/assignments')}>Assignments</ActionButton>}>
+        <Panel
+          title="Jobs requiring allocation"
+          description="Work that cannot progress without a driver and vehicle assignment."
+          actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/assignments')}>Assignments</ActionButton>}
+        >
           <DataTable
             columns={['Route', 'Pickup', 'Required vehicle', 'Status', 'Action']}
-            rows={data.jobs.filter((job) => ['posted', 'awarded'].includes(job.status) && !job.assigned_driver_id).slice(0, 8).map((job) => [
+            rows={unassignedJobs.slice(0, 6).map((job) => [
               <strong key="route">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong>,
               formatDate(job.pickup_datetime),
               (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
@@ -144,24 +192,67 @@ export function FleetDashboard() {
           />
         </Panel>
         <div style={{ display: 'grid', gap: '0.9rem' }}>
-          <Panel title="Drivers available now" description="Availability and current assignment status.">
-            {data.drivers.filter((driver) => driver.availability_status === 'available').slice(0, 7).map((driver) => (
+          <Panel title="Drivers available now" description="Availability and current assignment status." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>All drivers</ActionButton>}>
+            {data.drivers.filter((d) => d.availability_status === 'available').slice(0, 6).map((driver) => (
               <button key={driver.id} onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', gap: '0.5rem', border: 0, borderBottom: '1px solid #eef2f6', background: 'transparent', padding: '0.58rem 0', cursor: 'pointer', textAlign: 'left' }}>
                 <span><strong style={{ display: 'block', fontSize: '0.78rem' }}>{driver.display_name ?? driver.email ?? 'Driver'}</strong><span style={{ color: '#64748b', fontSize: '0.68rem' }}>{driver.phone ?? 'No phone recorded'}</span></span>
                 <StatusBadge value="available" tone="green" />
               </button>
             ))}
-            {data.drivers.filter((driver) => driver.availability_status === 'available').length === 0 && <EmptyState title="No drivers marked available" />}
+            {data.drivers.filter((d) => d.availability_status === 'available').length === 0 && <EmptyState title="No drivers marked available" />}
           </Panel>
           <Panel title="Readiness alerts" description="Expiry and location issues that can stop operations.">
             <div style={{ display: 'grid', gap: '0.5rem' }}>
-              <button onClick={() => router.push('/admin/documents/expiry')} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: '#fff7ed', borderRadius: '8px', padding: '0.62rem', cursor: 'pointer' }}><span>Documents expiring</span><strong>{expiring}</strong></button>
-              <button onClick={() => router.push('/admin/fleet/positions')} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: '#fef2f2', borderRadius: '8px', padding: '0.62rem', cursor: 'pointer' }}><span>Stale GPS positions</span><strong>{staleDrivers}</strong></button>
-              <button onClick={() => router.push('/admin/fleet/maintenance')} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem', cursor: 'pointer' }}><span>Vehicles without driver</span><strong>{data.vehicles.filter((vehicle) => !vehicle.assigned_driver_id).length}</strong></button>
+              <button onClick={() => router.push('/admin/documents/expiry')} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: expiring ? '#fff7ed' : '#f8fafc', borderRadius: '8px', padding: '0.62rem', cursor: 'pointer' }}><span>Documents expiring</span><strong>{expiring}</strong></button>
+              <button onClick={() => router.push('/admin/fleet/positions')} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: staleDrivers ? '#fef2f2' : '#f8fafc', borderRadius: '8px', padding: '0.62rem', cursor: 'pointer' }}><span>Stale GPS positions</span><strong>{staleDrivers}</strong></button>
+              <button onClick={() => router.push('/admin/fleet/maintenance')} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem', cursor: 'pointer' }}><span>Unassigned vehicles</span><strong>{data.vehicles.filter((v) => !v.assigned_driver_id).length}</strong></button>
             </div>
           </Panel>
         </div>
       </TwoColumn>
+
+      {activeJobs.length > 0 && (
+        <Panel
+          title="Active jobs — live operational view"
+          description="Jobs currently in transit. Track progress and identify any exceptions early."
+          actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/active-jobs')}>Full board</ActionButton>}
+        >
+          <DataTable
+            columns={['Route', 'Pickup', 'Delivery', 'Driver', 'Status', 'Action']}
+            rows={activeJobs.slice(0, 8).map((job) => {
+              const driver = data.drivers.find((d) => d.id === job.assigned_driver_id);
+              return [
+                <strong key="route">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong>,
+                formatDate(job.pickup_datetime),
+                formatDate(job.delivery_datetime),
+                driver?.display_name ?? driver?.email ?? '—',
+                <StatusBadge key="status" value={job.current_status ?? job.status} />,
+                <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open</ActionButton>,
+              ];
+            })}
+            empty={<EmptyState title="No active jobs" />}
+          />
+        </Panel>
+      )}
+
+      {exceptionJobs.length > 0 && (
+        <Panel
+          title="Exceptions — immediate action required"
+          description="Failed, disputed or damaged jobs that need intervention before they escalate."
+          actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/incidents')}>Incidents</ActionButton>}
+        >
+          <DataTable
+            columns={['Route', 'Pickup', 'Exception status', 'Action']}
+            rows={exceptionJobs.slice(0, 6).map((job) => [
+              <strong key="route">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong>,
+              formatDate(job.pickup_datetime),
+              <StatusBadge key="status" value={job.current_status ?? job.status} tone="red" />,
+              <ActionButton key="action" tone="danger" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Resolve</ActionButton>,
+            ])}
+            empty={<EmptyState title="No exceptions" />}
+          />
+        </Panel>
+      )}
     </PageFrame>
   );
 }

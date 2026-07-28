@@ -251,7 +251,7 @@ export default function JobDetailPage() {
         setSaveMessage(`Failed to update exchange visibility: ${error.message}`);
       } else {
         setExchangeVisibility(newVisibility);
-        setSaveMessage(newVisibility === 'exchange' ? 'âœ… Load published to Exchange Marketplace!' : 'âœ… Load removed from Exchange Marketplace.');
+        setSaveMessage(newVisibility === 'exchange' ? '✅ Load published to Exchange Marketplace!' : '✅ Load removed from Exchange Marketplace.');
       }
     } catch (err) {
       setSaveMessage('Error updating exchange visibility.');
@@ -483,7 +483,7 @@ export default function JobDetailPage() {
                   Job Details
                 </h1>
                 <p style={{ margin: 0, opacity: 0.8, fontSize: '0.95rem' }}>
-                  {job.jobRef} â€¢ {editMode ? 'Edit Mode' : 'View Mode'}
+                  {job.jobRef} • {editMode ? 'Edit Mode' : 'View Mode'}
                 </p>
               </div>
               <button
@@ -502,7 +502,7 @@ export default function JobDetailPage() {
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)')}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)')}
               >
-                â† Back to Jobs
+                ← Back to Jobs
               </button>
             </div>
           </div>
@@ -533,7 +533,7 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#165a2d')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1F7A3D')}
                   >
-                    âœï¸ Edit Job
+                    ✏️ Edit Job
                   </button>
                   <button
                     onClick={handleGenerateInvoice}
@@ -553,7 +553,7 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2563eb')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#3b82f6')}
                   >
-                    ðŸ“„ Generate Invoice
+                    📄 Generate Invoice
                   </button>
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
@@ -571,7 +571,7 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#b91c1c')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
                   >
-                    ðŸ—‘ï¸ Delete
+                    🗑️ Delete
                   </button>
                   <button
                    onClick={handlePublishToExchange}
@@ -596,7 +596,7 @@ export default function JobDetailPage() {
                    }}
                    title={exchangeVisibility === 'exchange' ? 'Remove from Exchange Marketplace' : 'Publish to Exchange Marketplace'}
                   >
-                   {publishingExchange ? 'â³ Updatingâ€¦' : exchangeVisibility === 'exchange' ? 'ðŸ”’ Unpublish from Exchange' : 'ðŸª Publish to Exchange'}
+                   {publishingExchange ? '⏳ Updating…' : exchangeVisibility === 'exchange' ? '🔒 Unpublish from Exchange' : '🏪 Publish to Exchange'}
                   </button>
                 </>
               ) : (
@@ -619,7 +619,7 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#165a2d')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1F7A3D')}
                   >
-                    ðŸ’¾ Save Changes
+                    💾 Save Changes
                   </button>
                   <button
                     onClick={handleCancel}
@@ -637,7 +637,7 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#4b5563')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#6b7280')}
                   >
-                    âœ–ï¸ Cancel
+                    ✖️ Cancel
                   </button>
                 </>
               )}
@@ -769,14 +769,14 @@ export default function JobDetailPage() {
 
             {/* Driver Assignment */}
             <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #e5e7eb' }}>
-              <label style={labelStyle}>ðŸš— Assigned Driver</label>
+              <label style={labelStyle}>🚗 Assigned Driver</label>
               {editMode ? (
                 <select
                   value={formData.assignedDriverId ?? ''}
                   onChange={(e) => setFormData({ ...formData, assignedDriverId: e.target.value || null })}
                   style={{ ...inputStyle, maxWidth: '320px' }}
                 >
-                  <option value="">â€” Unassigned â€”</option>
+                  <option value="">— Unassigned —</option>
                   {drivers.length === 0 && (
                     <option value="" disabled>
                       No active drivers found for this company
@@ -889,7 +889,7 @@ export default function JobDetailPage() {
           {/* Pickup Details */}
           <div style={sectionStyle}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
-              ðŸ“ Pickup Details
+              📍 Pickup Details
             </h2>
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div>
@@ -951,7 +951,7 @@ export default function JobDetailPage() {
           {/* Delivery Details */}
           <div style={sectionStyle}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
-              ðŸŽ¯ Delivery Details
+              🎯 Delivery Details
             </h2>
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div>
@@ -1013,7 +1013,7 @@ export default function JobDetailPage() {
           {/* Cargo Details */}
           <div style={sectionStyle}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
-              ðŸ“¦ Cargo Details
+              📦 Cargo Details
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div>
@@ -1106,7 +1106,7 @@ export default function JobDetailPage() {
           {formData.statusHistory && formData.statusHistory.length > 0 && (
             <div style={sectionStyle}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
-                ðŸ“‹ Status History
+                📋 Status History
               </h2>
               <div style={{ position: 'relative', paddingLeft: '2rem' }}>
                 {/* Timeline line */}
@@ -1160,7 +1160,7 @@ export default function JobDetailPage() {
           {formData.pod && (
             <div style={sectionStyle}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1f2937', marginBottom: '1.5rem' }}>
-                âœ… Proof of Delivery
+                ✅ Proof of Delivery
               </h2>
 
               {/* Pickup Photos */}
