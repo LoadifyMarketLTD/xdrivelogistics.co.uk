@@ -96,4 +96,113 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
       }),
     ).toBe(false);
   });
+
+  it('keeps /driver as shared but blocks owner-operator commercial routes without proof', () => {
+    expect(
+      isRoleAllowedForPath('/driver/jobs', DRIVER_ROLE, {
+        workspaceRole: 'driver',
+        ownerDriverWorkspace: false,
+        ownerDriverExecutionMode: false,
+        driverId: 'drv-10',
+        appAccess: true,
+        driverStatus: 'active',
+      }),
+    ).toBe(true);
+
+    expect(
+      isRoleAllowedForPath('/driver/loads', DRIVER_ROLE, {
+        workspaceRole: 'driver',
+        ownerDriverWorkspace: false,
+        ownerDriverExecutionMode: false,
+        driverId: 'drv-10',
+        appAccess: true,
+        driverStatus: 'active',
+      }),
+    ).toBe(false);
+
+    expect(
+      isRoleAllowedForPath('/driver/loads', DRIVER_ROLE, {
+        workspaceRole: 'owner_driver',
+        ownerDriverWorkspace: false,
+        ownerDriverExecutionMode: true,
+        driverId: 'drv-10',
+        appAccess: true,
+        driverStatus: 'active',
+      }),
+    ).toBe(false);
+  });
+
+  it('denies quotes when commercial bidding or driver context is missing', () => {
+    expect(
+      isRoleAllowedForPath('/driver/quotes', DRIVER_ROLE, {
+        workspaceRole: 'owner_driver',
+        ownerDriverWorkspace: true,
+        ownerDriverExecutionMode: true,
+        driverId: 'drv-11',
+        canCommercialBid: false,
+        appAccess: true,
+        driverStatus: 'active',
+      }),
+    ).toBe(false);
+
+    expect(
+      isRoleAllowedForPath('/driver/quotes', DRIVER_ROLE, {
+        workspaceRole: 'owner_driver',
+        ownerDriverWorkspace: true,
+        ownerDriverExecutionMode: true,
+        driverId: null,
+        canCommercialBid: true,
+        appAccess: true,
+        driverStatus: 'active',
+      }),
+    ).toBe(false);
+  });
+
+  it('denies /driver routes when driver/account/company state is inactive or app access is blocked', () => {
+    expect(
+      isRoleAllowedForPath('/driver/jobs', DRIVER_ROLE, {
+        workspaceRole: 'driver',
+        ownerDriverWorkspace: false,
+        ownerDriverExecutionMode: false,
+        driverId: 'drv-12',
+        appAccess: false,
+        driverStatus: 'active',
+      }),
+    ).toBe(false);
+
+    expect(
+      isRoleAllowedForPath('/driver/jobs', DRIVER_ROLE, {
+        workspaceRole: 'driver',
+        ownerDriverWorkspace: false,
+        ownerDriverExecutionMode: false,
+        driverId: 'drv-12',
+        appAccess: true,
+        driverStatus: 'suspended',
+      }),
+    ).toBe(false);
+
+    expect(
+      isRoleAllowedForPath('/driver/jobs', DRIVER_ROLE, {
+        workspaceRole: 'driver',
+        ownerDriverWorkspace: false,
+        ownerDriverExecutionMode: false,
+        driverId: 'drv-12',
+        appAccess: true,
+        driverStatus: 'active',
+        accountStatus: 'blocked',
+      }),
+    ).toBe(false);
+
+    expect(
+      isRoleAllowedForPath('/driver/jobs', DRIVER_ROLE, {
+        workspaceRole: 'driver',
+        ownerDriverWorkspace: false,
+        ownerDriverExecutionMode: false,
+        driverId: 'drv-12',
+        appAccess: true,
+        driverStatus: 'active',
+        companyStatus: 'suspended',
+      }),
+    ).toBe(false);
+  });
 });

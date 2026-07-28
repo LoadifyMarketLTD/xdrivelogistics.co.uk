@@ -7,10 +7,13 @@
  * perspective.
  *
  * Existing routes (do not change):
- *   /driver    → owner_operator
+ *   /driver    → owner_operator commercial workspace surface
  *   /customer  → shipper
  *   /broker    → broker
  *   /admin     → carrier_fleet  (legacy company / carrier-fleet control surface)
+ *
+ * Important: /driver is a shared route surface for both employed drivers and
+ * owner-drivers. Route prefix alone never proves owner-operator commercial access.
  *
  * Do not confuse BusinessWorkspace with:
  *   - WorkspaceRole (lib/workspaceRole.ts) — the UI-level coarse role resolver.
@@ -130,6 +133,8 @@ export function workspaceHasCapability(
  */
 export function workspaceForRoute(pathname: string): BusinessWorkspace | null {
   const clean = pathname.split('?')[0]?.split('#')[0] ?? '';
+  // /driver maps to the owner_operator business surface for routing lookups,
+  // but commercial access still requires owner-driver proof from session facts.
   if (clean === '/driver'   || clean.startsWith('/driver/'))   return 'owner_operator';
   if (clean === '/customer' || clean.startsWith('/customer/')) return 'shipper';
   if (clean === '/broker'   || clean.startsWith('/broker/'))   return 'broker';

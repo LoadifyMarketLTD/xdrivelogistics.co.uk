@@ -30,6 +30,11 @@ type RouteAuthResult =
       ownerDriverExecutionMode: boolean;
       canAccessDriverMode: boolean;
       membershipRole: string | null;
+      driverId: string | null;
+      canCommercialBid: boolean | null;
+      driverStatus: string | null;
+      accountStatus: string | null;
+      companyStatus: string | null;
     };
 
 const buildRedirect = (request: NextRequest, pathname: string, clearCookie = false) => {
@@ -235,6 +240,11 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
           ownerDriverExecutionMode,
           canAccessDriverMode: ownerDriverWorkspace && role === 'driver',
           membershipRole: null,
+          driverId: null,
+          canCommercialBid: null,
+          driverStatus: null,
+          accountStatus: null,
+          companyStatus: null,
         }
       : { kind: 'forbidden' };
   }
@@ -254,7 +264,7 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
       .maybeSingle(),
     supabaseAdmin
       .from('drivers')
-      .select('app_access, must_change_password')
+      .select('id, app_access, must_change_password, status, can_commercial_bid')
       .eq('user_id', authData.user.id)
       .limit(1)
       .maybeSingle(),
@@ -274,7 +284,13 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     : (membershipRes.data as { role_in_company?: string | null } | null);
   const driver = driverRes.error
     ? null
-    : (driverRes.data as { app_access?: boolean | null; must_change_password?: boolean | null } | null);
+    : (driverRes.data as {
+        id?: string | null;
+        app_access?: boolean | null;
+        must_change_password?: boolean | null;
+        status?: string | null;
+        can_commercial_bid?: boolean | null;
+      } | null);
   const creatorCompany = creatorCompanyRes.error
     ? null
     : (creatorCompanyRes.data as { company_type?: string | null } | null);
@@ -335,6 +351,11 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     ownerDriverExecutionMode,
     canAccessDriverMode,
     membershipRole: membership?.role_in_company ?? null,
+    driverId: driver?.id ?? null,
+    canCommercialBid: driver?.can_commercial_bid ?? null,
+    driverStatus: driver?.status ?? null,
+    accountStatus: profileStatus ?? null,
+    companyStatus: 'active',
   };
 };
 
@@ -392,8 +413,15 @@ export async function middleware(request: NextRequest) {
     canAccessDriverMode: auth.canAccessDriverMode,
     membershipRole: auth.membershipRole,
     ownerDriverWorkspace: auth.ownerDriverWorkspace,
+    ownerDriverExecutionMode: auth.ownerDriverExecutionMode,
     rawRole: auth.rawRole,
     workspaceRole: auth.workspaceRole,
+    driverId: auth.driverId,
+    canCommercialBid: auth.canCommercialBid,
+    driverStatus: auth.driverStatus,
+    appAccess: auth.appAccess,
+    accountStatus: auth.accountStatus,
+    companyStatus: auth.companyStatus,
   })) {
     const canonicalPath = getPostLoginRoute({
       role: auth.role,
