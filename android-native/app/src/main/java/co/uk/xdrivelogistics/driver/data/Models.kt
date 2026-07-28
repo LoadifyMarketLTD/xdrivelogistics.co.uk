@@ -61,7 +61,7 @@ data class DriverJob(
     fun driverStatusKey(): String = CanonicalDriverLifecycleStatus
         .fromRaw(statusKey())
         ?.wireValue
-        ?: statusKey()
+        .orEmpty()
 
     fun isInProgress(): Boolean = driverStatusKey() in listOf(
         "accepted",
@@ -73,8 +73,7 @@ data class DriverJob(
         "in_progress",
     )
 
-    fun isActive(): Boolean = driverStatusKey() !in listOf(
-        "delivered",
+    fun isActive(): Boolean = driverStatusKey() != "delivered" && statusKey() !in listOf(
         "completed",
         "cancelled",
         "canceled",
@@ -96,7 +95,7 @@ data class DriverJob(
 
     fun routeLabel(): String = "${pickupLocation.ifBlank { "Pickup" }} -> ${deliveryLocation.ifBlank { "Delivery" }}"
 
-    fun statusLabel(): String = when (driverStatusKey()) {
+    fun statusLabel(): String = when (driverStatusKey().ifEmpty { statusKey() }) {
         "allocated" -> "Allocated"
         "accepted" -> "Accepted"
         "awarded" -> "Awarded"
@@ -107,7 +106,7 @@ data class DriverJob(
         "on_site_delivery" -> "Arrived at Delivery"
         "delivered" -> "Delivered (POD)"
         "completed" -> "Completed"
-        else -> driverStatusKey().split('_').joinToString(" ") { part ->
+        else -> driverStatusKey().ifEmpty { statusKey() }.split('_').joinToString(" ") { part ->
             part.replaceFirstChar { it.uppercase() }
         }
     }
