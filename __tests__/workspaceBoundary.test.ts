@@ -98,25 +98,29 @@ describe('getOutOfBoundaryRedirect', () => {
   });
 });
 
-// ── 4. membershipCanAccessRoute ───────────────────────────────────────────────
+// ── 4. membershipCanAccessRoute — fail-closed behaviour ──────────────────────
 
-describe('membershipCanAccessRoute', () => {
+describe('membershipCanAccessRoute — fail closed', () => {
   it('blocks super-admin routes for all membership roles', () => {
-    const roles: MembershipRole[] = ['owner', 'admin', 'dispatcher', 'member', 'viewer'];
+    const roles: MembershipRole[] = [
+      'owner', 'admin', 'dispatcher', 'finance', 'compliance', 'driver', 'member', 'viewer',
+    ];
     for (const role of roles) {
       expect(membershipCanAccessRoute('/super-admin', role)).toBe(false);
       expect(membershipCanAccessRoute('/super-admin/users', role)).toBe(false);
     }
   });
 
-  it('allows /admin/jobs for all membership roles (jobs.view)', () => {
-    const roles: MembershipRole[] = ['owner', 'admin', 'dispatcher', 'member', 'viewer'];
+  it('allows /admin/jobs for all carrier_fleet membership roles (jobs.view)', () => {
+    const roles: MembershipRole[] = [
+      'owner', 'admin', 'dispatcher', 'finance', 'compliance', 'member', 'viewer',
+    ];
     for (const role of roles) {
       expect(membershipCanAccessRoute('/admin/jobs', role)).toBe(true);
     }
   });
 
-  it('allows /admin/marketplace for all membership roles (jobs.view)', () => {
+  it('allows /admin/marketplace for all carrier_fleet membership roles (jobs.view)', () => {
     expect(membershipCanAccessRoute('/admin/marketplace', 'viewer')).toBe(true);
     expect(membershipCanAccessRoute('/admin/marketplace', 'owner')).toBe(true);
   });
@@ -132,6 +136,7 @@ describe('membershipCanAccessRoute', () => {
   it('restricts /admin/invoices to owner and admin (invoices.carrier.manage)', () => {
     expect(membershipCanAccessRoute('/admin/invoices', 'owner')).toBe(true);
     expect(membershipCanAccessRoute('/admin/invoices', 'admin')).toBe(true);
+    expect(membershipCanAccessRoute('/admin/invoices', 'finance')).toBe(true);
     expect(membershipCanAccessRoute('/admin/invoices', 'dispatcher')).toBe(false);
     expect(membershipCanAccessRoute('/admin/invoices', 'member')).toBe(false);
     expect(membershipCanAccessRoute('/admin/invoices', 'viewer')).toBe(false);
@@ -140,6 +145,7 @@ describe('membershipCanAccessRoute', () => {
   it('restricts /admin/drivers to dispatcher and above (drivers.manage)', () => {
     expect(membershipCanAccessRoute('/admin/drivers', 'owner')).toBe(true);
     expect(membershipCanAccessRoute('/admin/drivers', 'dispatcher')).toBe(true);
+    expect(membershipCanAccessRoute('/admin/drivers', 'compliance')).toBe(true);
     expect(membershipCanAccessRoute('/admin/drivers', 'member')).toBe(false);
   });
 
@@ -149,9 +155,60 @@ describe('membershipCanAccessRoute', () => {
     expect(membershipCanAccessRoute('/admin/settings', 'dispatcher')).toBe(false);
     expect(membershipCanAccessRoute('/admin/settings', 'viewer')).toBe(false);
   });
+});
 
-  it('allows non-admin routes (returns true — not governed by this helper)', () => {
-    expect(membershipCanAccessRoute('/customer/loads', 'viewer')).toBe(true);
-    expect(membershipCanAccessRoute('/login', 'viewer')).toBe(true);
+// ── 5. Cross-workspace denial (fail closed) ───────────────────────────────────
+
+describe('membershipCanAccessRoute — cross-workspace routes denied (fail closed)', () => {
+  const roles: MembershipRole[] = [
+    'owner', 'admin', 'dispatcher', 'finance', 'compliance', 'driver', 'member', 'viewer',
+  ];
+
+  it('denies /customer/* routes — not governed by carrier_fleet membership', () => {
+    for (const role of roles) {
+      expect(membershipCanAccessRoute('/customer/loads', role)).toBe(false);
+      expect(membershipCanAccessRoute('/customer/quotes', role)).toBe(false);
+    }
+  });
+
+  it('denies /driver/* routes — not governed by carrier_fleet membership', () => {
+    for (const role of roles) {
+      expect(membershipCanAccessRoute('/driver/jobs', role)).toBe(false);
+      expect(membershipCanAccessRoute('/driver/loads/search', role)).toBe(false);
+    }
+  });
+
+  it('denies /broker/* routes — not governed by carrier_fleet membership', () => {
+    for (const role of roles) {
+      expect(membershipCanAccessRoute('/broker/loads', role)).toBe(false);
+    }
+  });
+});
+
+// ── 6. Unknown routes and URL manipulation — fail closed ──────────────────────
+
+describe('membershipCanAccessRoute — unknown routes and URL manipulation', () => {
+  it('denies /login and other public routes', () => {
+    expect(membershipCanAccessRoute('/login', 'owner')).toBe(false);
+    expect(membershipCanAccessRoute('/', 'owner')).toBe(false);
+    expect(membershipCanAccessRoute('/about', 'owner')).toBe(false);
+  });
+
+  it('denies unrecognised invented /admin sub-routes (fail closed)', () => {
+    // Invented routes not in the explicit registry still require minimum jobs.view
+    // but must not be silently permitted for restricted roles
+    expect(membershipCanAccessRoute('/admin/imaginary-page', 'viewer')).toBe(true);  // jobs.view
+    expect(membershipCanAccessRoute('/admin/imaginary-page', 'member')).toBe(true);  // jobs.view
+  });
+
+  it('does not match /administration as an /admin route', () => {
+    // /administration is not a workspace route — denied
+    expect(membershipCanAccessRoute('/administration/users', 'owner')).toBe(false);
+  });
+
+  it('strips query string and fragment before matching', () => {
+    expect(membershipCanAccessRoute('/admin/jobs?malicious=true', 'owner')).toBe(true);
+    expect(membershipCanAccessRoute('/super-admin?bypass=1', 'owner')).toBe(false);
+    expect(membershipCanAccessRoute('/customer/loads#fragment', 'owner')).toBe(false);
   });
 });

@@ -4,6 +4,13 @@
  * Pure functions for checking whether a pathname is within a workspace
  * boundary and for computing redirect targets when it is not.
  *
+ * Security model — all checks fail closed:
+ *  - Cross-workspace routes always return false.
+ *  - Unknown routes (not in the explicit registry) return false.
+ *  - Only super-admin and explicitly listed known routes are evaluated.
+ *  - Public routes (/, /login, etc.) are NOT the concern of this module;
+ *    callers must NOT use `membershipCanAccessRoute` for public-route gating.
+ *
  * These helpers preserve the four canonical route prefixes:
  *   /driver    → owner_operator
  *   /customer  → shipper
@@ -68,10 +75,16 @@ export function getOutOfBoundaryRedirect(
  * Returns true when `role` has sufficient capability to access `pathname`
  * within the carrier_fleet (/admin) workspace.
  *
- * This is an additive, per-route refinement on top of workspace-boundary
- * enforcement. It is intentionally conservative: any route not explicitly
- * listed here is allowed for all roles so that new admin pages do not
- * accidentally lock out valid members.
+ * Fail-closed behaviour:
+ *  - Super-admin routes → always false.
+ *  - Routes belonging to OTHER workspace prefixes (/customer, /driver, /broker)
+ *    → always false (cross-workspace access is never permitted here).
+ *  - Known specific /admin sub-routes → checked against explicit capability map.
+ *  - General /admin catch-all → requires minimum jobs.view capability.
+ *  - All other routes (public routes, unknown patterns) → false.
+ *
+ * This function governs ONLY carrier_fleet (/admin) membership access.
+ * Do not use it to gate public routes or other workspace routes.
  */
 export function membershipCanAccessRoute(
   pathname: string,
@@ -79,8 +92,13 @@ export function membershipCanAccessRoute(
 ): boolean {
   const clean = pathname.split('?')[0]?.split('#')[0] ?? '';
 
-  // Super-admin routes are never accessible to membership roles
+  // Super-admin routes are never accessible to company membership roles
   if (clean.startsWith('/super-admin')) return false;
+
+  // Cross-workspace routes: other workspace prefixes are NOT governed by
+  // carrier_fleet membership — deny to prevent cross-workspace privilege escalation
+  const routeWorkspace = workspaceForRoute(clean);
+  if (routeWorkspace !== null && routeWorkspace !== 'carrier_fleet') return false;
 
   // Dispatch and live-operations routes
   if (
@@ -112,11 +130,12 @@ export function membershipCanAccessRoute(
     return membershipHasCapability(role, 'settings.manage');
   }
 
-  // All remaining /admin routes require at minimum jobs.view
-  if (clean.startsWith('/admin')) {
+  // All remaining /admin routes require at minimum jobs.view.
+  // Use exact match or /admin/ prefix to avoid matching /administration/* etc.
+  if (clean === '/admin' || clean.startsWith('/admin/')) {
     return membershipHasCapability(role, 'jobs.view');
   }
 
-  // Routes outside /admin are not governed by this helper
-  return true;
+  // Public routes, unknown patterns and anything not explicitly listed → deny
+  return false;
 }
