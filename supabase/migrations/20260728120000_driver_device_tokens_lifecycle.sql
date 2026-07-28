@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS public.driver_device_tokens (
   installation_id text NOT NULL DEFAULT '',
   -- Monotonically-increasing counter persisted in the on-device coordinator.
   -- The server rejects any upsert whose generation is less than or equal to the
-  -- generation already stored for the same (installation_id, token) pair.
+  -- generation already stored for the same installation, including revoked
+  -- rows, so delayed old requests cannot re-activate stale ownership.
   registration_generation bigint NOT NULL DEFAULT 0,
   last_registered_at timestamptz NOT NULL DEFAULT now(),
   revoked_at timestamptz,
@@ -98,7 +99,6 @@ BEGIN
   INTO v_current
   FROM public.driver_device_tokens
   WHERE installation_id = p_installation_id
-    AND revoked_at IS NULL
   ORDER BY registration_generation DESC, updated_at DESC
   LIMIT 1
   FOR UPDATE;
