@@ -117,6 +117,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private var availabilityMutationLock = AvailabilityMutationLock()
     /** Guards against two concurrent load-more requests appending duplicate pages. */
     private var messagesLoadingMore = false
+    /** Guards against duplicate mark-one taps on the same message ID. */
+    private val markOneInFlight = mutableSetOf<String>()
+    /** Guards against concurrent duplicate mark-all taps. */
+    private var markAllInFlight = false
 
     init {
         mutationQueue.restore(queueStore.readAll())
@@ -417,27 +421,35 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
      * UI state is updated only after server confirmation; stale owner responses are rejected.
      * The unread count is taken from the server response, not blindly decremented locally,
      * so repeated taps or concurrent duplicate calls remain correct.
+     *
+     * A [markOneInFlight] guard drops duplicate taps on the same message ID while a request
+     * for that ID is already in flight.
      */
     fun markDispatcherMessageRead(messageId: String) {
+        if (!markOneInFlight.add(messageId)) return
         viewModelScope.launch {
-            val session = _uiState.value.session ?: return@launch
-            api.markDispatcherMessageRead(session, messageId)
-                .onSuccess { serverUnreadCount ->
-                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
-                    _uiState.value = _uiState.value.copy(
-                        dispatcherMessages = _uiState.value.dispatcherMessages.map { msg ->
-                            if (msg.id == messageId) msg.copy(read = true, status = "read") else msg
-                        },
-                        dispatcherUnreadCount = serverUnreadCount,
-                        dispatcherMessagesError = null,
-                    )
-                }
-                .onFailure { error ->
-                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
-                    _uiState.value = _uiState.value.copy(
-                        error = error.friendlyDriverMessage("Failed to mark message read."),
-                    )
-                }
+            try {
+                val session = _uiState.value.session ?: return@launch
+                api.markDispatcherMessageRead(session, messageId)
+                    .onSuccess { serverUnreadCount ->
+                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                        _uiState.value = _uiState.value.copy(
+                            dispatcherMessages = _uiState.value.dispatcherMessages.map { msg ->
+                                if (msg.id == messageId) msg.copy(read = true, status = "read") else msg
+                            },
+                            dispatcherUnreadCount = serverUnreadCount,
+                            dispatcherMessagesError = null,
+                        )
+                    }
+                    .onFailure { error ->
+                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
+                        _uiState.value = _uiState.value.copy(
+                            error = error.friendlyDriverMessage("Failed to mark message read."),
+                        )
+                    }
+            } finally {
+                markOneInFlight.remove(messageId)
+            }
         }
     }
 
@@ -445,25 +457,33 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
      * Mark all dispatcher messages as read via the authenticated mobile messages API.
      * UI state is updated only after server confirmation; stale owner responses are rejected.
      * The unread count is taken from the server response (always 0 after mark-all).
+     *
+     * A [markAllInFlight] guard drops concurrent duplicate taps while the request is in flight.
      */
     fun markAllDispatcherMessagesRead() {
+        if (markAllInFlight) return
+        markAllInFlight = true
         viewModelScope.launch {
-            val session = _uiState.value.session ?: return@launch
-            api.markAllDispatcherMessagesRead(session)
-                .onSuccess { serverUnreadCount ->
-                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
-                    _uiState.value = _uiState.value.copy(
-                        dispatcherMessages = _uiState.value.dispatcherMessages.map { it.copy(read = true, status = "read") },
-                        dispatcherUnreadCount = serverUnreadCount,
-                        dispatcherMessagesError = null,
-                    )
-                }
-                .onFailure { error ->
-                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
-                    _uiState.value = _uiState.value.copy(
-                        error = error.friendlyDriverMessage("Failed to mark all messages read."),
-                    )
-                }
+            try {
+                val session = _uiState.value.session ?: return@launch
+                api.markAllDispatcherMessagesRead(session)
+                    .onSuccess { serverUnreadCount ->
+                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                        _uiState.value = _uiState.value.copy(
+                            dispatcherMessages = _uiState.value.dispatcherMessages.map { it.copy(read = true, status = "read") },
+                            dispatcherUnreadCount = serverUnreadCount,
+                            dispatcherMessagesError = null,
+                        )
+                    }
+                    .onFailure { error ->
+                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
+                        _uiState.value = _uiState.value.copy(
+                            error = error.friendlyDriverMessage("Failed to mark all messages read."),
+                        )
+                    }
+            } finally {
+                markAllInFlight = false
+            }
         }
     }
 

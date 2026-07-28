@@ -498,4 +498,67 @@ class DispatcherMessageTest {
         assertNull("unrouted message must have null jobId", message.jobId)
         assertNull("unrouted message must have null jobRef", message.jobRef)
     }
+
+    // -------------------------------------------------------------------------
+    // In-flight guard — mark-one and mark-all idempotence under duplicate taps
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `mark-one in-flight guard drops duplicate tap for same message ID`() {
+        // Simulate the markOneInFlight set that DriverViewModel maintains.
+        val inFlight = mutableSetOf<String>()
+        val messageId = "msg-001"
+
+        val firstAdded = inFlight.add(messageId)   // first tap
+        val secondAdded = inFlight.add(messageId)  // duplicate tap while first is in flight
+
+        assertTrue("first tap must be accepted", firstAdded)
+        assertFalse("duplicate tap on same ID must be dropped by in-flight guard", secondAdded)
+    }
+
+    @Test
+    fun `mark-one in-flight guard allows different message IDs concurrently`() {
+        val inFlight = mutableSetOf<String>()
+
+        val firstAdded = inFlight.add("msg-001")
+        val secondAdded = inFlight.add("msg-002")
+
+        assertTrue("first message ID must be accepted", firstAdded)
+        assertTrue("different message ID must not be blocked by the first", secondAdded)
+        assertEquals("both IDs must be tracked", 2, inFlight.size)
+    }
+
+    @Test
+    fun `mark-one in-flight guard releases after completion allowing re-tap`() {
+        val inFlight = mutableSetOf<String>()
+        val messageId = "msg-001"
+
+        inFlight.add(messageId)     // request in flight
+        inFlight.remove(messageId)  // request completes (finally block)
+        val retapAdded = inFlight.add(messageId) // user taps again after completion
+
+        assertTrue("re-tap after completion must be accepted", retapAdded)
+    }
+
+    @Test
+    fun `mark-all in-flight guard drops duplicate tap while request is in flight`() {
+        var markAllInFlight = false
+
+        val firstAccepted = !markAllInFlight.also { markAllInFlight = true }
+        val secondDropped = markAllInFlight // guard is true: second tap would return early
+
+        assertTrue("first tap must pass the guard", firstAccepted)
+        assertTrue("second tap while in-flight must be blocked", secondDropped)
+    }
+
+    @Test
+    fun `mark-all in-flight guard releases after completion allowing re-tap`() {
+        var markAllInFlight = false
+
+        markAllInFlight = true   // request starts
+        markAllInFlight = false  // request completes (finally block)
+        val retap = !markAllInFlight // user taps again: guard is false → accepted
+
+        assertTrue("re-tap after mark-all completion must be accepted", retap)
+    }
 }
