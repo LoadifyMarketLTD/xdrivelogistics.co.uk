@@ -86,11 +86,12 @@ const harness = vi.hoisted(() => {
 
       if (table === 'companies') {
         return {
-          select: (columns?: string) => new QueryBuilder(
-            columns?.trim() === 'status'
-              ? ok({ status: 'active' })
-              : ok(null),
-          ),
+          select: (columns?: string) => {
+            const result: Result<unknown> = columns?.trim() === 'status'
+              ? ok<unknown>({ status: 'active' })
+              : ok<unknown>(null);
+            return new QueryBuilder<unknown>(result);
+          },
         };
       }
 
