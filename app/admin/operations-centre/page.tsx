@@ -145,7 +145,7 @@ const quickActions = [
   ['Send Message', MessageSquare, '/admin/dispatchers'],
   ['Dispatch', Send, '/admin/diary'],
   ['Reassign Vehicle', Truck, '/admin/vehicles'],
-  ['Create Quote', FileText, '/admin/quotes'],
+  ['Create Quote', FileText, '/admin/commercial?tab=submitted'],
   ['Approve Company', ShieldCheck, '/admin/companies'],
   ['Open Finance', ReceiptText, '/admin/invoices'],
 ] as const;

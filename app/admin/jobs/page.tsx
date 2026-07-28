@@ -10,6 +10,10 @@ import { getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
 import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPostingDetails';
+import { StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { formatVehicleLabel, formatDate as formatDateShared } from '../../../lib/companyJobFormatters';
+import { VEHICLE_GROUPS as SHARED_VEHICLE_GROUPS } from '../../../lib/vehicleTypes';
+import { getPermittedActions, getStatusLabel, getStatusTone } from '../../../lib/companyJobStatus';
 
 interface Job {
  id: string;
@@ -49,13 +53,6 @@ interface Job {
 type SelectOption = readonly [string, string];
 type MultiSelectField = 'collectionAccessRestrictions' | 'deliveryAccessRestrictions' | 'specialRequirements' | 'documentChecklist';
 
-const VEHICLE_GROUPS: ReadonlyArray<readonly [string, ReadonlyArray<SelectOption>]> = [
- ['Vans', [['Small Van', 'van_small'], ['SWB Van', 'swb_van'], ['MWB Van', 'mwb_van'], ['LWB Van', 'lwb_van'], ['XLWB Van', 'xlwb_van'], ['Luton', 'luton'], ['Luton Tail Lift', 'luton_tail_lift'], ['Curtainside Van', 'curtainside_van']]],
- ['Rigid Trucks', [['3.5T', 'truck_3_5t'], ['5T', 'truck_5t'], ['7.5T', 'truck_7_5t'], ['12T', 'truck_12t'], ['18T', 'truck_18t'], ['26T', 'truck_26t']]],
- ['HGV / Artics', [['Artic 44T Curtainsider', 'artic_44t_curtainsider'], ['Artic 44T Box Trailer', 'artic_44t_box_trailer'], ['Artic 44T Flatbed', 'artic_44t_flatbed'], ['Artic 44T Refrigerated', 'artic_44t_refrigerated'], ['Artic 44T Double Deck', 'artic_44t_double_deck']]],
- ['Specialist Vehicles', [['Hiab', 'hiab'], ['Moffett', 'moffett'], ['ADR Vehicle', 'adr_vehicle'], ['Refrigerated Vehicle', 'refrigerated_vehicle'], ['Temperature Controlled Vehicle', 'temperature_controlled_vehicle']]],
-] as const;
-
 const CARGO_OPTIONS: ReadonlyArray<SelectOption> = [
  ['Documents', 'documents'],
  ['Parcels', 'parcels'],
@@ -74,9 +71,6 @@ const SPECIAL_OPTIONS = ['ADR Required', 'Temperature Controlled', 'Two Man Crew
 const DOCUMENT_OPTIONS = ['Commercial Invoice', 'Packing List', 'Delivery Notes', 'Customs Documents', 'Other Attachments'];
 const PALLET_TYPES = ['Standard Pallet', 'Euro Pallet', 'Oversized Pallet'];
 const JOB_FORM_STEPS = ['Customer', 'Collection & Delivery', 'References', 'Vehicle & Cargo', 'Requirements & Documents', 'Pricing'];
-
-const vehicleLabelFor = (value: string) =>
- VEHICLE_GROUPS.flatMap(([, options]) => options).find(([, optionValue]) => optionValue === value)?.[0] ?? value.replace(/_/g, ' ');
 
 const cargoLabelFor = (value: string) =>
  CARGO_OPTIONS.find(([, optionValue]) => optionValue === value)?.[0] ?? value.replace(/_/g, ' ');
@@ -447,7 +441,7 @@ export default function JobsPage() {
  tailLiftRequired: formData.deliveryTailLiftRequired,
  handballRequired: formData.deliveryHandballRequired,
  },
- vehicle: vehicleLabelFor(formData.vehicleType),
+ vehicle: formatVehicleLabel(formData.vehicleType),
  cargo: cargoLabelFor(formData.cargoType),
  dimensionsCm: {
  length: formData.lengthCm || null,
@@ -491,7 +485,7 @@ export default function JobsPage() {
  customer_reference: formData.customerReference.trim() || null,
  purchase_order_number: formData.purchaseOrderNumber.trim() || null,
  booking_reference: formData.bookingReference.trim() || null,
- requested_vehicle_label: vehicleLabelFor(formData.vehicleType),
+ requested_vehicle_label: formatVehicleLabel(formData.vehicleType),
  requested_cargo_label: cargoLabelFor(formData.cargoType),
  cargo_value_gbp: toNumberOrNull(formData.cargoValueGbp),
  pallet_type: formData.cargoType === 'pallets' ? formData.palletType : null,
@@ -656,29 +650,9 @@ export default function JobsPage() {
  setFormErrors({});
  };
 
- const getStatusColor = (status: string) => {
- switch (status) {
- case JOB_STATUS.RECEIVED:
- return { bg: '#fef3c7', text: '#92400e', border: '#fbbf24' };
- case JOB_STATUS.POSTED:
- return { bg: '#dbeafe', text: '#1e3a8a', border: '#5C9FD8' };
- case JOB_STATUS.ALLOCATED:
- return { bg: '#e9d5ff', text: '#581c87', border: '#a855f7' };
- case JOB_STATUS.DELIVERED:
- return { bg: '#dcfce7', text: '#14532d', border: '#1F7A3D' };
- default:
- return { bg: '#f3f4f6', text: '#1f2937', border: '#9ca3af' };
- }
- };
-
  const getStatusCount = (status: string) => {
  if (status === 'All') return jobs.length;
  return jobs.filter(job => job.status === status).length;
- };
-
- const formatDate = (dateStr: string) => {
- const date = new Date(dateStr);
- return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
  };
 
  const toggleFormArrayValue = (field: MultiSelectField, value: string) => {
@@ -929,7 +903,6 @@ export default function JobsPage() {
  </tr>
  ) : (
  filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map((job, index) => {
- const statusColor = getStatusColor(job.status);
  return (
  <tr
  key={job.id}
@@ -957,7 +930,7 @@ export default function JobsPage() {
  {job.pickup.location}
  </div>
  <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
- {formatDate(job.pickup.date)} at {job.pickup.time}
+ {formatDateShared(job.pickup.date)} at {job.pickup.time}
  </div>
  </div>
  <div style={{ color: '#9ca3af', fontSize: '0.8rem', margin: '0.25rem 0' }}>to</div>
@@ -966,11 +939,15 @@ export default function JobsPage() {
  {job.delivery.location}
  </div>
  <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
- {formatDate(job.delivery.date)} at {job.delivery.time}
+ {formatDateShared(job.delivery.date)} at {job.delivery.time}
  </div>
  </div>
  {job.loadDetailSummary.length > 0 && (
- <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.35rem', marginTop: '0.7rem' }}>
+ <details style={{ marginTop: '0.5rem' }}>
+ <summary style={{ cursor: 'pointer', fontSize: '0.75rem', color: '#5C9FD8', fontWeight: 600, listStyle: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+ <span>Details</span>
+ </summary>
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.35rem', marginTop: '0.5rem' }}>
  {job.loadDetailSummary.map((item) => (
  <div key={`${job.id}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.35rem 0.45rem' }}>
  <div style={{ color: '#64748b', fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
@@ -978,39 +955,21 @@ export default function JobsPage() {
  </div>
  ))}
  </div>
+ </details>
  )}
  </td>
  <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.distanceMiles}</td>
  <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#374151', textTransform: 'capitalize' }}>{job.vehicleType}</td>
  <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.paymentTerms}</td>
  <td style={{ padding: '1rem' }}>
- <select
- value={job.status}
- onChange={(e) => handleStatusChange(job.id, e.target.value)}
- style={{
- padding: '0.5rem 0.75rem',
- backgroundColor: statusColor.bg,
- color: statusColor.text,
- border: `1px solid ${statusColor.border}`,
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- outline: 'none'
- }}
- >
- <option value={JOB_STATUS.RECEIVED}>Received</option>
- <option value={JOB_STATUS.POSTED}>Posted</option>
- <option value={JOB_STATUS.ALLOCATED}>Allocated</option>
- <option value={JOB_STATUS.DELIVERED}>Delivered</option>
- </select>
+ <StatusBadge value={getStatusLabel(job.status)} tone={getStatusTone(job.status)} />
  </td>
  <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#6b7280' }}>
- {formatDate(job.createdAt)}
+ {formatDateShared(job.createdAt)}
  </td>
  <td style={{ padding: '1rem', textAlign: 'center' }}>
  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
- {job.status === JOB_STATUS.RECEIVED && (
+ {getPermittedActions(job.status).includes('post_to_exchange') && (
  <button
  onClick={() => handlePostJob(job.id)}
  style={{
@@ -1309,7 +1268,7 @@ export default function JobsPage() {
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Vehicle Type</label>
  <select value={formData.vehicleType} onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white' }}>
- {VEHICLE_GROUPS.map(([group, options]) => <optgroup key={group} label={group}>{options.map(([label, value]) => <option key={value} value={value}>{label}</option>)}</optgroup>)}
+ {SHARED_VEHICLE_GROUPS.map(([group, options]) => <optgroup key={group} label={group}>{options.map(([label, value]) => <option key={value} value={value}>{label}</option>)}</optgroup>)}
  </select>
  </div>
  <div>
