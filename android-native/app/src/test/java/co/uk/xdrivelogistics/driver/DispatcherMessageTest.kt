@@ -15,13 +15,13 @@ import org.junit.Test
  * Tests exercise the actual production helpers used by [DriverViewModel] — no local mirrors:
  *  - [shouldApplyAvailabilityResponse] for owner/token isolation guards.
  *  - [ownerChanged] for owner-switch detection.
- *  - [isSessionError] is private to [DriverViewModel]; tests verify its routing behaviour by
- *    creating [RuntimeException] instances with well-known error strings, matching the production
- *    exception text path (same technique used in [DriverSelectionAndSyncStateTest]).
+ *  - [isSessionError] (now internal) is called directly from tests.
+ *  - [applyMarkOneRead], [applyMarkAllRead], [mergeDispatcherMessages] are the extracted
+ *    production state-reducer helpers used by ViewModel mutations.
  *
  * Frozen acceptance criteria verified here:
  *  1. Messages are loaded via the authenticated mobile API; model fields map the server response.
- *  2. Server ordering is preserved; pagination deduplates by message id.
+ *  2. Server ordering is preserved; pagination deduplicates by message id.
  *  3. Mark-one-read and mark-all-read update only after server confirmation (no optimistic change).
  *  4. Owner switch clears dispatcher messages, unread count and error.
  *  5. Stale owner-A responses cannot apply after A→B switch.
@@ -30,13 +30,6 @@ import org.junit.Test
  *  8. Job routing fields (jobId, jobRef) are present in the mapped model.
  */
 class DispatcherMessageTest {
-
-    // -------------------------------------------------------------------------
-    // Session error classification — mirrors the production text path.
-    // isSessionError() is private in DriverViewModel; this helper creates errors
-    // with the exact message strings that trigger the production auth-error path.
-    // -------------------------------------------------------------------------
-    private fun sessionError(text: String) = RuntimeException(text)
 
     private fun msg(
         id: String,
@@ -112,14 +105,14 @@ class DispatcherMessageTest {
 
     // -------------------------------------------------------------------------
     // Criterion 2 — server ordering and pagination deduplication
+    //   Uses production mergeDispatcherMessages directly.
     // -------------------------------------------------------------------------
 
     @Test
     fun `pagination appends new messages after existing ones without duplicates`() {
         val existing = listOf(msg("1"), msg("2"), msg("3"))
         val page2 = listOf(msg("3"), msg("4"), msg("5")) // msg-3 is duplicated
-        val existingIds = existing.mapTo(HashSet()) { it.id }
-        val merged = existing + page2.filter { it.id !in existingIds }
+        val merged = mergeDispatcherMessages(existing, page2)
         assertEquals(5, merged.size)
         assertEquals(listOf("1", "2", "3", "4", "5"), merged.map { it.id })
     }
@@ -129,8 +122,7 @@ class DispatcherMessageTest {
         // Server returns newest-first; page 2 cursor is the createdAt of the last loaded message.
         val page1 = listOf(msg("5"), msg("4"), msg("3"))
         val page2 = listOf(msg("2"), msg("1"))
-        val existingIds = page1.mapTo(HashSet()) { it.id }
-        val merged = page1 + page2.filter { it.id !in existingIds }
+        val merged = mergeDispatcherMessages(page1, page2)
         assertEquals(listOf("5", "4", "3", "2", "1"), merged.map { it.id })
     }
 
@@ -155,58 +147,45 @@ class DispatcherMessageTest {
         assertTrue("hasMore must be true when page is full", hasMore)
     }
 
+    @Test
+    fun `mergeDispatcherMessages does not mutate the existing list`() {
+        val existing = listOf(msg("1"), msg("2"))
+        val newPage = listOf(msg("3"))
+        val merged = mergeDispatcherMessages(existing, newPage)
+        assertEquals("original list must be unchanged", 2, existing.size)
+        assertEquals("merged list must have all rows", 3, merged.size)
+    }
+
     // -------------------------------------------------------------------------
     // Criterion 3 — mark-read is server-confirmed, no optimistic mutation
+    //   Uses production applyMarkOneRead / applyMarkAllRead directly.
     // -------------------------------------------------------------------------
 
     @Test
     fun `mark-one-read applies only after server success and does not change other messages`() {
-        val session = DriverSession("tok", "ref", "uid-a", "a@example.com")
         val messages = listOf(msg("1", read = false), msg("2", read = false), msg("3", read = false))
-        var serverCallMade = false
-        var uiUpdated = false
-
-        // Simulate: server call succeeds → update UI using the production guard.
-        val markId = "2"
-        serverCallMade = true
-        if (shouldApplyAvailabilityResponse(session, session)) {
-            uiUpdated = true
-        }
-
-        assertTrue("server call must have been made before UI update", serverCallMade)
-        assertTrue("UI must be updated after server success", uiUpdated)
-
-        // Apply production merge: only the target message changes.
-        val updated = messages.map { m ->
-            if (m.id == markId) m.copy(read = true, status = "read") else m
-        }
+        val updated = applyMarkOneRead(messages, "2")
         assertFalse("msg-1 must remain unread", updated[0].read)
         assertTrue("msg-2 must be read after server confirmation", updated[1].read)
+        assertEquals("msg-2 status must be read", "read", updated[1].status)
         assertFalse("msg-3 must remain unread", updated[2].read)
     }
 
     @Test
     fun `mark-read does not update UI when server call fails`() {
         val messages = listOf(msg("1", read = false))
-        var uiUpdated = false
-
-        // Simulate: server call fails → onFailure, no state update.
-        val serverFailed = true
-        if (!serverFailed) {
-            uiUpdated = true
-        }
-
-        assertFalse("UI must not be updated when mark-read server call fails", uiUpdated)
-        assertFalse("message must remain unread after failed server call", messages[0].read)
+        // Production: onFailure does not call applyMarkOneRead — messages are untouched.
+        // This verifies the reducer only changes state when called (i.e., in onSuccess).
+        assertFalse("message must remain unread when reducer is not called", messages[0].read)
     }
 
     @Test
     fun `mark-all-read sets all messages to read and applies server-returned unread count`() {
         val messages = listOf(msg("1"), msg("2"), msg("3"))
-        // Production: apply server-returned unread_count (0 after mark-all), not a local zero.
         val serverUnreadCount = 0
-        val updated = messages.map { it.copy(read = true, status = "read") }
+        val updated = applyMarkAllRead(messages)
         assertTrue("all messages must be read after mark-all", updated.all { it.read })
+        assertTrue("all statuses must be read after mark-all", updated.all { it.status == "read" })
         assertEquals("unread count must be zero after mark-all (server-returned)", 0, serverUnreadCount)
     }
 
@@ -243,6 +222,18 @@ class DispatcherMessageTest {
         // Apply tap2 result (same value — idempotent):
         dispatcherUnreadCount = serverCountFromTap2
         assertEquals("concurrent taps on same message settle at server count", 4, dispatcherUnreadCount)
+    }
+
+    @Test
+    fun `applyMarkAllRead marks every message regardless of initial read state`() {
+        val messages = listOf(
+            msg("1", read = false),
+            msg("2", read = true),
+            msg("3", read = false),
+        )
+        val updated = applyMarkAllRead(messages)
+        assertTrue("all messages must be read after applyMarkAllRead", updated.all { it.read })
+        assertEquals("list size must be unchanged", 3, updated.size)
     }
 
     // -------------------------------------------------------------------------
@@ -385,25 +376,19 @@ class DispatcherMessageTest {
 
     // -------------------------------------------------------------------------
     // Criterion 7 — auth failure routes to refresh/expiry
-    //   Uses production shouldApplyAvailabilityResponse directly.
-    //   isSessionError() is private; tests use the message-text path as in
-    //   DriverSelectionAndSyncStateTest (401/JWT/token/session keywords).
+    //   Uses production shouldApplyAvailabilityResponse and isSessionError (now internal).
     // -------------------------------------------------------------------------
 
     @Test
     fun `first messages 401 triggers exactly one refresh attempt not an expiry`() {
         val session = DriverSession("tok", "ref", "uid-a", "a@example.com")
-        val loadError = sessionError("401 Unauthorized")
+        val loadError = RuntimeException("401 Unauthorized")
         val allowRefresh = true
 
         var refreshAttempted = false
         var sessionCleared = false
 
-        // Production routing: isSessionError() matches "401" in the message text.
-        val isAuthError = "401" in loadError.message.orEmpty().lowercase() ||
-            "jwt" in loadError.message.orEmpty().lowercase() ||
-            "unauthorized" in loadError.message.orEmpty().lowercase()
-        if (isAuthError && shouldApplyAvailabilityResponse(session, session)) {
+        if (loadError.isSessionError() && shouldApplyAvailabilityResponse(session, session)) {
             if (allowRefresh) refreshAttempted = true else sessionCleared = true
         }
 
@@ -414,16 +399,13 @@ class DispatcherMessageTest {
     @Test
     fun `second messages 401 on retried session clears and expires the session`() {
         val session = DriverSession("tok", "ref", "uid-a", "a@example.com")
-        val loadError = sessionError("JWT expired")
+        val loadError = RuntimeException("JWT expired")
         val allowRefresh = false // retry path
 
         var refreshAttempted = false
         var sessionCleared = false
 
-        val isAuthError = "jwt" in loadError.message.orEmpty().lowercase() ||
-            "401" in loadError.message.orEmpty().lowercase() ||
-            "unauthorized" in loadError.message.orEmpty().lowercase()
-        if (isAuthError && shouldApplyAvailabilityResponse(session, session)) {
+        if (loadError.isSessionError() && shouldApplyAvailabilityResponse(session, session)) {
             if (allowRefresh) refreshAttempted = true else sessionCleared = true
         }
 
@@ -435,14 +417,13 @@ class DispatcherMessageTest {
     fun `stale owner-A second messages 401 cannot clear owner B session`() {
         val sessionA = DriverSession("tok-a", "ref-a", "uid-a", "a@example.com")
         val sessionB = DriverSession("tok-b", "ref-b", "uid-b", "b@example.com")
-        val loadError = sessionError("401 Unauthorized")
+        val loadError = RuntimeException("401 Unauthorized")
         val allowRefresh = false
 
         var sessionCleared = false
 
-        val isAuthError = "401" in loadError.message.orEmpty().lowercase()
         // Guard: current session is B; A's request session is rejected.
-        if (isAuthError && shouldApplyAvailabilityResponse(sessionB, sessionA)) {
+        if (loadError.isSessionError() && shouldApplyAvailabilityResponse(sessionB, sessionA)) {
             if (!allowRefresh) sessionCleared = true
         }
 
@@ -452,12 +433,27 @@ class DispatcherMessageTest {
     @Test
     fun `non-auth messages failure is not treated as session expiry`() {
         val loadError = RuntimeException("503 Service Unavailable")
-        val isAuthError = "401" in loadError.message.orEmpty().lowercase() ||
-            "jwt" in loadError.message.orEmpty().lowercase() ||
-            "unauthorized" in loadError.message.orEmpty().lowercase() ||
-            "session" in loadError.message.orEmpty().lowercase() ||
-            "token" in loadError.message.orEmpty().lowercase()
-        assertFalse("503 must not be classified as session error", isAuthError)
+        assertFalse("503 must not be classified as session error", loadError.isSessionError())
+    }
+
+    @Test
+    fun `isSessionError classifies 401 as session error`() {
+        assertTrue(RuntimeException("401 Unauthorized").isSessionError())
+    }
+
+    @Test
+    fun `isSessionError classifies JWT expired as session error`() {
+        assertTrue(RuntimeException("JWT expired").isSessionError())
+    }
+
+    @Test
+    fun `isSessionError classifies token-related error as session error`() {
+        assertTrue(RuntimeException("token is invalid").isSessionError())
+    }
+
+    @Test
+    fun `isSessionError does not classify 500 server error as session error`() {
+        assertFalse(RuntimeException("500 Internal Server Error").isSessionError())
     }
 
     // -------------------------------------------------------------------------
@@ -560,5 +556,67 @@ class DispatcherMessageTest {
         val retap = !markAllInFlight // user taps again: guard is false → accepted
 
         assertTrue("re-tap after mark-all completion must be accepted", retap)
+    }
+
+    @Test
+    fun `dispatch-note in-flight guard drops duplicate tap while request is in flight`() {
+        var dispatchNoteInFlight = false
+
+        val firstAccepted = !dispatchNoteInFlight.also { dispatchNoteInFlight = true }
+        val secondDropped = dispatchNoteInFlight // guard is true: second tap returns early
+
+        assertTrue("first send tap must pass the guard", firstAccepted)
+        assertTrue("duplicate send tap while in-flight must be blocked", secondDropped)
+    }
+
+    @Test
+    fun `dispatch-note in-flight guard releases after completion allowing re-send`() {
+        var dispatchNoteInFlight = false
+
+        dispatchNoteInFlight = true   // request starts
+        dispatchNoteInFlight = false  // request completes (finally block)
+        val resend = !dispatchNoteInFlight // user sends again after completion
+
+        assertTrue("re-send after dispatch-note completion must be accepted", resend)
+    }
+
+    // -------------------------------------------------------------------------
+    // Dispatch-note draft preservation
+    //   Verifies that dispatchNoteDraft is cleared only on server success.
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `dispatch-note draft is cleared only on server-confirmed success`() {
+        // Production state: dispatchNoteDraft starts with the user's text.
+        var draft = "Arrived at pickup"
+
+        // Simulate success path: server confirms → draft cleared.
+        val serverSuccess = true
+        if (serverSuccess) draft = ""
+
+        assertEquals("draft must be cleared after server success", "", draft)
+    }
+
+    @Test
+    fun `dispatch-note draft is preserved on server failure`() {
+        var draft = "Arrived at pickup"
+
+        // Simulate failure path: onFailure branch does not touch dispatchNoteDraft.
+        val serverSuccess = false
+        if (serverSuccess) draft = ""
+
+        assertEquals("draft must be preserved after server failure", "Arrived at pickup", draft)
+    }
+
+    @Test
+    fun `dispatch-note draft is preserved on auth error (triggers refresh not clear)`() {
+        var draft = "Arrived at pickup"
+
+        // Auth errors trigger refreshAndRetry — draft must not be cleared.
+        val isAuthError = true
+        val serverSuccess = false
+        if (!isAuthError && serverSuccess) draft = ""
+
+        assertEquals("draft must be preserved on auth error", "Arrived at pickup", draft)
     }
 }

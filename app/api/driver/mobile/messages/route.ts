@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
   // notification_events shares the same id as notifications (bridge trigger).
   // Fetch entity_type, entity_id, payload for job routing only.
   const rowIds = notifRows.map((r) => String(r.id));
-  let eventsMap: Record<string, Record<string, unknown>> = {};
+  const eventsMap: Record<string, Record<string, unknown>> = {};
   if (rowIds.length > 0) {
     const { data: evData } = await supabaseAdmin
       .from('notification_events')

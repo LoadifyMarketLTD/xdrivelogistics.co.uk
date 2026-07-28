@@ -330,6 +330,7 @@ class MainActivity : ComponentActivity() {
                                 viewModel.selectJob(jobId)
                                 viewModel.changeTab(DriverTab.JOBS)
                             },
+                            onNoteChange = viewModel::setDispatchNoteDraft,
                             onSetAvailabilityStatus = viewModel::setAvailabilityStatus,
                             onToggleAvailabilitySlot = viewModel::toggleAvailabilitySlot,
                         )
@@ -528,6 +529,7 @@ private fun DriverAppShell(
     onMarkAllMessagesRead: () -> Unit,
     onLoadMoreMessages: () -> Unit,
     onOpenJobFromMessage: (String) -> Unit,
+    onNoteChange: (String) -> Unit,
     onSaveReturnJourney: (String, String, String) -> Unit,
     onConfirmDeliveryRecipient: (String) -> Unit,
     onStartTracking: () -> Unit,
@@ -578,6 +580,7 @@ private fun DriverAppShell(
                     onMarkAllRead = onMarkAllMessagesRead,
                     onLoadMore = onLoadMoreMessages,
                     onOpenJob = onOpenJobFromMessage,
+                    onNoteChange = onNoteChange,
                 )
                 DriverTab.PROFILE -> ProfileScreen(state, onUpdatePassword, onLogout, onPickComplianceDocument, onSaveReturnJourney, onStartTracking, onStopTracking, onSetAvailabilityStatus, onToggleAvailabilitySlot)
             }
@@ -1969,9 +1972,10 @@ private fun MessagesScreen(
     onMarkAllRead: () -> Unit,
     onLoadMore: () -> Unit,
     onOpenJob: (String) -> Unit,
+    onNoteChange: (String) -> Unit,
 ) {
     var filter by remember { mutableStateOf("All") }
-    var note by remember { mutableStateOf("") }
+    val note = state.dispatchNoteDraft
     val assignedJobIds = remember(state.jobs) { state.jobs.mapTo(HashSet()) { it.id } }
     val visibleMessages = state.dispatcherMessages.filter { msg ->
         when (filter) {
@@ -2042,10 +2046,10 @@ private fun MessagesScreen(
             XDriveCard {
                 Text("Dispatch Note", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(Modifier.height(10.dp))
-                XDriveTextField(note, { note = it }, "Message", "Msg")
+                XDriveTextField(note, onNoteChange, "Message", "Msg")
                 Spacer(Modifier.height(10.dp))
                 Button(
-                    onClick = { onSendNote(note, true); note = "" },
+                    onClick = { onSendNote(note, true) },
                     enabled = note.isNotBlank() && state.selectedJobId != null,
                     colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
                     shape = RoundedCornerShape(14.dp),

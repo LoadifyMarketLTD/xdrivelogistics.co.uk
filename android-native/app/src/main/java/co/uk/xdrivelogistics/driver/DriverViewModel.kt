@@ -78,6 +78,8 @@ data class DriverUiState(
     val dispatcherMessagesError: String? = null,
     /** True when there may be additional older messages available to paginate. */
     val dispatcherMessagesHasMore: Boolean = false,
+    /** The in-progress dispatch note draft, preserved until server-confirmed success. */
+    val dispatchNoteDraft: String = "",
     val message: String = "",
     val error: String = "",
     /** Job IDs for which POD evidence has been uploaded but not yet finalised by the server. */
@@ -121,6 +123,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val markOneInFlight = mutableSetOf<String>()
     /** Guards against concurrent duplicate mark-all taps. */
     private var markAllInFlight = false
+    /** Guards against concurrent duplicate dispatch-note send taps. */
+    private var dispatchNoteInFlight = false
 
     init {
         mutationQueue.restore(queueStore.readAll())
@@ -385,34 +389,52 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             }
     }
 
-    fun sendQuickNote(note: String, important: Boolean) {
-        viewModelScope.launch {
-            val session = _uiState.value.session ?: return@launch
-            val profile = _uiState.value.profile ?: run {
-                _uiState.value = _uiState.value.copy(error = "Driver profile is unavailable. Refresh and try again.")
-                return@launch
-            }
-            // Dispatch notes must only target operational assigned jobs, not marketplace loads.
-            val selectedJob = resolveSelectedJob(_uiState.value.jobs, _uiState.value.selectedJobId)
-            if (selectedJob == null) {
-                _uiState.value = _uiState.value.copy(error = "Select a job first.")
-                return@launch
-            }
+    fun setDispatchNoteDraft(draft: String) {
+        _uiState.value = _uiState.value.copy(dispatchNoteDraft = draft)
+    }
 
-            _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.sendQuickNote(session.accessToken, selectedJob.id, note.trim(), important)
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        message = "Dispatch note sent.",
-                    )
+    fun sendQuickNote(note: String, important: Boolean) {
+        if (dispatchNoteInFlight) return
+        dispatchNoteInFlight = true
+        viewModelScope.launch {
+            try {
+                val session = _uiState.value.session ?: return@launch
+                val profile = _uiState.value.profile ?: run {
+                    _uiState.value = _uiState.value.copy(error = "Driver profile is unavailable. Refresh and try again.")
+                    return@launch
                 }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.friendlyDriverMessage("Failed to send note."),
-                    )
+                // Dispatch notes must only target operational assigned jobs, not marketplace loads.
+                val selectedJob = resolveSelectedJob(_uiState.value.jobs, _uiState.value.selectedJobId)
+                if (selectedJob == null) {
+                    _uiState.value = _uiState.value.copy(error = "Select a job first.")
+                    return@launch
                 }
+
+                _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
+                api.sendQuickNote(session.accessToken, selectedJob.id, note.trim(), important)
+                    .onSuccess {
+                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            message = "Dispatch note sent.",
+                            dispatchNoteDraft = "",
+                        )
+                    }
+                    .onFailure { error ->
+                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
+                        if (error.isSessionError()) {
+                            refreshAndRetry(session)
+                        } else {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                error = error.friendlyDriverMessage("Failed to send note."),
+                                // dispatchNoteDraft preserved on failure so the user can retry
+                            )
+                        }
+                    }
+            } finally {
+                dispatchNoteInFlight = false
+            }
         }
     }
 
@@ -434,18 +456,20 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     .onSuccess { serverUnreadCount ->
                         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
                         _uiState.value = _uiState.value.copy(
-                            dispatcherMessages = _uiState.value.dispatcherMessages.map { msg ->
-                                if (msg.id == messageId) msg.copy(read = true, status = "read") else msg
-                            },
+                            dispatcherMessages = applyMarkOneRead(_uiState.value.dispatcherMessages, messageId),
                             dispatcherUnreadCount = serverUnreadCount,
                             dispatcherMessagesError = null,
                         )
                     }
                     .onFailure { error ->
                         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
-                        _uiState.value = _uiState.value.copy(
-                            error = error.friendlyDriverMessage("Failed to mark message read."),
-                        )
+                        if (error.isSessionError()) {
+                            refreshAndRetry(session)
+                        } else {
+                            _uiState.value = _uiState.value.copy(
+                                error = error.friendlyDriverMessage("Failed to mark message read."),
+                            )
+                        }
                     }
             } finally {
                 markOneInFlight.remove(messageId)
@@ -470,16 +494,20 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     .onSuccess { serverUnreadCount ->
                         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
                         _uiState.value = _uiState.value.copy(
-                            dispatcherMessages = _uiState.value.dispatcherMessages.map { it.copy(read = true, status = "read") },
+                            dispatcherMessages = applyMarkAllRead(_uiState.value.dispatcherMessages),
                             dispatcherUnreadCount = serverUnreadCount,
                             dispatcherMessagesError = null,
                         )
                     }
                     .onFailure { error ->
                         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
-                        _uiState.value = _uiState.value.copy(
-                            error = error.friendlyDriverMessage("Failed to mark all messages read."),
-                        )
+                        if (error.isSessionError()) {
+                            refreshAndRetry(session)
+                        } else {
+                            _uiState.value = _uiState.value.copy(
+                                error = error.friendlyDriverMessage("Failed to mark all messages read."),
+                            )
+                        }
                     }
             } finally {
                 markAllInFlight = false
@@ -513,19 +541,21 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     .onSuccess { (newMessages, _) ->
                         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
                         val existing = _uiState.value.dispatcherMessages
-                        val existingIds = existing.mapTo(HashSet()) { it.id }
-                        val deduplicated = existing + newMessages.filter { it.id !in existingIds }
                         _uiState.value = _uiState.value.copy(
-                            dispatcherMessages = deduplicated,
+                            dispatcherMessages = mergeDispatcherMessages(existing, newMessages),
                             dispatcherMessagesHasMore = newMessages.size >= 50,
                             dispatcherMessagesError = null,
                         )
                     }
                     .onFailure { error ->
                         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
-                        _uiState.value = _uiState.value.copy(
-                            dispatcherMessagesError = error.friendlyDriverMessage("Failed to load more messages."),
-                        )
+                        if (error.isSessionError()) {
+                            refreshAndRetry(session)
+                        } else {
+                            _uiState.value = _uiState.value.copy(
+                                dispatcherMessagesError = error.friendlyDriverMessage("Failed to load more messages."),
+                            )
+                        }
                     }
             } finally {
                 messagesLoadingMore = false
@@ -1644,7 +1674,7 @@ private fun isValidTransition(currentRaw: String, next: String): Boolean {
     return DriverLifecycleTransitions.isValidTransition(currentRaw, next)
 }
 
-private fun Throwable.isSessionError(): Boolean {
+internal fun Throwable.isSessionError(): Boolean {
     if (this is MobileApiHttpException) return statusCode == 401
     val text = message.orEmpty().lowercase()
     return "jwt" in text ||
@@ -1707,3 +1737,31 @@ private fun computeSha256Hex(bytes: ByteArray): String =
     MessageDigest.getInstance("SHA-256")
         .digest(bytes)
         .joinToString("") { "%02x".format(it) }
+
+// ── Dispatcher message state reducers ────────────────────────────────────────
+
+/**
+ * Marks a single dispatcher message as read (copy with read=true, status="read").
+ * Returns a new list; other messages are unchanged.
+ */
+internal fun applyMarkOneRead(messages: List<DispatcherMessage>, messageId: String): List<DispatcherMessage> =
+    messages.map { if (it.id == messageId) it.copy(read = true, status = "read") else it }
+
+/**
+ * Marks all dispatcher messages as read.
+ */
+internal fun applyMarkAllRead(messages: List<DispatcherMessage>): List<DispatcherMessage> =
+    messages.map { it.copy(read = true, status = "read") }
+
+/**
+ * Appends [newMessages] to [existing], deduplicating by message ID so re-delivered
+ * messages or overlapping pages cannot introduce duplicate rows.
+ * The relative ordering within each list is preserved.
+ */
+internal fun mergeDispatcherMessages(
+    existing: List<DispatcherMessage>,
+    newMessages: List<DispatcherMessage>,
+): List<DispatcherMessage> {
+    val existingIds = existing.mapTo(HashSet()) { it.id }
+    return existing + newMessages.filter { it.id !in existingIds }
+}

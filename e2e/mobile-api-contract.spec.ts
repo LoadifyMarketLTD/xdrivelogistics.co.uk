@@ -973,3 +973,165 @@ test.describe('mobile API — authenticated contract', () => {
     expect(response.status()).not.toBe(409);
   });
 });
+
+test.describe('mobile API — messages contract and security', () => {
+  // Cursor and input validation tests require auth (validation runs after auth).
+
+  test('GET /api/driver/mobile/messages — invalid before timestamp returns 400', async ({
+    request,
+  }) => {
+    test.skip(!token, 'Auth token unavailable');
+    const response = await request.get('/api/driver/mobile/messages?before=not-a-date', {
+      headers: { Authorization: ['Bearer', token].join(' ') },
+    });
+    expect([400, 503]).toContain(response.status());
+    if (response.status() === 400) {
+      const body = await response.json();
+      expect(body.error).toMatch(/before/i);
+    }
+  });
+
+  test('GET /api/driver/mobile/messages — invalid before_id UUID returns 400', async ({
+    request,
+  }) => {
+    test.skip(!token, 'Auth token unavailable');
+    const response = await request.get(
+      '/api/driver/mobile/messages?before=2026-01-01T00:00:00Z&before_id=not-a-uuid',
+      { headers: { Authorization: ['Bearer', token].join(' ') } },
+    );
+    expect([400, 503]).toContain(response.status());
+    if (response.status() === 400) {
+      const body = await response.json();
+      expect(body.error).toMatch(/before_id/i);
+    }
+  });
+
+  test('GET /api/driver/mobile/messages — before_id without before returns 400', async ({
+    request,
+  }) => {
+    test.skip(!token, 'Auth token unavailable');
+    const response = await request.get(
+      '/api/driver/mobile/messages?before_id=00000000-0000-0000-0000-000000000001',
+      { headers: { Authorization: ['Bearer', token].join(' ') } },
+    );
+    expect([400, 503]).toContain(response.status());
+    if (response.status() === 400) {
+      const body = await response.json();
+      expect(body.error).toMatch(/before_id requires before/i);
+    }
+  });
+
+  test('GET /api/driver/mobile/messages — non-integer limit returns 400', async ({ request }) => {
+    test.skip(!token, 'Auth token unavailable');
+    const response = await request.get('/api/driver/mobile/messages?limit=abc', {
+      headers: { Authorization: ['Bearer', token].join(' ') },
+    });
+    expect([400, 503]).toContain(response.status());
+    if (response.status() === 400) {
+      const body = await response.json();
+      expect(body.error).toMatch(/limit/i);
+    }
+  });
+
+  test('GET /api/driver/mobile/messages — valid cursor params return 200', async ({ request }) => {
+    test.skip(!token, 'Auth token unavailable');
+    const response = await request.get(
+      '/api/driver/mobile/messages?before=2026-01-01T00:00:00Z&before_id=00000000-0000-0000-0000-000000000001&limit=10',
+      { headers: { Authorization: ['Bearer', token].join(' ') } },
+    );
+    expect([200, 503]).toContain(response.status());
+    if (response.status() === 200) {
+      const body = await response.json();
+      expect(Array.isArray(body.messages)).toBe(true);
+      expect(typeof body.unread_count).toBe('number');
+    }
+  });
+
+  test('GET /api/driver/mobile/messages — unread_count is owner-scoped and independent of page', async ({
+    request,
+  }) => {
+    test.skip(!token, 'Auth token unavailable');
+    // Fetch a small page and full page; unread_count must be the same (owner total, not page).
+    const small = await request.get('/api/driver/mobile/messages?limit=1', {
+      headers: { Authorization: ['Bearer', token].join(' ') },
+    });
+    const large = await request.get('/api/driver/mobile/messages?limit=200', {
+      headers: { Authorization: ['Bearer', token].join(' ') },
+    });
+    if (small.status() === 200 && large.status() === 200) {
+      const smallBody = await small.json();
+      const largeBody = await large.json();
+      // Both pages report the same total unread_count regardless of page size.
+      expect(smallBody.unread_count).toBe(largeBody.unread_count);
+    }
+  });
+
+  test('POST /api/driver/mobile/messages — mark-one with invalid UUID returns 400', async ({
+    request,
+  }) => {
+    test.skip(!token, 'Auth token unavailable');
+    const response = await request.post('/api/driver/mobile/messages', {
+      headers: { Authorization: ['Bearer', token].join(' '), 'Content-Type': 'application/json' },
+      data: { id: 'not-a-uuid' },
+    });
+    expect([400, 503]).toContain(response.status());
+    if (response.status() === 400) {
+      const body = await response.json();
+      expect(body.error).toMatch(/uuid/i);
+    }
+  });
+
+  test('POST /api/driver/mobile/messages — mark-one with unknown UUID returns authoritative unread_count', async ({
+    request,
+  }) => {
+    test.skip(!token, 'Auth token unavailable');
+    const response = await request.post('/api/driver/mobile/messages', {
+      headers: { Authorization: ['Bearer', token].join(' '), 'Content-Type': 'application/json' },
+      data: { id: '00000000-0000-0000-0000-000000000001' },
+    });
+    // Row not found for this owner → null message, but unread_count still returned.
+    expect([200, 503]).toContain(response.status());
+    if (response.status() === 200) {
+      const body = await response.json();
+      expect(body.ok).toBe(true);
+      expect(typeof body.unread_count).toBe('number');
+    }
+  });
+
+  test('POST /api/driver/mobile/messages — mark-all returns ok and unread_count 0', async ({
+    request,
+  }) => {
+    test.skip(!token, 'Auth token unavailable');
+    const response = await request.post('/api/driver/mobile/messages', {
+      headers: { Authorization: ['Bearer', token].join(' '), 'Content-Type': 'application/json' },
+      data: {},
+    });
+    expect([200, 503]).toContain(response.status());
+    if (response.status() === 200) {
+      const body = await response.json();
+      expect(body.ok).toBe(true);
+      expect(body.unread_count).toBe(0);
+    }
+  });
+
+  test('POST /api/driver/mobile/messages — idempotent mark-all leaves unread_count at 0', async ({
+    request,
+  }) => {
+    test.skip(!token, 'Auth token unavailable');
+    // Mark all twice; second call must also return ok with unread_count 0.
+    await request.post('/api/driver/mobile/messages', {
+      headers: { Authorization: ['Bearer', token].join(' '), 'Content-Type': 'application/json' },
+      data: {},
+    });
+    const second = await request.post('/api/driver/mobile/messages', {
+      headers: { Authorization: ['Bearer', token].join(' '), 'Content-Type': 'application/json' },
+      data: {},
+    });
+    expect([200, 503]).toContain(second.status());
+    if (second.status() === 200) {
+      const body = await second.json();
+      expect(body.ok).toBe(true);
+      expect(body.unread_count).toBe(0);
+    }
+  });
+});
