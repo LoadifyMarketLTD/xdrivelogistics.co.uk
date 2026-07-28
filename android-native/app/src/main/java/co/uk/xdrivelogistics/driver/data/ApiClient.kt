@@ -296,79 +296,22 @@ class ApiClient(
         }
     }
 
-    suspend fun loadDriverNotifications(session: DriverSession): Result<List<DriverNotification>> = networkResult {
-        val encodedUserId = URLEncoder.encode(session.userId, StandardCharsets.UTF_8.toString())
-        val request = supabaseRequest(
-            "/rest/v1/notifications?select=id,title,body,type,read_at,created_at&user_id=eq.$encodedUserId&order=created_at.desc&limit=100",
-            session.accessToken,
-        )
-        http.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                throw IllegalStateException(extractError(raw, "Failed to load alerts."))
-            }
-            val rows = gson.fromJson(raw, JsonArray::class.java)
-            buildList {
-                for (index in 0 until rows.size()) {
-                    val row = rows[index].asJsonObject
-                    add(
-                        DriverNotification(
-                            id = row.string("id"),
-                            title = row.string("title").ifBlank { row.string("type").ifBlank { "Alert" } },
-                            body = row.string("body"),
-                            type = row.string("type"),
-                            readAt = row.nullableString("read_at"),
-                            createdAt = row.nullableString("created_at"),
-                        )
-                    )
-                }
-            }
-        }
-    }
-
-    suspend fun markNotificationRead(session: DriverSession, notificationId: String): Result<Unit> = networkResult {
-        val encodedId = URLEncoder.encode(notificationId, StandardCharsets.UTF_8.toString())
-        val body = JsonObject().apply { addProperty("read_at", java.time.Instant.now().toString()) }
-        val request = Request.Builder()
-            .url("${supabaseUrl.trimEnd('/')}/rest/v1/notifications?id=eq.$encodedId&user_id=eq.${URLEncoder.encode(session.userId, StandardCharsets.UTF_8.toString())}")
-            .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "Bearer ${session.accessToken}")
-            .addHeader("Content-Type", "application/json")
-            .patch(gson.toJson(body).toRequestBody(jsonMediaType))
-            .build()
-        http.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw IllegalStateException(extractError(raw, "Failed to mark alert read."))
-        }
-    }
-
-    suspend fun deleteNotification(session: DriverSession, notificationId: String): Result<Unit> = networkResult {
-        val encodedId = URLEncoder.encode(notificationId, StandardCharsets.UTF_8.toString())
-        val encodedUserId = URLEncoder.encode(session.userId, StandardCharsets.UTF_8.toString())
-        val request = Request.Builder()
-            .url("${supabaseUrl.trimEnd('/')}/rest/v1/notifications?id=eq.$encodedId&user_id=eq.$encodedUserId")
-            .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "Bearer ${session.accessToken}")
-            .delete()
-            .build()
-        http.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw IllegalStateException(extractError(raw, "Failed to delete alert."))
-        }
-    }
-
     /**
      * GET /api/driver/mobile/messages
      * Returns dispatcher messages for the authenticated driver via the server-mediated API.
      * Never reads `notification_events` or `notifications` directly via Supabase REST.
      *
-     * @param before  ISO timestamp cursor — returns messages older than this timestamp.
-     * @param limit   Page size (1–200, default 50).
-     * @return Pair of (messages in server order, server unread_count).
+     * @param before    ISO timestamp cursor of the last row on the previous page.
+     * @param beforeId  UUID of the last row on the previous page. Used with [before] to
+     *                  form a two-field (created_at, id) exclusive cursor that avoids
+     *                  skipping rows sharing the same created_at at a page boundary.
+     * @param limit     Page size (1–200, default 50).
+     * @return Pair of (messages in server order, server total unread_count).
      */
     suspend fun loadDispatcherMessages(
         session: DriverSession,
         before: String? = null,
+        beforeId: String? = null,
         limit: Int = 50,
     ): Result<Pair<List<DispatcherMessage>, Int>> = networkResult {
         require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
@@ -376,6 +319,9 @@ class ApiClient(
             append("limit=${limit.coerceIn(1, 200)}")
             if (!before.isNullOrBlank()) {
                 append("&before=${URLEncoder.encode(before, StandardCharsets.UTF_8.toString())}")
+            }
+            if (!beforeId.isNullOrBlank()) {
+                append("&before_id=${URLEncoder.encode(beforeId, StandardCharsets.UTF_8.toString())}")
             }
         }
         val request = Request.Builder()

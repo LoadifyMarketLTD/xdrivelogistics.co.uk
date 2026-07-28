@@ -10,7 +10,6 @@ import co.uk.xdrivelogistics.driver.data.DriverBid
 import co.uk.xdrivelogistics.driver.data.DriverDocument
 import co.uk.xdrivelogistics.driver.data.DriverJob
 import co.uk.xdrivelogistics.driver.data.DispatcherMessage
-import co.uk.xdrivelogistics.driver.data.DriverNotification
 import co.uk.xdrivelogistics.driver.data.DriverProfile
 import co.uk.xdrivelogistics.driver.data.DriverReturnJourney
 import co.uk.xdrivelogistics.driver.data.DriverInvoice
@@ -61,7 +60,6 @@ data class DriverUiState(
     val marketplaceJobs: List<MarketplaceJob> = emptyList(),
     val documents: List<DriverDocument> = emptyList(),
     val bids: List<DriverBid> = emptyList(),
-    val notifications: List<DriverNotification> = emptyList(),
     val returnJourney: DriverReturnJourney? = null,
     val invoices: List<DriverInvoice> = emptyList(),
     val nearbyDrivers: List<NearbyDriver> = emptyList(),
@@ -412,24 +410,6 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun markAlertRead(notificationId: String) {
-        viewModelScope.launch {
-            val session = _uiState.value.session ?: return@launch
-            api.markNotificationRead(session, notificationId)
-                .onSuccess { refreshDriverData() }
-                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.friendlyDriverMessage("Failed to mark alert read.")) }
-        }
-    }
-
-    fun deleteAlert(notificationId: String) {
-        viewModelScope.launch {
-            val session = _uiState.value.session ?: return@launch
-            api.deleteNotification(session, notificationId)
-                .onSuccess { refreshDriverData() }
-                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.friendlyDriverMessage("Failed to delete alert.")) }
-        }
-    }
-
     /**
      * Mark a single dispatcher message as read via the authenticated mobile messages API.
      * UI state is updated only after server confirmation; stale owner responses are rejected.
@@ -483,7 +463,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Loads the next page of dispatcher messages using the cursor-based `before` param.
+     * Loads the next page of dispatcher messages using the two-field (created_at, id) cursor.
      * Appends results to the existing list, deduplicating by message ID so re-delivered
      * messages or overlapping pages cannot introduce duplicate rows.
      */
@@ -491,8 +471,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             if (!_uiState.value.dispatcherMessagesHasMore) return@launch
-            val cursor = _uiState.value.dispatcherMessages.lastOrNull()?.createdAt ?: return@launch
-            val result = api.loadDispatcherMessages(session, before = cursor, limit = 50)
+            val lastMsg = _uiState.value.dispatcherMessages.lastOrNull() ?: return@launch
+            val result = api.loadDispatcherMessages(
+                session,
+                before = lastMsg.createdAt,
+                beforeId = lastMsg.id,
+                limit = 50,
+            )
             result
                 .onSuccess { (newMessages, _) ->
                     if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess

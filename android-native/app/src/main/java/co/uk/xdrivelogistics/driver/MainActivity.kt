@@ -88,7 +88,6 @@ import co.uk.xdrivelogistics.driver.data.DriverAvailabilitySlot
 import co.uk.xdrivelogistics.driver.data.DriverDocument
 import co.uk.xdrivelogistics.driver.data.DriverBid
 import co.uk.xdrivelogistics.driver.data.DispatcherMessage
-import co.uk.xdrivelogistics.driver.data.DriverNotification
 import co.uk.xdrivelogistics.driver.data.MarketplaceJob
 import co.uk.xdrivelogistics.driver.offline.MobileQueueState
 import com.google.android.gms.location.LocationServices
@@ -276,8 +275,6 @@ class MainActivity : ComponentActivity() {
                             onUpdatePassword = viewModel::updatePassword,
                             onJobPreference = viewModel::setJobSearchPreference,
                             onMoveStatus = viewModel::moveSelectedJobTo,
-                            onMarkAlertRead = viewModel::markAlertRead,
-                            onDeleteAlert = viewModel::deleteAlert,
                             onMarkMessageRead = viewModel::markDispatcherMessageRead,
                             onMarkAllMessagesRead = viewModel::markAllDispatcherMessagesRead,
                             onSaveReturnJourney = viewModel::saveReturnJourney,
@@ -522,8 +519,6 @@ private fun DriverAppShell(
     onUpdatePassword: (String) -> Unit,
     onJobPreference: (String, String?) -> Unit,
     onMoveStatus: (String) -> Unit,
-    onMarkAlertRead: (String) -> Unit,
-    onDeleteAlert: (String) -> Unit,
     onMarkMessageRead: (String) -> Unit,
     onMarkAllMessagesRead: () -> Unit,
     onSaveReturnJourney: (String, String, String) -> Unit,

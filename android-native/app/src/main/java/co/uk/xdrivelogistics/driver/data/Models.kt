@@ -166,15 +166,6 @@ data class DriverBid(
     val clientName: String,
 )
 
-data class DriverNotification(
-    val id: String,
-    val title: String,
-    val body: String,
-    val type: String,
-    val readAt: String?,
-    val createdAt: String?,
-)
-
 /**
  * A dispatcher message loaded from the authenticated `/api/driver/mobile/messages` endpoint.
  * Maps the production response: id, event_type, safe text, optional job routing, read state,
