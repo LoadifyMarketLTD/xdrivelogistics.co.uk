@@ -1,14 +1,17 @@
 package co.uk.xdrivelogistics.driver
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 
 private const val DRIVER_PUSH_CHANNEL_ID = "driver_dispatch_updates"
 private const val DRIVER_PUSH_CHANNEL_NAME = "Dispatcher updates"
@@ -54,9 +57,18 @@ internal fun showDriverPushNotification(
         .setPriority(NotificationCompat.PRIORITY_HIGH)
         .setContentIntent(pendingIntent)
         .build()
+    if (!canPostDriverPushNotifications(context)) return
     runCatching {
         NotificationManagerCompat.from(context).notify(deepLink.hashCode(), notification)
     }
+}
+
+private fun canPostDriverPushNotifications(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+    return ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.POST_NOTIFICATIONS,
+    ) == PackageManager.PERMISSION_GRANTED
 }
 
 private fun ensureDriverPushChannel(context: Context) {
