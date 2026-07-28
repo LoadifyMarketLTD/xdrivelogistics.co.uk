@@ -9,14 +9,14 @@ import type {
 } from '../../../lib/sharedUiContext';
 import type { BusinessWorkspace } from '../../../lib/businessWorkspace';
 import { WORKSPACE_LABEL } from '../../../lib/businessWorkspace';
+import {
+  filterAuthorizedNavigation,
+  shouldShowCompanySwitcher,
+  shouldShowWorkspaceSwitcher,
+  type AuthorizedNavigationTarget,
+} from '../../../lib/sharedUiNavigation';
 import { useAuth } from '../AuthContext';
 import { workspaceTheme } from './WorkspaceUI';
-
-type NavigationTarget = {
-  id: string;
-  label: string;
-  href: string;
-};
 
 type ContextResponse = SharedUiContextSnapshot & {
   staleSelectionCleared?: boolean;
@@ -32,7 +32,7 @@ const knownLandingRoute = (value: unknown): value is string =>
 export default function SharedContextControls({
   navigation,
 }: {
-  navigation: readonly NavigationTarget[];
+  navigation: readonly AuthorizedNavigationTarget[];
 }) {
   const router = useRouter();
   const { refreshUserContext } = useAuth();
@@ -94,17 +94,10 @@ export default function SharedContextControls({
     [context?.memberships, selectedCompanyId],
   );
 
-  const filteredNavigation = useMemo(() => {
-    const normalized = search.trim().toLowerCase();
-    if (!normalized) return [];
-    return navigation
-      .filter(
-        (item) =>
-          item.label.toLowerCase().includes(normalized) ||
-          item.href.toLowerCase().includes(normalized),
-      )
-      .slice(0, 8);
-  }, [navigation, search]);
+  const filteredNavigation = useMemo(
+    () => filterAuthorizedNavigation(navigation, search),
+    [navigation, search],
+  );
 
   const switchContext = async (
     companyId: string,
@@ -143,6 +136,7 @@ export default function SharedContextControls({
       setContext(body);
       router.replace(body.landingRoute);
       router.refresh();
+      setIsSwitching(false);
     } catch (switchError) {
       setError(
         switchError instanceof Error
@@ -169,10 +163,12 @@ export default function SharedContextControls({
     setSelectedWorkspace('');
   };
 
-  const showCompanySwitcher = (context?.memberships.length ?? 0) > 1;
-  const showWorkspaceSwitcher =
-    Boolean(selectedMembership) &&
-    selectedMembership!.enabledWorkspaces.length > 1;
+  const showCompanySwitcher = shouldShowCompanySwitcher(
+    context?.memberships.length ?? 0,
+  );
+  const showWorkspaceSwitcher = shouldShowWorkspaceSwitcher(
+    selectedMembership?.enabledWorkspaces.length ?? 0,
+  );
 
   const controlStyle = {
     height: '34px',
