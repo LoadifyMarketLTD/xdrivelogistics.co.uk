@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from './app/api/_lib/supabaseAdmin';
 import { getPostLoginRoute } from './lib/authSession';
 import { resolveActiveCompanyContext, type RawMembershipRow } from './lib/activeWorkspace';
-import { isRoleAllowedForPath, resolveAuthoritativeRole, type AppUserRole } from './lib/authRole';
+import { isRoleAllowedForPath, mapAppRole, resolveAuthoritativeRole, type AppUserRole } from './lib/authRole';
 import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './lib/driverWorkspaceMode';
 import { ROUTE_AUTH_COOKIE_NAME } from './lib/routeAuthCookie';
 import { getCanonicalSiteUrl } from './lib/siteUrl';
@@ -31,7 +31,7 @@ type RouteAuthResult =
       ownerDriverWorkspace: boolean;
       ownerDriverExecutionMode: boolean;
       canAccessDriverMode: boolean;
-      membershipId: string;
+      membershipId: string | null;
       membershipRole: string | null;
       driverId: string | null;
       canCommercialBid: boolean | null;
@@ -269,9 +269,37 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'forbidden' };
   }
 
-  const profileStatus = profile?.status?.toLowerCase() ?? null;
+  const profileStatus = profile.status?.toLowerCase() ?? null;
   if (profileStatus !== 'active') {
     return { kind: 'forbidden' };
+  }
+
+  const profileRole = mapAppRole(profile.role ?? null);
+  const superAdminRouteRequested =
+    request.nextUrl.pathname === '/super-admin' || request.nextUrl.pathname.startsWith('/super-admin/');
+
+  // Platform ownership is established from the server-side profile only. It is
+  // intentionally resolved before commercial-company context because platform
+  // administrators do not require a company membership to use /super-admin.
+  if (superAdminRouteRequested && profileRole === 'owner') {
+    return {
+      kind: 'authenticated',
+      role: 'owner',
+      rawRole: profile.role ?? null,
+      workspaceRole: 'platform_owner',
+      mustChangePassword: false,
+      appAccess: null,
+      ownerDriverWorkspace: false,
+      ownerDriverExecutionMode: false,
+      canAccessDriverMode: false,
+      membershipId: null,
+      membershipRole: null,
+      driverId: null,
+      canCommercialBid: null,
+      driverStatus: null,
+      accountStatus: profileStatus,
+      companyStatus: null,
+    };
   }
 
   const activeCompany = resolveActiveCompanyContext(memberships, {
@@ -326,8 +354,8 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
 
   const role = resolveAuthoritativeRole({
     membershipRole,
-    profileRole: profile?.role ?? null,
-    isDriver: driver != null || profile?.is_driver === true,
+    profileRole: profile.role ?? null,
+    isDriver: driver != null || profile.is_driver === true,
     hasCreatedCompany: Boolean(creatorCompany?.id && creatorCompany.id === activeCompany.context.companyId),
     creatorCompanyType: creatorCompany?.company_type ?? null,
     fallbackRole,
@@ -343,7 +371,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     driver?.status?.toLowerCase() === 'active' &&
     driver?.app_access === true;
 
-  const rawRole = profile?.role ?? fallbackRole ?? null;
+  const rawRole = profile.role ?? fallbackRole ?? null;
   const workspaceRole = resolveWorkspaceRole({
     role,
     rawRole,
@@ -366,7 +394,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     driverId: driver?.id ?? null,
     canCommercialBid: driver?.can_commercial_bid ?? null,
     driverStatus: driver?.status ?? null,
-    accountStatus: profileStatus ?? null,
+    accountStatus: profileStatus,
     companyStatus,
   };
 };
