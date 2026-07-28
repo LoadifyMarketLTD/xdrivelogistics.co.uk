@@ -215,6 +215,16 @@ describe('driver_device_tokens migration security', () => {
     expect(migrationSql).toMatch(/IF p_generation = v_current\.registration_generation THEN[\s\S]*RETURN 'duplicate'[\s\S]*RETURN 'stale'/i);
   });
 
+  test('atomic register RPC comparison is not limited to active rows only', () => {
+    const registerFnBlock = migrationSql.match(
+      /CREATE OR REPLACE FUNCTION public\.driver_register_device_token_atomic\([\s\S]*?\$\$;/i,
+    )?.[0] ?? '';
+    const registerSelectBlock = registerFnBlock.match(
+      /SELECT[\s\S]*?INTO v_current[\s\S]*?WHERE installation_id = p_installation_id[\s\S]*?LIMIT 1[\s\S]*?FOR UPDATE;/i,
+    )?.[0] ?? '';
+    expect(registerSelectBlock).not.toMatch(/revoked_at\s+is\s+null/i);
+  });
+
   test('atomic register RPC performs upsert and legacy driver sync in one function', () => {
     expect(migrationSql).toMatch(/INSERT INTO public\.driver_device_tokens[\s\S]*ON CONFLICT \(token\) DO UPDATE/i);
     expect(migrationSql).toMatch(/UPDATE public\.drivers[\s\S]*SET device_token = p_token/i);
