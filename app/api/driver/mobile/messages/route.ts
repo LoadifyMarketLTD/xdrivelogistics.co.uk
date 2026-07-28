@@ -1,6 +1,11 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver, respond } from '../_lib';
+import {
+  buildMessagesCursorPredicate,
+  parseMessagesCursorParams,
+  parseMessagesMarkReadBody,
+} from './contract';
 
 /**
  * GET /api/driver/mobile/messages
@@ -18,23 +23,12 @@ import { isDriverContext, requireDriver, respond } from '../_lib';
  * Query params:
  *   before      – ISO 8601 timestamp of the last row on the previous page
  *   before_id   – UUID of the last row on the previous page (used with before)
- *   limit       – page size, finite integer clamped to 1..200, default 50
+ *   limit       – page size, finite integer in 1..200, default 50
  *
  * Response: { messages: Message[], unread_count: number }
  *   unread_count is the driver's total unread count (read_at IS NULL),
  *   independent of the current page.
  */
-
-const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function isValidISOTimestamp(s: string): boolean {
-  return ISO_TIMESTAMP_RE.test(s) && !isNaN(new Date(s).getTime());
-}
-
-function isValidUUID(s: string): boolean {
-  return UUID_RE.test(s);
-}
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
@@ -43,32 +37,9 @@ export async function GET(request: NextRequest) {
   if (!isDriverContext(driver)) return driver;
 
   const { searchParams } = new URL(request.url);
-  const before = searchParams.get('before');
-  const beforeId = searchParams.get('before_id');
-  const limitParam = searchParams.get('limit');
-
-  // Validate cursor: before must be a valid ISO timestamp when present.
-  if (before !== null && !isValidISOTimestamp(before)) {
-    return respond(400, { error: 'Invalid cursor: before must be a valid ISO 8601 timestamp.' });
-  }
-  // Validate cursor: before_id must be a valid UUID when present.
-  if (beforeId !== null && !isValidUUID(beforeId)) {
-    return respond(400, { error: 'Invalid cursor: before_id must be a valid UUID.' });
-  }
-  // Validate cursor: before_id without before is a mismatched cursor.
-  if (beforeId !== null && before === null) {
-    return respond(400, { error: 'Invalid cursor: before_id requires before to be set.' });
-  }
-
-  // Validate limit: must be a finite integer in 1..200 when present.
-  if (limitParam !== null) {
-    const parsed = Number(limitParam);
-    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
-      return respond(400, { error: 'Invalid limit: must be a finite integer.' });
-    }
-  }
-  const rawLimit = limitParam !== null ? Number(limitParam) : 50;
-  const limit = Math.max(1, Math.min(rawLimit || 50, 200));
+  const parsed = parseMessagesCursorParams(searchParams);
+  if (!parsed.ok) return respond(400, { error: parsed.error });
+  const { before, beforeId, limit } = parsed;
 
   // ── Page query ──────────────────────────────────────────────────────────────
   // Read from notifications (user inbox). Order by (created_at DESC, id DESC)
@@ -84,9 +55,7 @@ export async function GET(request: NextRequest) {
   // Two-field exclusive cursor: (created_at, id) < (before, before_id).
   // Both values have been validated above before interpolation.
   if (before && beforeId) {
-    notifQuery = notifQuery.or(`created_at.lt.${before},and(created_at.eq.${before},id.lt.${beforeId})`);
-  } else if (before) {
-    notifQuery = notifQuery.lt('created_at', before);
+    notifQuery = notifQuery.or(buildMessagesCursorPredicate(before, beforeId));
   }
 
   const { data: notifData, error: notifError } = await notifQuery;
@@ -175,31 +144,29 @@ export async function POST(request: NextRequest) {
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
-  let body: Record<string, unknown> = {};
+  let body: unknown;
   try {
-    body = (await request.json()) as Record<string, unknown>;
+    body = await request.json();
   } catch {
-    // empty body is fine — marks all as read
+    return respond(400, { error: 'Body must be valid JSON.' });
   }
 
-  const messageId = typeof body.id === 'string' && body.id.trim() ? body.id.trim() : null;
-
-  // Validate messageId is a UUID when present.
-  if (messageId !== null && !isValidUUID(messageId)) {
-    return respond(400, { error: 'Invalid message id: must be a valid UUID.' });
-  }
+  const parsedBody = parseMessagesMarkReadBody(body);
+  if (!parsedBody.ok) return respond(400, { error: parsedBody.error });
 
   const now = new Date().toISOString();
 
-  if (messageId) {
+  if (!parsedBody.markAll) {
+    const messageId = parsedBody.id;
     // Mark one message read — update notifications.read_at only for this owner's row.
-    // Using update().eq('read_at', null) for idempotency: already-read rows skip the update
+    // Using update().is('read_at', null) for idempotency: already-read rows skip the update
     // without error, and the authoritative unread_count is returned regardless.
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('notifications')
       .update({ read_at: now })
       .eq('id', messageId)
       .eq('user_id', driver.userId)
+      .is('read_at', null)
       .select('id,read_at')
       .maybeSingle();
     if (updateError) return respond(500, { error: updateError.message });
@@ -228,7 +195,13 @@ export async function POST(request: NextRequest) {
       .is('read_at', null);
     if (updateError) return respond(500, { error: updateError.message });
 
-    return respond(200, { ok: true, message: null, unread_count: 0 });
+    const { count: totalUnread, error: countError } = await supabaseAdmin
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', driver.userId)
+      .is('read_at', null);
+    if (countError) return respond(500, { error: countError.message });
+
+    return respond(200, { ok: true, message: null, unread_count: totalUnread ?? 0 });
   }
 }
-

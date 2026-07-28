@@ -27,6 +27,11 @@ import {
   normalizeAvailabilityStatus,
   validateAvailabilityPutBody,
 } from '../app/api/driver/mobile/availability/contract';
+import {
+  buildMessagesCursorPredicate,
+  parseMessagesCursorParams,
+  parseMessagesMarkReadBody,
+} from '../app/api/driver/mobile/messages/contract';
 
 test.describe('mobile API — idempotency helper contract', () => {
   test('returns true for retries after lifecycle advancement', () => {
@@ -235,6 +240,69 @@ test.describe('mobile API — availability contract helper', () => {
     expect(normalized[1]).toEqual({ day_of_week: 0, slot: 'PM', available: false });
     expect(normalized[2]).toEqual({ day_of_week: 0, slot: 'EVENING', available: false });
     expect(normalized[normalized.length - 1]).toEqual({ day_of_week: 6, slot: 'EVENING', available: true });
+  });
+
+  test.describe('mobile API — messages route static contract @ci-messages-contract', () => {
+    test('cursor rejects incomplete before/before_id pair and malformed values', () => {
+      const onlyBefore = parseMessagesCursorParams(new URLSearchParams('before=2026-01-01T00:00:00Z'));
+      expect(onlyBefore).toMatchObject({ ok: false });
+
+      const onlyBeforeId = parseMessagesCursorParams(new URLSearchParams('before_id=00000000-0000-0000-0000-000000000001'));
+      expect(onlyBeforeId).toMatchObject({ ok: false });
+
+      const badBefore = parseMessagesCursorParams(new URLSearchParams('before=not-a-date&before_id=00000000-0000-0000-0000-000000000001'));
+      expect(badBefore).toMatchObject({ ok: false });
+
+      const badBeforeId = parseMessagesCursorParams(new URLSearchParams('before=2026-01-01T00:00:00Z&before_id=not-a-uuid'));
+      expect(badBeforeId).toMatchObject({ ok: false });
+    });
+
+    test('cursor validates deterministic limit range and accepts a valid pair', () => {
+      const nonInteger = parseMessagesCursorParams(new URLSearchParams('limit=abc'));
+      expect(nonInteger).toMatchObject({ ok: false });
+
+      const tooSmall = parseMessagesCursorParams(new URLSearchParams('limit=0'));
+      expect(tooSmall).toMatchObject({ ok: false });
+
+      const tooLarge = parseMessagesCursorParams(new URLSearchParams('limit=201'));
+      expect(tooLarge).toMatchObject({ ok: false });
+
+      const valid = parseMessagesCursorParams(new URLSearchParams('before=2026-01-01T00:00:00Z&before_id=00000000-0000-0000-0000-000000000001&limit=10'));
+      expect(valid).toEqual({
+        ok: true,
+        before: '2026-01-01T00:00:00Z',
+        beforeId: '00000000-0000-0000-0000-000000000001',
+        limit: 10,
+      });
+    });
+
+    test('cursor predicate remains two-field deterministic order for equal timestamps', () => {
+      const predicate = buildMessagesCursorPredicate(
+        '2026-01-01T00:00:00Z',
+        '00000000-0000-0000-0000-000000000001',
+      );
+      expect(predicate).toBe(
+        'created_at.lt.2026-01-01T00:00:00Z,and(created_at.eq.2026-01-01T00:00:00Z,id.lt.00000000-0000-0000-0000-000000000001)',
+      );
+    });
+
+    test('POST body validation requires strict object shape', () => {
+      expect(parseMessagesMarkReadBody(null)).toMatchObject({ ok: false });
+      expect(parseMessagesMarkReadBody('bad')).toMatchObject({ ok: false });
+      expect(parseMessagesMarkReadBody([])).toMatchObject({ ok: false });
+      expect(parseMessagesMarkReadBody({ foo: 'bar' })).toMatchObject({ ok: false });
+      expect(parseMessagesMarkReadBody({ id: 1 })).toMatchObject({ ok: false });
+      expect(parseMessagesMarkReadBody({ id: '   ' })).toMatchObject({ ok: false });
+    });
+
+    test('POST body validation accepts only empty object for mark-all or UUID id for mark-one', () => {
+      expect(parseMessagesMarkReadBody({})).toEqual({ ok: true, markAll: true, id: null });
+      expect(parseMessagesMarkReadBody({ id: '00000000-0000-0000-0000-000000000001' })).toEqual({
+        ok: true,
+        markAll: false,
+        id: '00000000-0000-0000-0000-000000000001',
+      });
+    });
   });
 
   test('normalizes status to exactly available busy offline', () => {
