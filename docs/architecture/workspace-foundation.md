@@ -37,11 +37,12 @@ Do **not** create `organisations` or `organisation_members` tables in this phase
 `resolveCompanyEnabledWorkspaces` and `resolveActiveCompanyContext` now enforce:
 
 1. Company membership must be active.
-2. Enabled workspaces come from an explicit domain-supplied set (`enabledWorkspaces` option) when provided; otherwise derived from legacy `company_type` mapping.
-3. `activeWorkspace` is independently selected and must be within the enabled workspace set.
-4. Route workspace boundary must match the selected workspace.
-5. Unknown, null, empty, or malformed company type fails closed when no explicit enabled set exists.
-6. Multiple active memberships without `preferredCompanyId` returns `active_company_required` (not `no_active_membership`).
+2. Company status must be active; suspended, inactive, blocked (and any non-active value) are denied.
+3. Enabled workspaces come from an explicit domain-supplied set (`enabledWorkspaces` option) when provided; otherwise derived from legacy `company_type` mapping.
+4. `activeWorkspace` is independently selected and must be within the enabled workspace set.
+5. Route workspace boundary must match the selected workspace.
+6. Unknown, null, empty, or malformed company type fails closed when no explicit enabled set exists.
+7. Multiple active memberships without `preferredCompanyId` returns `active_company_required` (not `no_active_membership`).
 
 Typed fail-closed reasons include:
 
@@ -50,6 +51,8 @@ Typed fail-closed reasons include:
 - `active_workspace_required`
 - `active_company_required`
 - `workspace_mismatch`
+
+Membership capability resolution remains workspace-intersected: a route is allowed only when both the active BusinessWorkspace and the active MembershipRole authorize the capability.
 
 Recognized legacy company types mapping to `carrier_fleet` is restricted to:
 

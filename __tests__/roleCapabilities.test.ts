@@ -55,6 +55,11 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
     expect(isRoleAllowedForPath('/admin/../customer', ADMIN_ROLE)).toBe(false);
   });
 
+  it('keeps query strings and fragments inside the same route boundary', () => {
+    expect(isRoleAllowedForPath('/admin/jobs?view=active#today', ADMIN_ROLE)).toBe(true);
+    expect(isRoleAllowedForPath('/admin/not-real?x=1#frag', ADMIN_ROLE)).toBe(false);
+  });
+
   it('allows public routes for authenticated roles', () => {
     // Public routes (not under any protected prefix) are allowed regardless of role
     expect(isRoleAllowedForPath('/about', ADMIN_ROLE)).toBe(true);
@@ -79,6 +84,16 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
     // viewer cannot access /admin/drivers (requires drivers.manage)
     expect(
       isRoleAllowedForPath('/admin/drivers', ADMIN_ROLE, { workspaceRole: 'viewer' }),
+    ).toBe(false);
+  });
+
+  it('denies owner-driver and driver personas from fleet administration routes', () => {
+    expect(isRoleAllowedForPath('/admin/dispatchers', DRIVER_ROLE)).toBe(false);
+    expect(
+      isRoleAllowedForPath('/admin/dispatchers', DRIVER_ROLE, {
+        workspaceRole: 'owner_driver',
+        ownerDriverWorkspace: true,
+      }),
     ).toBe(false);
   });
 });

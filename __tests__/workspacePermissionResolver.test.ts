@@ -180,3 +180,221 @@ describe('resolveWorkspacePermission — workspace ∩ membership capability int
     expect(result).toEqual({ allowed: false, reason: 'capability_not_permitted' });
   });
 });
+
+describe('resolveWorkspacePermission — foundation security contract matrix', () => {
+  it('allows shipper and broker owners on authorized routes/capabilities', () => {
+    const shipper = resolveWorkspacePermission({
+      companyType: 'shipper',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['shipper'],
+      activeWorkspace: 'shipper',
+      pathname: '/customer/loads',
+    });
+    expect(shipper).toEqual({
+      allowed: true,
+      membershipRole: 'owner',
+      activeWorkspace: 'shipper',
+    });
+
+    const broker = resolveWorkspacePermission({
+      companyType: 'broker',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['broker'],
+      activeWorkspace: 'broker',
+      pathname: '/broker/margins',
+    });
+    expect(broker).toEqual({
+      allowed: true,
+      membershipRole: 'owner',
+      activeWorkspace: 'broker',
+    });
+  });
+
+  it('allows fleet admin and denies dispatcher/finance/compliance overreach', () => {
+    const fleetAdmin = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'admin',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      pathname: '/admin/fleet/assignments',
+    });
+    expect(fleetAdmin).toEqual({
+      allowed: true,
+      membershipRole: 'admin',
+      activeWorkspace: 'carrier_fleet',
+    });
+
+    const dispatcherFinance = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'dispatcher',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      pathname: '/admin/finance/reports',
+    });
+    expect(dispatcherFinance).toEqual({ allowed: false, reason: 'capability_not_permitted' });
+
+    const financeDispatch = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'finance',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      pathname: '/admin/operations-centre',
+    });
+    expect(financeDispatch).toEqual({ allowed: false, reason: 'capability_not_permitted' });
+
+    const complianceMargin = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'compliance',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      pathname: '/admin/finance/reports',
+    });
+    expect(complianceMargin).toEqual({ allowed: false, reason: 'capability_not_permitted' });
+  });
+
+  it('enforces owner-operator commercial boundary and driver finance restrictions', () => {
+    const employedDriver = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'driver',
+      enabledWorkspaces: ['owner_operator'],
+      activeWorkspace: 'owner_operator',
+      pathname: '/driver/loads',
+    });
+    expect(employedDriver).toEqual({ allowed: false, reason: 'capability_not_permitted' });
+
+    const ownerOperatorQuotes = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['owner_operator'],
+      activeWorkspace: 'owner_operator',
+      pathname: '/driver/quotes',
+    });
+    expect(ownerOperatorQuotes).toEqual({
+      allowed: true,
+      membershipRole: 'owner',
+      activeWorkspace: 'owner_operator',
+    });
+
+    const ownerOperatorFinanceForDriver = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'driver',
+      enabledWorkspaces: ['owner_operator'],
+      activeWorkspace: 'owner_operator',
+      pathname: '/driver/finance',
+    });
+    expect(ownerOperatorFinanceForDriver).toEqual({ allowed: false, reason: 'capability_not_permitted' });
+  });
+
+  it('denies cross-workspace commercial leakage', () => {
+    const customerToBrokerMargins = resolveWorkspacePermission({
+      companyType: 'shipper',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['shipper'],
+      activeWorkspace: 'shipper',
+      pathname: '/broker/margins',
+    });
+    expect(customerToBrokerMargins).toEqual({ allowed: false, reason: 'route_workspace_mismatch' });
+
+    const customerToCarrierCosts = resolveWorkspacePermission({
+      companyType: 'shipper',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['shipper'],
+      activeWorkspace: 'shipper',
+      pathname: '/broker/carrier-costs',
+    });
+    expect(customerToCarrierCosts).toEqual({ allowed: false, reason: 'route_workspace_mismatch' });
+
+    const carrierToCompetingQuotes = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'admin',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      pathname: '/broker/bids',
+    });
+    expect(carrierToCompetingQuotes).toEqual({ allowed: false, reason: 'route_workspace_mismatch' });
+
+    const ownerOperatorToFleetAdmin = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['owner_operator'],
+      activeWorkspace: 'owner_operator',
+      pathname: '/admin/dispatchers',
+    });
+    expect(ownerOperatorToFleetAdmin).toEqual({ allowed: false, reason: 'route_workspace_mismatch' });
+  });
+
+  it('keeps route checks strict with query/fragment and traversal attempts', () => {
+    const withQueryAndFragment = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      pathname: '/admin/jobs?view=active#today',
+    });
+    expect(withQueryAndFragment).toEqual({
+      allowed: true,
+      membershipRole: 'owner',
+      activeWorkspace: 'carrier_fleet',
+    });
+
+    const unknownWithQuery = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      pathname: '/admin/not-real?x=1#frag',
+    });
+    expect(unknownWithQuery).toEqual({ allowed: false, reason: 'unmapped_route' });
+
+    const traversal = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      pathname: '/admin/%2e%2e/customer/loads',
+    });
+    expect(traversal).toEqual({ allowed: false, reason: 'malformed_route' });
+  });
+
+  it('recalculates permissions after workspace switch with no carryover', () => {
+    const brokerSession = resolveWorkspacePermission({
+      companyType: null,
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['broker', 'carrier_fleet'],
+      activeWorkspace: 'broker',
+      pathname: '/broker/bids',
+    });
+    expect(brokerSession).toEqual({
+      allowed: true,
+      membershipRole: 'owner',
+      activeWorkspace: 'broker',
+    });
+
+    const switchedToCarrier = resolveWorkspacePermission({
+      companyType: null,
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['broker', 'carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      pathname: '/broker/bids',
+    });
+    expect(switchedToCarrier).toEqual({ allowed: false, reason: 'route_workspace_mismatch' });
+  });
+});
