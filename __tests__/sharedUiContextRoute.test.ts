@@ -210,7 +210,7 @@ describe('GET /api/auth/context', () => {
     });
   });
 
-  it('auto-recovers and reports staleSelectionCleared when profile company is not in active memberships', async () => {
+  it('auto-recovers, persists the recovered company and reports staleSelectionCleared when profile company is not in active memberships', async () => {
     // Profile references COMPANY_B, but user only has an active membership in COMPANY_A.
     mocks.profileResult = {
       data: {
@@ -237,6 +237,58 @@ describe('GET /api/auth/context', () => {
         landingRoute: '/admin',
       }),
     );
+    // Exactly one validated profile update must have been persisted.
+    expect(mocks.updatePayloads).toEqual([{ company_id: COMPANY_A }]);
+  });
+
+  it('fails closed when stale recovery persistence fails with a DB error', async () => {
+    mocks.profileResult = {
+      data: {
+        user_id: 'user-1',
+        company_id: COMPANY_B,
+        role: 'company_admin',
+        status: 'active',
+        is_driver: false,
+      },
+      error: null,
+    };
+    mocks.membershipsResult = { data: [activeMembership(COMPANY_A)], error: null };
+    mocks.updatedProfileResult = {
+      data: null,
+      error: { message: 'database write error' },
+    };
+
+    const response = await GET(request({ token: 'valid-token' }));
+
+    expect(response.status).toBe(500);
+    expect(await readJson(response)).toEqual({ error: 'Unable to recover workspace context.' });
+  });
+
+  it('does not persist when stale recovery requires explicit company selection (multiple memberships)', async () => {
+    mocks.profileResult = {
+      data: {
+        user_id: 'user-1',
+        company_id: 'stale-company-000',
+        role: 'company_admin',
+        status: 'active',
+        is_driver: false,
+      },
+      error: null,
+    };
+    // Two active memberships: recovery cannot auto-select, so companySelectionRequired is true.
+    mocks.membershipsResult = {
+      data: [activeMembership(COMPANY_A), activeMembership(COMPANY_B)],
+      error: null,
+    };
+
+    const response = await GET(request({ token: 'valid-token' }));
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.staleSelectionCleared).toBe(true);
+    expect(body.companySelectionRequired).toBe(true);
+    expect(body.current).toBeNull();
+    expect(mocks.updatePayloads).toEqual([]);
   });
 });
 

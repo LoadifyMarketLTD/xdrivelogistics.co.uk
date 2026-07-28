@@ -51,6 +51,8 @@ export type SharedUiContextSnapshot = {
   current: SharedUiResolvedContext | null;
   companySelectionRequired: boolean;
   workspaceSelectionRequired: boolean;
+  /** Server-derived validated company ID when a company is selected, even while workspace selection is still required. Null when company selection itself is required. */
+  selectedCompanyId: string | null;
 };
 
 export type SharedUiContextError =
@@ -113,15 +115,21 @@ export const buildSharedUiMembershipOptions = (
   return options;
 };
 
-export const resolveSharedUiContext = (input: {
-  memberships: readonly RawMembershipRow[];
+/**
+ * Core resolver that operates on pre-built `SharedUiMembershipOption[]`.
+ * Use this in tests when you need to supply memberships with custom
+ * `enabledWorkspaces` (e.g. multi-workspace scenarios) without a DB change.
+ * Production code uses `resolveSharedUiContext` which builds options from raw rows.
+ */
+export const resolveSharedUiContextFromOptions = (input: {
+  options: readonly SharedUiMembershipOption[];
   profileCompanyId?: string | null;
   requestedCompanyId?: string | null;
   requestedWorkspace?: BusinessWorkspace | null;
   drivers?: readonly DriverBootstrapEvidenceRow[];
   userId: string;
 }): SharedUiContextResolution => {
-  const memberships = buildSharedUiMembershipOptions(input.memberships);
+  const memberships = input.options;
   if (memberships.length === 0) {
     return { ok: false, error: 'no_active_membership' };
   }
@@ -139,6 +147,7 @@ export const resolveSharedUiContext = (input: {
         current: null,
         companySelectionRequired: true,
         workspaceSelectionRequired: false,
+        selectedCompanyId: null,
       },
     };
   }
@@ -164,6 +173,7 @@ export const resolveSharedUiContext = (input: {
         current: null,
         companySelectionRequired: false,
         workspaceSelectionRequired: true,
+        selectedCompanyId: selected.companyId,
       },
     };
   }
@@ -214,6 +224,25 @@ export const resolveSharedUiContext = (input: {
       },
       companySelectionRequired: false,
       workspaceSelectionRequired: false,
+      selectedCompanyId: selected.companyId,
     },
   };
+};
+
+export const resolveSharedUiContext = (input: {
+  memberships: readonly RawMembershipRow[];
+  profileCompanyId?: string | null;
+  requestedCompanyId?: string | null;
+  requestedWorkspace?: BusinessWorkspace | null;
+  drivers?: readonly DriverBootstrapEvidenceRow[];
+  userId: string;
+}): SharedUiContextResolution => {
+  return resolveSharedUiContextFromOptions({
+    options: buildSharedUiMembershipOptions(input.memberships),
+    profileCompanyId: input.profileCompanyId,
+    requestedCompanyId: input.requestedCompanyId,
+    requestedWorkspace: input.requestedWorkspace,
+    drivers: input.drivers,
+    userId: input.userId,
+  });
 };

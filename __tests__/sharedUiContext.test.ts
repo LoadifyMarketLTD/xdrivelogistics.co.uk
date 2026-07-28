@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RawMembershipRow } from '../lib/activeWorkspace';
-import { resolveSharedUiContext } from '../lib/sharedUiContext';
+import {
+  resolveSharedUiContext,
+  resolveSharedUiContextFromOptions,
+  type SharedUiMembershipOption,
+} from '../lib/sharedUiContext';
 
 const membership = (input: {
   id?: string;
@@ -45,6 +49,7 @@ describe('resolveSharedUiContext', () => {
         current: null,
         companySelectionRequired: true,
         workspaceSelectionRequired: false,
+        selectedCompanyId: null,
       },
     });
   });
@@ -198,5 +203,71 @@ describe('resolveSharedUiContext', () => {
     });
 
     expect(result).toEqual({ ok: false, error: 'no_active_membership' });
+  });
+});
+
+describe('resolveSharedUiContextFromOptions — multi-workspace presentation', () => {
+  const multiWorkspaceOption = (companyId: string): SharedUiMembershipOption => ({
+    membershipId: `membership-${companyId}`,
+    membershipRole: 'owner',
+    companyId,
+    companyName: `Multi Workspace Co (${companyId})`,
+    companyType: 'standard',
+    companyStatus: 'active',
+    enabledWorkspaces: ['carrier_fleet', 'broker'],
+  });
+
+  it('reports selectedCompanyId when a company is selected but workspace selection is required', () => {
+    const result = resolveSharedUiContextFromOptions({
+      options: [multiWorkspaceOption('company-multi')],
+      requestedCompanyId: 'company-multi',
+      userId: 'user-1',
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.workspaceSelectionRequired).toBe(true);
+      expect(result.snapshot.companySelectionRequired).toBe(false);
+      expect(result.snapshot.current).toBeNull();
+      expect(result.snapshot.selectedCompanyId).toBe('company-multi');
+    }
+  });
+
+  it('resolves a complete context and sets selectedCompanyId when workspace is specified', () => {
+    const result = resolveSharedUiContextFromOptions({
+      options: [multiWorkspaceOption('company-multi')],
+      requestedCompanyId: 'company-multi',
+      requestedWorkspace: 'carrier_fleet',
+      userId: 'user-1',
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.workspaceSelectionRequired).toBe(false);
+      expect(result.snapshot.companySelectionRequired).toBe(false);
+      expect(result.snapshot.selectedCompanyId).toBe('company-multi');
+      expect(result.snapshot.current).toEqual(
+        expect.objectContaining({
+          companyId: 'company-multi',
+          activeWorkspace: 'carrier_fleet',
+        }),
+      );
+    }
+  });
+
+  it('sets selectedCompanyId to null when company selection itself is required', () => {
+    const result = resolveSharedUiContextFromOptions({
+      options: [
+        multiWorkspaceOption('company-a'),
+        multiWorkspaceOption('company-b'),
+      ],
+      userId: 'user-1',
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.companySelectionRequired).toBe(true);
+      expect(result.snapshot.selectedCompanyId).toBeNull();
+    }
   });
 });
