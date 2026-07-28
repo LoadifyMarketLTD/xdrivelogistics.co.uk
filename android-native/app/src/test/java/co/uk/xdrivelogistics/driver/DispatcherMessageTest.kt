@@ -496,127 +496,125 @@ class DispatcherMessageTest {
     }
 
     // -------------------------------------------------------------------------
-    // In-flight guard — mark-one and mark-all idempotence under duplicate taps
+    // In-flight guard — mark-one idempotence under duplicate taps
+    //   Tests call acquireMarkOneGuard / releaseMarkOneGuard (production helpers).
     // -------------------------------------------------------------------------
 
     @Test
     fun `mark-one in-flight guard drops duplicate tap for same message ID`() {
-        // Simulate the markOneInFlight set that DriverViewModel maintains.
         val inFlight = mutableSetOf<String>()
-        val messageId = "msg-001"
-
-        val firstAdded = inFlight.add(messageId)   // first tap
-        val secondAdded = inFlight.add(messageId)  // duplicate tap while first is in flight
-
-        assertTrue("first tap must be accepted", firstAdded)
-        assertFalse("duplicate tap on same ID must be dropped by in-flight guard", secondAdded)
+        assertTrue("first tap must be accepted", acquireMarkOneGuard(inFlight, "msg-001"))
+        assertFalse("duplicate tap on same ID must be dropped by in-flight guard",
+            acquireMarkOneGuard(inFlight, "msg-001"))
     }
 
     @Test
     fun `mark-one in-flight guard allows different message IDs concurrently`() {
         val inFlight = mutableSetOf<String>()
-
-        val firstAdded = inFlight.add("msg-001")
-        val secondAdded = inFlight.add("msg-002")
-
-        assertTrue("first message ID must be accepted", firstAdded)
-        assertTrue("different message ID must not be blocked by the first", secondAdded)
-        assertEquals("both IDs must be tracked", 2, inFlight.size)
+        assertTrue("first message ID must be accepted", acquireMarkOneGuard(inFlight, "msg-001"))
+        assertTrue("different message ID must not be blocked by the first",
+            acquireMarkOneGuard(inFlight, "msg-002"))
+        assertEquals("both IDs must be tracked in-flight", 2, inFlight.size)
     }
 
     @Test
     fun `mark-one in-flight guard releases after completion allowing re-tap`() {
         val inFlight = mutableSetOf<String>()
-        val messageId = "msg-001"
-
-        inFlight.add(messageId)     // request in flight
-        inFlight.remove(messageId)  // request completes (finally block)
-        val retapAdded = inFlight.add(messageId) // user taps again after completion
-
-        assertTrue("re-tap after completion must be accepted", retapAdded)
+        acquireMarkOneGuard(inFlight, "msg-001")   // request in flight
+        releaseMarkOneGuard(inFlight, "msg-001")   // finally block runs
+        assertTrue("re-tap after completion must be accepted",
+            acquireMarkOneGuard(inFlight, "msg-001"))
     }
+
+    // -------------------------------------------------------------------------
+    // In-flight guard — mark-all and dispatch-note boolean guards
+    //   Tests use InFlightBooleanGuard (production helper class).
+    // -------------------------------------------------------------------------
 
     @Test
     fun `mark-all in-flight guard drops duplicate tap while request is in flight`() {
-        var markAllInFlight = false
-
-        val firstAccepted = !markAllInFlight.also { markAllInFlight = true }
-        val secondDropped = markAllInFlight // guard is true: second tap would return early
-
-        assertTrue("first tap must pass the guard", firstAccepted)
-        assertTrue("second tap while in-flight must be blocked", secondDropped)
+        val guard = InFlightBooleanGuard()
+        assertTrue("first tap must pass the guard", guard.acquire())
+        assertFalse("second tap while in-flight must be blocked", guard.acquire())
     }
 
     @Test
     fun `mark-all in-flight guard releases after completion allowing re-tap`() {
-        var markAllInFlight = false
-
-        markAllInFlight = true   // request starts
-        markAllInFlight = false  // request completes (finally block)
-        val retap = !markAllInFlight // user taps again: guard is false → accepted
-
-        assertTrue("re-tap after mark-all completion must be accepted", retap)
+        val guard = InFlightBooleanGuard()
+        guard.acquire()   // request starts
+        guard.release()   // finally block runs
+        assertTrue("re-tap after completion must be accepted", guard.acquire())
     }
 
     @Test
     fun `dispatch-note in-flight guard drops duplicate tap while request is in flight`() {
-        var dispatchNoteInFlight = false
-
-        val firstAccepted = !dispatchNoteInFlight.also { dispatchNoteInFlight = true }
-        val secondDropped = dispatchNoteInFlight // guard is true: second tap returns early
-
-        assertTrue("first send tap must pass the guard", firstAccepted)
-        assertTrue("duplicate send tap while in-flight must be blocked", secondDropped)
+        val guard = InFlightBooleanGuard()
+        assertTrue("first send tap must pass the guard", guard.acquire())
+        assertFalse("duplicate send tap while in-flight must be blocked", guard.acquire())
     }
 
     @Test
     fun `dispatch-note in-flight guard releases after completion allowing re-send`() {
-        var dispatchNoteInFlight = false
-
-        dispatchNoteInFlight = true   // request starts
-        dispatchNoteInFlight = false  // request completes (finally block)
-        val resend = !dispatchNoteInFlight // user sends again after completion
-
-        assertTrue("re-send after dispatch-note completion must be accepted", resend)
+        val guard = InFlightBooleanGuard()
+        guard.acquire()   // request starts
+        guard.release()   // finally block runs
+        assertTrue("re-send after dispatch-note completion must be accepted", guard.acquire())
     }
 
     // -------------------------------------------------------------------------
-    // Dispatch-note draft preservation
-    //   Verifies that dispatchNoteDraft is cleared only on server success.
+    // Monotonic unread count — out-of-order response protection
+    //   safeServerUnreadCount must prevent a stale higher count from overwriting
+    //   a newer lower count when concurrent mark-one responses arrive out of order.
     // -------------------------------------------------------------------------
 
     @Test
-    fun `dispatch-note draft is cleared only on server-confirmed success`() {
-        // Production state: dispatchNoteDraft starts with the user's text.
-        var draft = "Arrived at pickup"
-
-        // Simulate success path: server confirms → draft cleared.
-        val serverSuccess = true
-        if (serverSuccess) draft = ""
-
-        assertEquals("draft must be cleared after server success", "", draft)
+    fun `safeServerUnreadCount rejects stale higher count from out-of-order response`() {
+        // Scenario: mark-B response arrives first (count=3). mark-A response arrives second
+        // (count=5 — stale because A was sent before B). Final count must remain 3.
+        assertEquals("stale higher count must not overwrite newer lower count",
+            3, safeServerUnreadCount(current = 3, incoming = 5))
     }
 
     @Test
-    fun `dispatch-note draft is preserved on server failure`() {
-        var draft = "Arrived at pickup"
-
-        // Simulate failure path: onFailure branch does not touch dispatchNoteDraft.
-        val serverSuccess = false
-        if (serverSuccess) draft = ""
-
-        assertEquals("draft must be preserved after server failure", "Arrived at pickup", draft)
+    fun `safeServerUnreadCount applies incoming when it is lower than current`() {
+        assertEquals("lower incoming count must be applied",
+            4, safeServerUnreadCount(current = 5, incoming = 4))
     }
 
     @Test
-    fun `dispatch-note draft is preserved on auth error (triggers refresh not clear)`() {
-        var draft = "Arrived at pickup"
+    fun `safeServerUnreadCount preserves zero after mark-all`() {
+        // mark-all sets count to 0; a stale mark-one response must not re-inflate it.
+        assertEquals("zero must not be overwritten by stale non-zero count",
+            0, safeServerUnreadCount(current = 0, incoming = 2))
+    }
 
-        // Auth errors trigger refreshAndRetry — draft must not be cleared.
-        val isAuthError = true
-        val serverSuccess = false
-        if (!isAuthError && serverSuccess) draft = ""
+    @Test
+    fun `safeServerUnreadCount accepts equal counts as stable`() {
+        assertEquals("equal counts must remain stable",
+            3, safeServerUnreadCount(current = 3, incoming = 3))
+    }
 
-        assertEquals("draft must be preserved on auth error", "Arrived at pickup", draft)
+    // -------------------------------------------------------------------------
+    // Dispatch-note job identity — draft cleared only for the exact request job
+    //   shouldClearDispatchDraft must reject a clear when selectedJobId changed
+    //   or was cleared between request start and server response arrival.
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `dispatch-note success clears draft only when selected job matches request job`() {
+        assertTrue("draft must be cleared when job matches",
+            shouldClearDispatchDraft(requestJobId = "job-123", currentSelectedJobId = "job-123"))
+    }
+
+    @Test
+    fun `dispatch-note draft is preserved when job changed mid-flight`() {
+        assertFalse("draft must be preserved when user switched to a different job",
+            shouldClearDispatchDraft(requestJobId = "job-123", currentSelectedJobId = "job-456"))
+    }
+
+    @Test
+    fun `dispatch-note draft is preserved when job was deselected mid-flight`() {
+        assertFalse("draft must be preserved when no job is currently selected",
+            shouldClearDispatchDraft(requestJobId = "job-123", currentSelectedJobId = null))
     }
 }
