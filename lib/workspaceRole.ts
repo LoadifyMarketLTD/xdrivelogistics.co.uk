@@ -80,6 +80,8 @@ export type WorkspaceUserLike = {
 
 const normalized = (value: string | null | undefined) => (value ?? '').toLowerCase().trim().replace(/[-\s]+/g, '_');
 
+const normalizePathname = (pathname: string) => pathname.split('?')[0]?.split('#')[0] || '/';
+
 export const resolveWorkspaceRole = (user: WorkspaceUserLike | null | undefined): WorkspaceRole => {
   if (!user) return 'viewer';
 
@@ -371,6 +373,12 @@ export const getVisibleWorkspaceNav = (role: WorkspaceRole): WorkspaceNavGroup[]
   WORKSPACE_DEFINITIONS[role].nav
     .map((group) => ({ ...group, items: group.items.filter((item) => !item.capability || hasWorkspaceCapability(role, item.capability)) }))
     .filter((group) => group.items.length > 0);
+
+export const resolveWorkspaceSurfaceRole = (pathname: string, role: WorkspaceRole): WorkspaceRole => {
+  const cleanPath = normalizePathname(pathname);
+  if (cleanPath === '/driver' || cleanPath.startsWith('/driver/')) return 'driver';
+  return role;
+};
 
 export const getWorkspaceHomeRoute = (user: WorkspaceUserLike | null | undefined): string =>
   WORKSPACE_DEFINITIONS[resolveWorkspaceRole(user)].homeHref;

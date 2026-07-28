@@ -86,6 +86,9 @@ Middleware hardening requirements are now enforced server-side:
 - Protected routes fail closed when DB-backed auth context is unavailable (no metadata-only fallback authorization).
 - `user_metadata` is non-authoritative for owner-driver workspace and execution-mode privileges.
 - Active company context is resolved from authenticated membership rows via `resolveActiveCompanyContext`.
+- `profile.company_id` is currently used only as a preferred/default company selector input.
+- The selected company is server-validated against active memberships before route authorization.
+- This foundation does not yet prove `profile.company_id` as a persistent Company Switcher selection contract.
 - Membership role, company id, and company status are bound to the same selected active membership record.
 - Multiple active memberships without trusted selected-company context are denied (`active_company_required` path).
 
