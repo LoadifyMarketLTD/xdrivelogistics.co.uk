@@ -1,4 +1,4 @@
-import { resolveAuthoritativeRole, type AppUserRole } from '@/lib/authRole';
+import { resolveAuthoritativeRole, type AppUserRole } from './authRole';
 
 type ResolveAuthContextInput = {
   creatorCompanyId?: string | null;
