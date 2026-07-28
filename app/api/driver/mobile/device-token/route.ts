@@ -21,8 +21,25 @@ export async function POST(request: NextRequest) {
 
   const parsed = parseDeviceTokenRegisterBody(body);
   if (!parsed.ok) return respond(400, { error: parsed.error });
-  const { token, platform, appPackage } = parsed.value;
+  const { token, platform, appPackage, installationId, generation } = parsed.value;
   const now = new Date().toISOString();
+
+  // ── Stale-generation guard ──────────────────────────────────────────────────
+  // Before any revocation or upsert, check whether a newer registration for the
+  // same (installation_id, token) pair already exists.  If it does, the incoming
+  // request is stale (delayed A request after B registered on the same device) and
+  // must be rejected without mutating server state.
+  const { data: existingByInstall } = await supabaseAdmin
+    .from('driver_device_tokens')
+    .select('registration_generation')
+    .eq('installation_id', installationId)
+    .eq('token', token)
+    .maybeSingle();
+
+  if (existingByInstall && existingByInstall.registration_generation >= generation) {
+    // Stale or exact-duplicate request — no-op, do not revoke any token.
+    return respond(200, { ok: true });
+  }
 
   // Revoke any currently active token rows for this owner/driver except the current token.
   // If the normalized lifecycle table is not yet present, gracefully fall back to legacy drivers.device_token.
@@ -58,6 +75,8 @@ export async function POST(request: NextRequest) {
         token,
         platform,
         app_package: appPackage,
+        installation_id: installationId,
+        registration_generation: generation,
         revoked_at: null,
         last_registered_at: now,
         updated_at: now,

@@ -1029,6 +1029,8 @@ class ApiClient(
     suspend fun registerDeviceToken(
         session: DriverSession,
         token: String,
+        installationId: String,
+        generation: Long,
         platform: String = "android",
         appPackage: String = "co.uk.xdrivelogistics.driver",
     ): Result<Unit> = networkResult {
@@ -1038,6 +1040,8 @@ class ApiClient(
                 "token" to token,
                 "platform" to platform,
                 "app_package" to appPackage,
+                "installation_id" to installationId,
+                "generation" to generation,
             )
         ).toRequestBody(jsonMediaType)
         val request = Request.Builder()

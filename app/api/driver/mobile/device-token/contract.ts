@@ -2,6 +2,8 @@ export type ParsedDeviceTokenRegisterBody = {
   token: string;
   platform: 'android';
   appPackage: string | null;
+  installationId: string;
+  generation: number;
 };
 
 function normalizeString(value: unknown): string {
@@ -15,6 +17,18 @@ function parseToken(value: unknown): string | null {
   return token;
 }
 
+function parseInstallationId(value: unknown): string | null {
+  const id = normalizeString(value);
+  if (!id) return null;
+  if (id.length > 64) return null;
+  return id;
+}
+
+function parseGeneration(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) return null;
+  return value;
+}
+
 export function parseDeviceTokenRegisterBody(body: unknown):
   | { ok: true; value: ParsedDeviceTokenRegisterBody }
   | { ok: false; error: string } {
@@ -24,7 +38,7 @@ export function parseDeviceTokenRegisterBody(body: unknown):
 
   const payload = body as Record<string, unknown>;
   const keys = Object.keys(payload);
-  const allowed = new Set(['token', 'platform', 'app_package']);
+  const allowed = new Set(['token', 'platform', 'app_package', 'installation_id', 'generation']);
   if (keys.some((k) => !allowed.has(k))) {
     return { ok: false, error: 'Unknown request fields are not allowed.' };
   }
@@ -52,12 +66,24 @@ export function parseDeviceTokenRegisterBody(body: unknown):
     appPackage = trimmed;
   }
 
+  const installationId = parseInstallationId(payload.installation_id);
+  if (!installationId) {
+    return { ok: false, error: 'installation_id must be a non-empty string up to 64 chars.' };
+  }
+
+  const generation = parseGeneration(payload.generation);
+  if (generation === null) {
+    return { ok: false, error: 'generation must be a positive integer.' };
+  }
+
   return {
     ok: true,
     value: {
       token,
       platform: 'android',
       appPackage,
+      installationId,
+      generation,
     },
   };
 }

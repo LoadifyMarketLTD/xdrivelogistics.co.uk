@@ -10,6 +10,15 @@ CREATE TABLE IF NOT EXISTS public.driver_device_tokens (
   token text NOT NULL,
   platform text NOT NULL DEFAULT 'android',
   app_package text,
+  -- Stable random UUID generated once per device install. Used together with
+  -- registration_generation to detect and reject stale cross-session writes: a
+  -- delayed request from owner A must not overwrite a newer registration from
+  -- owner B who signed in on the same device after A.
+  installation_id text NOT NULL DEFAULT '',
+  -- Monotonically-increasing counter persisted in the on-device coordinator.
+  -- The server rejects any upsert whose generation is less than or equal to the
+  -- generation already stored for the same (installation_id, token) pair.
+  registration_generation bigint NOT NULL DEFAULT 0,
   last_registered_at timestamptz NOT NULL DEFAULT now(),
   revoked_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),

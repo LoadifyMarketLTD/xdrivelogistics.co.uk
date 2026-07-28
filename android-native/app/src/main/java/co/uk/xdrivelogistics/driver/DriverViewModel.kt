@@ -272,6 +272,32 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * Routes an incoming push-notification job deep link to the correct destination.
+     *
+     * Only navigates to the job detail view when:
+     * 1. There is an authenticated session (driver is logged in), and
+     * 2. The job exists in the current loaded state and is active (not terminal).
+     *
+     * In all other cases (no session, job not found, job in a terminal state, or jobs
+     * not yet loaded after a cold start) the driver is routed to the Messages tab instead,
+     * preventing stale, unassigned or marketplace job IDs from being opened.
+     */
+    fun selectJobIfAssigned(jobId: String) {
+        val currentState = _uiState.value
+        if (currentState.session == null) {
+            changeTab(DriverTab.MESSAGES)
+            return
+        }
+        val job = currentState.jobs.firstOrNull { it.id == jobId && it.isActive() }
+        if (job == null) {
+            changeTab(DriverTab.MESSAGES)
+            return
+        }
+        selectJob(jobId)
+        changeTab(DriverTab.ACTION)
+    }
+
     /** Selects a Live Loads marketplace job for quoting/saving/hiding. Does not affect operational [selectedJobId]. */
     fun selectMarketplaceLoad(jobId: String) {
         _uiState.value = _uiState.value.copy(marketplaceSelectedJobId = jobId)
@@ -719,6 +745,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         val pending = deviceTokenCoordinator.readPending() ?: return
         val token = pending.token
         val capturedGeneration = pending.generation
+        val capturedInstallationId = pending.installationId
         if (token.isBlank()) return
         // Skip if already registered for this owner, token and generation.
         if (registeredDeviceTokenOwnerId == session.userId &&
@@ -733,6 +760,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     api.registerDeviceToken(
                         session = reqSession,
                         token = token,
+                        installationId = capturedInstallationId,
+                        generation = capturedGeneration,
                         platform = "android",
                         appPackage = "co.uk.xdrivelogistics.driver",
                     )

@@ -386,8 +386,10 @@ class MainActivity : ComponentActivity() {
                 when (host) {
                     "job" -> {
                         val jobId = pathSegments.firstOrNull() ?: data.getQueryParameter("id") ?: return
-                        viewModel.selectJob(jobId)
-                        viewModel.changeTab(DriverTab.ACTION)
+                        // Validate the job against the current authenticated state before navigating.
+                        // If there is no session, the job is not loaded yet, or it is not an active
+                        // assigned job, fall back to the Messages tab to avoid stale/unauthorised routing.
+                        viewModel.selectJobIfAssigned(jobId)
                     }
                     "notification", "messages" -> viewModel.changeTab(DriverTab.MESSAGES)
                     "documents", "profile" -> viewModel.changeTab(DriverTab.PROFILE)
@@ -400,8 +402,7 @@ class MainActivity : ComponentActivity() {
                     path.startsWith("/driver/jobs/") -> {
                         val jobId = path.removePrefix("/driver/jobs/").trimEnd('/')
                         if (jobId.isNotBlank()) {
-                            viewModel.selectJob(jobId)
-                            viewModel.changeTab(DriverTab.ACTION)
+                            viewModel.selectJobIfAssigned(jobId)
                         }
                     }
                     path.startsWith("/m/") || path.startsWith("/driver/") -> viewModel.changeTab(DriverTab.NEARBY)

@@ -1,5 +1,7 @@
 package co.uk.xdrivelogistics.driver
 
+import co.uk.xdrivelogistics.driver.data.DriverSession
+import co.uk.xdrivelogistics.driver.data.SessionStore
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -23,6 +25,11 @@ class DriverFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
+        // Do not display operational push content when there is no authenticated session.
+        // A delayed or in-flight push arriving after logout, a failed unregister, or a
+        // cold-process restart must not expose dispatcher/job content to a logged-out state.
+        if (!isPushAllowedForSession(SessionStore(applicationContext).readSession())) return
+
         val title = message.notification?.title?.takeIf { it.isNotBlank() }
             ?: message.data["title"]?.takeIf { it.isNotBlank() }
             ?: "XDrive update"
@@ -38,3 +45,9 @@ class DriverFirebaseMessagingService : FirebaseMessagingService() {
         )
     }
 }
+
+/**
+ * Returns true only when [session] represents an authenticated driver session.
+ * Extracted as a top-level function so it can be tested without a Firebase or Android context.
+ */
+internal fun isPushAllowedForSession(session: DriverSession?): Boolean = session != null
