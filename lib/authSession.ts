@@ -71,6 +71,8 @@ export type ResolvedAuthUser = {
   canCommercialBid: boolean;
   driverStatus: string | null;
   appAccess: boolean | null;
+  accountStatus: string | null;
+  companyStatus: string | null;
 };
 
 const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, key: string) => {
@@ -225,9 +227,6 @@ export const resolveAuthenticatedUser = async (
     ? null
     : (creatorCompanyRes.data as { id: string; company_type: string | null } | null);
 
-  const driverId = driver?.id ?? null;
-  const mustChangePassword = driver?.must_change_password === true;
-
   console.debug('[XDrive Auth] profile lookup', {
     userId: sessionUser.id,
     profileRole: profile?.role ?? null,
@@ -377,7 +376,7 @@ export const resolveAuthenticatedUser = async (
     membershipCompanyId: membership?.company_id ?? null,
     driverCompanyId: driver?.company_id ?? null,
     creatorCompanyId: creatorCompany?.id ?? null,
-    mustChangePassword,
+    mustChangePassword: driver?.must_change_password === true,
     ownerDriverWorkspaceRequested,
   });
 
@@ -392,15 +391,29 @@ export const resolveAuthenticatedUser = async (
     companyId != null
       ? (memberships?.find((m) => m.company_id === companyId) ?? membership)
       : membership;
+  const scopedDriver =
+    companyId && driver?.company_id === companyId
+      ? driver
+      : null;
+  const scopedDriverId = scopedDriver?.id ?? null;
+  const scopedMustChangePassword = scopedDriver?.must_change_password === true;
+  const scopedOwnerDriverWorkspace = ownerDriverWorkspaceRequested && Boolean(scopedDriverId);
+  const scopedOwnerDriverExecutionMode = scopedOwnerDriverWorkspace && ownerDriverExecutionModeRequested;
+  const scopedCanAccessDriverMode =
+    Boolean(scopedDriverId) &&
+    (scopedDriver?.status ?? '').toLowerCase() === 'active' &&
+    scopedDriver?.app_access === true;
 
   if (resolvedRole) {
+    const accountStatus = profile?.status ? String(profile.status).trim().toLowerCase() : null;
+    let companyStatus: string | null = null;
     const requiresCompanyContext = roleRequiresCompanyContext(resolvedRole);
     if (requiresCompanyContext && !companyId) {
       console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', resolvedRole, userId: sessionUser.id });
       return { user: null, reason: 'company_context_missing' };
     }
 
-    if (roleRequiresCompanyContext(resolvedRole) && companyId) {
+    if (companyId) {
       const companyStatusRes = await supabase
         .from('companies')
         .select('status')
@@ -422,7 +435,7 @@ export const resolveAuthenticatedUser = async (
         };
       }
 
-      const companyStatus = String(companyStatusRes.data?.status ?? '').trim().toLowerCase();
+      companyStatus = String(companyStatusRes.data?.status ?? '').trim().toLowerCase();
       if (companyStatus !== 'active') {
         console.debug('[XDrive Auth] auth resolution failed', {
           reason: 'account_blocked',
@@ -440,27 +453,24 @@ export const resolveAuthenticatedUser = async (
       companyId,
       resolvedMembership?.id ?? null,
       resolvedMembership?.role_in_company ?? null,
-      driverId,
-      resolvedRole === 'driver' ? mustChangePassword : false,
+      scopedDriverId,
+      resolvedRole === 'driver' ? scopedMustChangePassword : false,
       {
         rawRole: profile?.role ?? fallbackRole ?? null,
-        ownerDriverWorkspace: ownerDriverWorkspaceRequested,
-        canAccessDriverMode:
-          ownerDriverWorkspaceRequested &&
-          (Boolean(driver) ||
-            profile?.is_driver === true ||
-            mapAppRole(profile?.role ?? null) === 'driver' ||
-            mapAppRole(fallbackRole) === 'driver'),
-        ownerDriverExecutionMode: ownerDriverExecutionModeRequested,
+        ownerDriverWorkspace: scopedOwnerDriverWorkspace,
+        canAccessDriverMode: scopedCanAccessDriverMode,
+        ownerDriverExecutionMode: scopedOwnerDriverExecutionMode,
         financeAccess: resolveFinanceAccess(
           resolvedRole,
           (resolvedMembership?.role_in_company as CompanyMembership['role_in_company'] | null) ?? null,
           sessionUser
         ),
-        driverType: typeof driver?.driver_type === 'string' ? driver.driver_type : null,
-        canCommercialBid: driver?.can_commercial_bid === true,
-        driverStatus: typeof driver?.status === 'string' ? driver.status : null,
-        appAccess: typeof driver?.app_access === 'boolean' ? driver.app_access : null,
+        driverType: typeof scopedDriver?.driver_type === 'string' ? scopedDriver.driver_type : null,
+        canCommercialBid: scopedDriver?.can_commercial_bid === true,
+        driverStatus: typeof scopedDriver?.status === 'string' ? scopedDriver.status : null,
+        appAccess: typeof scopedDriver?.app_access === 'boolean' ? scopedDriver.app_access : null,
+        accountStatus,
+        companyStatus,
       }
     );
   }
@@ -499,6 +509,8 @@ const ok = (
     canCommercialBid: boolean;
     driverStatus: string | null;
     appAccess: boolean | null;
+    accountStatus: string | null;
+    companyStatus: string | null;
   }
 ): AuthResolutionResult => {
   const workspaceRole = resolveWorkspaceRole({
@@ -527,6 +539,8 @@ const ok = (
     canCommercialBid: options.canCommercialBid,
     driverStatus: options.driverStatus,
     appAccess: options.appAccess,
+    accountStatus: options.accountStatus,
+    companyStatus: options.companyStatus,
   };
   console.debug('[XDrive Auth] resolved user', { role, workspaceRole, companyId, userId: sessionUser.id });
   return { user: resolved, reason: null };
@@ -577,6 +591,8 @@ export const roleCanAccessPath = (
     canCommercialBid?: boolean | null;
     driverStatus?: string | null;
     appAccess?: boolean | null;
+    accountStatus?: string | null;
+    companyStatus?: string | null;
   },
   path: string
 ) =>
@@ -590,4 +606,6 @@ export const roleCanAccessPath = (
     canCommercialBid: currentUser.canCommercialBid ?? null,
     driverStatus: currentUser.driverStatus ?? null,
     appAccess: currentUser.appAccess ?? null,
+    accountStatus: currentUser.accountStatus ?? null,
+    companyStatus: currentUser.companyStatus ?? null,
   });

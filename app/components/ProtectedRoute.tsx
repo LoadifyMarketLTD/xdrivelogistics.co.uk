@@ -38,6 +38,8 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       canCommercialBid: user.canCommercialBid,
       driverStatus: user.driverStatus ?? null,
       appAccess: user.appAccess,
+      accountStatus: user.accountStatus ?? null,
+      companyStatus: user.companyStatus ?? null,
     });
   }, [allowedRoles, pathname, user]);
 

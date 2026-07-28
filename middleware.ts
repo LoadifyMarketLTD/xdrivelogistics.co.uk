@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from './app/api/_lib/supabaseAdmin';
 import { getPostLoginRoute } from './lib/authSession';
 import { resolveActiveCompanyContext, type RawMembershipRow } from './lib/activeWorkspace';
-import { isRoleAllowedForPath, mapAppRole, resolveAuthoritativeRole, type AppUserRole } from './lib/authRole';
+import { isRoleAllowedForPath, resolveAuthoritativeRole, type AppUserRole } from './lib/authRole';
 import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './lib/driverWorkspaceMode';
 import { ROUTE_AUTH_COOKIE_NAME } from './lib/routeAuthCookie';
 import { getCanonicalSiteUrl } from './lib/siteUrl';
@@ -31,6 +31,7 @@ type RouteAuthResult =
       ownerDriverWorkspace: boolean;
       ownerDriverExecutionMode: boolean;
       canAccessDriverMode: boolean;
+      membershipId: string;
       membershipRole: string | null;
       driverId: string | null;
       canCommercialBid: boolean | null;
@@ -40,6 +41,7 @@ type RouteAuthResult =
     };
 
 type MembershipQueryRow = {
+  id?: string | null;
   company_id?: string | null;
   user_id?: string | null;
   role_in_company?: string | null;
@@ -114,15 +116,17 @@ const normalizeMembershipRows = (rows: MembershipQueryRow[]): RawMembershipRow[]
       ? row.companies[0] ?? null
       : row.companies ?? null;
 
+    const membershipId = row.id ?? null;
     const companyId = row.company_id ?? null;
     const userId = row.user_id ?? null;
     const companyName = companiesValue?.name ?? null;
 
-    if (!companyId || !userId || !companiesValue?.id || !companyName) {
+    if (!membershipId || !companyId || !userId || !companiesValue?.id || !companyName) {
       continue;
     }
 
     normalized.push({
+      id: membershipId,
       company_id: companyId,
       user_id: userId,
       role_in_company: row.role_in_company ?? null,
@@ -220,7 +224,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'service_unavailable' };
   }
 
-  const [profileRes, membershipsRes, driverRes, creatorCompanyRes] = await Promise.all([
+  const [profileRes, membershipsRes, creatorCompanyRes] = await Promise.all([
     supabaseAdmin
       .from('profiles')
       .select('role, status, is_driver, company_id')
@@ -228,19 +232,13 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
       .maybeSingle(),
     supabaseAdmin
       .from('company_memberships')
-      .select('company_id, user_id, role_in_company, status, companies(id, name, company_type, status)')
+      .select('id, company_id, user_id, role_in_company, status, companies(id, name, company_type, status)')
       .eq('user_id', authData.user.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false }),
     supabaseAdmin
-      .from('drivers')
-      .select('id, app_access, must_change_password, status, can_commercial_bid')
-      .eq('user_id', authData.user.id)
-      .limit(1)
-      .maybeSingle(),
-    supabaseAdmin
       .from('companies')
-      .select('company_type')
+      .select('id, company_type')
       .eq('created_by', authData.user.id)
       .limit(1)
       .maybeSingle(),
@@ -249,13 +247,12 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   if (
     isServiceFailure(profileRes.error?.message) ||
     isServiceFailure(membershipsRes.error?.message) ||
-    isServiceFailure(driverRes.error?.message) ||
     isServiceFailure(creatorCompanyRes.error?.message)
   ) {
     return { kind: 'service_unavailable' };
   }
 
-  if (profileRes.error || membershipsRes.error || driverRes.error || creatorCompanyRes.error) {
+  if (profileRes.error || membershipsRes.error || creatorCompanyRes.error) {
     return { kind: 'forbidden' };
   }
 
@@ -266,14 +263,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     company_id?: string | null;
   } | null;
   const memberships = normalizeMembershipRows((membershipsRes.data ?? []) as MembershipQueryRow[]);
-  const driver = driverRes.data as {
-    id?: string | null;
-    app_access?: boolean | null;
-    must_change_password?: boolean | null;
-    status?: string | null;
-    can_commercial_bid?: boolean | null;
-  } | null;
-  const creatorCompany = creatorCompanyRes.data as { company_type?: string | null } | null;
+  const creatorCompany = creatorCompanyRes.data as { id?: string | null; company_type?: string | null } | null;
 
   if (!profile) {
     return { kind: 'forbidden' };
@@ -292,12 +282,36 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'forbidden' };
   }
 
-  const selectedMembership = memberships.find(
-    (membership) =>
-      membership.company_id === activeCompany.context.companyId &&
-      membership.role_in_company === activeCompany.context.membershipRole
-  );
+  const selectedMembership = memberships.find((membership) => membership.id === activeCompany.context.membershipId);
   if (!selectedMembership?.companies) {
+    return { kind: 'forbidden' };
+  }
+
+  const { data: driverData, error: driverError } = await supabaseAdmin
+    .from('drivers')
+    .select('id, company_id, app_access, must_change_password, status, can_commercial_bid')
+    .eq('user_id', authData.user.id)
+    .eq('company_id', activeCompany.context.companyId)
+    .limit(1)
+    .maybeSingle();
+
+  if (isServiceFailure(driverError?.message)) {
+    return { kind: 'service_unavailable' };
+  }
+  if (driverError) {
+    return { kind: 'forbidden' };
+  }
+
+  const driver = driverData as {
+    id?: string | null;
+    company_id?: string | null;
+    app_access?: boolean | null;
+    must_change_password?: boolean | null;
+    status?: string | null;
+    can_commercial_bid?: boolean | null;
+  } | null;
+
+  if (driver && driver.company_id !== activeCompany.context.companyId) {
     return { kind: 'forbidden' };
   }
 
@@ -307,14 +321,14 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'forbidden' };
   }
   const ownerDriverWorkspace =
-    ownerDriverWorkspaceRequested && (membershipRole === 'owner' || membershipRole === 'admin');
+    ownerDriverWorkspaceRequested && Boolean(driver?.id);
   const ownerDriverExecutionMode = ownerDriverWorkspace && ownerDriverExecutionModeRequested;
 
   const role = resolveAuthoritativeRole({
     membershipRole,
     profileRole: profile?.role ?? null,
     isDriver: driver != null || profile?.is_driver === true,
-    hasCreatedCompany: creatorCompany != null,
+    hasCreatedCompany: Boolean(creatorCompany?.id && creatorCompany.id === activeCompany.context.companyId),
     creatorCompanyType: creatorCompany?.company_type ?? null,
     fallbackRole,
     ownerDriverWorkspaceRequested: ownerDriverWorkspace,
@@ -325,13 +339,9 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   }
 
   const canAccessDriverMode =
-    ownerDriverWorkspace &&
-    (
-      driver != null ||
-      profile?.is_driver === true ||
-      mapAppRole(profile?.role ?? null) === 'driver' ||
-      mapAppRole(fallbackRole) === 'driver'
-    );
+    Boolean(driver?.id) &&
+    driver?.status?.toLowerCase() === 'active' &&
+    driver?.app_access === true;
 
   const rawRole = profile?.role ?? fallbackRole ?? null;
   const workspaceRole = resolveWorkspaceRole({
@@ -347,10 +357,11 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     rawRole,
     workspaceRole,
     mustChangePassword: (role === 'driver' || canAccessDriverMode) && driver?.must_change_password === true,
-    appAccess: (role === 'driver' || canAccessDriverMode) ? (driver?.app_access ?? null) : null,
+    appAccess: driver?.app_access ?? null,
     ownerDriverWorkspace,
     ownerDriverExecutionMode,
     canAccessDriverMode,
+    membershipId: activeCompany.context.membershipId,
     membershipRole,
     driverId: driver?.id ?? null,
     canCommercialBid: driver?.can_commercial_bid ?? null,
@@ -390,14 +401,14 @@ export async function middleware(request: NextRequest) {
     (url.searchParams.get('mock-dashboard') === '1' || url.searchParams.has('mock-dashboard'));
 
   const driverRouteRequested = url.pathname === DRIVER_PATH || url.pathname.startsWith('/driver/');
-  const driverModeActive = auth.role === 'driver' || (auth.canAccessDriverMode && driverRouteRequested);
+  const driverModeActive = driverRouteRequested;
 
   if (driverModeActive) {
     if (!auth.driverId || auth.driverStatus?.toLowerCase() !== 'active') {
       return buildRedirect(request, FORBIDDEN_PATH);
     }
 
-    if (auth.appAccess === false) {
+    if (auth.appAccess !== true) {
       return buildRedirect(request, FORBIDDEN_PATH);
     }
 
@@ -416,6 +427,7 @@ export async function middleware(request: NextRequest) {
 
   if (!isRoleAllowedForPath(url.pathname, auth.role, {
     canAccessDriverMode: auth.canAccessDriverMode,
+    membershipId: auth.membershipId,
     membershipRole: auth.membershipRole,
     ownerDriverWorkspace: auth.ownerDriverWorkspace,
     ownerDriverExecutionMode: auth.ownerDriverExecutionMode,

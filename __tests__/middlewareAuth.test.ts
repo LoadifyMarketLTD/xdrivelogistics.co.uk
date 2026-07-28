@@ -10,6 +10,7 @@ type SupabaseFixtures = {
     company_id: string | null;
   } | null>;
   memberships: QueryResult<Array<{
+    id: string;
     company_id: string;
     user_id: string;
     role_in_company: string | null;
@@ -23,6 +24,7 @@ type SupabaseFixtures = {
   }>>;
   driver: QueryResult<{
     id: string;
+    company_id: string | null;
     app_access: boolean;
     must_change_password: boolean;
     status: string;
@@ -44,6 +46,7 @@ const defaultFixtures = (): SupabaseFixtures => ({
   memberships: Promise.resolve({
     data: [
       {
+        id: 'mem-1',
         company_id: 'co-1',
         user_id: 'user-1',
         role_in_company: 'owner',
@@ -61,6 +64,7 @@ const defaultFixtures = (): SupabaseFixtures => ({
   driver: Promise.resolve({
     data: {
       id: 'drv-1',
+      company_id: 'co-1',
       app_access: true,
       must_change_password: false,
       status: 'active',
@@ -211,6 +215,7 @@ describe('middleware resolveRouteAuth hardening', () => {
       memberships: Promise.resolve({
         data: [
           {
+            id: 'mem-1',
             company_id: 'co-1',
             user_id: 'user-1',
             role_in_company: 'owner',
@@ -218,6 +223,7 @@ describe('middleware resolveRouteAuth hardening', () => {
             companies: { id: 'co-1', name: 'Company One', company_type: 'standard', status: 'active' },
           },
           {
+            id: 'mem-2',
             company_id: 'co-2',
             user_id: 'user-1',
             role_in_company: 'owner',
@@ -259,7 +265,112 @@ describe('middleware resolveRouteAuth hardening', () => {
     if (result.kind === 'authenticated') {
       expect(result.ownerDriverWorkspace).toBe(false);
       expect(result.ownerDriverExecutionMode).toBe(false);
-      expect(result.workspaceRole).toBe('driver');
+    }
+  });
+
+  it('denies when driver row belongs to another company than selected active company', async () => {
+    fixtures = {
+      ...defaultFixtures(),
+      driver: Promise.resolve({
+        data: {
+          id: 'drv-cross',
+          company_id: 'co-2',
+          app_access: true,
+          must_change_password: false,
+          status: 'active',
+          can_commercial_bid: true,
+        },
+        error: null,
+      }),
+    };
+
+    const middleware = await import('../middleware');
+    const result = await middleware.resolveRouteAuth(buildRequest('/driver/loads'));
+
+    expect(result.kind).toBe('forbidden');
+  });
+
+  it('denies stale profile company_id when it is outside active memberships', async () => {
+    fixtures = {
+      ...defaultFixtures(),
+      profile: Promise.resolve({
+        data: {
+          role: 'driver',
+          status: 'active',
+          is_driver: true,
+          company_id: 'co-stale',
+        },
+        error: null,
+      }),
+    };
+
+    const middleware = await import('../middleware');
+    const result = await middleware.resolveRouteAuth(buildRequest('/driver/loads'));
+
+    expect(result.kind).toBe('forbidden');
+  });
+
+  it('recalculates driver context on company switch and clears commercial rights without matching driver row', async () => {
+    fixtures = {
+      ...defaultFixtures(),
+      memberships: Promise.resolve({
+        data: [
+          {
+            id: 'mem-1',
+            company_id: 'co-1',
+            user_id: 'user-1',
+            role_in_company: 'owner',
+            status: 'active',
+            companies: { id: 'co-1', name: 'Company One', company_type: 'standard', status: 'active' },
+          },
+          {
+            id: 'mem-2',
+            company_id: 'co-2',
+            user_id: 'user-1',
+            role_in_company: 'owner',
+            status: 'active',
+            companies: { id: 'co-2', name: 'Company Two', company_type: 'standard', status: 'active' },
+          },
+        ],
+        error: null,
+      }),
+    };
+
+    authGetUserResult = Promise.resolve({
+      data: {
+        user: {
+          id: 'user-1',
+          app_metadata: { role: 'driver' },
+          user_metadata: {},
+        },
+      },
+      error: null,
+    });
+
+    fixtures = {
+      ...fixtures,
+      profile: Promise.resolve({
+        data: {
+          role: 'driver',
+          status: 'active',
+          is_driver: true,
+          company_id: 'co-2',
+        },
+        error: null,
+      }),
+      driver: Promise.resolve({ data: null, error: null }),
+    };
+
+    const middleware = await import('../middleware');
+    const result = await middleware.resolveRouteAuth(buildRequest('/admin/jobs'));
+
+    expect(result.kind).toBe('authenticated');
+    if (result.kind === 'authenticated') {
+      expect(result.driverId).toBeNull();
+      expect(result.canCommercialBid).toBeNull();
+      expect(result.canAccessDriverMode).toBe(false);
+      expect(result.ownerDriverWorkspace).toBe(false);
+      expect(result.ownerDriverExecutionMode).toBe(false);
     }
   });
 });

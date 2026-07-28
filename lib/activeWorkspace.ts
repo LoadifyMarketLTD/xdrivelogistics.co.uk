@@ -19,6 +19,8 @@ const ALL_WORKSPACES: readonly BusinessWorkspace[] = [
 const ACTIVE_COMPANY_STATUS = 'active';
 
 export type ActiveCompanyContext = {
+  membershipId: string;
+  membershipStatus: string;
   companyId: string;
   companyName: string;
   membershipRole: MembershipRole;
@@ -30,6 +32,7 @@ export type ActiveCompanyContext = {
 };
 
 export type RawMembershipRow = {
+  id: string;
   company_id: string;
   user_id: string;
   role_in_company: string | null;
@@ -204,6 +207,8 @@ export function resolveActiveCompanyContext(
   return {
     ok: true,
     context: {
+      membershipId: chosen.id,
+      membershipStatus: chosen.status ?? '',
       companyId: chosen.company_id,
       companyName: company.name,
       membershipRole,

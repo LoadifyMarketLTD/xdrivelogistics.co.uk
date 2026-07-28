@@ -93,21 +93,19 @@ Middleware hardening requirements are now enforced server-side:
 
 `/driver` is a shared driver surface used by both employed fleet drivers and owner-drivers.
 
-- Route prefix alone does **not** prove Owner Operator status.
-- `membershipRole = owner` is administrative and does **not** prove owner-driver commercial access.
-- `enabledWorkspaces` including `owner_operator` does **not** by itself prove owner-driver commercial access.
+- Company Driver and Owner Driver have equivalent route permissions inside `/driver`.
+- Route prefix alone does **not** prove valid driver security context.
+- `membershipRole = owner/admin` is administrative and does **not** by itself prove driver access.
 
-Owner Operator-only commercial routes (`/driver/loads`, `/driver/quotes`, `/driver/won-work`, `/driver/finance`, `/driver/returns`) require trusted session/domain facts in addition to route and capability checks:
+Driver execution and commercial routes (`/driver`, `/driver/loads`, `/driver/quotes`, `/driver/won-work`, `/driver/jobs`, `/driver/history`, `/driver/availability`, `/driver/finance`, `/driver/returns`, `/driver/vehicles`, `/driver/documents`, `/driver/messages`, `/driver/profile`) require trusted company-scoped driver facts:
 
-- `workspaceRole = owner_driver`
-- `ownerDriverWorkspace = true`
-- `ownerDriverExecutionMode = true`
 - valid `driverId`
+- `driver.company_id` bound to selected active company
 - active driver/account/company states
-- `appAccess` not denied
+- `appAccess = true`
 - `canCommercialBid = true` for quote submission routes
 
-Employed drivers retain `/driver` execution routes (jobs/history/documents/messages/profile/availability) only when their driver state and app access are valid.
+Owner-driver metadata is relationship metadata only and must not create additional `/driver` permissions without the same driver security facts.
 
 ---
 

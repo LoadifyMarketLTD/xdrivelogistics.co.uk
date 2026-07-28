@@ -28,6 +28,7 @@ export type RoleCapabilities = {
 
 export type RouteAccessContext = {
   canAccessDriverMode?: boolean;
+  membershipId?: string | null;
   membershipRole?: string | null;
   financeAccess?: 'full' | 'limited' | 'hidden' | null;
   ownerDriverWorkspace?: boolean | null;
@@ -151,6 +152,9 @@ const cleanPath = (pathname: string) => pathname.split('?')[0]?.split('#')[0] ||
 const isActiveStatus = (value: string | null | undefined) =>
   ((value ?? 'active').trim().toLowerCase() === 'active');
 
+const isExplicitActiveStatus = (value: string | null | undefined) =>
+  typeof value === 'string' && value.trim().toLowerCase() === 'active';
+
 const isDriverCommercialRoute = (pathname: string) => {
   const clean = cleanPathname(pathname);
   return (
@@ -257,19 +261,19 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/customer', workspace: 'shipper', anyOf: ['loads.view.own'], exact: true },
 
   // owner_operator (/driver)
-  { prefix: '/driver/change-password', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
-  { prefix: '/driver/loads', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['loads.view.marketplace'] },
-  { prefix: '/driver/quotes', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['quotes.submit'] },
-  { prefix: '/driver/won-work', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['jobs.view'] },
-  { prefix: '/driver/finance', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['invoices.carrier.manage'] },
-  { prefix: '/driver/returns', workspace: 'owner_operator', roles: ['owner_driver'] },
-  { prefix: '/driver/jobs', workspace: 'owner_operator', roles: ['driver', 'owner_driver'], anyOf: ['jobs.execute'] },
-  { prefix: '/driver/history', workspace: 'owner_operator', roles: ['driver', 'owner_driver'], anyOf: ['jobs.view'] },
-  { prefix: '/driver/availability', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
-  { prefix: '/driver/vehicles', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
-  { prefix: '/driver/documents', workspace: 'owner_operator', roles: ['driver', 'owner_driver'], anyOf: ['documents.own.manage'] },
-  { prefix: '/driver/messages', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
-  { prefix: '/driver/profile', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
+  { prefix: '/driver/change-password', workspace: 'owner_operator' },
+  { prefix: '/driver/loads', workspace: 'owner_operator', anyOf: ['loads.view.marketplace'] },
+  { prefix: '/driver/quotes', workspace: 'owner_operator', anyOf: ['quotes.submit'] },
+  { prefix: '/driver/won-work', workspace: 'owner_operator', anyOf: ['jobs.view'] },
+  { prefix: '/driver/finance', workspace: 'owner_operator', anyOf: ['invoices.carrier.manage'] },
+  { prefix: '/driver/returns', workspace: 'owner_operator' },
+  { prefix: '/driver/jobs', workspace: 'owner_operator', anyOf: ['jobs.execute'] },
+  { prefix: '/driver/history', workspace: 'owner_operator', anyOf: ['jobs.view'] },
+  { prefix: '/driver/availability', workspace: 'owner_operator' },
+  { prefix: '/driver/vehicles', workspace: 'owner_operator' },
+  { prefix: '/driver/documents', workspace: 'owner_operator', anyOf: ['documents.own.manage'] },
+  { prefix: '/driver/messages', workspace: 'owner_operator' },
+  { prefix: '/driver/profile', workspace: 'owner_operator' },
   { prefix: '/driver', workspace: 'owner_operator', exact: true },
 ];
 
@@ -316,19 +320,14 @@ export const isCapabilityAllowedForPath = (
   } else if (pathMatches(path, '/customer')) {
     if (workspaceRole !== 'customer') return false;
   } else if (pathMatches(path, '/driver')) {
-    if (workspaceRole !== 'driver' && workspaceRole !== 'owner_driver') return false;
+    const isChangePasswordRoute = path === '/driver/change-password' || path.startsWith('/driver/change-password/');
+    if (!isChangePasswordRoute && !context.driverId) return false;
+    if (!isExplicitActiveStatus(context.accountStatus)) return false;
+    if (!isExplicitActiveStatus(context.companyStatus)) return false;
+    if (!isExplicitActiveStatus(context.driverStatus)) return false;
+    if (context.appAccess !== true) return false;
 
-    if (!isActiveStatus(context.driverStatus)) return false;
-    if (context.appAccess === false) return false;
-
-    // /driver is a shared surface: commercial owner-operator routes require
-    // explicit owner-driver session facts, not just route prefix or ownership role.
     if (isDriverCommercialRoute(path)) {
-      if (workspaceRole !== 'owner_driver') return false;
-      if (context.ownerDriverWorkspace !== true) return false;
-      if (context.ownerDriverExecutionMode !== true) return false;
-      if (!context.driverId) return false;
-
       const isQuoteRoute = path === '/driver/quotes' || path.startsWith('/driver/quotes/');
       if (isQuoteRoute && context.canCommercialBid !== true) return false;
     }

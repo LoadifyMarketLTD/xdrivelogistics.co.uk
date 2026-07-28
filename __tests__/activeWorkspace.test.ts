@@ -10,6 +10,7 @@ function membership(
   overrides: Partial<RawMembershipRow> & { company_id: string },
 ): RawMembershipRow {
   return {
+    id: `membership-${overrides.company_id}`,
     user_id: 'user-1',
     role_in_company: 'owner',
     status: 'active',
