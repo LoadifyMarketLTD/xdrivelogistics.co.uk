@@ -6,6 +6,17 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import {
+  BUSINESS_WORKSPACE_HOME,
+  BUSINESS_WORKSPACE_LABEL,
+  resolveBusinessWorkspaces,
+  type BusinessWorkspace,
+} from '../../../lib/businessWorkspace';
+import {
+  getPreferredActiveCompanyId,
+  resolvePreferredCompanyId,
+  setPreferredActiveCompanyId,
+} from '../../../lib/activeCompany';
+import {
   getVisibleWorkspaceNav,
   getWorkspaceDefinition,
   hasWorkspaceCapability,
@@ -25,14 +36,41 @@ export default function WorkspaceShell({
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [companyName, setCompanyName] = useState<string>('XDrive Logistics');
+  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(user?.companyId ?? null);
+  const [companyMemberships, setCompanyMemberships] = useState<Array<{
+    id: string;
+    company_id: string;
+    role_in_company: string;
+    company_name: string;
+  }>>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hydrated, setHydrated] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const role = forcedRole ?? resolveWorkspaceRole(user);
   const definition = getWorkspaceDefinition(role);
   const nav = useMemo(() => getVisibleWorkspaceNav(role), [role]);
+  const availableWorkspaces = useMemo(
+    () =>
+      resolveBusinessWorkspaces({
+        role: user?.role,
+        rawRole: user?.rawRole ?? null,
+        membershipRole: user?.membershipRole ?? null,
+        membershipRoles: companyMemberships.map((membership) => membership.role_in_company),
+        ownerDriverWorkspace: user?.ownerDriverWorkspace === true,
+        canAccessDriverMode: user?.canAccessDriverMode === true,
+      }),
+    [companyMemberships, user?.canAccessDriverMode, user?.membershipRole, user?.ownerDriverWorkspace, user?.rawRole, user?.role]
+  );
+  const currentBusinessWorkspace: BusinessWorkspace = role === 'customer'
+    ? 'shipper'
+    : role === 'broker'
+      ? 'broker'
+      : role === 'driver' || role === 'owner_driver'
+        ? 'owner_operator'
+        : 'carrier_fleet';
 
   useEffect(() => {
     setHydrated(true);
@@ -43,23 +81,59 @@ export default function WorkspaceShell({
   }, []);
 
   useEffect(() => {
-    if (!user?.companyId || !isSupabaseConfigured) {
-      if (role === 'customer') setCompanyName('Customer Account');
-      else if (role === 'broker') setCompanyName('Broker Company');
-      else if (role === 'driver' || role === 'owner_driver') setCompanyName(user?.email ?? 'Driver Account');
-      return;
-    }
+    if (!user?.id || !isSupabaseConfigured) return;
     let cancelled = false;
     supabase
-      .from('companies')
-      .select('name')
-      .eq('id', user.companyId)
-      .maybeSingle()
+      .from('company_memberships')
+      .select('id, company_id, role_in_company, companies:companies!company_memberships_company_id_fkey(name)')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
       .then(({ data }) => {
-        if (!cancelled && typeof data?.name === 'string' && data.name.trim()) setCompanyName(data.name);
+        if (cancelled) return;
+        const memberships = (data ?? [])
+          .map((row) => {
+            const company = Array.isArray(row.companies) ? row.companies[0] : row.companies;
+            return {
+              id: row.id as string,
+              company_id: row.company_id as string,
+              role_in_company: String(row.role_in_company ?? 'member'),
+              company_name: typeof company?.name === 'string' && company.name.trim().length > 0 ? company.name : 'Company',
+            };
+          })
+          .filter((row) => typeof row.company_id === 'string' && row.company_id.length > 0);
+        setCompanyMemberships(memberships);
       });
     return () => { cancelled = true; };
-  }, [role, user?.companyId, user?.email]);
+  }, [user?.id]);
+
+  useEffect(() => {
+    const membershipCompanyIds = companyMemberships.map((membership) => membership.company_id);
+    const resolvedCompanyId = resolvePreferredCompanyId({
+      membershipCompanyIds,
+      preferredCompanyId: getPreferredActiveCompanyId(),
+      fallbackCompanyId: user?.companyId ?? null,
+    });
+    if (resolvedCompanyId) {
+      setActiveCompanyId(resolvedCompanyId);
+      setPreferredActiveCompanyId(resolvedCompanyId);
+    } else {
+      setActiveCompanyId(null);
+    }
+  }, [companyMemberships, user?.companyId]);
+
+  useEffect(() => {
+    if (companyMemberships.length > 0) {
+      const activeMembership = companyMemberships.find((membership) => membership.company_id === activeCompanyId) ?? companyMemberships[0];
+      setCompanyName(activeMembership?.company_name ?? 'Company Workspace');
+      return;
+    }
+
+    if (role === 'customer') setCompanyName('Customer Account');
+    else if (role === 'broker') setCompanyName('Broker Company');
+    else if (role === 'driver' || role === 'owner_driver') setCompanyName(user?.email ?? 'Driver Account');
+    else setCompanyName('XDrive Logistics');
+  }, [activeCompanyId, companyMemberships, role, user?.email]);
 
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured) return;
@@ -97,6 +171,25 @@ export default function WorkspaceShell({
       : role === 'driver' || role === 'owner_driver'
         ? '/driver/notifications'
         : '/admin/notifications';
+  const messagesHref = role === 'driver' || role === 'owner_driver'
+    ? '/driver/messages'
+    : role === 'customer'
+      ? '/customer/updates'
+      : '/admin';
+  const profileHref = role === 'driver' || role === 'owner_driver'
+    ? '/driver/profile'
+    : role === 'customer'
+      ? '/customer/settings'
+      : role === 'broker'
+        ? '/broker/settings'
+        : '/admin/settings';
+  const searchHref = role === 'driver' || role === 'owner_driver'
+    ? '/driver/jobs'
+    : role === 'customer'
+      ? '/customer/loads'
+      : role === 'broker'
+        ? '/broker/jobs'
+        : '/admin/jobs';
 
   if (!hydrated) return <div style={{ minHeight: '100vh', background: workspaceTheme.page }} />;
 
@@ -139,6 +232,30 @@ export default function WorkspaceShell({
               <span style={{ fontSize: '0.59rem', fontWeight: 800, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.18rem 0.4rem', borderRadius: '999px' }}>Company View</span>
             )}
           </div>
+          {companyMemberships.length > 0 && (
+            <div style={{ display: 'grid', gap: '0.38rem', marginTop: '0.62rem' }}>
+              <label style={{ display: 'grid', gap: '0.2rem', fontSize: '0.58rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Company
+                <select
+                  aria-label="Active company selector"
+                  value={activeCompanyId ?? ''}
+                  onChange={(event) => {
+                    const nextCompanyId = event.target.value || null;
+                    setActiveCompanyId(nextCompanyId);
+                    setPreferredActiveCompanyId(nextCompanyId);
+                    router.refresh();
+                  }}
+                  style={{ border: '1px solid #dbe3ef', borderRadius: '7px', background: '#fff', padding: '0.34rem 0.42rem', color: workspaceTheme.text, fontSize: '0.68rem' }}
+                >
+                  {companyMemberships.map((membership) => (
+                    <option key={membership.id} value={membership.company_id}>
+                      {membership.company_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
         </div>
 
         <nav style={{ flex: 1, overflowY: 'auto', padding: '0.48rem' }}>
@@ -200,11 +317,47 @@ export default function WorkspaceShell({
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.42rem', flexShrink: 0 }}>
+            <select
+              aria-label="Workspace selector"
+              value={currentBusinessWorkspace}
+              onChange={(event) => {
+                const nextWorkspace = event.target.value as BusinessWorkspace;
+                const route = BUSINESS_WORKSPACE_HOME[nextWorkspace] ?? definition.homeHref;
+                if (route !== pathname) router.push(route);
+              }}
+              style={{ border: `1px solid ${workspaceTheme.border}`, borderRadius: '8px', background: '#fff', color: workspaceTheme.text, padding: '0.42rem 0.5rem', fontSize: '0.67rem', fontWeight: 700, maxWidth: '170px' }}
+            >
+              {availableWorkspaces.map((workspace) => (
+                <option key={workspace} value={workspace}>
+                  {BUSINESS_WORKSPACE_LABEL[workspace]}
+                </option>
+              ))}
+            </select>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                const query = searchTerm.trim();
+                if (!query) return;
+                router.push(`${searchHref}?search=${encodeURIComponent(query)}`);
+              }}
+              style={{ display: 'flex', alignItems: 'center' }}
+            >
+              <input
+                aria-label="Search jobs, references, addresses or registrations"
+                placeholder="Search job, reference, address, reg"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                style={{ width: isCompact ? '140px' : '210px', border: `1px solid ${workspaceTheme.border}`, borderRadius: '8px', padding: '0.43rem 0.52rem', fontSize: '0.67rem' }}
+              />
+            </form>
             {primaryAction && <button onClick={() => router.push(primaryAction.href)} style={{ border: 0, background: workspaceTheme.orange, color: '#172033', padding: '0.48rem 0.72rem', borderRadius: '8px', fontSize: '0.69rem', fontWeight: 850, cursor: 'pointer', boxShadow: '0 2px 7px rgba(245,163,0,0.22)' }}>+ {primaryAction.label}</button>}
+            <button onClick={() => router.push(messagesHref)} title="Messages" aria-label="Messages" style={{ width: '36px', height: '36px', border: `1px solid ${workspaceTheme.border}`, borderRadius: '50%', background: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}>✉</button>
             <button onClick={() => router.push(notificationsHref)} title="Notifications" aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`} style={{ position: 'relative', width: '36px', height: '36px', border: `1px solid ${workspaceTheme.border}`, borderRadius: '50%', background: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}>
               🔔
               {unreadCount > 0 && <span style={{ position: 'absolute', top: '-4px', right: '-4px', minWidth: '16px', height: '16px', padding: '0 3px', borderRadius: '999px', background: workspaceTheme.red, color: '#fff', display: 'grid', placeItems: 'center', fontSize: '0.55rem', fontWeight: 900 }}>{unreadCount > 99 ? '99+' : unreadCount}</span>}
             </button>
+            <button onClick={() => router.push('/')} title="Help Centre" aria-label="Help Centre" style={{ width: '36px', height: '36px', border: `1px solid ${workspaceTheme.border}`, borderRadius: '50%', background: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}>?</button>
+            <button onClick={() => router.push(profileHref)} title="Profile" aria-label="Profile" style={{ width: '36px', height: '36px', border: `1px solid ${workspaceTheme.border}`, borderRadius: '50%', background: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}>👤</button>
           </div>
         </header>
         <main style={{ flex: 1, minWidth: 0 }}>{children}</main>

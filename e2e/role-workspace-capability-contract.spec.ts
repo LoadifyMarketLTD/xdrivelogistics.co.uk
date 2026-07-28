@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 import { mapAppRole, resolveAuthoritativeRole } from '../lib/authRole';
+import { resolvePreferredCompanyId } from '../lib/activeCompany';
+import { resolveBusinessWorkspaces } from '../lib/businessWorkspace';
 import {
   getCapabilitiesForRole,
   getDriverWorkspaceCapabilities,
@@ -58,6 +60,21 @@ test.describe('workspace resolution contract', () => {
   test('customer and broker cannot be promoted by company membership aliases', () => {
     expect(resolveWorkspaceRole({ role: 'customer', membershipRole: 'owner' })).toBe('customer');
     expect(resolveWorkspaceRole({ role: 'broker', membershipRole: 'admin' })).toBe('broker');
+  });
+
+  test('business workspace resolution keeps workspace distinct from membership role', () => {
+    expect(
+      resolveBusinessWorkspaces({
+        role: 'company_staff',
+        membershipRoles: ['dispatcher', 'finance'],
+      })
+    ).toContain('carrier_fleet');
+    expect(
+      resolveBusinessWorkspaces({
+        role: 'driver',
+        ownerDriverWorkspace: true,
+      })
+    ).toContain('owner_operator');
   });
 });
 
@@ -166,5 +183,25 @@ test.describe('portal isolation contract', () => {
     expect(capabilities.canExecuteJobs).toBe(false);
     expect(capabilities.canManageFleet).toBe(false);
     expect(capabilities.canAllocateDrivers).toBe(false);
+  });
+});
+
+test.describe('active company selection contract', () => {
+  test('preferred company is used only when membership includes it', () => {
+    expect(
+      resolvePreferredCompanyId({
+        membershipCompanyIds: ['a', 'b'],
+        preferredCompanyId: 'b',
+        fallbackCompanyId: 'a',
+      })
+    ).toBe('b');
+
+    expect(
+      resolvePreferredCompanyId({
+        membershipCompanyIds: ['a', 'b'],
+        preferredCompanyId: 'z',
+        fallbackCompanyId: 'a',
+      })
+    ).toBe('a');
   });
 });
