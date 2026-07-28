@@ -65,9 +65,9 @@ export const buildLegacyJobSpecialRequirements = ({
   clientPhone,
   cargoNotes,
 }: {
-  clientEmail?: unknown;
-  clientPhone?: unknown;
-  cargoNotes?: unknown;
+  clientEmail?: string | null;
+  clientPhone?: string | null;
+  cargoNotes?: string | null;
 }) =>
   [toTrimmedString(clientPhone), toTrimmedString(clientEmail), toTrimmedString(cargoNotes)]
     .filter(Boolean)
