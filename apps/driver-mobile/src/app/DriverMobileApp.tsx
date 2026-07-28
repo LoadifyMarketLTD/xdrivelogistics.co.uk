@@ -62,6 +62,27 @@ function getAccessToken(session: { access_token?: string | null } | null | undef
   return token || null;
 }
 
+type ReadySession = { accessToken: string; userId: string };
+
+async function waitForReadySession(maxAttempts = 8, waitMs = 300): Promise<ReadySession | null> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = getAccessToken(data.session);
+      const userId = data.session?.user?.id?.trim() || null;
+      if (accessToken && userId) return { accessToken, userId };
+    } catch {
+      // Retry on transient auth-read failures.
+    }
+
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+
+  return null;
+}
+
 async function validateDriverRole(userId: string): Promise<string | null> {
   try {
     const { data: profile, error } = await supabase
@@ -331,10 +352,10 @@ export default function DriverMobileApp() {
   }, [token]);
 
   useEffect(() => {
-    void supabase.auth.getSession()
-      .then(async ({ data }: { data: { session: { access_token?: string | null; user?: { id?: string | null } | null } | null } }) => {
-        const sessionToken = getAccessToken(data.session);
-        const userId = data.session?.user?.id?.trim() || null;
+    void waitForReadySession()
+      .then(async (readySession) => {
+        const sessionToken = readySession?.accessToken ?? null;
+        const userId = readySession?.userId ?? null;
         setAuthUserId(userId);
         if (!sessionToken || !userId) {
           void clearSessionToken();
@@ -481,12 +502,12 @@ export default function DriverMobileApp() {
       return;
     }
 
-    const { data: sessionData } = await supabase.auth.getSession();
+    const readySession = await waitForReadySession(12, 350);
     setLoading(false);
-    const accessToken = sessionData.session?.access_token ?? null;
-    const userId = sessionData.session?.user?.id?.trim() || null;
+    const accessToken = readySession?.accessToken ?? null;
+    const userId = readySession?.userId ?? null;
     if (!accessToken || !userId) {
-      setMessage('Login succeeded but the session could not be restored.');
+      setMessage('Driver session not ready. Please wait and refresh.');
       await supabase.auth.signOut().catch(() => undefined);
       return;
     }

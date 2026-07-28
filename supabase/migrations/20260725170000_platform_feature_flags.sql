@@ -15,6 +15,28 @@ CREATE TABLE IF NOT EXISTS platform_feature_flags (
   updated_by    UUID REFERENCES auth.users(id) ON DELETE SET NULL
 );
 
+-- Backward-compatibility: older environments may have `enabled` instead of `is_enabled`.
+ALTER TABLE platform_feature_flags
+  ADD COLUMN IF NOT EXISTS is_enabled BOOLEAN NOT NULL DEFAULT true;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'platform_feature_flags'
+      AND column_name = 'enabled'
+  ) THEN
+    EXECUTE '
+      UPDATE public.platform_feature_flags
+      SET is_enabled = enabled
+      WHERE is_enabled IS DISTINCT FROM enabled
+    ';
+  END IF;
+END;
+$$;
+
 COMMENT ON TABLE platform_feature_flags IS
   'Runtime feature flags toggled by the platform owner via Super Admin. '
   'Read-only via service role; no browser access.';

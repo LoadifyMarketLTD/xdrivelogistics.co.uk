@@ -439,7 +439,7 @@ export default function MarketplacePage() {
 
         {/* ── Left search panel ───────────────────────────────────────────── */}
         <aside style={{ width: '210px', flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', padding: '0.9rem', overflowY: 'auto', fontSize: '0.78rem' }}>
-          <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.75rem', fontSize: '0.8rem' }}>ðŸ” Search Loads</div>
+          <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.75rem', fontSize: '0.8rem' }}>🔍 Search Loads</div>
 
           {!isSupabaseConfigured && (
             <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '6px', padding: '0.5rem', marginBottom: '0.75rem', color: '#92400e', fontSize: '0.72rem' }}>
@@ -550,7 +550,7 @@ export default function MarketplacePage() {
                 {loadsLoading ? (
                   <LoadingCard text="Loading exchange loads…" />
                 ) : filteredLoads.length === 0 ? (
-                  <EmptyCard icon="ðŸ“­" text="No loads match your current filters." />
+                  <EmptyCard icon="📭" text="No loads match your current filters." />
                 ) : (
                   filteredLoads.map((load) => (
                     <LoadCard key={load.id} load={load} onBid={() => openBidModal(load)} />
@@ -566,7 +566,7 @@ export default function MarketplacePage() {
                 {bidsLoading ? (
                   <LoadingCard text="Loading your bids…" />
                 ) : bids.length === 0 ? (
-                  <EmptyCard icon="ðŸ’¼" text="No bids submitted yet. Browse All Live loads to get started." />
+                  <EmptyCard icon="💼" text="No bids submitted yet. Browse All Live loads to get started." />
                 ) : (
                   <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                     <div style={{ overflowX: 'auto' }}>
@@ -655,7 +655,7 @@ export default function MarketplacePage() {
                 {wonLoading ? (
                   <LoadingCard text="Loading won jobs…" />
                 ) : wonJobs.length === 0 ? (
-                  <EmptyCard icon="ðŸ†" text="No won jobs yet. Keep bidding to win contracts." />
+                  <EmptyCard icon="🏆" text="No won jobs yet. Keep bidding to win contracts." />
                 ) : (
                   wonJobs.map((job) => (
                     <div key={job.id} style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', borderLeft: '3px solid #16a34a', overflow: 'hidden' }}>
@@ -834,7 +834,7 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
           )}
           {load.vehicle_type && (
             <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.2rem' }}>
-              ðŸš› {load.requested_vehicle_label ?? VEHICLE_LABEL[load.vehicle_type] ?? load.vehicle_type}
+              🚛 {load.requested_vehicle_label ?? VEHICLE_LABEL[load.vehicle_type] ?? load.vehicle_type}
             </div>
           )}
         </div>
