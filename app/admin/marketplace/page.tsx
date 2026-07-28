@@ -6,6 +6,10 @@ import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getLoadDetailSummary } from '../../../lib/loadPostingDetails';
+import { formatDate, formatVehicleLabel, formatCurrency, safeStr } from '../../../lib/companyJobFormatters';
+import { getStatusLabel, getStatusTone } from '../../../lib/companyJobStatus';
+import { VEHICLE_GROUPS } from '../../../lib/vehicleTypes';
+import { StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -115,26 +119,10 @@ function normalizeBidJob(job: BidJobJoinInput): BidRow['jobs'] {
   return { ...normalizedJob, companies: normalizeCompany(normalizedJob.companies) };
 }
 
-// ── Style constants ────────────────────────────────────────────────────────────
+// ── Bid status display helper (uses canonical StatusBadge tone) ───────────────
 
-const BID_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  submitted: { bg: '#e0f2fe', color: '#075985' },
-  accepted:  { bg: '#d1fae5', color: '#065f46' },
-  rejected:  { bg: '#fee2e2', color: '#991b1b' },
-  withdrawn: { bg: '#f3f4f6', color: '#6b7280' },
-};
-
-const VEHICLE_LABEL: Record<string, string> = {
-  van_small: 'Small Van', van_large: 'Large Van', swb_van: 'SWB Van', mwb_van: 'MWB Van', lwb_van: 'LWB Van', xlwb_van: 'XLWB Van',
-  luton: 'Luton', luton_tail_lift: 'Luton Tail Lift', curtainside_van: 'Curtainside Van',
-  truck_3_5t: '3.5T', truck_5t: '5T', truck_7_5t: '7.5t Truck', truck_12t: '12T', truck_18t: '18t Truck', truck_26t: '26T',
-  artic: 'Artic', artic_44t_curtainsider: 'Artic 44T Curtainsider', artic_44t_box_trailer: 'Artic 44T Box Trailer', artic_44t_flatbed: 'Artic 44T Flatbed', artic_44t_refrigerated: 'Artic 44T Refrigerated', artic_44t_double_deck: 'Artic 44T Double Deck',
-  hiab: 'Hiab', moffett: 'Moffett', adr_vehicle: 'ADR Vehicle', refrigerated_vehicle: 'Refrigerated Vehicle', temperature_controlled_vehicle: 'Temperature Controlled Vehicle',
-};
-
-function fmtDate(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+function bidStatusTone(status: string) {
+  return getStatusTone(status);
 }
 
 function resolveBidAmountGbp(bid: Pick<BidRow, 'bid_price_gbp' | 'amount'>): number | null {
@@ -156,6 +144,7 @@ export default function MarketplacePage() {
   const [loadsError, setLoadsError] = useState('');
   const [vehicleFilter, setVehicleFilter] = useState('any');
   const [pickupPostcodeFilter, setPickupPostcodeFilter] = useState('');
+  const [deliveryPostcodeFilter, setDeliveryPostcodeFilter] = useState('');
   const [cargoTypeFilter, setCargoTypeFilter] = useState('');
   const [weightMinFilter, setWeightMinFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
@@ -375,6 +364,7 @@ export default function MarketplacePage() {
   const clearFilters = () => {
     setVehicleFilter('any');
     setPickupPostcodeFilter('');
+    setDeliveryPostcodeFilter('');
     setCargoTypeFilter('');
     setWeightMinFilter('');
     setDateFromFilter('');
@@ -383,7 +373,8 @@ export default function MarketplacePage() {
   };
 
   const filteredLoads = useMemo(() => {
-    const postcodeNeedle = pickupPostcodeFilter.trim().toLowerCase();
+    const pickupNeedle = pickupPostcodeFilter.trim().toLowerCase();
+    const deliveryNeedle = deliveryPostcodeFilter.trim().toLowerCase();
     const cargoNeedle = cargoTypeFilter.trim().toLowerCase();
     const minWeight = Number(weightMinFilter);
     const fromDate = dateFromFilter ? new Date(`${dateFromFilter}T00:00:00`).getTime() : null;
@@ -391,7 +382,8 @@ export default function MarketplacePage() {
 
     const filtered = loads.filter((load) => {
       if (vehicleFilter !== 'any' && load.vehicle_type !== vehicleFilter) return false;
-      if (postcodeNeedle && !(load.pickup_postcode ?? '').toLowerCase().includes(postcodeNeedle)) return false;
+      if (pickupNeedle && !(load.pickup_postcode ?? '').toLowerCase().includes(pickupNeedle) && !(load.pickup_location ?? '').toLowerCase().includes(pickupNeedle)) return false;
+      if (deliveryNeedle && !(load.delivery_postcode ?? '').toLowerCase().includes(deliveryNeedle) && !(load.delivery_location ?? '').toLowerCase().includes(deliveryNeedle)) return false;
       if (cargoNeedle && !(load.cargo_type ?? '').toLowerCase().includes(cargoNeedle)) return false;
       if (!Number.isNaN(minWeight) && weightMinFilter.trim() && (load.weight_kg ?? 0) < minWeight) return false;
       if ((fromDate || toDate) && load.pickup_datetime) {
@@ -417,7 +409,7 @@ export default function MarketplacePage() {
           return dateB - dateA;
       }
     });
-  }, [loads, vehicleFilter, pickupPostcodeFilter, cargoTypeFilter, weightMinFilter, dateFromFilter, dateToFilter, sortBy]);
+  }, [loads, vehicleFilter, pickupPostcodeFilter, deliveryPostcodeFilter, cargoTypeFilter, weightMinFilter, dateFromFilter, dateToFilter, sortBy]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -456,12 +448,22 @@ export default function MarketplacePage() {
           />
 
           <FieldLabel>TO:</FieldLabel>
-          <input placeholder="United Kingdom" style={inputStyle} />
+          <input
+            value={deliveryPostcodeFilter}
+            onChange={(e) => setDeliveryPostcodeFilter(e.target.value)}
+            placeholder="Delivery postcode or town"
+            style={inputStyle}
+            aria-label="Filter by delivery location"
+          />
 
           <FieldLabel>VEHICLE SIZE:</FieldLabel>
           <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={inputStyle}>
             <option value="any">Any</option>
-            {Object.entries(VEHICLE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            {VEHICLE_GROUPS.map(([group, options]) => (
+              <optgroup key={group} label={group}>
+                {options.map(([label, value]) => <option key={value} value={value}>{label}</option>)}
+              </optgroup>
+            ))}
           </select>
 
           <FieldLabel>DATE FROM:</FieldLabel>
@@ -581,7 +583,6 @@ export default function MarketplacePage() {
                         <tbody>
                           {paginatedBids.map((bid, i) => {
                             const job = bid.jobs;
-                            const bStyle = BID_STATUS_STYLE[bid.status] ?? BID_STATUS_STYLE.submitted;
                             const bAmount = resolveBidAmountGbp(bid);
                             return (
                               <tr key={bid.id} style={{ borderBottom: i < paginatedBids.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
@@ -590,20 +591,18 @@ export default function MarketplacePage() {
                                     {job?.pickup_location || '—'} → {job?.delivery_location || '—'}
                                   </div>
                                   <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.15rem' }}>
-                                    {job?.vehicle_type ? VEHICLE_LABEL[job.vehicle_type] ?? job.vehicle_type : '—'}
-                                    {job?.pickup_datetime ? ` · ${fmtDate(job.pickup_datetime)}` : ''}
+                                    {job?.vehicle_type ? formatVehicleLabel(job.vehicle_type) : '—'}
+                                    {job?.pickup_datetime ? ` · ${formatDate(job.pickup_datetime)}` : ''}
                                   </div>
                                 </td>
                                 <td style={{ padding: '0.7rem 0.85rem', color: '#374151', fontSize: '0.85rem' }}>{job?.companies?.name || '—'}</td>
                                 <td style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>
-                                  {bAmount == null ? '—' : `£${bAmount.toFixed(2)}`}
+                                  {bAmount == null ? '—' : formatCurrency(bAmount)}
                                 </td>
                                 <td style={{ padding: '0.7rem 0.85rem' }}>
-                                  <span style={{ background: bStyle.bg, color: bStyle.color, padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 600 }}>
-                                    {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
-                                  </span>
+                                  <StatusBadge value={getStatusLabel(bid.status)} tone={bidStatusTone(bid.status)} />
                                 </td>
-                                <td style={{ padding: '0.7rem 0.85rem', color: '#64748b', fontSize: '0.82rem' }}>{fmtDate(bid.created_at)}</td>
+                                <td style={{ padding: '0.7rem 0.85rem', color: '#64748b', fontSize: '0.82rem' }}>{formatDate(bid.created_at)}</td>
                                 <td style={{ padding: '0.7rem 0.85rem' }}>
                                   {bid.status === 'submitted' && (
                                     <button
@@ -668,13 +667,13 @@ export default function MarketplacePage() {
                         <div>
                           <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600, marginBottom: '0.15rem' }}>Details</div>
                           <div style={{ fontSize: '0.82rem', color: '#374151' }}>
-                            {job.vehicle_type ? VEHICLE_LABEL[job.vehicle_type] ?? job.vehicle_type : 'Vehicle TBC'}
+                            {formatVehicleLabel(job.vehicle_type)}
                           </div>
-                          {job.pickup_datetime && <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Pickup: {fmtDate(job.pickup_datetime)}</div>}
+                          {job.pickup_datetime && <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Pickup: {formatDate(job.pickup_datetime)}</div>}
                           {job.companies?.name && <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Posted by: {job.companies.name}</div>}
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          {job.budget_amount && <div style={{ fontWeight: 700, color: '#15803d', fontSize: '1rem' }}>£{job.budget_amount.toFixed(2)}</div>}
+                          {job.budget_amount != null && <div style={{ fontWeight: 700, color: '#15803d', fontSize: '1rem' }}>{formatCurrency(job.budget_amount)}</div>}
                           <span style={{ display: 'inline-block', background: '#dcfce7', color: '#15803d', padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700, marginTop: '0.2rem' }}>✓ Awarded</span>
                         </div>
                       </div>
@@ -696,9 +695,9 @@ export default function MarketplacePage() {
               <div style={{ background: '#f8fafc', borderRadius: '6px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.85rem', color: '#374151', borderLeft: '3px solid #1d4ed8' }}>
                 <div style={{ fontWeight: 700 }}>{bidTarget.pickup_location || '—'} → {bidTarget.delivery_location || '—'}</div>
                 <div style={{ marginTop: '0.2rem', color: '#64748b', fontSize: '0.8rem' }}>
-                  {bidTarget.vehicle_type ? VEHICLE_LABEL[bidTarget.vehicle_type] ?? bidTarget.vehicle_type : 'Vehicle TBC'}
-                  {bidTarget.pickup_datetime ? ` · ${fmtDate(bidTarget.pickup_datetime)}` : ''}
-                  {bidTarget.budget_amount ? ` · Proposed: £${bidTarget.budget_amount.toFixed(2)}` : ''}
+                  {formatVehicleLabel(bidTarget.vehicle_type)}
+                  {bidTarget.pickup_datetime ? ` · ${formatDate(bidTarget.pickup_datetime)}` : ''}
+                  {bidTarget.budget_amount != null ? ` · Proposed: ${formatCurrency(bidTarget.budget_amount)}` : ''}
                 </div>
               </div>
 
@@ -766,14 +765,15 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const detailsId = `load-details-${load.id}`;
   const hasBid = !!load.myBid;
   const bidAccepted = load.myBid?.status === 'accepted';
-  const bidStyle = load.myBid ? (BID_STATUS_STYLE[load.myBid.status] ?? BID_STATUS_STYLE.submitted) : null;
   const myBidAmount = load.myBid ? resolveBidAmountGbp(load.myBid) : null;
 
   return (
     <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderTop: hasBid ? '3px solid #3b82f6' : '3px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-      {/* Card body — 3 columns like CX */}
+      {/* Card body — 3 columns */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', padding: '0.75rem 1rem', alignItems: 'start' }}>
 
         {/* Column 1: From / To */}
@@ -789,7 +789,8 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
             <span style={{ fontWeight: 600, color: '#374151', fontSize: '0.85rem' }}>
               {load.delivery_location || '—'}{load.delivery_postcode ? `, ${load.delivery_postcode}` : ''}
             </span>
-          </div>          {getLoadDetailSummary(load, 4).length > 0 && (
+          </div>
+          {getLoadDetailSummary(load, 4).length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.3rem', marginTop: '0.45rem' }}>
               {getLoadDetailSummary(load, 4).map((item) => (
                 <div key={`${load.id}-${item.label}`} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '5px', padding: '0.3rem 0.4rem' }}>
@@ -805,13 +806,13 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
         <div>
           <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'baseline' }}>
             <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '44px' }}>Pickup:</span>
-            <span style={{ fontSize: '0.82rem', color: '#374151' }}>{fmtDate(load.pickup_datetime)}</span>
+            <span style={{ fontSize: '0.82rem', color: '#374151' }}>{formatDate(load.pickup_datetime)}</span>
           </div>
           <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'baseline', marginTop: '0.2rem' }}>
             <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '44px' }}>Deliver:</span>
-            <span style={{ fontSize: '0.82rem', color: '#374151' }}>{load.delivery_datetime ? fmtDate(load.delivery_datetime) : 'ASAP'}</span>
+            <span style={{ fontSize: '0.82rem', color: '#374151' }}>{load.delivery_datetime ? formatDate(load.delivery_datetime) : 'ASAP'}</span>
           </div>
-          {load.weight_kg && <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: '#94a3b8' }}>{load.weight_kg}kg{load.pallets ? ` · ${load.pallets} pallets` : ''}</div>}
+          {load.weight_kg != null && <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: '#94a3b8' }}>{load.weight_kg}kg{load.pallets ? ` · ${load.pallets} pallets` : ''}</div>}
         </div>
 
         {/* Column 3: Posted by / badge / vehicle */}
@@ -823,31 +824,55 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
           )}
           {load.exchange_posted_at && (
             <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.25rem' }}>
-              Posted: {fmtDate(load.exchange_posted_at)}
+              Posted: {formatDate(load.exchange_posted_at)}
             </div>
           )}
-          {load.budget_amount && (
+          {load.budget_amount != null && (
             <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>
-              £{load.budget_amount.toFixed(2)}
+              {formatCurrency(load.budget_amount)}
               {load.is_fixed_price && <span style={{ fontSize: '0.68rem', color: '#15803d', marginLeft: '0.25rem' }}>proposed</span>}
             </div>
           )}
           {load.vehicle_type && (
             <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.2rem' }}>
-              🚛 {load.requested_vehicle_label ?? VEHICLE_LABEL[load.vehicle_type] ?? load.vehicle_type}
+              🚛 {safeStr(load.requested_vehicle_label) || formatVehicleLabel(load.vehicle_type)}
             </div>
           )}
         </div>
       </div>
 
+      {/* Expandable details section */}
+      {expanded && (
+        <div id={detailsId} style={{ borderTop: '1px solid #f1f5f9', padding: '0.75rem 1rem', background: '#f8fafc', fontSize: '0.78rem', color: '#374151' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.65rem' }}>
+            {load.weight_kg != null && <div><strong>Weight:</strong> {load.weight_kg} kg</div>}
+            {load.pallets != null && <div><strong>Pallets:</strong> {load.pallets}{load.pallet_type ? ` (${load.pallet_type})` : ''}{load.pallet_stackable != null ? (load.pallet_stackable ? ' · Stackable' : ' · Non-stackable') : ''}</div>}
+            {load.cargo_type && <div><strong>Cargo type:</strong> {safeStr(load.requested_cargo_label) || load.cargo_type}</div>}
+            {load.cargo_value_gbp != null && <div><strong>Cargo value:</strong> {formatCurrency(load.cargo_value_gbp)}</div>}
+            {load.collection_tail_lift_required && <div>⚠ Tail lift required at collection</div>}
+            {load.delivery_tail_lift_required && <div>⚠ Tail lift required at delivery</div>}
+            {load.collection_handball_required && <div>⚠ Handball required at collection</div>}
+            {load.delivery_handball_required && <div>⚠ Handball required at delivery</div>}
+            {load.collection_forklift_available && <div>✓ Forklift available at collection</div>}
+            {load.delivery_forklift_available && <div>✓ Forklift available at delivery</div>}
+            {load.access_restrictions && <div><strong>Access restrictions:</strong> {load.access_restrictions}</div>}
+            {load.special_requirements && <div><strong>Special requirements:</strong> {load.special_requirements}</div>}
+            {load.load_details && <div><strong>Notes:</strong> {typeof load.load_details === 'string' ? load.load_details : '—'}</div>}
+            {Array.isArray(load.document_checklist) && load.document_checklist.length > 0 && (
+              <div><strong>Documents required:</strong> {load.document_checklist.join(', ')}</div>
+            )}
+            {load.customer_reference && <div><strong>Ref:</strong> {load.customer_reference}</div>}
+          </div>
+        </div>
+      )}
+
       {/* Card footer — action row */}
       <div style={{ borderTop: '1px solid #f1f5f9', padding: '0.45rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fafbfc' }}>
-        {hasBid && load.myBid && bidStyle ? (
-          <span style={{ background: bidStyle.bg, color: bidStyle.color, padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.73rem', fontWeight: 700 }}>
-            {bidAccepted
-              ? `✓ Bid Accepted`
-              : `Bid: ${myBidAmount == null ? 'N/A' : `£${myBidAmount.toFixed(2)}`} · ${load.myBid.status.charAt(0).toUpperCase() + load.myBid.status.slice(1)}`}
-          </span>
+        {hasBid && load.myBid ? (
+          <StatusBadge
+            value={bidAccepted ? 'Bid Accepted' : `Bid: ${myBidAmount == null ? 'N/A' : formatCurrency(myBidAmount)} · ${getStatusLabel(load.myBid.status)}`}
+            tone={bidStatusTone(load.myBid.status)}
+          />
         ) : (
           <button
             onClick={onBid}
@@ -856,7 +881,15 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
             Quote Now
           </button>
         )}
-        <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Load ID: {load.id.slice(0, 8).toUpperCase()}</span>
+        <button
+          type="button"
+          onClick={() => setExpanded((prev) => !prev)}
+          aria-expanded={expanded}
+          aria-controls={detailsId}
+          style={{ fontSize: '0.7rem', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem 0.4rem', borderRadius: '4px' }}
+        >
+          {expanded ? '▲ Less detail' : '▼ More detail'}
+        </button>
       </div>
     </div>
   );
