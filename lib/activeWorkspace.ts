@@ -43,6 +43,7 @@ export type RawMembershipRow = {
 export type WorkspaceResolutionError =
   | 'no_memberships'
   | 'no_active_membership'
+  | 'active_company_required'
   | 'active_workspace_required'
   | 'unsupported_membership_role'
   | 'unsupported_company_type'
@@ -112,13 +113,15 @@ export function resolveActiveCompanyContext(
     activeWorkspace?: BusinessWorkspace | null;
     targetWorkspace?: BusinessWorkspace | null;
     targetPathname?: string | null;
+    /** Domain-supplied enabled workspace set (not a DB column). Overrides company_type derivation. */
+    enabledWorkspaces?: readonly BusinessWorkspace[] | null;
   } = {},
 ): WorkspaceResolutionResult {
   if (!memberships.length) {
     return { ok: false, error: 'no_memberships' };
   }
 
-  const { preferredCompanyId, activeWorkspace, targetWorkspace, targetPathname } = options;
+  const { preferredCompanyId, activeWorkspace, targetWorkspace, targetPathname, enabledWorkspaces: explicitEnabledWorkspaces } = options;
   const routeWorkspace = targetPathname ? workspaceForRoute(targetPathname) : null;
   const explicitlyRequestedWorkspace = activeWorkspace ?? targetWorkspace ?? routeWorkspace;
 
@@ -143,7 +146,8 @@ export function resolveActiveCompanyContext(
   } else if (active.length === 1) {
     chosen = active[0];
   } else {
-    return { ok: false, error: 'no_active_membership' };
+    // Multiple active memberships — caller must supply preferredCompanyId.
+    return { ok: false, error: 'active_company_required' };
   }
 
   const company = chosen.companies;
@@ -158,6 +162,7 @@ export function resolveActiveCompanyContext(
 
   const enabled = resolveCompanyEnabledWorkspaces({
     companyType: company.company_type ?? null,
+    enabledWorkspaces: explicitEnabledWorkspaces ?? null,
   });
 
   if (!enabled.ok) {

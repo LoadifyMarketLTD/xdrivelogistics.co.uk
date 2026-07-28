@@ -270,12 +270,17 @@ export const isCapabilityAllowedForPath = (
   role: AppUserRole | null,
   context: RouteAccessContext = {}
 ): boolean => {
-  const path = cleanPath(pathname);
+  const path = cleanPathname(pathname);
   const workspaceRole = resolveRole(role, context);
   if (!workspaceRole) return false;
 
   if (pathMatches(path, '/super-admin')) return workspaceRole === 'platform_owner';
 
+  if (pathMatches(path, '/m')) {
+    return workspaceRole === 'driver' || workspaceRole === 'owner_driver';
+  }
+
+  // Verify the role is allowed into the workspace prefix at all.
   if (pathMatches(path, '/broker')) {
     if (workspaceRole !== 'broker') return false;
   } else if (pathMatches(path, '/customer')) {
@@ -298,14 +303,14 @@ export const isCapabilityAllowedForPath = (
     ) {
       return false;
     }
-  } else if (pathMatches(path, '/m')) {
-    return workspaceRole === 'driver' || workspaceRole === 'owner_driver';
   } else {
+    // Public or unrecognised prefix — not a protected route.
     return true;
   }
 
-  const requirement = ROUTE_REQUIREMENTS.find((entry) => pathMatches(path, entry.prefix));
-  if (!requirement) return true;
+  // Use the most-specific exact-aware requirement. Fail closed for unmapped protected routes.
+  const requirement = getProtectedRouteRequirement(path);
+  if (!requirement) return false;
   if (requirement.roles && !requirement.roles.includes(workspaceRole)) return false;
   if (!requirement.anyOf?.length) return true;
 

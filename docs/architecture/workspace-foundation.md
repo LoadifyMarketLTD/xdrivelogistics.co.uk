@@ -13,7 +13,7 @@ This document maps required multi-role concepts to the current foundation contra
 | `BusinessWorkspace` type | `lib/businessWorkspace.ts` | ✅ | None | No |
 | App-domain `MembershipRole` | `lib/membershipRole.ts` | ✅ | `finance`, `compliance`, `driver` are app-domain only for now | Later migration |
 | DB subset `PersistedCompanyRole` | `lib/membershipRole.ts` | ✅ | DB enum still excludes planned roles | Later migration |
-| Workspace registry | `lib/workspaceRegistry.ts` + `lib/protectedRouteRequirements.ts` | ✅ | None | No |
+| Workspace registry | `lib/workspaceRegistry.ts` + `lib/roleCapabilities.ts` | ✅ | None | No |
 | Active-company context | `lib/activeWorkspace.ts` | ✅ | company_type still free-text | Later migration |
 | Typed permission resolver | `lib/workspacePermissionResolver.ts` | ✅ | Server/RLS enforcement wiring deferred | Later approved phase |
 
@@ -37,16 +37,18 @@ Do **not** create `organisations` or `organisation_members` tables in this phase
 `resolveCompanyEnabledWorkspaces` and `resolveActiveCompanyContext` now enforce:
 
 1. Company membership must be active.
-2. Enabled workspaces come from explicit workspace set when provided.
-3. `activeWorkspace` is independently selected and must be within enabled workspaces.
-4. Route workspace boundary must match selected workspace.
-5. Unknown, null, empty, malformed company type fails closed when no explicit enabled set exists.
+2. Enabled workspaces come from an explicit domain-supplied set (`enabledWorkspaces` option) when provided; otherwise derived from legacy `company_type` mapping.
+3. `activeWorkspace` is independently selected and must be within the enabled workspace set.
+4. Route workspace boundary must match the selected workspace.
+5. Unknown, null, empty, or malformed company type fails closed when no explicit enabled set exists.
+6. Multiple active memberships without `preferredCompanyId` returns `active_company_required` (not `no_active_membership`).
 
 Typed fail-closed reasons include:
 
 - `unsupported_company_type`
 - `workspace_not_enabled`
 - `active_workspace_required`
+- `active_company_required`
 - `workspace_mismatch`
 
 Recognized legacy company types mapping to `carrier_fleet` is restricted to:
@@ -61,9 +63,15 @@ There is no fallback default for null/empty/unknown types.
 
 ## Protected-route authorization contract
 
-`lib/protectedRouteRequirements.ts` defines the canonical protected-route registry.
+`lib/roleCapabilities.ts` is the single canonical protected-route registry. It exports `ROUTE_REQUIREMENTS`, `getProtectedRouteRequirement` (most-specific, exact-aware), `isProtectedRoute`, and `cleanPathname`.
 
-`lib/workspacePermissionResolver.ts` is fail-closed and returns typed allow/deny:
+`isCapabilityAllowedForPath()` (used by the production middleware via `isRoleAllowedForPath()`) now uses `getProtectedRouteRequirement()` internally, making it:
+
+- fail-closed: protected routes without a matching requirement are denied;
+- exact-aware: `/admin` exact-only entry does not match `/admin/unknown-page`;
+- most-specific: the longest matching prefix wins.
+
+`lib/workspacePermissionResolver.ts` is the typed allow/deny resolver for the new multi-workspace session layer:
 
 - denies unknown protected routes with `unmapped_route`
 - denies cross-workspace access with `route_workspace_mismatch`

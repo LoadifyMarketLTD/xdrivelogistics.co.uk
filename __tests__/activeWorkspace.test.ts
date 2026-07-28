@@ -30,7 +30,7 @@ describe('resolveActiveCompanyContext', () => {
 
   it('requires explicit company selection when multiple memberships exist', () => {
     const rows = [membership({ company_id: 'co-1' }), membership({ company_id: 'co-2' })];
-    expect(resolveActiveCompanyContext(rows)).toEqual({ ok: false, error: 'no_active_membership' });
+    expect(resolveActiveCompanyContext(rows)).toEqual({ ok: false, error: 'active_company_required' });
   });
 
   it('auto-selects single workspace when company_type maps to exactly one workspace', () => {
@@ -105,6 +105,71 @@ describe('resolveActiveCompanyContext', () => {
       expect(result.context.activeWorkspace).toBe('carrier_fleet');
       expect(result.context.enabledWorkspaces).toEqual(['carrier_fleet']);
     }
+  });
+
+  it('resolves when explicit enabledWorkspaces contains two workspaces and activeWorkspace is selected', () => {
+    const rows = [
+      membership({
+        company_id: 'co-1',
+        role_in_company: 'admin',
+        companies: {
+          id: 'co-1',
+          name: 'Multi-modal Co',
+          company_type: 'standard',
+          status: 'active',
+        },
+      }),
+    ];
+
+    const result = resolveActiveCompanyContext(rows, {
+      enabledWorkspaces: ['carrier_fleet', 'broker'],
+      activeWorkspace: 'broker',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.context.enabledWorkspaces).toContain('carrier_fleet');
+      expect(result.context.enabledWorkspaces).toContain('broker');
+      expect(result.context.activeWorkspace).toBe('broker');
+    }
+  });
+
+  it('fails closed when activeWorkspace is not in the explicit enabledWorkspaces set', () => {
+    const rows = [
+      membership({
+        company_id: 'co-1',
+        role_in_company: 'admin',
+        companies: {
+          id: 'co-1',
+          name: 'Multi-modal Co',
+          company_type: 'standard',
+          status: 'active',
+        },
+      }),
+    ];
+
+    expect(
+      resolveActiveCompanyContext(rows, {
+        enabledWorkspaces: ['carrier_fleet', 'broker'],
+        activeWorkspace: 'shipper',
+      }),
+    ).toEqual({ ok: false, error: 'workspace_not_enabled' });
+  });
+
+  it('returns active_company_required (not no_active_membership) when multiple memberships exist without preferredCompanyId', () => {
+    const rows = [
+      membership({ company_id: 'co-1' }),
+      membership({ company_id: 'co-2' }),
+      membership({ company_id: 'co-3' }),
+    ];
+    const result = resolveActiveCompanyContext(rows);
+    expect(result).toEqual({ ok: false, error: 'active_company_required' });
+  });
+
+  it('returns no_active_membership when preferredCompanyId is given but not found', () => {
+    const rows = [membership({ company_id: 'co-1' })];
+    expect(
+      resolveActiveCompanyContext(rows, { preferredCompanyId: 'co-999' }),
+    ).toEqual({ ok: false, error: 'no_active_membership' });
   });
 
   it('rejects unsupported membership role values', () => {
