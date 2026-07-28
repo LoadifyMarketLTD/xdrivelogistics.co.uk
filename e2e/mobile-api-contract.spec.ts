@@ -976,6 +976,13 @@ test.describe('mobile API — authenticated contract', () => {
 
 test.describe('mobile API — messages contract and security', () => {
   // Cursor and input validation tests require auth (validation runs after auth).
+  test.skip(!RUN_AUTHED, 'Set E2E_DRIVER_EMAIL and E2E_DRIVER_PASSWORD to run authenticated tests');
+
+  let token: string | null = null;
+
+  test.beforeAll(async ({ request }) => {
+    token = await signInAndGetToken(request);
+  });
 
   test('GET /api/driver/mobile/messages — invalid before timestamp returns 400', async ({
     request,
