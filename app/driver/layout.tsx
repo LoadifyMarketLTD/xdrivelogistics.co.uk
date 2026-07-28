@@ -20,7 +20,7 @@ export default async function DriverLayout({ children }: { children: ReactNode }
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'company_staff']}>
       <MobileAppBanner isMobile={isMobile} />
-      <WorkspaceShell>{children}</WorkspaceShell>
+      <WorkspaceShell forcedRole="driver">{children}</WorkspaceShell>
     </ProtectedRoute>
   );
 }

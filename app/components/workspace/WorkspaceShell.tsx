@@ -9,6 +9,7 @@ import {
   getVisibleWorkspaceNav,
   getWorkspaceDefinition,
   hasWorkspaceCapability,
+  resolveWorkspaceSurfaceRole,
   resolveWorkspaceRole,
   type WorkspaceRole,
 } from '../../../lib/workspaceRole';
@@ -30,7 +31,8 @@ export default function WorkspaceShell({
   const [unreadCount, setUnreadCount] = useState(0);
   const [hydrated, setHydrated] = useState(false);
 
-  const role = forcedRole ?? resolveWorkspaceRole(user);
+  const resolvedRole = forcedRole ?? resolveWorkspaceRole(user);
+  const role = resolveWorkspaceSurfaceRole(pathname ?? '/', resolvedRole);
   const definition = getWorkspaceDefinition(role);
   const nav = useMemo(() => getVisibleWorkspaceNav(role), [role]);
 
