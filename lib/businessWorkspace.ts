@@ -17,6 +17,8 @@
  *   - MembershipRole (lib/membershipRole.ts) — the per-company DB role.
  */
 
+import type { WorkspaceCapability } from './workspaceRole';
+
 /** The four XDrive business workspace types. */
 export type BusinessWorkspace =
   | 'owner_operator'  // individual owner-driver; accesses /driver
@@ -44,7 +46,7 @@ export const WORKSPACE_LABEL: Record<BusinessWorkspace, string> = {
  * High-level capabilities available within each workspace.
  * These align with the WorkspaceCapability strings in lib/workspaceRole.ts.
  */
-export const WORKSPACE_CAPABILITIES: Record<BusinessWorkspace, readonly string[]> = {
+export const WORKSPACE_CAPABILITIES: Record<BusinessWorkspace, readonly WorkspaceCapability[]> = {
   owner_operator: [
     'loads.view.marketplace',
     'quotes.submit',
@@ -97,7 +99,7 @@ export const WORKSPACE_CAPABILITIES: Record<BusinessWorkspace, readonly string[]
  */
 export function workspaceHasCapability(
   workspace: BusinessWorkspace,
-  capability: string,
+  capability: WorkspaceCapability,
 ): boolean {
   return WORKSPACE_CAPABILITIES[workspace]?.includes(capability) ?? false;
 }

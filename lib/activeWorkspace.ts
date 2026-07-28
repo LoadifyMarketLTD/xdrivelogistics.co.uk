@@ -37,7 +37,6 @@ export type RawMembershipRow = {
     name: string;
     company_type?: string | null;
     status?: string | null;
-    enabled_workspaces?: string[] | null;
   } | null;
 };
 
@@ -159,7 +158,6 @@ export function resolveActiveCompanyContext(
 
   const enabled = resolveCompanyEnabledWorkspaces({
     companyType: company.company_type ?? null,
-    enabledWorkspaces: company.enabled_workspaces,
   });
 
   if (!enabled.ok) {

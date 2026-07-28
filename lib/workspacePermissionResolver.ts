@@ -5,7 +5,7 @@ import {
   cleanPathname,
   getProtectedRouteRequirement,
   isProtectedRoute,
-} from './protectedRouteRequirements';
+} from './roleCapabilities';
 
 export type WorkspacePermissionDenyReason =
   | 'no_active_membership'

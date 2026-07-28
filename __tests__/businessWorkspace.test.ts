@@ -87,8 +87,10 @@ describe('workspaceHasCapability', () => {
     expect(workspaceHasCapability('carrier_fleet', 'jobs.allocate')).toBe(true);
   });
 
-  it('returns false for an unknown capability', () => {
-    expect(workspaceHasCapability('carrier_fleet', 'nonexistent.capability')).toBe(false);
+  it('returns false for a capability not in the workspace', () => {
+    // owner_operator cannot post loads or view margins — these belong to other workspaces
+    expect(workspaceHasCapability('owner_operator', 'margins.view')).toBe(false);
+    expect(workspaceHasCapability('owner_operator', 'loads.create')).toBe(false);
   });
 });
 

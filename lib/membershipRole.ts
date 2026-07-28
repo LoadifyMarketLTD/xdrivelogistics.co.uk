@@ -5,6 +5,8 @@
  * App/domain roles include planned identities not yet persisted: finance | compliance | driver
  */
 
+import type { WorkspaceCapability } from './workspaceRole';
+
 /** Full application-domain role identity. */
 export type MembershipRole =
   | 'owner'
@@ -47,7 +49,7 @@ export const MEMBERSHIP_ROLE_PRECEDENCE: readonly MembershipRole[] = [
   'viewer',
 ];
 
-export const MEMBERSHIP_ROLE_CAPABILITIES: Record<MembershipRole, readonly string[]> = {
+export const MEMBERSHIP_ROLE_CAPABILITIES: Record<MembershipRole, readonly WorkspaceCapability[]> = {
   owner: [
     'company.manage',
     'company.members.manage',
@@ -90,7 +92,7 @@ export const MEMBERSHIP_ROLE_CAPABILITIES: Record<MembershipRole, readonly strin
 };
 
 export function membershipHasCapability(role: MembershipRole, capability: string): boolean {
-  return MEMBERSHIP_ROLE_CAPABILITIES[role]?.includes(capability) ?? false;
+  return (MEMBERSHIP_ROLE_CAPABILITIES[role] as readonly string[])?.includes(capability) ?? false;
 }
 
 /**

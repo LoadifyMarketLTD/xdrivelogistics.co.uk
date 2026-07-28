@@ -1,4 +1,5 @@
 import type { AppUserRole } from './authRole';
+import type { BusinessWorkspace } from './businessWorkspace';
 import type { DriverWorkspaceMode } from './driverWorkspaceMode';
 import {
   hasWorkspaceCapability,
@@ -135,97 +136,134 @@ export const getDriverWorkspaceCapabilities = (
   });
 };
 
-const pathMatches = (pathname: string, prefix: string) =>
-  pathname === prefix || pathname.startsWith(`${prefix}/`);
+const pathMatches = (pathname: string, prefix: string, exact = false) =>
+  exact ? pathname === prefix : pathname === prefix || pathname.startsWith(`${prefix}/`);
 
 const cleanPath = (pathname: string) => pathname.split('?')[0]?.split('#')[0] || '/';
 
-type RouteRequirement = {
+/** Sanitised pathname (no query, no hash, no double slashes). Exported for resolvers. */
+export const cleanPathname = (pathname: string): string =>
+  cleanPath(pathname).replace(/\/{2,}/g, '/');
+
+/** Route prefixes that require authentication. */
+export const PROTECTED_ROUTE_PREFIXES = [
+  '/admin',
+  '/broker',
+  '/customer',
+  '/driver',
+  '/super-admin',
+] as const;
+
+/** Returns true if the pathname falls under a protected prefix. */
+export const isProtectedRoute = (pathname: string): boolean =>
+  PROTECTED_ROUTE_PREFIXES.some((prefix) => pathMatches(cleanPathname(pathname), prefix));
+
+export type RouteRequirement = {
   prefix: string;
+  /** BusinessWorkspace that owns this route. */
+  workspace: BusinessWorkspace;
   roles?: WorkspaceRole[];
   anyOf?: WorkspaceCapability[];
+  /** When true, only an exact pathname match triggers this requirement. */
+  exact?: boolean;
 };
 
 const ROUTE_REQUIREMENTS: RouteRequirement[] = [
-  { prefix: '/admin/fleet/assignments', anyOf: ['jobs.allocate'] },
-  { prefix: '/admin/fleet/active-jobs', anyOf: ['jobs.track'] },
-  { prefix: '/admin/fleet/future-availability', anyOf: ['drivers.manage'] },
-  { prefix: '/admin/fleet/positions', anyOf: ['fleet.positions.view'] },
-  { prefix: '/admin/fleet/maintenance', anyOf: ['fleet.maintenance.manage'] },
-  { prefix: '/admin/fleet', anyOf: ['fleet.positions.view'] },
-  { prefix: '/admin/operations-centre', anyOf: ['jobs.dispatch'] },
-  { prefix: '/admin/marketplace', anyOf: ['loads.view.marketplace'] },
-  { prefix: '/admin/quotes', anyOf: ['quotes.submit'] },
-  { prefix: '/admin/bids', anyOf: ['jobs.view'] },
-  { prefix: '/admin/diary', anyOf: ['jobs.dispatch', 'jobs.execute', 'jobs.view'] },
-  { prefix: '/admin/jobs', anyOf: ['jobs.view'] },
-  { prefix: '/admin/disputes', anyOf: ['incidents.manage'] },
-  { prefix: '/admin/incidents', anyOf: ['incidents.manage'] },
-  { prefix: '/admin/driver-availability', anyOf: ['drivers.manage'] },
-  { prefix: '/admin/drivers', anyOf: ['drivers.manage'] },
-  { prefix: '/admin/vehicles', anyOf: ['vehicles.manage'] },
-  { prefix: '/admin/documents/expiry', anyOf: ['documents.company.manage', 'documents.verify'] },
-  { prefix: '/admin/documents', anyOf: ['documents.company.manage', 'documents.verify'] },
-  { prefix: '/admin/finance/payments', anyOf: ['payments.manage'] },
-  {
-    prefix: '/admin/finance/balances',
-    anyOf: ['payments.manage', 'invoices.customer.manage', 'invoices.carrier.manage'],
-  },
-  { prefix: '/admin/finance/reports', anyOf: ['payments.manage', 'margins.view'] },
-  {
-    prefix: '/admin/finance',
-    anyOf: ['payments.manage', 'margins.view', 'invoices.customer.manage', 'invoices.carrier.manage'],
-  },
-  { prefix: '/admin/invoices', anyOf: ['invoices.customer.manage', 'invoices.carrier.manage'] },
-  { prefix: '/admin/returns', roles: ['company_owner', 'company_admin', 'carrier_admin', 'fleet_manager'] },
-  { prefix: '/admin/dispatchers', anyOf: ['company.members.manage'] },
-  { prefix: '/admin/settings', anyOf: ['settings.manage'] },
+  // carrier_fleet (/admin)
+  { prefix: '/admin/fleet/assignments', workspace: 'carrier_fleet', anyOf: ['jobs.allocate'] },
+  { prefix: '/admin/fleet/active-jobs', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
+  { prefix: '/admin/fleet/future-availability', workspace: 'carrier_fleet', anyOf: ['drivers.manage'] },
+  { prefix: '/admin/fleet/positions', workspace: 'carrier_fleet', anyOf: ['fleet.positions.view'] },
+  { prefix: '/admin/fleet/maintenance', workspace: 'carrier_fleet', anyOf: ['fleet.maintenance.manage'] },
+  { prefix: '/admin/fleet', workspace: 'carrier_fleet', anyOf: ['fleet.positions.view'] },
+  { prefix: '/admin/operations-centre', workspace: 'carrier_fleet', anyOf: ['jobs.dispatch'] },
+  { prefix: '/admin/marketplace', workspace: 'carrier_fleet', anyOf: ['loads.view.marketplace'] },
+  { prefix: '/admin/quotes', workspace: 'carrier_fleet', anyOf: ['quotes.submit'] },
+  { prefix: '/admin/bids', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
+  { prefix: '/admin/diary', workspace: 'carrier_fleet', anyOf: ['jobs.dispatch', 'jobs.execute', 'jobs.view'] },
+  { prefix: '/admin/jobs', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
+  { prefix: '/admin/disputes', workspace: 'carrier_fleet', anyOf: ['incidents.manage'] },
+  { prefix: '/admin/incidents', workspace: 'carrier_fleet', anyOf: ['incidents.manage'] },
+  { prefix: '/admin/driver-availability', workspace: 'carrier_fleet', anyOf: ['drivers.manage'] },
+  { prefix: '/admin/drivers', workspace: 'carrier_fleet', anyOf: ['drivers.manage'] },
+  { prefix: '/admin/vehicles', workspace: 'carrier_fleet', anyOf: ['vehicles.manage'] },
+  { prefix: '/admin/documents/expiry', workspace: 'carrier_fleet', anyOf: ['documents.company.manage', 'documents.verify'] },
+  { prefix: '/admin/documents', workspace: 'carrier_fleet', anyOf: ['documents.company.manage', 'documents.verify'] },
+  { prefix: '/admin/finance/payments', workspace: 'carrier_fleet', anyOf: ['payments.manage'] },
+  { prefix: '/admin/finance/balances', workspace: 'carrier_fleet', anyOf: ['payments.manage', 'invoices.customer.manage', 'invoices.carrier.manage'] },
+  { prefix: '/admin/finance/reports', workspace: 'carrier_fleet', anyOf: ['payments.manage', 'margins.view'] },
+  { prefix: '/admin/finance', workspace: 'carrier_fleet', anyOf: ['payments.manage', 'margins.view', 'invoices.customer.manage', 'invoices.carrier.manage'] },
+  { prefix: '/admin/invoices', workspace: 'carrier_fleet', anyOf: ['invoices.customer.manage', 'invoices.carrier.manage'] },
+  { prefix: '/admin/returns', workspace: 'carrier_fleet', roles: ['company_owner', 'company_admin', 'carrier_admin', 'fleet_manager'] },
+  { prefix: '/admin/dispatchers', workspace: 'carrier_fleet', anyOf: ['company.members.manage'] },
+  { prefix: '/admin/settings', workspace: 'carrier_fleet', anyOf: ['settings.manage'] },
+  { prefix: '/admin', workspace: 'carrier_fleet', anyOf: ['jobs.view'], exact: true },
 
-  { prefix: '/broker/customers', anyOf: ['company.manage'] },
-  { prefix: '/broker/post-load', anyOf: ['loads.create'] },
-  { prefix: '/broker/loads', anyOf: ['loads.view.own'] },
-  { prefix: '/broker/bids', anyOf: ['quotes.receive'] },
-  { prefix: '/broker/compare-quotes', anyOf: ['quotes.compare'] },
-  { prefix: '/broker/awards', anyOf: ['quotes.award'] },
-  { prefix: '/broker/jobs', anyOf: ['jobs.track'] },
-  { prefix: '/broker/pod-review', anyOf: ['jobs.review_pod'] },
-  { prefix: '/broker/margins', anyOf: ['margins.view'] },
-  { prefix: '/broker/customer-invoices', anyOf: ['invoices.customer.manage'] },
-  { prefix: '/broker/carrier-costs', anyOf: ['invoices.carrier.manage'] },
-  { prefix: '/broker/disputes', anyOf: ['incidents.manage'] },
-  { prefix: '/broker/settings', anyOf: ['settings.manage'] },
+  // broker (/broker)
+  { prefix: '/broker/customers', workspace: 'broker', anyOf: ['company.manage'] },
+  { prefix: '/broker/post-load', workspace: 'broker', anyOf: ['loads.create'] },
+  { prefix: '/broker/loads', workspace: 'broker', anyOf: ['loads.view.own'] },
+  { prefix: '/broker/bids', workspace: 'broker', anyOf: ['quotes.receive'] },
+  { prefix: '/broker/compare-quotes', workspace: 'broker', anyOf: ['quotes.compare'] },
+  { prefix: '/broker/awards', workspace: 'broker', anyOf: ['quotes.award'] },
+  { prefix: '/broker/jobs', workspace: 'broker', anyOf: ['jobs.track'] },
+  { prefix: '/broker/pod-review', workspace: 'broker', anyOf: ['jobs.review_pod'] },
+  { prefix: '/broker/margins', workspace: 'broker', anyOf: ['margins.view'] },
+  { prefix: '/broker/customer-invoices', workspace: 'broker', anyOf: ['invoices.customer.manage'] },
+  { prefix: '/broker/carrier-costs', workspace: 'broker', anyOf: ['invoices.carrier.manage'] },
+  { prefix: '/broker/disputes', workspace: 'broker', anyOf: ['incidents.manage'] },
+  { prefix: '/broker/settings', workspace: 'broker', anyOf: ['settings.manage'] },
+  { prefix: '/broker', workspace: 'broker', anyOf: ['loads.view.own'], exact: true },
 
-  { prefix: '/customer/post-load', anyOf: ['loads.create'] },
-  { prefix: '/customer/loads', anyOf: ['loads.view.own'] },
-  { prefix: '/customer/quotes', anyOf: ['quotes.receive'] },
-  { prefix: '/customer/awards', anyOf: ['quotes.award'] },
-  { prefix: '/customer/deliveries', anyOf: ['jobs.track'] },
-  { prefix: '/customer/jobs', anyOf: ['jobs.view'] },
-  { prefix: '/customer/documents', anyOf: ['jobs.review_pod'] },
-  { prefix: '/customer/invoices', anyOf: ['invoices.customer.manage'] },
+  // shipper (/customer)
+  { prefix: '/customer/post-load', workspace: 'shipper', anyOf: ['loads.create'] },
+  { prefix: '/customer/loads', workspace: 'shipper', anyOf: ['loads.view.own'] },
+  { prefix: '/customer/quotes', workspace: 'shipper', anyOf: ['quotes.receive'] },
+  { prefix: '/customer/awards', workspace: 'shipper', anyOf: ['quotes.award'] },
+  { prefix: '/customer/deliveries', workspace: 'shipper', anyOf: ['jobs.track'] },
+  { prefix: '/customer/jobs', workspace: 'shipper', anyOf: ['jobs.view'] },
+  { prefix: '/customer/documents', workspace: 'shipper', anyOf: ['jobs.review_pod'] },
+  { prefix: '/customer/invoices', workspace: 'shipper', anyOf: ['invoices.customer.manage'] },
   // Team is currently a read-only company roster. Reuse settings access rather
   // than granting the customer role the broader company.members.manage ability.
-  { prefix: '/customer/team', anyOf: ['settings.manage'] },
-  { prefix: '/customer/settings', anyOf: ['settings.manage'] },
+  { prefix: '/customer/team', workspace: 'shipper', anyOf: ['settings.manage'] },
+  { prefix: '/customer/settings', workspace: 'shipper', anyOf: ['settings.manage'] },
+  { prefix: '/customer', workspace: 'shipper', anyOf: ['loads.view.own'], exact: true },
 
-  { prefix: '/driver/change-password', roles: ['driver', 'owner_driver'] },
-  { prefix: '/driver/loads', roles: ['owner_driver'], anyOf: ['loads.view.marketplace'] },
-  { prefix: '/driver/quotes', roles: ['owner_driver'], anyOf: ['quotes.submit'] },
-  { prefix: '/driver/won-work', roles: ['owner_driver'], anyOf: ['jobs.view'] },
-  { prefix: '/driver/finance', roles: ['owner_driver'], anyOf: ['invoices.carrier.manage'] },
-  { prefix: '/driver/returns', roles: ['owner_driver'] },
-  { prefix: '/driver/jobs', roles: ['driver', 'owner_driver'], anyOf: ['jobs.execute'] },
-  { prefix: '/driver/history', roles: ['driver', 'owner_driver'], anyOf: ['jobs.view'] },
-  { prefix: '/driver/availability', roles: ['driver', 'owner_driver'] },
-  { prefix: '/driver/vehicles', roles: ['driver', 'owner_driver'] },
-  {
-    prefix: '/driver/documents',
-    roles: ['driver', 'owner_driver'],
-    anyOf: ['documents.own.manage'],
-  },
-  { prefix: '/driver/messages', roles: ['driver', 'owner_driver'] },
-  { prefix: '/driver/profile', roles: ['driver', 'owner_driver'] },
+  // owner_operator (/driver)
+  { prefix: '/driver/change-password', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
+  { prefix: '/driver/loads', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['loads.view.marketplace'] },
+  { prefix: '/driver/quotes', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['quotes.submit'] },
+  { prefix: '/driver/won-work', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['jobs.view'] },
+  { prefix: '/driver/finance', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['invoices.carrier.manage'] },
+  { prefix: '/driver/returns', workspace: 'owner_operator', roles: ['owner_driver'] },
+  { prefix: '/driver/jobs', workspace: 'owner_operator', roles: ['driver', 'owner_driver'], anyOf: ['jobs.execute'] },
+  { prefix: '/driver/history', workspace: 'owner_operator', roles: ['driver', 'owner_driver'], anyOf: ['jobs.view'] },
+  { prefix: '/driver/availability', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
+  { prefix: '/driver/vehicles', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
+  { prefix: '/driver/documents', workspace: 'owner_operator', roles: ['driver', 'owner_driver'], anyOf: ['documents.own.manage'] },
+  { prefix: '/driver/messages', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
+  { prefix: '/driver/profile', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
+  { prefix: '/driver', workspace: 'owner_operator', exact: true },
 ];
+
+/**
+ * Returns the most-specific RouteRequirement for the given pathname,
+ * or null if no requirement is registered.
+ * Protected-but-unregistered routes should be denied by callers.
+ */
+export const getProtectedRouteRequirement = (pathname: string): RouteRequirement | null => {
+  const clean = cleanPathname(pathname);
+  let best: RouteRequirement | null = null;
+  for (const req of ROUTE_REQUIREMENTS) {
+    if (pathMatches(clean, req.prefix, req.exact)) {
+      if (!best || req.prefix.length > best.prefix.length) {
+        best = req;
+      }
+    }
+  }
+  return best;
+};
 
 export const isCapabilityAllowedForPath = (
   pathname: string,
