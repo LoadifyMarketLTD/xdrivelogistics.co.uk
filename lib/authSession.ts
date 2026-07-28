@@ -155,13 +155,9 @@ export const resolveAuthenticatedUser = async (
   const membershipLookupQuery =
     `company_memberships.select(id,company_id,user_id,role_in_company,status,companies(id,name,company_type,status)).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc)`;
   const driverLookupQuery =
-<<<<<<< HEAD
     `drivers.select(id,company_id,user_id,must_change_password,status,app_access,driver_type,can_commercial_bid).eq(user_id,${sessionUser.id})`;
-=======
-    `drivers.select(id,company_id,user_id,must_change_password,status,app_access,driver_type,can_commercial_bid).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
   const driverLookupLegacyQuery =
-    `drivers.select(id,company_id,user_id,must_change_password,status,app_access).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
->>>>>>> origin/main
+    `drivers.select(id,company_id,user_id,must_change_password,status,app_access).eq(user_id,${sessionUser.id})`;
   const creatorCompanyLookupQuery =
     `companies.select(id,company_type).eq(created_by,${sessionUser.id}).limit(1).maybeSingle()`;
   const [profileRes, membershipResInitial, driverResInitial, creatorCompanyRes] = await Promise.all([
@@ -196,8 +192,6 @@ export const resolveAuthenticatedUser = async (
         .from('drivers')
         .select('id, company_id, user_id, must_change_password, status, app_access')
         .eq('user_id', sessionUser.id)
-        .limit(1)
-        .maybeSingle()
     : driverResInitial;
   if (shouldRetryDriverLookupWithLegacyColumns) {
     usedLegacyDriverFallback = true;
@@ -242,7 +236,6 @@ export const resolveAuthenticatedUser = async (
     };
   }
 
-<<<<<<< HEAD
   if (profileDbError) {
     return { user: null, reason: 'db_error', dbError: profileDbError };
   }
@@ -251,7 +244,7 @@ export const resolveAuthenticatedUser = async (
     return {
       user: null,
       reason: 'db_error',
-      dbError: toDbError(driverLookupQuery, driverRes.error),
+      dbError: toDbError(driverLookupQueryUsed, driverRes.error),
     };
   }
 
@@ -261,27 +254,12 @@ export const resolveAuthenticatedUser = async (
       reason: 'db_error',
       dbError: toDbError(creatorCompanyLookupQuery, creatorCompanyRes.error),
     };
-=======
-  if (membershipRes.error || driverRes.error || creatorCompanyRes.error) {
-    console.debug('[XDrive Auth] profile lookup partial_error', {
-      userId: sessionUser.id,
-      membershipQuery: membershipLookupQuery,
-      membershipErr: membershipRes.error?.message,
-      driverQuery: driverLookupQueryUsed,
-      driverErr: driverRes.error?.message,
-      creatorCompanyQuery: creatorCompanyLookupQuery,
-      creatorCompanyErr: creatorCompanyRes.error?.message,
-    });
->>>>>>> origin/main
   }
 
   let profile = profileDbError
     ? null
     : (profileRes.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'> | null);
-<<<<<<< HEAD
-  const normalizedMemberships = membershipRes.error
-    ? []
-    : normalizeAuthMembershipRows((membershipRes.data ?? []) as AuthMembershipQueryRow[]);
+  const normalizedMemberships = normalizeAuthMembershipRows((membershipRes.data ?? []) as AuthMembershipQueryRow[]);
   let membership = null as RawMembershipRow | null;
   if (normalizedMemberships.length > 0) {
     const companySelection = resolveAuthActiveCompanySelection({
@@ -295,38 +273,7 @@ export const resolveAuthenticatedUser = async (
 
     membership = companySelection.membership;
   }
-  const driverRows = driverRes.error
-    ? []
-    : ((driverRes.data ?? []) as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password' | 'status' | 'app_access' | 'driver_type' | 'can_commercial_bid'>[]);
-=======
-  const memberships = membershipRes.error
-    ? null
-    : (membershipRes.data as Pick<CompanyMembership, 'id' | 'company_id' | 'role_in_company' | 'status'>[] | null);
-  const membershipFromProfile = memberships?.find(
-    (membership) =>
-      typeof profile?.company_id === 'string' &&
-      profile.company_id.length > 0 &&
-      membership.company_id === profile.company_id
-  );
-  let membership = membershipFromProfile ?? memberships?.[0] ?? null;
-  if (driverRes.error) {
-    return {
-      user: null,
-      reason: 'db_error',
-      dbError: {
-        query: driverLookupQueryUsed,
-        message: driverRes.error.message,
-        code: driverRes.error.code ?? null,
-        details: driverRes.error.details ?? null,
-        hint: driverRes.error.hint ?? null,
-      },
-    };
-  }
-
-  type DriverAuthRow = Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password' | 'status' | 'app_access'>
-    & Partial<Pick<Driver, 'driver_type' | 'can_commercial_bid'>>;
-  const driver = driverRes.data as DriverAuthRow | null;
->>>>>>> origin/main
+  const driverRows = (driverRes.data ?? []) as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password' | 'status' | 'app_access' | 'driver_type' | 'can_commercial_bid'>[];
   const creatorCompany = creatorCompanyRes.error
     ? null
     : (creatorCompanyRes.data as { id: string; company_type: string | null } | null);
@@ -596,19 +543,12 @@ export const resolveAuthenticatedUser = async (
           resolvedMembershipRole,
           sessionUser
         ),
-<<<<<<< HEAD
-        driverType: typeof scopedDriver?.driver_type === 'string' ? scopedDriver.driver_type : null,
-        canCommercialBid: scopedDriver?.can_commercial_bid === true,
+        driverType: usedLegacyDriverFallback ? null : (typeof scopedDriver?.driver_type === 'string' ? scopedDriver.driver_type : null),
+        canCommercialBid: usedLegacyDriverFallback ? false : scopedDriver?.can_commercial_bid === true,
         driverStatus: typeof scopedDriver?.status === 'string' ? scopedDriver.status : null,
         appAccess: typeof scopedDriver?.app_access === 'boolean' ? scopedDriver.app_access : null,
         accountStatus,
         companyStatus,
-=======
-        driverType: usedLegacyDriverFallback ? null : (typeof driver?.driver_type === 'string' ? driver.driver_type : null),
-        canCommercialBid: usedLegacyDriverFallback ? false : driver?.can_commercial_bid === true,
-        driverStatus: typeof driver?.status === 'string' ? driver.status : null,
-        appAccess: typeof driver?.app_access === 'boolean' ? driver.app_access : null,
->>>>>>> origin/main
       }
     );
   }
