@@ -55,6 +55,8 @@ export type ResolvedAuthUser = {
   id: string;
   email: string;
   role: UserRole;
+  rawRole?: string | null;
+  workspaceRole?: string | null;
   companyId: string | null;
   membershipId: string | null;
   membershipRole: CompanyMembership['role_in_company'] | null;
@@ -64,6 +66,9 @@ export type ResolvedAuthUser = {
   canAccessDriverMode: boolean;
   ownerDriverExecutionMode: boolean;
   financeAccess: 'full' | 'limited' | 'hidden';
+  canCommercialBid?: boolean;
+  driverStatus?: string | null;
+  appAccess?: boolean | null;
 };
 
 const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, key: string) => {
@@ -508,7 +513,11 @@ export const getPostLoginRoute = (
   currentUser: Pick<
     ResolvedAuthUser,
     'role' | 'mustChangePassword' | 'ownerDriverWorkspace' | 'canAccessDriverMode' | 'ownerDriverExecutionMode'
-  >
+  > & {
+    rawRole?: string | null;
+    workspaceRole?: string | null;
+    membershipRole?: string | null;
+  }
 ) => {
   if (currentUser.ownerDriverWorkspace && currentUser.canAccessDriverMode) {
     return currentUser.mustChangePassword ? '/driver/change-password' : '/owner-operator';
