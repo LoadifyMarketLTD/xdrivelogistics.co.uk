@@ -1,43 +1,63 @@
 -- Migration: fix job_tracking_events table grants
 --
--- job_tracking_events has RLS enabled and per-command policies defined in
--- migrations 034_least_privilege_operational_rls and
--- 038_runtime_operational_rls_backstop, but the authenticated role was never
--- granted object-level privileges on the table.  Without these GRANTs
+-- Root cause
+-- ----------
+-- job_tracking_events has RLS enabled with per-command policies (migrations
+-- 034_least_privilege_operational_rls, 038_runtime_operational_rls_backstop),
+-- but the authenticated role was never granted object-level table privileges.
 -- PostgreSQL returns "permission denied for table job_tracking_events" before
--- RLS policies are evaluated.
---
--- Root cause: the same class of missing-grant defect fixed for loads
+-- evaluating any RLS policy.  Same class of defect fixed for loads
 -- (20260727190000) and job_disputes (20260728060000).
 --
--- Security model preserved:
---   - SELECT is gated by "job_tracking_select_non_driver" policy which calls
---     can_non_driver_access_job(job_id) → joins jobs and asserts the caller is
---     a non-driver member of the owning company.
---   - INSERT/UPDATE/DELETE are additionally restricted to row creator or
---     company admin by the per-command policies.
---   - Cross-tenant rows remain invisible: a caller cannot satisfy
---     is_company_non_driver for a company they do not belong to.
+-- Privilege justification
+-- -----------------------
+-- authenticated: SELECT only.
+--   All write paths that reference job_tracking_events in the codebase use the
+--   service-role admin client:
+--     - app/api/admin/jobs/[id]/transition/route.ts  → supabaseAdmin.insert()
+--     - app/api/driver/mobile/_lib.ts                → supabaseAdmin.insert()
+--   No browser-side (authenticated) code performs INSERT, UPDATE or DELETE on
+--   this table, so those DML grants would be dead weight against the attack
+--   surface without any operational benefit.
+--
+-- service_role: SELECT + INSERT + UPDATE + DELETE.
+--   Server-side API routes insert tracking events on job status transitions and
+--   driver mobile status updates (both via the service-role admin client).
+--   Full DML is justified for current and anticipated admin-plane operations.
+--
+-- RLS enforcement
+-- ---------------
+-- SELECT is gated by "job_tracking_select_non_driver" which calls
+-- can_non_driver_access_job(job_id).  That function joins jobs and asserts the
+-- caller is a non-driver member of the owning company, so cross-tenant rows
+-- are invisible to authenticated users.
+--
+-- Realtime
+-- --------
+-- Operations Centre (app/admin/operations-centre/page.tsx) subscribes to
+-- postgres_changes on job_tracking_events via the anon/browser channel.
+-- The table must be in the supabase_realtime publication for events to be
+-- delivered; the subscription itself is further filtered by the SELECT RLS
+-- policy so subscribers only receive rows their company owns.
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.job_tracking_events TO authenticated;
+-- Object-level privilege grants
+GRANT SELECT ON public.job_tracking_events TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.job_tracking_events TO service_role;
 
--- Explicit EXECUTE grants on the two helper functions used in the RLS
--- policies.  In standard PostgreSQL, EXECUTE is granted to PUBLIC by default,
--- but the repository pattern (migrations 040, 041, 044) explicitly re-grants
--- to authenticated for clarity and defence-in-depth.
+-- Explicit EXECUTE grants on RLS helper functions.
+-- The repository pattern (migrations 040, 041, 044, 046) explicitly grants
+-- these to authenticated for clarity and defence-in-depth even though
+-- PostgreSQL grants EXECUTE to PUBLIC by default.
 GRANT EXECUTE ON FUNCTION public.can_non_driver_access_job(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_admin_manage_job(uuid) TO authenticated;
 
--- Add the table to the Supabase Realtime publication so that the Operations
--- Centre live-refresh subscription receives postgres_changes events.
--- Wrapped in a DO block to be safe if the publication is already configured
--- for all tables or the table was added manually.
+-- Add the table to the Supabase Realtime publication.
+-- Wrapped in a DO block in case the publication is configured FOR ALL TABLES
+-- or the table was already added manually.
 DO $$
 BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.job_tracking_events;
 EXCEPTION WHEN others THEN
-  -- publication may already include this table or be configured FOR ALL TABLES
   NULL;
 END;
 $$;
