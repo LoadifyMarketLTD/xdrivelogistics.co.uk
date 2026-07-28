@@ -77,6 +77,7 @@ const deriveLegacyWorkspace = (
   const normalized = (companyType ?? '').trim().toLowerCase();
   if (normalized === 'customer' || normalized === 'shipper') return 'shipper';
   if (normalized === 'broker') return 'broker';
+  if (normalized === 'owner_driver') return 'owner_operator';
   if (LEGACY_CARRIER_FLEET_COMPANY_TYPES.has(normalized)) return 'carrier_fleet';
   return null;
 };
