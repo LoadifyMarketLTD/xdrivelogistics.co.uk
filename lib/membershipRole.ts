@@ -1,36 +1,30 @@
 /**
- * Membership role contract for company workspaces.
+ * Membership role contracts for company workspaces.
  *
- * Maps directly to the DB public.company_role ENUM, which currently contains:
- *   owner | admin | dispatcher | member | viewer
- *   (supabase/migrations/006_complete_schema.sql,
- *    supabase/migrations/064_extend_company_role_membership_values.sql)
- *
- * NOTE: 'finance', 'compliance' and 'driver' are NOT present in the DB enum.
- * They are documented as planned future extensions and must not be persisted
- * until a migration adds them to public.company_role.
- *
- * Do not confuse MembershipRole with WorkspaceRole (the UI resolver in
- * lib/workspaceRole.ts) or BusinessWorkspace (the top-level workspace type in
- * lib/businessWorkspace.ts). They serve different concerns:
- *   - MembershipRole: what a user can do within a specific company (DB-backed).
- *   - WorkspaceRole: coarse-grained UI role used by the nav/shell resolver.
- *   - BusinessWorkspace: which product surface the company belongs to.
+ * DB enum (persisted): owner | admin | dispatcher | member | viewer
+ * App/domain roles include planned identities not yet persisted: finance | compliance | driver
  */
 
-/** Roles currently in the DB company_role ENUM (authoritative list). */
+/** Full application-domain role identity. */
 export type MembershipRole =
+  | 'owner'
+  | 'admin'
+  | 'dispatcher'
+  | 'finance'
+  | 'compliance'
+  | 'driver'
+  | 'member'
+  | 'viewer';
+
+/** DB-persisted subset currently present in public.company_role. */
+export type PersistedCompanyRole =
   | 'owner'
   | 'admin'
   | 'dispatcher'
   | 'member'
   | 'viewer';
 
-/**
- * Ordered from highest to lowest privilege.
- * Used when comparing or displaying roles.
- */
-export const MEMBERSHIP_ROLE_PRECEDENCE: readonly MembershipRole[] = [
+export const PERSISTED_COMPANY_ROLES: readonly PersistedCompanyRole[] = [
   'owner',
   'admin',
   'dispatcher',
@@ -38,7 +32,21 @@ export const MEMBERSHIP_ROLE_PRECEDENCE: readonly MembershipRole[] = [
   'viewer',
 ];
 
-/** Capabilities available to each membership role within a carrier/fleet company. */
+/**
+ * Ordered from highest to lowest privilege.
+ * Planned roles retain identity until DB enum is extended in a later phase.
+ */
+export const MEMBERSHIP_ROLE_PRECEDENCE: readonly MembershipRole[] = [
+  'owner',
+  'admin',
+  'dispatcher',
+  'finance',
+  'compliance',
+  'driver',
+  'member',
+  'viewer',
+];
+
 export const MEMBERSHIP_ROLE_CAPABILITIES: Record<MembershipRole, readonly string[]> = {
   owner: [
     'company.manage',
@@ -74,33 +82,43 @@ export const MEMBERSHIP_ROLE_CAPABILITIES: Record<MembershipRole, readonly strin
     'drivers.manage',
     'vehicles.manage',
   ],
+  finance: ['jobs.view', 'invoices.carrier.manage', 'payments.manage', 'margins.view'],
+  compliance: ['jobs.view', 'drivers.manage', 'vehicles.manage', 'documents.company.manage', 'incidents.manage'],
+  driver: ['jobs.view', 'jobs.execute', 'jobs.track', 'documents.own.manage'],
   member: ['jobs.view'],
   viewer: ['jobs.view'],
 };
 
-/**
- * Returns true if the membership role grants the given capability string.
- */
 export function membershipHasCapability(role: MembershipRole, capability: string): boolean {
   return MEMBERSHIP_ROLE_CAPABILITIES[role]?.includes(capability) ?? false;
 }
 
 /**
- * Normalises a raw string to a MembershipRole.
- * Returns 'viewer' for null, empty or unrecognised values so callers always
- * get a safe default rather than an exception.
+ * Resolves raw input to application-domain role identity.
+ * Returns null for null/empty/unknown values.
  */
-export function resolveMembershipRole(raw: string | null | undefined): MembershipRole {
+export function resolveMembershipRole(raw: string | null | undefined): MembershipRole | null {
   const normalised = (raw ?? '').trim().toLowerCase();
   if ((MEMBERSHIP_ROLE_PRECEDENCE as readonly string[]).includes(normalised)) {
     return normalised as MembershipRole;
   }
-  return 'viewer';
+  return null;
 }
 
 /**
- * Returns true when `a` has equal or higher privilege than `b`.
+ * Resolves raw input to DB-persisted subset.
+ * Planned roles intentionally remain outside this subset until schema migration.
  */
+export function resolvePersistedCompanyRole(
+  raw: string | null | undefined,
+): PersistedCompanyRole | null {
+  const normalised = (raw ?? '').trim().toLowerCase();
+  if ((PERSISTED_COMPANY_ROLES as readonly string[]).includes(normalised)) {
+    return normalised as PersistedCompanyRole;
+  }
+  return null;
+}
+
 export function isMembershipRoleAtLeast(a: MembershipRole, b: MembershipRole): boolean {
   return MEMBERSHIP_ROLE_PRECEDENCE.indexOf(a) <= MEMBERSHIP_ROLE_PRECEDENCE.indexOf(b);
 }

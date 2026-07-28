@@ -1,18 +1,5 @@
 /**
  * Active-company context contract.
- *
- * Resolves which company and workspace are currently active from raw
- * public.company_memberships rows (joined with public.companies).
- *
- * This module is pure (no Supabase imports, no side effects) so it can be
- * fully unit-tested without mocking.  Actual data fetching happens in
- * lib/activeCompany.ts (resolveActiveCompanyId) and in individual page hooks.
- *
- * Schema references:
- *   public.companies              — supabase/migrations/006_complete_schema.sql
- *   public.company_memberships    — supabase/migrations/006_complete_schema.sql
- *   public.company_role ENUM      — owner | admin | dispatcher | member | viewer
- *   public.membership_status ENUM — invited | active | suspended
  */
 
 import type { BusinessWorkspace } from './businessWorkspace';
@@ -20,30 +7,26 @@ import type { MembershipRole } from './membershipRole';
 import { workspaceForRoute } from './businessWorkspace';
 import { resolveMembershipRole } from './membershipRole';
 
-// ── Public types ──────────────────────────────────────────────────────────────
+const LEGACY_CARRIER_FLEET_COMPANY_TYPES = new Set(['standard', 'carrier', 'fleet']);
 
-/**
- * The resolved active-company context.
- * All pages that need company identity should consume this type rather than
- * reading raw DB fields.
- */
+const ALL_WORKSPACES: readonly BusinessWorkspace[] = [
+  'owner_operator',
+  'shipper',
+  'broker',
+  'carrier_fleet',
+];
+
 export type ActiveCompanyContext = {
-  /** Matches public.companies.id */
   companyId: string;
-  /** Matches public.companies.name */
   companyName: string;
-  /** The user's role in this company (from company_memberships.role_in_company). */
   membershipRole: MembershipRole;
-  /** The resolved workspace for this company. */
+  enabledWorkspaces: readonly BusinessWorkspace[];
+  activeWorkspace: BusinessWorkspace;
+  /** Backward-compatible alias for activeWorkspace. */
   workspace: BusinessWorkspace;
-  /** True only when membership_status = 'active'. */
   isActive: boolean;
 };
 
-/**
- * Minimal shape of a company_memberships row joined with its companies row.
- * Only fields used by resolution logic are required.
- */
 export type RawMembershipRow = {
   company_id: string;
   user_id: string;
@@ -54,42 +37,80 @@ export type RawMembershipRow = {
     name: string;
     company_type?: string | null;
     status?: string | null;
+    enabled_workspaces?: string[] | null;
   } | null;
 };
 
-/** Possible failure reasons when resolving the active workspace. */
 export type WorkspaceResolutionError =
-  | 'no_memberships'        // user has no membership rows at all
-  | 'no_active_membership'  // none are active (or multiple with no preference given)
-  | 'company_inactive'      // company.status is not 'active'
-  | 'workspace_mismatch';   // company workspace differs from the requested route
+  | 'no_memberships'
+  | 'no_active_membership'
+  | 'active_workspace_required'
+  | 'unsupported_membership_role'
+  | 'unsupported_company_type'
+  | 'workspace_not_enabled'
+  | 'company_inactive'
+  | 'workspace_mismatch';
 
 export type WorkspaceResolutionResult =
-  | { ok: true;  context: ActiveCompanyContext }
+  | { ok: true; context: ActiveCompanyContext }
   | { ok: false; error: WorkspaceResolutionError };
 
-// ── Resolution logic ──────────────────────────────────────────────────────────
+export type CompanyWorkspaceResolutionResult =
+  | { ok: true; enabledWorkspaces: readonly BusinessWorkspace[] }
+  | { ok: false; error: 'unsupported_company_type' | 'workspace_not_enabled' };
 
-/**
- * Resolves the active company context from a list of raw membership rows.
- *
- * Selection rules (applied in order):
- *  1. Filter to memberships whose status = 'active' and whose company is not
- *     suspended.
- *  2. If `preferredCompanyId` is provided and matches an active membership, use it.
- *  3. Otherwise, only auto-select when there is **exactly one** active membership.
- *     Multiple memberships without an explicit preference return an error —
- *     the caller must prompt the user to select a company.
- *  4. If a `targetWorkspace` or `targetPathname` is given, verify the resolved
- *     company's workspace matches.
- *
- * This function never falls back to a random first membership when the user
- * belongs to multiple companies, preventing inadvertent cross-company access.
- */
+const normalizeWorkspace = (value: string | null | undefined): BusinessWorkspace | null => {
+  const normalized = (value ?? '').trim().toLowerCase();
+  return (ALL_WORKSPACES as readonly string[]).includes(normalized)
+    ? (normalized as BusinessWorkspace)
+    : null;
+};
+
+const deriveLegacyWorkspace = (
+  companyType: string | null | undefined,
+): BusinessWorkspace | null => {
+  const normalized = (companyType ?? '').trim().toLowerCase();
+  if (normalized === 'customer' || normalized === 'shipper') return 'shipper';
+  if (normalized === 'broker') return 'broker';
+  if (LEGACY_CARRIER_FLEET_COMPANY_TYPES.has(normalized)) return 'carrier_fleet';
+  return null;
+};
+
+export function resolveCompanyEnabledWorkspaces(input: {
+  companyType: string | null | undefined;
+  enabledWorkspaces?: readonly string[] | null;
+}): CompanyWorkspaceResolutionResult {
+  const fromRecord = (input.enabledWorkspaces ?? [])
+    .map((value) => normalizeWorkspace(value))
+    .filter((value): value is BusinessWorkspace => value !== null);
+
+  if (fromRecord.length > 0) {
+    return { ok: true, enabledWorkspaces: [...new Set(fromRecord)] };
+  }
+
+  if (input.enabledWorkspaces && input.enabledWorkspaces.length === 0) {
+    return { ok: false, error: 'workspace_not_enabled' };
+  }
+
+  const legacy = deriveLegacyWorkspace(input.companyType);
+  if (!legacy) {
+    return { ok: false, error: 'unsupported_company_type' };
+  }
+
+  return { ok: true, enabledWorkspaces: [legacy] };
+}
+
+export function resolveWorkspaceForCompany(
+  companyType: string | null | undefined,
+): BusinessWorkspace | null {
+  return deriveLegacyWorkspace(companyType);
+}
+
 export function resolveActiveCompanyContext(
   memberships: RawMembershipRow[],
   options: {
     preferredCompanyId?: string | null;
+    activeWorkspace?: BusinessWorkspace | null;
     targetWorkspace?: BusinessWorkspace | null;
     targetPathname?: string | null;
   } = {},
@@ -98,14 +119,10 @@ export function resolveActiveCompanyContext(
     return { ok: false, error: 'no_memberships' };
   }
 
-  const { preferredCompanyId, targetWorkspace, targetPathname } = options;
+  const { preferredCompanyId, activeWorkspace, targetWorkspace, targetPathname } = options;
+  const routeWorkspace = targetPathname ? workspaceForRoute(targetPathname) : null;
+  const explicitlyRequestedWorkspace = activeWorkspace ?? targetWorkspace ?? routeWorkspace;
 
-  // Derive workspace from pathname when not explicitly supplied
-  const resolvedTarget: BusinessWorkspace | null =
-    targetWorkspace ??
-    (targetPathname ? workspaceForRoute(targetPathname) : null);
-
-  // Only consider memberships whose status is 'active' and whose company is live
   const active = memberships.filter(
     (m) =>
       m.status === 'active' &&
@@ -117,27 +134,17 @@ export function resolveActiveCompanyContext(
     return { ok: false, error: 'no_active_membership' };
   }
 
-  // Select the chosen membership
   let chosen: RawMembershipRow | undefined;
 
   if (preferredCompanyId) {
     chosen = active.find((m) => m.company_id === preferredCompanyId);
-  }
-
-  if (!chosen) {
-    if (preferredCompanyId) {
-      // An explicit preference was given but the company was not found in the
-      // user's active memberships — do not silently fall back to another company.
+    if (!chosen) {
       return { ok: false, error: 'no_active_membership' };
     }
-    if (active.length === 1) {
-      // Safe to auto-select: only one active membership and no preference given
-      chosen = active[0];
-    } else {
-      // Multiple memberships — require an explicit selection to avoid silent
-      // cross-company access.
-      return { ok: false, error: 'no_active_membership' };
-    }
+  } else if (active.length === 1) {
+    chosen = active[0];
+  } else {
+    return { ok: false, error: 'no_active_membership' };
   }
 
   const company = chosen.companies;
@@ -145,10 +152,33 @@ export function resolveActiveCompanyContext(
     return { ok: false, error: 'company_inactive' };
   }
 
-  const workspace = resolveWorkspaceForCompany(company.company_type ?? null);
+  const membershipRole = resolveMembershipRole(chosen.role_in_company);
+  if (!membershipRole) {
+    return { ok: false, error: 'unsupported_membership_role' };
+  }
 
-  // Guard against workspace mismatch (e.g. a shipper trying to access /admin)
-  if (resolvedTarget !== null && workspace !== resolvedTarget) {
+  const enabled = resolveCompanyEnabledWorkspaces({
+    companyType: company.company_type ?? null,
+    enabledWorkspaces: company.enabled_workspaces,
+  });
+
+  if (!enabled.ok) {
+    return { ok: false, error: enabled.error };
+  }
+
+  if (explicitlyRequestedWorkspace && !enabled.enabledWorkspaces.includes(explicitlyRequestedWorkspace)) {
+    return { ok: false, error: 'workspace_not_enabled' };
+  }
+
+  const resolvedActiveWorkspace =
+    explicitlyRequestedWorkspace ??
+    (enabled.enabledWorkspaces.length === 1 ? enabled.enabledWorkspaces[0] : null);
+
+  if (!resolvedActiveWorkspace) {
+    return { ok: false, error: 'active_workspace_required' };
+  }
+
+  if (routeWorkspace && routeWorkspace !== resolvedActiveWorkspace) {
     return { ok: false, error: 'workspace_mismatch' };
   }
 
@@ -157,27 +187,11 @@ export function resolveActiveCompanyContext(
     context: {
       companyId: chosen.company_id,
       companyName: company.name,
-      membershipRole: resolveMembershipRole(chosen.role_in_company),
-      workspace,
+      membershipRole,
+      enabledWorkspaces: enabled.enabledWorkspaces,
+      activeWorkspace: resolvedActiveWorkspace,
+      workspace: resolvedActiveWorkspace,
       isActive: true,
     },
   };
-}
-
-/**
- * Maps public.companies.company_type to a BusinessWorkspace.
- *
- * Gap: company_type is a free-text column (not an ENUM) in the current schema
- * (006_complete_schema.sql).  This function normalises known values and
- * defaults to 'carrier_fleet' for 'standard' and unknown types.
- * A future migration could constrain company_type to a proper ENUM.
- */
-export function resolveWorkspaceForCompany(
-  companyType: string | null | undefined,
-): BusinessWorkspace {
-  const t = (companyType ?? '').toLowerCase().trim();
-  if (t === 'customer' || t === 'shipper') return 'shipper';
-  if (t === 'broker') return 'broker';
-  // 'standard', 'carrier', 'fleet', '' → carrier_fleet
-  return 'carrier_fleet';
 }
