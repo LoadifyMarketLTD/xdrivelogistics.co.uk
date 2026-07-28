@@ -182,39 +182,52 @@ export const resolveAuthenticatedUser = async (
         .eq('status', 'active')
     : membershipResInitial;
 
+  const toDbError = (
+    query: string,
+    error: {
+      message: string;
+      code?: string | null;
+      details?: string | null;
+      hint?: string | null;
+    }
+  ): AuthDbError => ({
+    query,
+    message: error.message,
+    code: error.code ?? null,
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+  });
+
   const profileDbError = profileRes.error
-    ? {
-        query: profileLookupQuery,
-        message: profileRes.error.message,
-        code: profileRes.error.code ?? null,
-        details: profileRes.error.details ?? null,
-        hint: profileRes.error.hint ?? null,
-      }
+    ? toDbError(profileLookupQuery, profileRes.error)
     : null;
 
-  if (profileDbError) {
-    console.debug('[XDrive Auth] profile lookup db_error', {
-      userId: sessionUser.id,
-      profileQuery: profileDbError.query,
-      profileErr: profileDbError.message,
-      profileErrCode: profileDbError.code,
-      profileErrDetails: profileDbError.details,
-      profileErrHint: profileDbError.hint,
-      membershipErr: membershipRes.error?.message,
-      driverErr: driverRes.error?.message,
-    });
+  if (membershipRes.error) {
+    return {
+      user: null,
+      reason: 'db_error',
+      dbError: toDbError(membershipLookupQuery, membershipRes.error),
+    };
   }
 
-  if (membershipRes.error || driverRes.error || creatorCompanyRes.error) {
-    console.debug('[XDrive Auth] profile lookup partial_error', {
-      userId: sessionUser.id,
-      membershipQuery: membershipLookupQuery,
-      membershipErr: membershipRes.error?.message,
-      driverQuery: driverLookupQuery,
-      driverErr: driverRes.error?.message,
-      creatorCompanyQuery: creatorCompanyLookupQuery,
-      creatorCompanyErr: creatorCompanyRes.error?.message,
-    });
+  if (profileDbError) {
+    return { user: null, reason: 'db_error', dbError: profileDbError };
+  }
+
+  if (driverRes.error) {
+    return {
+      user: null,
+      reason: 'db_error',
+      dbError: toDbError(driverLookupQuery, driverRes.error),
+    };
+  }
+
+  if (creatorCompanyRes.error) {
+    return {
+      user: null,
+      reason: 'db_error',
+      dbError: toDbError(creatorCompanyLookupQuery, creatorCompanyRes.error),
+    };
   }
 
   let profile = profileDbError
