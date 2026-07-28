@@ -357,6 +357,105 @@ class ApiClient(
         }
     }
 
+    /**
+     * GET /api/driver/mobile/messages
+     * Returns dispatcher messages for the authenticated driver via the server-mediated API.
+     * Never reads `notification_events` or `notifications` directly via Supabase REST.
+     *
+     * @param before  ISO timestamp cursor — returns messages older than this timestamp.
+     * @param limit   Page size (1–200, default 50).
+     * @return Pair of (messages in server order, server unread_count).
+     */
+    suspend fun loadDispatcherMessages(
+        session: DriverSession,
+        before: String? = null,
+        limit: Int = 50,
+    ): Result<Pair<List<DispatcherMessage>, Int>> = networkResult {
+        require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
+        val params = buildString {
+            append("limit=${limit.coerceIn(1, 200)}")
+            if (!before.isNullOrBlank()) {
+                append("&before=${URLEncoder.encode(before, StandardCharsets.UTF_8.toString())}")
+            }
+        }
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/messages?$params")
+            .addHeader("Authorization", "******")
+            .get()
+            .build()
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to load messages.")
+            val json = gson.fromJson(raw, JsonObject::class.java)
+            val unreadCount = json.get("unread_count")?.asInt ?: 0
+            val messagesArray = json.getAsJsonArray("messages") ?: JsonArray()
+            val messages = buildList<DispatcherMessage> {
+                for (i in 0 until messagesArray.size()) {
+                    val row = messagesArray[i].asJsonObject
+                    add(
+                        DispatcherMessage(
+                            id = row.string("id"),
+                            eventType = row.string("event_type"),
+                            text = row.nullableString("text"),
+                            jobId = row.nullableString("job_id"),
+                            jobRef = row.nullableString("job_ref"),
+                            read = row.get("read")?.takeIf { !it.isJsonNull }?.asBoolean
+                                ?: (row.string("status").lowercase() == "read"),
+                            status = row.string("status").ifBlank { "pending" },
+                            createdAt = row.string("created_at"),
+                        )
+                    )
+                }
+            }
+            Pair(messages, unreadCount)
+        }
+    }
+
+    /**
+     * POST /api/driver/mobile/messages  (body: {"id": messageId})
+     * Marks a single dispatcher message as read via the server-mediated API.
+     * UI must only update after this call succeeds.
+     */
+    suspend fun markDispatcherMessageRead(
+        session: DriverSession,
+        messageId: String,
+    ): Result<Unit> = networkResult {
+        require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
+        val body = JsonObject().apply { addProperty("id", messageId) }
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/messages")
+            .addHeader("Authorization", "******")
+            .addHeader("Content-Type", "application/json")
+            .post(gson.toJson(body).toRequestBody(jsonMediaType))
+            .build()
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to mark message read.")
+        }
+    }
+
+    /**
+     * POST /api/driver/mobile/messages  (empty body)
+     * Marks all dispatcher messages as read via the server-mediated API.
+     * UI must only update after this call succeeds.
+     */
+    suspend fun markAllDispatcherMessagesRead(
+        session: DriverSession,
+    ): Result<Unit> = networkResult {
+        require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
+        val body = JsonObject() // empty body → server marks all messages read
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/messages")
+            .addHeader("Authorization", "******")
+            .addHeader("Content-Type", "application/json")
+            .post(gson.toJson(body).toRequestBody(jsonMediaType))
+            .build()
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to mark all messages read.")
+        }
+    }
+
     suspend fun loadReturnJourney(session: DriverSession, driverId: String): Result<DriverReturnJourney?> = networkResult {
         val encodedDriverId = URLEncoder.encode(driverId, StandardCharsets.UTF_8.toString())
         val request = supabaseRequest(

@@ -87,6 +87,7 @@ import co.uk.xdrivelogistics.driver.data.DriverAvailabilityStatus
 import co.uk.xdrivelogistics.driver.data.DriverAvailabilitySlot
 import co.uk.xdrivelogistics.driver.data.DriverDocument
 import co.uk.xdrivelogistics.driver.data.DriverBid
+import co.uk.xdrivelogistics.driver.data.DispatcherMessage
 import co.uk.xdrivelogistics.driver.data.DriverNotification
 import co.uk.xdrivelogistics.driver.data.MarketplaceJob
 import co.uk.xdrivelogistics.driver.offline.MobileQueueState
@@ -277,6 +278,8 @@ class MainActivity : ComponentActivity() {
                             onMoveStatus = viewModel::moveSelectedJobTo,
                             onMarkAlertRead = viewModel::markAlertRead,
                             onDeleteAlert = viewModel::deleteAlert,
+                            onMarkMessageRead = viewModel::markDispatcherMessageRead,
+                            onMarkAllMessagesRead = viewModel::markAllDispatcherMessagesRead,
                             onSaveReturnJourney = viewModel::saveReturnJourney,
                             onConfirmDeliveryRecipient = viewModel::confirmDeliveryRecipientForSelectedJob,
                             onStartTracking = {
@@ -521,6 +524,8 @@ private fun DriverAppShell(
     onMoveStatus: (String) -> Unit,
     onMarkAlertRead: (String) -> Unit,
     onDeleteAlert: (String) -> Unit,
+    onMarkMessageRead: (String) -> Unit,
+    onMarkAllMessagesRead: () -> Unit,
     onSaveReturnJourney: (String, String, String) -> Unit,
     onConfirmDeliveryRecipient: (String) -> Unit,
     onStartTracking: () -> Unit,
@@ -564,12 +569,12 @@ private fun DriverAppShell(
                     onMoveStatus = onMoveStatus,
                     onNavigateTo = onNavigateTo,
                 )
-                DriverTab.MESSAGES -> MessagesScreen(state, onSendNote, onMarkAlertRead, onDeleteAlert)
+                DriverTab.MESSAGES -> MessagesScreen(state, onSendNote, onMarkMessageRead, onMarkAllMessagesRead)
                 DriverTab.PROFILE -> ProfileScreen(state, onUpdatePassword, onLogout, onPickComplianceDocument, onSaveReturnJourney, onStartTracking, onStopTracking, onSetAvailabilityStatus, onToggleAvailabilitySlot)
             }
         }
 
-        BottomNav(state.selectedTab, state.jobs.count { it.isActive() }, onTabChange)
+        BottomNav(state.selectedTab, state.jobs.count { it.isActive() }, state.dispatcherUnreadCount, onTabChange)
     }
 }
 
@@ -1952,18 +1957,14 @@ private fun MessagesScreen(
     state: DriverUiState,
     onSendNote: (String, Boolean) -> Unit,
     onMarkRead: (String) -> Unit,
-    onDelete: (String) -> Unit,
+    onMarkAllRead: () -> Unit,
 ) {
     var filter by remember { mutableStateOf("All") }
     var note by remember { mutableStateOf("") }
-    val dispatcherTypes = setOf("dispatcher_message", "dispatcher_update", "job_update", "dispatch")
-    val visibleNotifications = state.notifications.filter { notification ->
+    val visibleMessages = state.dispatcherMessages.filter { msg ->
         when (filter) {
-            "Unread" -> notification.readAt.isNullOrBlank()
-            "Dispatcher" -> dispatcherTypes.any { notification.type.contains(it, ignoreCase = true) }
-            "Important" -> notification.type.contains("important", ignoreCase = true) ||
-                notification.title.contains("urgent", ignoreCase = true) ||
-                notification.body.contains("urgent", ignoreCase = true)
+            "Unread" -> !msg.read
+            "With Job" -> !msg.jobId.isNullOrBlank()
             else -> true
         }
     }
@@ -1973,23 +1974,42 @@ private fun MessagesScreen(
             .padding(horizontal = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item { SegmentedTabs(listOf("All", "Dispatcher", "Unread", "Important"), filter) { filter = it } }
-        if (filter == "Dispatcher" && visibleNotifications.isEmpty()) {
-            item {
-                XDriveCard {
-                    Text("Dispatcher updates and job notifications will appear here.", color = TextSecondary, fontSize = 13.sp)
+        item {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    SegmentedTabs(listOf("All", "Unread", "With Job"), filter) { filter = it }
+                }
+                if (state.dispatcherUnreadCount > 0) {
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = onMarkAllRead,
+                        colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = TextPrimary),
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    ) { Text("Mark All Read", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
                 }
             }
-        } else if (visibleNotifications.isEmpty()) {
+        }
+        if (!state.dispatcherMessagesError.isNullOrBlank()) {
+            item {
+                XDriveCard {
+                    Text(state.dispatcherMessagesError, color = Danger, fontSize = 13.sp)
+                }
+            }
+        }
+        if (visibleMessages.isEmpty()) {
             item {
                 EmptyState(
-                    "No notifications",
-                    "New dispatch, support and payment messages will appear here.",
+                    "No messages",
+                    "Dispatcher updates and job notifications will appear here.",
                 )
             }
         } else {
-            items(visibleNotifications, key = { it.id }) { notification ->
-                NotificationCard(notification, onMarkRead, onDelete)
+            items(visibleMessages, key = { it.id }) { msg ->
+                DispatcherMessageCard(msg, onMarkRead)
             }
         }
         item {
@@ -2011,44 +2031,37 @@ private fun MessagesScreen(
 }
 
 @Composable
-private fun NotificationCard(
-    notification: DriverNotification,
+private fun DispatcherMessageCard(
+    message: DispatcherMessage,
     onMarkRead: (String) -> Unit,
-    onDelete: (String) -> Unit,
 ) {
     XDriveCard {
         Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.weight(1f)) {
-                Text(notification.title, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                if (notification.body.isNotBlank()) {
+                val title = message.text?.takeIf { it.isNotBlank() }
+                    ?: message.eventType.split('_').joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                Text(title, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                if (!message.jobRef.isNullOrBlank()) {
                     Spacer(Modifier.height(4.dp))
-                    Text(notification.body, color = TextSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+                    Text("Job: ${message.jobRef}", color = Yellow, fontSize = 13.sp)
                 }
             }
-            BadgeText(if (notification.readAt.isNullOrBlank()) "Unread" else "Read", if (notification.readAt.isNullOrBlank()) Yellow else Success)
+            BadgeText(if (message.read) "Read" else "Unread", if (message.read) Success else Yellow)
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            listOf(notification.type, notification.createdAt?.marketplaceTime().orEmpty()).filter { it.isNotBlank() }.joinToString(" | "),
+            listOf(message.eventType, message.createdAt.marketplaceTime()).filter { it.isNotBlank() }.joinToString(" | "),
             color = TextSecondary,
             fontSize = 12.sp,
         )
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            if (notification.readAt.isNullOrBlank()) {
-                Button(
-                    onClick = { onMarkRead(notification.id) },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = TextPrimary),
-                    shape = RoundedCornerShape(14.dp),
-                ) { Text("Mark Read", fontWeight = FontWeight.Bold) }
-            }
+        if (!message.read) {
+            Spacer(Modifier.height(10.dp))
             Button(
-                onClick = { onDelete(notification.id) },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Danger, contentColor = TextPrimary),
+                onClick = { onMarkRead(message.id) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = TextPrimary),
                 shape = RoundedCornerShape(14.dp),
-            ) { Text("Delete", fontWeight = FontWeight.Bold) }
+            ) { Text("Mark Read", fontWeight = FontWeight.Bold) }
         }
     }
 }
@@ -2478,7 +2491,7 @@ private fun JobCard(
 }
 
 @Composable
-private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (DriverTab) -> Unit) {
+private fun BottomNav(selected: DriverTab, activeCount: Int, unreadMessageCount: Int, onTabChange: (DriverTab) -> Unit) {
     val tabs = listOf(DriverTab.NEARBY, DriverTab.QUOTES, DriverTab.JOBS, DriverTab.MESSAGES, DriverTab.PROFILE)
     Row(
         modifier = Modifier
@@ -2498,7 +2511,7 @@ private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (Drive
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    tab.navLabel(activeCount),
+                    tab.navLabel(activeCount, unreadMessageCount),
                     color = if (tab == selected) Yellow else TextSecondary,
                     fontSize = 13.sp,
                     fontWeight = if (tab == selected) FontWeight.Bold else FontWeight.Normal,
@@ -2996,14 +3009,14 @@ private fun DriverUiState.headerTitle(): String {
     }
 }
 
-private fun DriverTab.navLabel(activeCount: Int = 0) = when (this) {
+private fun DriverTab.navLabel(activeCount: Int = 0, unreadMessageCount: Int = 0) = when (this) {
     DriverTab.NEARBY -> "Nearby"
     DriverTab.QUOTES -> "Quotes"
     DriverTab.BOOKINGS -> "Bookings"
     DriverTab.JOBS -> if (activeCount > 0) "Jobs $activeCount" else "Jobs"
     DriverTab.SMARTPAY -> "Pay"
     DriverTab.ACTION -> "Job"
-    DriverTab.MESSAGES -> "Alerts"
+    DriverTab.MESSAGES -> if (unreadMessageCount > 0) "Alerts $unreadMessageCount" else "Alerts"
     DriverTab.PROFILE -> "Profile"
 }
 

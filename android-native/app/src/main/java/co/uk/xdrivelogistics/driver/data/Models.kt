@@ -175,6 +175,22 @@ data class DriverNotification(
     val createdAt: String?,
 )
 
+/**
+ * A dispatcher message loaded from the authenticated `/api/driver/mobile/messages` endpoint.
+ * Maps the production response: id, event_type, safe text, optional job routing, read state,
+ * status, and timestamp. Never populated by direct Supabase REST reads.
+ */
+data class DispatcherMessage(
+    val id: String,
+    val eventType: String,
+    val text: String?,
+    val jobId: String?,
+    val jobRef: String?,
+    val read: Boolean,
+    val status: String,
+    val createdAt: String,
+)
+
 data class DriverReturnJourney(
     val id: String,
     val fromLocation: String,

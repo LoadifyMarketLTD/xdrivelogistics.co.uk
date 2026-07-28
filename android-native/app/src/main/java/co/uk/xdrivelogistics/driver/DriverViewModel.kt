@@ -9,6 +9,7 @@ import co.uk.xdrivelogistics.driver.data.DriverAvailabilityStatus
 import co.uk.xdrivelogistics.driver.data.DriverBid
 import co.uk.xdrivelogistics.driver.data.DriverDocument
 import co.uk.xdrivelogistics.driver.data.DriverJob
+import co.uk.xdrivelogistics.driver.data.DispatcherMessage
 import co.uk.xdrivelogistics.driver.data.DriverNotification
 import co.uk.xdrivelogistics.driver.data.DriverProfile
 import co.uk.xdrivelogistics.driver.data.DriverReturnJourney
@@ -71,6 +72,14 @@ data class DriverUiState(
     val availability: DriverAvailability? = null,
     /** Non-null when the most recent availability load or refresh failed; null on success or before first load. */
     val availabilityError: String? = null,
+    /** Dispatcher messages loaded from the authenticated /api/driver/mobile/messages endpoint. */
+    val dispatcherMessages: List<DispatcherMessage> = emptyList(),
+    /** Server-confirmed count of unread dispatcher messages. */
+    val dispatcherUnreadCount: Int = 0,
+    /** Non-null when the most recent dispatcher messages load failed; null on success or before first load. */
+    val dispatcherMessagesError: String? = null,
+    /** True when there may be additional older messages available to paginate. */
+    val dispatcherMessagesHasMore: Boolean = false,
     val message: String = "",
     val error: String = "",
     /** Job IDs for which POD evidence has been uploaded but not yet finalised by the server. */
@@ -129,6 +138,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         jobSyncStates = emptyMap(),
                         availability = null,
                         availabilityError = null,
+                        dispatcherMessages = emptyList(),
+                        dispatcherUnreadCount = 0,
+                        dispatcherMessagesError = null,
+                        dispatcherMessagesHasMore = false,
                         pendingPodJobIds = emptySet(),
                         blockedPodJobIds = emptySet(),
                         marketplaceSelectedJobId = null,
@@ -248,11 +261,29 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 val documents = api.loadDriverDocuments(session, profile).getOrDefault(emptyList())
                 val preferences = api.loadJobSearchPreferences(session, profile.driverId).getOrDefault(emptyMap())
                 val bids = api.loadDriverBids(session, profile).getOrDefault(emptyList())
-                val notifications = api.loadDriverNotifications(session).getOrDefault(emptyList())
                 val returnJourney = api.loadReturnJourney(session, profile.driverId).getOrNull()
                 val invoices = api.loadDriverInvoices(session, profile.companyId).getOrDefault(emptyList())
                 val nearbyDrivers = api.loadNearbyDrivers(session, profile.companyId).getOrDefault(emptyList())
                 val marketplaceJobs = api.loadNearbyMarketplaceJobs(session).getOrDefault(emptyList())
+                // Load dispatcher messages via the authenticated server API.
+                // Never read notification_events or notifications directly via Supabase REST.
+                val messagesResult = api.loadDispatcherMessages(session)
+                val messagesAuthError = messagesResult.exceptionOrNull()?.takeIf { it.isSessionError() }
+                if (messagesAuthError != null) {
+                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                    if (allowRefresh) {
+                        refreshAndRetry(session)
+                    } else {
+                        sessionStore.clear()
+                        _uiState.value = DriverUiState(error = "Your session expired. Please sign in again.")
+                    }
+                    return@onSuccess
+                }
+                val loadedMessages = messagesResult.getOrNull()
+                val messagesLoadError: String? = if (messagesResult.isFailure) {
+                    messagesResult.exceptionOrNull()?.friendlyDriverMessage("Messages could not be loaded.")
+                        ?: "Messages could not be loaded."
+                } else null
                 val availabilityResult = api.loadAvailability(session)
                 // If the availability call returned a session/auth error, route it into the
                 // same guarded refresh-and-retry / expiry path used for profile and jobs errors.
@@ -292,7 +323,6 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             marketplaceJobs = marketplaceJobs,
                             documents = documents,
                             bids = bids,
-                            notifications = notifications,
                             returnJourney = returnJourney,
                             invoices = invoices,
                             nearbyDrivers = nearbyDrivers,
@@ -301,6 +331,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             jobSyncStates = jobSyncStatesForOwner(session.userId),
                             availability = loadedAvailability ?: _uiState.value.availability,
                             availabilityError = availabilityLoadError,
+                            dispatcherMessages = loadedMessages?.first ?: _uiState.value.dispatcherMessages,
+                            dispatcherUnreadCount = loadedMessages?.second ?: _uiState.value.dispatcherUnreadCount,
+                            dispatcherMessagesError = messagesLoadError,
+                            dispatcherMessagesHasMore = (loadedMessages?.first?.size ?: 0) >= 50,
                         )
                     }
                     .onFailure { error ->
@@ -393,6 +427,90 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             api.deleteNotification(session, notificationId)
                 .onSuccess { refreshDriverData() }
                 .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.friendlyDriverMessage("Failed to delete alert.")) }
+        }
+    }
+
+    /**
+     * Mark a single dispatcher message as read via the authenticated mobile messages API.
+     * UI state is updated only after server confirmation; stale owner responses are rejected.
+     */
+    fun markDispatcherMessageRead(messageId: String) {
+        viewModelScope.launch {
+            val session = _uiState.value.session ?: return@launch
+            api.markDispatcherMessageRead(session, messageId)
+                .onSuccess {
+                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                    _uiState.value = _uiState.value.copy(
+                        dispatcherMessages = _uiState.value.dispatcherMessages.map { msg ->
+                            if (msg.id == messageId) msg.copy(read = true, status = "read") else msg
+                        },
+                        dispatcherUnreadCount = maxOf(0, _uiState.value.dispatcherUnreadCount - 1),
+                        dispatcherMessagesError = null,
+                    )
+                }
+                .onFailure { error ->
+                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
+                    _uiState.value = _uiState.value.copy(
+                        error = error.friendlyDriverMessage("Failed to mark message read."),
+                    )
+                }
+        }
+    }
+
+    /**
+     * Mark all dispatcher messages as read via the authenticated mobile messages API.
+     * UI state is updated only after server confirmation; stale owner responses are rejected.
+     */
+    fun markAllDispatcherMessagesRead() {
+        viewModelScope.launch {
+            val session = _uiState.value.session ?: return@launch
+            api.markAllDispatcherMessagesRead(session)
+                .onSuccess {
+                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                    _uiState.value = _uiState.value.copy(
+                        dispatcherMessages = _uiState.value.dispatcherMessages.map { it.copy(read = true, status = "read") },
+                        dispatcherUnreadCount = 0,
+                        dispatcherMessagesError = null,
+                    )
+                }
+                .onFailure { error ->
+                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
+                    _uiState.value = _uiState.value.copy(
+                        error = error.friendlyDriverMessage("Failed to mark all messages read."),
+                    )
+                }
+        }
+    }
+
+    /**
+     * Loads the next page of dispatcher messages using the cursor-based `before` param.
+     * Appends results to the existing list, deduplicating by message ID so re-delivered
+     * messages or overlapping pages cannot introduce duplicate rows.
+     */
+    fun loadMoreDispatcherMessages() {
+        viewModelScope.launch {
+            val session = _uiState.value.session ?: return@launch
+            if (!_uiState.value.dispatcherMessagesHasMore) return@launch
+            val cursor = _uiState.value.dispatcherMessages.lastOrNull()?.createdAt ?: return@launch
+            val result = api.loadDispatcherMessages(session, before = cursor, limit = 50)
+            result
+                .onSuccess { (newMessages, _) ->
+                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                    val existing = _uiState.value.dispatcherMessages
+                    val existingIds = existing.mapTo(HashSet()) { it.id }
+                    val deduplicated = existing + newMessages.filter { it.id !in existingIds }
+                    _uiState.value = _uiState.value.copy(
+                        dispatcherMessages = deduplicated,
+                        dispatcherMessagesHasMore = newMessages.size >= 50,
+                        dispatcherMessagesError = null,
+                    )
+                }
+                .onFailure { error ->
+                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
+                    _uiState.value = _uiState.value.copy(
+                        dispatcherMessagesError = error.friendlyDriverMessage("Failed to load more messages."),
+                    )
+                }
         }
     }
 
