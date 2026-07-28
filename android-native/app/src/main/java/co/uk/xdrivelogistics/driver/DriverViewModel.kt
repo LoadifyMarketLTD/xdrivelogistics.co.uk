@@ -389,6 +389,65 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             }
     }
 
+    private suspend fun refreshSessionForOperationRetry(session: DriverSession): DriverSession? {
+        val refreshResult = api.refreshSession(session)
+        if (refreshResult.isSuccess) {
+            if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return null
+            val refreshed = refreshResult.getOrThrow()
+            sessionStore.saveSession(refreshed)
+            _uiState.value = _uiState.value.copy(
+                isAuthenticated = true,
+                session = refreshed,
+            )
+            return refreshed
+        }
+        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return null
+        expireSessionForRequest(session)
+        return null
+    }
+
+    private fun expireSessionForRequest(session: DriverSession) {
+        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return
+        sessionStore.clear()
+        _uiState.value = DriverUiState(error = "Your session expired. Please sign in again.")
+    }
+
+    private suspend fun <T> runWithSingleRefreshRetry(
+        initialSession: DriverSession,
+        operation: suspend (DriverSession) -> Result<T>,
+        onSuccess: (T, DriverSession) -> Unit,
+        onFailure: (Throwable) -> Unit,
+    ) {
+        var requestSession = initialSession
+        var didRefresh = false
+        while (true) {
+            if (!shouldApplyAvailabilityResponse(_uiState.value.session, requestSession)) return
+            val result = operation(requestSession)
+            if (result.isSuccess) {
+                if (!shouldApplyAvailabilityResponse(_uiState.value.session, requestSession)) return
+                onSuccess(result.getOrThrow(), requestSession)
+                return
+            }
+
+            val error = result.exceptionOrNull() ?: IllegalStateException("Operation failed.")
+            if (!shouldApplyAvailabilityResponse(_uiState.value.session, requestSession)) return
+
+            if (error.isSessionError()) {
+                if (!didRefresh) {
+                    val refreshed = refreshSessionForOperationRetry(requestSession) ?: return
+                    requestSession = refreshed
+                    didRefresh = true
+                    continue
+                }
+                expireSessionForRequest(requestSession)
+                return
+            }
+
+            onFailure(error)
+            return
+        }
+    }
+
     fun setDispatchNoteDraft(draft: String) {
         _uiState.value = _uiState.value.copy(dispatchNoteDraft = draft)
     }
@@ -411,31 +470,30 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 // Capture the job ID at request start so the draft is only cleared if the user
                 // has not switched to a different job before the server responds.
                 val requestJobId = selectedJob.id
+                val requestNote = note.trim()
 
                 _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-                api.sendQuickNote(session.accessToken, requestJobId, note.trim(), important)
-                    .onSuccess {
-                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
-                        // Clear draft only for the exact job the request was sent for.
-                        if (!shouldClearDispatchDraft(requestJobId, _uiState.value.selectedJobId)) return@onSuccess
+                runWithSingleRefreshRetry(
+                    initialSession = session,
+                    operation = { reqSession ->
+                        api.sendQuickNote(reqSession.accessToken, requestJobId, requestNote, important)
+                    },
+                    onSuccess = { _, _ ->
+                        val clearDraft = shouldClearDispatchDraft(requestJobId, _uiState.value.selectedJobId)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             message = "Dispatch note sent.",
-                            dispatchNoteDraft = "",
+                            dispatchNoteDraft = if (clearDraft) "" else _uiState.value.dispatchNoteDraft,
                         )
-                    }
-                    .onFailure { error ->
-                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
-                        if (error.isSessionError()) {
-                            refreshAndRetry(session)
-                        } else {
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                error = error.friendlyDriverMessage("Failed to send note."),
-                                // dispatchNoteDraft preserved on failure so the user can retry
-                            )
-                        }
-                    }
+                    },
+                    onFailure = { error ->
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = error.friendlyDriverMessage("Failed to send note."),
+                            // dispatchNoteDraft preserved on failure so the user can retry
+                        )
+                    },
+                )
             } finally {
                 dispatchNoteInFlight.release()
             }
@@ -456,25 +514,22 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             try {
                 val session = _uiState.value.session ?: return@launch
-                api.markDispatcherMessageRead(session, messageId)
-                    .onSuccess { serverUnreadCount ->
-                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                runWithSingleRefreshRetry(
+                    initialSession = session,
+                    operation = { reqSession -> api.markDispatcherMessageRead(reqSession, messageId) },
+                    onSuccess = { serverUnreadCount, _ ->
                         _uiState.value = _uiState.value.copy(
                             dispatcherMessages = applyMarkOneRead(_uiState.value.dispatcherMessages, messageId),
                             dispatcherUnreadCount = safeServerUnreadCount(_uiState.value.dispatcherUnreadCount, serverUnreadCount),
                             dispatcherMessagesError = null,
                         )
-                    }
-                    .onFailure { error ->
-                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
-                        if (error.isSessionError()) {
-                            refreshAndRetry(session)
-                        } else {
-                            _uiState.value = _uiState.value.copy(
-                                error = error.friendlyDriverMessage("Failed to mark message read."),
-                            )
-                        }
-                    }
+                    },
+                    onFailure = { error ->
+                        _uiState.value = _uiState.value.copy(
+                            error = error.friendlyDriverMessage("Failed to mark message read."),
+                        )
+                    },
+                )
             } finally {
                 releaseMarkOneGuard(markOneInFlight, messageId)
             }
@@ -493,25 +548,22 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             try {
                 val session = _uiState.value.session ?: return@launch
-                api.markAllDispatcherMessagesRead(session)
-                    .onSuccess { serverUnreadCount ->
-                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                runWithSingleRefreshRetry(
+                    initialSession = session,
+                    operation = { reqSession -> api.markAllDispatcherMessagesRead(reqSession) },
+                    onSuccess = { serverUnreadCount, _ ->
                         _uiState.value = _uiState.value.copy(
                             dispatcherMessages = applyMarkAllRead(_uiState.value.dispatcherMessages),
                             dispatcherUnreadCount = safeServerUnreadCount(_uiState.value.dispatcherUnreadCount, serverUnreadCount),
                             dispatcherMessagesError = null,
                         )
-                    }
-                    .onFailure { error ->
-                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
-                        if (error.isSessionError()) {
-                            refreshAndRetry(session)
-                        } else {
-                            _uiState.value = _uiState.value.copy(
-                                error = error.friendlyDriverMessage("Failed to mark all messages read."),
-                            )
-                        }
-                    }
+                    },
+                    onFailure = { error ->
+                        _uiState.value = _uiState.value.copy(
+                            error = error.friendlyDriverMessage("Failed to mark all messages read."),
+                        )
+                    },
+                )
             } finally {
                 markAllInFlight.release()
             }
@@ -532,34 +584,35 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             val session = _uiState.value.session ?: return@launch
             if (!_uiState.value.dispatcherMessagesHasMore) return@launch
             val lastMsg = _uiState.value.dispatcherMessages.lastOrNull() ?: return@launch
+            val requestBefore = lastMsg.createdAt
+            val requestBeforeId = lastMsg.id
             messagesLoadingMore = true
             try {
-                val result = api.loadDispatcherMessages(
-                    session,
-                    before = lastMsg.createdAt,
-                    beforeId = lastMsg.id,
-                    limit = 50,
-                )
-                result
-                    .onSuccess { (newMessages, _) ->
-                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                runWithSingleRefreshRetry(
+                    initialSession = session,
+                    operation = { reqSession ->
+                        api.loadDispatcherMessages(
+                            reqSession,
+                            before = requestBefore,
+                            beforeId = requestBeforeId,
+                            limit = 50,
+                        )
+                    },
+                    onSuccess = { payload, _ ->
+                        val (newMessages, _) = payload
                         val existing = _uiState.value.dispatcherMessages
                         _uiState.value = _uiState.value.copy(
                             dispatcherMessages = mergeDispatcherMessages(existing, newMessages),
                             dispatcherMessagesHasMore = newMessages.size >= 50,
                             dispatcherMessagesError = null,
                         )
-                    }
-                    .onFailure { error ->
-                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
-                        if (error.isSessionError()) {
-                            refreshAndRetry(session)
-                        } else {
-                            _uiState.value = _uiState.value.copy(
-                                dispatcherMessagesError = error.friendlyDriverMessage("Failed to load more messages."),
-                            )
-                        }
-                    }
+                    },
+                    onFailure = { error ->
+                        _uiState.value = _uiState.value.copy(
+                            dispatcherMessagesError = error.friendlyDriverMessage("Failed to load more messages."),
+                        )
+                    },
+                )
             } finally {
                 messagesLoadingMore = false
             }
