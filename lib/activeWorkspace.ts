@@ -78,7 +78,6 @@ const deriveLegacyWorkspace = (
   if (normalized === 'owner_driver' || normalized === 'owner_operator') return 'owner_operator';
   if (normalized === 'customer' || normalized === 'shipper') return 'shipper';
   if (normalized === 'broker') return 'broker';
-  if (normalized === 'owner_driver') return 'owner_operator';
   if (LEGACY_CARRIER_FLEET_COMPANY_TYPES.has(normalized)) return 'carrier_fleet';
   return null;
 };
@@ -133,7 +132,13 @@ export function resolveActiveCompanyContext(
   const isDriverSurfaceRoute =
     (targetPathname?.split('?')[0]?.split('#')[0] ?? '') === '/driver' ||
     (targetPathname?.split('?')[0]?.split('#')[0] ?? '').startsWith('/driver/');
-  const explicitlyRequestedWorkspace = activeWorkspace ?? targetWorkspace ?? routeWorkspace;
+
+  // /driver is a shared surface. When no trusted workspace selection is supplied,
+  // derive the active workspace from the selected company first. This allows an
+  // employed Company Driver in a carrier_fleet company to use /driver while an
+  // owner-driver company still resolves naturally to owner_operator.
+  const explicitlyRequestedWorkspace =
+    activeWorkspace ?? targetWorkspace ?? (isDriverSurfaceRoute ? null : routeWorkspace);
 
   const active = memberships.filter(
     (m) => {
