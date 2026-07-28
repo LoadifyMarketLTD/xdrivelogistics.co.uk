@@ -44,15 +44,19 @@ export const WORKSPACE_LABEL: Record<BusinessWorkspace, string> = {
 
 /**
  * High-level capabilities available within each workspace.
- * These align with the WorkspaceCapability strings in lib/workspaceRole.ts.
+ * These align with the WorkspaceCapability strings in lib/workspaceRole.ts
+ * and cover every capability referenced in the canonical route registry
+ * (lib/roleCapabilities.ts) for that workspace.
  */
 export const WORKSPACE_CAPABILITIES: Record<BusinessWorkspace, readonly WorkspaceCapability[]> = {
   owner_operator: [
     'loads.view.marketplace',
     'quotes.submit',
+    'jobs.view',
     'jobs.execute',
     'jobs.track',
     'documents.own.manage',
+    'invoices.carrier.manage',
   ],
   shipper: [
     'loads.create',
@@ -61,23 +65,30 @@ export const WORKSPACE_CAPABILITIES: Record<BusinessWorkspace, readonly Workspac
     'quotes.receive',
     'quotes.compare',
     'quotes.award',
+    'jobs.view',
     'jobs.track',
     'jobs.review_pod',
     'invoices.customer.manage',
+    'settings.manage',
   ],
   broker: [
+    'company.manage',
     'loads.create',
     'loads.publish',
+    'loads.view.own',
     'loads.view.marketplace',
     'quotes.submit',
     'quotes.receive',
     'quotes.compare',
     'quotes.award',
     'jobs.dispatch',
+    'jobs.track',
     'jobs.review_pod',
     'invoices.customer.manage',
     'invoices.carrier.manage',
     'margins.view',
+    'incidents.manage',
+    'settings.manage',
   ],
   carrier_fleet: [
     'loads.view.marketplace',
@@ -85,12 +96,21 @@ export const WORKSPACE_CAPABILITIES: Record<BusinessWorkspace, readonly Workspac
     'jobs.view',
     'jobs.allocate',
     'jobs.dispatch',
+    'jobs.execute',
     'jobs.track',
     'drivers.manage',
     'vehicles.manage',
     'fleet.positions.view',
+    'fleet.maintenance.manage',
     'documents.company.manage',
+    'documents.verify',
+    'invoices.customer.manage',
     'invoices.carrier.manage',
+    'payments.manage',
+    'margins.view',
+    'company.members.manage',
+    'incidents.manage',
+    'settings.manage',
   ],
 };
 

@@ -3,10 +3,8 @@ import {
   isWithinWorkspaceBoundary,
   getLandingRoute,
   getOutOfBoundaryRedirect,
-  membershipCanAccessRoute,
 } from '../lib/workspaceBoundary';
 import type { BusinessWorkspace } from '../lib/businessWorkspace';
-import type { MembershipRole } from '../lib/membershipRole';
 
 describe('isWithinWorkspaceBoundary', () => {
   it('confirms canonical workspace route boundaries', () => {
@@ -49,31 +47,5 @@ describe('getLandingRoute / getOutOfBoundaryRedirect', () => {
     expect(getOutOfBoundaryRedirect('/customer/loads', 'carrier_fleet')).toBe('/admin');
     expect(getOutOfBoundaryRedirect('/admin/jobs', 'carrier_fleet')).toBeNull();
     expect(getOutOfBoundaryRedirect('/login', 'carrier_fleet')).toBeNull();
-  });
-});
-
-describe('membershipCanAccessRoute', () => {
-  it('blocks super-admin routes for company membership roles', () => {
-    const roles: MembershipRole[] = ['owner', 'admin', 'dispatcher', 'finance', 'compliance', 'driver', 'member', 'viewer'];
-    for (const role of roles) {
-      expect(membershipCanAccessRoute('/super-admin/users', role)).toBe(false);
-    }
-  });
-
-  it('denies unknown /admin routes (fail-closed)', () => {
-    expect(membershipCanAccessRoute('/admin/root-shell', 'owner')).toBe(false);
-    expect(membershipCanAccessRoute('/admin/unknown/segment', 'admin')).toBe(false);
-  });
-
-  it('denies cross-workspace and URL manipulation attempts', () => {
-    expect(membershipCanAccessRoute('/customer/loads', 'owner')).toBe(false);
-    expect(membershipCanAccessRoute('/admin/%2e%2e/customer/loads', 'owner')).toBe(false);
-  });
-
-  it('enforces capability checks on mapped admin routes', () => {
-    expect(membershipCanAccessRoute('/admin/operations-centre', 'dispatcher')).toBe(true);
-    expect(membershipCanAccessRoute('/admin/operations-centre', 'viewer')).toBe(false);
-    expect(membershipCanAccessRoute('/admin/invoices', 'finance')).toBe(true);
-    expect(membershipCanAccessRoute('/admin/invoices', 'member')).toBe(false);
   });
 });

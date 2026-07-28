@@ -1,6 +1,8 @@
 import type { BusinessWorkspace } from './businessWorkspace';
 import { membershipHasCapability, resolveMembershipRole, type MembershipRole } from './membershipRole';
 import { resolveCompanyEnabledWorkspaces } from './activeWorkspace';
+import { workspaceHasCapability } from './businessWorkspace';
+import type { WorkspaceCapability } from './workspaceRole';
 import {
   cleanPathname,
   getProtectedRouteRequirement,
@@ -27,7 +29,7 @@ export type WorkspacePermissionInput = {
   activeWorkspace?: BusinessWorkspace | null;
   requestedWorkspace?: BusinessWorkspace | null;
   pathname: string;
-  requiredCapability?: string | null;
+  requiredCapability?: WorkspaceCapability | null;
 };
 
 export type WorkspacePermissionResult =
@@ -89,7 +91,11 @@ export function resolveWorkspacePermission(
       return { allowed: false, reason: 'unmapped_route' };
     }
 
-    if (input.requiredCapability && !membershipHasCapability(membershipRole, input.requiredCapability)) {
+    if (
+      input.requiredCapability &&
+      (!workspaceHasCapability(activeWorkspace, input.requiredCapability) ||
+        !membershipHasCapability(membershipRole, input.requiredCapability))
+    ) {
       return { allowed: false, reason: 'capability_not_permitted' };
     }
 
@@ -102,14 +108,19 @@ export function resolveWorkspacePermission(
 
   if (
     input.requiredCapability &&
-    !membershipHasCapability(membershipRole, input.requiredCapability)
+    (!workspaceHasCapability(activeWorkspace, input.requiredCapability) ||
+      !membershipHasCapability(membershipRole, input.requiredCapability))
   ) {
     return { allowed: false, reason: 'capability_not_permitted' };
   }
 
   if (
     routeRequirement.anyOf?.length &&
-    !routeRequirement.anyOf.some((capability) => membershipHasCapability(membershipRole, capability))
+    !routeRequirement.anyOf.some(
+      (capability) =>
+        workspaceHasCapability(activeWorkspace, capability) &&
+        membershipHasCapability(membershipRole, capability),
+    )
   ) {
     return { allowed: false, reason: 'capability_not_permitted' };
   }
