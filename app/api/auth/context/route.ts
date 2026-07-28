@@ -211,6 +211,32 @@ export async function GET(
         userId: source.user.id,
       });
       if (!recoverable.ok) return mapResolutionError(recoverable.error);
+
+      // Persist only when recovery produces a complete unambiguous context.
+      // When multiple memberships exist, recovery returns companySelectionRequired: true
+      // (current: null) and explicit selection is needed — do not mutate the profile.
+      if (recoverable.snapshot.current !== null) {
+        const { data: recovered, error: updateError } = await source.admin
+          .from('profiles')
+          .update({ company_id: recoverable.snapshot.current.companyId })
+          .eq('user_id', source.user.id)
+          .select('company_id')
+          .maybeSingle();
+
+        if (updateError) {
+          console.error('[Shared UI Context] stale recovery persistence failed', {
+            message: updateError.message,
+            userId: source.user.id,
+            recoveredCompanyId: recoverable.snapshot.current.companyId,
+          });
+          return json(500, { error: 'Unable to recover workspace context.' });
+        }
+
+        if (recovered?.company_id !== recoverable.snapshot.current.companyId) {
+          return json(409, { error: 'The recovered company selection could not be confirmed.' });
+        }
+      }
+
       return json(200, {
         ...recoverable.snapshot,
         staleSelectionCleared: true,

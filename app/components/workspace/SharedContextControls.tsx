@@ -64,9 +64,19 @@ export default function SharedContextControls({
 
         if (cancelled) return;
         setContext(body);
-        setSelectedCompanyId(body.current?.companyId ?? '');
+        setSelectedCompanyId(body.current?.companyId ?? body.selectedCompanyId ?? '');
         setSelectedWorkspace(body.current?.activeWorkspace ?? '');
         setError('');
+
+        if (body.staleSelectionCleared && body.current) {
+          const refreshResult = await refreshUserContext();
+          if (!refreshResult.success) {
+            setError(refreshResult.error || 'Unable to refresh after workspace recovery.');
+            return;
+          }
+          router.replace(body.current.landingRoute);
+          router.refresh();
+        }
       } catch (loadError) {
         if (!cancelled) {
           setError(
