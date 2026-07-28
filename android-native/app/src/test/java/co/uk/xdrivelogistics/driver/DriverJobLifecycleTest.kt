@@ -107,6 +107,39 @@ class DriverJobLifecycleTest {
         }
     }
 
+    @Test
+    fun `isActive is false for all non-operational statuses`() {
+        val inactiveStatuses = listOf(
+            // terminal/accounting
+            "delivered", "completed", "invoiced", "paid",
+            // cancelled variants
+            "cancelled", "canceled",
+            // pre-allocation
+            "posted", "quoted", "awarded",
+            // unknown / empty
+            "unknown_future_status", "",
+        )
+        for (s in inactiveStatuses) {
+            assertFalse("expected isActive()==false for '$s'", job(s).isActive())
+        }
+    }
+
+    @Test
+    fun `isActive is true for every assigned operational state`() {
+        val operationalStatuses = listOf(
+            "allocated",
+            "accepted",
+            "on_my_way_to_pickup",
+            "on_site_pickup",
+            "loaded",
+            "on_my_way_to_delivery",
+            "on_site_delivery",
+        )
+        for (s in operationalStatuses) {
+            assertTrue("expected isActive()==true for '$s'", job(s).isActive())
+        }
+    }
+
     private fun job(
         status: String,
         collectionPhotoUrl: String? = null,

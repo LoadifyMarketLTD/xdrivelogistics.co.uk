@@ -73,12 +73,14 @@ data class DriverJob(
         "in_progress",
     )
 
-    fun isActive(): Boolean = driverStatusKey() != "delivered" && statusKey() !in listOf(
-        "completed",
-        "cancelled",
-        "canceled",
-        "invoiced",
-        "paid",
+    fun isActive(): Boolean = driverStatusKey() in setOf(
+        "allocated",
+        "accepted",
+        "on_my_way_to_pickup",
+        "on_site_pickup",
+        "loaded",
+        "on_my_way_to_delivery",
+        "on_site_delivery",
     )
 
     fun hasPod(): Boolean = podGenerated || deliveryPhotos.isNotEmpty() || podPhotos.isNotEmpty()
