@@ -396,6 +396,7 @@ class ApiClient(
                         DispatcherMessage(
                             id = row.string("id"),
                             eventType = row.string("event_type"),
+                            entityId = row.nullableString("entity_id"),
                             text = row.nullableString("text"),
                             jobId = row.nullableString("job_id"),
                             jobRef = row.nullableString("job_ref"),

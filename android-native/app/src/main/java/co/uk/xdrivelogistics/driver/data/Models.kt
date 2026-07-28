@@ -183,6 +183,7 @@ data class DriverNotification(
 data class DispatcherMessage(
     val id: String,
     val eventType: String,
+    val entityId: String?,
     val text: String?,
     val jobId: String?,
     val jobRef: String?,

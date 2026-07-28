@@ -54,12 +54,14 @@ class DispatcherMessageTest {
         read: Boolean = false,
         jobId: String? = null,
         jobRef: String? = null,
+        entityId: String? = null,
         eventType: String = "dispatcher_message",
         text: String? = "Test message $id",
         createdAt: String = "2026-07-28T0${id.last()}:00:00Z",
     ) = DispatcherMessage(
         id = id,
         eventType = eventType,
+        entityId = entityId,
         text = text,
         jobId = jobId,
         jobRef = jobRef,
@@ -77,6 +79,7 @@ class DispatcherMessageTest {
         val message = DispatcherMessage(
             id = "msg-abc123",
             eventType = "dispatcher_message",
+            entityId = "entity-001",
             text = "You have been allocated job XDL-12345678",
             jobId = "job-uuid-001",
             jobRef = "XDL-JOB00001",
@@ -86,6 +89,7 @@ class DispatcherMessageTest {
         )
         assertEquals("msg-abc123", message.id)
         assertEquals("dispatcher_message", message.eventType)
+        assertEquals("entity-001", message.entityId)
         assertEquals("You have been allocated job XDL-12345678", message.text)
         assertEquals("job-uuid-001", message.jobId)
         assertEquals("XDL-JOB00001", message.jobRef)
@@ -99,6 +103,7 @@ class DispatcherMessageTest {
         val message = DispatcherMessage(
             id = "msg-no-text",
             eventType = "job_update",
+            entityId = null,
             text = null,
             jobId = null,
             jobRef = null,
@@ -467,6 +472,7 @@ class DispatcherMessageTest {
         val message = DispatcherMessage(
             id = "msg-routed",
             eventType = "job_allocated",
+            entityId = "job-00000001-0000-0000-0000-000000000000",
             text = "You have been allocated job XDL-12345678",
             jobId = "job-00000001-0000-0000-0000-000000000000",
             jobRef = "XDL-12345678",
@@ -484,6 +490,7 @@ class DispatcherMessageTest {
         val message = DispatcherMessage(
             id = "msg-unrouted",
             eventType = "support_message",
+            entityId = null,
             text = "Your account has been updated.",
             jobId = null,
             jobRef = null,
