@@ -325,6 +325,11 @@ class MainActivity : ComponentActivity() {
                                 val encoded = Uri.encode(destination)
                                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$encoded")))
                             },
+                            onLoadMoreMessages = viewModel::loadMoreDispatcherMessages,
+                            onOpenJobFromMessage = { jobId ->
+                                viewModel.selectJob(jobId)
+                                viewModel.changeTab(DriverTab.JOBS)
+                            },
                             onSetAvailabilityStatus = viewModel::setAvailabilityStatus,
                             onToggleAvailabilitySlot = viewModel::toggleAvailabilitySlot,
                         )
@@ -521,6 +526,8 @@ private fun DriverAppShell(
     onMoveStatus: (String) -> Unit,
     onMarkMessageRead: (String) -> Unit,
     onMarkAllMessagesRead: () -> Unit,
+    onLoadMoreMessages: () -> Unit,
+    onOpenJobFromMessage: (String) -> Unit,
     onSaveReturnJourney: (String, String, String) -> Unit,
     onConfirmDeliveryRecipient: (String) -> Unit,
     onStartTracking: () -> Unit,
@@ -564,7 +571,14 @@ private fun DriverAppShell(
                     onMoveStatus = onMoveStatus,
                     onNavigateTo = onNavigateTo,
                 )
-                DriverTab.MESSAGES -> MessagesScreen(state, onSendNote, onMarkMessageRead, onMarkAllMessagesRead)
+                DriverTab.MESSAGES -> MessagesScreen(
+                    state = state,
+                    onSendNote = onSendNote,
+                    onMarkRead = onMarkMessageRead,
+                    onMarkAllRead = onMarkAllMessagesRead,
+                    onLoadMore = onLoadMoreMessages,
+                    onOpenJob = onOpenJobFromMessage,
+                )
                 DriverTab.PROFILE -> ProfileScreen(state, onUpdatePassword, onLogout, onPickComplianceDocument, onSaveReturnJourney, onStartTracking, onStopTracking, onSetAvailabilityStatus, onToggleAvailabilitySlot)
             }
         }
@@ -1953,9 +1967,12 @@ private fun MessagesScreen(
     onSendNote: (String, Boolean) -> Unit,
     onMarkRead: (String) -> Unit,
     onMarkAllRead: () -> Unit,
+    onLoadMore: () -> Unit,
+    onOpenJob: (String) -> Unit,
 ) {
     var filter by remember { mutableStateOf("All") }
     var note by remember { mutableStateOf("") }
+    val assignedJobIds = remember(state.jobs) { state.jobs.mapTo(HashSet()) { it.id } }
     val visibleMessages = state.dispatcherMessages.filter { msg ->
         when (filter) {
             "Unread" -> !msg.read
@@ -2004,7 +2021,21 @@ private fun MessagesScreen(
             }
         } else {
             items(visibleMessages, key = { it.id }) { msg ->
-                DispatcherMessageCard(msg, onMarkRead)
+                DispatcherMessageCard(
+                    message = msg,
+                    onMarkRead = onMarkRead,
+                    onOpenJob = if (!msg.jobId.isNullOrBlank() && msg.jobId in assignedJobIds) onOpenJob else null,
+                )
+            }
+        }
+        if (state.dispatcherMessagesHasMore) {
+            item {
+                Button(
+                    onClick = onLoadMore,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = TextPrimary),
+                    shape = RoundedCornerShape(14.dp),
+                ) { Text("Load More", fontWeight = FontWeight.Bold) }
             }
         }
         item {
@@ -2029,6 +2060,7 @@ private fun MessagesScreen(
 private fun DispatcherMessageCard(
     message: DispatcherMessage,
     onMarkRead: (String) -> Unit,
+    onOpenJob: ((String) -> Unit)? = null,
 ) {
     XDriveCard {
         Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
@@ -2049,14 +2081,26 @@ private fun DispatcherMessageCard(
             color = TextSecondary,
             fontSize = 12.sp,
         )
-        if (!message.read) {
+        if (!message.read || (onOpenJob != null && !message.jobId.isNullOrBlank())) {
             Spacer(Modifier.height(10.dp))
-            Button(
-                onClick = { onMarkRead(message.id) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = TextPrimary),
-                shape = RoundedCornerShape(14.dp),
-            ) { Text("Mark Read", fontWeight = FontWeight.Bold) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                if (!message.read) {
+                    Button(
+                        onClick = { onMarkRead(message.id) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = TextPrimary),
+                        shape = RoundedCornerShape(14.dp),
+                    ) { Text("Mark Read", fontWeight = FontWeight.Bold) }
+                }
+                if (onOpenJob != null && !message.jobId.isNullOrBlank()) {
+                    Button(
+                        onClick = { onOpenJob(message.jobId!!) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
+                        shape = RoundedCornerShape(14.dp),
+                    ) { Text("Open Job", fontWeight = FontWeight.Bold) }
+                }
+            }
         }
     }
 }

@@ -17,10 +17,30 @@ export type MessagesResponse = {
   unread_count: number;
 };
 
-export async function fetchMessages(token: string, before?: string): Promise<MessagesResponse> {
-  const path = before
-    ? `/api/driver/mobile/messages?before=${encodeURIComponent(before)}`
-    : '/api/driver/mobile/messages';
+export type FetchMessagesOptions = {
+  /** ISO timestamp of the last row on the previous page. Used alone for the first cursor field. */
+  before?: string;
+  /** UUID of the last row on the previous page. Must be combined with `before` for lossless pagination. */
+  beforeId?: string;
+  /** Page size (1–200). Server clamps the value; defaults to 50. */
+  limit?: number;
+};
+
+/**
+ * Fetches dispatcher messages via the authenticated server API.
+ *
+ * Uses the two-field (created_at, id) exclusive cursor when both `before` and
+ * `beforeId` are supplied, ensuring lossless pagination even when multiple rows
+ * share the same `created_at` timestamp.
+ */
+export async function fetchMessages(token: string, options: FetchMessagesOptions = {}): Promise<MessagesResponse> {
+  const { before, beforeId, limit } = options;
+  const params = new URLSearchParams();
+  if (before) params.set('before', before);
+  if (beforeId) params.set('before_id', beforeId);
+  if (limit != null) params.set('limit', String(limit));
+  const query = params.toString();
+  const path = query ? `/api/driver/mobile/messages?${query}` : '/api/driver/mobile/messages';
   return apiRequest<MessagesResponse>(path, { token });
 }
 
