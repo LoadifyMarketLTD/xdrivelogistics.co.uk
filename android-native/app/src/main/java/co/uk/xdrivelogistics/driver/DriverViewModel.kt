@@ -254,6 +254,14 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 val nearbyDrivers = api.loadNearbyDrivers(session, profile.companyId).getOrDefault(emptyList())
                 val marketplaceJobs = api.loadNearbyMarketplaceJobs(session).getOrDefault(emptyList())
                 val availabilityResult = api.loadAvailability(session)
+                // If the availability call returned a session/auth error, route it into the
+                // same guarded refresh-and-retry / expiry path used for profile and jobs errors.
+                val availabilityAuthError = availabilityResult.exceptionOrNull()?.takeIf { it.isSessionError() }
+                if (availabilityAuthError != null && allowRefresh) {
+                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                    refreshAndRetry(session)
+                    return@onSuccess
+                }
                 val loadedAvailability = availabilityResult.getOrNull()
                 val availabilityLoadError: String? = if (availabilityResult.isFailure) {
                     availabilityResult.exceptionOrNull()?.friendlyDriverMessage("Availability could not be loaded.")
@@ -1252,20 +1260,23 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             api.updateAvailabilityStatus(session, newStatus)
                 .onSuccess { updated ->
                     if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
-                        _uiState.value = _uiState.value.copy(
-                            availability = updated,
-                            availabilityError = null,
-                            message = "Availability set to ${newStatus.label}.",
-                        )
-                    }
-                }
-                .onFailure { error ->
-                    if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
-                        _uiState.value = _uiState.value.copy(
-                            error = error.friendlyDriverMessage("Failed to update availability."),
-                        )
-                    }
-                }
+                       // Targeted merge: only update status from the server response.
+                       // This prevents an older status snapshot from reverting a newer
+                       // concurrent slot mutation that completed while this request was in flight.
+                       _uiState.value = _uiState.value.copy(
+                           availability = applyAvailabilityStatusResult(_uiState.value.availability, updated),
+                           availabilityError = null,
+                           message = "Availability set to ${newStatus.label}.",
+                       )
+                   }
+               }
+               .onFailure { error ->
+                   if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
+                       _uiState.value = _uiState.value.copy(
+                           error = error.friendlyDriverMessage("Failed to update availability."),
+                       )
+                   }
+               }
             availabilityMutationLock = releaseAvailabilityStatusLock(availabilityMutationLock, newStatus)
         }
     }
@@ -1275,24 +1286,35 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             val session = _uiState.value.session ?: return@launch
             val (nextLock, slotAccepted) = claimAvailabilitySlotLock(availabilityMutationLock, dayOfWeek, slot)
             if (!slotAccepted) {
-                _uiState.value = _uiState.value.copy(error = "Slot update already in progress.")
-                return@launch
+               _uiState.value = _uiState.value.copy(error = "Slot update already in progress.")
+               return@launch
             }
             availabilityMutationLock = nextLock
             _uiState.value = _uiState.value.copy(error = "", message = "")
             api.updateAvailabilitySlot(session, dayOfWeek, slot, available)
-                .onSuccess { updated ->
-                    if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
-                        _uiState.value = _uiState.value.copy(availability = updated, availabilityError = null)
-                    }
-                }
-                .onFailure { error ->
-                    if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
-                        _uiState.value = _uiState.value.copy(
-                            error = error.friendlyDriverMessage("Failed to update slot."),
-                        )
-                    }
-                }
+               .onSuccess { updated ->
+                   if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
+                       // Targeted merge: only update the specific slot confirmed by the server.
+                       // This prevents an older AM snapshot from reverting a newer PM result
+                       // when both mutations were in flight concurrently.
+                       _uiState.value = _uiState.value.copy(
+                           availability = applyAvailabilitySlotResult(
+                               current = _uiState.value.availability,
+                               serverResponse = updated,
+                               dayOfWeek = dayOfWeek,
+                               slot = slot,
+                           ),
+                           availabilityError = null,
+                       )
+                   }
+               }
+               .onFailure { error ->
+                   if (shouldApplyAvailabilityResponse(_uiState.value.session, session)) {
+                       _uiState.value = _uiState.value.copy(
+                           error = error.friendlyDriverMessage("Failed to update slot."),
+                       )
+                   }
+               }
             availabilityMutationLock = releaseAvailabilitySlotLock(availabilityMutationLock, dayOfWeek, slot)
         }
     }
@@ -1364,6 +1386,49 @@ internal fun releaseAvailabilitySlotLock(
 
 internal fun availabilitySlotTargetKey(dayOfWeek: Int, slot: String): String =
     "$dayOfWeek:${slot.trim().uppercase(Locale.ROOT)}"
+
+/**
+ * Targeted merge: applies only the status from [serverResponse], preserving [current] slots.
+ * An older status response cannot revert a newer concurrent slot mutation that completed while
+ * this request was in flight, because the slot list is taken from the current confirmed state.
+ */
+internal fun applyAvailabilityStatusResult(
+    current: DriverAvailability?,
+    serverResponse: DriverAvailability,
+): DriverAvailability = DriverAvailability(
+    status = serverResponse.status,
+    slots = current?.slots ?: serverResponse.slots,
+)
+
+/**
+ * Targeted merge: applies only the server-confirmed value for [dayOfWeek]/[slot] from
+ * [serverResponse], preserving the current status and all other slot values from [current].
+ * An older AM response cannot revert a newer PM result that completed while this request was
+ * in flight, because only the specific slot key is updated.
+ */
+internal fun applyAvailabilitySlotResult(
+    current: DriverAvailability?,
+    serverResponse: DriverAvailability,
+    dayOfWeek: Int,
+    slot: String,
+): DriverAvailability {
+    val normalizedSlot = slot.trim().uppercase(Locale.ROOT)
+    val serverSlot = serverResponse.slots.firstOrNull {
+        it.dayOfWeek == dayOfWeek && it.slot.equals(normalizedSlot, ignoreCase = true)
+    }
+    val baseSlots = current?.slots ?: serverResponse.slots
+    val mergedSlots = if (serverSlot != null) {
+        baseSlots.map { s ->
+            if (s.dayOfWeek == dayOfWeek && s.slot.equals(normalizedSlot, ignoreCase = true)) serverSlot else s
+        }
+    } else {
+        baseSlots
+    }
+    return DriverAvailability(
+        status = current?.status ?: serverResponse.status,
+        slots = mergedSlots,
+    )
+}
 
 internal fun shouldApplyAvailabilityResponse(currentSession: DriverSession?, requestSession: DriverSession): Boolean =
     currentSession?.userId == requestSession.userId &&

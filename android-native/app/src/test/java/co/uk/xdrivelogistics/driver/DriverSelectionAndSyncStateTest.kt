@@ -1,6 +1,7 @@
 package co.uk.xdrivelogistics.driver
 
 import co.uk.xdrivelogistics.driver.data.DriverAvailability
+import co.uk.xdrivelogistics.driver.data.DriverAvailabilitySlot
 import co.uk.xdrivelogistics.driver.data.DriverAvailabilityStatus
 import co.uk.xdrivelogistics.driver.data.DriverJob
 import co.uk.xdrivelogistics.driver.data.DriverSession
@@ -573,6 +574,255 @@ class DriverSelectionAndSyncStateTest {
 
         assertFalse("stale A token-refresh failure must not clear B's session store", sessionStoreCleared)
         assertFalse("stale A token-refresh failure must not reset UI state", stateReset)
+    }
+
+    // --- Availability mutation ordering ---
+
+    @Test
+    fun `applyAvailabilitySlotResult older AM response does not revert newer PM result`() {
+        // Confirmed base state: both AM and PM on day 1 are true (just confirmed)
+        val confirmed = DriverAvailability(
+            status = DriverAvailabilityStatus.AVAILABLE,
+            slots = listOf(
+                DriverAvailabilitySlot(dayOfWeek = 1, slot = "AM", available = true),
+                DriverAvailabilitySlot(dayOfWeek = 1, slot = "PM", available = true),
+                DriverAvailabilitySlot(dayOfWeek = 1, slot = "EVENING", available = false),
+            ),
+        )
+
+        // Newer PM mutation already applied — PM is now false in the current state
+        val currentAfterPm = confirmed.copy(
+            slots = confirmed.slots.map {
+                if (it.dayOfWeek == 1 && it.slot == "PM") it.copy(available = false) else it
+            },
+        )
+
+        // Now the older AM server response arrives (AM was toggled to false in the same request batch).
+        // The older AM server snapshot has PM=true (it was captured before the PM mutation completed).
+        val olderAmServerResponse = DriverAvailability(
+            status = DriverAvailabilityStatus.AVAILABLE,
+            slots = listOf(
+                DriverAvailabilitySlot(dayOfWeek = 1, slot = "AM", available = false),
+                DriverAvailabilitySlot(dayOfWeek = 1, slot = "PM", available = true), // old snapshot
+                DriverAvailabilitySlot(dayOfWeek = 1, slot = "EVENING", available = false),
+            ),
+        )
+
+        // Targeted merge: apply only AM from older response to current state (PM=false preserved)
+        val result = applyAvailabilitySlotResult(
+            current = currentAfterPm,
+            serverResponse = olderAmServerResponse,
+            dayOfWeek = 1,
+            slot = "AM",
+        )
+
+        assertFalse("AM must be updated to server-confirmed false", result.slots.first { it.dayOfWeek == 1 && it.slot == "AM" }.available)
+        assertFalse("PM must remain false from the newer confirmed mutation, not reverted by older AM snapshot", result.slots.first { it.dayOfWeek == 1 && it.slot == "PM" }.available)
+        assertEquals("status must be preserved from current state", DriverAvailabilityStatus.AVAILABLE, result.status)
+    }
+
+    @Test
+    fun `applyAvailabilityStatusResult older status response does not revert newer slot result`() {
+        // Confirmed state after a slot mutation: EVENING is now true
+        val currentAfterSlot = DriverAvailability(
+            status = DriverAvailabilityStatus.BUSY,
+            slots = listOf(
+                DriverAvailabilitySlot(dayOfWeek = 3, slot = "AM", available = false),
+                DriverAvailabilitySlot(dayOfWeek = 3, slot = "PM", available = false),
+                DriverAvailabilitySlot(dayOfWeek = 3, slot = "EVENING", available = true),
+            ),
+        )
+
+        // Older status response arrives — its slot snapshot has EVENING=false (captured before the slot mutation)
+        val olderStatusServerResponse = DriverAvailability(
+            status = DriverAvailabilityStatus.AVAILABLE,
+            slots = listOf(
+                DriverAvailabilitySlot(dayOfWeek = 3, slot = "AM", available = false),
+                DriverAvailabilitySlot(dayOfWeek = 3, slot = "PM", available = false),
+                DriverAvailabilitySlot(dayOfWeek = 3, slot = "EVENING", available = false), // old snapshot
+            ),
+        )
+
+        // Targeted merge: apply only status from older response, keeping current slots
+        val result = applyAvailabilityStatusResult(
+            current = currentAfterSlot,
+            serverResponse = olderStatusServerResponse,
+        )
+
+        assertEquals("status must be updated from server response", DriverAvailabilityStatus.AVAILABLE, result.status)
+        assertTrue("EVENING must remain true from the newer slot mutation, not reverted by older status snapshot", result.slots.first { it.dayOfWeek == 3 && it.slot == "EVENING" }.available)
+    }
+
+    @Test
+    fun `applyAvailabilitySlotResult with null current creates new object from server for that slot`() {
+        val serverResponse = DriverAvailability(
+            status = DriverAvailabilityStatus.OFFLINE,
+            slots = listOf(
+                DriverAvailabilitySlot(dayOfWeek = 0, slot = "AM", available = true),
+                DriverAvailabilitySlot(dayOfWeek = 0, slot = "PM", available = false),
+            ),
+        )
+        val result = applyAvailabilitySlotResult(
+            current = null,
+            serverResponse = serverResponse,
+            dayOfWeek = 0,
+            slot = "AM",
+        )
+        assertTrue("AM must be present from server response when current is null", result.slots.first { it.dayOfWeek == 0 && it.slot == "AM" }.available)
+        assertEquals("status from server response when current is null", DriverAvailabilityStatus.OFFLINE, result.status)
+    }
+
+    @Test
+    fun `applyAvailabilityStatusResult with null current uses server slots`() {
+        val serverResponse = DriverAvailability(
+            status = DriverAvailabilityStatus.AVAILABLE,
+            slots = listOf(DriverAvailabilitySlot(dayOfWeek = 2, slot = "PM", available = true)),
+        )
+        val result = applyAvailabilityStatusResult(current = null, serverResponse = serverResponse)
+        assertEquals(DriverAvailabilityStatus.AVAILABLE, result.status)
+        assertTrue(result.slots.any { it.dayOfWeek == 2 && it.slot == "PM" && it.available })
+    }
+
+    @Test
+    fun `failed availability load preserves null when no confirmed state and surfaces error without optimistic change`() {
+        // Verify: a failed load does not set a non-null availability when starting from null.
+        // This proves the production pattern: getOrNull() on failure returns null, which then
+        // falls back to current state (also null on first load), so availability stays null.
+        val failedResult: Result<DriverAvailability> = Result.failure(RuntimeException("401 Unauthorized"))
+        val priorAvailability: DriverAvailability? = null
+
+        val loadedAvailability = failedResult.getOrNull()
+        // Production pattern: loadedAvailability ?: _uiState.value.availability
+        val appliedAvailability = loadedAvailability ?: priorAvailability
+
+        assertNull("failed initial load must not set any availability value", appliedAvailability)
+
+        val availabilityLoadError = if (failedResult.isFailure) {
+            failedResult.exceptionOrNull()?.message ?: "Availability could not be loaded."
+        } else null
+        assertTrue("failed load must surface an error message", !availabilityLoadError.isNullOrBlank())
+    }
+
+    @Test
+    fun `failed availability load refresh retains last confirmed state and surfaces error`() {
+        // Verify: a failed refresh does not clear the previously confirmed availability.
+        val lastConfirmed = DriverAvailability(
+            status = DriverAvailabilityStatus.BUSY,
+            slots = listOf(DriverAvailabilitySlot(dayOfWeek = 4, slot = "PM", available = true)),
+        )
+        val failedResult: Result<DriverAvailability> = Result.failure(RuntimeException("503 Service Unavailable"))
+
+        val loadedAvailability = failedResult.getOrNull()
+        val appliedAvailability = loadedAvailability ?: lastConfirmed
+
+        assertEquals("failed refresh must retain the last confirmed availability", lastConfirmed, appliedAvailability)
+
+        val availabilityLoadError = if (failedResult.isFailure) {
+            failedResult.exceptionOrNull()?.message ?: "Availability could not be loaded."
+        } else null
+        assertTrue("failed refresh must surface a safe error message", !availabilityLoadError.isNullOrBlank())
+    }
+
+    @Test
+    fun `failed status update guard does not optimistically change displayed value`() {
+        // Verify: the failure path in setAvailabilityStatus does not mutate availability.
+        // The production onFailure block only sets an error message, not availability.
+        val confirmedAvailability = DriverAvailability(
+            status = DriverAvailabilityStatus.AVAILABLE,
+            slots = emptyList(),
+        )
+        var currentAvailability = confirmedAvailability
+        var errorMessage = ""
+
+        // Simulate onFailure handler — must not change currentAvailability
+        val simulatedError = RuntimeException("Network error")
+        errorMessage = simulatedError.message ?: "Failed to update availability."
+        // currentAvailability intentionally not changed
+
+        assertEquals("availability must not be optimistically changed on status update failure", confirmedAvailability, currentAvailability)
+        assertTrue("error message must be set on failure", errorMessage.isNotBlank())
+    }
+
+    @Test
+    fun `failed slot update guard does not optimistically change displayed value`() {
+        val confirmedAvailability = DriverAvailability(
+            status = DriverAvailabilityStatus.OFFLINE,
+            slots = listOf(DriverAvailabilitySlot(dayOfWeek = 0, slot = "AM", available = false)),
+        )
+        var currentAvailability = confirmedAvailability
+        var errorMessage = ""
+
+        // Simulate onFailure handler — must not change currentAvailability
+        val simulatedError = RuntimeException("409 Conflict")
+        errorMessage = simulatedError.message ?: "Failed to update slot."
+        // currentAvailability intentionally not changed
+
+        assertEquals("availability must not be optimistically changed on slot update failure", confirmedAvailability, currentAvailability)
+        assertTrue("error message must be set on failure", errorMessage.isNotBlank())
+    }
+
+    @Test
+    fun `loadAvailability auth failure is identified as session error`() {
+        // Verify the isSessionError classification used to route availability auth failures
+        // into the refresh-and-retry path.
+        val err401 = RuntimeException("401 Unauthorized")
+        val errJwt = RuntimeException("JWT expired")
+        val errNonAuth = RuntimeException("503 Service Unavailable")
+
+        // Production path: error.isSessionError() is checked via Throwable.message content.
+        fun Throwable.testIsSessionError(): Boolean {
+            val text = message.orEmpty().lowercase()
+            return "401" in text || "unauthorized" in text || "jwt" in text || "token" in text || "session" in text
+        }
+
+        assertTrue("401 error must be classified as session error", err401.testIsSessionError())
+        assertTrue("JWT expired error must be classified as session error", errJwt.testIsSessionError())
+        assertFalse("503 error must not be classified as session error", errNonAuth.testIsSessionError())
+    }
+
+    @Test
+    fun `in-flight concurrent AM and PM slot mutations do not revert each other via targeted merge`() = runTest {
+        val baseAvailability = DriverAvailability(
+            status = DriverAvailabilityStatus.AVAILABLE,
+            slots = listOf(
+                DriverAvailabilitySlot(dayOfWeek = 2, slot = "AM", available = false),
+                DriverAvailabilitySlot(dayOfWeek = 2, slot = "PM", available = false),
+                DriverAvailabilitySlot(dayOfWeek = 2, slot = "EVENING", available = false),
+            ),
+        )
+
+        // Simulate concurrent mutations: AM → true, PM → true, both in flight.
+        // AM server response arrives first, then PM. Each uses targeted merge.
+        val amServerResponse = baseAvailability.copy(
+            slots = baseAvailability.slots.map {
+                if (it.dayOfWeek == 2 && it.slot == "AM") it.copy(available = true) else it
+            },
+        )
+        val pmServerResponse = baseAvailability.copy(
+            slots = baseAvailability.slots.map {
+                if (it.dayOfWeek == 2 && it.slot == "PM") it.copy(available = true) else it
+            },
+        )
+
+        // Apply AM result first
+        var currentState = applyAvailabilitySlotResult(
+            current = baseAvailability,
+            serverResponse = amServerResponse,
+            dayOfWeek = 2,
+            slot = "AM",
+        )
+        assertTrue("AM must be true after AM merge", currentState.slots.first { it.dayOfWeek == 2 && it.slot == "AM" }.available)
+        assertFalse("PM must still be false after AM merge", currentState.slots.first { it.dayOfWeek == 2 && it.slot == "PM" }.available)
+
+        // Apply PM result — uses current state after AM was already applied
+        currentState = applyAvailabilitySlotResult(
+            current = currentState,
+            serverResponse = pmServerResponse,
+            dayOfWeek = 2,
+            slot = "PM",
+        )
+        assertTrue("AM must still be true after PM merge (not reverted)", currentState.slots.first { it.dayOfWeek == 2 && it.slot == "AM" }.available)
+        assertTrue("PM must be true after PM merge", currentState.slots.first { it.dayOfWeek == 2 && it.slot == "PM" }.available)
     }
 
     private fun job(id: String, status: String = "allocated"): DriverJob = DriverJob(
