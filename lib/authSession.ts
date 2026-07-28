@@ -100,6 +100,17 @@ const readMetadataFlag = (metadata: Record<string, unknown> | null | undefined, 
   return normalized === 'true' || normalized === '1' || normalized === 'yes';
 };
 
+const isMissingDriverCommercialColumn = (error: {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+} | null | undefined) => {
+  if (!error || error.code !== '42703') return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  return text.includes('driver_type') || text.includes('can_commercial_bid');
+};
+
 export const getFallbackRole = (sessionUser: SessionUser) =>
   readMetadataRole(sessionUser.app_metadata, 'role');
 
@@ -144,10 +155,16 @@ export const resolveAuthenticatedUser = async (
   const membershipLookupQuery =
     `company_memberships.select(id,company_id,user_id,role_in_company,status,companies(id,name,company_type,status)).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc)`;
   const driverLookupQuery =
+<<<<<<< HEAD
     `drivers.select(id,company_id,user_id,must_change_password,status,app_access,driver_type,can_commercial_bid).eq(user_id,${sessionUser.id})`;
+=======
+    `drivers.select(id,company_id,user_id,must_change_password,status,app_access,driver_type,can_commercial_bid).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
+  const driverLookupLegacyQuery =
+    `drivers.select(id,company_id,user_id,must_change_password,status,app_access).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
+>>>>>>> origin/main
   const creatorCompanyLookupQuery =
     `companies.select(id,company_type).eq(created_by,${sessionUser.id}).limit(1).maybeSingle()`;
-  const [profileRes, membershipResInitial, driverRes, creatorCompanyRes] = await Promise.all([
+  const [profileRes, membershipResInitial, driverResInitial, creatorCompanyRes] = await Promise.all([
     supabase
       .from('profiles')
       .select('role, status, is_driver, company_id')
@@ -171,6 +188,21 @@ export const resolveAuthenticatedUser = async (
       .limit(1)
       .maybeSingle(),
   ]);
+  let usedLegacyDriverFallback = false;
+  let driverLookupQueryUsed = driverLookupQuery;
+  const shouldRetryDriverLookupWithLegacyColumns = driverResInitial.error && isMissingDriverCommercialColumn(driverResInitial.error);
+  const driverRes = shouldRetryDriverLookupWithLegacyColumns
+    ? await supabase
+        .from('drivers')
+        .select('id, company_id, user_id, must_change_password, status, app_access')
+        .eq('user_id', sessionUser.id)
+        .limit(1)
+        .maybeSingle()
+    : driverResInitial;
+  if (shouldRetryDriverLookupWithLegacyColumns) {
+    usedLegacyDriverFallback = true;
+    driverLookupQueryUsed = driverLookupLegacyQuery;
+  }
 
   // If the membership query failed (e.g. created_at column missing → HTTP 400),
   // retry without ORDER BY so transient schema mismatches don't zero out membershipId.
@@ -210,6 +242,7 @@ export const resolveAuthenticatedUser = async (
     };
   }
 
+<<<<<<< HEAD
   if (profileDbError) {
     return { user: null, reason: 'db_error', dbError: profileDbError };
   }
@@ -228,11 +261,24 @@ export const resolveAuthenticatedUser = async (
       reason: 'db_error',
       dbError: toDbError(creatorCompanyLookupQuery, creatorCompanyRes.error),
     };
+=======
+  if (membershipRes.error || driverRes.error || creatorCompanyRes.error) {
+    console.debug('[XDrive Auth] profile lookup partial_error', {
+      userId: sessionUser.id,
+      membershipQuery: membershipLookupQuery,
+      membershipErr: membershipRes.error?.message,
+      driverQuery: driverLookupQueryUsed,
+      driverErr: driverRes.error?.message,
+      creatorCompanyQuery: creatorCompanyLookupQuery,
+      creatorCompanyErr: creatorCompanyRes.error?.message,
+    });
+>>>>>>> origin/main
   }
 
   let profile = profileDbError
     ? null
     : (profileRes.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'> | null);
+<<<<<<< HEAD
   const normalizedMemberships = membershipRes.error
     ? []
     : normalizeAuthMembershipRows((membershipRes.data ?? []) as AuthMembershipQueryRow[]);
@@ -252,6 +298,35 @@ export const resolveAuthenticatedUser = async (
   const driverRows = driverRes.error
     ? []
     : ((driverRes.data ?? []) as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password' | 'status' | 'app_access' | 'driver_type' | 'can_commercial_bid'>[]);
+=======
+  const memberships = membershipRes.error
+    ? null
+    : (membershipRes.data as Pick<CompanyMembership, 'id' | 'company_id' | 'role_in_company' | 'status'>[] | null);
+  const membershipFromProfile = memberships?.find(
+    (membership) =>
+      typeof profile?.company_id === 'string' &&
+      profile.company_id.length > 0 &&
+      membership.company_id === profile.company_id
+  );
+  let membership = membershipFromProfile ?? memberships?.[0] ?? null;
+  if (driverRes.error) {
+    return {
+      user: null,
+      reason: 'db_error',
+      dbError: {
+        query: driverLookupQueryUsed,
+        message: driverRes.error.message,
+        code: driverRes.error.code ?? null,
+        details: driverRes.error.details ?? null,
+        hint: driverRes.error.hint ?? null,
+      },
+    };
+  }
+
+  type DriverAuthRow = Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password' | 'status' | 'app_access'>
+    & Partial<Pick<Driver, 'driver_type' | 'can_commercial_bid'>>;
+  const driver = driverRes.data as DriverAuthRow | null;
+>>>>>>> origin/main
   const creatorCompany = creatorCompanyRes.error
     ? null
     : (creatorCompanyRes.data as { id: string; company_type: string | null } | null);
@@ -521,12 +596,19 @@ export const resolveAuthenticatedUser = async (
           resolvedMembershipRole,
           sessionUser
         ),
+<<<<<<< HEAD
         driverType: typeof scopedDriver?.driver_type === 'string' ? scopedDriver.driver_type : null,
         canCommercialBid: scopedDriver?.can_commercial_bid === true,
         driverStatus: typeof scopedDriver?.status === 'string' ? scopedDriver.status : null,
         appAccess: typeof scopedDriver?.app_access === 'boolean' ? scopedDriver.app_access : null,
         accountStatus,
         companyStatus,
+=======
+        driverType: usedLegacyDriverFallback ? null : (typeof driver?.driver_type === 'string' ? driver.driver_type : null),
+        canCommercialBid: usedLegacyDriverFallback ? false : driver?.can_commercial_bid === true,
+        driverStatus: typeof driver?.status === 'string' ? driver.status : null,
+        appAccess: typeof driver?.app_access === 'boolean' ? driver.app_access : null,
+>>>>>>> origin/main
       }
     );
   }
