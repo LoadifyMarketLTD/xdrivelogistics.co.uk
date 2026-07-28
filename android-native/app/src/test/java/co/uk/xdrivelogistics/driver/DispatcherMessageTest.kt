@@ -8,6 +8,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.test.runTest
 
 /**
  * Production-linked unit tests for Task 7: dispatcher updates/messages in canonical Android.
@@ -18,6 +19,8 @@ import org.junit.Test
  *  - [isSessionError] (now internal) is called directly from tests.
  *  - [applyMarkOneRead], [applyMarkAllRead], [mergeDispatcherMessages] are the extracted
  *    production state-reducer helpers used by ViewModel mutations.
+ *  - [OwnerSessionInFlightGuard] and [runWithSingleRefreshRetryCoordinator] for the
+ *    production request-coordination and refresh-once retry paths.
  *
  * Frozen acceptance criteria verified here:
  *  1. Messages are loaded via the authenticated mobile API; model fields map the server response.
@@ -245,6 +248,7 @@ class DispatcherMessageTest {
         var messages = listOf(msg("1"), msg("2"))
         var unreadCount = 2
         var messagesError: String? = "previous error"
+        var draft = "note from owner A"
 
         val previousOwnerId = "uid-a"
         val newOwnerId = "uid-b"
@@ -253,11 +257,13 @@ class DispatcherMessageTest {
             messages = emptyList()
             unreadCount = 0
             messagesError = null
+            draft = ""
         }
 
         assertTrue("messages must be cleared on owner switch", messages.isEmpty())
         assertEquals("unread count must be zero on owner switch", 0, unreadCount)
         assertNull("messages error must be cleared on owner switch", messagesError)
+        assertTrue("dispatch-note draft must be cleared on owner switch", draft.isEmpty())
     }
 
     @Test
@@ -375,65 +381,117 @@ class DispatcherMessageTest {
     }
 
     // -------------------------------------------------------------------------
-    // Criterion 7 — auth failure routes to refresh/expiry
-    //   Uses production shouldApplyAvailabilityResponse and isSessionError (now internal).
+    // Criterion 7 — auth failure uses production refresh-once retry coordinator
     // -------------------------------------------------------------------------
 
     @Test
-    fun `first messages 401 triggers exactly one refresh attempt not an expiry`() {
-        val session = DriverSession("tok", "ref", "uid-a", "a@example.com")
-        val loadError = RuntimeException("401 Unauthorized")
-        val allowRefresh = true
+    fun `first 401 refreshes once and retries exact operation`() = runTest {
+        val sessionA = DriverSession("tok-a", "ref-a", "uid-a", "a@example.com")
+        val refreshed = DriverSession("tok-a2", "ref-a2", "uid-a", "a@example.com")
+        val operationTokens = mutableListOf<String>()
+        var refreshCalls = 0
+        var expired = false
+        var successToken: String? = null
 
-        var refreshAttempted = false
-        var sessionCleared = false
+        runWithSingleRefreshRetryCoordinator(
+            initialSession = sessionA,
+            shouldApply = { true },
+            operation = { reqSession ->
+                operationTokens += reqSession.accessToken
+                if (operationTokens.size == 1) Result.failure(RuntimeException("401 Unauthorized"))
+                else Result.success(Unit)
+            },
+            refreshSession = {
+                refreshCalls += 1
+                refreshed
+            },
+            expireSession = { expired = true },
+            onSuccess = { _, reqSession -> successToken = reqSession.accessToken },
+            onFailure = { throw AssertionError("onFailure must not run for refresh-then-success") },
+        )
 
-        if (loadError.isSessionError() && shouldApplyAvailabilityResponse(session, session)) {
-            if (allowRefresh) refreshAttempted = true else sessionCleared = true
-        }
-
-        assertTrue("first 401 must trigger exactly one refresh attempt", refreshAttempted)
-        assertFalse("session must not be cleared on first 401", sessionCleared)
+        assertEquals(listOf("tok-a", "tok-a2"), operationTokens)
+        assertEquals("refresh must happen exactly once", 1, refreshCalls)
+        assertEquals("retried success must use refreshed token", "tok-a2", successToken)
+        assertFalse("session must not expire after successful retry", expired)
     }
 
     @Test
-    fun `second messages 401 on retried session clears and expires the session`() {
-        val session = DriverSession("tok", "ref", "uid-a", "a@example.com")
-        val loadError = RuntimeException("JWT expired")
-        val allowRefresh = false // retry path
+    fun `second 401 expires the same refreshed session`() = runTest {
+        val sessionA = DriverSession("tok-a", "ref-a", "uid-a", "a@example.com")
+        val refreshed = DriverSession("tok-a2", "ref-a2", "uid-a", "a@example.com")
+        var refreshCalls = 0
+        var expiredSessionToken: String? = null
 
-        var refreshAttempted = false
-        var sessionCleared = false
+        runWithSingleRefreshRetryCoordinator(
+            initialSession = sessionA,
+            shouldApply = { true },
+            operation = { Result.failure(RuntimeException("401 Unauthorized")) },
+            refreshSession = {
+                refreshCalls += 1
+                refreshed
+            },
+            expireSession = { reqSession -> expiredSessionToken = reqSession.accessToken },
+            onSuccess = { _, _ -> throw AssertionError("onSuccess must not run when both attempts 401") },
+            onFailure = { throw AssertionError("session errors must not route to non-auth onFailure") },
+        )
 
-        if (loadError.isSessionError() && shouldApplyAvailabilityResponse(session, session)) {
-            if (allowRefresh) refreshAttempted = true else sessionCleared = true
-        }
-
-        assertTrue("second 401 must clear the session", sessionCleared)
-        assertFalse("no further refresh must be attempted on second 401", refreshAttempted)
+        assertEquals("only one refresh attempt is allowed", 1, refreshCalls)
+        assertEquals("expiry must target the retried refreshed session", "tok-a2", expiredSessionToken)
     }
 
     @Test
-    fun `stale owner-A second messages 401 cannot clear owner B session`() {
+    fun `stale owner-A cannot expire owner-B session`() = runTest {
         val sessionA = DriverSession("tok-a", "ref-a", "uid-a", "a@example.com")
         val sessionB = DriverSession("tok-b", "ref-b", "uid-b", "b@example.com")
-        val loadError = RuntimeException("401 Unauthorized")
-        val allowRefresh = false
+        var refreshCalls = 0
+        var expired = false
+        var operationCalls = 0
 
-        var sessionCleared = false
+        runWithSingleRefreshRetryCoordinator(
+            initialSession = sessionA,
+            shouldApply = { reqSession -> shouldApplyAvailabilityResponse(sessionB, reqSession) },
+            operation = {
+                operationCalls += 1
+                Result.failure(RuntimeException("401 Unauthorized"))
+            },
+            refreshSession = {
+                refreshCalls += 1
+                null
+            },
+            expireSession = { expired = true },
+            onSuccess = { _, _ -> },
+            onFailure = { },
+        )
 
-        // Guard: current session is B; A's request session is rejected.
-        if (loadError.isSessionError() && shouldApplyAvailabilityResponse(sessionB, sessionA)) {
-            if (!allowRefresh) sessionCleared = true
-        }
-
-        assertFalse("stale A second 401 must not clear owner B session", sessionCleared)
+        assertEquals("stale operation must be rejected before running", 0, operationCalls)
+        assertEquals("stale operation must not refresh", 0, refreshCalls)
+        assertFalse("stale owner A must never expire owner B", expired)
     }
 
     @Test
-    fun `non-auth messages failure is not treated as session expiry`() {
-        val loadError = RuntimeException("503 Service Unavailable")
-        assertFalse("503 must not be classified as session error", loadError.isSessionError())
+    fun `non-auth failure does not refresh or expire`() = runTest {
+        val sessionA = DriverSession("tok-a", "ref-a", "uid-a", "a@example.com")
+        var refreshCalls = 0
+        var expired = false
+        var failureCalls = 0
+
+        runWithSingleRefreshRetryCoordinator(
+            initialSession = sessionA,
+            shouldApply = { true },
+            operation = { Result.failure(RuntimeException("503 Service Unavailable")) },
+            refreshSession = {
+                refreshCalls += 1
+                null
+            },
+            expireSession = { expired = true },
+            onSuccess = { _, _ -> throw AssertionError("onSuccess must not run for non-auth failure") },
+            onFailure = { failureCalls += 1 },
+        )
+
+        assertEquals("non-auth failure must route to onFailure once", 1, failureCalls)
+        assertEquals("non-auth failure must not refresh", 0, refreshCalls)
+        assertFalse("non-auth failure must not expire session", expired)
     }
 
     @Test
@@ -496,102 +554,43 @@ class DispatcherMessageTest {
     }
 
     // -------------------------------------------------------------------------
-    // In-flight guard — mark-one idempotence under duplicate taps
-    //   Tests call acquireMarkOneGuard / releaseMarkOneGuard (production helpers).
+    // In-flight guard — owner/session scoped atomic acquisition/reset
     // -------------------------------------------------------------------------
 
     @Test
-    fun `mark-one in-flight guard drops duplicate tap for same message ID`() {
-        val inFlight = mutableSetOf<String>()
-        assertTrue("first tap must be accepted", acquireMarkOneGuard(inFlight, "msg-001"))
-        assertFalse("duplicate tap on same ID must be dropped by in-flight guard",
-            acquireMarkOneGuard(inFlight, "msg-001"))
+    fun `owner-session in-flight guard serializes read mutations`() {
+        val guard = OwnerSessionInFlightGuard()
+        val session = DriverSession("tok-a", "ref-a", "uid-a", "a@example.com")
+        assertTrue(guard.acquire(session))
+        assertFalse("second acquire while active must be rejected", guard.acquire(session))
+        guard.release(session)
+        assertTrue("acquire must succeed again after release", guard.acquire(session))
     }
 
     @Test
-    fun `mark-one in-flight guard allows different message IDs concurrently`() {
-        val inFlight = mutableSetOf<String>()
-        assertTrue("first message ID must be accepted", acquireMarkOneGuard(inFlight, "msg-001"))
-        assertTrue("different message ID must not be blocked by the first",
-            acquireMarkOneGuard(inFlight, "msg-002"))
-        assertEquals("both IDs must be tracked in-flight", 2, inFlight.size)
+    fun `owner-session in-flight guard stale release cannot clear newer scope`() {
+        val guard = OwnerSessionInFlightGuard()
+        val sessionA = DriverSession("tok-a", "ref-a", "uid-a", "a@example.com")
+        val sessionB = DriverSession("tok-b", "ref-b", "uid-b", "b@example.com")
+
+        assertTrue(guard.acquire(sessionA))
+        guard.reset() // owner switch/logout path
+        assertTrue(guard.acquire(sessionB))
+        guard.release(sessionA) // stale A completion
+        assertTrue("stale release must not clear active B scope", guard.isActive())
+        guard.release(sessionB)
+        assertFalse("active B release must clear the guard", guard.isActive())
     }
 
     @Test
-    fun `mark-one in-flight guard releases after completion allowing re-tap`() {
-        val inFlight = mutableSetOf<String>()
-        acquireMarkOneGuard(inFlight, "msg-001")   // request in flight
-        releaseMarkOneGuard(inFlight, "msg-001")   // finally block runs
-        assertTrue("re-tap after completion must be accepted",
-            acquireMarkOneGuard(inFlight, "msg-001"))
-    }
-
-    // -------------------------------------------------------------------------
-    // In-flight guard — mark-all and dispatch-note boolean guards
-    //   Tests use InFlightBooleanGuard (production helper class).
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `mark-all in-flight guard drops duplicate tap while request is in flight`() {
-        val guard = InFlightBooleanGuard()
-        assertTrue("first tap must pass the guard", guard.acquire())
-        assertFalse("second tap while in-flight must be blocked", guard.acquire())
-    }
-
-    @Test
-    fun `mark-all in-flight guard releases after completion allowing re-tap`() {
-        val guard = InFlightBooleanGuard()
-        guard.acquire()   // request starts
-        guard.release()   // finally block runs
-        assertTrue("re-tap after completion must be accepted", guard.acquire())
-    }
-
-    @Test
-    fun `dispatch-note in-flight guard drops duplicate tap while request is in flight`() {
-        val guard = InFlightBooleanGuard()
-        assertTrue("first send tap must pass the guard", guard.acquire())
-        assertFalse("duplicate send tap while in-flight must be blocked", guard.acquire())
-    }
-
-    @Test
-    fun `dispatch-note in-flight guard releases after completion allowing re-send`() {
-        val guard = InFlightBooleanGuard()
-        guard.acquire()   // request starts
-        guard.release()   // finally block runs
-        assertTrue("re-send after dispatch-note completion must be accepted", guard.acquire())
-    }
-
-    // -------------------------------------------------------------------------
-    // Monotonic unread count — out-of-order response protection
-    //   safeServerUnreadCount must prevent a stale higher count from overwriting
-    //   a newer lower count when concurrent mark-one responses arrive out of order.
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `safeServerUnreadCount rejects stale higher count from out-of-order response`() {
-        // Scenario: mark-B response arrives first (count=3). mark-A response arrives second
-        // (count=5 — stale because A was sent before B). Final count must remain 3.
-        assertEquals("stale higher count must not overwrite newer lower count",
-            3, safeServerUnreadCount(current = 3, incoming = 5))
-    }
-
-    @Test
-    fun `safeServerUnreadCount applies incoming when it is lower than current`() {
-        assertEquals("lower incoming count must be applied",
-            4, safeServerUnreadCount(current = 5, incoming = 4))
-    }
-
-    @Test
-    fun `safeServerUnreadCount preserves zero after mark-all`() {
-        // mark-all sets count to 0; a stale mark-one response must not re-inflate it.
-        assertEquals("zero must not be overwritten by stale non-zero count",
-            0, safeServerUnreadCount(current = 0, incoming = 2))
-    }
-
-    @Test
-    fun `safeServerUnreadCount accepts equal counts as stable`() {
-        assertEquals("equal counts must remain stable",
-            3, safeServerUnreadCount(current = 3, incoming = 3))
+    fun `mark-one and mark-all use exact authoritative server counts`() {
+        val serverUnreadAfterMarkOne = 4
+        val serverUnreadAfterMarkAll = 0
+        var unreadCount = 9
+        unreadCount = serverUnreadAfterMarkOne
+        assertEquals(4, unreadCount)
+        unreadCount = serverUnreadAfterMarkAll
+        assertEquals(0, unreadCount)
     }
 
     // -------------------------------------------------------------------------

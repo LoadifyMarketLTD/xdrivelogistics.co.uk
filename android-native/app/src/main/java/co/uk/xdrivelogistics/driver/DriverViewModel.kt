@@ -117,14 +117,12 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     val uiState: StateFlow<DriverUiState> = _uiState.asStateFlow()
     private var liveRefreshJob: kotlinx.coroutines.Job? = null
     private var availabilityMutationLock = AvailabilityMutationLock()
-    /** Guards against two concurrent load-more requests appending duplicate pages. */
-    private var messagesLoadingMore = false
-    /** Guards against duplicate mark-one taps on the same message ID. */
-    private val markOneInFlight = mutableSetOf<String>()
-    /** Guards against concurrent duplicate mark-all taps. */
-    private val markAllInFlight = InFlightBooleanGuard()
-    /** Guards against concurrent duplicate dispatch-note send taps. */
-    private val dispatchNoteInFlight = InFlightBooleanGuard()
+    /** Owner/session-scoped in-flight guard for load-more pagination requests. */
+    private val loadMoreInFlight = OwnerSessionInFlightGuard()
+    /** Owner/session-scoped in-flight guard that serializes mark-one and mark-all mutations. */
+    private val readMutationInFlight = OwnerSessionInFlightGuard()
+    /** Owner/session-scoped in-flight guard for dispatch-note send requests. */
+    private val dispatchNoteInFlight = OwnerSessionInFlightGuard()
 
     init {
         mutationQueue.restore(queueStore.readAll())
@@ -132,6 +130,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             sessionStore.session.collectLatest { persisted ->
                 if (persisted == null) {
+                    clearOwnerScopedMessageRequestGuards()
                     _uiState.value = DriverUiState()
                     return@collectLatest
                 }
@@ -140,6 +139,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 // intermediate null), clear all owner-scoped state before loading the new data.
                 val previousOwnerId = _uiState.value.session?.userId
                 if (ownerChanged(previousOwnerId, persisted.userId)) {
+                    clearOwnerScopedMessageRequestGuards()
                     _uiState.value = _uiState.value.copy(
                         selectedJobId = null,
                         jobs = emptyList(),
@@ -150,6 +150,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         dispatcherUnreadCount = 0,
                         dispatcherMessagesError = null,
                         dispatcherMessagesHasMore = false,
+                        dispatchNoteDraft = "",
                         pendingPodJobIds = emptySet(),
                         blockedPodJobIds = emptySet(),
                         marketplaceSelectedJobId = null,
@@ -193,8 +194,15 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun logout() {
         viewModelScope.launch {
             liveRefreshJob?.cancel()
+            clearOwnerScopedMessageRequestGuards()
             sessionStore.clear()
         }
+    }
+
+    private fun clearOwnerScopedMessageRequestGuards() {
+        loadMoreInFlight.reset()
+        readMutationInFlight.reset()
+        dispatchNoteInFlight.reset()
     }
 
     private fun startLiveRefresh(session: DriverSession) {
@@ -418,34 +426,17 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         onSuccess: (T, DriverSession) -> Unit,
         onFailure: (Throwable) -> Unit,
     ) {
-        var requestSession = initialSession
-        var didRefresh = false
-        while (true) {
-            if (!shouldApplyAvailabilityResponse(_uiState.value.session, requestSession)) return
-            val result = operation(requestSession)
-            if (result.isSuccess) {
-                if (!shouldApplyAvailabilityResponse(_uiState.value.session, requestSession)) return
-                onSuccess(result.getOrThrow(), requestSession)
-                return
-            }
-
-            val error = result.exceptionOrNull() ?: IllegalStateException("Operation failed.")
-            if (!shouldApplyAvailabilityResponse(_uiState.value.session, requestSession)) return
-
-            if (error.isSessionError()) {
-                if (!didRefresh) {
-                    val refreshed = refreshSessionForOperationRetry(requestSession) ?: return
-                    requestSession = refreshed
-                    didRefresh = true
-                    continue
-                }
-                expireSessionForRequest(requestSession)
-                return
-            }
-
-            onFailure(error)
-            return
-        }
+        runWithSingleRefreshRetryCoordinator(
+            initialSession = initialSession,
+            shouldApply = { requestSession ->
+                shouldApplyAvailabilityResponse(_uiState.value.session, requestSession)
+            },
+            operation = operation,
+            refreshSession = { requestSession -> refreshSessionForOperationRetry(requestSession) },
+            expireSession = { requestSession -> expireSessionForRequest(requestSession) },
+            onSuccess = onSuccess,
+            onFailure = onFailure,
+        )
     }
 
     fun setDispatchNoteDraft(draft: String) {
@@ -453,10 +444,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun sendQuickNote(note: String, important: Boolean) {
-        if (!dispatchNoteInFlight.acquire()) return
+        val session = _uiState.value.session ?: return
+        if (!dispatchNoteInFlight.acquire(session)) return
         viewModelScope.launch {
             try {
-                val session = _uiState.value.session ?: return@launch
                 val profile = _uiState.value.profile ?: run {
                     _uiState.value = _uiState.value.copy(error = "Driver profile is unavailable. Refresh and try again.")
                     return@launch
@@ -495,7 +486,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     },
                 )
             } finally {
-                dispatchNoteInFlight.release()
+                dispatchNoteInFlight.release(session)
             }
         }
     }
@@ -506,21 +497,21 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
      * The unread count is taken from the server response, not blindly decremented locally,
      * so repeated taps or concurrent duplicate calls remain correct.
      *
-     * A [markOneInFlight] guard drops duplicate taps on the same message ID while a request
-     * for that ID is already in flight.
+     * Uses one owner/session-scoped read-mutation guard shared with mark-all so mark mutations
+     * execute in deterministic order and cannot race each other.
      */
     fun markDispatcherMessageRead(messageId: String) {
-        if (!acquireMarkOneGuard(markOneInFlight, messageId)) return
+        val session = _uiState.value.session ?: return
+        if (!readMutationInFlight.acquire(session)) return
         viewModelScope.launch {
             try {
-                val session = _uiState.value.session ?: return@launch
                 runWithSingleRefreshRetry(
                     initialSession = session,
                     operation = { reqSession -> api.markDispatcherMessageRead(reqSession, messageId) },
                     onSuccess = { serverUnreadCount, _ ->
                         _uiState.value = _uiState.value.copy(
                             dispatcherMessages = applyMarkOneRead(_uiState.value.dispatcherMessages, messageId),
-                            dispatcherUnreadCount = safeServerUnreadCount(_uiState.value.dispatcherUnreadCount, serverUnreadCount),
+                            dispatcherUnreadCount = serverUnreadCount,
                             dispatcherMessagesError = null,
                         )
                     },
@@ -531,7 +522,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     },
                 )
             } finally {
-                releaseMarkOneGuard(markOneInFlight, messageId)
+                readMutationInFlight.release(session)
             }
         }
     }
@@ -541,20 +532,21 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
      * UI state is updated only after server confirmation; stale owner responses are rejected.
      * The unread count is taken from the server response (always 0 after mark-all).
      *
-     * A [markAllInFlight] guard drops concurrent duplicate taps while the request is in flight.
+     * Uses one owner/session-scoped read-mutation guard shared with mark-one so mark mutations
+     * execute in deterministic order and cannot race each other.
      */
     fun markAllDispatcherMessagesRead() {
-        if (!markAllInFlight.acquire()) return
+        val session = _uiState.value.session ?: return
+        if (!readMutationInFlight.acquire(session)) return
         viewModelScope.launch {
             try {
-                val session = _uiState.value.session ?: return@launch
                 runWithSingleRefreshRetry(
                     initialSession = session,
                     operation = { reqSession -> api.markAllDispatcherMessagesRead(reqSession) },
                     onSuccess = { serverUnreadCount, _ ->
                         _uiState.value = _uiState.value.copy(
                             dispatcherMessages = applyMarkAllRead(_uiState.value.dispatcherMessages),
-                            dispatcherUnreadCount = safeServerUnreadCount(_uiState.value.dispatcherUnreadCount, serverUnreadCount),
+                            dispatcherUnreadCount = serverUnreadCount,
                             dispatcherMessagesError = null,
                         )
                     },
@@ -565,7 +557,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     },
                 )
             } finally {
-                markAllInFlight.release()
+                readMutationInFlight.release(session)
             }
         }
     }
@@ -575,18 +567,17 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
      * Appends results to the existing list, deduplicating by message ID so re-delivered
      * messages or overlapping pages cannot introduce duplicate rows.
      *
-     * A [messagesLoadingMore] guard prevents two concurrent invocations from both appending
-     * the same page: the second call is dropped while the first is in flight.
+     * Uses an owner/session-scoped guard acquired before launching the coroutine so two rapid
+     * taps cannot race past the guard and start duplicate in-flight page requests.
      */
     fun loadMoreDispatcherMessages() {
-        if (messagesLoadingMore) return
+        val session = _uiState.value.session ?: return
+        if (!_uiState.value.dispatcherMessagesHasMore) return
+        val lastMsg = _uiState.value.dispatcherMessages.lastOrNull() ?: return
+        val requestBefore = lastMsg.createdAt
+        val requestBeforeId = lastMsg.id
+        if (!loadMoreInFlight.acquire(session)) return
         viewModelScope.launch {
-            val session = _uiState.value.session ?: return@launch
-            if (!_uiState.value.dispatcherMessagesHasMore) return@launch
-            val lastMsg = _uiState.value.dispatcherMessages.lastOrNull() ?: return@launch
-            val requestBefore = lastMsg.createdAt
-            val requestBeforeId = lastMsg.id
-            messagesLoadingMore = true
             try {
                 runWithSingleRefreshRetry(
                     initialSession = session,
@@ -614,7 +605,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     },
                 )
             } finally {
-                messagesLoadingMore = false
+                loadMoreInFlight.release(session)
             }
         }
     }
@@ -1822,49 +1813,84 @@ internal fun mergeDispatcherMessages(
     return existing + newMessages.filter { it.id !in existingIds }
 }
 
-// ── In-flight guard helpers ───────────────────────────────────────────────────
+// ── Dispatcher request coordination helpers ──────────────────────────────────
+
+private data class SessionScope(val ownerId: String, val accessToken: String)
+
+private fun DriverSession.scope(): SessionScope = SessionScope(ownerId = userId, accessToken = accessToken)
 
 /**
- * Attempts to acquire a mark-one in-flight lock for [id].
- * Returns true if the lock was acquired (request may proceed) or false if a
- * request for the same ID is already in flight (duplicate tap — drop it).
+ * Owner/session-scoped in-flight guard used by dispatcher-message operations.
+ *
+ * - `acquire` succeeds only when no request is active.
+ * - `release` only clears the lock when called by the same owner+token scope.
+ * - `reset` force-clears all state (used on logout / direct owner switch A→B).
  */
-internal fun acquireMarkOneGuard(inFlight: MutableSet<String>, id: String): Boolean = inFlight.add(id)
+internal class OwnerSessionInFlightGuard {
+    private var activeScope: SessionScope? = null
 
-/**
- * Releases a mark-one in-flight lock for [id], called from a `finally` block so
- * that a re-tap is allowed after the request completes (success or failure).
- */
-internal fun releaseMarkOneGuard(inFlight: MutableSet<String>, id: String) {
-    inFlight.remove(id)
+    @Synchronized
+    fun acquire(session: DriverSession): Boolean {
+        if (activeScope != null) return false
+        activeScope = session.scope()
+        return true
+    }
+
+    @Synchronized
+    fun release(session: DriverSession) {
+        if (activeScope == session.scope()) {
+            activeScope = null
+        }
+    }
+
+    @Synchronized
+    fun reset() {
+        activeScope = null
+    }
+
+    @Synchronized
+    fun isActive(): Boolean = activeScope != null
 }
 
 /**
- * Reusable boolean in-flight guard for operations where only one concurrent
- * request at a time is permitted (mark-all, dispatch-note).
- *
- * [acquire] returns true on the first call (lock acquired) and false on any
- * subsequent call while the lock is held. [release] must be called from a
- * `finally` block to allow the next request.
+ * Shared production refresh-once coordinator used by operation-level auth retry flows.
  */
-internal class InFlightBooleanGuard {
-    private var active = false
-    fun acquire(): Boolean = if (active) false else { active = true; true }
-    fun release() { active = false }
-    fun isActive(): Boolean = active
+internal suspend fun <T> runWithSingleRefreshRetryCoordinator(
+    initialSession: DriverSession,
+    shouldApply: (DriverSession) -> Boolean,
+    operation: suspend (DriverSession) -> Result<T>,
+    refreshSession: suspend (DriverSession) -> DriverSession?,
+    expireSession: suspend (DriverSession) -> Unit,
+    onSuccess: (T, DriverSession) -> Unit,
+    onFailure: (Throwable) -> Unit,
+) {
+    var requestSession = initialSession
+    var didRefresh = false
+    while (true) {
+        if (!shouldApply(requestSession)) return
+        val result = operation(requestSession)
+        if (result.isSuccess) {
+            if (!shouldApply(requestSession)) return
+            onSuccess(result.getOrThrow(), requestSession)
+            return
+        }
+
+        val error = result.exceptionOrNull() ?: IllegalStateException("Operation failed.")
+        if (!shouldApply(requestSession)) return
+        if (error.isSessionError()) {
+            if (!didRefresh) {
+                val refreshed = refreshSession(requestSession) ?: return
+                requestSession = refreshed
+                didRefresh = true
+                continue
+            }
+            expireSession(requestSession)
+            return
+        }
+        onFailure(error)
+        return
+    }
 }
-
-// ── Unread-count monotonic guard ─────────────────────────────────────────────
-
-/**
- * Returns the smaller of [current] and [incoming], ensuring that an out-of-order
- * response carrying a stale (higher) unread count cannot overwrite a more recent
- * lower count already applied to the UI state.
- *
- * Example: mark-B response arrives (count=3), then mark-A response arrives late
- * (count=5). Using `minOf` keeps 3 — the more up-to-date value.
- */
-internal fun safeServerUnreadCount(current: Int, incoming: Int): Int = minOf(current, incoming)
 
 // ── Dispatch-note job identity guard ─────────────────────────────────────────
 
