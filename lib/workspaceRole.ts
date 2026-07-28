@@ -93,6 +93,9 @@ export const resolveWorkspaceRole = (user: WorkspaceUserLike | null | undefined)
   if (appRole === 'broker' || rawRole.includes('broker')) return 'broker';
   if (appRole === 'customer' || rawRole === 'customer' || rawRole === 'shipper' || rawRole === 'customer_shipper') return 'customer';
 
+  if (membershipRole === 'owner') return 'company_owner';
+  if (membershipRole === 'admin' || appRole === 'company_admin') return rawRole === 'carrier' ? 'carrier_admin' : 'company_admin';
+
   if (
     user.ownerDriverWorkspace === true ||
     ['owner_driver', 'owner_operator', 'self_employed', 'self_employed_driver', 'sole_trader'].includes(rawRole)
@@ -108,8 +111,6 @@ export const resolveWorkspaceRole = (user: WorkspaceUserLike | null | undefined)
   if (rawRole === 'compliance' || rawRole === 'compliance_manager' || membershipRole === 'compliance') return 'compliance';
   if (rawRole === 'viewer' || membershipRole === 'viewer') return 'viewer';
 
-  if (membershipRole === 'owner') return 'company_owner';
-  if (membershipRole === 'admin' || appRole === 'company_admin') return rawRole === 'carrier' ? 'carrier_admin' : 'company_admin';
   if (appRole === 'company_staff' || membershipRole === 'member') return 'carrier_admin';
 
   return 'viewer';
@@ -138,6 +139,17 @@ const CARRIER_COMMERCIAL: WorkspaceCapability[] = [
   'incidents.manage',
 ];
 
+const DRIVER_WORKSPACE_CAPABILITIES: WorkspaceCapability[] = [
+  'loads.view.marketplace',
+  'quotes.submit',
+  'jobs.view',
+  'jobs.execute',
+  'jobs.track',
+  'vehicles.manage',
+  'documents.own.manage',
+  'invoices.carrier.manage',
+];
+
 const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
   platform_owner: new Set<WorkspaceCapability>(['platform.manage', ...ALL_COMPANY_MANAGEMENT, ...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.execute', 'documents.own.manage', 'documents.verify', 'invoices.customer.manage', 'payments.manage', 'margins.view']),
   company_owner: new Set<WorkspaceCapability>([...ALL_COMPANY_MANAGEMENT, ...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'invoices.customer.manage', 'payments.manage', 'margins.view']),
@@ -147,8 +159,8 @@ const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
   customer: new Set<WorkspaceCapability>(['loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'invoices.customer.manage', 'settings.manage']),
   fleet_manager: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage', 'documents.company.manage', 'incidents.manage', 'settings.manage']),
   dispatcher: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'jobs.review_pod', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'incidents.manage']),
-  driver: new Set<WorkspaceCapability>(['jobs.view', 'jobs.execute', 'jobs.track', 'documents.own.manage']),
-  owner_driver: new Set<WorkspaceCapability>(['loads.view.marketplace', 'quotes.submit', 'jobs.view', 'jobs.execute', 'jobs.track', 'jobs.review_pod', 'vehicles.manage', 'documents.own.manage', 'invoices.carrier.manage']),
+  driver: new Set<WorkspaceCapability>(DRIVER_WORKSPACE_CAPABILITIES),
+  owner_driver: new Set<WorkspaceCapability>(DRIVER_WORKSPACE_CAPABILITIES),
   finance: new Set<WorkspaceCapability>(['jobs.view', 'invoices.customer.manage', 'invoices.carrier.manage', 'payments.manage', 'margins.view']),
   compliance: new Set<WorkspaceCapability>(['drivers.manage', 'vehicles.manage', 'documents.company.manage', 'documents.verify', 'incidents.manage']),
   viewer: new Set<WorkspaceCapability>(['jobs.view']),

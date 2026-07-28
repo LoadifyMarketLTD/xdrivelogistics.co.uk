@@ -7,13 +7,14 @@
  * perspective.
  *
  * Existing routes (do not change):
- *   /driver    → owner_operator commercial workspace surface
+ *   /driver    → shared driver workspace surface
  *   /customer  → shipper
  *   /broker    → broker
  *   /admin     → carrier_fleet  (legacy company / carrier-fleet control surface)
  *
- * Important: /driver is a shared route surface for both employed drivers and
- * owner-drivers. Route prefix alone never proves owner-operator commercial access.
+ * Important: /driver is a shared route surface for both employed/company
+ * drivers and owner-drivers with equivalent in-workspace permissions.
+ * Route prefix alone never proves valid driver security context.
  *
  * Do not confuse BusinessWorkspace with:
  *   - WorkspaceRole (lib/workspaceRole.ts) — the UI-level coarse role resolver.
@@ -24,7 +25,7 @@ import type { WorkspaceCapability } from './workspaceRole';
 
 /** The four XDrive business workspace types. */
 export type BusinessWorkspace =
-  | 'owner_operator'  // individual owner-driver; accesses /driver
+  | 'owner_operator'  // shared driver workspace surface; accesses /driver
   | 'shipper'         // customer / shipper company; accesses /customer
   | 'broker'          // freight broker; accesses /broker
   | 'carrier_fleet';  // carrier / fleet company; accesses /admin
@@ -133,8 +134,7 @@ export function workspaceHasCapability(
  */
 export function workspaceForRoute(pathname: string): BusinessWorkspace | null {
   const clean = pathname.split('?')[0]?.split('#')[0] ?? '';
-  // /driver maps to the owner_operator business surface for routing lookups,
-  // but commercial access still requires owner-driver proof from session facts.
+  // /driver maps to the shared driver business surface for routing lookups.
   if (clean === '/driver'   || clean.startsWith('/driver/'))   return 'owner_operator';
   if (clean === '/customer' || clean.startsWith('/customer/')) return 'shipper';
   if (clean === '/broker'   || clean.startsWith('/broker/'))   return 'broker';

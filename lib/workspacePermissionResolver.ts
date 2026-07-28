@@ -61,6 +61,9 @@ const hasPathTraversalSignal = (pathname: string): boolean => {
 const isActiveStatus = (value: string | null | undefined): boolean =>
   ((value ?? 'active').trim().toLowerCase() === 'active');
 
+const isExplicitActiveStatus = (value: string | null | undefined): boolean =>
+  typeof value === 'string' && value.trim().toLowerCase() === 'active';
+
 const isDriverSurfaceRoute = (pathname: string): boolean =>
   pathname === '/driver' || pathname.startsWith('/driver/');
 
@@ -80,6 +83,7 @@ export function resolveWorkspacePermission(
   input: WorkspacePermissionInput,
 ): WorkspacePermissionResult {
   const pathname = cleanPathname(input.pathname);
+  const driverRoute = isDriverSurfaceRoute(pathname);
 
   if (hasPathTraversalSignal(pathname)) {
     return { allowed: false, reason: 'malformed_route' };
@@ -137,7 +141,7 @@ export function resolveWorkspacePermission(
     if (
       input.requiredCapability &&
       (!workspaceHasCapability(activeWorkspace, input.requiredCapability) ||
-        !membershipHasCapability(membershipRole, input.requiredCapability))
+        (!driverRoute && !membershipHasCapability(membershipRole, input.requiredCapability)))
     ) {
       return { allowed: false, reason: 'capability_not_permitted' };
     }
@@ -156,27 +160,25 @@ export function resolveWorkspacePermission(
   }
 
   if (isDriverSurfaceRoute(pathname)) {
-    if (!isActiveStatus(input.driverStatus)) {
+    const isChangePasswordRoute = pathname === '/driver/change-password' || pathname.startsWith('/driver/change-password/');
+    if (!isChangePasswordRoute && !input.driverId) {
+      return { allowed: false, reason: 'driver_context_required' };
+    }
+    if (!isExplicitActiveStatus(input.accountStatus)) {
+      return { allowed: false, reason: 'account_inactive' };
+    }
+    if (!isExplicitActiveStatus(input.companyStatus)) {
+      return { allowed: false, reason: 'company_inactive' };
+    }
+    if (!isExplicitActiveStatus(input.driverStatus)) {
       return { allowed: false, reason: 'driver_inactive' };
     }
-    if (input.appAccess === false) {
+    if (input.appAccess !== true) {
       return { allowed: false, reason: 'driver_app_access_denied' };
     }
   }
 
   if (isDriverCommercialRoute(pathname)) {
-    if (!input.driverId) {
-      return { allowed: false, reason: 'driver_context_required' };
-    }
-
-    if (
-      input.workspaceRole !== 'owner_driver' ||
-      input.ownerDriverWorkspace !== true ||
-      input.ownerDriverExecutionMode !== true
-    ) {
-      return { allowed: false, reason: 'owner_driver_proof_required' };
-    }
-
     const isQuoteRoute = pathname === '/driver/quotes' || pathname.startsWith('/driver/quotes/');
     if (isQuoteRoute && input.canCommercialBid !== true) {
       return { allowed: false, reason: 'commercial_bidding_disabled' };
@@ -193,7 +195,7 @@ export function resolveWorkspacePermission(
   if (
     input.requiredCapability &&
     (!workspaceHasCapability(activeWorkspace, input.requiredCapability) ||
-      !membershipHasCapability(membershipRole, input.requiredCapability))
+      (!driverRoute && !membershipHasCapability(membershipRole, input.requiredCapability)))
   ) {
     return { allowed: false, reason: 'capability_not_permitted' };
   }
@@ -203,7 +205,7 @@ export function resolveWorkspacePermission(
     !routeRequirement.anyOf.some(
       (capability) =>
         workspaceHasCapability(activeWorkspace, capability) &&
-        membershipHasCapability(membershipRole, capability),
+        (driverRoute || membershipHasCapability(membershipRole, capability)),
     )
   ) {
     return { allowed: false, reason: 'capability_not_permitted' };
