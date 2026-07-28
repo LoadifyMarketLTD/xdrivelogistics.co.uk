@@ -10,6 +10,12 @@ import {
   hasScopedDriverBootstrapEvidence,
   resolveSafeBootstrapProfileRole,
 } from './bootstrapProfileRole';
+import {
+  normalizeAuthMembershipRows,
+  resolveAuthActiveCompanySelection,
+  type AuthMembershipQueryRow,
+} from './authActiveCompanyContext';
+import type { RawMembershipRow } from './activeWorkspace';
 import { resolveAuthContext } from './authContextResolver';
 import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './driverWorkspaceMode';
 import { supabase } from './supabaseClient';
@@ -136,7 +142,7 @@ export const resolveAuthenticatedUser = async (
   const ownerDriverExecutionModeRequested = isDriverExecutionModeRequested(sessionUser.user_metadata, sessionUser.app_metadata);
   const profileLookupQuery = `profiles.select(role,status,is_driver,company_id).eq(user_id,${sessionUser.id}).maybeSingle()`;
   const membershipLookupQuery =
-    `company_memberships.select(id,company_id,role_in_company,status).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc)`;
+    `company_memberships.select(id,company_id,user_id,role_in_company,status,companies(id,name,company_type,status)).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc)`;
   const driverLookupQuery =
     `drivers.select(id,company_id,user_id,must_change_password,status,app_access,driver_type,can_commercial_bid).eq(user_id,${sessionUser.id})`;
   const creatorCompanyLookupQuery =
@@ -149,7 +155,7 @@ export const resolveAuthenticatedUser = async (
       .maybeSingle(),
     supabase
       .from('company_memberships')
-      .select('id, company_id, role_in_company, status')
+      .select('id, company_id, user_id, role_in_company, status, companies(id, name, company_type, status)')
       .eq('user_id', sessionUser.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false }),
@@ -171,7 +177,7 @@ export const resolveAuthenticatedUser = async (
   const membershipRes = membershipResInitial.error
     ? await supabase
         .from('company_memberships')
-        .select('id, company_id, role_in_company, status')
+      .select('id, company_id, user_id, role_in_company, status, companies(id, name, company_type, status)')
         .eq('user_id', sessionUser.id)
         .eq('status', 'active')
     : membershipResInitial;
@@ -214,20 +220,25 @@ export const resolveAuthenticatedUser = async (
   let profile = profileDbError
     ? null
     : (profileRes.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'> | null);
-  const memberships = membershipRes.error
-    ? null
-    : (membershipRes.data as Pick<CompanyMembership, 'id' | 'company_id' | 'role_in_company' | 'status'>[] | null);
-  const membershipFromProfile = memberships?.find(
-    (membership) =>
-      typeof profile?.company_id === 'string' &&
-      profile.company_id.length > 0 &&
-      membership.company_id === profile.company_id
-  );
-  let membership = membershipFromProfile ?? memberships?.[0] ?? null;
+  const normalizedMemberships = membershipRes.error
+    ? []
+    : normalizeAuthMembershipRows((membershipRes.data ?? []) as AuthMembershipQueryRow[]);
+  let membership = null as RawMembershipRow | null;
+  if (normalizedMemberships.length > 0) {
+    const companySelection = resolveAuthActiveCompanySelection({
+      memberships: normalizedMemberships,
+      preferredCompanyId: profile?.company_id ?? null,
+    });
+
+    if (!companySelection.ok) {
+      return { user: null, reason: 'company_context_missing' };
+    }
+
+    membership = companySelection.membership;
+  }
   const driverRows = driverRes.error
     ? []
     : ((driverRes.data ?? []) as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password' | 'status' | 'app_access' | 'driver_type' | 'can_commercial_bid'>[]);
-  const anyDriver = driverRows[0] ?? null;
   const creatorCompany = creatorCompanyRes.error
     ? null
     : (creatorCompanyRes.data as { id: string; company_type: string | null } | null);
@@ -259,7 +270,7 @@ export const resolveAuthenticatedUser = async (
     }
   }
 
-  let companyId = profile?.company_id ?? membership?.company_id ?? creatorCompany?.id ?? null;
+  let companyId = membership?.company_id ?? profile?.company_id ?? creatorCompany?.id ?? null;
   const isStandaloneDriverAccount =
     !companyId &&
     !membership?.company_id &&
@@ -335,18 +346,21 @@ export const resolveAuthenticatedUser = async (
       // membershipId are populated for the rest of this auth resolution.
       const freshMembershipRes = await supabase
         .from('company_memberships')
-        .select('id, company_id, role_in_company, status')
+        .select('id, company_id, user_id, role_in_company, status, companies(id, name, company_type, status)')
         .eq('user_id', sessionUser.id)
         .eq('company_id', bootstrappedId)
         .eq('status', 'active')
-        .maybeSingle();
-      if (!freshMembershipRes.error && freshMembershipRes.data) {
-        membership = freshMembershipRes.data as Pick<CompanyMembership, 'id' | 'company_id' | 'role_in_company' | 'status'>;
+        .limit(1);
+      if (!freshMembershipRes.error && freshMembershipRes.data?.length) {
+        const refreshed = normalizeAuthMembershipRows(
+          freshMembershipRes.data as AuthMembershipQueryRow[],
+        );
+        membership = refreshed[0] ?? membership;
       }
     }
   }
 
-  const activeMembershipCompanyIds = memberships?.map((membershipRow) => membershipRow.company_id) ?? [];
+  const activeMembershipCompanyIds = normalizedMemberships.map((membershipRow) => membershipRow.company_id);
   const bootstrapScopedDriverEvidence = findScopedDriverEvidence({
     drivers: driverRows,
     sessionUserId: sessionUser.id,
@@ -393,7 +407,7 @@ export const resolveAuthenticatedUser = async (
     fallbackRole,
     profileCompanyId: profile?.company_id ?? null,
     membershipCompanyId: membership?.company_id ?? null,
-    driverCompanyId: bootstrapScopedDriverEvidence?.company_id ?? anyDriver?.company_id ?? null,
+    driverCompanyId: bootstrapScopedDriverEvidence?.company_id ?? null,
     creatorCompanyId: creatorCompany?.id ?? null,
     mustChangePassword: bootstrapScopedDriverEvidence?.must_change_password === true,
     ownerDriverWorkspaceRequested,
@@ -408,7 +422,7 @@ export const resolveAuthenticatedUser = async (
   // from the final resolved value when multiple active memberships exist.
   const resolvedMembership =
     companyId != null
-      ? (memberships?.find((m) => m.company_id === companyId) ?? membership)
+      ? (normalizedMemberships.find((m) => m.company_id === companyId) ?? membership)
       : membership;
   const scopedDriver = findScopedDriverEvidence({
     drivers: driverRows,
@@ -472,7 +486,7 @@ export const resolveAuthenticatedUser = async (
       resolvedRole,
       companyId,
       resolvedMembership?.id ?? null,
-      resolvedMembership?.role_in_company ?? null,
+      (resolvedMembership?.role_in_company as CompanyMembership['role_in_company'] | null) ?? null,
       scopedDriverId,
       resolvedRole === 'driver' ? scopedMustChangePassword : false,
       {
