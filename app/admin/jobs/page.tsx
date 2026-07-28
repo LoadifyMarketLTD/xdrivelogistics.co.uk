@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { JOB_STATUS } from '../../config/company';
@@ -10,6 +10,7 @@ import { getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
 import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPostingDetails';
+import { StatusBadge, ActionButton } from '../../components/workspace/WorkspaceUI';
 
 interface Job {
  id: string;
@@ -168,6 +169,15 @@ export default function JobsPage() {
  });
  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
+ const [expandedJobIds, setExpandedJobIds] = useState<Set<string>>(new Set());
+
+ const toggleExpanded = useCallback((id: string) => {
+   setExpandedJobIds((prev) => {
+     const next = new Set(prev);
+     if (next.has(id)) { next.delete(id); } else { next.add(id); }
+     return next;
+   });
+ }, []);
 
  const loadCompanyId = async (userId: string) => {
  setCompanyLoading(true);
@@ -656,21 +666,6 @@ export default function JobsPage() {
  setFormErrors({});
  };
 
- const getStatusColor = (status: string) => {
- switch (status) {
- case JOB_STATUS.RECEIVED:
- return { bg: '#fef3c7', text: '#92400e', border: '#fbbf24' };
- case JOB_STATUS.POSTED:
- return { bg: '#dbeafe', text: '#1e3a8a', border: '#5C9FD8' };
- case JOB_STATUS.ALLOCATED:
- return { bg: '#e9d5ff', text: '#581c87', border: '#a855f7' };
- case JOB_STATUS.DELIVERED:
- return { bg: '#dcfce7', text: '#14532d', border: '#1F7A3D' };
- default:
- return { bg: '#f3f4f6', text: '#1f2937', border: '#9ca3af' };
- }
- };
-
  const getStatusCount = (status: string) => {
  if (status === 'All') return jobs.length;
  return jobs.filter(job => job.status === status).length;
@@ -900,171 +895,206 @@ export default function JobsPage() {
  overflow: 'hidden'
  }}>
  <div style={{ overflowX: 'auto' }}>
- <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+ <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
  <thead>
- <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Job Ref</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Client</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Pickup to Delivery</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Distance</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Vehicle Type</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Payment Terms</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Status</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Created Date</th>
- <th style={{ padding: '0.8rem', textAlign: 'center', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Actions</th>
+ <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+ <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontWeight: 700, fontSize: '0.7rem', color: '#475569', letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Job Ref</th>
+ <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontWeight: 700, fontSize: '0.7rem', color: '#475569', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Client</th>
+ <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontWeight: 700, fontSize: '0.7rem', color: '#475569', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Pickup</th>
+ <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontWeight: 700, fontSize: '0.7rem', color: '#475569', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Delivery</th>
+ <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontWeight: 700, fontSize: '0.7rem', color: '#475569', letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Vehicle</th>
+ <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontWeight: 700, fontSize: '0.7rem', color: '#475569', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Assignment</th>
+ <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontWeight: 700, fontSize: '0.7rem', color: '#475569', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Status</th>
+ <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontWeight: 700, fontSize: '0.7rem', color: '#475569', letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Date</th>
+ <th style={{ padding: '0.6rem 0.75rem', textAlign: 'center', fontWeight: 700, fontSize: '0.7rem', color: '#475569', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Actions</th>
  </tr>
  </thead>
  <tbody>
  {filteredJobs.length === 0 ? (
  <tr>
  <td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
- <div style={{ fontSize: '3rem', marginBottom: '1rem' }}> </div>
- <div style={{ fontSize: '1.1rem', fontWeight: '500' }}>No jobs found</div>
- <div style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
- {searchTerm || statusFilter !== 'All'
- ? 'Try adjusting your filters'
- : 'Create your first job to get started'}
+ <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>📋</div>
+ <div style={{ fontSize: '1rem', fontWeight: '600' }}>No jobs found</div>
+ <div style={{ fontSize: '0.85rem', marginTop: '0.4rem' }}>
+ {searchTerm || statusFilter !== 'All' ? 'Try adjusting your filters' : 'Create your first job to get started'}
  </div>
  </td>
  </tr>
  ) : (
- filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map((job, index) => {
- const statusColor = getStatusColor(job.status);
- return (
+ filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).flatMap((job) => {
+ const expanded = expandedJobIds.has(job.id);
+ const detailsId = `job-details-${job.id}`;
+ const assignmentLabel = job.awarded_carrier_company_id
+ ? 'Awarded'
+ : job.direct_invite_company_id
+ ? 'Invited'
+ : null;
+
+ return [
+ // ── Primary compact row ────────────────────────────
  <tr
  key={job.id}
- style={{
- borderBottom: index < Math.min(JOBS_PER_PAGE, filteredJobs.length) - 1 ? '1px solid #e5e7eb' : 'none',
- transition: 'background-color 0.2s'
- }}
- onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
- onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+ style={{ borderBottom: expanded ? 'none' : '1px solid #e5e7eb', backgroundColor: expanded ? '#f8fafc' : 'white' }}
  >
- <td style={{ padding: '1rem', fontWeight: '600', color: '#1d4ed8', fontSize: '0.9rem' }}>
- {job.jobRef}
+ {/* Job Ref */}
+ <td style={{ padding: '0.65rem 0.75rem', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+ <span style={{ fontWeight: 700, color: '#1d4ed8', fontSize: '0.82rem', fontFamily: 'monospace' }}>{job.jobRef}</span>
+ {job.distanceMiles.trim() && (
+ <div style={{ fontSize: '0.67rem', color: '#94a3b8', marginTop: '0.18rem' }}>{job.distanceMiles}</div>
+ )}
  </td>
- <td style={{ padding: '1rem', fontSize: '0.9rem' }}>
- <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '0.25rem' }}>
- {job.client.name}
- </div>
- <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
- {job.client.email}
- </div>
+
+ {/* Client */}
+ <td style={{ padding: '0.65rem 0.75rem', verticalAlign: 'middle', maxWidth: '160px' }}>
+ <div style={{ fontWeight: 600, color: '#1f2937', fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.client.name}</div>
+ {job.client.email && (
+ <div style={{ fontSize: '0.67rem', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '0.12rem' }}>{job.client.email}</div>
+ )}
  </td>
- <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
- <div style={{ marginBottom: '0.5rem' }}>
- <div style={{ color: '#1f2937', fontWeight: '500' }}>
- {job.pickup.location}
- </div>
- <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
- {formatDate(job.pickup.date)} at {job.pickup.time}
- </div>
- </div>
- <div style={{ color: '#9ca3af', fontSize: '0.8rem', margin: '0.25rem 0' }}>to</div>
- <div>
- <div style={{ color: '#1f2937', fontWeight: '500' }}>
- {job.delivery.location}
- </div>
- <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
- {formatDate(job.delivery.date)} at {job.delivery.time}
- </div>
- </div>
- {job.loadDetailSummary.length > 0 && (
- <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.35rem', marginTop: '0.7rem' }}>
- {job.loadDetailSummary.map((item) => (
- <div key={`${job.id}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.35rem 0.45rem' }}>
- <div style={{ color: '#64748b', fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
- <div style={{ color: '#0f172a', fontSize: '0.75rem', fontWeight: 600 }}>{item.value}</div>
- </div>
- ))}
+
+ {/* Pickup */}
+ <td style={{ padding: '0.65rem 0.75rem', verticalAlign: 'middle', maxWidth: '170px' }}>
+ <div style={{ fontWeight: 500, color: '#1f2937', fontSize: '0.78rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.pickup.location || '—'}</div>
+ {(job.pickup.date || job.pickup.time) && (
+ <div style={{ fontSize: '0.67rem', color: '#6b7280', marginTop: '0.12rem', whiteSpace: 'nowrap' }}>
+ {job.pickup.date ? formatDate(job.pickup.date) : ''}{job.pickup.date && job.pickup.time ? ' · ' : ''}{job.pickup.time}
  </div>
  )}
  </td>
- <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.distanceMiles}</td>
- <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#374151', textTransform: 'capitalize' }}>{job.vehicleType}</td>
- <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.paymentTerms}</td>
- <td style={{ padding: '1rem' }}>
+
+ {/* Delivery */}
+ <td style={{ padding: '0.65rem 0.75rem', verticalAlign: 'middle', maxWidth: '170px' }}>
+ <div style={{ fontWeight: 500, color: '#1f2937', fontSize: '0.78rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.delivery.location || '—'}</div>
+ {(job.delivery.date || job.delivery.time) && (
+ <div style={{ fontSize: '0.67rem', color: '#6b7280', marginTop: '0.12rem', whiteSpace: 'nowrap' }}>
+ {job.delivery.date ? formatDate(job.delivery.date) : ''}{job.delivery.date && job.delivery.time ? ' · ' : ''}{job.delivery.time}
+ </div>
+ )}
+ </td>
+
+ {/* Vehicle */}
+ <td style={{ padding: '0.65rem 0.75rem', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+ <span style={{ fontSize: '0.78rem', color: '#374151', textTransform: 'capitalize' }}>{job.vehicleType}</span>
+ </td>
+
+ {/* Assignment */}
+ <td style={{ padding: '0.65rem 0.75rem', verticalAlign: 'middle' }}>
+ {assignmentLabel
+ ? <StatusBadge value={assignmentLabel} tone={assignmentLabel === 'Awarded' ? 'green' : 'purple'} />
+ : <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>—</span>
+ }
+ </td>
+
+ {/* Status */}
+ <td style={{ padding: '0.65rem 0.75rem', verticalAlign: 'middle' }}>
+ <StatusBadge value={job.status} />
+ </td>
+
+ {/* Date */}
+ <td style={{ padding: '0.65rem 0.75rem', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+ <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{formatDate(job.createdAt)}</span>
+ </td>
+
+ {/* Actions */}
+ <td style={{ padding: '0.65rem 0.75rem', verticalAlign: 'middle' }}>
+ <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'nowrap' }}>
+ <button
+ id={`expand-btn-${job.id}`}
+ aria-expanded={expanded}
+ aria-controls={detailsId}
+ onClick={() => toggleExpanded(job.id)}
+ title={expanded ? 'Collapse details' : 'Expand details'}
+ style={{
+ padding: '0.28rem 0.5rem',
+ border: '1px solid #e2e8f0',
+ borderRadius: '6px',
+ background: expanded ? '#eff6ff' : '#f8fafc',
+ color: expanded ? '#1d4ed8' : '#475569',
+ cursor: 'pointer',
+ fontSize: '0.72rem',
+ fontWeight: 700,
+ lineHeight: 1,
+ transition: 'background 0.15s',
+ minWidth: '28px',
+ }}
+ >
+ {expanded ? '▲' : '▼'}
+ </button>
+ <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>View</ActionButton>
+ {job.status === JOB_STATUS.RECEIVED && (
+ <ActionButton tone="primary" onClick={() => void handlePostJob(job.id)}>Post</ActionButton>
+ )}
+ </div>
+ </td>
+ </tr>,
+
+ // ── Expandable details row ─────────────────────────
+ expanded && (
+ <tr key={`${job.id}-details`} id={detailsId} role="region" aria-labelledby={`expand-btn-${job.id}`}>
+ <td colSpan={9} style={{ padding: '0 0.75rem 0.85rem', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+ <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', paddingTop: '0.65rem' }}>
+
+ {/* Cargo & load details */}
+ {job.loadDetailSummary.length > 0 && (
+ <div>
+ <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>Cargo details</div>
+ <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+   {job.loadDetailSummary.map((item) => (
+     <div key={`${job.id}-${item.label}`} style={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.25rem 0.4rem' }}>
+       <div style={{ color: '#64748b', fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
+       <div style={{ color: '#0f172a', fontSize: '0.7rem', fontWeight: 600 }}>{item.value}</div>
+     </div>
+   ))}
+ </div>
+ {job.cargo.notes && (
+   <div style={{ fontSize: '0.72rem', color: '#475569', marginTop: '0.35rem' }}>{job.cargo.notes}</div>
+ )}
+ </div>
+ )}
+
+ {/* Contact info */}
+ {(job.client.email || job.client.phone) && (
+ <div>
+ <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>Client contact</div>
+ {job.client.email && <div style={{ fontSize: '0.72rem', color: '#1f2937' }}>{job.client.email}</div>}
+ {job.client.phone && <div style={{ fontSize: '0.72rem', color: '#6b7280', marginTop: '0.12rem' }}>{job.client.phone}</div>}
+ </div>
+ )}
+
+ {/* Status change */}
+ <div>
+ <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>Change status</div>
  <select
  value={job.status}
- onChange={(e) => handleStatusChange(job.id, e.target.value)}
- style={{
- padding: '0.5rem 0.75rem',
- backgroundColor: statusColor.bg,
- color: statusColor.text,
- border: `1px solid ${statusColor.border}`,
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- outline: 'none'
- }}
+ aria-label={`Change status for job ${job.jobRef}`}
+ onChange={(e) => void handleStatusChange(job.id, e.target.value)}
+ style={{ padding: '0.4rem 0.65rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.78rem', backgroundColor: 'white', cursor: 'pointer', minWidth: '140px' }}
  >
  <option value={JOB_STATUS.RECEIVED}>Received</option>
  <option value={JOB_STATUS.POSTED}>Posted</option>
  <option value={JOB_STATUS.ALLOCATED}>Allocated</option>
  <option value={JOB_STATUS.DELIVERED}>Delivered</option>
  </select>
- </td>
- <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#6b7280' }}>
- {formatDate(job.createdAt)}
- </td>
- <td style={{ padding: '1rem', textAlign: 'center' }}>
- <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
- {job.status === JOB_STATUS.RECEIVED && (
- <button
- onClick={() => handlePostJob(job.id)}
- style={{
- padding: '0.5rem 1rem',
- backgroundColor: '#5C9FD8',
- color: 'white',
- border: 'none',
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- transition: 'background-color 0.2s'
- }}
- onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2F6FB3'}
- onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#5C9FD8'}
- >
- Post
- </button>
- )}
- <button
- onClick={() => router.push(`/admin/jobs/${job.id}`)}
- style={{
- padding: '0.5rem 1rem',
- backgroundColor: '#16a34a',
- color: 'white',
- border: 'none',
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- transition: 'background-color 0.2s'
- }}
- onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e3a5f'}
- onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
- >
- View
- </button>
+ </div>
+
+ {/* Carrier invite */}
  {(!job.exchange_visibility || job.exchange_visibility === 'private') && (
- <button
- onClick={() => void openDirectInvite(job)}
- style={{ padding: '0.5rem 0.85rem', backgroundColor: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer' }}
- >
- Invite Carrier
- </button>
+ <div>
+ <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>Carrier</div>
+ <ActionButton tone="secondary" onClick={() => void openDirectInvite(job)}>Invite Carrier</ActionButton>
+ </div>
  )}
  {job.exchange_visibility === 'direct' && (
- <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#7c3aed', backgroundColor: '#ede9fe', padding: '0.2rem 0.5rem', borderRadius: '999px' }}>
- Direct 
- </span>
+ <div>
+ <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>Carrier</div>
+ <StatusBadge value="Direct invite" tone="purple" />
+ </div>
  )}
  </div>
  </td>
  </tr>
- );
+ ),
+ ].filter(Boolean);
  })
  )}
  </tbody>
