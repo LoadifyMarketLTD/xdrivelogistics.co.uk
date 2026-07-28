@@ -18,7 +18,6 @@ function membership(
       name: `Company ${overrides.company_id}`,
       company_type: 'standard',
       status: 'active',
-      enabled_workspaces: null,
     },
     ...overrides,
   };
@@ -34,39 +33,19 @@ describe('resolveActiveCompanyContext', () => {
     expect(resolveActiveCompanyContext(rows)).toEqual({ ok: false, error: 'no_active_membership' });
   });
 
-  it('requires explicit active workspace when a company enables multiple workspaces', () => {
-    const rows = [
-      membership({
-        company_id: 'co-1',
-        companies: {
-          id: 'co-1',
-          name: 'Multi Workspace Co',
-          company_type: 'standard',
-          status: 'active',
-          enabled_workspaces: ['carrier_fleet', 'broker'],
-        },
-      }),
-    ];
-
-    expect(resolveActiveCompanyContext(rows)).toEqual({
-      ok: false,
-      error: 'active_workspace_required',
-    });
+  it('auto-selects single workspace when company_type maps to exactly one workspace', () => {
+    const rows = [membership({ company_id: 'co-1', role_in_company: 'owner' })];
+    const result = resolveActiveCompanyContext(rows);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.context.enabledWorkspaces).toEqual(['carrier_fleet']);
+      expect(result.context.activeWorkspace).toBe('carrier_fleet');
+    }
   });
 
   it('fails closed when requested workspace is not enabled for selected company', () => {
-    const rows = [
-      membership({
-        company_id: 'co-1',
-        companies: {
-          id: 'co-1',
-          name: 'Carrier Co',
-          company_type: 'standard',
-          status: 'active',
-          enabled_workspaces: ['carrier_fleet'],
-        },
-      }),
-    ];
+    // standard company_type → only carrier_fleet; requesting broker must fail
+    const rows = [membership({ company_id: 'co-1' })];
 
     expect(
       resolveActiveCompanyContext(rows, {
@@ -84,7 +63,6 @@ describe('resolveActiveCompanyContext', () => {
           name: 'Carrier Co',
           company_type: 'standard',
           status: 'active',
-          enabled_workspaces: ['carrier_fleet'],
         },
       }),
       membership({
@@ -94,7 +72,6 @@ describe('resolveActiveCompanyContext', () => {
           name: 'Broker Co',
           company_type: 'broker',
           status: 'active',
-          enabled_workspaces: ['broker'],
         },
       }),
     ];
@@ -107,27 +84,26 @@ describe('resolveActiveCompanyContext', () => {
     ).toEqual({ ok: false, error: 'workspace_not_enabled' });
   });
 
-  it('resolves explicit active workspace from enabled list', () => {
+  it('resolves carrier_fleet workspace for finance role on standard company', () => {
     const rows = [
       membership({
         company_id: 'co-1',
         role_in_company: 'finance',
         companies: {
           id: 'co-1',
-          name: 'Multi Workspace Co',
+          name: 'Carrier Co',
           company_type: 'standard',
           status: 'active',
-          enabled_workspaces: ['carrier_fleet', 'broker'],
         },
       }),
     ];
 
-    const result = resolveActiveCompanyContext(rows, { activeWorkspace: 'broker' });
+    const result = resolveActiveCompanyContext(rows, { activeWorkspace: 'carrier_fleet' });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.context.membershipRole).toBe('finance');
-      expect(result.context.activeWorkspace).toBe('broker');
-      expect(result.context.enabledWorkspaces).toEqual(['carrier_fleet', 'broker']);
+      expect(result.context.activeWorkspace).toBe('carrier_fleet');
+      expect(result.context.enabledWorkspaces).toEqual(['carrier_fleet']);
     }
   });
 
