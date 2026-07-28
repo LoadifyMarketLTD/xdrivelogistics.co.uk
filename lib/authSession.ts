@@ -446,7 +446,6 @@ export const resolveAuthenticatedUser = async (
     });
     return { user: null, reason: 'role_unsupported' };
   }
-
   const scopedDriver = findScopedDriverEvidence({
     drivers: driverRows,
     sessionUserId: sessionUser.id,

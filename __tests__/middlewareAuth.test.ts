@@ -373,4 +373,126 @@ describe('middleware resolveRouteAuth hardening', () => {
       expect(result.ownerDriverExecutionMode).toBe(false);
     }
   });
+
+  it('allows authoritative platform owner to access super-admin without memberships', async () => {
+    fixtures = {
+      ...defaultFixtures(),
+      profile: Promise.resolve({
+        data: {
+          role: 'platform_owner',
+          status: 'active',
+          is_driver: false,
+          company_id: null,
+        },
+        error: null,
+      }),
+      memberships: Promise.resolve({ data: [], error: null }),
+      driver: Promise.resolve({ data: null, error: null }),
+    };
+    authGetUserResult = Promise.resolve({
+      data: {
+        user: {
+          id: 'user-1',
+          app_metadata: { role: 'customer' },
+          user_metadata: {},
+        },
+      },
+      error: null,
+    });
+
+    const middleware = await import('../middleware');
+    const result = await middleware.resolveRouteAuth(buildRequest('/super-admin'));
+
+    expect(result.kind).toBe('authenticated');
+    if (result.kind === 'authenticated') {
+      expect(result.workspaceRole).toBe('platform_owner');
+      expect(result.membershipId).toBeNull();
+      expect(result.membershipRole).toBeNull();
+    }
+  });
+
+  it('denies non-platform roles without memberships on super-admin routes', async () => {
+    fixtures = {
+      ...defaultFixtures(),
+      profile: Promise.resolve({
+        data: {
+          role: 'customer',
+          status: 'active',
+          is_driver: false,
+          company_id: null,
+        },
+        error: null,
+      }),
+      memberships: Promise.resolve({ data: [], error: null }),
+      driver: Promise.resolve({ data: null, error: null }),
+    };
+    authGetUserResult = Promise.resolve({
+      data: {
+        user: {
+          id: 'user-1',
+          app_metadata: { role: 'platform_owner' },
+          user_metadata: {},
+        },
+      },
+      error: null,
+    });
+
+    const middleware = await import('../middleware');
+    const result = await middleware.resolveRouteAuth(buildRequest('/super-admin/users'));
+
+    expect(result.kind).toBe('forbidden');
+  });
+
+  it('accepts owner-driver company type for same-company driver access on /driver', async () => {
+    fixtures = {
+      ...defaultFixtures(),
+      memberships: Promise.resolve({
+        data: [
+          {
+            id: 'mem-1',
+            company_id: 'co-owner-driver',
+            user_id: 'user-1',
+            role_in_company: 'driver',
+            status: 'active',
+            companies: {
+              id: 'co-owner-driver',
+              name: 'Owner Driver Co',
+              company_type: 'owner_driver',
+              status: 'active',
+            },
+          },
+        ],
+        error: null,
+      }),
+      profile: Promise.resolve({
+        data: {
+          role: 'driver',
+          status: 'active',
+          is_driver: true,
+          company_id: 'co-owner-driver',
+        },
+        error: null,
+      }),
+      driver: Promise.resolve({
+        data: {
+          id: 'drv-owner-driver',
+          company_id: 'co-owner-driver',
+          app_access: true,
+          must_change_password: false,
+          status: 'active',
+          can_commercial_bid: true,
+        },
+        error: null,
+      }),
+    };
+
+    const middleware = await import('../middleware');
+    const result = await middleware.resolveRouteAuth(buildRequest('/driver'));
+
+    expect(result.kind).toBe('authenticated');
+    if (result.kind === 'authenticated') {
+      expect(result.driverId).toBe('drv-owner-driver');
+      expect(result.companyStatus).toBe('active');
+    }
+  });
 });
