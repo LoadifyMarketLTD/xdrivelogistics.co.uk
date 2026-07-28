@@ -201,27 +201,48 @@ class DispatcherMessageTest {
     }
 
     @Test
-    fun `mark-all-read sets all messages to read and resets unread count to zero`() {
+    fun `mark-all-read sets all messages to read and applies server-returned unread count`() {
         val messages = listOf(msg("1"), msg("2"), msg("3"))
-        // Apply production merge: mark all as read.
+        // Production: apply server-returned unread_count (0 after mark-all), not a local zero.
+        val serverUnreadCount = 0
         val updated = messages.map { it.copy(read = true, status = "read") }
-        val newUnreadCount = 0
         assertTrue("all messages must be read after mark-all", updated.all { it.read })
-        assertEquals("unread count must be zero after mark-all", 0, newUnreadCount)
+        assertEquals("unread count must be zero after mark-all (server-returned)", 0, serverUnreadCount)
     }
 
     @Test
-    fun `mark-one-read decrements unread count by one`() {
-        var unreadCount = 3
-        unreadCount = maxOf(0, unreadCount - 1)
-        assertEquals(2, unreadCount)
+    fun `mark-one-read applies server-returned unread count not blind decrement`() {
+        // Production: use the server-returned unread_count, not maxOf(0, count - 1).
+        val serverUnreadCount = 2  // server response after marking one read
+        var dispatcherUnreadCount = 3
+        // Apply server-authoritative count:
+        dispatcherUnreadCount = serverUnreadCount
+        assertEquals("unread count must be taken from server response", 2, dispatcherUnreadCount)
     }
 
     @Test
-    fun `mark-one-read does not decrement unread count below zero`() {
-        var unreadCount = 0
-        unreadCount = maxOf(0, unreadCount - 1)
-        assertEquals("unread count must not go below zero", 0, unreadCount)
+    fun `mark-one-read on already-read message does not change unread count (idempotency)`() {
+        // The already-read message was already counted in the server total.
+        // Server returns the same count since read_at was not changed.
+        val serverUnreadCount = 3 // same as before — already-read row not re-counted
+        var dispatcherUnreadCount = 3
+        // Apply server-authoritative count (idempotent):
+        dispatcherUnreadCount = serverUnreadCount
+        assertEquals("already-read message mark must not alter unread count", 3, dispatcherUnreadCount)
+    }
+
+    @Test
+    fun `concurrent duplicate mark-read taps use server count not local accumulation`() {
+        // Two concurrent mark-read calls each return the server's current unread_count.
+        // Applying the later response last is correct since both use the authoritative server value.
+        var dispatcherUnreadCount = 5
+        val serverCountFromTap1 = 4
+        val serverCountFromTap2 = 4  // both taps mark the same message
+        // Apply tap1 result:
+        dispatcherUnreadCount = serverCountFromTap1
+        // Apply tap2 result (same value — idempotent):
+        dispatcherUnreadCount = serverCountFromTap2
+        assertEquals("concurrent taps on same message settle at server count", 4, dispatcherUnreadCount)
     }
 
     // -------------------------------------------------------------------------

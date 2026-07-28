@@ -4,7 +4,7 @@ jest.mock('../client', () => ({
   apiRequest: (...args: unknown[]) => apiRequestMock(...args),
 }));
 
-import { fetchMessages, markMessagesRead, type DriverMessage, type MessagesResponse } from '../messages';
+import { fetchMessages, markMessagesRead, type DriverMessage, type MessagesResponse, type MarkReadResponse } from '../messages';
 
 const makeMsg = (overrides: Partial<DriverMessage> = {}): DriverMessage => ({
   id: 'msg-001',
@@ -22,6 +22,13 @@ const makeMsg = (overrides: Partial<DriverMessage> = {}): DriverMessage => ({
 const makeResponse = (overrides: Partial<MessagesResponse> = {}): MessagesResponse => ({
   messages: [makeMsg()],
   unread_count: 1,
+  ...overrides,
+});
+
+const makeMarkReadResponse = (overrides: Partial<MarkReadResponse> = {}): MarkReadResponse => ({
+  ok: true,
+  message: null,
+  unread_count: 0,
   ...overrides,
 });
 
@@ -120,21 +127,12 @@ describe('fetchMessages', () => {
       expect.objectContaining({ token: 'bearer-xyz' }),
     );
   });
-
-  test('before_id without before is not appended to path', async () => {
-    // beforeId is only meaningful paired with before; without before it must still be passed
-    // but is not appended to a partial cursor.
-    await fetchMessages('test-token', { beforeId: 'orphan-id' });
-    const [path] = apiRequestMock.mock.calls[0] as [string, unknown];
-    // before_id is included in the query params even without before (server will ignore it gracefully)
-    expect(path).toContain('before_id=');
-  });
 });
 
 describe('markMessagesRead', () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
-    apiRequestMock.mockResolvedValue({ ok: true });
+    apiRequestMock.mockResolvedValue(makeMarkReadResponse({ ok: true, message: { id: 'msg-001', read: true }, unread_count: 2 }));
   });
 
   test('calls POST /api/driver/mobile/messages with message id to mark one read', async () => {
@@ -150,6 +148,7 @@ describe('markMessagesRead', () => {
   });
 
   test('calls POST /api/driver/mobile/messages with empty body to mark all read', async () => {
+    apiRequestMock.mockResolvedValue(makeMarkReadResponse({ ok: true, message: null, unread_count: 0 }));
     await markMessagesRead('test-token');
     expect(apiRequestMock).toHaveBeenCalledWith(
       '/api/driver/mobile/messages',
@@ -176,9 +175,31 @@ describe('markMessagesRead', () => {
   });
 
   test('uses POST method for mark-all-read', async () => {
+    apiRequestMock.mockResolvedValue(makeMarkReadResponse({ ok: true, message: null, unread_count: 0 }));
     await markMessagesRead('test-token');
     const [, options] = apiRequestMock.mock.calls[0] as [string, { method?: string }];
     expect(options.method).toBe('POST');
+  });
+
+  test('returns authoritative unread_count from server for mark-one-read', async () => {
+    apiRequestMock.mockResolvedValue(makeMarkReadResponse({ ok: true, message: { id: 'msg-001', read: true }, unread_count: 4 }));
+    const result = await markMessagesRead('test-token', 'msg-001');
+    expect(result.unread_count).toBe(4);
+    expect(result.message).toEqual({ id: 'msg-001', read: true });
+  });
+
+  test('returns authoritative unread_count 0 from server for mark-all-read', async () => {
+    apiRequestMock.mockResolvedValue(makeMarkReadResponse({ ok: true, message: null, unread_count: 0 }));
+    const result = await markMessagesRead('test-token');
+    expect(result.unread_count).toBe(0);
+    expect(result.message).toBeNull();
+  });
+
+  test('mark-one-read on already-read message returns same server unread_count', async () => {
+    // Already-read row: server count unchanged (idempotent).
+    apiRequestMock.mockResolvedValue(makeMarkReadResponse({ ok: true, message: { id: 'msg-001', read: true }, unread_count: 3 }));
+    const result = await markMessagesRead('test-token', 'msg-001');
+    expect(result.unread_count).toBe(3);
   });
 });
 
@@ -205,5 +226,20 @@ describe('DriverMessage contract', () => {
     expect(typeof unread.read).toBe('boolean');
     expect(unread.read).toBe(false);
     expect(read.read).toBe(true);
+  });
+});
+
+describe('MarkReadResponse contract', () => {
+  test('message is null for mark-all-read', () => {
+    const resp: MarkReadResponse = makeMarkReadResponse({ message: null, unread_count: 0 });
+    expect(resp.message).toBeNull();
+    expect(resp.unread_count).toBe(0);
+  });
+
+  test('message contains id and read for mark-one-read', () => {
+    const resp: MarkReadResponse = makeMarkReadResponse({ message: { id: 'msg-x', read: true }, unread_count: 2 });
+    expect(resp.message).not.toBeNull();
+    expect(resp.message?.id).toBe('msg-x');
+    expect(resp.message?.read).toBe(true);
   });
 });

@@ -115,6 +115,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     val uiState: StateFlow<DriverUiState> = _uiState.asStateFlow()
     private var liveRefreshJob: kotlinx.coroutines.Job? = null
     private var availabilityMutationLock = AvailabilityMutationLock()
+    /** Guards against two concurrent load-more requests appending duplicate pages. */
+    private var messagesLoadingMore = false
 
     init {
         mutationQueue.restore(queueStore.readAll())
@@ -413,18 +415,20 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     /**
      * Mark a single dispatcher message as read via the authenticated mobile messages API.
      * UI state is updated only after server confirmation; stale owner responses are rejected.
+     * The unread count is taken from the server response, not blindly decremented locally,
+     * so repeated taps or concurrent duplicate calls remain correct.
      */
     fun markDispatcherMessageRead(messageId: String) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             api.markDispatcherMessageRead(session, messageId)
-                .onSuccess {
+                .onSuccess { serverUnreadCount ->
                     if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
                     _uiState.value = _uiState.value.copy(
                         dispatcherMessages = _uiState.value.dispatcherMessages.map { msg ->
                             if (msg.id == messageId) msg.copy(read = true, status = "read") else msg
                         },
-                        dispatcherUnreadCount = maxOf(0, _uiState.value.dispatcherUnreadCount - 1),
+                        dispatcherUnreadCount = serverUnreadCount,
                         dispatcherMessagesError = null,
                     )
                 }
@@ -440,16 +444,17 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     /**
      * Mark all dispatcher messages as read via the authenticated mobile messages API.
      * UI state is updated only after server confirmation; stale owner responses are rejected.
+     * The unread count is taken from the server response (always 0 after mark-all).
      */
     fun markAllDispatcherMessagesRead() {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             api.markAllDispatcherMessagesRead(session)
-                .onSuccess {
+                .onSuccess { serverUnreadCount ->
                     if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
                     _uiState.value = _uiState.value.copy(
                         dispatcherMessages = _uiState.value.dispatcherMessages.map { it.copy(read = true, status = "read") },
-                        dispatcherUnreadCount = 0,
+                        dispatcherUnreadCount = serverUnreadCount,
                         dispatcherMessagesError = null,
                     )
                 }
@@ -466,36 +471,45 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
      * Loads the next page of dispatcher messages using the two-field (created_at, id) cursor.
      * Appends results to the existing list, deduplicating by message ID so re-delivered
      * messages or overlapping pages cannot introduce duplicate rows.
+     *
+     * A [messagesLoadingMore] guard prevents two concurrent invocations from both appending
+     * the same page: the second call is dropped while the first is in flight.
      */
     fun loadMoreDispatcherMessages() {
+        if (messagesLoadingMore) return
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             if (!_uiState.value.dispatcherMessagesHasMore) return@launch
             val lastMsg = _uiState.value.dispatcherMessages.lastOrNull() ?: return@launch
-            val result = api.loadDispatcherMessages(
-                session,
-                before = lastMsg.createdAt,
-                beforeId = lastMsg.id,
-                limit = 50,
-            )
-            result
-                .onSuccess { (newMessages, _) ->
-                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
-                    val existing = _uiState.value.dispatcherMessages
-                    val existingIds = existing.mapTo(HashSet()) { it.id }
-                    val deduplicated = existing + newMessages.filter { it.id !in existingIds }
-                    _uiState.value = _uiState.value.copy(
-                        dispatcherMessages = deduplicated,
-                        dispatcherMessagesHasMore = newMessages.size >= 50,
-                        dispatcherMessagesError = null,
-                    )
-                }
-                .onFailure { error ->
-                    if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
-                    _uiState.value = _uiState.value.copy(
-                        dispatcherMessagesError = error.friendlyDriverMessage("Failed to load more messages."),
-                    )
-                }
+            messagesLoadingMore = true
+            try {
+                val result = api.loadDispatcherMessages(
+                    session,
+                    before = lastMsg.createdAt,
+                    beforeId = lastMsg.id,
+                    limit = 50,
+                )
+                result
+                    .onSuccess { (newMessages, _) ->
+                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                        val existing = _uiState.value.dispatcherMessages
+                        val existingIds = existing.mapTo(HashSet()) { it.id }
+                        val deduplicated = existing + newMessages.filter { it.id !in existingIds }
+                        _uiState.value = _uiState.value.copy(
+                            dispatcherMessages = deduplicated,
+                            dispatcherMessagesHasMore = newMessages.size >= 50,
+                            dispatcherMessagesError = null,
+                        )
+                    }
+                    .onFailure { error ->
+                        if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
+                        _uiState.value = _uiState.value.copy(
+                            dispatcherMessagesError = error.friendlyDriverMessage("Failed to load more messages."),
+                        )
+                    }
+            } finally {
+                messagesLoadingMore = false
+            }
         }
     }
 

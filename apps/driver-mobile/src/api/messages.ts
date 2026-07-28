@@ -17,6 +17,14 @@ export type MessagesResponse = {
   unread_count: number;
 };
 
+export type MarkReadResponse = {
+  ok: boolean;
+  /** Updated row for mark-one; null for mark-all. */
+  message: { id: string; read: boolean } | null;
+  /** Authoritative total unread count after the update. */
+  unread_count: number;
+};
+
 export type FetchMessagesOptions = {
   /** ISO timestamp of the last row on the previous page. Used alone for the first cursor field. */
   before?: string;
@@ -44,8 +52,13 @@ export async function fetchMessages(token: string, options: FetchMessagesOptions
   return apiRequest<MessagesResponse>(path, { token });
 }
 
-export async function markMessagesRead(token: string, id?: string): Promise<void> {
-  await apiRequest<{ ok: boolean }>('/api/driver/mobile/messages', {
+/**
+ * Marks one or all messages as read via the server API.
+ * Returns the authoritative server result including the new unread_count.
+ * The caller must apply the returned unread_count, not compute it locally.
+ */
+export async function markMessagesRead(token: string, id?: string): Promise<MarkReadResponse> {
+  return apiRequest<MarkReadResponse>('/api/driver/mobile/messages', {
     token,
     method: 'POST',
     body: id ? { id } : {},

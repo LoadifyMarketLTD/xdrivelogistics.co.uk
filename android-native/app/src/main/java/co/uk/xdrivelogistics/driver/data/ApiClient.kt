@@ -361,12 +361,15 @@ class ApiClient(
     /**
      * POST /api/driver/mobile/messages  (body: {"id": messageId})
      * Marks a single dispatcher message as read via the server-mediated API.
+     * Returns the server-confirmed unread_count so the caller never blindly
+     * decrements the local count (idempotent: already-read rows return the same
+     * authoritative count without error).
      * UI must only update after this call succeeds.
      */
     suspend fun markDispatcherMessageRead(
         session: DriverSession,
         messageId: String,
-    ): Result<Unit> = networkResult {
+    ): Result<Int> = networkResult {
         require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
         val body = JsonObject().apply { addProperty("id", messageId) }
         val request = Request.Builder()
@@ -378,17 +381,20 @@ class ApiClient(
         http.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to mark message read.")
+            val json = gson.fromJson(raw, JsonObject::class.java)
+            json.get("unread_count")?.asInt ?: 0
         }
     }
 
     /**
      * POST /api/driver/mobile/messages  (empty body)
      * Marks all dispatcher messages as read via the server-mediated API.
+     * Returns the server-confirmed unread_count (always 0 after mark-all).
      * UI must only update after this call succeeds.
      */
     suspend fun markAllDispatcherMessagesRead(
         session: DriverSession,
-    ): Result<Unit> = networkResult {
+    ): Result<Int> = networkResult {
         require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
         val body = JsonObject() // empty body → server marks all messages read
         val request = Request.Builder()
@@ -400,6 +406,8 @@ class ApiClient(
         http.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to mark all messages read.")
+            val json = gson.fromJson(raw, JsonObject::class.java)
+            json.get("unread_count")?.asInt ?: 0
         }
     }
 
