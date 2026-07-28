@@ -16,6 +16,8 @@ const ALL_WORKSPACES: readonly BusinessWorkspace[] = [
   'carrier_fleet',
 ];
 
+const ACTIVE_COMPANY_STATUS = 'active';
+
 export type ActiveCompanyContext = {
   companyId: string;
   companyName: string;
@@ -126,10 +128,17 @@ export function resolveActiveCompanyContext(
   const explicitlyRequestedWorkspace = activeWorkspace ?? targetWorkspace ?? routeWorkspace;
 
   const active = memberships.filter(
-    (m) =>
-      m.status === 'active' &&
-      m.companies !== null &&
-      (m.companies.status ?? 'active') !== 'suspended',
+    (m) => {
+      const companyStatus = (m.companies?.status ?? ACTIVE_COMPANY_STATUS)
+        .trim()
+        .toLowerCase();
+
+      return (
+        m.status === 'active' &&
+        m.companies !== null &&
+        companyStatus === ACTIVE_COMPANY_STATUS
+      );
+    },
   );
 
   if (!active.length) {

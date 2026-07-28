@@ -189,6 +189,27 @@ describe('resolveActiveCompanyContext', () => {
       }),
     ).toEqual({ ok: false, error: 'workspace_mismatch' });
   });
+
+  it('rejects non-active company states (suspended/inactive/blocked)', () => {
+    for (const status of ['suspended', 'inactive', 'blocked'] as const) {
+      const rows = [
+        membership({
+          company_id: `co-${status}`,
+          companies: {
+            id: `co-${status}`,
+            name: `Company ${status}`,
+            company_type: 'standard',
+            status,
+          },
+        }),
+      ];
+
+      expect(resolveActiveCompanyContext(rows)).toEqual({
+        ok: false,
+        error: 'no_active_membership',
+      });
+    }
+  });
 });
 
 describe('resolveCompanyEnabledWorkspaces / resolveWorkspaceForCompany', () => {
