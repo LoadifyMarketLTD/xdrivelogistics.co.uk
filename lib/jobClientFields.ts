@@ -23,7 +23,7 @@ const splitLegacySpecialRequirements = (value: string | null | undefined) =>
     .filter(Boolean);
 
 export const getJobClientFields = (source: JobClientFieldSource): JobClientFields => {
-  const name = source.client_name?.trim() || source.load_details?.trim() || 'Unknown';
+  const name = source.client_name?.trim() || 'Unknown';
   let email = source.client_email?.trim() || '';
   let phone = source.client_phone?.trim() || '';
   const cargoNotes: string[] = [];
