@@ -2,6 +2,7 @@ import type { AppUserRole } from './authRole';
 import type { BusinessWorkspace } from './businessWorkspace';
 import type { DriverWorkspaceMode } from './driverWorkspaceMode';
 import {
+  DRIVER_WORKSPACE_CAPABILITIES,
   hasWorkspaceCapability,
   resolveWorkspaceRole,
   type WorkspaceCapability,
@@ -81,6 +82,9 @@ const resolveRole = (
 const hasAny = (role: WorkspaceRole, capabilities: WorkspaceCapability[]) =>
   capabilities.some((capability) => hasWorkspaceCapability(role, capability));
 
+const hasDriverCapability = (capability: WorkspaceCapability) =>
+  DRIVER_WORKSPACE_CAPABILITIES.includes(capability);
+
 export const getCapabilitiesForRole = (
   role: AppUserRole | null,
   context: RouteAccessContext = {}
@@ -112,9 +116,8 @@ export const getCapabilitiesForRole = (
     ]),
     canRepostToExchange: hasWorkspaceCapability(workspaceRole, 'loads.publish'),
     canUseReturnJourneys:
-      workspaceRole === 'owner_driver' ||
-      (hasWorkspaceCapability(workspaceRole, 'drivers.manage') &&
-        hasWorkspaceCapability(workspaceRole, 'jobs.track')),
+      hasWorkspaceCapability(workspaceRole, 'jobs.track') &&
+      hasWorkspaceCapability(workspaceRole, 'loads.view.marketplace'),
   };
 };
 
@@ -358,7 +361,10 @@ export const isCapabilityAllowedForPath = (
   if (requirement.roles && !requirement.roles.includes(workspaceRole)) return false;
   if (!requirement.anyOf?.length) return true;
 
+  const isDriverRoute = pathMatches(path, '/driver');
   return requirement.anyOf.some((capability) =>
-    hasWorkspaceCapability(workspaceRole, capability)
+    isDriverRoute
+      ? hasDriverCapability(capability)
+      : hasWorkspaceCapability(workspaceRole, capability)
   );
 };

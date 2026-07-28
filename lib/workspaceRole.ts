@@ -139,7 +139,7 @@ const CARRIER_COMMERCIAL: WorkspaceCapability[] = [
   'incidents.manage',
 ];
 
-const DRIVER_WORKSPACE_CAPABILITIES: WorkspaceCapability[] = [
+export const DRIVER_WORKSPACE_CAPABILITIES: readonly WorkspaceCapability[] = [
   'loads.view.marketplace',
   'quotes.submit',
   'jobs.view',
@@ -148,6 +148,28 @@ const DRIVER_WORKSPACE_CAPABILITIES: WorkspaceCapability[] = [
   'vehicles.manage',
   'documents.own.manage',
   'invoices.carrier.manage',
+];
+
+const SHARED_DRIVER_NAV: WorkspaceNavGroup[] = [
+  { id: 'home', label: 'Driver', items: [{ id: 'today', label: 'Today', href: '/driver', icon: '⌂' }] },
+  { id: 'commercial', label: 'Commercial', items: [
+    { id: 'loads', label: 'Available Loads', href: '/driver/loads', icon: '▦' },
+    { id: 'quotes', label: 'My Quotes', href: '/driver/quotes', icon: '◫' },
+    { id: 'won-work', label: 'Won Work', href: '/driver/won-work', icon: '✓' },
+  ] },
+  { id: 'operations', label: 'My Work', items: [
+    { id: 'jobs', label: 'My Jobs', href: '/driver/jobs', icon: '▣' },
+    { id: 'diary', label: 'Diary', href: '/driver/history', icon: '□' },
+    { id: 'availability', label: 'Availability', href: '/driver/availability', icon: '◷' },
+    { id: 'returns', label: 'Return Journeys', href: '/driver/returns', icon: '↩' },
+  ] },
+  { id: 'readiness', label: 'Vehicle & Business', items: [
+    { id: 'vehicle', label: 'Vehicle', href: '/driver/vehicles', icon: '▰' },
+    { id: 'documents', label: 'Documents', href: '/driver/documents', icon: '▤' },
+    { id: 'invoices', label: 'Invoices', href: '/driver/finance', icon: '£' },
+    { id: 'messages', label: 'Messages', href: '/driver/messages', icon: '◫' },
+    { id: 'profile', label: 'Account', href: '/driver/profile', icon: '◉' },
+  ] },
 ];
 
 const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
@@ -305,45 +327,10 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     ],
   },
   driver: {
-    role: 'driver', label: 'Driver Workspace', subtitle: 'Today, assigned work and proof of delivery', homeHref: '/driver',
-    nav: [
-      { id: 'home', label: 'Driver', items: [{ id: 'today', label: 'Today', href: '/driver', icon: '⌂' }] },
-      { id: 'work', label: 'My Work', items: [
-        { id: 'jobs', label: 'My Jobs', href: '/driver/jobs', icon: '▣' },
-        { id: 'diary', label: 'Diary', href: '/driver/history', icon: '□' },
-        { id: 'availability', label: 'Availability', href: '/driver/availability', icon: '◷' },
-      ] },
-      { id: 'readiness', label: 'Readiness', items: [
-        { id: 'vehicle', label: 'Vehicle', href: '/driver/vehicles', icon: '▰' },
-        { id: 'documents', label: 'Documents', href: '/driver/documents', icon: '▤' },
-      ] },
-      { id: 'account', label: 'Account', items: [
-        { id: 'messages', label: 'Messages', href: '/driver/messages', icon: '◫' },
-        { id: 'profile', label: 'Account', href: '/driver/profile', icon: '◉' },
-      ] },
-    ],
+    role: 'driver', label: 'Driver Workspace', subtitle: 'Transport execution and commercial driver tools', homeHref: '/driver', primaryAction: { label: 'Find Loads', href: '/driver/loads', capability: 'loads.view.marketplace' }, nav: SHARED_DRIVER_NAV,
   },
   owner_driver: {
-    role: 'owner_driver', label: 'Owner Driver Workspace', subtitle: 'Find work, execute jobs and manage your business', homeHref: '/driver', primaryAction: { label: 'Find Loads', href: '/driver/loads', capability: 'loads.view.marketplace' },
-    nav: [
-      { id: 'home', label: 'Owner Driver', items: [{ id: 'dashboard', label: 'Owner Driver Dashboard', href: '/driver', icon: '⌂' }] },
-      { id: 'commercial', label: 'Commercial', items: [
-        { id: 'loads', label: 'Available Loads', href: '/driver/loads', icon: '▦' },
-        { id: 'quotes', label: 'My Quotes', href: '/driver/quotes', icon: '◫' },
-        { id: 'won-work', label: 'Won Work', href: '/driver/won-work', icon: '✓' },
-      ] },
-      { id: 'operations', label: 'My Work', items: [
-        { id: 'jobs', label: 'My Jobs', href: '/driver/jobs', icon: '▣' },
-        { id: 'diary', label: 'Diary', href: '/driver/history', icon: '□' },
-        { id: 'returns', label: 'Return Journeys', href: '/driver/returns', icon: '↩' },
-      ] },
-      { id: 'business', label: 'Vehicle & Business', items: [
-        { id: 'vehicle', label: 'Vehicle', href: '/driver/vehicles', icon: '▰' },
-        { id: 'documents', label: 'Documents', href: '/driver/documents', icon: '▤' },
-        { id: 'invoices', label: 'Invoices', href: '/driver/finance', icon: '£' },
-        { id: 'profile', label: 'Account', href: '/driver/profile', icon: '◉' },
-      ] },
-    ],
+    role: 'owner_driver', label: 'Owner Driver Workspace', subtitle: 'Transport execution and commercial driver tools', homeHref: '/driver', primaryAction: { label: 'Find Loads', href: '/driver/loads', capability: 'loads.view.marketplace' }, nav: SHARED_DRIVER_NAV,
   },
   finance: {
     role: 'finance', label: 'Finance Workspace', subtitle: 'Invoices, payments, balances and reporting', homeHref: '/admin/invoices',

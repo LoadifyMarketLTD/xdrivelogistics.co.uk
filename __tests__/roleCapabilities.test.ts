@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { isRoleAllowedForPath } from '../lib/authRole';
 import type { AppUserRole } from '../lib/authRole';
+import { resolveWorkspaceRole } from '../lib/workspaceRole';
 
 // company_admin can access /admin routes; used as the representative admin role
 const ADMIN_ROLE: AppUserRole = 'company_admin';
@@ -108,6 +109,57 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
         companyStatus: 'active',
       }),
     ).toBe(false);
+  });
+
+  it('allows identical /driver access for owner/admin/company-driver memberships with valid scoped driver facts', () => {
+    const contexts = [
+      { membershipRole: 'owner', ownerDriverWorkspace: true },
+      { membershipRole: 'admin', ownerDriverWorkspace: true },
+      { membershipRole: 'driver', ownerDriverWorkspace: false },
+    ];
+
+    for (const context of contexts) {
+      const workspaceRole = resolveWorkspaceRole({
+        role: 'driver',
+        rawRole: 'driver',
+        membershipRole: context.membershipRole,
+        ownerDriverWorkspace: context.ownerDriverWorkspace,
+      });
+
+      expect(
+        isRoleAllowedForPath('/driver/jobs', DRIVER_ROLE, {
+          workspaceRole,
+          driverId: 'drv-dual',
+          appAccess: true,
+          driverStatus: 'active',
+          accountStatus: 'active',
+          companyStatus: 'active',
+        }),
+      ).toBe(true);
+
+      expect(
+        isRoleAllowedForPath('/driver/loads', DRIVER_ROLE, {
+          workspaceRole,
+          driverId: 'drv-dual',
+          appAccess: true,
+          driverStatus: 'active',
+          accountStatus: 'active',
+          companyStatus: 'active',
+        }),
+      ).toBe(true);
+
+      expect(
+        isRoleAllowedForPath('/driver/quotes', DRIVER_ROLE, {
+          workspaceRole,
+          driverId: 'drv-dual',
+          appAccess: true,
+          driverStatus: 'active',
+          accountStatus: 'active',
+          companyStatus: 'active',
+          canCommercialBid: true,
+        }),
+      ).toBe(true);
+    }
   });
 
   it('allows both company driver and owner driver on the same commercial driver routes', () => {

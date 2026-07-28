@@ -5,6 +5,7 @@ import {
   roleRequiresCompanyContext,
   shouldAutoProvisionCompany,
 } from './authRole';
+import { resolveSafeBootstrapProfileRole } from './bootstrapProfileRole';
 import { resolveAuthContext } from './authContextResolver';
 import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './driverWorkspaceMode';
 import { supabase } from './supabaseClient';
@@ -342,11 +343,12 @@ export const resolveAuthenticatedUser = async (
   }
 
   if (!profile) {
-    const metadataRole = readMetadataRole(sessionUser.user_metadata, 'role')
-      ?? readMetadataRole(sessionUser.user_metadata, 'requested_role')
-      ?? fallbackRole;
-    const mappedRole = mapAppRole(metadataRole) ?? 'customer';
-    const storedRole = normalizeProfileRoleForStorage(mappedRole) ?? 'customer';
+    const safeBootstrapRole = resolveSafeBootstrapProfileRole({
+      membershipRole: membership?.role_in_company ?? null,
+      hasScopedDriver: Boolean(driver?.id),
+      fallbackRole,
+    });
+    const storedRole = normalizeProfileRoleForStorage(safeBootstrapRole) ?? 'customer';
     const profileBootstrap = await supabase
       .from('profiles')
       .upsert(
@@ -354,7 +356,7 @@ export const resolveAuthenticatedUser = async (
           user_id: sessionUser.id,
           role: storedRole,
           status: 'active',
-          is_driver: mappedRole === 'driver',
+          is_driver: safeBootstrapRole === 'driver',
         },
         { onConflict: 'user_id' }
       )
