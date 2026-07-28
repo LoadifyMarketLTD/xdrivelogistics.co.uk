@@ -16,19 +16,27 @@ export type JobClientFields = {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 const PHONE_PATTERN = /^\+?[0-9()\-\s]{6,}$/;
 
-const splitLegacySpecialRequirements = (value: string | null | undefined) =>
-  (value ?? '')
+const toTrimmedString = (value: unknown): string =>
+  typeof value === 'string' ? value.trim() : '';
+
+const splitLegacySpecialRequirements = (value: unknown) => {
+  if (typeof value !== 'string' || !value.trim()) return [];
+  return value
     .split('|')
     .map((part) => part.trim())
     .filter(Boolean);
+};
 
 export const getJobClientFields = (source: JobClientFieldSource): JobClientFields => {
-  const name = source.client_name?.trim() || 'Unknown';
-  let email = source.client_email?.trim() || '';
-  let phone = source.client_phone?.trim() || '';
+  const runtimeSource = source && typeof source === 'object'
+    ? source as Record<string, unknown>
+    : {};
+  const name = toTrimmedString(runtimeSource.client_name) || 'Unknown';
+  let email = toTrimmedString(runtimeSource.client_email);
+  let phone = toTrimmedString(runtimeSource.client_phone);
   const cargoNotes: string[] = [];
 
-  for (const part of splitLegacySpecialRequirements(source.special_requirements)) {
+  for (const part of splitLegacySpecialRequirements(runtimeSource.special_requirements)) {
     if (!email && EMAIL_PATTERN.test(part)) {
       email = part;
       continue;
@@ -57,10 +65,10 @@ export const buildLegacyJobSpecialRequirements = ({
   clientPhone,
   cargoNotes,
 }: {
-  clientEmail?: string;
-  clientPhone?: string;
-  cargoNotes?: string;
+  clientEmail?: unknown;
+  clientPhone?: unknown;
+  cargoNotes?: unknown;
 }) =>
-  [clientPhone?.trim(), clientEmail?.trim(), cargoNotes?.trim()]
+  [toTrimmedString(clientPhone), toTrimmedString(clientEmail), toTrimmedString(cargoNotes)]
     .filter(Boolean)
     .join(' | ');
