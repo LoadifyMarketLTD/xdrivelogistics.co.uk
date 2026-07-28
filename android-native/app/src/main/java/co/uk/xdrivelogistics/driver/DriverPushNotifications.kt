@@ -57,18 +57,18 @@ internal fun showDriverPushNotification(
         .setPriority(NotificationCompat.PRIORITY_HIGH)
         .setContentIntent(pendingIntent)
         .build()
-    if (!canPostDriverPushNotifications(context)) return
+    if (
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) != PackageManager.PERMISSION_GRANTED
+    ) {
+        return
+    }
     runCatching {
         NotificationManagerCompat.from(context).notify(deepLink.hashCode(), notification)
     }
-}
-
-private fun canPostDriverPushNotifications(context: Context): Boolean {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
-    return ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.POST_NOTIFICATIONS,
-    ) == PackageManager.PERMISSION_GRANTED
 }
 
 private fun ensureDriverPushChannel(context: Context) {

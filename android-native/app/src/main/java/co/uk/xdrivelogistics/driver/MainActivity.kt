@@ -132,12 +132,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleIncomingIntent(intent)
-        FirebaseMessaging.getInstance().token
-            .addOnSuccessListener { token ->
-                if (!token.isNullOrBlank()) {
-                    viewModel.registerDeviceToken(token)
+        if (ensureFirebaseAppInitialized(applicationContext)) {
+            FirebaseMessaging.getInstance().token
+                .addOnSuccessListener { token ->
+                    if (!token.isNullOrBlank()) {
+                        viewModel.registerDeviceToken(token)
+                    }
                 }
-            }
+        }
         val fusedClient = LocationServices.getFusedLocationProviderClient(this)
 
         setContent {

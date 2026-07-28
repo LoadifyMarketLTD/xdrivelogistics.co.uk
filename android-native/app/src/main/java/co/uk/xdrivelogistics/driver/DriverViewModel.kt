@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.security.MessageDigest
 import java.util.Locale
 
@@ -131,6 +132,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private var registeredDeviceTokenOwnerId: String? = null
     /** Last successfully registered token for the current owner. */
     private var registeredDeviceTokenValue: String? = null
+    /** Logout-time unregister to retry next time the same owner authenticates. */
+    private var pendingDeviceTokenUnregisterOwnerId: String? = null
+    private var pendingDeviceTokenUnregisterValue: String? = null
 
     init {
         mutationQueue.restore(queueStore.readAll())
@@ -207,8 +211,16 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             liveRefreshJob?.cancel()
             val session = _uiState.value.session
             val token = latestDeviceToken
-            if (session != null && !token.isNullOrBlank()) {
-                api.unregisterDeviceToken(session, token)
+            val unregisterSucceeded = if (session != null && !token.isNullOrBlank()) {
+                withTimeoutOrNull(8_000L) {
+                    unregisterDeviceTokenWithSingleRefreshRetry(session, token)
+                } ?: false
+            } else {
+                true
+            }
+            if (!unregisterSucceeded && session != null && !token.isNullOrBlank()) {
+                pendingDeviceTokenUnregisterOwnerId = session.userId
+                pendingDeviceTokenUnregisterValue = token
             }
             clearOwnerScopedMessageRequestGuards()
             clearOwnerScopedDeviceTokenState()
@@ -691,6 +703,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private suspend fun syncRegisteredDeviceTokenIfNeeded(session: DriverSession) {
+        flushPendingDeviceTokenUnregisterIfNeeded(session)
         val token = latestDeviceToken?.trim().orEmpty()
         if (token.isBlank()) return
         if (registeredDeviceTokenOwnerId == session.userId && registeredDeviceTokenValue == token) return
@@ -719,6 +732,46 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         } finally {
             deviceTokenInFlight.release(session)
         }
+    }
+
+    private suspend fun flushPendingDeviceTokenUnregisterIfNeeded(session: DriverSession) {
+        val ownerId = pendingDeviceTokenUnregisterOwnerId
+        val token = pendingDeviceTokenUnregisterValue?.trim().orEmpty()
+        if (ownerId != session.userId || token.isBlank()) return
+        if (!deviceTokenInFlight.acquire(session)) return
+        try {
+            if (unregisterDeviceTokenWithSingleRefreshRetry(session, token)) {
+                pendingDeviceTokenUnregisterOwnerId = null
+                pendingDeviceTokenUnregisterValue = null
+                if (registeredDeviceTokenOwnerId == session.userId && registeredDeviceTokenValue == token) {
+                    registeredDeviceTokenOwnerId = null
+                    registeredDeviceTokenValue = null
+                }
+            }
+        } finally {
+            deviceTokenInFlight.release(session)
+        }
+    }
+
+    private suspend fun unregisterDeviceTokenWithSingleRefreshRetry(
+        session: DriverSession,
+        token: String,
+    ): Boolean {
+        var success = false
+        runWithSingleRefreshRetry(
+            initialSession = session,
+            operation = { requestSession ->
+                api.unregisterDeviceToken(requestSession, token)
+            },
+            onSuccess = { _, acceptedSession ->
+                if (!shouldApplyAvailabilityResponse(_uiState.value.session, acceptedSession)) return@runWithSingleRefreshRetry
+                success = true
+            },
+            onFailure = {
+                success = false
+            },
+        )
+        return success
     }
 
     fun updatePassword(newPassword: String) {

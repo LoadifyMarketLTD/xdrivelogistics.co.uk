@@ -6,6 +6,10 @@ plugins {
 val xdriveBaseUrl = (project.findProperty("XDRIVE_BASE_URL") as String?) ?: "https://www.xdrivelogistics.co.uk"
 val supabaseUrl = (project.findProperty("XDRIVE_SUPABASE_URL") as String?) ?: ""
 val supabaseAnonKey = (project.findProperty("XDRIVE_SUPABASE_ANON_KEY") as String?) ?: ""
+val firebaseProjectId = (project.findProperty("XDRIVE_FIREBASE_PROJECT_ID") as String?) ?: ""
+val firebaseApplicationId = (project.findProperty("XDRIVE_FIREBASE_APPLICATION_ID") as String?) ?: ""
+val firebaseApiKey = (project.findProperty("XDRIVE_FIREBASE_API_KEY") as String?) ?: ""
+val firebaseSenderId = (project.findProperty("XDRIVE_FIREBASE_SENDER_ID") as String?) ?: ""
 
 android {
     namespace = "co.uk.xdrivelogistics.driver"
@@ -24,6 +28,10 @@ android {
         buildConfigField("String", "XDRIVE_BASE_URL", "\"$xdriveBaseUrl\"")
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"$firebaseProjectId\"")
+        buildConfigField("String", "FIREBASE_APPLICATION_ID", "\"$firebaseApplicationId\"")
+        buildConfigField("String", "FIREBASE_API_KEY", "\"$firebaseApiKey\"")
+        buildConfigField("String", "FIREBASE_SENDER_ID", "\"$firebaseSenderId\"")
     }
 
     buildTypes {
