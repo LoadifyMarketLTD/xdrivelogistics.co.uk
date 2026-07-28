@@ -426,7 +426,7 @@ class DispatcherMessageTest {
         runWithSingleRefreshRetryCoordinator(
             initialSession = sessionA,
             shouldApply = { true },
-            operation = { Result.failure(RuntimeException("401 Unauthorized")) },
+            operation = { Result.failure<Unit>(RuntimeException("401 Unauthorized")) },
             refreshSession = {
                 refreshCalls += 1
                 refreshed
@@ -453,7 +453,7 @@ class DispatcherMessageTest {
             shouldApply = { reqSession -> shouldApplyAvailabilityResponse(sessionB, reqSession) },
             operation = {
                 operationCalls += 1
-                Result.failure(RuntimeException("401 Unauthorized"))
+                Result.failure<Unit>(RuntimeException("401 Unauthorized"))
             },
             refreshSession = {
                 refreshCalls += 1
@@ -479,7 +479,7 @@ class DispatcherMessageTest {
         runWithSingleRefreshRetryCoordinator(
             initialSession = sessionA,
             shouldApply = { true },
-            operation = { Result.failure(RuntimeException("503 Service Unavailable")) },
+            operation = { Result.failure<Unit>(RuntimeException("503 Service Unavailable")) },
             refreshSession = {
                 refreshCalls += 1
                 null
