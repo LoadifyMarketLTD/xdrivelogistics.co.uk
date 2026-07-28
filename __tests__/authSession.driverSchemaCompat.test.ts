@@ -45,6 +45,10 @@ class MockQueryBuilder {
     return this;
   }
 
+  returns() {
+    return this;
+  }
+
   maybeSingle() {
     return this.execute();
   }
@@ -114,10 +118,13 @@ const err = (code: string, message: string, details?: string) => ({
 });
 
 const PROFILE_SELECT = 'role, status, is_driver, company_id';
-const MEMBERSHIP_SELECT = 'id, company_id, role_in_company, status';
+const MEMBERSHIP_SELECT = 'id, company_id, user_id, role_in_company, status, companies(id, name, company_type, status)';
 const DRIVER_FULL_SELECT = 'id, company_id, user_id, must_change_password, status, app_access, driver_type, can_commercial_bid';
 const DRIVER_LEGACY_SELECT = 'id, company_id, user_id, must_change_password, status, app_access';
 const CREATOR_COMPANY_SELECT = 'id, company_type';
+const COMPANY_STATUS_SELECT = 'status';
+
+const COMPANY_ID = 'co-1';
 
 const baseSessionUser = {
   id: 'user-1',
@@ -130,12 +137,12 @@ const baseProfile = {
   role: 'customer',
   status: 'active',
   is_driver: false,
-  company_id: null,
+  company_id: COMPANY_ID,
 };
 
 const baseDriverLegacyRow = {
   id: 'driver-1',
-  company_id: null,
+  company_id: COMPANY_ID,
   user_id: 'user-1',
   must_change_password: false,
   status: 'active',
@@ -155,13 +162,14 @@ describe('resolveAuthenticatedUser driver schema compatibility', () => {
       {
         table: 'drivers',
         select: DRIVER_FULL_SELECT,
-        result: ok({
+        result: ok([{
           ...baseDriverLegacyRow,
           driver_type: 'owner_operator',
           can_commercial_bid: true,
-        }),
+        }]),
       },
       { table: 'companies', select: CREATOR_COMPANY_SELECT, result: ok(null) },
+      { table: 'companies', select: COMPANY_STATUS_SELECT, result: ok({ status: 'active' }) },
     ];
 
     const result = await resolveAuthenticatedUser(baseSessionUser);
@@ -183,7 +191,8 @@ describe('resolveAuthenticatedUser driver schema compatibility', () => {
         result: err('42703', 'column drivers.driver_type does not exist'),
       },
       { table: 'companies', select: CREATOR_COMPANY_SELECT, result: ok(null) },
-      { table: 'drivers', select: DRIVER_LEGACY_SELECT, result: ok(baseDriverLegacyRow) },
+      { table: 'drivers', select: DRIVER_LEGACY_SELECT, result: ok([baseDriverLegacyRow]) },
+      { table: 'companies', select: COMPANY_STATUS_SELECT, result: ok({ status: 'active' }) },
     ];
 
     const result = await resolveAuthenticatedUser(baseSessionUser);
@@ -208,7 +217,8 @@ describe('resolveAuthenticatedUser driver schema compatibility', () => {
         result: err('42703', 'column drivers.can_commercial_bid does not exist'),
       },
       { table: 'companies', select: CREATOR_COMPANY_SELECT, result: ok(null) },
-      { table: 'drivers', select: DRIVER_LEGACY_SELECT, result: ok(baseDriverLegacyRow) },
+      { table: 'drivers', select: DRIVER_LEGACY_SELECT, result: ok([baseDriverLegacyRow]) },
+      { table: 'companies', select: COMPANY_STATUS_SELECT, result: ok({ status: 'active' }) },
     ];
 
     const result = await resolveAuthenticatedUser(baseSessionUser);
@@ -253,11 +263,12 @@ describe('resolveAuthenticatedUser driver schema compatibility', () => {
       {
         table: 'drivers',
         select: DRIVER_LEGACY_SELECT,
-        result: ok({
+        result: ok([{
           ...baseDriverLegacyRow,
           can_commercial_bid: true,
-        }),
+        }]),
       },
+      { table: 'companies', select: COMPANY_STATUS_SELECT, result: ok({ status: 'active' }) },
     ];
 
     const result = await resolveAuthenticatedUser(baseSessionUser);
@@ -265,6 +276,41 @@ describe('resolveAuthenticatedUser driver schema compatibility', () => {
     expect(result.reason).toBeNull();
     expect(result.user?.canCommercialBid).toBe(false);
     expect(result.user?.driverType).toBeNull();
+    expect(mockState.expectations).toHaveLength(0);
+  });
+
+  it('resolves same-company scoped driver with correct non-commercial facts', async () => {
+    const membershipRow = {
+      id: 'mem-1',
+      company_id: COMPANY_ID,
+      user_id: 'user-1',
+      role_in_company: 'owner',
+      status: 'active',
+      companies: { id: COMPANY_ID, name: 'Test Co', company_type: 'standard', status: 'active' },
+    };
+    mockState.expectations = [
+      { table: 'profiles', select: PROFILE_SELECT, result: ok({ ...baseProfile, role: 'company_admin' }) },
+      { table: 'company_memberships', select: MEMBERSHIP_SELECT, result: ok([membershipRow]) },
+      {
+        table: 'drivers',
+        select: DRIVER_FULL_SELECT,
+        result: ok([{
+          ...baseDriverLegacyRow,
+          driver_type: 'company_driver',
+          can_commercial_bid: false,
+        }]),
+      },
+      { table: 'companies', select: CREATOR_COMPANY_SELECT, result: ok(null) },
+      { table: 'companies', select: COMPANY_STATUS_SELECT, result: ok({ status: 'active' }) },
+    ];
+
+    const result = await resolveAuthenticatedUser(baseSessionUser);
+
+    expect(result.reason).toBeNull();
+    expect(result.user?.driverId).toBe('driver-1');
+    expect(result.user?.driverStatus).toBe('active');
+    expect(result.user?.appAccess).toBe(true);
+    expect(mockState.calls.filter((call) => call.table === 'drivers').map((call) => call.select)).toEqual([DRIVER_FULL_SELECT]);
     expect(mockState.expectations).toHaveLength(0);
   });
 });
