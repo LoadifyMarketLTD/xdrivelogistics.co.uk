@@ -14,15 +14,17 @@ import org.junit.Test
 class PendingUnregisterStoreTest {
 
     @Test
-    fun `PendingUnregister preserves ownerId and token`() {
-        val pending = PendingUnregister(ownerId = "user-a", token = "token-1")
+    fun `PendingUnregister preserves ownerId token installation and generation`() {
+        val pending = PendingUnregister(ownerId = "user-a", token = "token-1", installationId = "install-a", generation = 1L)
         assertEquals("user-a", pending.ownerId)
         assertEquals("token-1", pending.token)
+        assertEquals("install-a", pending.installationId)
+        assertEquals(1L, pending.generation)
     }
 
     @Test
     fun `PendingUnregister default addedAtMs is zero and attemptCount is zero`() {
-        val pending = PendingUnregister(ownerId = "user-a", token = "token-1")
+        val pending = PendingUnregister(ownerId = "user-a", token = "token-1", installationId = "install-a", generation = 1L)
         assertEquals(0L, pending.addedAtMs)
         assertEquals(0, pending.attemptCount)
     }
@@ -30,7 +32,7 @@ class PendingUnregisterStoreTest {
     @Test
     fun `owner mismatch prevents stale record from affecting a different owner`() {
         // Simulate the guard: stored record is for owner A, current session is owner B.
-        val entries = listOf(PendingUnregister(ownerId = "owner-a", token = "token-1"))
+        val entries = listOf(PendingUnregister(ownerId = "owner-a", token = "token-1", installationId = "install-a", generation = 1L))
         val currentOwnerId = "owner-b"
         val forOwner = entries.filter { it.ownerId == currentOwnerId }
         assertTrue(forOwner.isEmpty())
@@ -38,7 +40,7 @@ class PendingUnregisterStoreTest {
 
     @Test
     fun `matching owner exposes pending records for flush`() {
-        val entries = listOf(PendingUnregister(ownerId = "owner-a", token = "token-1"))
+        val entries = listOf(PendingUnregister(ownerId = "owner-a", token = "token-1", installationId = "install-a", generation = 1L))
         val currentOwnerId = "owner-a"
         val forOwner = entries.filter { it.ownerId == currentOwnerId }
         assertEquals(1, forOwner.size)
@@ -46,13 +48,13 @@ class PendingUnregisterStoreTest {
 
     @Test
     fun `blank token in pending record is not eligible for flush`() {
-        val pending = PendingUnregister(ownerId = "owner-a", token = "  ")
+        val pending = PendingUnregister(ownerId = "owner-a", token = "  ", installationId = "install-a", generation = 1L)
         assertFalse(pending.token.isNotBlank())
     }
 
     @Test
     fun `non-blank token in pending record is eligible for flush`() {
-        val pending = PendingUnregister(ownerId = "owner-a", token = "valid-token")
+        val pending = PendingUnregister(ownerId = "owner-a", token = "valid-token", installationId = "install-a", generation = 1L)
         assertTrue(pending.token.isNotBlank())
     }
 
@@ -62,8 +64,8 @@ class PendingUnregisterStoreTest {
     fun `second failed logout for different owner appends rather than overwrites`() {
         // Model the append-not-overwrite contract of PendingUnregisterStore.add().
         val entries = mutableListOf<PendingUnregister>()
-        entries.add(PendingUnregister(ownerId = "owner-a", token = "token-a"))
-        entries.add(PendingUnregister(ownerId = "owner-b", token = "token-b"))
+        entries.add(PendingUnregister(ownerId = "owner-a", token = "token-a", installationId = "install-a", generation = 1L))
+        entries.add(PendingUnregister(ownerId = "owner-b", token = "token-b", installationId = "install-b", generation = 1L))
         assertEquals(2, entries.size)
         assertEquals("owner-a", entries[0].ownerId)
         assertEquals("owner-b", entries[1].ownerId)
@@ -72,9 +74,9 @@ class PendingUnregisterStoreTest {
     @Test
     fun `adding duplicate owner+token replaces existing entry`() {
         // Matches PendingUnregisterStore.add() deduplication behaviour.
-        val entries = mutableListOf(PendingUnregister(ownerId = "owner-a", token = "token-1", attemptCount = 3))
-        entries.removeAll { it.ownerId == "owner-a" && it.token == "token-1" }
-        entries.add(PendingUnregister(ownerId = "owner-a", token = "token-1"))
+        val entries = mutableListOf(PendingUnregister(ownerId = "owner-a", token = "token-1", installationId = "install-a", generation = 1L, attemptCount = 3))
+        entries.removeAll { it.ownerId == "owner-a" && it.token == "token-1" && it.installationId == "install-a" && it.generation == 1L }
+        entries.add(PendingUnregister(ownerId = "owner-a", token = "token-1", installationId = "install-a", generation = 1L))
         assertEquals(1, entries.size)
         assertEquals(0, entries[0].attemptCount)
     }
@@ -82,10 +84,10 @@ class PendingUnregisterStoreTest {
     @Test
     fun `removing one entry leaves others intact`() {
         val entries = mutableListOf(
-            PendingUnregister(ownerId = "owner-a", token = "token-1"),
-            PendingUnregister(ownerId = "owner-b", token = "token-2"),
+            PendingUnregister(ownerId = "owner-a", token = "token-1", installationId = "install-a", generation = 1L),
+            PendingUnregister(ownerId = "owner-b", token = "token-2", installationId = "install-b", generation = 1L),
         )
-        entries.removeAll { it.ownerId == "owner-a" && it.token == "token-1" }
+        entries.removeAll { it.ownerId == "owner-a" && it.token == "token-1" && it.installationId == "install-a" && it.generation == 1L }
         assertEquals(1, entries.size)
         assertEquals("owner-b", entries[0].ownerId)
     }
@@ -95,7 +97,7 @@ class PendingUnregisterStoreTest {
     @Test
     fun `entry exceeding MAX_ATTEMPT_COUNT is pruned`() {
         val entries = listOf(
-            PendingUnregister(ownerId = "owner-a", token = "token-1", attemptCount = PendingUnregisterStore.MAX_ATTEMPT_COUNT),
+            PendingUnregister(ownerId = "owner-a", token = "token-1", installationId = "install-a", generation = 1L, attemptCount = PendingUnregisterStore.MAX_ATTEMPT_COUNT),
         )
         val pruned = entries.filter { it.attemptCount < PendingUnregisterStore.MAX_ATTEMPT_COUNT }
         assertTrue(pruned.isEmpty())
@@ -104,7 +106,7 @@ class PendingUnregisterStoreTest {
     @Test
     fun `entry below MAX_ATTEMPT_COUNT survives pruning`() {
         val entries = listOf(
-            PendingUnregister(ownerId = "owner-a", token = "token-1", attemptCount = PendingUnregisterStore.MAX_ATTEMPT_COUNT - 1),
+            PendingUnregister(ownerId = "owner-a", token = "token-1", installationId = "install-a", generation = 1L, attemptCount = PendingUnregisterStore.MAX_ATTEMPT_COUNT - 1),
         )
         val pruned = entries.filter { it.attemptCount < PendingUnregisterStore.MAX_ATTEMPT_COUNT }
         assertEquals(1, pruned.size)
@@ -114,7 +116,7 @@ class PendingUnregisterStoreTest {
     fun `entry older than MAX_AGE_MS is pruned`() {
         val nowMs = System.currentTimeMillis()
         val entries = listOf(
-            PendingUnregister(ownerId = "owner-a", token = "token-1", addedAtMs = nowMs - PendingUnregisterStore.MAX_AGE_MS - 1_000),
+            PendingUnregister(ownerId = "owner-a", token = "token-1", installationId = "install-a", generation = 1L, addedAtMs = nowMs - PendingUnregisterStore.MAX_AGE_MS - 1_000),
         )
         val pruned = entries.filter { (nowMs - it.addedAtMs) < PendingUnregisterStore.MAX_AGE_MS }
         assertTrue(pruned.isEmpty())
@@ -124,7 +126,7 @@ class PendingUnregisterStoreTest {
     fun `entry within MAX_AGE_MS survives pruning`() {
         val nowMs = System.currentTimeMillis()
         val entries = listOf(
-            PendingUnregister(ownerId = "owner-a", token = "token-1", addedAtMs = nowMs - 1_000),
+            PendingUnregister(ownerId = "owner-a", token = "token-1", installationId = "install-a", generation = 1L, addedAtMs = nowMs - 1_000),
         )
         val pruned = entries.filter { (nowMs - it.addedAtMs) < PendingUnregisterStore.MAX_AGE_MS }
         assertEquals(1, pruned.size)

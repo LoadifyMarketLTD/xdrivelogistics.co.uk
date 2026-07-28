@@ -12,12 +12,16 @@ import com.google.gson.reflect.TypeToken
  *
  * @param ownerId       The user ID that owns this token.
  * @param token         The FCM registration token to unregister from the server.
+ * @param installationId Stable per-install identifier used by server-side ordering checks.
+ * @param generation    Registration generation that was accepted for this token/installation.
  * @param addedAtMs     Epoch-milliseconds when this entry was first recorded.
  * @param attemptCount  Number of unregister attempts that have been made so far.
  */
 data class PendingUnregister(
     val ownerId: String,
     val token: String,
+    val installationId: String,
+    val generation: Long,
     val addedAtMs: Long = 0L,
     val attemptCount: Int = 0,
 )
@@ -45,17 +49,30 @@ class PendingUnregisterStore(context: Context) {
     // ── Write operations ─────────────────────────────────────────────────────
 
     /**
-     * Appends a new pending-unregister entry for [ownerId] + [token].
+     * Appends a new pending-unregister entry for [ownerId] + [token] + installation/generation.
      *
      * If an entry for the same owner+token already exists it is replaced (to
      * reset [PendingUnregister.addedAtMs] and [PendingUnregister.attemptCount]).
      */
-    fun add(ownerId: String, token: String) {
-        if (ownerId.isBlank() || token.isBlank()) return
+    fun add(ownerId: String, token: String, installationId: String, generation: Long) {
+        if (ownerId.isBlank() || token.isBlank() || installationId.isBlank() || generation <= 0L) return
         synchronized(lock) {
             val current = readAllInternal().toMutableList()
-            current.removeAll { it.ownerId == ownerId && it.token == token }
-            current.add(PendingUnregister(ownerId = ownerId, token = token, addedAtMs = System.currentTimeMillis()))
+            current.removeAll {
+                it.ownerId == ownerId &&
+                    it.token == token &&
+                    it.installationId == installationId &&
+                    it.generation == generation
+            }
+            current.add(
+                PendingUnregister(
+                    ownerId = ownerId,
+                    token = token,
+                    installationId = installationId,
+                    generation = generation,
+                    addedAtMs = System.currentTimeMillis(),
+                )
+            )
             persist(current)
         }
     }
@@ -64,10 +81,16 @@ class PendingUnregisterStore(context: Context) {
      * Removes the entry matching [ownerId] + [token].
      * No-op if the entry does not exist.
      */
-    fun remove(ownerId: String, token: String) {
+    fun remove(ownerId: String, token: String, installationId: String, generation: Long) {
         synchronized(lock) {
             val current = readAllInternal().toMutableList()
-            if (current.removeAll { it.ownerId == ownerId && it.token == token }) {
+            if (current.removeAll {
+                    it.ownerId == ownerId &&
+                        it.token == token &&
+                        it.installationId == installationId &&
+                        it.generation == generation
+                }
+            ) {
                 persist(current)
             }
         }
@@ -77,10 +100,15 @@ class PendingUnregisterStore(context: Context) {
      * Increments [PendingUnregister.attemptCount] for the entry matching [ownerId] + [token].
      * No-op if the entry does not exist.
      */
-    fun incrementAttemptCount(ownerId: String, token: String) {
+    fun incrementAttemptCount(ownerId: String, token: String, installationId: String, generation: Long) {
         synchronized(lock) {
             val current = readAllInternal().toMutableList()
-            val idx = current.indexOfFirst { it.ownerId == ownerId && it.token == token }
+            val idx = current.indexOfFirst {
+                it.ownerId == ownerId &&
+                    it.token == token &&
+                    it.installationId == installationId &&
+                    it.generation == generation
+            }
             if (idx >= 0) {
                 current[idx] = current[idx].copy(attemptCount = current[idx].attemptCount + 1)
                 persist(current)
@@ -100,7 +128,12 @@ class PendingUnregisterStore(context: Context) {
      * Returns all stored entries whose [PendingUnregister.ownerId] matches [ownerId].
      */
     fun readAllForOwner(ownerId: String): List<PendingUnregister> =
-        readAll().filter { it.ownerId == ownerId && it.token.isNotBlank() }
+        readAll().filter {
+            it.ownerId == ownerId &&
+                it.token.isNotBlank() &&
+                it.installationId.isNotBlank() &&
+                it.generation > 0L
+        }
 
     // ── Maintenance ──────────────────────────────────────────────────────────
 

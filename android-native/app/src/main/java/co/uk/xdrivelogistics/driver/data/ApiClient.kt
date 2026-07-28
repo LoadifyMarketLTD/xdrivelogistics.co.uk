@@ -1055,9 +1055,20 @@ class ApiClient(
         }
     }
 
-    suspend fun unregisterDeviceToken(session: DriverSession, token: String): Result<Unit> = networkResult {
+    suspend fun unregisterDeviceToken(
+        session: DriverSession,
+        token: String,
+        installationId: String,
+        generation: Long,
+    ): Result<Unit> = networkResult {
         require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
-        val body = gson.toJson(mapOf("token" to token)).toRequestBody(jsonMediaType)
+        val body = gson.toJson(
+            mapOf(
+                "token" to token,
+                "installation_id" to installationId,
+                "generation" to generation,
+            )
+        ).toRequestBody(jsonMediaType)
         val request = Request.Builder()
             .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/device-token")
             .addHeader("Authorization", "******")

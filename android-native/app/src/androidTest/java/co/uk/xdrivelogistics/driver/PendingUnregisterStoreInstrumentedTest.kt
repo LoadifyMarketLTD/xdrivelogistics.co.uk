@@ -26,7 +26,7 @@ class PendingUnregisterStoreInstrumentedTest {
         store = PendingUnregisterStore(context)
         // Start each test with an empty store.
         for (entry in store.readAll()) {
-            store.remove(entry.ownerId, entry.token)
+            store.remove(entry.ownerId, entry.token, entry.installationId, entry.generation)
         }
     }
 
@@ -37,7 +37,7 @@ class PendingUnregisterStoreInstrumentedTest {
 
     @Test
     fun addSingleEntryAndRead() {
-        store.add("owner-a", "token-1")
+        store.add("owner-a", "token-1", "install-a", 1L)
         val all = store.readAll()
         assertEquals(1, all.size)
         assertEquals("owner-a", all[0].ownerId)
@@ -47,8 +47,8 @@ class PendingUnregisterStoreInstrumentedTest {
 
     @Test
     fun addTwoEntriesForDifferentOwnersBothPreserved() {
-        store.add("owner-a", "token-a")
-        store.add("owner-b", "token-b")
+        store.add("owner-a", "token-a", "install-a", 1L)
+        store.add("owner-b", "token-b", "install-b", 1L)
         val all = store.readAll()
         assertEquals(2, all.size)
         val owners = all.map { it.ownerId }.toSet()
@@ -58,22 +58,22 @@ class PendingUnregisterStoreInstrumentedTest {
 
     @Test
     fun addDuplicateOwnerTokenResetsAttemptCount() {
-        store.add("owner-a", "token-1")
-        store.incrementAttemptCount("owner-a", "token-1")
-        store.incrementAttemptCount("owner-a", "token-1")
+        store.add("owner-a", "token-1", "install-a", 1L)
+        store.incrementAttemptCount("owner-a", "token-1", "install-a", 1L)
+        store.incrementAttemptCount("owner-a", "token-1", "install-a", 1L)
         assertEquals(2, store.readAllForOwner("owner-a")[0].attemptCount)
 
         // Re-adding same owner+token must reset attempt count.
-        store.add("owner-a", "token-1")
+        store.add("owner-a", "token-1", "install-a", 1L)
         assertEquals(1, store.readAll().size)
         assertEquals(0, store.readAllForOwner("owner-a")[0].attemptCount)
     }
 
     @Test
     fun removeOneEntryLeavesOtherIntact() {
-        store.add("owner-a", "token-1")
-        store.add("owner-b", "token-2")
-        store.remove("owner-a", "token-1")
+        store.add("owner-a", "token-1", "install-a", 1L)
+        store.add("owner-b", "token-2", "install-b", 1L)
+        store.remove("owner-a", "token-1", "install-a", 1L)
         val all = store.readAll()
         assertEquals(1, all.size)
         assertEquals("owner-b", all[0].ownerId)
@@ -81,8 +81,8 @@ class PendingUnregisterStoreInstrumentedTest {
 
     @Test
     fun readAllForOwnerReturnsOnlyThatOwner() {
-        store.add("owner-a", "token-1")
-        store.add("owner-b", "token-2")
+        store.add("owner-a", "token-1", "install-a", 1L)
+        store.add("owner-b", "token-2", "install-b", 1L)
         val forA = store.readAllForOwner("owner-a")
         assertEquals(1, forA.size)
         assertEquals("owner-a", forA[0].ownerId)
@@ -90,17 +90,17 @@ class PendingUnregisterStoreInstrumentedTest {
 
     @Test
     fun incrementAttemptCountUpdatesPersistedEntry() {
-        store.add("owner-a", "token-1")
-        store.incrementAttemptCount("owner-a", "token-1")
-        store.incrementAttemptCount("owner-a", "token-1")
+        store.add("owner-a", "token-1", "install-a", 1L)
+        store.incrementAttemptCount("owner-a", "token-1", "install-a", 1L)
+        store.incrementAttemptCount("owner-a", "token-1", "install-a", 1L)
         assertEquals(2, store.readAllForOwner("owner-a")[0].attemptCount)
     }
 
     @Test
     fun pruneExpiredRemovesEntriesExceedingMaxAttempts() {
-        store.add("owner-a", "token-1")
+        store.add("owner-a", "token-1", "install-a", 1L)
         repeat(PendingUnregisterStore.MAX_ATTEMPT_COUNT) {
-            store.incrementAttemptCount("owner-a", "token-1")
+            store.incrementAttemptCount("owner-a", "token-1", "install-a", 1L)
         }
         store.pruneExpired()
         assertTrue(store.readAllForOwner("owner-a").isEmpty())
@@ -108,7 +108,7 @@ class PendingUnregisterStoreInstrumentedTest {
 
     @Test
     fun pruneExpiredRemovesEntriesOlderThanMaxAge() {
-        store.add("owner-a", "token-1")
+        store.add("owner-a", "token-1", "install-a", 1L)
         // Pass a nowMs that is MAX_AGE_MS + 1 second beyond the current wall-clock time
         // (i.e. the entry appears 7 days + 1 second old).
         val futureNowMs = System.currentTimeMillis() + PendingUnregisterStore.MAX_AGE_MS + 1_000
@@ -118,7 +118,7 @@ class PendingUnregisterStoreInstrumentedTest {
 
     @Test
     fun pruneExpiredKeepsRecentEntries() {
-        store.add("owner-a", "token-1")
+        store.add("owner-a", "token-1", "install-a", 1L)
         store.pruneExpired()  // fresh entry, well within MAX_AGE_MS
         assertFalse(store.readAllForOwner("owner-a").isEmpty())
     }

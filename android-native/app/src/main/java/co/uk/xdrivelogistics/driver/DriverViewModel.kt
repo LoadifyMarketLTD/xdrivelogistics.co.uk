@@ -136,6 +136,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private var registeredDeviceTokenValue: String? = null
     /** Operation generation of the last successfully registered token. */
     private var registeredDeviceTokenGeneration: Long = -1L
+    /** Installation id associated with the last successful registration. */
+    private var registeredDeviceTokenInstallationId: String? = null
 
     init {
         mutationQueue.restore(queueStore.readAll())
@@ -214,17 +216,40 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             // Only attempt to unregister a token that was successfully registered server-side.
             // pendingTokenRegistrationStore tokens have not reached the server and require no revocation.
             val token = registeredDeviceTokenValue
-            val unregisterSucceeded = if (session != null && !token.isNullOrBlank()) {
+            val installationId = registeredDeviceTokenInstallationId
+            val generation = registeredDeviceTokenGeneration
+            val unregisterSucceeded = if (
+                session != null &&
+                !token.isNullOrBlank() &&
+                !installationId.isNullOrBlank() &&
+                generation > 0L
+            ) {
                 withTimeoutOrNull(8_000L) {
-                    unregisterDeviceTokenWithSingleRefreshRetry(session, token)
+                    unregisterDeviceTokenWithSingleRefreshRetry(
+                        session = session,
+                        token = token,
+                        installationId = installationId,
+                        generation = generation,
+                    )
                 } ?: false
             } else {
                 true
             }
-            if (!unregisterSucceeded && session != null && !token.isNullOrBlank()) {
+            if (
+                !unregisterSucceeded &&
+                session != null &&
+                !token.isNullOrBlank() &&
+                !installationId.isNullOrBlank() &&
+                generation > 0L
+            ) {
                 // Append rather than overwrite: a previous failed logout for a different
                 // owner/token must not be discarded.
-                pendingUnregisterStore.add(session.userId, token)
+                pendingUnregisterStore.add(
+                    ownerId = session.userId,
+                    token = token,
+                    installationId = installationId,
+                    generation = generation,
+                )
             }
             clearOwnerScopedMessageRequestGuards()
             clearOwnerScopedDeviceTokenState()
@@ -243,6 +268,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         registeredDeviceTokenOwnerId = null
         registeredDeviceTokenValue = null
         registeredDeviceTokenGeneration = -1L
+        registeredDeviceTokenInstallationId = null
     }
 
     private fun startLiveRefresh(session: DriverSession) {
@@ -750,7 +776,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         // Skip if already registered for this owner, token and generation.
         if (registeredDeviceTokenOwnerId == session.userId &&
             registeredDeviceTokenValue == token &&
-            registeredDeviceTokenGeneration == capturedGeneration
+            registeredDeviceTokenGeneration == capturedGeneration &&
+            registeredDeviceTokenInstallationId == capturedInstallationId
         ) return
         if (!deviceTokenInFlight.acquire(session)) return
         try {
@@ -777,6 +804,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         registeredDeviceTokenOwnerId = acceptedSession.userId
                         registeredDeviceTokenValue = token
                         registeredDeviceTokenGeneration = capturedGeneration
+                        registeredDeviceTokenInstallationId = capturedInstallationId
                         deviceTokenCoordinator.clearPendingIfGeneration(capturedGeneration)
                     }
                 },
@@ -795,17 +823,37 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         for (entry in pendingEntries) {
             if (!deviceTokenInFlight.acquire(session)) break
             try {
-                if (unregisterDeviceTokenWithSingleRefreshRetry(session, entry.token)) {
-                    pendingUnregisterStore.remove(entry.ownerId, entry.token)
+                if (
+                    unregisterDeviceTokenWithSingleRefreshRetry(
+                        session = session,
+                        token = entry.token,
+                        installationId = entry.installationId,
+                        generation = entry.generation,
+                    )
+                ) {
+                    pendingUnregisterStore.remove(
+                        ownerId = entry.ownerId,
+                        token = entry.token,
+                        installationId = entry.installationId,
+                        generation = entry.generation,
+                    )
                     if (registeredDeviceTokenOwnerId == session.userId &&
-                        registeredDeviceTokenValue == entry.token
+                        registeredDeviceTokenValue == entry.token &&
+                        registeredDeviceTokenGeneration == entry.generation &&
+                        registeredDeviceTokenInstallationId == entry.installationId
                     ) {
                         registeredDeviceTokenOwnerId = null
                         registeredDeviceTokenValue = null
                         registeredDeviceTokenGeneration = -1L
+                        registeredDeviceTokenInstallationId = null
                     }
                 } else {
-                    pendingUnregisterStore.incrementAttemptCount(entry.ownerId, entry.token)
+                    pendingUnregisterStore.incrementAttemptCount(
+                        ownerId = entry.ownerId,
+                        token = entry.token,
+                        installationId = entry.installationId,
+                        generation = entry.generation,
+                    )
                 }
             } finally {
                 deviceTokenInFlight.release(session)
@@ -816,12 +864,19 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun unregisterDeviceTokenWithSingleRefreshRetry(
         session: DriverSession,
         token: String,
+        installationId: String,
+        generation: Long,
     ): Boolean {
         var success = false
         runWithSingleRefreshRetry(
             initialSession = session,
             operation = { requestSession ->
-                api.unregisterDeviceToken(requestSession, token)
+                api.unregisterDeviceToken(
+                    session = requestSession,
+                    token = token,
+                    installationId = installationId,
+                    generation = generation,
+                )
             },
             onSuccess = { _, acceptedSession ->
                 if (!shouldApplyAvailabilityResponse(_uiState.value.session, acceptedSession)) return@runWithSingleRefreshRetry
