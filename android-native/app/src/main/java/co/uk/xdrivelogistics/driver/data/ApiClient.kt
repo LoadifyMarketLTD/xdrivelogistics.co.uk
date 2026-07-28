@@ -1026,9 +1026,20 @@ class ApiClient(
         }
     }
 
-    suspend fun registerDeviceToken(session: DriverSession, token: String): Result<Unit> = networkResult {
+    suspend fun registerDeviceToken(
+        session: DriverSession,
+        token: String,
+        platform: String = "android",
+        appPackage: String = "co.uk.xdrivelogistics.driver",
+    ): Result<Unit> = networkResult {
         require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
-        val body = gson.toJson(mapOf("token" to token)).toRequestBody(jsonMediaType)
+        val body = gson.toJson(
+            mapOf(
+                "token" to token,
+                "platform" to platform,
+                "app_package" to appPackage,
+            )
+        ).toRequestBody(jsonMediaType)
         val request = Request.Builder()
             .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/device-token")
             .addHeader("Authorization", "******")
@@ -1037,6 +1048,20 @@ class ApiClient(
         http.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to register device token.")
+        }
+    }
+
+    suspend fun unregisterDeviceToken(session: DriverSession, token: String): Result<Unit> = networkResult {
+        require(hasXDriveBaseUrl()) { "XDRIVE_BASE_URL is missing." }
+        val body = gson.toJson(mapOf("token" to token)).toRequestBody(jsonMediaType)
+        val request = Request.Builder()
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/device-token")
+            .addHeader("Authorization", "******")
+            .delete(body)
+            .build()
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toMobileApiException(response, raw, "Failed to unregister device token.")
         }
     }
 

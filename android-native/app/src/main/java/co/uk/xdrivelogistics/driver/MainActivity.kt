@@ -91,6 +91,7 @@ import co.uk.xdrivelogistics.driver.data.DispatcherMessage
 import co.uk.xdrivelogistics.driver.data.MarketplaceJob
 import co.uk.xdrivelogistics.driver.offline.MobileQueueState
 import com.google.android.gms.location.LocationServices
+import com.google.firebase.messaging.FirebaseMessaging
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.time.LocalTime
@@ -131,6 +132,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleIncomingIntent(intent)
+        FirebaseMessaging.getInstance().token
+            .addOnSuccessListener { token ->
+                if (!token.isNullOrBlank()) {
+                    viewModel.registerDeviceToken(token)
+                }
+            }
         val fusedClient = LocationServices.getFusedLocationProviderClient(this)
 
         setContent {

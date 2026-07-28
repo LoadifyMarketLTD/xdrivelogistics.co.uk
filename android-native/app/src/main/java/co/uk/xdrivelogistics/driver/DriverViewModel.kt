@@ -123,6 +123,14 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val readMutationInFlight = OwnerSessionInFlightGuard()
     /** Owner/session-scoped in-flight guard for dispatch-note send requests. */
     private val dispatchNoteInFlight = OwnerSessionInFlightGuard()
+    /** Owner/session-scoped guard for FCM device-token registration calls. */
+    private val deviceTokenInFlight = OwnerSessionInFlightGuard()
+    /** Latest discovered FCM token on this device (trimmed). */
+    private var latestDeviceToken: String? = null
+    /** Last successfully registered owner id for [latestDeviceToken]. */
+    private var registeredDeviceTokenOwnerId: String? = null
+    /** Last successfully registered token for the current owner. */
+    private var registeredDeviceTokenValue: String? = null
 
     init {
         mutationQueue.restore(queueStore.readAll())
@@ -131,6 +139,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             sessionStore.session.collectLatest { persisted ->
                 if (persisted == null) {
                     clearOwnerScopedMessageRequestGuards()
+                    clearOwnerScopedDeviceTokenState()
                     _uiState.value = DriverUiState()
                     return@collectLatest
                 }
@@ -140,6 +149,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 val previousOwnerId = _uiState.value.session?.userId
                 if (ownerChanged(previousOwnerId, persisted.userId)) {
                     clearOwnerScopedMessageRequestGuards()
+                    clearOwnerScopedDeviceTokenState()
                     _uiState.value = _uiState.value.copy(
                         selectedJobId = null,
                         jobs = emptyList(),
@@ -165,6 +175,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     session = persisted,
                     error = "",
                 )
+                syncRegisteredDeviceTokenIfNeeded(persisted)
                 refreshDriverData()
                 recoverPendingPodUploads(persisted)
                 startLiveRefresh(persisted)
@@ -194,7 +205,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun logout() {
         viewModelScope.launch {
             liveRefreshJob?.cancel()
+            val session = _uiState.value.session
+            val token = latestDeviceToken
+            if (session != null && !token.isNullOrBlank()) {
+                api.unregisterDeviceToken(session, token)
+            }
             clearOwnerScopedMessageRequestGuards()
+            clearOwnerScopedDeviceTokenState()
             sessionStore.clear()
         }
     }
@@ -203,6 +220,12 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         loadMoreInFlight.reset()
         readMutationInFlight.reset()
         dispatchNoteInFlight.reset()
+    }
+
+    private fun clearOwnerScopedDeviceTokenState() {
+        deviceTokenInFlight.reset()
+        registeredDeviceTokenOwnerId = null
+        registeredDeviceTokenValue = null
     }
 
     private fun startLiveRefresh(session: DriverSession) {
@@ -352,6 +375,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             dispatcherMessagesError = messagesLoadError,
                             dispatcherMessagesHasMore = (loadedMessages?.first?.size ?: 0) >= 50,
                         )
+                        syncRegisteredDeviceTokenIfNeeded(session)
                     }
                     .onFailure { error ->
                         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
@@ -657,9 +681,43 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
      * Full FCM integration requires Firebase Messaging SDK and google-services.json in the project.
      */
     fun registerDeviceToken(token: String) {
+        val trimmed = token.trim()
+        if (trimmed.isBlank()) return
+        latestDeviceToken = trimmed
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-            api.registerDeviceToken(session, token)
+            syncRegisteredDeviceTokenIfNeeded(session)
+        }
+    }
+
+    private suspend fun syncRegisteredDeviceTokenIfNeeded(session: DriverSession) {
+        val token = latestDeviceToken?.trim().orEmpty()
+        if (token.isBlank()) return
+        if (registeredDeviceTokenOwnerId == session.userId && registeredDeviceTokenValue == token) return
+        if (!deviceTokenInFlight.acquire(session)) return
+        try {
+            runWithSingleRefreshRetry(
+                initialSession = session,
+                operation = { reqSession ->
+                    api.registerDeviceToken(
+                        session = reqSession,
+                        token = token,
+                        platform = "android",
+                        appPackage = "co.uk.xdrivelogistics.driver",
+                    )
+                },
+                onSuccess = { _, acceptedSession ->
+                    if (shouldApplyAvailabilityResponse(_uiState.value.session, acceptedSession)) {
+                        registeredDeviceTokenOwnerId = acceptedSession.userId
+                        registeredDeviceTokenValue = token
+                    }
+                },
+                onFailure = {
+                    // Keep token cached for the next authenticated refresh/sync attempt.
+                },
+            )
+        } finally {
+            deviceTokenInFlight.release(session)
         }
     }
 

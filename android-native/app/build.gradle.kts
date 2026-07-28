@@ -63,9 +63,11 @@ android {
 
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.09.02")
+    val firebaseBom = platform("com.google.firebase:firebase-bom:34.2.0")
 
     implementation(composeBom)
     androidTestImplementation(composeBom)
+    implementation(firebaseBom)
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
@@ -87,6 +89,7 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.google.firebase:firebase-messaging:24.0.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-reflect:1.9.24")
