@@ -122,9 +122,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     /** Guards against duplicate mark-one taps on the same message ID. */
     private val markOneInFlight = mutableSetOf<String>()
     /** Guards against concurrent duplicate mark-all taps. */
-    private var markAllInFlight = false
+    private val markAllInFlight = InFlightBooleanGuard()
     /** Guards against concurrent duplicate dispatch-note send taps. */
-    private var dispatchNoteInFlight = false
+    private val dispatchNoteInFlight = InFlightBooleanGuard()
 
     init {
         mutationQueue.restore(queueStore.readAll())
@@ -394,8 +394,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun sendQuickNote(note: String, important: Boolean) {
-        if (dispatchNoteInFlight) return
-        dispatchNoteInFlight = true
+        if (!dispatchNoteInFlight.acquire()) return
         viewModelScope.launch {
             try {
                 val session = _uiState.value.session ?: return@launch
@@ -409,11 +408,16 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     _uiState.value = _uiState.value.copy(error = "Select a job first.")
                     return@launch
                 }
+                // Capture the job ID at request start so the draft is only cleared if the user
+                // has not switched to a different job before the server responds.
+                val requestJobId = selectedJob.id
 
                 _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-                api.sendQuickNote(session.accessToken, selectedJob.id, note.trim(), important)
+                api.sendQuickNote(session.accessToken, requestJobId, note.trim(), important)
                     .onSuccess {
                         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
+                        // Clear draft only for the exact job the request was sent for.
+                        if (!shouldClearDispatchDraft(requestJobId, _uiState.value.selectedJobId)) return@onSuccess
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             message = "Dispatch note sent.",
@@ -433,7 +437,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
             } finally {
-                dispatchNoteInFlight = false
+                dispatchNoteInFlight.release()
             }
         }
     }
@@ -448,7 +452,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
      * for that ID is already in flight.
      */
     fun markDispatcherMessageRead(messageId: String) {
-        if (!markOneInFlight.add(messageId)) return
+        if (!acquireMarkOneGuard(markOneInFlight, messageId)) return
         viewModelScope.launch {
             try {
                 val session = _uiState.value.session ?: return@launch
@@ -457,7 +461,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
                         _uiState.value = _uiState.value.copy(
                             dispatcherMessages = applyMarkOneRead(_uiState.value.dispatcherMessages, messageId),
-                            dispatcherUnreadCount = serverUnreadCount,
+                            dispatcherUnreadCount = safeServerUnreadCount(_uiState.value.dispatcherUnreadCount, serverUnreadCount),
                             dispatcherMessagesError = null,
                         )
                     }
@@ -472,7 +476,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
             } finally {
-                markOneInFlight.remove(messageId)
+                releaseMarkOneGuard(markOneInFlight, messageId)
             }
         }
     }
@@ -485,8 +489,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
      * A [markAllInFlight] guard drops concurrent duplicate taps while the request is in flight.
      */
     fun markAllDispatcherMessagesRead() {
-        if (markAllInFlight) return
-        markAllInFlight = true
+        if (!markAllInFlight.acquire()) return
         viewModelScope.launch {
             try {
                 val session = _uiState.value.session ?: return@launch
@@ -495,7 +498,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
                         _uiState.value = _uiState.value.copy(
                             dispatcherMessages = applyMarkAllRead(_uiState.value.dispatcherMessages),
-                            dispatcherUnreadCount = serverUnreadCount,
+                            dispatcherUnreadCount = safeServerUnreadCount(_uiState.value.dispatcherUnreadCount, serverUnreadCount),
                             dispatcherMessagesError = null,
                         )
                     }
@@ -510,7 +513,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
             } finally {
-                markAllInFlight = false
+                markAllInFlight.release()
             }
         }
     }
@@ -1765,3 +1768,57 @@ internal fun mergeDispatcherMessages(
     val existingIds = existing.mapTo(HashSet()) { it.id }
     return existing + newMessages.filter { it.id !in existingIds }
 }
+
+// ── In-flight guard helpers ───────────────────────────────────────────────────
+
+/**
+ * Attempts to acquire a mark-one in-flight lock for [id].
+ * Returns true if the lock was acquired (request may proceed) or false if a
+ * request for the same ID is already in flight (duplicate tap — drop it).
+ */
+internal fun acquireMarkOneGuard(inFlight: MutableSet<String>, id: String): Boolean = inFlight.add(id)
+
+/**
+ * Releases a mark-one in-flight lock for [id], called from a `finally` block so
+ * that a re-tap is allowed after the request completes (success or failure).
+ */
+internal fun releaseMarkOneGuard(inFlight: MutableSet<String>, id: String) {
+    inFlight.remove(id)
+}
+
+/**
+ * Reusable boolean in-flight guard for operations where only one concurrent
+ * request at a time is permitted (mark-all, dispatch-note).
+ *
+ * [acquire] returns true on the first call (lock acquired) and false on any
+ * subsequent call while the lock is held. [release] must be called from a
+ * `finally` block to allow the next request.
+ */
+internal class InFlightBooleanGuard {
+    private var active = false
+    fun acquire(): Boolean = if (active) false else { active = true; true }
+    fun release() { active = false }
+    fun isActive(): Boolean = active
+}
+
+// ── Unread-count monotonic guard ─────────────────────────────────────────────
+
+/**
+ * Returns the smaller of [current] and [incoming], ensuring that an out-of-order
+ * response carrying a stale (higher) unread count cannot overwrite a more recent
+ * lower count already applied to the UI state.
+ *
+ * Example: mark-B response arrives (count=3), then mark-A response arrives late
+ * (count=5). Using `minOf` keeps 3 — the more up-to-date value.
+ */
+internal fun safeServerUnreadCount(current: Int, incoming: Int): Int = minOf(current, incoming)
+
+// ── Dispatch-note job identity guard ─────────────────────────────────────────
+
+/**
+ * Returns true only when [currentSelectedJobId] matches [requestJobId] (i.e. the
+ * user has not switched to a different job or deselected the job between request
+ * start and server response arrival). The draft should only be cleared when true.
+ */
+internal fun shouldClearDispatchDraft(requestJobId: String, currentSelectedJobId: String?): Boolean =
+    requestJobId == currentSelectedJobId
