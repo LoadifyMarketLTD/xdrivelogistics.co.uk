@@ -73,6 +73,49 @@ jobs:
           EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
         run: npm run build
 
+  device-token-db-integration:
+    name: Device-token RPC DB integration
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: xdrive_test
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Device-token API/security tests
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: ci
+          PGPASSWORD: ci
+          PGDATABASE: xdrive_test
+        run: npx vitest run __tests__/driverDeviceTokenRpcIntegration.test.ts
+
   public-e2e-smoke:
     name: Public E2E Smoke
     runs-on: ubuntu-latest
