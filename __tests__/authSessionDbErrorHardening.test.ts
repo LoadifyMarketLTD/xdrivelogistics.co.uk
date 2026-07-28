@@ -260,4 +260,35 @@ describe('authSession db-error hardening', () => {
       expect(result.user.role).toBe('customer');
     }
   });
+
+  it('preserves application membership identities without unsafe casts', async () => {
+    for (const membershipRole of ['finance', 'compliance', 'driver'] as const) {
+      authHarness.setFixtures({
+        profile: authHarness.ok({ role: 'company_staff', status: 'active', is_driver: membershipRole === 'driver', company_id: 'co-1' }),
+        membershipsInitial: authHarness.ok([
+          { ...authHarness.membership('mem-1', 'co-1'), role_in_company: membershipRole },
+        ]),
+      });
+
+      const result = await resolveAuthenticatedUser({ id: 'user-1', app_metadata: { role: 'company_staff' } });
+      expect(result.reason).toBeNull();
+      expect(result.user).not.toBeNull();
+      if (result.user) {
+        expect(result.user.membershipRole).toBe(membershipRole);
+      }
+    }
+  });
+
+  it('fails closed for unknown membership roles', async () => {
+    authHarness.setFixtures({
+      profile: authHarness.ok({ role: 'company_staff', status: 'active', is_driver: false, company_id: 'co-1' }),
+      membershipsInitial: authHarness.ok([
+        { ...authHarness.membership('mem-1', 'co-1'), role_in_company: 'mystery-role' },
+      ]),
+    });
+
+    const result = await resolveAuthenticatedUser({ id: 'user-1', app_metadata: { role: 'company_staff' } });
+    expect(result.reason).toBe('company_context_missing');
+    expect(result.user).toBeNull();
+  });
 });

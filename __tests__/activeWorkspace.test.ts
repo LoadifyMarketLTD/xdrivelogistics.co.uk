@@ -233,6 +233,45 @@ describe('resolveCompanyEnabledWorkspaces / resolveWorkspaceForCompany', () => {
     expect(resolveWorkspaceForCompany('fleet')).toBe('carrier_fleet');
   });
 
+  it('maps canonical owner_driver company type to owner_operator workspace', () => {
+    expect(resolveWorkspaceForCompany('owner_driver')).toBe('owner_operator');
+    expect(resolveCompanyEnabledWorkspaces({ companyType: 'owner_driver' })).toEqual({
+      ok: true,
+      enabledWorkspaces: ['owner_operator'],
+    });
+  });
+
+  it('resolves /driver routes for owner_driver memberships without enabling /admin', () => {
+    const rows = [
+      membership({
+        company_id: 'owner-driver-co',
+        role_in_company: 'driver',
+        companies: {
+          id: 'owner-driver-co',
+          name: 'Owner Driver Co',
+          company_type: 'owner_driver',
+          status: 'active',
+        },
+      }),
+    ];
+
+    const driverRoute = resolveActiveCompanyContext(rows, {
+      targetPathname: '/driver',
+    });
+    expect(driverRoute.ok).toBe(true);
+    if (driverRoute.ok) {
+      expect(driverRoute.context.enabledWorkspaces).toEqual(['owner_operator']);
+      expect(driverRoute.context.activeWorkspace).toBe('owner_operator');
+    }
+
+    expect(
+      resolveActiveCompanyContext(rows, {
+        activeWorkspace: 'carrier_fleet',
+        targetPathname: '/admin/companies',
+      }),
+    ).toEqual({ ok: false, error: 'workspace_not_enabled' });
+  });
+
   it('fails closed for null/empty/unknown company type without explicit enabled workspaces', () => {
     expect(resolveCompanyEnabledWorkspaces({ companyType: null })).toEqual({
       ok: false,

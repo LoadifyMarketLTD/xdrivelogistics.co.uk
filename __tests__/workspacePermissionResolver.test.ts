@@ -50,6 +50,125 @@ describe('resolveWorkspacePermission', () => {
     expect(result).toEqual({ allowed: false, reason: 'unmapped_route' });
   });
 
+  it('allows compatibility fallback routes only in their authorized workspace', () => {
+    expect(resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      pathname: '/admin/companies',
+    })).toEqual({ allowed: true, membershipRole: 'owner', activeWorkspace: 'carrier_fleet' });
+
+    expect(resolveWorkspacePermission({
+      companyType: 'broker',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['broker'],
+      activeWorkspace: 'broker',
+      pathname: '/broker/team',
+    })).toEqual({ allowed: true, membershipRole: 'owner', activeWorkspace: 'broker' });
+
+    expect(resolveWorkspacePermission({
+      companyType: 'shipper',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['shipper'],
+      activeWorkspace: 'shipper',
+      pathname: '/customer/updates',
+    })).toEqual({ allowed: true, membershipRole: 'owner', activeWorkspace: 'shipper' });
+
+    expect(resolveWorkspacePermission({
+      companyType: 'owner_driver',
+      membershipStatus: 'active',
+      membershipRole: 'driver',
+      enabledWorkspaces: ['owner_operator'],
+      activeWorkspace: 'owner_operator',
+      workspaceRole: 'driver',
+      driverId: 'drv-1',
+      appAccess: true,
+      driverStatus: 'active',
+      accountStatus: 'active',
+      companyStatus: 'active',
+      pathname: '/driver/more',
+    })).toEqual({ allowed: true, membershipRole: 'driver', activeWorkspace: 'owner_operator' });
+
+    expect(resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      pathname: '/broker/notifications',
+    })).toEqual({ allowed: false, reason: 'route_workspace_mismatch' });
+  });
+
+  it('covers representative existing fallback pages and denies cross-workspace access', () => {
+    for (const pathname of [
+      '/admin/companies',
+      '/admin/broker-invitations',
+      '/admin/drivers-vehicles',
+      '/admin/notifications',
+    ]) {
+      expect(resolveWorkspacePermission({
+        companyType: 'standard',
+        membershipStatus: 'active',
+        membershipRole: 'owner',
+        enabledWorkspaces: ['carrier_fleet'],
+        activeWorkspace: 'carrier_fleet',
+        pathname,
+      })).toEqual({ allowed: true, membershipRole: 'owner', activeWorkspace: 'carrier_fleet' });
+    }
+
+    for (const pathname of ['/broker/carrier-network', '/broker/team', '/broker/notifications']) {
+      expect(resolveWorkspacePermission({
+        companyType: 'broker',
+        membershipStatus: 'active',
+        membershipRole: 'owner',
+        enabledWorkspaces: ['broker'],
+        activeWorkspace: 'broker',
+        pathname,
+      })).toEqual({ allowed: true, membershipRole: 'owner', activeWorkspace: 'broker' });
+    }
+
+    for (const pathname of ['/customer/updates', '/customer/notifications']) {
+      expect(resolveWorkspacePermission({
+        companyType: 'shipper',
+        membershipStatus: 'active',
+        membershipRole: 'owner',
+        enabledWorkspaces: ['shipper'],
+        activeWorkspace: 'shipper',
+        pathname,
+      })).toEqual({ allowed: true, membershipRole: 'owner', activeWorkspace: 'shipper' });
+    }
+
+    for (const pathname of ['/driver/more', '/driver/notifications']) {
+      expect(resolveWorkspacePermission({
+        companyType: 'owner_driver',
+        membershipStatus: 'active',
+        membershipRole: 'driver',
+        enabledWorkspaces: ['owner_operator'],
+        activeWorkspace: 'owner_operator',
+        workspaceRole: 'driver',
+        driverId: 'drv-1',
+        appAccess: true,
+        driverStatus: 'active',
+        accountStatus: 'active',
+        companyStatus: 'active',
+        pathname,
+      })).toEqual({ allowed: true, membershipRole: 'driver', activeWorkspace: 'owner_operator' });
+    }
+
+    expect(resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      pathname: '/customer/notifications',
+    })).toEqual({ allowed: false, reason: 'route_workspace_mismatch' });
+  });
+
   it('denies cross-workspace paths and URL manipulation', () => {
     const crossWorkspace = resolveWorkspacePermission({
       companyType: 'standard',
