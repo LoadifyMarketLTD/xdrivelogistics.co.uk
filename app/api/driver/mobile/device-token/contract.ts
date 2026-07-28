@@ -89,19 +89,28 @@ export function parseDeviceTokenRegisterBody(body: unknown):
 }
 
 export function parseDeviceTokenUnregisterBody(body: unknown):
-  | { ok: true; token: string }
+  | { ok: true; token: string; installationId: string; generation: number }
   | { ok: false; error: string } {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return { ok: false, error: 'Body must be a JSON object.' };
   }
   const payload = body as Record<string, unknown>;
   const keys = Object.keys(payload);
-  if (keys.length !== 1 || keys[0] !== 'token') {
-    return { ok: false, error: 'Only token is allowed for unregister requests.' };
+  const allowed = new Set(['token', 'installation_id', 'generation']);
+  if (keys.some((k) => !allowed.has(k))) {
+    return { ok: false, error: 'Unknown request fields are not allowed.' };
   }
   const token = parseToken(payload.token);
   if (!token) {
     return { ok: false, error: 'token must be a non-empty string between 20 and 4096 chars.' };
   }
-  return { ok: true, token };
+  const installationId = parseInstallationId(payload.installation_id);
+  if (!installationId) {
+    return { ok: false, error: 'installation_id must be a non-empty string up to 64 chars.' };
+  }
+  const generation = parseGeneration(payload.generation);
+  if (generation === null) {
+    return { ok: false, error: 'generation must be a positive integer.' };
+  }
+  return { ok: true, token, installationId, generation };
 }

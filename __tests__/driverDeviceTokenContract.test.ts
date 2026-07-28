@@ -136,12 +136,19 @@ describe('driver mobile device-token contract', () => {
     if (result.ok) expect(result.value.generation).toBe(999);
   });
 
-  test('unregister payload only allows token', () => {
-    expect(parseDeviceTokenUnregisterBody({ token: 'x'.repeat(140) })).toEqual({
+  test('unregister payload requires token installation_id and generation', () => {
+    expect(parseDeviceTokenUnregisterBody({
+      token: 'x'.repeat(140),
+      installation_id: 'install-uuid-u1',
+      generation: 7,
+    })).toEqual({
       ok: true,
       token: 'x'.repeat(140),
+      installationId: 'install-uuid-u1',
+      generation: 7,
     });
     expect(parseDeviceTokenUnregisterBody({ token: 'x'.repeat(140), platform: 'android' })).toMatchObject({ ok: false });
+    expect(parseDeviceTokenUnregisterBody({ token: 'x'.repeat(140) })).toMatchObject({ ok: false });
   });
 });
 
@@ -187,71 +194,42 @@ describe('driver_device_tokens migration security', () => {
   test('migration includes registration_generation column for server-enforced ordering', () => {
     expect(migrationSql).toMatch(/registration_generation\s+bigint/i);
   });
-});
 
-describe('device-token stale-generation server-side ordering contract', () => {
-  /**
-   * Pure simulation of the server-side stale generation check performed in route.ts.
-   * Validates the contract: an incoming request whose generation is <= the generation
-   * already stored for the same (installation_id, token) pair must be treated as a
-   * no-op and must not mutate server state.
-   */
-  function shouldRejectAsStale(
-    existing: { installation_id: string; registration_generation: number } | null,
-    incoming: { installation_id: string; generation: number },
-  ): boolean {
-    if (!existing) return false;
-    if (existing.installation_id !== incoming.installation_id) return false;
-    return existing.registration_generation >= incoming.generation;
-  }
-
-  test('no existing row means request is accepted', () => {
-    expect(shouldRejectAsStale(null, { installation_id: 'dev1', generation: 1 })).toBe(false);
+  test('migration defines atomic register RPC', () => {
+    expect(migrationSql).toMatch(/CREATE OR REPLACE FUNCTION public\.driver_register_device_token_atomic\(/i);
+    expect(migrationSql).toMatch(/RETURNS text/i);
   });
 
-  test('existing row with lower generation means request is accepted (valid rotation)', () => {
-    expect(shouldRejectAsStale(
-      { installation_id: 'dev1', registration_generation: 3 },
-      { installation_id: 'dev1', generation: 4 },
-    )).toBe(false);
+  test('migration defines atomic unregister RPC', () => {
+    expect(migrationSql).toMatch(/CREATE OR REPLACE FUNCTION public\.driver_unregister_device_token_atomic\(/i);
   });
 
-  test('existing row with equal generation means request is rejected (idempotent duplicate)', () => {
-    expect(shouldRejectAsStale(
-      { installation_id: 'dev1', registration_generation: 5 },
-      { installation_id: 'dev1', generation: 5 },
-    )).toBe(true);
+  test('atomic register RPC serializes competing writes with advisory locks', () => {
+    expect(migrationSql).toMatch(/pg_advisory_xact_lock\(hashtext\('driver_device_tokens:install:'/i);
+    expect(migrationSql).toMatch(/pg_advisory_xact_lock\(hashtext\('driver_device_tokens:token:'/i);
   });
 
-  test('existing row with higher generation means request is rejected (stale A after B)', () => {
-    // B registered with generation 6 on device dev1. Stale A request with generation 5 arrives.
-    expect(shouldRejectAsStale(
-      { installation_id: 'dev1', registration_generation: 6 },
-      { installation_id: 'dev1', generation: 5 },
-    )).toBe(true);
+  test('atomic register RPC compares generation at installation scope', () => {
+    expect(migrationSql).toMatch(/WHERE installation_id = p_installation_id[\s\S]*ORDER BY registration_generation DESC/i);
+    expect(migrationSql).toMatch(/IF p_generation < v_current\.registration_generation THEN[\s\S]*RETURN 'stale'/i);
+    expect(migrationSql).toMatch(/IF p_generation = v_current\.registration_generation THEN[\s\S]*RETURN 'duplicate'[\s\S]*RETURN 'stale'/i);
   });
 
-  test('different installation_id means request is accepted (device reinstall or transfer)', () => {
-    // A new installation UUID means a fresh install — we allow the transfer.
-    expect(shouldRejectAsStale(
-      { installation_id: 'dev1', registration_generation: 10 },
-      { installation_id: 'dev2', generation: 1 },
-    )).toBe(false);
+  test('atomic register RPC performs upsert and legacy driver sync in one function', () => {
+    expect(migrationSql).toMatch(/INSERT INTO public\.driver_device_tokens[\s\S]*ON CONFLICT \(token\) DO UPDATE/i);
+    expect(migrationSql).toMatch(/UPDATE public\.drivers[\s\S]*SET device_token = p_token/i);
   });
 
-  test('B newer generation after A→B switch is always accepted', () => {
-    // After A (gen=5) → B (gen=6) on same device, B's request is not stale.
-    expect(shouldRejectAsStale(
-      { installation_id: 'dev1', registration_generation: 5 },
-      { installation_id: 'dev1', generation: 6 },
-    )).toBe(false);
+  test('atomic unregister RPC rejects stale generation and protects newer state', () => {
+    expect(migrationSql).toMatch(/CREATE OR REPLACE FUNCTION public\.driver_unregister_device_token_atomic\([\s\S]*p_generation bigint/i);
+    expect(migrationSql).toMatch(/IF p_generation < v_current\.registration_generation THEN[\s\S]*RETURN 'stale'/i);
+    expect(migrationSql).toMatch(/v_current\.registration_generation = p_generation[\s\S]*UPDATE public\.driver_device_tokens[\s\S]*revoked_at = v_now/i);
   });
 
-  test('A old request cannot overwrite B new registration (direct A→B switch test)', () => {
-    // B has already registered with gen=6. A's delayed request with gen=5 is stale.
-    const existingRowAfterB = { installation_id: 'dev1', registration_generation: 6 };
-    const staleARequest = { installation_id: 'dev1', generation: 5 };
-    expect(shouldRejectAsStale(existingRowAfterB, staleARequest)).toBe(true);
+  test('migration grants RPC execute only to service_role', () => {
+    expect(migrationSql).toMatch(/GRANT EXECUTE ON FUNCTION public\.driver_register_device_token_atomic\([^)]*\) TO service_role/i);
+    expect(migrationSql).toMatch(/GRANT EXECUTE ON FUNCTION public\.driver_unregister_device_token_atomic\([^)]*\) TO service_role/i);
+    expect(migrationSql).not.toMatch(/GRANT EXECUTE ON FUNCTION public\.driver_register_device_token_atomic\([^)]*\) TO authenticated/i);
+    expect(migrationSql).not.toMatch(/GRANT EXECUTE ON FUNCTION public\.driver_unregister_device_token_atomic\([^)]*\) TO authenticated/i);
   });
 });
-

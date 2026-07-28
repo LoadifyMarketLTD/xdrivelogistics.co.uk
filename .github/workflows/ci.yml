@@ -54,6 +54,13 @@ jobs:
           EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
         run: npm run test:unit
 
+      - name: Device-token API/security tests
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+          EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+        run: npx vitest run __tests__/driverDeviceTokenContract.test.ts __tests__/driverDeviceTokenRoute.test.ts
+
       - name: Messages contract static tests
         env:
           PLAYWRIGHT_BASE_URL: https://example.com
