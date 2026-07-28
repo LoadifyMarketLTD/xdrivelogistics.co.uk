@@ -109,8 +109,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val podSubmissionStore = PodSubmissionStore(application.applicationContext)
     /** Durable store for a pending FCM unregister that must survive process death. */
     private val pendingUnregisterStore = PendingUnregisterStore(application.applicationContext)
-    /** Durable store for a pending FCM registration token written by [DriverFirebaseMessagingService]. */
-    private val pendingTokenRegistrationStore = PendingTokenRegistrationStore(application.applicationContext)
+    /** Coordinator for FCM device-token writes from both onNewToken() and registerDeviceToken(). */
+    private val deviceTokenCoordinator = DeviceTokenCoordinator(application.applicationContext)
     private val mutationQueue = MobileOfflineQueue()
     private val api = ApiClient(
         xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
@@ -130,12 +130,12 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val dispatchNoteInFlight = OwnerSessionInFlightGuard()
     /** Owner/session-scoped guard for FCM device-token registration calls. */
     private val deviceTokenInFlight = OwnerSessionInFlightGuard()
-    /** Latest discovered FCM token on this device (trimmed). */
-    private var latestDeviceToken: String? = null
-    /** Last successfully registered owner id for [latestDeviceToken]. */
+    /** Last successfully registered owner id for the current device token. */
     private var registeredDeviceTokenOwnerId: String? = null
     /** Last successfully registered token for the current owner. */
     private var registeredDeviceTokenValue: String? = null
+    /** Operation generation of the last successfully registered token. */
+    private var registeredDeviceTokenGeneration: Long = -1L
 
     init {
         mutationQueue.restore(queueStore.readAll())
@@ -211,7 +211,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             liveRefreshJob?.cancel()
             val session = _uiState.value.session
-            val token = latestDeviceToken
+            // Only attempt to unregister a token that was successfully registered server-side.
+            // pendingTokenRegistrationStore tokens have not reached the server and require no revocation.
+            val token = registeredDeviceTokenValue
             val unregisterSucceeded = if (session != null && !token.isNullOrBlank()) {
                 withTimeoutOrNull(8_000L) {
                     unregisterDeviceTokenWithSingleRefreshRetry(session, token)
@@ -220,7 +222,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 true
             }
             if (!unregisterSucceeded && session != null && !token.isNullOrBlank()) {
-                pendingUnregisterStore.save(session.userId, token)
+                // Append rather than overwrite: a previous failed logout for a different
+                // owner/token must not be discarded.
+                pendingUnregisterStore.add(session.userId, token)
             }
             clearOwnerScopedMessageRequestGuards()
             clearOwnerScopedDeviceTokenState()
@@ -238,6 +242,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         deviceTokenInFlight.reset()
         registeredDeviceTokenOwnerId = null
         registeredDeviceTokenValue = null
+        registeredDeviceTokenGeneration = -1L
     }
 
     private fun startLiveRefresh(session: DriverSession) {
@@ -691,12 +696,15 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
      * Register or refresh the FCM push notification device token.
      * Call this after successfully acquiring a token from FirebaseMessaging.getInstance().token.
      * Full FCM integration requires Firebase Messaging SDK and google-services.json in the project.
+     *
+     * Routes through [DeviceTokenCoordinator] (the same coordinator used by
+     * [DriverFirebaseMessagingService.onNewToken]) so there is exactly one pending-token
+     * store and one generation sequence regardless of which path discovers the token first.
      */
     fun registerDeviceToken(token: String) {
         val trimmed = token.trim()
         if (trimmed.isBlank()) return
-        latestDeviceToken = trimmed
-        pendingTokenRegistrationStore.save(trimmed)
+        deviceTokenCoordinator.writePendingToken(trimmed)
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             syncRegisteredDeviceTokenIfNeeded(session)
@@ -705,16 +713,18 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 
     private suspend fun syncRegisteredDeviceTokenIfNeeded(session: DriverSession) {
         flushPendingDeviceTokenUnregisterIfNeeded(session)
-        // Absorb any token written by DriverFirebaseMessagingService.onNewToken() while the
-        // ViewModel was not running (e.g. background process start) so it is registered with
-        // the correct owner guards rather than via a direct service API call.
-        val storedToken = pendingTokenRegistrationStore.read()?.trim()
-        if (!storedToken.isNullOrBlank() && storedToken != latestDeviceToken) {
-            latestDeviceToken = storedToken
-        }
-        val token = latestDeviceToken?.trim().orEmpty()
+        // Read the pending token record from the coordinator. This absorbs tokens written by
+        // both registerDeviceToken() and DriverFirebaseMessagingService.onNewToken() so that
+        // all registration paths share the same owner/session/generation validation path.
+        val pending = deviceTokenCoordinator.readPending() ?: return
+        val token = pending.token
+        val capturedGeneration = pending.generation
         if (token.isBlank()) return
-        if (registeredDeviceTokenOwnerId == session.userId && registeredDeviceTokenValue == token) return
+        // Skip if already registered for this owner, token and generation.
+        if (registeredDeviceTokenOwnerId == session.userId &&
+            registeredDeviceTokenValue == token &&
+            registeredDeviceTokenGeneration == capturedGeneration
+        ) return
         if (!deviceTokenInFlight.acquire(session)) return
         try {
             runWithSingleRefreshRetry(
@@ -728,14 +738,21 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 },
                 onSuccess = { _, acceptedSession ->
-                    if (shouldApplyAvailabilityResponse(_uiState.value.session, acceptedSession)) {
+                    // Validate generation before committing: if onNewToken() fired a newer
+                    // token during the in-flight request the generation will have advanced,
+                    // so we must not overwrite the newer pending record or commit stale state.
+                    val currentPending = deviceTokenCoordinator.readPending()
+                    if (currentPending?.generation == capturedGeneration &&
+                        shouldApplyAvailabilityResponse(_uiState.value.session, acceptedSession)
+                    ) {
                         registeredDeviceTokenOwnerId = acceptedSession.userId
                         registeredDeviceTokenValue = token
-                        pendingTokenRegistrationStore.clear()
+                        registeredDeviceTokenGeneration = capturedGeneration
+                        deviceTokenCoordinator.clearPendingIfGeneration(capturedGeneration)
                     }
                 },
                 onFailure = {
-                    // Keep token cached for the next authenticated refresh/sync attempt.
+                    // Keep pending record for the next authenticated refresh/sync attempt.
                 },
             )
         } finally {
@@ -744,19 +761,26 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private suspend fun flushPendingDeviceTokenUnregisterIfNeeded(session: DriverSession) {
-        val pending = pendingUnregisterStore.read() ?: return
-        if (pending.ownerId != session.userId || pending.token.isBlank()) return
-        if (!deviceTokenInFlight.acquire(session)) return
-        try {
-            if (unregisterDeviceTokenWithSingleRefreshRetry(session, pending.token)) {
-                pendingUnregisterStore.clear()
-                if (registeredDeviceTokenOwnerId == session.userId && registeredDeviceTokenValue == pending.token) {
-                    registeredDeviceTokenOwnerId = null
-                    registeredDeviceTokenValue = null
+        pendingUnregisterStore.pruneExpired()
+        val pendingEntries = pendingUnregisterStore.readAllForOwner(session.userId)
+        for (entry in pendingEntries) {
+            if (!deviceTokenInFlight.acquire(session)) break
+            try {
+                if (unregisterDeviceTokenWithSingleRefreshRetry(session, entry.token)) {
+                    pendingUnregisterStore.remove(entry.ownerId, entry.token)
+                    if (registeredDeviceTokenOwnerId == session.userId &&
+                        registeredDeviceTokenValue == entry.token
+                    ) {
+                        registeredDeviceTokenOwnerId = null
+                        registeredDeviceTokenValue = null
+                        registeredDeviceTokenGeneration = -1L
+                    }
+                } else {
+                    pendingUnregisterStore.incrementAttemptCount(entry.ownerId, entry.token)
                 }
+            } finally {
+                deviceTokenInFlight.release(session)
             }
-        } finally {
-            deviceTokenInFlight.release(session)
         }
     }
 

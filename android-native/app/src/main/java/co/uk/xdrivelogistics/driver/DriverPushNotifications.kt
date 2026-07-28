@@ -17,10 +17,25 @@ private const val DRIVER_PUSH_CHANNEL_ID = "driver_dispatch_updates"
 private const val DRIVER_PUSH_CHANNEL_NAME = "Dispatcher updates"
 private const val DRIVER_PUSH_CHANNEL_DESCRIPTION = "Assignment and dispatcher notifications"
 
+/**
+ * Closed set of valid job-ID characters: letters, digits, hyphens, underscores.
+ * Must start with a letter or digit; total length enforced at the call site (≤ 128 chars).
+ * Covers UUID (8-4-4-4-12 hex) and common opaque alphanumeric job IDs.
+ */
+private val VALID_JOB_ID_PATTERN = Regex("^[A-Za-z0-9][A-Za-z0-9_\\-]*$")
+
 internal fun resolvePushDeepLink(data: Map<String, String>): String {
-    val explicitJobId = data["job_id"]?.trim().orEmpty()
-    if (explicitJobId.isNotBlank()) {
-        return "xdrive://job/$explicitJobId"
+    val rawJobId = data["job_id"]?.trim().orEmpty()
+    if (rawJobId.isNotEmpty()) {
+        // Accept only well-formed identifiers: letters, digits, hyphens and underscores,
+        // max 128 characters, starting with a letter or digit.
+        // This covers UUID (8-4-4-4-12 hex) and common opaque job-ID formats while
+        // preventing arbitrary user-controlled strings from reaching deep-link URIs.
+        return if (rawJobId.length <= 128 && VALID_JOB_ID_PATTERN.matches(rawJobId)) {
+            "xdrive://job/$rawJobId"
+        } else {
+            "xdrive://notification"
+        }
     }
     val route = data["route"]?.trim()?.lowercase().orEmpty()
     return when (route) {

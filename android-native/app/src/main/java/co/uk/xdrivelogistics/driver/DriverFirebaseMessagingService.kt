@@ -10,15 +10,16 @@ class DriverFirebaseMessagingService : FirebaseMessagingService() {
      *
      * This method may be invoked in a background process that was started directly for this
      * service, before [MainActivity] runs, so [ensureFirebaseAppInitialized] is called here
-     * as a safety net. The new token is persisted to [PendingTokenRegistrationStore] only;
-     * no direct API call is made. [DriverViewModel] picks up the pending token and performs
-     * the authenticated server registration under the correct owner/session guards, preventing
-     * stale A→B cross-session mutations from reaching the server.
+     * as a safety net (though [DriverApplication.onCreate] will already have run first in
+     * every process). The new token is persisted to [DeviceTokenCoordinator] only;
+     * no direct API call is made. [DriverViewModel] picks up the pending record and performs
+     * the authenticated server registration under the correct owner/session/generation guards,
+     * preventing stale A→B cross-session mutations from reaching the server.
      */
     override fun onNewToken(token: String) {
         if (token.isBlank()) return
         ensureFirebaseAppInitialized(applicationContext)
-        PendingTokenRegistrationStore(applicationContext).save(token)
+        DeviceTokenCoordinator(applicationContext).writePendingToken(token)
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
