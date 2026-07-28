@@ -406,7 +406,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         return null
     }
 
-    private fun expireSessionForRequest(session: DriverSession) {
+    private suspend fun expireSessionForRequest(session: DriverSession) {
         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return
         sessionStore.clear()
         _uiState.value = DriverUiState(error = "Your session expired. Please sign in again.")
