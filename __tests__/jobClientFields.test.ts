@@ -58,14 +58,14 @@ describe('getJobClientFields runtime hardening', () => {
 describe('buildLegacyJobSpecialRequirements', () => {
   it('ignores malformed runtime inputs without throwing', () => {
     expect(() => buildLegacyJobSpecialRequirements({
-      clientEmail: { bad: true },
-      clientPhone: ['x'],
+      clientEmail: { bad: true } as unknown as string,
+      clientPhone: ['x'] as unknown as string,
       cargoNotes: null,
     })).not.toThrow();
 
     expect(buildLegacyJobSpecialRequirements({
-      clientEmail: { bad: true },
-      clientPhone: ['x'],
+      clientEmail: { bad: true } as unknown as string,
+      clientPhone: ['x'] as unknown as string,
       cargoNotes: null,
     })).toBe('');
   });
