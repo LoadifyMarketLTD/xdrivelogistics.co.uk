@@ -257,9 +257,15 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 // If the availability call returned a session/auth error, route it into the
                 // same guarded refresh-and-retry / expiry path used for profile and jobs errors.
                 val availabilityAuthError = availabilityResult.exceptionOrNull()?.takeIf { it.isSessionError() }
-                if (availabilityAuthError != null && allowRefresh) {
+                if (availabilityAuthError != null) {
                     if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onSuccess
-                    refreshAndRetry(session)
+                    if (allowRefresh) {
+                        refreshAndRetry(session)
+                    } else {
+                        // Second auth failure on the already-refreshed session: expire the session.
+                        sessionStore.clear()
+                        _uiState.value = DriverUiState(error = "Your session expired. Please sign in again.")
+                    }
                     return@onSuccess
                 }
                 val loadedAvailability = availabilityResult.getOrNull()
