@@ -32,7 +32,6 @@ const TOKEN_A1  = 'tok-a1-' + 'a'.repeat(140);
 const TOKEN_A2  = 'tok-a2-' + 'b'.repeat(140);
 const TOKEN_B1  = 'tok-b1-' + 'c'.repeat(140);
 const INSTALL_1 = 'install-uuid-1';
-const INSTALL_2 = 'install-uuid-2';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 async function makeClient(): Promise<Client> {
