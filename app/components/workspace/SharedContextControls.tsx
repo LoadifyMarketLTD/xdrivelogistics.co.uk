@@ -9,6 +9,7 @@ import type {
 } from '../../../lib/sharedUiContext';
 import type { BusinessWorkspace } from '../../../lib/businessWorkspace';
 import { WORKSPACE_LABEL } from '../../../lib/businessWorkspace';
+import { useAuth } from '../AuthContext';
 import { workspaceTheme } from './WorkspaceUI';
 
 type NavigationTarget = {
@@ -34,6 +35,7 @@ export default function SharedContextControls({
   navigation: readonly NavigationTarget[];
 }) {
   const router = useRouter();
+  const { refreshUserContext } = useAuth();
   const [context, setContext] = useState<ContextResponse | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [selectedWorkspace, setSelectedWorkspace] = useState<BusinessWorkspace | ''>('');
@@ -131,9 +133,16 @@ export default function SharedContextControls({
         throw new Error('The server returned an invalid workspace route.');
       }
 
-      // A full document navigation intentionally destroys all stale client state.
-      // AuthProvider then resolves the user again from the persisted server context.
-      window.location.assign(body.landingRoute);
+      const refreshResult = await refreshUserContext();
+      if (!refreshResult.success) {
+        throw new Error(
+          refreshResult.error || 'Unable to refresh the selected workspace context.',
+        );
+      }
+
+      setContext(body);
+      router.replace(body.landingRoute);
+      router.refresh();
     } catch (switchError) {
       setError(
         switchError instanceof Error
