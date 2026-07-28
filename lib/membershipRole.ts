@@ -35,10 +35,10 @@ export const PERSISTED_COMPANY_ROLES: readonly PersistedCompanyRole[] = [
 ];
 
 /**
- * Ordered from highest to lowest privilege.
- * Planned roles retain identity until DB enum is extended in a later phase.
+ * All application-domain role values.
+ * These are capability profiles, not a privilege ladder — do not infer rank from order.
  */
-export const MEMBERSHIP_ROLE_PRECEDENCE: readonly MembershipRole[] = [
+export const MEMBERSHIP_ROLE_VALUES: readonly MembershipRole[] = [
   'owner',
   'admin',
   'dispatcher',
@@ -91,8 +91,8 @@ export const MEMBERSHIP_ROLE_CAPABILITIES: Record<MembershipRole, readonly Works
   viewer: ['jobs.view'],
 };
 
-export function membershipHasCapability(role: MembershipRole, capability: string): boolean {
-  return (MEMBERSHIP_ROLE_CAPABILITIES[role] as readonly string[])?.includes(capability) ?? false;
+export function membershipHasCapability(role: MembershipRole, capability: WorkspaceCapability): boolean {
+  return MEMBERSHIP_ROLE_CAPABILITIES[role]?.includes(capability) ?? false;
 }
 
 /**
@@ -101,7 +101,7 @@ export function membershipHasCapability(role: MembershipRole, capability: string
  */
 export function resolveMembershipRole(raw: string | null | undefined): MembershipRole | null {
   const normalised = (raw ?? '').trim().toLowerCase();
-  if ((MEMBERSHIP_ROLE_PRECEDENCE as readonly string[]).includes(normalised)) {
+  if ((MEMBERSHIP_ROLE_VALUES as readonly string[]).includes(normalised)) {
     return normalised as MembershipRole;
   }
   return null;
@@ -119,8 +119,4 @@ export function resolvePersistedCompanyRole(
     return normalised as PersistedCompanyRole;
   }
   return null;
-}
-
-export function isMembershipRoleAtLeast(a: MembershipRole, b: MembershipRole): boolean {
-  return MEMBERSHIP_ROLE_PRECEDENCE.indexOf(a) <= MEMBERSHIP_ROLE_PRECEDENCE.indexOf(b);
 }

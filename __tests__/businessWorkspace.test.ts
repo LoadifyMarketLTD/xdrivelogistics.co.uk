@@ -9,12 +9,11 @@ import {
 import {
   type MembershipRole,
   type PersistedCompanyRole,
-  MEMBERSHIP_ROLE_PRECEDENCE,
+  MEMBERSHIP_ROLE_VALUES,
   MEMBERSHIP_ROLE_CAPABILITIES,
   membershipHasCapability,
   resolveMembershipRole,
   resolvePersistedCompanyRole,
-  isMembershipRoleAtLeast,
 } from '../lib/membershipRole';
 
 describe('BusinessWorkspace vs MembershipRole separation', () => {
@@ -179,9 +178,13 @@ describe('role resolvers', () => {
     expect(resolvePersistedCompanyRole('driver')).toBeNull();
   });
 
-  it('isMembershipRoleAtLeast still orders privileged roles over viewer', () => {
-    expect(isMembershipRoleAtLeast('owner', 'viewer')).toBe(true);
-    expect(isMembershipRoleAtLeast('viewer', 'owner')).toBe(false);
-    expect(MEMBERSHIP_ROLE_PRECEDENCE[0]).toBe('owner');
+  it('MEMBERSHIP_ROLE_VALUES contains all 8 domain roles', () => {
+    const expected: MembershipRole[] = [
+      'owner', 'admin', 'dispatcher', 'finance', 'compliance', 'driver', 'member', 'viewer',
+    ];
+    expect(MEMBERSHIP_ROLE_VALUES).toHaveLength(8);
+    for (const role of expected) {
+      expect(MEMBERSHIP_ROLE_VALUES).toContain(role);
+    }
   });
 });
