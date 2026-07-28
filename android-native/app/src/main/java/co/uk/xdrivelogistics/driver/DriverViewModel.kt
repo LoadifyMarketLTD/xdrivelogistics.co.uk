@@ -109,6 +109,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val podSubmissionStore = PodSubmissionStore(application.applicationContext)
     /** Durable store for a pending FCM unregister that must survive process death. */
     private val pendingUnregisterStore = PendingUnregisterStore(application.applicationContext)
+    /** Durable store for a pending FCM registration token written by [DriverFirebaseMessagingService]. */
+    private val pendingTokenRegistrationStore = PendingTokenRegistrationStore(application.applicationContext)
     private val mutationQueue = MobileOfflineQueue()
     private val api = ApiClient(
         xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
@@ -694,6 +696,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         val trimmed = token.trim()
         if (trimmed.isBlank()) return
         latestDeviceToken = trimmed
+        pendingTokenRegistrationStore.save(trimmed)
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             syncRegisteredDeviceTokenIfNeeded(session)
@@ -702,6 +705,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 
     private suspend fun syncRegisteredDeviceTokenIfNeeded(session: DriverSession) {
         flushPendingDeviceTokenUnregisterIfNeeded(session)
+        // Absorb any token written by DriverFirebaseMessagingService.onNewToken() while the
+        // ViewModel was not running (e.g. background process start) so it is registered with
+        // the correct owner guards rather than via a direct service API call.
+        val storedToken = pendingTokenRegistrationStore.read()?.trim()
+        if (!storedToken.isNullOrBlank() && storedToken != latestDeviceToken) {
+            latestDeviceToken = storedToken
+        }
         val token = latestDeviceToken?.trim().orEmpty()
         if (token.isBlank()) return
         if (registeredDeviceTokenOwnerId == session.userId && registeredDeviceTokenValue == token) return
@@ -721,6 +731,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     if (shouldApplyAvailabilityResponse(_uiState.value.session, acceptedSession)) {
                         registeredDeviceTokenOwnerId = acceptedSession.userId
                         registeredDeviceTokenValue = token
+                        pendingTokenRegistrationStore.clear()
                     }
                 },
                 onFailure = {
