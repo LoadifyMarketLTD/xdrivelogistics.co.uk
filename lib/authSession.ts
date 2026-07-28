@@ -5,10 +5,22 @@ import {
   roleRequiresCompanyContext,
   shouldAutoProvisionCompany,
 } from './authRole';
+import {
+  findScopedDriverEvidence,
+  hasScopedDriverBootstrapEvidence,
+  resolveSafeBootstrapProfileRole,
+} from './bootstrapProfileRole';
+import {
+  normalizeAuthMembershipRows,
+  resolveAuthActiveCompanySelection,
+  type AuthMembershipQueryRow,
+} from './authActiveCompanyContext';
+import type { RawMembershipRow } from './activeWorkspace';
 import { resolveAuthContext } from './authContextResolver';
 import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './driverWorkspaceMode';
+import { resolveMembershipRole, type MembershipRole } from './membershipRole';
 import { supabase } from './supabaseClient';
-import type { CompanyMembership, Driver, Profile } from './types/database';
+import type { Driver, Profile } from './types/database';
 import { getWorkspaceHomeRoute, resolveWorkspaceRole, type WorkspaceRole } from './workspaceRole';
 
 export type UserRole =
@@ -60,7 +72,7 @@ export type ResolvedAuthUser = {
   workspaceRole: WorkspaceRole;
   companyId: string | null;
   membershipId: string | null;
-  membershipRole: CompanyMembership['role_in_company'] | null;
+  membershipRole: MembershipRole | null;
   driverId: string | null;
   mustChangePassword: boolean;
   ownerDriverWorkspace: boolean;
@@ -71,6 +83,8 @@ export type ResolvedAuthUser = {
   canCommercialBid: boolean;
   driverStatus: string | null;
   appAccess: boolean | null;
+  accountStatus: string | null;
+  companyStatus: string | null;
 };
 
 const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, key: string) => {
@@ -89,10 +103,9 @@ const readMetadataFlag = (metadata: Record<string, unknown> | null | undefined, 
 export const getFallbackRole = (sessionUser: SessionUser) =>
   readMetadataRole(sessionUser.app_metadata, 'role');
 
-
 const resolveFinanceAccess = (
   role: UserRole,
-  membershipRole: CompanyMembership['role_in_company'] | null,
+  membershipRole: MembershipRole | null,
   sessionUser: SessionUser
 ): 'full' | 'limited' | 'hidden' => {
   if (role === 'owner' || role === 'company_admin') return 'full';
@@ -100,9 +113,7 @@ const resolveFinanceAccess = (
   if (membershipRole === 'finance') return 'full';
 
   const explicitFinanceFlag =
-    readMetadataFlag(sessionUser.user_metadata, 'finance_view') ||
     readMetadataFlag(sessionUser.app_metadata, 'finance_view') ||
-    readMetadataFlag(sessionUser.user_metadata, 'dispatcher_finance_access') ||
     readMetadataFlag(sessionUser.app_metadata, 'dispatcher_finance_access');
 
   if (explicitFinanceFlag || membershipRole === 'dispatcher') return 'limited';
@@ -131,9 +142,9 @@ export const resolveAuthenticatedUser = async (
   const ownerDriverExecutionModeRequested = isDriverExecutionModeRequested(sessionUser.user_metadata, sessionUser.app_metadata);
   const profileLookupQuery = `profiles.select(role,status,is_driver,company_id).eq(user_id,${sessionUser.id}).maybeSingle()`;
   const membershipLookupQuery =
-    `company_memberships.select(id,company_id,role_in_company,status).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc)`;
+    `company_memberships.select(id,company_id,user_id,role_in_company,status,companies(id,name,company_type,status)).eq(user_id,${sessionUser.id}).eq(status,active).order(created_at desc)`;
   const driverLookupQuery =
-    `drivers.select(id,company_id,user_id,must_change_password,status,app_access,driver_type,can_commercial_bid).eq(user_id,${sessionUser.id}).limit(1).maybeSingle()`;
+    `drivers.select(id,company_id,user_id,must_change_password,status,app_access,driver_type,can_commercial_bid).eq(user_id,${sessionUser.id})`;
   const creatorCompanyLookupQuery =
     `companies.select(id,company_type).eq(created_by,${sessionUser.id}).limit(1).maybeSingle()`;
   const [profileRes, membershipResInitial, driverRes, creatorCompanyRes] = await Promise.all([
@@ -144,7 +155,7 @@ export const resolveAuthenticatedUser = async (
       .maybeSingle(),
     supabase
       .from('company_memberships')
-      .select('id, company_id, role_in_company, status')
+      .select('id, company_id, user_id, role_in_company, status, companies(id, name, company_type, status)')
       .eq('user_id', sessionUser.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false }),
@@ -152,8 +163,7 @@ export const resolveAuthenticatedUser = async (
       .from('drivers')
       .select('id, company_id, user_id, must_change_password, status, app_access, driver_type, can_commercial_bid')
       .eq('user_id', sessionUser.id)
-      .limit(1)
-      .maybeSingle(),
+      .returns<Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password' | 'status' | 'app_access' | 'driver_type' | 'can_commercial_bid'>[]>(),
     supabase
       .from('companies')
       .select('id, company_type')
@@ -167,68 +177,84 @@ export const resolveAuthenticatedUser = async (
   const membershipRes = membershipResInitial.error
     ? await supabase
         .from('company_memberships')
-        .select('id, company_id, role_in_company, status')
+        .select('id, company_id, user_id, role_in_company, status, companies(id, name, company_type, status)')
         .eq('user_id', sessionUser.id)
         .eq('status', 'active')
     : membershipResInitial;
 
+  const toDbError = (
+    query: string,
+    error: {
+      message: string;
+      code?: string | null;
+      details?: string | null;
+      hint?: string | null;
+    }
+  ): AuthDbError => ({
+    query,
+    message: error.message,
+    code: error.code ?? null,
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+  });
+
   const profileDbError = profileRes.error
-    ? {
-        query: profileLookupQuery,
-        message: profileRes.error.message,
-        code: profileRes.error.code ?? null,
-        details: profileRes.error.details ?? null,
-        hint: profileRes.error.hint ?? null,
-      }
+    ? toDbError(profileLookupQuery, profileRes.error)
     : null;
 
-  if (profileDbError) {
-    console.debug('[XDrive Auth] profile lookup db_error', {
-      userId: sessionUser.id,
-      profileQuery: profileDbError.query,
-      profileErr: profileDbError.message,
-      profileErrCode: profileDbError.code,
-      profileErrDetails: profileDbError.details,
-      profileErrHint: profileDbError.hint,
-      membershipErr: membershipRes.error?.message,
-      driverErr: driverRes.error?.message,
-    });
+  if (membershipRes.error) {
+    return {
+      user: null,
+      reason: 'db_error',
+      dbError: toDbError(membershipLookupQuery, membershipRes.error),
+    };
   }
 
-  if (membershipRes.error || driverRes.error || creatorCompanyRes.error) {
-    console.debug('[XDrive Auth] profile lookup partial_error', {
-      userId: sessionUser.id,
-      membershipQuery: membershipLookupQuery,
-      membershipErr: membershipRes.error?.message,
-      driverQuery: driverLookupQuery,
-      driverErr: driverRes.error?.message,
-      creatorCompanyQuery: creatorCompanyLookupQuery,
-      creatorCompanyErr: creatorCompanyRes.error?.message,
-    });
+  if (profileDbError) {
+    return { user: null, reason: 'db_error', dbError: profileDbError };
+  }
+
+  if (driverRes.error) {
+    return {
+      user: null,
+      reason: 'db_error',
+      dbError: toDbError(driverLookupQuery, driverRes.error),
+    };
+  }
+
+  if (creatorCompanyRes.error) {
+    return {
+      user: null,
+      reason: 'db_error',
+      dbError: toDbError(creatorCompanyLookupQuery, creatorCompanyRes.error),
+    };
   }
 
   let profile = profileDbError
     ? null
     : (profileRes.data as Pick<Profile, 'role' | 'status' | 'is_driver' | 'company_id'> | null);
-  const memberships = membershipRes.error
-    ? null
-    : (membershipRes.data as Pick<CompanyMembership, 'id' | 'company_id' | 'role_in_company' | 'status'>[] | null);
-  const membershipFromProfile = memberships?.find(
-    (membership) =>
-      typeof profile?.company_id === 'string' &&
-      profile.company_id.length > 0 &&
-      membership.company_id === profile.company_id
-  );
-  let membership = membershipFromProfile ?? memberships?.[0] ?? null;
-  const driver = driverRes.error
-    ? null
-    : (driverRes.data as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password' | 'status' | 'app_access' | 'driver_type' | 'can_commercial_bid'> | null);
+  const normalizedMemberships = membershipRes.error
+    ? []
+    : normalizeAuthMembershipRows((membershipRes.data ?? []) as AuthMembershipQueryRow[]);
+  let membership = null as RawMembershipRow | null;
+  if (normalizedMemberships.length > 0) {
+    const companySelection = resolveAuthActiveCompanySelection({
+      memberships: normalizedMemberships,
+      preferredCompanyId: profile?.company_id ?? null,
+    });
+
+    if (!companySelection.ok) {
+      return { user: null, reason: 'company_context_missing' };
+    }
+
+    membership = companySelection.membership;
+  }
+  const driverRows = driverRes.error
+    ? []
+    : ((driverRes.data ?? []) as Pick<Driver, 'id' | 'company_id' | 'user_id' | 'must_change_password' | 'status' | 'app_access' | 'driver_type' | 'can_commercial_bid'>[]);
   const creatorCompany = creatorCompanyRes.error
     ? null
     : (creatorCompanyRes.data as { id: string; company_type: string | null } | null);
-
-  const driverId = driver?.id ?? null;
-  const mustChangePassword = driver?.must_change_password === true;
 
   console.debug('[XDrive Auth] profile lookup', {
     userId: sessionUser.id,
@@ -237,7 +263,7 @@ export const resolveAuthenticatedUser = async (
     membershipRole: membership?.role_in_company ?? null,
     membershipId: membership?.id ?? null,
     membershipCompanyId: membership?.company_id ?? null,
-    hasDriver: Boolean(driver),
+    hasDriver: driverRows.length > 0,
     hasCreatedCompany: Boolean(creatorCompany),
     fallbackRole,
   });
@@ -257,17 +283,17 @@ export const resolveAuthenticatedUser = async (
     }
   }
 
-  let companyId = profile?.company_id ?? membership?.company_id ?? driver?.company_id ?? creatorCompany?.id ?? null;
+  let companyId = membership?.company_id ?? profile?.company_id ?? creatorCompany?.id ?? null;
   const isStandaloneDriverAccount =
     !companyId &&
     !membership?.company_id &&
-    !driver?.company_id &&
+    driverRows.length > 0 &&
     !creatorCompany?.id &&
     (
       profile?.is_driver === true ||
       mapAppRole(profile?.role ?? null) === 'driver' ||
       mapAppRole(fallbackRole) === 'driver' ||
-      Boolean(driver)
+      driverRows.length > 0
     );
 
   const isMissingCompanyProvisionRpc = (error: { message?: string | null; details?: string | null; hint?: string | null } | null | undefined) => {
@@ -333,23 +359,40 @@ export const resolveAuthenticatedUser = async (
       // membershipId are populated for the rest of this auth resolution.
       const freshMembershipRes = await supabase
         .from('company_memberships')
-        .select('id, company_id, role_in_company, status')
+        .select('id, company_id, user_id, role_in_company, status, companies(id, name, company_type, status)')
         .eq('user_id', sessionUser.id)
         .eq('company_id', bootstrappedId)
         .eq('status', 'active')
-        .maybeSingle();
-      if (!freshMembershipRes.error && freshMembershipRes.data) {
-        membership = freshMembershipRes.data as Pick<CompanyMembership, 'id' | 'company_id' | 'role_in_company' | 'status'>;
+        .limit(1);
+      if (!freshMembershipRes.error && freshMembershipRes.data?.length) {
+        const refreshed = normalizeAuthMembershipRows(
+          freshMembershipRes.data as AuthMembershipQueryRow[],
+        );
+        membership = refreshed[0] ?? membership;
       }
     }
   }
 
+  const activeMembershipCompanyIds = normalizedMemberships.map((membershipRow) => membershipRow.company_id);
+  const bootstrapScopedDriverEvidence = findScopedDriverEvidence({
+    drivers: driverRows,
+    sessionUserId: sessionUser.id,
+    selectedCompanyId: companyId,
+  });
+  const hasScopedDriverEvidenceForBootstrap = hasScopedDriverBootstrapEvidence({
+    drivers: driverRows,
+    sessionUserId: sessionUser.id,
+    selectedCompanyId: companyId,
+    activeMembershipCompanyIds,
+  });
+
   if (!profile) {
-    const metadataRole = readMetadataRole(sessionUser.user_metadata, 'role')
-      ?? readMetadataRole(sessionUser.user_metadata, 'requested_role')
-      ?? fallbackRole;
-    const mappedRole = mapAppRole(metadataRole) ?? 'customer';
-    const storedRole = normalizeProfileRoleForStorage(mappedRole) ?? 'customer';
+    const safeBootstrapRole = resolveSafeBootstrapProfileRole({
+      membershipRole: membership?.role_in_company ?? null,
+      hasScopedDriver: hasScopedDriverEvidenceForBootstrap,
+      fallbackRole,
+    });
+    const storedRole = normalizeProfileRoleForStorage(safeBootstrapRole) ?? 'customer';
     const profileBootstrap = await supabase
       .from('profiles')
       .upsert(
@@ -357,7 +400,7 @@ export const resolveAuthenticatedUser = async (
           user_id: sessionUser.id,
           role: storedRole,
           status: 'active',
-          is_driver: mappedRole === 'driver',
+          is_driver: safeBootstrapRole === 'driver',
         },
         { onConflict: 'user_id' }
       )
@@ -372,14 +415,14 @@ export const resolveAuthenticatedUser = async (
   const resolvedContext = resolveAuthContext({
     membershipRole: membership?.role_in_company ?? null,
     profileRole: profile?.role ?? null,
-    isDriver: Boolean(driver) || profile?.is_driver === true,
+    isDriver: driverRows.length > 0 || profile?.is_driver === true,
     creatorCompanyType: creatorCompany?.company_type ?? null,
     fallbackRole,
     profileCompanyId: profile?.company_id ?? null,
     membershipCompanyId: membership?.company_id ?? null,
-    driverCompanyId: driver?.company_id ?? null,
+    driverCompanyId: bootstrapScopedDriverEvidence?.company_id ?? null,
     creatorCompanyId: creatorCompany?.id ?? null,
-    mustChangePassword,
+    mustChangePassword: bootstrapScopedDriverEvidence?.must_change_password === true,
     ownerDriverWorkspaceRequested,
   });
 
@@ -392,17 +435,41 @@ export const resolveAuthenticatedUser = async (
   // from the final resolved value when multiple active memberships exist.
   const resolvedMembership =
     companyId != null
-      ? (memberships?.find((m) => m.company_id === companyId) ?? membership)
+      ? (normalizedMemberships.find((m) => m.company_id === companyId) ?? membership)
       : membership;
+  const resolvedMembershipRole = resolveMembershipRole(resolvedMembership?.role_in_company ?? null);
+  if (resolvedMembership?.role_in_company && !resolvedMembershipRole) {
+    console.debug('[XDrive Auth] auth resolution failed', {
+      reason: 'role_unsupported',
+      membershipRole: resolvedMembership.role_in_company,
+      userId: sessionUser.id,
+    });
+    return { user: null, reason: 'role_unsupported' };
+  }
+  const scopedDriver = findScopedDriverEvidence({
+    drivers: driverRows,
+    sessionUserId: sessionUser.id,
+    selectedCompanyId: companyId,
+  });
+  const scopedDriverId = scopedDriver?.id ?? null;
+  const scopedMustChangePassword = scopedDriver?.must_change_password === true;
+  const scopedOwnerDriverWorkspace = ownerDriverWorkspaceRequested && Boolean(scopedDriverId);
+  const scopedOwnerDriverExecutionMode = scopedOwnerDriverWorkspace && ownerDriverExecutionModeRequested;
+  const scopedCanAccessDriverMode =
+    Boolean(scopedDriverId) &&
+    (scopedDriver?.status ?? '').toLowerCase() === 'active' &&
+    scopedDriver?.app_access === true;
 
   if (resolvedRole) {
+    const accountStatus = profile?.status ? String(profile.status).trim().toLowerCase() : null;
+    let companyStatus: string | null = null;
     const requiresCompanyContext = roleRequiresCompanyContext(resolvedRole);
     if (requiresCompanyContext && !companyId) {
       console.debug('[XDrive Auth] auth resolution failed', { reason: 'company_context_missing', resolvedRole, userId: sessionUser.id });
       return { user: null, reason: 'company_context_missing' };
     }
 
-    if (roleRequiresCompanyContext(resolvedRole) && companyId) {
+    if (companyId) {
       const companyStatusRes = await supabase
         .from('companies')
         .select('status')
@@ -424,7 +491,7 @@ export const resolveAuthenticatedUser = async (
         };
       }
 
-      const companyStatus = String(companyStatusRes.data?.status ?? '').trim().toLowerCase();
+      companyStatus = String(companyStatusRes.data?.status ?? '').trim().toLowerCase();
       if (companyStatus !== 'active') {
         console.debug('[XDrive Auth] auth resolution failed', {
           reason: 'account_blocked',
@@ -441,28 +508,25 @@ export const resolveAuthenticatedUser = async (
       resolvedRole,
       companyId,
       resolvedMembership?.id ?? null,
-      resolvedMembership?.role_in_company ?? null,
-      driverId,
-      resolvedRole === 'driver' ? mustChangePassword : false,
+      resolvedMembershipRole,
+      scopedDriverId,
+      resolvedRole === 'driver' ? scopedMustChangePassword : false,
       {
         rawRole: profile?.role ?? fallbackRole ?? null,
-        ownerDriverWorkspace: ownerDriverWorkspaceRequested,
-        canAccessDriverMode:
-          ownerDriverWorkspaceRequested &&
-          (Boolean(driver) ||
-            profile?.is_driver === true ||
-            mapAppRole(profile?.role ?? null) === 'driver' ||
-            mapAppRole(fallbackRole) === 'driver'),
-        ownerDriverExecutionMode: ownerDriverExecutionModeRequested,
+        ownerDriverWorkspace: scopedOwnerDriverWorkspace,
+        canAccessDriverMode: scopedCanAccessDriverMode,
+        ownerDriverExecutionMode: scopedOwnerDriverExecutionMode,
         financeAccess: resolveFinanceAccess(
           resolvedRole,
-          (resolvedMembership?.role_in_company as CompanyMembership['role_in_company'] | null) ?? null,
+          resolvedMembershipRole,
           sessionUser
         ),
-        driverType: typeof driver?.driver_type === 'string' ? driver.driver_type : null,
-        canCommercialBid: driver?.can_commercial_bid === true,
-        driverStatus: typeof driver?.status === 'string' ? driver.status : null,
-        appAccess: typeof driver?.app_access === 'boolean' ? driver.app_access : null,
+        driverType: typeof scopedDriver?.driver_type === 'string' ? scopedDriver.driver_type : null,
+        canCommercialBid: scopedDriver?.can_commercial_bid === true,
+        driverStatus: typeof scopedDriver?.status === 'string' ? scopedDriver.status : null,
+        appAccess: typeof scopedDriver?.app_access === 'boolean' ? scopedDriver.app_access : null,
+        accountStatus,
+        companyStatus,
       }
     );
   }
@@ -488,7 +552,7 @@ const ok = (
   role: UserRole,
   companyId: string | null,
   membershipId: string | null,
-  membershipRole: CompanyMembership['role_in_company'] | null,
+  membershipRole: MembershipRole | null,
   driverId: string | null,
   mustChangePassword: boolean,
   options: {
@@ -501,6 +565,8 @@ const ok = (
     canCommercialBid: boolean;
     driverStatus: string | null;
     appAccess: boolean | null;
+    accountStatus: string | null;
+    companyStatus: string | null;
   }
 ): AuthResolutionResult => {
   const workspaceRole = resolveWorkspaceRole({
@@ -529,6 +595,8 @@ const ok = (
     canCommercialBid: options.canCommercialBid,
     driverStatus: options.driverStatus,
     appAccess: options.appAccess,
+    accountStatus: options.accountStatus,
+    companyStatus: options.companyStatus,
   };
   console.debug('[XDrive Auth] resolved user', { role, workspaceRole, companyId, userId: sessionUser.id });
   return { user: resolved, reason: null };
@@ -541,7 +609,7 @@ export const getPostLoginRoute = (
   > & {
     rawRole?: string | null;
     workspaceRole?: WorkspaceRole;
-    membershipRole?: string | null;
+    membershipRole?: MembershipRole | null;
     financeAccess?: 'full' | 'limited' | 'hidden' | null;
   }
 ) => {
@@ -571,9 +639,16 @@ export const getPostLoginRoute = (
 export const roleCanAccessPath = (
   currentUser: Pick<ResolvedAuthUser, 'role'> & {
     canAccessDriverMode?: boolean;
-    membershipRole?: CompanyMembership['role_in_company'] | null;
+    membershipRole?: MembershipRole | null;
     financeAccess?: 'full' | 'limited' | 'hidden' | null;
     ownerDriverWorkspace?: boolean | null;
+    ownerDriverExecutionMode?: boolean | null;
+    driverId?: string | null;
+    canCommercialBid?: boolean | null;
+    driverStatus?: string | null;
+    appAccess?: boolean | null;
+    accountStatus?: string | null;
+    companyStatus?: string | null;
   },
   path: string
 ) =>
@@ -582,4 +657,11 @@ export const roleCanAccessPath = (
     membershipRole: currentUser.membershipRole ?? null,
     financeAccess: currentUser.financeAccess ?? null,
     ownerDriverWorkspace: currentUser.ownerDriverWorkspace === true,
+    ownerDriverExecutionMode: currentUser.ownerDriverExecutionMode === true,
+    driverId: currentUser.driverId ?? null,
+    canCommercialBid: currentUser.canCommercialBid ?? null,
+    driverStatus: currentUser.driverStatus ?? null,
+    appAccess: currentUser.appAccess ?? null,
+    accountStatus: currentUser.accountStatus ?? null,
+    companyStatus: currentUser.companyStatus ?? null,
   });
