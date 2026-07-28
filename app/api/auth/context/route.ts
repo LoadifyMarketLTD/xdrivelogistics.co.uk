@@ -21,13 +21,21 @@ import {
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+type ContextRouteResponse = NextResponse<Record<string, unknown>>;
+
 const responseHeaders = {
   'Cache-Control': 'no-store, max-age=0',
   Pragma: 'no-cache',
 };
 
-const json = (status: number, body: Record<string, unknown>) =>
-  NextResponse.json(body, { status, headers: responseHeaders });
+const json = (
+  status: number,
+  body: Record<string, unknown>,
+): ContextRouteResponse =>
+  NextResponse.json<Record<string, unknown>>(body, {
+    status,
+    headers: responseHeaders,
+  });
 
 const switchSchema = z.object({
   companyId: z.string().uuid(),
@@ -72,12 +80,18 @@ const isServiceFailure = (message: string | null | undefined): boolean => {
 
 const resolveAuthoritativeSource = async (request: NextRequest) => {
   if (!isSupabaseAdminConfigured || !supabaseAdmin || !supabaseValidator) {
-    return { error: json(503, { error: 'Context service is not configured.' }) } as const;
+    return {
+      ok: false as const,
+      response: json(503, { error: 'Context service is not configured.' }),
+    };
   }
 
   const token = readRouteToken(request);
   if (!token) {
-    return { error: json(401, { error: 'Unauthorized.' }) } as const;
+    return {
+      ok: false as const,
+      response: json(401, { error: 'Unauthorized.' }),
+    };
   }
 
   const {
@@ -86,10 +100,16 @@ const resolveAuthoritativeSource = async (request: NextRequest) => {
   } = await supabaseValidator.auth.getUser(token);
 
   if (authError && isServiceFailure(authError.message)) {
-    return { error: json(503, { error: 'Authentication service is unavailable.' }) } as const;
+    return {
+      ok: false as const,
+      response: json(503, { error: 'Authentication service is unavailable.' }),
+    };
   }
   if (authError || !user) {
-    return { error: json(401, { error: 'Unauthorized.' }) } as const;
+    return {
+      ok: false as const,
+      response: json(401, { error: 'Unauthorized.' }),
+    };
   }
 
   const [profileResult, membershipsResult, driversResult] = await Promise.all([
@@ -116,17 +136,26 @@ const resolveAuthoritativeSource = async (request: NextRequest) => {
       drivers: driversResult.error?.message ?? null,
       userId: user.id,
     });
-    return { error: json(500, { error: 'Unable to validate workspace context.' }) } as const;
+    return {
+      ok: false as const,
+      response: json(500, { error: 'Unable to validate workspace context.' }),
+    };
   }
 
   const profile = profileResult.data as ProfileRow | null;
   if (!profile) {
-    return { error: json(409, { error: 'Account profile is missing.' }) } as const;
+    return {
+      ok: false as const,
+      response: json(409, { error: 'Account profile is missing.' }),
+    };
   }
 
   const profileStatus = (profile.status ?? '').trim().toLowerCase();
   if (profileStatus !== 'active') {
-    return { error: json(403, { error: 'Account is not active.' }) } as const;
+    return {
+      ok: false as const,
+      response: json(403, { error: 'Account is not active.' }),
+    };
   }
 
   const memberships = normalizeAuthMembershipRows(
@@ -135,15 +164,16 @@ const resolveAuthoritativeSource = async (request: NextRequest) => {
   const drivers = (driversResult.data ?? []) as DriverBootstrapEvidenceRow[];
 
   return {
+    ok: true as const,
     admin: supabaseAdmin,
     user,
     profile,
     memberships,
     drivers,
-  } as const;
+  };
 };
 
-const mapResolutionError = (error: string) => {
+const mapResolutionError = (error: string): ContextRouteResponse => {
   if (error === 'no_active_membership') {
     return json(403, { error: 'No active company membership is available.' });
   }
@@ -159,93 +189,107 @@ const mapResolutionError = (error: string) => {
   return json(403, { error: 'Workspace context is not permitted.' });
 };
 
-export async function GET(request: NextRequest) {
-  const source = await resolveAuthoritativeSource(request);
-  if ('error' in source) return source.error;
+export async function GET(
+  request: NextRequest,
+): Promise<ContextRouteResponse> {
+  try {
+    const source = await resolveAuthoritativeSource(request);
+    if (!source.ok) return source.response;
 
-  const initial = resolveSharedUiContext({
-    memberships: source.memberships,
-    profileCompanyId: source.profile.company_id,
-    drivers: source.drivers,
-    userId: source.user.id,
-  });
-
-  if (!initial.ok && initial.error === 'company_not_available') {
-    const recoverable = resolveSharedUiContext({
+    const initial = resolveSharedUiContext({
       memberships: source.memberships,
-      profileCompanyId: null,
+      profileCompanyId: source.profile.company_id,
       drivers: source.drivers,
       userId: source.user.id,
     });
-    if (!recoverable.ok) return mapResolutionError(recoverable.error);
+
+    if (!initial.ok && initial.error === 'company_not_available') {
+      const recoverable = resolveSharedUiContext({
+        memberships: source.memberships,
+        profileCompanyId: null,
+        drivers: source.drivers,
+        userId: source.user.id,
+      });
+      if (!recoverable.ok) return mapResolutionError(recoverable.error);
+      return json(200, {
+        ...recoverable.snapshot,
+        staleSelectionCleared: true,
+      });
+    }
+
+    if (!initial.ok) return mapResolutionError(initial.error);
+
     return json(200, {
-      ...recoverable.snapshot,
-      staleSelectionCleared: true,
+      ...initial.snapshot,
+      staleSelectionCleared: false,
     });
+  } catch (error) {
+    console.error('[Shared UI Context] GET failed unexpectedly', error);
+    return json(500, { error: 'Unable to validate workspace context.' });
   }
-
-  if (!initial.ok) return mapResolutionError(initial.error);
-
-  return json(200, {
-    ...initial.snapshot,
-    staleSelectionCleared: false,
-  });
 }
 
-export async function POST(request: NextRequest) {
-  const source = await resolveAuthoritativeSource(request);
-  if ('error' in source) return source.error;
-
-  let body: unknown;
+export async function POST(
+  request: NextRequest,
+): Promise<ContextRouteResponse> {
   try {
-    body = await request.json();
-  } catch {
-    return json(400, { error: 'Invalid JSON body.' });
-  }
+    const source = await resolveAuthoritativeSource(request);
+    if (!source.ok) return source.response;
 
-  const parsed = switchSchema.safeParse(body);
-  if (!parsed.success) {
-    return json(400, {
-      error: 'Validation failed.',
-      details: parsed.error.flatten(),
-    });
-  }
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return json(400, { error: 'Invalid JSON body.' });
+    }
 
-  const resolution = resolveSharedUiContext({
-    memberships: source.memberships,
-    requestedCompanyId: parsed.data.companyId,
-    requestedWorkspace: parsed.data.workspace,
-    drivers: source.drivers,
-    userId: source.user.id,
-  });
+    const parsed = switchSchema.safeParse(body);
+    if (!parsed.success) {
+      return json(400, {
+        error: 'Validation failed.',
+        details: parsed.error.flatten(),
+      });
+    }
 
-  if (!resolution.ok) return mapResolutionError(resolution.error);
-  if (!resolution.snapshot.current) {
-    return json(409, { error: 'A complete company and workspace selection is required.' });
-  }
-
-  const { data: updatedProfile, error: updateError } = await source.admin
-    .from('profiles')
-    .update({ company_id: resolution.snapshot.current.companyId })
-    .eq('user_id', source.user.id)
-    .select('company_id')
-    .maybeSingle();
-
-  if (updateError) {
-    console.error('[Shared UI Context] profile company switch failed', {
-      message: updateError.message,
+    const resolution = resolveSharedUiContext({
+      memberships: source.memberships,
+      requestedCompanyId: parsed.data.companyId,
+      requestedWorkspace: parsed.data.workspace,
+      drivers: source.drivers,
       userId: source.user.id,
-      companyId: resolution.snapshot.current.companyId,
     });
-    return json(500, { error: 'Unable to save the selected company.' });
-  }
 
-  if (updatedProfile?.company_id !== resolution.snapshot.current.companyId) {
-    return json(409, { error: 'The selected company could not be confirmed.' });
-  }
+    if (!resolution.ok) return mapResolutionError(resolution.error);
+    if (!resolution.snapshot.current) {
+      return json(409, { error: 'A complete company and workspace selection is required.' });
+    }
 
-  return json(200, {
-    ...resolution.snapshot,
-    landingRoute: resolution.snapshot.current.landingRoute,
-  });
+    const { data: updatedProfile, error: updateError } = await source.admin
+      .from('profiles')
+      .update({ company_id: resolution.snapshot.current.companyId })
+      .eq('user_id', source.user.id)
+      .select('company_id')
+      .maybeSingle();
+
+    if (updateError) {
+      console.error('[Shared UI Context] profile company switch failed', {
+        message: updateError.message,
+        userId: source.user.id,
+        companyId: resolution.snapshot.current.companyId,
+      });
+      return json(500, { error: 'Unable to save the selected company.' });
+    }
+
+    if (updatedProfile?.company_id !== resolution.snapshot.current.companyId) {
+      return json(409, { error: 'The selected company could not be confirmed.' });
+    }
+
+    return json(200, {
+      ...resolution.snapshot,
+      landingRoute: resolution.snapshot.current.landingRoute,
+    });
+  } catch (error) {
+    console.error('[Shared UI Context] POST failed unexpectedly', error);
+    return json(500, { error: 'Unable to update workspace context.' });
+  }
 }
