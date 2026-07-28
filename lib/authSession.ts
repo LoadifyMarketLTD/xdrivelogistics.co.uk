@@ -574,6 +574,11 @@ export const roleCanAccessPath = (
     membershipRole?: CompanyMembership['role_in_company'] | null;
     financeAccess?: 'full' | 'limited' | 'hidden' | null;
     ownerDriverWorkspace?: boolean | null;
+    ownerDriverExecutionMode?: boolean | null;
+    driverId?: string | null;
+    canCommercialBid?: boolean | null;
+    driverStatus?: string | null;
+    appAccess?: boolean | null;
   },
   path: string
 ) =>
@@ -582,4 +587,9 @@ export const roleCanAccessPath = (
     membershipRole: currentUser.membershipRole ?? null,
     financeAccess: currentUser.financeAccess ?? null,
     ownerDriverWorkspace: currentUser.ownerDriverWorkspace === true,
+    ownerDriverExecutionMode: currentUser.ownerDriverExecutionMode === true,
+    driverId: currentUser.driverId ?? null,
+    canCommercialBid: currentUser.canCommercialBid ?? null,
+    driverStatus: currentUser.driverStatus ?? null,
+    appAccess: currentUser.appAccess ?? null,
   });

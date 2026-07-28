@@ -190,6 +190,19 @@ describe('resolveActiveCompanyContext', () => {
     ).toEqual({ ok: false, error: 'workspace_mismatch' });
   });
 
+  it('allows shared /driver surface for carrier_fleet active workspace', () => {
+    const rows = [membership({ company_id: 'co-1' })];
+    const result = resolveActiveCompanyContext(rows, {
+      activeWorkspace: 'carrier_fleet',
+      targetPathname: '/driver/jobs',
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.context.activeWorkspace).toBe('carrier_fleet');
+    }
+  });
+
   it('rejects non-active company states (suspended/inactive/blocked)', () => {
     for (const status of ['suspended', 'inactive', 'blocked'] as const) {
       const rows = [

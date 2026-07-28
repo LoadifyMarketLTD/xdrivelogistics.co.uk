@@ -263,8 +263,14 @@ describe('resolveWorkspacePermission — foundation security contract matrix', (
       companyType: 'standard',
       membershipStatus: 'active',
       membershipRole: 'driver',
-      enabledWorkspaces: ['owner_operator'],
-      activeWorkspace: 'owner_operator',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      workspaceRole: 'driver',
+      ownerDriverWorkspace: false,
+      ownerDriverExecutionMode: false,
+      driverId: 'drv-1',
+      appAccess: true,
+      driverStatus: 'active',
       pathname: '/driver/loads',
     });
     expect(employedDriver).toEqual({ allowed: false, reason: 'capability_not_permitted' });
@@ -275,20 +281,28 @@ describe('resolveWorkspacePermission — foundation security contract matrix', (
       membershipRole: 'owner',
       enabledWorkspaces: ['owner_operator'],
       activeWorkspace: 'owner_operator',
+      workspaceRole: 'company_owner',
+      ownerDriverWorkspace: false,
+      ownerDriverExecutionMode: false,
+      driverId: null,
+      appAccess: true,
+      driverStatus: 'active',
       pathname: '/driver/quotes',
     });
-    expect(ownerOperatorQuotes).toEqual({
-      allowed: true,
-      membershipRole: 'owner',
-      activeWorkspace: 'owner_operator',
-    });
+    expect(ownerOperatorQuotes).toEqual({ allowed: false, reason: 'capability_not_permitted' });
 
     const ownerOperatorFinanceForDriver = resolveWorkspacePermission({
       companyType: 'standard',
       membershipStatus: 'active',
       membershipRole: 'driver',
-      enabledWorkspaces: ['owner_operator'],
-      activeWorkspace: 'owner_operator',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      workspaceRole: 'driver',
+      ownerDriverWorkspace: false,
+      ownerDriverExecutionMode: false,
+      driverId: 'drv-2',
+      appAccess: true,
+      driverStatus: 'active',
       pathname: '/driver/finance',
     });
     expect(ownerOperatorFinanceForDriver).toEqual({ allowed: false, reason: 'capability_not_permitted' });
@@ -396,5 +410,224 @@ describe('resolveWorkspacePermission — foundation security contract matrix', (
       pathname: '/broker/bids',
     });
     expect(switchedToCarrier).toEqual({ allowed: false, reason: 'route_workspace_mismatch' });
+  });
+
+  it('treats /driver as shared and keeps non-commercial execution paths for employed drivers', () => {
+    const employedDriverJobs = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'driver',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      workspaceRole: 'driver',
+      ownerDriverWorkspace: false,
+      ownerDriverExecutionMode: false,
+      driverId: 'drv-3',
+      appAccess: true,
+      driverStatus: 'active',
+      pathname: '/driver/jobs',
+    });
+    expect(employedDriverJobs).toEqual({
+      allowed: true,
+      membershipRole: 'driver',
+      activeWorkspace: 'carrier_fleet',
+    });
+
+    const employedDriverLoads = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'driver',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      workspaceRole: 'driver',
+      ownerDriverWorkspace: false,
+      ownerDriverExecutionMode: false,
+      driverId: 'drv-3',
+      appAccess: true,
+      driverStatus: 'active',
+      pathname: '/driver/loads',
+    });
+    expect(employedDriverLoads).toEqual({ allowed: false, reason: 'capability_not_permitted' });
+  });
+
+  it('denies owner-operator commercial access without explicit owner-driver facts', () => {
+    const ownerWithoutProof = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['owner_operator'],
+      activeWorkspace: 'owner_operator',
+      workspaceRole: 'company_owner',
+      ownerDriverWorkspace: false,
+      ownerDriverExecutionMode: false,
+      driverId: null,
+      appAccess: true,
+      driverStatus: 'active',
+      pathname: '/driver/loads',
+    });
+    expect(ownerWithoutProof).toEqual({ allowed: false, reason: 'capability_not_permitted' });
+
+    const ownerDriverWorkspaceFalse = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['owner_operator'],
+      activeWorkspace: 'owner_operator',
+      workspaceRole: 'owner_driver',
+      ownerDriverWorkspace: false,
+      ownerDriverExecutionMode: true,
+      driverId: 'drv-4',
+      appAccess: true,
+      driverStatus: 'active',
+      pathname: '/driver/quotes',
+    });
+    expect(ownerDriverWorkspaceFalse).toEqual({ allowed: false, reason: 'owner_driver_proof_required' });
+  });
+
+  it('denies owner-driver commercial routes when bidding/driver facts are missing', () => {
+    const noBidding = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['owner_operator'],
+      activeWorkspace: 'owner_operator',
+      workspaceRole: 'owner_driver',
+      ownerDriverWorkspace: true,
+      ownerDriverExecutionMode: true,
+      driverId: 'drv-5',
+      appAccess: true,
+      driverStatus: 'active',
+      canCommercialBid: false,
+      pathname: '/driver/quotes',
+    });
+    expect(noBidding).toEqual({ allowed: false, reason: 'commercial_bidding_disabled' });
+
+    const missingDriverId = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['owner_operator'],
+      activeWorkspace: 'owner_operator',
+      workspaceRole: 'owner_driver',
+      ownerDriverWorkspace: true,
+      ownerDriverExecutionMode: true,
+      driverId: null,
+      appAccess: true,
+      driverStatus: 'active',
+      canCommercialBid: true,
+      pathname: '/driver/loads',
+    });
+    expect(missingDriverId).toEqual({ allowed: false, reason: 'driver_context_required' });
+  });
+
+  it('denies /driver execution and commercial access for inactive/suspended driver state or app access disabled', () => {
+    const suspendedDriver = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'driver',
+      enabledWorkspaces: ['carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      workspaceRole: 'driver',
+      ownerDriverWorkspace: false,
+      ownerDriverExecutionMode: false,
+      driverId: 'drv-6',
+      appAccess: true,
+      driverStatus: 'suspended',
+      pathname: '/driver/jobs',
+    });
+    expect(suspendedDriver).toEqual({ allowed: false, reason: 'driver_inactive' });
+
+    const appAccessDenied = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['owner_operator'],
+      activeWorkspace: 'owner_operator',
+      workspaceRole: 'owner_driver',
+      ownerDriverWorkspace: true,
+      ownerDriverExecutionMode: true,
+      driverId: 'drv-7',
+      appAccess: false,
+      driverStatus: 'active',
+      canCommercialBid: true,
+      pathname: '/driver/loads',
+    });
+    expect(appAccessDenied).toEqual({ allowed: false, reason: 'driver_app_access_denied' });
+  });
+
+  it('denies for inactive account/company and clears owner-driver commercial carryover after workspace switch', () => {
+    const inactiveAccount = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['owner_operator'],
+      activeWorkspace: 'owner_operator',
+      workspaceRole: 'owner_driver',
+      ownerDriverWorkspace: true,
+      ownerDriverExecutionMode: true,
+      driverId: 'drv-8',
+      appAccess: true,
+      driverStatus: 'active',
+      canCommercialBid: true,
+      accountStatus: 'blocked',
+      pathname: '/driver/loads',
+    });
+    expect(inactiveAccount).toEqual({ allowed: false, reason: 'account_inactive' });
+
+    const inactiveCompany = resolveWorkspacePermission({
+      companyType: 'standard',
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['owner_operator'],
+      activeWorkspace: 'owner_operator',
+      workspaceRole: 'owner_driver',
+      ownerDriverWorkspace: true,
+      ownerDriverExecutionMode: true,
+      driverId: 'drv-8',
+      appAccess: true,
+      driverStatus: 'active',
+      canCommercialBid: true,
+      companyStatus: 'suspended',
+      pathname: '/driver/loads',
+    });
+    expect(inactiveCompany).toEqual({ allowed: false, reason: 'company_inactive' });
+
+    const ownerDriverCommercial = resolveWorkspacePermission({
+      companyType: null,
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['owner_operator', 'carrier_fleet'],
+      activeWorkspace: 'owner_operator',
+      workspaceRole: 'owner_driver',
+      ownerDriverWorkspace: true,
+      ownerDriverExecutionMode: true,
+      driverId: 'drv-8',
+      appAccess: true,
+      driverStatus: 'active',
+      canCommercialBid: true,
+      pathname: '/driver/quotes',
+    });
+    expect(ownerDriverCommercial).toEqual({
+      allowed: true,
+      membershipRole: 'owner',
+      activeWorkspace: 'owner_operator',
+    });
+
+    const switchedWorkspace = resolveWorkspacePermission({
+      companyType: null,
+      membershipStatus: 'active',
+      membershipRole: 'owner',
+      enabledWorkspaces: ['owner_operator', 'carrier_fleet'],
+      activeWorkspace: 'carrier_fleet',
+      workspaceRole: 'driver',
+      ownerDriverWorkspace: false,
+      ownerDriverExecutionMode: false,
+      driverId: 'drv-8',
+      appAccess: true,
+      driverStatus: 'active',
+      canCommercialBid: false,
+      pathname: '/driver/quotes',
+    });
+    expect(switchedWorkspace).toEqual({ allowed: false, reason: 'capability_not_permitted' });
   });
 });

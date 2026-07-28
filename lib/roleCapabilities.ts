@@ -31,8 +31,15 @@ export type RouteAccessContext = {
   membershipRole?: string | null;
   financeAccess?: 'full' | 'limited' | 'hidden' | null;
   ownerDriverWorkspace?: boolean | null;
+  ownerDriverExecutionMode?: boolean | null;
   rawRole?: string | null;
   workspaceRole?: WorkspaceRole | null;
+  driverId?: string | null;
+  canCommercialBid?: boolean | null;
+  driverStatus?: string | null;
+  appAccess?: boolean | null;
+  accountStatus?: string | null;
+  companyStatus?: string | null;
 };
 
 const NO_CAPABILITIES: RoleCapabilities = {
@@ -140,6 +147,25 @@ const pathMatches = (pathname: string, prefix: string, exact = false) =>
   exact ? pathname === prefix : pathname === prefix || pathname.startsWith(`${prefix}/`);
 
 const cleanPath = (pathname: string) => pathname.split('?')[0]?.split('#')[0] || '/';
+
+const isActiveStatus = (value: string | null | undefined) =>
+  ((value ?? 'active').trim().toLowerCase() === 'active');
+
+const isDriverCommercialRoute = (pathname: string) => {
+  const clean = cleanPathname(pathname);
+  return (
+    clean === '/driver/loads' ||
+    clean.startsWith('/driver/loads/') ||
+    clean === '/driver/quotes' ||
+    clean.startsWith('/driver/quotes/') ||
+    clean === '/driver/won-work' ||
+    clean.startsWith('/driver/won-work/') ||
+    clean === '/driver/finance' ||
+    clean.startsWith('/driver/finance/') ||
+    clean === '/driver/returns' ||
+    clean.startsWith('/driver/returns/')
+  );
+};
 
 /** Sanitised pathname (no query, no hash, no double slashes). Exported for resolvers. */
 export const cleanPathname = (pathname: string): string =>
@@ -280,6 +306,10 @@ export const isCapabilityAllowedForPath = (
     return workspaceRole === 'driver' || workspaceRole === 'owner_driver';
   }
 
+  if (!isActiveStatus(context.accountStatus) || !isActiveStatus(context.companyStatus)) {
+    return false;
+  }
+
   // Verify the role is allowed into the workspace prefix at all.
   if (pathMatches(path, '/broker')) {
     if (workspaceRole !== 'broker') return false;
@@ -287,6 +317,21 @@ export const isCapabilityAllowedForPath = (
     if (workspaceRole !== 'customer') return false;
   } else if (pathMatches(path, '/driver')) {
     if (workspaceRole !== 'driver' && workspaceRole !== 'owner_driver') return false;
+
+    if (!isActiveStatus(context.driverStatus)) return false;
+    if (context.appAccess === false) return false;
+
+    // /driver is a shared surface: commercial owner-operator routes require
+    // explicit owner-driver session facts, not just route prefix or ownership role.
+    if (isDriverCommercialRoute(path)) {
+      if (workspaceRole !== 'owner_driver') return false;
+      if (context.ownerDriverWorkspace !== true) return false;
+      if (context.ownerDriverExecutionMode !== true) return false;
+      if (!context.driverId) return false;
+
+      const isQuoteRoute = path === '/driver/quotes' || path.startsWith('/driver/quotes/');
+      if (isQuoteRoute && context.canCommercialBid !== true) return false;
+    }
   } else if (pathMatches(path, '/admin')) {
     if (
       ![

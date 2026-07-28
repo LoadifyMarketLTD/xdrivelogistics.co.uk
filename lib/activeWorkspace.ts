@@ -125,6 +125,9 @@ export function resolveActiveCompanyContext(
 
   const { preferredCompanyId, activeWorkspace, targetWorkspace, targetPathname, enabledWorkspaces: explicitEnabledWorkspaces } = options;
   const routeWorkspace = targetPathname ? workspaceForRoute(targetPathname) : null;
+  const isDriverSurfaceRoute =
+    (targetPathname?.split('?')[0]?.split('#')[0] ?? '') === '/driver' ||
+    (targetPathname?.split('?')[0]?.split('#')[0] ?? '').startsWith('/driver/');
   const explicitlyRequestedWorkspace = activeWorkspace ?? targetWorkspace ?? routeWorkspace;
 
   const active = memberships.filter(
@@ -190,7 +193,11 @@ export function resolveActiveCompanyContext(
     return { ok: false, error: 'active_workspace_required' };
   }
 
-  if (routeWorkspace && routeWorkspace !== resolvedActiveWorkspace) {
+  if (
+    routeWorkspace &&
+    routeWorkspace !== resolvedActiveWorkspace &&
+    !(isDriverSurfaceRoute && resolvedActiveWorkspace === 'carrier_fleet')
+  ) {
     return { ok: false, error: 'workspace_mismatch' };
   }
 
