@@ -26,7 +26,7 @@ const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'curren
 const formatDate = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
 const daysUntil = (value: string | null | undefined) => value ? Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000) : null;
 
-export function CustomerDashboard() {
+export function CarrierDashboard() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
   const metrics = useMemo(() => {
@@ -48,20 +48,20 @@ export function CustomerDashboard() {
   return (
     <PageFrame>
       <PageHeader
-        eyebrow="Company workspace"
-        title="Customer Dashboard"
+        eyebrow="Carrier operations"
+        title="Carrier Dashboard"
         description="Find work, price opportunities, allocate resources and complete transport with a controlled POD-to-invoice workflow."
-        actions={<><ActionButton tone="success" onClick={() => router.push('/admin/marketplace')}>Find Loads</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Create Job</ActionButton></>}
+        actions={<><ActionButton tone="success" onClick={() => router.push('/admin/marketplace')}>Find Loads</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Open Diary</ActionButton></>}
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
       <KpiGrid>
-        <KpiCard label="Quotes submitted" value={metrics.submittedQuotes} detail="Awaiting a commercial decision" onClick={() => router.push('/admin/commercial?tab=submitted')} />
-        <KpiCard label="Won work" value={metrics.won} detail="Accepted carrier quotes" tone="green" onClick={() => router.push('/admin/commercial?tab=won')} />
-        <KpiCard label="Awaiting allocation" value={metrics.unallocated} detail="Jobs requiring driver and vehicle" tone="orange" onClick={() => router.push('/admin/jobs?status=awarded')} />
-        <KpiCard label="Active jobs" value={metrics.active} detail="Collections and deliveries in progress" tone="purple" onClick={() => router.push('/admin/operations-centre')} />
+        <KpiCard label="Quotes submitted" value={metrics.submittedQuotes} detail="Awaiting a commercial decision" onClick={() => router.push('/admin/quotes')} />
+        <KpiCard label="Won work" value={metrics.won} detail="Accepted carrier quotes" tone="green" onClick={() => router.push('/admin/bids')} />
+        <KpiCard label="Awaiting allocation" value={metrics.unallocated} detail="Jobs requiring driver and vehicle" tone="orange" onClick={() => router.push('/admin/fleet/assignments')} />
+        <KpiCard label="Active jobs" value={metrics.active} detail="Collections and deliveries in progress" tone="purple" onClick={() => router.push('/admin/fleet/active-jobs')} />
         <KpiCard label="POD outstanding" value={metrics.podPending} detail="Delivered jobs missing proof" tone="red" onClick={() => router.push('/admin/documents?view=pod')} />
         <KpiCard label="Overdue invoices" value={metrics.overdueInvoices} detail="Past due date" tone={metrics.overdueInvoices ? 'red' : 'navy'} onClick={() => router.push('/admin/invoices')} />
-        <KpiCard label="Exceptions" value={metrics.exceptionJobs.length} detail="Failed or disputed jobs" tone={metrics.exceptionJobs.length ? 'red' : 'green'} onClick={() => router.push('/admin/disputes')} />
+        <KpiCard label="Exceptions" value={metrics.exceptionJobs.length} detail="Failed or disputed jobs" tone={metrics.exceptionJobs.length ? 'red' : 'green'} onClick={() => router.push('/admin/incidents')} />
         <KpiCard label="Won work value" value={money(metrics.acceptedRevenue)} detail="Accepted bid total" tone="navy" />
       </KpiGrid>
 
@@ -89,8 +89,8 @@ export function CustomerDashboard() {
               {[
                 ['Available drivers', data.drivers.filter((d) => d.availability_status === 'available').length, '/admin/drivers'],
                 ['Busy drivers', data.drivers.filter((d) => d.availability_status === 'busy').length, '/admin/drivers'],
-                ['Total vehicles', data.vehicles.length, '/admin/drivers-vehicles'],
-                ['Unassigned vehicles', data.vehicles.filter((v) => !v.assigned_driver_id).length, '/admin/drivers-vehicles'],
+                ['Total vehicles', data.vehicles.length, '/admin/vehicles'],
+                ['Unassigned vehicles', data.vehicles.filter((v) => !v.assigned_driver_id).length, '/admin/vehicles'],
               ].map(([label, value, href]) => (
                 <button key={String(label)} onClick={() => router.push(String(href))} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontWeight: 750 }}>
                   <span>{label}</span><strong>{value}</strong>
@@ -133,9 +133,6 @@ export function CustomerDashboard() {
     </PageFrame>
   );
 }
-
-/** @deprecated Use CustomerDashboard instead. */
-export const CarrierDashboard = CustomerDashboard;
 
 export function FleetDashboard() {
   const router = useRouter();
@@ -321,5 +318,5 @@ export default function RoleDashboard() {
   if (role === 'fleet_manager') return <FleetDashboard />;
   if (role === 'finance') return <FinanceDashboard />;
   if (role === 'compliance') return <ComplianceDashboard />;
-  return <CustomerDashboard />;
+  return <CarrierDashboard />;
 }
