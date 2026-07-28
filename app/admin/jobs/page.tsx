@@ -9,7 +9,6 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
-import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPostingDetails';
 
 interface Job {
  id: string;
@@ -40,7 +39,6 @@ interface Job {
  distanceMiles: string;
  vehicleType: string;
  paymentTerms: string;
- loadDetailSummary: LoadDetailItem[];
  exchange_visibility?: string | null;
  awarded_carrier_company_id?: string | null;
  direct_invite_company_id?: string | null;
@@ -265,7 +263,6 @@ export default function JobsPage() {
  distanceMiles,
  vehicleType: ((row.requested_vehicle_label as string | null) || (row.vehicle_type as string | null) || 'unknown').replace(/_/g, ' '),
  paymentTerms: 'Not provided',
- loadDetailSummary: getLoadDetailSummary(row, 6),
  exchange_visibility: (row.exchange_visibility as string | null) ?? null,
  awarded_carrier_company_id: (row.awarded_carrier_company_id as string | null) ?? null,
  direct_invite_company_id: (row.direct_invite_company_id as string | null) ?? null,
@@ -902,22 +899,16 @@ export default function JobsPage() {
  <div style={{ overflowX: 'auto' }}>
  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
  <thead>
- <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Job Ref</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Client</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Pickup to Delivery</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Distance</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Vehicle Type</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Payment Terms</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Status</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Created Date</th>
- <th style={{ padding: '0.8rem', textAlign: 'center', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Actions</th>
+ <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e5e7eb' }}>
+ {['Job Ref', 'Client', 'Pickup', 'Delivery', 'Vehicle', 'Status', 'Actions'].map(col => (
+ <th key={col} style={{ padding: '0.55rem 0.75rem', textAlign: col === 'Actions' ? 'center' : 'left', fontWeight: 700, fontSize: '0.62rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{col}</th>
+ ))}
  </tr>
  </thead>
  <tbody>
  {filteredJobs.length === 0 ? (
  <tr>
- <td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+ <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}> </div>
  <div style={{ fontSize: '1.1rem', fontWeight: '500' }}>No jobs found</div>
  <div style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
@@ -928,75 +919,67 @@ export default function JobsPage() {
  </td>
  </tr>
  ) : (
- filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map((job, index) => {
+ filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map((job) => {
  const statusColor = getStatusColor(job.status);
  return (
  <tr
  key={job.id}
- style={{
- borderBottom: index < Math.min(JOBS_PER_PAGE, filteredJobs.length) - 1 ? '1px solid #e5e7eb' : 'none',
- transition: 'background-color 0.2s'
- }}
+ style={{ borderBottom: '1px solid #f1f5f9', transition: 'background-color 0.15s' }}
  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
  >
- <td style={{ padding: '1rem', fontWeight: '600', color: '#1d4ed8', fontSize: '0.9rem' }}>
- {job.jobRef}
+ <td style={{ padding: '0.6rem 0.75rem', whiteSpace: 'nowrap' }}>
+ <div style={{ fontWeight: 700, color: '#1d4ed8', fontSize: '0.78rem' }}>{job.jobRef}</div>
+ <div style={{ fontSize: '0.65rem', color: '#9ca3af', marginTop: '0.1rem' }}>{formatDate(job.createdAt)}</div>
  </td>
- <td style={{ padding: '1rem', fontSize: '0.9rem' }}>
- <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '0.25rem' }}>
+ <td style={{ padding: '0.6rem 0.75rem', maxWidth: '160px', overflow: 'hidden' }}>
+ <div style={{ fontWeight: 600, color: '#1f2937', fontSize: '0.78rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
  {job.client.name}
  </div>
- <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+ {job.client.email && (
+ <div style={{ fontSize: '0.68rem', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
  {job.client.email}
- </div>
- </td>
- <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
- <div style={{ marginBottom: '0.5rem' }}>
- <div style={{ color: '#1f2937', fontWeight: '500' }}>
- {job.pickup.location}
- </div>
- <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
- {formatDate(job.pickup.date)} at {job.pickup.time}
- </div>
- </div>
- <div style={{ color: '#9ca3af', fontSize: '0.8rem', margin: '0.25rem 0' }}>to</div>
- <div>
- <div style={{ color: '#1f2937', fontWeight: '500' }}>
- {job.delivery.location}
- </div>
- <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
- {formatDate(job.delivery.date)} at {job.delivery.time}
- </div>
- </div>
- {job.loadDetailSummary.length > 0 && (
- <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.35rem', marginTop: '0.7rem' }}>
- {job.loadDetailSummary.map((item) => (
- <div key={`${job.id}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.35rem 0.45rem' }}>
- <div style={{ color: '#64748b', fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
- <div style={{ color: '#0f172a', fontSize: '0.75rem', fontWeight: 600 }}>{item.value}</div>
- </div>
- ))}
  </div>
  )}
  </td>
- <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.distanceMiles}</td>
- <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#374151', textTransform: 'capitalize' }}>{job.vehicleType}</td>
- <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.paymentTerms}</td>
- <td style={{ padding: '1rem' }}>
+ <td style={{ padding: '0.6rem 0.75rem', maxWidth: '200px', overflow: 'hidden' }}>
+ <div style={{ color: '#1f2937', fontSize: '0.78rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+ {job.pickup.location || '—'}
+ </div>
+ {(job.pickup.date || job.pickup.time) && (
+ <div style={{ fontSize: '0.68rem', color: '#6b7280', marginTop: '0.1rem', whiteSpace: 'nowrap' }}>
+ {[job.pickup.date ? formatDate(job.pickup.date) : '', job.pickup.time].filter(Boolean).join(' · ')}
+ </div>
+ )}
+ </td>
+ <td style={{ padding: '0.6rem 0.75rem', maxWidth: '200px', overflow: 'hidden' }}>
+ <div style={{ color: '#1f2937', fontSize: '0.78rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+ {job.delivery.location || '—'}
+ </div>
+ {(job.delivery.date || job.delivery.time) && (
+ <div style={{ fontSize: '0.68rem', color: '#6b7280', marginTop: '0.1rem', whiteSpace: 'nowrap' }}>
+ {[job.delivery.date ? formatDate(job.delivery.date) : '', job.delivery.time].filter(Boolean).join(' · ')}
+ </div>
+ )}
+ </td>
+ <td style={{ padding: '0.6rem 0.75rem', whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#374151' }}>
+ {job.vehicleType}
+ </td>
+ <td style={{ padding: '0.6rem 0.75rem' }}>
  <select
  value={job.status}
  onChange={(e) => handleStatusChange(job.id, e.target.value)}
  style={{
- padding: '0.5rem 0.75rem',
+ padding: '0.25rem 0.5rem',
  backgroundColor: statusColor.bg,
  color: statusColor.text,
  border: `1px solid ${statusColor.border}`,
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
+ borderRadius: '999px',
+ fontSize: '0.7rem',
+ fontWeight: 700,
  cursor: 'pointer',
- outline: 'none'
+ outline: 'none',
+ whiteSpace: 'nowrap',
  }}
  >
  <option value={JOB_STATUS.RECEIVED}>Received</option>
@@ -1005,25 +988,12 @@ export default function JobsPage() {
  <option value={JOB_STATUS.DELIVERED}>Delivered</option>
  </select>
  </td>
- <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#6b7280' }}>
- {formatDate(job.createdAt)}
- </td>
- <td style={{ padding: '1rem', textAlign: 'center' }}>
- <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+ <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center', whiteSpace: 'nowrap' }}>
+ <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'center', flexWrap: 'nowrap' }}>
  {job.status === JOB_STATUS.RECEIVED && (
  <button
  onClick={() => handlePostJob(job.id)}
- style={{
- padding: '0.5rem 1rem',
- backgroundColor: '#5C9FD8',
- color: 'white',
- border: 'none',
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- transition: 'background-color 0.2s'
- }}
+ style={{ padding: '0.28rem 0.6rem', backgroundColor: '#5C9FD8', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}
  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2F6FB3'}
  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#5C9FD8'}
  >
@@ -1032,18 +1002,8 @@ export default function JobsPage() {
  )}
  <button
  onClick={() => router.push(`/admin/jobs/${job.id}`)}
- style={{
- padding: '0.5rem 1rem',
- backgroundColor: '#16a34a',
- color: 'white',
- border: 'none',
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- transition: 'background-color 0.2s'
- }}
- onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e3a5f'}
+ style={{ padding: '0.28rem 0.6rem', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}
+ onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#15803d'}
  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
  >
  View
@@ -1051,14 +1011,14 @@ export default function JobsPage() {
  {(!job.exchange_visibility || job.exchange_visibility === 'private') && (
  <button
  onClick={() => void openDirectInvite(job)}
- style={{ padding: '0.5rem 0.85rem', backgroundColor: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer' }}
+ style={{ padding: '0.28rem 0.6rem', backgroundColor: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}
  >
- Invite Carrier
+ Invite
  </button>
  )}
  {job.exchange_visibility === 'direct' && (
- <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#7c3aed', backgroundColor: '#ede9fe', padding: '0.2rem 0.5rem', borderRadius: '999px' }}>
- Direct 
+ <span style={{ fontSize: '0.67rem', fontWeight: 700, color: '#7c3aed', backgroundColor: '#ede9fe', padding: '0.18rem 0.4rem', borderRadius: '999px', border: '1px solid #c4b5fd' }}>
+ Direct ✓
  </span>
  )}
  </div>
