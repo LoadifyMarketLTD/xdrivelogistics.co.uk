@@ -8,6 +8,7 @@ import {
 } from '../lib/businessWorkspace';
 import {
   type MembershipRole,
+  type PersistedCompanyRole,
   MEMBERSHIP_ROLE_PRECEDENCE,
   MEMBERSHIP_ROLE_CAPABILITIES,
   membershipHasCapability,
@@ -25,7 +26,9 @@ describe('BusinessWorkspace vs MembershipRole separation', () => {
       'broker',
       'carrier_fleet',
     ];
-    const roles: MembershipRole[] = ['owner', 'admin', 'dispatcher', 'member', 'viewer'];
+    const roles: MembershipRole[] = [
+      'owner', 'admin', 'dispatcher', 'finance', 'compliance', 'driver', 'member', 'viewer',
+    ];
 
     const intersection = workspaces.filter((w) =>
       (roles as string[]).includes(w),
@@ -45,9 +48,23 @@ describe('BusinessWorkspace vs MembershipRole separation', () => {
     }
   });
 
-  it('each MembershipRole has at least one capability', () => {
-    for (const [role, caps] of Object.entries(MEMBERSHIP_ROLE_CAPABILITIES)) {
+  it('all 8 domain MembershipRole values have capabilities', () => {
+    const allRoles: MembershipRole[] = [
+      'owner', 'admin', 'dispatcher', 'finance', 'compliance', 'driver', 'member', 'viewer',
+    ];
+    for (const role of allRoles) {
+      const caps = MEMBERSHIP_ROLE_CAPABILITIES[role];
       expect(caps.length, `${role} should have capabilities`).toBeGreaterThan(0);
+    }
+  });
+
+  it('PersistedCompanyRole is a subset of MembershipRole', () => {
+    const persistedRoles: PersistedCompanyRole[] = [
+      'owner', 'admin', 'dispatcher', 'member', 'viewer',
+    ];
+    const allRoles: MembershipRole[] = MEMBERSHIP_ROLE_PRECEDENCE as MembershipRole[];
+    for (const pr of persistedRoles) {
+      expect(allRoles).toContain(pr);
     }
   });
 });
@@ -145,6 +162,27 @@ describe('membershipHasCapability', () => {
     expect(membershipHasCapability('dispatcher', 'settings.manage')).toBe(false);
   });
 
+  it('finance can manage invoices and payments but not dispatch', () => {
+    expect(membershipHasCapability('finance', 'invoices.carrier.manage')).toBe(true);
+    expect(membershipHasCapability('finance', 'payments.manage')).toBe(true);
+    expect(membershipHasCapability('finance', 'jobs.dispatch')).toBe(false);
+    expect(membershipHasCapability('finance', 'company.manage')).toBe(false);
+  });
+
+  it('compliance can manage drivers and vehicles but not dispatch', () => {
+    expect(membershipHasCapability('compliance', 'drivers.manage')).toBe(true);
+    expect(membershipHasCapability('compliance', 'vehicles.manage')).toBe(true);
+    expect(membershipHasCapability('compliance', 'jobs.dispatch')).toBe(false);
+    expect(membershipHasCapability('compliance', 'invoices.carrier.manage')).toBe(false);
+  });
+
+  it('driver can execute and track jobs but not manage company', () => {
+    expect(membershipHasCapability('driver', 'jobs.execute')).toBe(true);
+    expect(membershipHasCapability('driver', 'jobs.track')).toBe(true);
+    expect(membershipHasCapability('driver', 'company.manage')).toBe(false);
+    expect(membershipHasCapability('driver', 'jobs.dispatch')).toBe(false);
+  });
+
   it('member and viewer can only view jobs', () => {
     for (const role of ['member', 'viewer'] as MembershipRole[]) {
       expect(membershipHasCapability(role, 'jobs.view')).toBe(true);
@@ -162,7 +200,7 @@ describe('membershipHasCapability', () => {
 // ── 5. resolveMembershipRole ──────────────────────────────────────────────────
 
 describe('resolveMembershipRole', () => {
-  it('passes through valid roles', () => {
+  it('passes through all 8 domain roles', () => {
     for (const role of MEMBERSHIP_ROLE_PRECEDENCE) {
       expect(resolveMembershipRole(role)).toBe(role);
     }
@@ -173,22 +211,28 @@ describe('resolveMembershipRole', () => {
     expect(resolveMembershipRole('Admin')).toBe('admin');
   });
 
-  it('returns viewer for null', () => {
+  it('preserves planned domain roles — finance, compliance, driver are NOT downgraded to viewer', () => {
+    expect(resolveMembershipRole('finance')).toBe('finance');
+    expect(resolveMembershipRole('compliance')).toBe('compliance');
+    expect(resolveMembershipRole('driver')).toBe('driver');
+  });
+
+  it('returns viewer for null (minimum privilege)', () => {
     expect(resolveMembershipRole(null)).toBe('viewer');
   });
 
-  it('returns viewer for undefined', () => {
+  it('returns viewer for undefined (minimum privilege)', () => {
     expect(resolveMembershipRole(undefined)).toBe('viewer');
   });
 
-  it('returns viewer for empty string', () => {
+  it('returns viewer for empty string (minimum privilege)', () => {
     expect(resolveMembershipRole('')).toBe('viewer');
   });
 
-  it('returns viewer for unknown values like finance (not in DB enum yet)', () => {
-    expect(resolveMembershipRole('finance')).toBe('viewer');
-    expect(resolveMembershipRole('compliance')).toBe('viewer');
-    expect(resolveMembershipRole('driver')).toBe('viewer');
+  it('returns viewer for unrecognised values that are not domain roles', () => {
+    expect(resolveMembershipRole('superuser')).toBe('viewer');
+    expect(resolveMembershipRole('manager')).toBe('viewer');
+    expect(resolveMembershipRole('guest')).toBe('viewer');
   });
 });
 
@@ -213,5 +257,13 @@ describe('isMembershipRoleAtLeast', () => {
 
   it('dispatcher is NOT at least admin', () => {
     expect(isMembershipRoleAtLeast('dispatcher', 'admin')).toBe(false);
+  });
+
+  it('finance is at least compliance in precedence order', () => {
+    expect(isMembershipRoleAtLeast('finance', 'compliance')).toBe(true);
+  });
+
+  it('driver is NOT at least finance', () => {
+    expect(isMembershipRoleAtLeast('driver', 'finance')).toBe(false);
   });
 });
