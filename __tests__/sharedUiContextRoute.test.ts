@@ -198,6 +198,46 @@ describe('GET /api/auth/context', () => {
       error: 'Unable to validate workspace context.',
     });
   });
+
+  it('returns 403 when the authenticated user has no active company memberships', async () => {
+    mocks.membershipsResult = { data: [], error: null };
+
+    const response = await GET(request({ token: 'valid-token' }));
+
+    expect(response.status).toBe(403);
+    expect(await readJson(response)).toEqual({
+      error: 'No active company membership is available.',
+    });
+  });
+
+  it('auto-recovers and reports staleSelectionCleared when profile company is not in active memberships', async () => {
+    // Profile references COMPANY_B, but user only has an active membership in COMPANY_A.
+    mocks.profileResult = {
+      data: {
+        user_id: 'user-1',
+        company_id: COMPANY_B,
+        role: 'company_admin',
+        status: 'active',
+        is_driver: false,
+      },
+      error: null,
+    };
+    // Only COMPANY_A membership is active.
+    mocks.membershipsResult = { data: [activeMembership(COMPANY_A)], error: null };
+
+    const response = await GET(request({ token: 'valid-token' }));
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.staleSelectionCleared).toBe(true);
+    expect(body.current).toEqual(
+      expect.objectContaining({
+        companyId: COMPANY_A,
+        activeWorkspace: 'carrier_fleet',
+        landingRoute: '/admin',
+      }),
+    );
+  });
 });
 
 describe('POST /api/auth/context', () => {
@@ -259,6 +299,64 @@ describe('POST /api/auth/context', () => {
       expect.objectContaining({
         companyId: COMPANY_A,
         activeWorkspace: 'carrier_fleet',
+      }),
+    );
+  });
+
+  it('resolves a company driver with same-company evidence to /driver not /admin', async () => {
+    // Set up a driver membership (role_in_company: driver) with active same-company evidence.
+    mocks.membershipsResult = {
+      data: [
+        {
+          id: `membership-driver-${COMPANY_A}`,
+          company_id: COMPANY_A,
+          user_id: 'user-1',
+          role_in_company: 'driver',
+          status: 'active',
+          companies: {
+            id: COMPANY_A,
+            name: `Company ${COMPANY_A}`,
+            company_type: 'standard',
+            status: 'active',
+          },
+        },
+      ],
+      error: null,
+    };
+    mocks.driversResult = {
+      data: [
+        {
+          id: 'driver-1',
+          user_id: 'user-1',
+          company_id: COMPANY_A,
+          status: 'active',
+          app_access: true,
+          must_change_password: false,
+          driver_type: 'company_driver',
+          can_commercial_bid: false,
+        },
+      ],
+      error: null,
+    };
+    mocks.updatedProfileResult = { data: { company_id: COMPANY_A }, error: null };
+
+    const response = await POST(
+      request({
+        method: 'POST',
+        token: 'valid-token',
+        body: { companyId: COMPANY_A, workspace: 'carrier_fleet' },
+      }),
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.landingRoute).toBe('/driver');
+    expect(body.current).toEqual(
+      expect.objectContaining({
+        companyId: COMPANY_A,
+        activeWorkspace: 'carrier_fleet',
+        landingRoute: '/driver',
+        canAccessDriverMode: true,
       }),
     );
   });
