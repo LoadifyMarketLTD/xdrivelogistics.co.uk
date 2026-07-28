@@ -156,25 +156,22 @@ const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
 
 export const hasWorkspaceCapability = (role: WorkspaceRole, capability: WorkspaceCapability) => CAPABILITIES[role].has(capability);
 
-const carrierNav: WorkspaceNavGroup[] = [
-  { id: 'home', label: 'Workspace', items: [{ id: 'dashboard', label: 'Carrier Dashboard', href: '/admin', icon: '⌂' }] },
+const companyNav: WorkspaceNavGroup[] = [
+  { id: 'home', label: 'Workspace', items: [{ id: 'dashboard', label: 'Customer Dashboard', href: '/admin', icon: '⌂' }] },
   { id: 'commercial', label: 'Commercial', items: [
     { id: 'marketplace', label: 'Marketplace', href: '/admin/marketplace', icon: '▦', capability: 'loads.view.marketplace' },
-    { id: 'quotes', label: 'My Quotes', href: '/admin/quotes', icon: '◫', capability: 'quotes.submit' },
-    { id: 'won-work', label: 'Won Work', href: '/admin/bids', icon: '✓', capability: 'jobs.view' },
+    { id: 'commercial', label: 'Quotes & Awards', href: '/admin/commercial', icon: '◫', capability: 'quotes.submit' },
     { id: 'broker-invitations', label: 'Broker Invitations', href: '/admin/broker-invitations', icon: '✉' },
   ] },
   { id: 'operations', label: 'Operations', items: [
-    { id: 'operations', label: 'Operations Centre', href: '/admin/operations-centre', icon: 'OC', capability: 'jobs.dispatch' },
-    { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' },
     { id: 'jobs', label: 'Jobs', href: '/admin/jobs', icon: '▣', capability: 'jobs.view' },
+    { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' },
+    { id: 'operations', label: 'Live Operations', href: '/admin/operations-centre', icon: 'OC', capability: 'jobs.dispatch' },
     { id: 'disputes', label: 'Disputes', href: '/admin/disputes', icon: '!', capability: 'incidents.manage' },
   ] },
   { id: 'fleet', label: 'Fleet', items: [
-    { id: 'fleet-dashboard', label: 'Fleet Dashboard', href: '/admin/fleet', icon: '◎', capability: 'fleet.positions.view' },
-    { id: 'drivers', label: 'Drivers', href: '/admin/drivers', icon: '◉', capability: 'drivers.manage' },
-    { id: 'availability', label: 'Driver Availability', href: '/admin/driver-availability', icon: '◷', capability: 'drivers.manage' },
-    { id: 'vehicles', label: 'Vehicles', href: '/admin/vehicles', icon: '▰', capability: 'vehicles.manage' },
+    { id: 'drivers-vehicles', label: 'Drivers & Vehicles', href: '/admin/drivers-vehicles', icon: '◉', capability: 'drivers.manage' },
+    { id: 'availability', label: 'Availability', href: '/admin/driver-availability', icon: '◷', capability: 'drivers.manage' },
     { id: 'positions', label: 'Live Positions', href: '/admin/fleet/positions', icon: '⌖', capability: 'fleet.positions.view' },
     { id: 'maintenance', label: 'Maintenance', href: '/admin/fleet/maintenance', icon: '⚙', capability: 'fleet.maintenance.manage' },
   ] },
@@ -185,16 +182,16 @@ const carrierNav: WorkspaceNavGroup[] = [
   ] },
   { id: 'finance', label: 'Finance', items: [{ id: 'invoices', label: 'Invoices', href: '/admin/invoices', icon: '£', capability: 'invoices.carrier.manage' }] },
   { id: 'administration', label: 'Administration', items: [
-    { id: 'members', label: 'Members', href: '/admin/dispatchers', icon: '◌', capability: 'company.members.manage' },
+    { id: 'members', label: 'Team', href: '/admin/dispatchers', icon: '◌', capability: 'company.members.manage' },
     { id: 'settings', label: 'Settings', href: '/admin/settings', icon: '⚙', capability: 'settings.manage' },
   ] },
 ];
 
 export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> = {
   platform_owner: { role: 'platform_owner', label: 'Platform Owner', subtitle: 'Global platform administration', homeHref: '/super-admin', nav: [] },
-  company_owner: { role: 'company_owner', label: 'Company Owner', subtitle: 'Company commercial and operational control', homeHref: '/admin', primaryAction: { label: 'Find Loads', href: '/admin/marketplace', capability: 'loads.view.marketplace' }, nav: carrierNav },
-  company_admin: { role: 'company_admin', label: 'Company Admin', subtitle: 'Company operations and administration', homeHref: '/admin', primaryAction: { label: 'Find Loads', href: '/admin/marketplace', capability: 'loads.view.marketplace' }, nav: carrierNav },
-  carrier_admin: { role: 'carrier_admin', label: 'Carrier Workspace', subtitle: 'Commercial, operations and fleet', homeHref: '/admin', primaryAction: { label: 'Find Loads', href: '/admin/marketplace', capability: 'loads.view.marketplace' }, nav: carrierNav },
+  company_owner: { role: 'company_owner', label: 'Company Owner', subtitle: 'Customer Dashboard — commercial and operational control', homeHref: '/admin', primaryAction: { label: 'Find Loads', href: '/admin/marketplace', capability: 'loads.view.marketplace' }, nav: companyNav },
+  company_admin: { role: 'company_admin', label: 'Company Admin', subtitle: 'Company operations and administration', homeHref: '/admin', primaryAction: { label: 'Find Loads', href: '/admin/marketplace', capability: 'loads.view.marketplace' }, nav: companyNav },
+  carrier_admin: { role: 'carrier_admin', label: 'Carrier Workspace', subtitle: 'Commercial, operations and fleet', homeHref: '/admin', primaryAction: { label: 'Find Loads', href: '/admin/marketplace', capability: 'loads.view.marketplace' }, nav: companyNav },
   broker: {
     role: 'broker', label: 'Broker Workspace', subtitle: 'Customer loads, carrier sourcing and margin control', homeHref: '/broker', primaryAction: { label: 'Post Load', href: '/broker/post-load', capability: 'loads.create' },
     nav: [
