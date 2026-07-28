@@ -116,6 +116,7 @@ describe('resolveWorkspacePermission', () => {
         membershipRole: 'owner',
         enabledWorkspaces: ['carrier_fleet'],
         activeWorkspace: 'carrier_fleet',
+        workspaceRole: 'company_owner',
         pathname,
       })).toEqual({ allowed: true, membershipRole: 'owner', activeWorkspace: 'carrier_fleet' });
     }

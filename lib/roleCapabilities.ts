@@ -230,7 +230,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/invoices', workspace: 'carrier_fleet', anyOf: ['invoices.customer.manage', 'invoices.carrier.manage'] },
   { prefix: '/admin/returns', workspace: 'carrier_fleet', roles: ['company_owner', 'company_admin', 'carrier_admin', 'fleet_manager'] },
   { prefix: '/admin/dispatchers', workspace: 'carrier_fleet', anyOf: ['company.members.manage'] },
-  { prefix: '/admin/companies', workspace: 'carrier_fleet', anyOf: ['company.manage'] },
+  { prefix: '/admin/companies', workspace: 'carrier_fleet', anyOf: ['company.members.manage'] },
   { prefix: '/admin/broker-invitations', workspace: 'carrier_fleet', roles: ['company_owner', 'company_admin', 'carrier_admin'] },
   { prefix: '/admin/notifications', workspace: 'carrier_fleet' },
   { prefix: '/admin/settings', workspace: 'carrier_fleet', anyOf: ['settings.manage'] },
