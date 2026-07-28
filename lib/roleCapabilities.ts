@@ -218,6 +218,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/disputes', workspace: 'carrier_fleet', anyOf: ['incidents.manage'] },
   { prefix: '/admin/incidents', workspace: 'carrier_fleet', anyOf: ['incidents.manage'] },
   { prefix: '/admin/driver-availability', workspace: 'carrier_fleet', anyOf: ['drivers.manage'] },
+  { prefix: '/admin/drivers-vehicles', workspace: 'carrier_fleet', anyOf: ['drivers.manage', 'vehicles.manage'] },
   { prefix: '/admin/drivers', workspace: 'carrier_fleet', anyOf: ['drivers.manage'] },
   { prefix: '/admin/vehicles', workspace: 'carrier_fleet', anyOf: ['vehicles.manage'] },
   { prefix: '/admin/documents/expiry', workspace: 'carrier_fleet', anyOf: ['documents.company.manage', 'documents.verify'] },
@@ -229,11 +230,15 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/invoices', workspace: 'carrier_fleet', anyOf: ['invoices.customer.manage', 'invoices.carrier.manage'] },
   { prefix: '/admin/returns', workspace: 'carrier_fleet', roles: ['company_owner', 'company_admin', 'carrier_admin', 'fleet_manager'] },
   { prefix: '/admin/dispatchers', workspace: 'carrier_fleet', anyOf: ['company.members.manage'] },
+  { prefix: '/admin/companies', workspace: 'carrier_fleet', anyOf: ['company.manage'] },
+  { prefix: '/admin/broker-invitations', workspace: 'carrier_fleet', roles: ['company_owner', 'company_admin', 'carrier_admin'] },
+  { prefix: '/admin/notifications', workspace: 'carrier_fleet' },
   { prefix: '/admin/settings', workspace: 'carrier_fleet', anyOf: ['settings.manage'] },
   { prefix: '/admin', workspace: 'carrier_fleet', anyOf: ['jobs.view'], exact: true },
 
   // broker (/broker)
   { prefix: '/broker/customers', workspace: 'broker', anyOf: ['company.manage'] },
+  { prefix: '/broker/carrier-network', workspace: 'broker', anyOf: ['company.manage'] },
   { prefix: '/broker/post-load', workspace: 'broker', anyOf: ['loads.create'] },
   { prefix: '/broker/loads', workspace: 'broker', anyOf: ['loads.view.own'] },
   { prefix: '/broker/bids', workspace: 'broker', anyOf: ['quotes.receive'] },
@@ -245,6 +250,8 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/broker/customer-invoices', workspace: 'broker', anyOf: ['invoices.customer.manage'] },
   { prefix: '/broker/carrier-costs', workspace: 'broker', anyOf: ['invoices.carrier.manage'] },
   { prefix: '/broker/disputes', workspace: 'broker', anyOf: ['incidents.manage'] },
+  { prefix: '/broker/team', workspace: 'broker', anyOf: ['settings.manage'] },
+  { prefix: '/broker/notifications', workspace: 'broker' },
   { prefix: '/broker/settings', workspace: 'broker', anyOf: ['settings.manage'] },
   { prefix: '/broker', workspace: 'broker', anyOf: ['loads.view.own'], exact: true },
 
@@ -260,6 +267,8 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   // Team is currently a read-only company roster. Reuse settings access rather
   // than granting the customer role the broader company.members.manage ability.
   { prefix: '/customer/team', workspace: 'shipper', anyOf: ['settings.manage'] },
+  { prefix: '/customer/updates', workspace: 'shipper' },
+  { prefix: '/customer/notifications', workspace: 'shipper' },
   { prefix: '/customer/settings', workspace: 'shipper', anyOf: ['settings.manage'] },
   { prefix: '/customer', workspace: 'shipper', anyOf: ['loads.view.own'], exact: true },
 
@@ -276,6 +285,8 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/driver/vehicles', workspace: 'owner_operator' },
   { prefix: '/driver/documents', workspace: 'owner_operator', anyOf: ['documents.own.manage'] },
   { prefix: '/driver/messages', workspace: 'owner_operator' },
+  { prefix: '/driver/more', workspace: 'owner_operator' },
+  { prefix: '/driver/notifications', workspace: 'owner_operator' },
   { prefix: '/driver/profile', workspace: 'owner_operator' },
   { prefix: '/driver', workspace: 'owner_operator', exact: true },
 ];
@@ -283,7 +294,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
 /**
  * Returns the most-specific RouteRequirement for the given pathname,
  * or null if no requirement is registered.
- * Protected-but-unregistered routes should be denied by callers.
+ * Existing protected pages are explicitly registered; unknown paths remain denied.
  */
 export const getProtectedRouteRequirement = (pathname: string): RouteRequirement | null => {
   const clean = cleanPathname(pathname);
@@ -355,7 +366,7 @@ export const isCapabilityAllowedForPath = (
     return true;
   }
 
-  // Use the most-specific exact-aware requirement. Fail closed for unmapped protected routes.
+  // Use the most-specific exact-aware requirement. Unknown protected routes fail closed.
   const requirement = getProtectedRouteRequirement(path);
   if (!requirement) return false;
   if (requirement.roles && !requirement.roles.includes(workspaceRole)) return false;
