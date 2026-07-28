@@ -136,12 +136,9 @@ export function resolveWorkspacePermission(
   const driverOnlyWorkspaceRole =
     input.workspaceRole === 'driver' || input.workspaceRole === 'owner_driver';
 
-  // Driver identity and Driver surface permissions never imply /admin access.
-  // A dual-role user must switch into a membership-derived admin workspace role.
-  if (
-    routeWorkspace === 'carrier_fleet' &&
-    (membershipRole === 'driver' || driverOnlyWorkspaceRole)
-  ) {
+  // Driver surface permissions never imply /admin access. A dual-role user must
+  // switch into a membership-derived admin workspace role before entering /admin.
+  if (routeWorkspace === 'carrier_fleet' && driverOnlyWorkspaceRole) {
     return { allowed: false, reason: 'capability_not_permitted' };
   }
 
