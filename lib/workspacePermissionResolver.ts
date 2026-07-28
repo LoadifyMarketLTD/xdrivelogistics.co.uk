@@ -132,6 +132,19 @@ export function resolveWorkspacePermission(
     return { allowed: false, reason: 'unsupported_membership_role' };
   }
 
+  const routeWorkspace = workspaceForRoute(pathname);
+  const driverOnlyWorkspaceRole =
+    input.workspaceRole === 'driver' || input.workspaceRole === 'owner_driver';
+
+  // Driver identity and Driver surface permissions never imply /admin access.
+  // A dual-role user must switch into a membership-derived admin workspace role.
+  if (
+    routeWorkspace === 'carrier_fleet' &&
+    (membershipRole === 'driver' || driverOnlyWorkspaceRole)
+  ) {
+    return { allowed: false, reason: 'capability_not_permitted' };
+  }
+
   const enabled = resolveCompanyEnabledWorkspaces({
     companyType: input.companyType,
     enabledWorkspaces: input.enabledWorkspaces,
@@ -187,12 +200,11 @@ export function resolveWorkspacePermission(
   const routeRequirement = getProtectedRouteRequirement(pathname);
   if (!routeRequirement) {
     if (isProtectedRoute(pathname)) {
-      const compatibilityWorkspace = workspaceForRoute(pathname);
-      if (!compatibilityWorkspace || !isCompatibilityFallbackRoute(pathname)) {
+      if (!routeWorkspace || !isCompatibilityFallbackRoute(pathname)) {
         return { allowed: false, reason: 'unmapped_route' };
       }
       if (
-        compatibilityWorkspace !== activeWorkspace &&
+        routeWorkspace !== activeWorkspace &&
         !(isDriverSurfaceRoute(pathname) && activeWorkspace === 'carrier_fleet')
       ) {
         return { allowed: false, reason: 'route_workspace_mismatch' };
