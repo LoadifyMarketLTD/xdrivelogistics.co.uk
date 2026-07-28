@@ -45,3 +45,4 @@ apk_output.txt
 
 # Local Netlify folder
 .netlify
+node_modules/
