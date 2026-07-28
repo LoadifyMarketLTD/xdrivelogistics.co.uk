@@ -18,8 +18,9 @@ import {
 import type { RawMembershipRow } from './activeWorkspace';
 import { resolveAuthContext } from './authContextResolver';
 import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './driverWorkspaceMode';
+import { resolveMembershipRole, type MembershipRole } from './membershipRole';
 import { supabase } from './supabaseClient';
-import type { CompanyMembership, Driver, Profile } from './types/database';
+import type { Driver, Profile } from './types/database';
 import { getWorkspaceHomeRoute, resolveWorkspaceRole, type WorkspaceRole } from './workspaceRole';
 
 export type UserRole =
@@ -71,7 +72,7 @@ export type ResolvedAuthUser = {
   workspaceRole: WorkspaceRole;
   companyId: string | null;
   membershipId: string | null;
-  membershipRole: CompanyMembership['role_in_company'] | null;
+  membershipRole: MembershipRole | null;
   driverId: string | null;
   mustChangePassword: boolean;
   ownerDriverWorkspace: boolean;
@@ -102,10 +103,9 @@ const readMetadataFlag = (metadata: Record<string, unknown> | null | undefined, 
 export const getFallbackRole = (sessionUser: SessionUser) =>
   readMetadataRole(sessionUser.app_metadata, 'role');
 
-
 const resolveFinanceAccess = (
   role: UserRole,
-  membershipRole: CompanyMembership['role_in_company'] | null,
+  membershipRole: MembershipRole | null,
   sessionUser: SessionUser
 ): 'full' | 'limited' | 'hidden' => {
   if (role === 'owner' || role === 'company_admin') return 'full';
@@ -177,7 +177,7 @@ export const resolveAuthenticatedUser = async (
   const membershipRes = membershipResInitial.error
     ? await supabase
         .from('company_memberships')
-      .select('id, company_id, user_id, role_in_company, status, companies(id, name, company_type, status)')
+        .select('id, company_id, user_id, role_in_company, status, companies(id, name, company_type, status)')
         .eq('user_id', sessionUser.id)
         .eq('status', 'active')
     : membershipResInitial;
@@ -437,6 +437,16 @@ export const resolveAuthenticatedUser = async (
     companyId != null
       ? (normalizedMemberships.find((m) => m.company_id === companyId) ?? membership)
       : membership;
+  const resolvedMembershipRole = resolveMembershipRole(resolvedMembership?.role_in_company ?? null);
+  if (resolvedMembership?.role_in_company && !resolvedMembershipRole) {
+    console.debug('[XDrive Auth] auth resolution failed', {
+      reason: 'role_unsupported',
+      membershipRole: resolvedMembership.role_in_company,
+      userId: sessionUser.id,
+    });
+    return { user: null, reason: 'role_unsupported' };
+  }
+
   const scopedDriver = findScopedDriverEvidence({
     drivers: driverRows,
     sessionUserId: sessionUser.id,
@@ -499,7 +509,7 @@ export const resolveAuthenticatedUser = async (
       resolvedRole,
       companyId,
       resolvedMembership?.id ?? null,
-      (resolvedMembership?.role_in_company as CompanyMembership['role_in_company'] | null) ?? null,
+      resolvedMembershipRole,
       scopedDriverId,
       resolvedRole === 'driver' ? scopedMustChangePassword : false,
       {
@@ -509,7 +519,7 @@ export const resolveAuthenticatedUser = async (
         ownerDriverExecutionMode: scopedOwnerDriverExecutionMode,
         financeAccess: resolveFinanceAccess(
           resolvedRole,
-          (resolvedMembership?.role_in_company as CompanyMembership['role_in_company'] | null) ?? null,
+          resolvedMembershipRole,
           sessionUser
         ),
         driverType: typeof scopedDriver?.driver_type === 'string' ? scopedDriver.driver_type : null,
@@ -543,7 +553,7 @@ const ok = (
   role: UserRole,
   companyId: string | null,
   membershipId: string | null,
-  membershipRole: CompanyMembership['role_in_company'] | null,
+  membershipRole: MembershipRole | null,
   driverId: string | null,
   mustChangePassword: boolean,
   options: {
@@ -600,7 +610,7 @@ export const getPostLoginRoute = (
   > & {
     rawRole?: string | null;
     workspaceRole?: WorkspaceRole;
-    membershipRole?: string | null;
+    membershipRole?: MembershipRole | null;
     financeAccess?: 'full' | 'limited' | 'hidden' | null;
   }
 ) => {
@@ -630,7 +640,7 @@ export const getPostLoginRoute = (
 export const roleCanAccessPath = (
   currentUser: Pick<ResolvedAuthUser, 'role'> & {
     canAccessDriverMode?: boolean;
-    membershipRole?: CompanyMembership['role_in_company'] | null;
+    membershipRole?: MembershipRole | null;
     financeAccess?: 'full' | 'limited' | 'hidden' | null;
     ownerDriverWorkspace?: boolean | null;
     ownerDriverExecutionMode?: boolean | null;
