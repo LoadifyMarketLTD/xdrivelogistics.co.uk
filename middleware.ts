@@ -6,6 +6,7 @@ import { getPostLoginRoute } from './lib/authSession';
 import { resolveActiveCompanyContext, type RawMembershipRow } from './lib/activeWorkspace';
 import { isRoleAllowedForPath, mapAppRole, resolveAuthoritativeRole, type AppUserRole } from './lib/authRole';
 import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './lib/driverWorkspaceMode';
+import { resolveMembershipRole, type MembershipRole } from './lib/membershipRole';
 import { ROUTE_AUTH_COOKIE_NAME } from './lib/routeAuthCookie';
 import { getCanonicalSiteUrl } from './lib/siteUrl';
 import { resolveWorkspaceRole, type WorkspaceRole } from './lib/workspaceRole';
@@ -32,7 +33,7 @@ type RouteAuthResult =
       ownerDriverExecutionMode: boolean;
       canAccessDriverMode: boolean;
       membershipId: string | null;
-      membershipRole: string | null;
+      membershipRole: MembershipRole | null;
       driverId: string | null;
       canCommercialBid: boolean | null;
       driverStatus: string | null;
@@ -343,7 +344,10 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'forbidden' };
   }
 
-  const membershipRole = selectedMembership.role_in_company ?? null;
+  const membershipRole = resolveMembershipRole(selectedMembership.role_in_company ?? null);
+  if (selectedMembership.role_in_company && !membershipRole) {
+    return { kind: 'forbidden' };
+  }
   const companyStatus = selectedMembership.companies.status?.toLowerCase() ?? null;
   if (companyStatus !== 'active') {
     return { kind: 'forbidden' };
